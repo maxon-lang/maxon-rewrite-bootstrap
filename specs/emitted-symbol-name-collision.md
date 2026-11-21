@@ -1,0 +1,688 @@
+---
+feature: emitted-symbol-name-collision
+status: stable
+keywords: [diagnostics, naming, compiler-internals, linking, backend]
+category: diagnostics
+---
+
+# A declaration may not take a name the compiler LAYS OUT
+
+## Documentation
+
+`specs/reserved-double-underscore.md` reserves the `__` prefix at the PARSER, and the compiler refuses a
+declaration that collides with a compiler-emitted **module function** (E4015, at `FunctionNameIndex`). Both
+of those doors see only names a *module* carries.
+
+**The compiler-owned name space is larger than either door.** Three kinds of body reach `.text` without
+ever being a module function, and all three are minted at the TARGET tier, after the last name index any
+Std pass can build:
+
+| minted by | examples | on |
+|---|---|---|
+| the entry stub | `mrt_start` | EVERY native target (x64 `augmentWithRuntime`, arm64 `appendArm64RuntimeChunks`) |
+| hand-assembled runtime chunks | `mrt_runtime_init`, `mrt_panic`, `mrt_fault_handler`, `__gt_context_switch` | **EVERY native target, and WHICH ONES depends on the lane and the program** — every native lane lays its panic and fault chunks (`mrt_runtime_init`, `mrt_fault_handler`, `mrt_fault_backtrace`, `mrt_write_hex64`) unconditionally; the `__gt_*` chunks follow `usesGt` |
+| the symbol table that closes `.text` | `__symtable` | EVERY native target — the backtrace walkers symbolize against it on both architectures |
+
+None of those wears a `__` prefix except the last two, so the parser's reservation does not cover them, and
+none of them is in `stdModule.functions`, so `FunctionNameIndex` cannot either. The concat pass keys every
+one of them into a **name → `.text` offset** map that `resolveCallFixups` then resolves every direct call
+through.
+
+⚠ **A bare last-wins `upsert` there does not degrade an answer — it BINDS EVERY CALL TO THE OTHER BODY.**
+Under one, the program under `runtime-chunk-name` below compiles clean, links, runs, and **exits 127**
+where its source says 7. The user's `mrt_runtime_init` is laid out, the hand-assembled panic-runtime chunk
+of the same name is laid *after* it, last-wins overwrites the label, and the program's call to its own
+function silently reaches the runtime chunk. No diagnostic anywhere. `mrt_start` is worse only in being
+loud: it trips the entry-offset guard and PANICS the compiler on a plain user program, which is not a
+diagnostic either.
+
+**The rule: a `.text` label is claimed exactly once, and a second claim is refused at the point of layout.**
+It is the SAME code as the module-function collision's — **E4015**, positioned at the declaration, with the same cure (rename it) —
+because it is the same rule: a declaration took a symbol the compiler emits, and the compiler's copy is the
+one its own emitted code is bound to.
+
+### Why it is DETECTED at layout rather than PREDICTED upstream
+
+A collision never needs predicting, because it is detectable where the name is claimed, and an up-front
+roster of every name the compiler might emit would be both impossible and unnecessary. At the target tier
+that holds more sharply: **which chunks exist depends on the target and
+on `RuntimeUsage`.** The `__gt_*` chunks appear only under `usesGt`; wasm
+synthesizes its `run` entry with no name key at all and has no hand-assembled chunks whatsoever. A roster
+would therefore be one list per (target × usage) combination, maintained by hand, with nothing between it
+and the truth.
+
+⚠ **So the diagnostic is TARGET-SCOPED, and that is a reading of where the collision exists rather than a
+gap.** Each case's `<!-- unsupported-targets: -->` marker names the targets that lay no chunk down under
+*its* name:
+
+| name | x64-windows | x64-linux | arm64-macos | arm64-linux | wasm32-wasi |
+|---|---|---|---|---|---|
+| `mrt_start` | chunk | chunk | chunk | chunk | no chunk (the `run` entry has no name key) |
+| `mrt_runtime_init` | chunk | chunk | chunk | chunk | no chunk |
+
+Both cases span the four native lanes: every one installs a fault handler, so every one lays
+`mrt_runtime_init`, and `entry-stub-name` is what keeps arm64's `recordChunkLabel` covered through the stub.
+
+⚠ **EVERY CASE BELOW REACHES ITS BODY THROUGH A MODULE `var` OF FUNCTION TYPE, AND THAT IS LOAD-BEARING.** The rule is
+about a body the compiler LAYS DOWN, and neither a direct call to a one-line function nor a call through a
+function value held in a local guarantees one: `inlineLeaves` splices the leaf into `main`, a local function value
+whose record is known resolves to a direct call, and `dfe` drops the declaration nothing reaches, so nothing is ever
+laid down under the label. Written that way the refusals below would COMPILE and return 7 — the rule's own correct
+answer for a body that is never emitted — and, worse, the NEGATIVE CONTROL would pass without the layout door ever
+being asked about its name, which is a control standing somewhere its cases do not. A function stored in a module
+`var` is read from storage anything may write, so a call through it is never resolved or inlined and the function's
+`funcAddr` is a liveness root. Every case therefore puts a body under its label and differs from its control in
+exactly one thing: the NAME.
+
+## Tests
+
+<!-- test: runtime-chunk-name -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.
+
+The silent miscompile: with the refusal removed from `recordChunkLabel`, this exact program returns
+**127** instead of **7**, with the build exiting 0. Every native lane lays `mrt_runtime_init` and refuses the declaration alike.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+function mrt_runtime_init() returns Integer
+	return 7
+end 'mrt_runtime_init'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_runtime_init as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	return hooks.emitted() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:5:10: declaration of 'mrt_runtime_init' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: entry-stub-name -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.
+
+The ENTRY STUB's own name — **the case that spans all four native targets**, because every one of them
+lays a `mrt_start` chunk down (x64 as a module function via `prependEntryStub`, arm64 as a hand-assembled
+chunk via `appendArm64RuntimeChunks`), and therefore the one that keeps arm64's half of the shared
+`recordChunkLabel` covered: E4015 on x64-windows, x64-linux, arm64-macos and arm64-linux alike. Without
+the refusal this reaches the entry-offset guard — `panic at X64Backend.maxon:
+concatX64FunctionChunks: 'mrt_start' must be laid out FIRST in .text but is at offset 33` — a compiler
+panic, with no file and no line, on a program whose only fault is a name. The refusal fires at the
+label, which is one chunk EARLIER than the guard, so the guard keeps its own meaning (the stub was
+appended in the wrong ORDER) rather than doubling as a collision report.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+function mrt_start() returns Integer
+	return 7
+end 'mrt_start'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_start as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	return hooks.emitted() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:5:10: declaration of 'mrt_start' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-refuses-the-entry-stub-name-taken-as-a-value -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` before any name is laid.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_start() returns Integer
+	return 7
+end 'mrt_start'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_start as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:17:10: declaration of 'mrt_start' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-refuses-the-entry-stub-name-called-directly -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` before any name is laid.
+
+```maxon
+typealias Tally = int(0 to 1000)
+
+type Calc
+	var count as Tally
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Tally
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_start(n Tally) returns Tally
+	if n == 0 'done'
+		return 0
+	end 'done'
+	return 1 + mrt_start(n - 1)
+end 'mrt_start'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	let walked = mrt_start(5)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (walked + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:16:10: declaration of 'mrt_start' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-refuses-the-preempt-handler-name-off-windows -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: x64-windows, wasm32-wasi -->
+x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_preempt_handler() returns Integer
+	return 7
+end 'mrt_preempt_handler'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_preempt_handler as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:17:10: declaration of 'mrt_preempt_handler' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-preempt-handler -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+x64-windows lays no chunk named `mrt_preempt_handler`, so the function is the program's own and its address is priced like any other function value; the other lanes refuse the name (see the neighbouring case) and wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_preempt_handler() returns Integer
+	return 7
+end 'mrt_preempt_handler'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_preempt_handler as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: a-service-program-refuses-the-fault-handler-name-off-windows -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: x64-windows, wasm32-wasi -->
+x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_fault_handler() returns Integer
+	return 7
+end 'mrt_fault_handler'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_fault_handler as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:17:10: declaration of 'mrt_fault_handler' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-fault-handler -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+x64-windows lays no chunk named `mrt_fault_handler`, so the function is the program's own; the other lanes refuse the name and wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_fault_handler() returns Integer
+	return 7
+end 'mrt_fault_handler'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_fault_handler as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: a-service-program-refuses-the-fault-thunk-name-on-windows -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+Only x64-windows lays a chunk named `mrt_fault_thunk`; wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_fault_thunk() returns Integer
+	return 7
+end 'mrt_fault_thunk'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_fault_thunk as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:17:10: declaration of 'mrt_fault_thunk' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-runs-a-function-named-like-windows-fault-thunk -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-windows -->
+Only x64-windows lays a chunk named `mrt_fault_thunk`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_fault_thunk() returns Integer
+	return 7
+end 'mrt_fault_thunk'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_fault_thunk as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: a-service-program-refuses-the-sigreturn-name-on-x64-linux -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: x64-windows, arm64-macos, arm64-linux, wasm32-wasi -->
+Only x64-linux lays a chunk named `mrt_rt_sigreturn`; wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_rt_sigreturn() returns Integer
+	return 7
+end 'mrt_rt_sigreturn'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_rt_sigreturn as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:17:10: declaration of 'mrt_rt_sigreturn' collides with a symbol the compiler EMITS into this program, and a program cannot hold two bodies under one `.text` label. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls and the runtime's own call sites — so the declaration is the side that must move: rename it
+```
+
+<!-- test: a-service-program-runs-a-function-named-like-x64-linux-sigreturn -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux -->
+Only x64-linux lays a chunk named `mrt_rt_sigreturn`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function mrt_rt_sigreturn() returns Integer
+	return 7
+end 'mrt_rt_sigreturn'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_rt_sigreturn as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.total() otherwise 0
+	return (hooks.emitted() + t) as ExitCode
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: an-unemitted-lookalike-name-is-legal -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+**THE NEGATIVE CONTROL, and it is the half that decides what the rule is ABOUT.** The two refusals above
+would both pass under a rule that simply reserved the `mrt_` prefix — and that rule would be wrong: it
+would refuse a name no chunk claims, on every target, for a collision that does not exist.
+
+The rule is about a name the compiler ACTUALLY LAYS DOWN in *this* image, which is why it is asked at the
+point of layout and answered from the chunk list rather than from a prefix. `mrt_not_a_chunk` is spelled
+exactly like its two neighbours, is LAID DOWN exactly as they are, and is refused by nothing — so it compiles
+and runs on every target, and this one carries no `unsupported-targets:` marker for that reason.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Hook = function() returns Integer
+
+function mrt_not_a_chunk() returns Integer
+	return 7
+end 'mrt_not_a_chunk'
+
+type Hooks
+	export let emitted as Hook
+
+	static function create() returns Self
+		return Self{emitted: mrt_not_a_chunk as Hook}
+	end 'create'
+end 'Hooks'
+
+function main() returns ExitCode
+	let hooks = Hooks.create()
+	return hooks.emitted() as ExitCode
+end 'main'
+```
+```exitcode
+7
+```

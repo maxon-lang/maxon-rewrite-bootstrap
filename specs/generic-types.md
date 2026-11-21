@@ -1,0 +1,7857 @@
+---
+feature: generic-types
+status: experimental
+keywords: [type, uses, with, generic, typealias, Self]
+category: type-system
+---
+
+# Generic Types
+
+## Documentation
+
+A `type` (or `interface`) may declare TYPE PARAMETERS with a `uses` clause, and be
+INSTANTIATED with concrete type arguments through a `with` clause on a `typealias`.
+
+### Declaring a generic type
+
+`uses` names one or more type parameters (comma-separated, no parentheses). A parameter
+is an opaque type usable anywhere a type is: a field's type, a parameter's type, a return
+type.
+
+```text
+type Box uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+```
+
+A multi-parameter type names each parameter, in order:
+
+```text
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+```
+
+### Instantiating a generic type
+
+A `typealias` binds a name to a `Base with Args` instantiation. A single argument needs no
+parentheses; two or more are a parenthesized, comma-separated list. The alias name is then a
+static-call base for the base type's methods, which are SHARED across every instantiation
+(one compiled body, keyed on the opaque type parameter):
+
+```text
+typealias IntBox = Box with Integer
+typealias IntPair = Pair with (Integer, Integer)
+
+let b = IntBox.create(42)
+let v = b.get()
+```
+
+### Type arguments: trivial (borrowed) and managed (owned)
+
+A **trivial** type argument — a scalar (`int`/`bool`/`float`/`ExitCode`, a ranged alias) or a
+struct/instance whose fields are all trivial — is passed opaque and **borrowed**: the box aliases
+it and the caller keeps and drops it (`PointBox.create(p)` leaves `p` usable). A **managed** type
+argument — a `String`, a struct with a managed field, a boxed union, or a nested instance that owns
+managed heap — is **owned**: the concrete constructor call MOVES it into the box, and the box drops
+it exactly once through its synthesized `__destruct_<instance>` cascade. So a returned or
+escaping managed instance carries VALID content, and there is no leak or double-free. A non-generic
+base, or the wrong number of arguments, is rejected.
+
+## Tests
+
+<!-- test: a-generic-instance-of-a-file-private-alias-in-another-files-type -->
+A generic type declared in one directory, instantiated in another file with a type argument only that
+file can name: the argument resolves from the instantiating file, so the program compiles and runs.
+```maxon
+// --- file: lib/box.maxon
+export type Box uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+// --- file: main.maxon
+typealias Small = int(0 to 100)
+
+typealias SmallBox = Box with Small
+
+function main() returns ExitCode
+	let b = SmallBox.create(7 as Small)
+	return b.get() as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: generic-create-get -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	let b = IntBox.create(42)
+	let v = b.get()
+	if v == 42 'chk'
+		return 0
+	end 'chk'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-field-read -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	let b = IntBox.create(7)
+	if b.value == 7 'chk'
+		return 0
+	end 'chk'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-field-write -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	let b = IntBox.create(7)
+	b.value = 99
+	if b.value == 99 'chk'
+		return 0
+	end 'chk'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-multi-param -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	static function create(a A, b B) returns Self
+		return Self{first: a, second: b}
+	end 'create'
+
+	function firstVal() returns A
+		return self.first
+	end 'firstVal'
+
+	function secondVal() returns B
+		return self.second
+	end 'secondVal'
+end 'Pair'
+
+typealias IntPair = Pair with (Integer, Integer)
+
+function main() returns ExitCode
+	let p = IntPair.create(3, b: 4)
+	if p.firstVal() == 3 'c1'
+		if p.secondVal() == 4 'c2'
+			return 0
+		end 'c2'
+	end 'c1'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-trivial-struct-arg -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function getX() returns Integer
+		return self.x
+	end 'getX'
+end 'Point'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(7)
+	let pb = PointBox.create(p)
+	print("{pb.value.x}")
+	return p.getX() - 7
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+
+```
+
+<!-- test: error.non-generic-with -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Plain
+	export var x as Integer
+end 'Plain'
+
+typealias Bad = Plain with Integer
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:6:17: Type 'Plain' has no associated types
+```
+
+<!-- test: error.wrong-arity -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+typealias Bad = Pair with Integer
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.an-instance-with-more-than-sixty-four-type-arguments-is-refused -->
+An instance records which of its arguments are `immutable` in a 64-bit mask, so a type-argument list past 64 is refused
+where its sixty-fifth argument is written.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Widest uses P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P27, P28, P29, P30, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49, P50, P51, P52, P53, P54, P55, P56, P57, P58, P59, P60, P61, P62, P63, P64
+	export let last as P64
+end 'Widest'
+
+typealias TooWide = Widest with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:8:610: Unsupported: a type-argument list with more than 64 arguments — an argument spelled `immutable` are recorded as one bit per position of a 64-bit mask, so an instance has no position to record a later argument at
+```
+
+<!-- test: managed-string-arg -->
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let s = "{42}"
+	let b = StrBox.create(s)
+	print("{b.value}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+42
+```
+
+<!-- test: managed-struct-field-arg -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder
+	export var label as String
+	export var n as Integer
+
+	static function create(l String, n Integer) returns Self
+		return Self{label: l, n: n}
+	end 'create'
+end 'Holder'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias HolderBox = Box with Holder
+
+function main() returns ExitCode
+	let h = Holder.create("{9}", n: 3)
+	let b = HolderBox.create(h)
+	print("{b.value.label}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9
+
+```
+
+<!-- test: generic-nested-trivial -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+typealias BoxBox = Box with (Box with Integer)
+
+function main() returns ExitCode
+	let inner = IntBox.create(5)
+	let outer = BoxBox.create(inner)
+	print("{outer.value.value}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+
+```
+
+<!-- test: managed-string-arg-loop -->
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	var i = 0 as Count
+	var total = 0 as BytePos
+	while i < 100 'loop'
+		let b = StrBox.create("{i}")
+		total = total + b.value.byteLength()
+		i = i + 1
+	end 'loop'
+	return 0 if total == 190 else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: managed-string-arg-moved-not-double-freed -->
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let s = "{42}"
+	let a = StrBox.create(s)
+	let b = a
+	print("{b.value}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+42
+
+```
+
+<!-- test: managed-instance-escape-owns-content -->
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function make() returns StrBox
+	let s = "{7}"
+	return StrBox.create(s)
+end 'make'
+
+function main() returns ExitCode
+	let b = make()
+	let sv = b.value
+	return sv.byteLength() - 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: nested-managed-cascade -->
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+typealias BoxBox = Box with (Box with String)
+
+function main() returns ExitCode
+	var i = 0 as Count
+	var total = 0 as BytePos
+	while i < 50 'loop'
+		let inner = StrBox.create("{i}")
+		let outer = BoxBox.create(inner)
+		total = total + outer.value.value.byteLength()
+		i = i + 1
+	end 'loop'
+	return 0 if total == 90 else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-string-member-via-generic -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Tagged uses T
+	export var value as T
+	export var tag as String
+
+	static function create(v T, tag String) returns Self
+		return Self{value: v, tag: tag}
+	end 'create'
+end 'Tagged'
+
+typealias IntTagged = Tagged with Integer
+
+function main() returns ExitCode
+	let t = IntTagged.create(5, tag: "{3}")
+	print("{t.value}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+
+```
+
+<!-- test: generic-double-store-managed -->
+Two fields of one record built from one managed `T` argument each hold a reference of their own, as two fields built
+from one `String` parameter do.
+```maxon
+type DPair uses T
+	export var a as T
+	export var b as T
+
+	static function create(v T) returns Self
+		return Self{a: v, b: v}
+	end 'create'
+end 'DPair'
+
+typealias StrDPair = DPair with String
+
+function main() returns ExitCode
+	let p = StrDPair.create("{7}")
+	print("{p.a}{p.b}\n")
+	return 0
+end 'main'
+```
+```stdout
+77
+```
+```exitcode
+0
+```
+
+<!-- test: scalar-double-store -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type IntPair
+	export var a as Integer
+	export var b as Integer
+
+	static function create(n Integer) returns Self
+		return Self{a: n, b: n}
+	end 'create'
+end 'IntPair'
+
+function main() returns ExitCode
+	let p = IntPair.create(7)
+	return p.a - 7
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: opaque-field-reassign-trivial-instantiation-inert -->
+Reassigning a bare opaque `T` field inside a shared generic method body is INERT when every instantiation
+is trivial (`Box with SmallInt`): the opaque word owns no heap, so the write is a sound scalar plain store
+with no drop, exercised on all targets.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+typealias SmallInt = int(0 to 100)
+
+typealias IntBox = Box with SmallInt
+
+function main() returns ExitCode
+	let b = IntBox.create(7)
+	b.replace(9)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-managed-opaque-field-in-generic-method -->
+Reassigning a bare opaque `T` field INSIDE a shared generic method body (`self.saved = next`) WORKS when an
+instantiation makes it MANAGED (`Box with String`): the field's old opaque value is dropped through the
+descriptor-gated single-value drop (`__drop_type_param`), whose install is independent of the array floor,
+and the new value transfers in. Old `"alpha"` is freed exactly once — leak-free under `__mm_free` poisoning.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+typealias StringBox = Box with String
+
+function main() returns ExitCode
+	let b = StringBox.create("alpha")
+	b.replace("beta")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-managed-opaque-field-concrete-instance -->
+The same reassignment on a CONCRETE instance (`b.saved = "beta"` where `b` is `Box with String`) WORKS too:
+the field retypes to the instance's substituted `String`, so the old String drops through `__str_decref`
+and the new one moves in — no descriptor needed, the field is concrete here.
+Leak-free under `__mm_free` poisoning.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+end 'Box'
+
+typealias StringBox = Box with String
+
+function main() returns ExitCode
+	let b = StringBox.create("alpha")
+	b.saved = "beta"
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-opaque-managed-field-in-loop -->
+Reassigning a managed opaque `T` field REPEATEDLY (a loop of `b.replace(...)`) drops each previous value
+before storing the next: every iteration frees the old String exactly once and stores a fresh one, and the
+final value drops at the container's own scope exit — a balanced drop-per-store, leak-free under `__mm_free`
+poisoning.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+typealias StringBox = Box with String
+
+function main() returns ExitCode
+	let b = StringBox.create("start")
+	var i = 0 as Count
+	while i < 3 'loop'
+		b.replace("iter")
+		i = i + 1
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-opaque-field-struct-element -->
+The opaque `T` need not be a String: a `Box with Holder` whose `Holder` owns a `String` field drops the old
+struct through the descriptor's `destroyFunc@40` (`__destruct_<Holder>`, which frees the Holder's String),
+then moves the new struct in. Both the shared-body reassign (`self.saved = next`) and the container's own
+scope-exit drop free each Holder exactly once — leak-free under `__mm_free` poisoning.
+```maxon
+type Holder
+	export var text as String
+
+	static function create(t String) returns Self
+		return Self{text: t}
+	end 'create'
+end 'Holder'
+
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+typealias HolderBox = Box with Holder
+
+function main() returns ExitCode
+	let b = HolderBox.create(Holder.create("alpha"))
+	b.replace(Holder.create("beta"))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-managed-opaque-field-reached-through-a-declaration-view -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+No `with` in the program names `Box with String`: `Box` is instantiated only as `Outer`'s `Box with T`, and
+`Outer with String` is what makes that a `Box with String`. The shared `replace` still drops the old String,
+because an instance written over another type's parameter stands for every instantiation of that parameter.
+Leak-free under `__mm_free` poisoning.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+type Outer uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Inner = Box with T
+	export var inner as Inner
+
+	static function create(first T) returns Self
+		return Self{inner: Inner.create(first)}
+	end 'create'
+end 'Outer'
+
+typealias OuterStr = Outer with String
+
+function main() returns ExitCode
+	let o = OuterStr.create("alpha")
+	o.inner.replace("beta")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: reassign-managed-opaque-fields-around-an-odd-ring-of-flipped-declaration-views -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+Three generics name each other in a ring at `(B, A)`, and the ring closes after an odd number of flips, so
+`main`'s one `with (String, Tally)` makes every parameter of every member a `String` through the declaration
+views. Each shared `replace` drops the old `String` of both fields. Leak-free under `__mm_free` poisoning.
+```maxon
+typealias Tally = int(0 to 1000)
+
+function label(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'label'
+
+type OddRingA uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = OddRingB with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'OddRingA'
+
+type OddRingB uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = OddRingC with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'OddRingB'
+
+type OddRingC uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = OddRingA with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'OddRingC'
+
+typealias OddStart = OddRingA with (String, Tally)
+
+function main() returns ExitCode
+	let a = OddStart.create(label("a", n: 1), second: 1)
+	a.replace(label("a", n: 2), b: 2)
+	let b = a.turn()
+	b.replace(3, b: label("b", n: 3))
+	let c = b.turn()
+	c.replace(label("c", n: 4), b: 4)
+	let d = c.turn()
+	d.replace(5, b: label("d", n: 5))
+	let e = d.turn()
+	e.replace(label("e", n: 6), b: 6)
+	let f = e.turn()
+	f.replace(7, b: label("f", n: 7))
+	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second}\n")
+	print("{d.first} {d.second} {e.first} {e.second} {f.first} {f.second}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a-2 2 3 b-3 c-4 4
+5 d-5 e-6 6 7 f-7
+```
+
+<!-- test: reassign-scalar-opaque-fields-around-an-odd-ring-of-flipped-declaration-views -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same odd ring entered only at `(Tally, Tally)`: no parameter of any member receives a managed type, so each
+shared `replace` stores the new integers and drops nothing.
+```maxon
+typealias Tally = int(0 to 1000)
+
+type ScalarRingA uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = ScalarRingB with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'ScalarRingA'
+
+type ScalarRingB uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = ScalarRingC with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'ScalarRingB'
+
+type ScalarRingC uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = ScalarRingA with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'ScalarRingC'
+
+typealias ScalarStart = ScalarRingA with (Tally, Tally)
+
+function main() returns ExitCode
+	let a = ScalarStart.create(1, second: 2)
+	a.replace(10, b: 20)
+	let b = a.turn()
+	b.replace(30, b: 40)
+	let c = b.turn()
+	c.replace(50, b: 60)
+	let d = c.turn()
+	d.replace(70, b: 80)
+	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second} {d.first} {d.second}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+10 20 30 40 50 60 70 80
+```
+
+<!-- test: reassign-opaque-fields-around-an-even-ring-of-flipped-declaration-views -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+Two generics name each other at `(B, A)`, so the ring closes after an even number of flips and its parameters
+split into two cycles: `EvenRingA`'s `A` with `EvenRingB`'s `B`, which `main`'s `with (String, Tally)` makes a
+`String`, and `EvenRingA`'s `B` with `EvenRingB`'s `A`, which only ever hold a `Tally`. Each shared `replace`
+drops the old `String` field and stores the integer one without a drop. Leak-free under `__mm_free` poisoning.
+```maxon
+typealias Tally = int(0 to 1000)
+
+function evenLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'evenLabel'
+
+type EvenRingA uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = EvenRingB with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'EvenRingA'
+
+type EvenRingB uses A, B
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Next = EvenRingA with (B, A)
+	var first as A
+	var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+
+	function replace(a A, b B)
+		self.first = a
+		self.second = b
+	end 'replace'
+
+	function turn() returns Next
+		return Next.create(self.second, second: self.first)
+	end 'turn'
+end 'EvenRingB'
+
+typealias EvenStart = EvenRingA with (String, Tally)
+
+function main() returns ExitCode
+	let a = EvenStart.create(evenLabel("a", n: 1), second: 1)
+	a.replace(evenLabel("a", n: 2), b: 2)
+	let b = a.turn()
+	b.replace(3, b: evenLabel("b", n: 3))
+	let c = b.turn()
+	c.replace(evenLabel("c", n: 4), b: 4)
+	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a-2 2 3 b-3 c-4 4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-outer-first-alias-last -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`Outer`'s `P` has two rows, `Outer with Q` written inside `Inner` and `Outer with String` named by the program,
+and `Inner`'s `Q` has one, `Inner with P` written inside `Outer`. So `Q` reaches `String` only back through `P`,
+and `Inner`'s shared `replace` still drops the old `String` it holds. Leak-free under `__mm_free` poisoning.
+```maxon
+typealias Tally = int(0 to 1000)
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+type CutOuterA uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerA with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterA'
+
+type CutInnerA uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterA with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerA'
+
+typealias CutStrA = CutOuterA with String
+
+function main() returns ExitCode
+	let o = CutStrA.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-inner-first-alias-last -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same program with `Inner` declared before `Outer`.
+```maxon
+typealias Tally = int(0 to 1000)
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+type CutInnerB uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterB with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerB'
+
+type CutOuterB uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerB with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterB'
+
+typealias CutStrB = CutOuterB with String
+
+function main() returns ExitCode
+	let o = CutStrB.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-alias-first-outer-first -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same program with `Outer with String` named before either generic, so `P`'s concrete row comes before its
+row through `Inner`.
+```maxon
+typealias Tally = int(0 to 1000)
+
+typealias CutStrC = CutOuterC with String
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+type CutOuterC uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerC with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterC'
+
+type CutInnerC uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterC with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerC'
+
+function main() returns ExitCode
+	let o = CutStrC.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-alias-first-inner-first -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same program with `Outer with String` named first and `Inner` declared before `Outer`.
+```maxon
+typealias Tally = int(0 to 1000)
+
+typealias CutStrD = CutOuterD with String
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+type CutInnerD uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterD with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerD'
+
+type CutOuterD uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerD with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterD'
+
+function main() returns ExitCode
+	let o = CutStrD.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-instantiated-by-another-file-generics-first -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The cut shape with `Outer with String` and `main` in a second file: the generics' file names no instance at
+`String`, so the drops in its shared bodies come from the whole program's instantiations.
+```maxon
+// --- file: a_generics.maxon
+type CutOuterE uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerE with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterE'
+
+type CutInnerE uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterE with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerE'
+// --- file: b_use.maxon
+typealias Tally = int(0 to 1000)
+
+typealias CutStrE = CutOuterE with String
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+function main() returns ExitCode
+	let o = CutStrE.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-instantiated-by-another-file-use-first -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same program with the file naming `Outer with String` first: the drops in the generics' shared bodies are
+the same whichever file is read first.
+```maxon
+// --- file: a_use.maxon
+typealias Tally = int(0 to 1000)
+
+typealias CutStrF = CutOuterF with String
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+function main() returns ExitCode
+	let o = CutStrF.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
+	let up = o.below.lift(cutLabel("s", n: 3))
+	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
+	up.below.replace(cutLabel("a", n: 4))
+	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
+	return 0
+end 'main'
+// --- file: b_generics.maxon
+type CutOuterF uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerF with P
+	var last as P
+	var below as Down
+
+	static function create(item P, spare P) returns Self
+		return Self{last: spare, below: Down.create(item)}
+	end 'create'
+
+	function push(next P, spare P)
+		self.last = spare
+		self.below.replace(next)
+	end 'push'
+end 'CutOuterF'
+
+type CutInnerF uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterF with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function lift(spare Q) returns Up
+		return Up.create(self.held, spare: spare)
+	end 'lift'
+end 'CutInnerF'
+```
+```exitcode
+0
+```
+```stdout
+s-2 a-2 s-4 a-4
+```
+
+<!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-reached-only-from-a-shared-body -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`CutOuterW` holds no `CutInnerW`: it names `CutInnerW with P` only inside its shared `push`, and `CutInnerW` names
+`CutOuterW with Q` back. So `Q` receives a `String` only through `P`, whose own arguments include `Q` again.
+`CutOuterW with String` still makes `Q` a `String`, so the shared `replace` drops the `String` it displaces.
+Leak-free under `__mm_free` poisoning.
+```maxon
+typealias Tally = int(0 to 1000)
+
+function cutLabel(tag String, n Tally) returns String
+	return "{tag}-{n}"
+end 'cutLabel'
+
+type CutOuterW uses P
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Down = CutInnerW with P
+	var last as P
+
+	static function create(spare P) returns Self
+		return Self{last: spare}
+	end 'create'
+
+	function push(next P, spare P, extra P) returns P
+		self.last = spare
+		let d = Down.create(next)
+		d.replace(extra)
+		return d.take()
+	end 'push'
+end 'CutOuterW'
+
+type CutInnerW uses Q
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Up = CutOuterW with Q
+	var held as Q
+
+	static function create(item Q) returns Self
+		return Self{held: item}
+	end 'create'
+
+	function replace(next Q)
+		self.held = next
+	end 'replace'
+
+	function take() returns Q
+		return self.held
+	end 'take'
+
+	function lift() returns Up
+		return Up.create(self.held)
+	end 'lift'
+end 'CutInnerW'
+
+typealias CutStrW = CutOuterW with String
+
+function main() returns ExitCode
+	let o = CutStrW.create(cutLabel("s", n: 1))
+	let got = o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2), extra: cutLabel("x", n: 2))
+	print("{o.last} {got}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+s-2 x-2
+```
+
+<!-- test: error.instance-arg-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias OtherBox = Box with Other
+
+function takes(_ LeafBox) returns ExitCode
+	return 0
+end 'takes'
+
+function main() returns ExitCode
+	return takes(OtherBox.create(Other.make("x")))
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:26:9: argument type mismatch for '_': expected 'LeafBox', got 'OtherBox'
+```
+
+### ⚠ `Box with Leaf` BELOW IS THE INSTANCE'S SOURCE FORM — and the `typealias` line is the tell
+
+A diagnostic names a type by the `typealias` the author wrote, and every case in
+this file that HAS such a line reads it back: `expected 'LeafBox'` above, `Cannot return 'OtherBox' …` below.
+The cases that print `Box with Leaf` are the ones whose type has **no declaration to quote** —
+`typealias LeafBoxBox = Box with (Box with Leaf)` declares `LeafBoxBox`, and the `Box with Leaf` inside its
+argument list has no name of its own. The message spells that instance the way source writes it
+(`ProgramSignatures.instanceDisplayName`).
+
+The discriminator is mechanical: add `typealias LeafBox = Box with Leaf` to one of these programs and the
+`expected` side becomes `LeafBox`. **A source-form instance here beside a declaration that names the same
+type would be a bug; one with no such declaration is the rule working.**
+
+<!-- test: error.type-parameter-arg-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias OtherBox = Box with Other
+
+typealias LeafBoxBox = Box with (Box with Leaf)
+
+function main() returns ExitCode
+	let bad = LeafBoxBox.create(OtherBox.create(Other.make("x")))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:23:23: argument type mismatch for 'v': expected 'Box with Leaf', got 'OtherBox'
+```
+
+<!-- test: error.type-parameter-arg-wrong-instance-bound -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias OtherBox = Box with Other
+
+typealias LeafBoxBox = Box with (Box with Leaf)
+
+function main() returns ExitCode
+	let wrong = OtherBox.create(Other.make("x"))
+	let bad = LeafBoxBox.create(wrong)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:24:23: argument type mismatch for 'v': expected 'Box with Leaf', got 'OtherBox'
+```
+
+<!-- test: error.method-arg-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias OtherBox = Box with Other
+
+type Holder
+	export var b as LeafBox
+
+	static function create(b LeafBox) returns Self
+		return Self{b: b}
+	end 'create'
+
+	function replace(_ LeafBox) returns ExitCode
+		return 0
+	end 'replace'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(LeafBox.create(Leaf.make("a")))
+	return h.replace(OtherBox.create(Other.make("x")))
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:33:11: argument type mismatch for '_': expected 'LeafBox', got 'OtherBox'
+```
+
+<!-- test: error.return-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias OtherBox = Box with Other
+
+function wrong() returns LeafBox
+	return OtherBox.create(Other.make("x"))
+end 'wrong'
+
+function main() returns ExitCode
+	let v = wrong()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:23:2: Cannot return 'OtherBox' from function declared to return 'LeafBox'
+```
+
+<!-- test: error.reassign-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias OtherBox = Box with Other
+
+function main() returns ExitCode
+	var b = LeafBox.create(Leaf.make("a"))
+	b = OtherBox.create(Other.make("x"))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:24:2: cannot assign a value of type 'OtherBox' to variable 'b', which holds 'LeafBox'
+```
+
+<!-- test: error.struct-field-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Other
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias OtherBox = Box with Other
+
+type Holder
+	export var b as LeafBox
+
+	static function create(v OtherBox) returns Self
+		return Self{b: v}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(OtherBox.create(Other.make("x")))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:15: cannot assign a value of type 'OtherBox' to field 'b' of 'Holder', which holds 'LeafBox'
+```
+
+<!-- test: error.plain-struct-into-instance-arg -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+function takes(_ LeafBox) returns ExitCode
+	return 0
+end 'takes'
+
+function main() returns ExitCode
+	return takes(Leaf.make("x"))
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:19:9: argument type mismatch for '_': expected 'LeafBox', got 'Leaf'
+```
+
+<!-- test: error.nested-pair-arg-wrong-instance -->
+<!-- positions: moved -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+typealias LeafBox = Box with Leaf
+
+typealias WrongPair = Pair with (Box with Leaf, Leaf)
+
+typealias Deep = Box with (Pair with (Box with Leaf, Box with (Box with Leaf)))
+
+function main() returns ExitCode
+	let d = Deep.create(WrongPair.create(LeafBox.create(Leaf.make("q")), second: Leaf.make("r")))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:15: argument type mismatch for 'v': expected 'Pair with (LeafBox, Box with LeafBox)', got 'WrongPair'
+```
+
+<!-- test: error.two-aliases-one-instance-are-two-brands -->
+<!-- positions: moved -->
+Two aliases over one instance are two BRANDS, and a `LeafBoxAgain` does not reach a `LeafBox` parameter
+unasked (`nominal-generic-alias.md`); `create` returns `Self`, so its result carries the receiver's brand.
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias LeafBoxAgain = Box with Leaf
+
+function takes(b LeafBox) returns ExitCode
+	print("{b.value.s}")
+	return 0
+end 'takes'
+
+function main() returns ExitCode
+	return takes(LeafBoxAgain.create(Leaf.make("a")))
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:21:9: argument type mismatch for 'b': expected 'LeafBox', got 'LeafBoxAgain'
+```
+
+<!-- test: two-aliases-one-instance-agree-through-as -->
+The legal twin: the two names denote ONE instance, so `as LeafBox` is a re-brand and nothing else.
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias LeafBoxAgain = Box with Leaf
+
+function takes(b LeafBox) returns ExitCode
+	print("{b.value.s}")
+	return 0
+end 'takes'
+
+function main() returns ExitCode
+	return takes(LeafBoxAgain.create(Leaf.make("a")) as LeafBox)
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a
+```
+
+<!-- test: nested-instance-arg-matching-instance-agrees -->
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+typealias LeafBoxBox = Box with (Box with Leaf)
+
+function main() returns ExitCode
+	let inner = LeafBox.create(Leaf.make("a"))
+	let outer = LeafBoxBox.create(inner)
+	print("{outer.value.value.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a
+
+```
+
+<!-- test: alias-named-type-argument-agrees -->
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+x
+
+```
+
+<!-- test: alias-named-type-argument-forward-declared-agrees -->
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N1 = Box with N0
+
+typealias N0 = Box with S0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+x
+
+```
+
+<!-- test: alias-named-type-argument-cross-file-types-first -->
+```maxon
+// --- file: a_types.maxon
+type S0
+	var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+// --- file: b_use.maxon
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+x
+
+```
+
+<!-- test: alias-named-type-argument-cross-file-use-first -->
+```maxon
+// --- file: a_use.maxon
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	return 0
+end 'main'
+// --- file: b_types.maxon
+type S0
+	var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+```
+```exitcode
+0
+```
+```stdout
+x
+
+```
+
+<!-- test: both-spellings-agree-at-the-comparison -->
+`Box with N0` and `Box with (Box with S0)` are the SAME type spelled two ways. They intern as two
+instances with two compiled names, so every site that decides type IDENTITY must canonicalize — and
+must agree with every other site. This exercises all four: the type-ARGUMENT read, a call ARGUMENT,
+a `var` REASSIGNMENT, and a `return`.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias ViaAlias = Box with N0
+
+typealias ViaInline = Box with (Box with S0)
+
+function takes(_ ViaAlias) returns ExitCode
+	return 0
+end 'takes'
+
+function makeIt() returns ViaAlias
+	let v0 = N0.create(S0.make("r"))
+	let r = ViaInline.create(v0)
+	return r
+end 'makeIt'
+
+function main() returns ExitCode
+	let a = ViaAlias.create(N0.create(S0.make("a")))
+	print("{a.value.value.s}")
+	let b = ViaInline.create(N0.create(S0.make("b")))
+	print("{b.value.value.s}")
+	var swap = ViaAlias.create(N0.create(S0.make("c")))
+	swap = ViaInline.create(N0.create(S0.make("d"))) as ViaAlias
+	print("{swap.value.value.s}")
+	let q = makeIt()
+	print("{q.value.value.s}")
+	return takes(ViaInline.create(N0.create(S0.make("e"))) as ViaAlias)
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+abdr
+
+```
+
+<!-- test: both-spellings-agree-at-a-nested-type-argument -->
+The same agreement one level DEEPER, where the instance's own type argument is a nested instance
+spelled through an alias. This is a separate identity read from the one above — the type-ARGUMENT
+extractor rather than the value extractor — and the two diverge at depth 2 if only one canonicalizes.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with N0
+
+typealias DeepAlias = Box with (Box with N0)
+
+typealias DeepInline = Box with (Box with (Box with S0))
+
+function takes(_ DeepAlias) returns ExitCode
+	return 0
+end 'takes'
+
+function main() returns ExitCode
+	let d = DeepAlias.create(N1.create(N0.create(S0.make("x"))))
+	print("{d.value.value.value.s}")
+	let e = DeepInline.create(N1.create(N0.create(S0.make("y"))))
+	print("{e.value.value.value.s}")
+	return takes(DeepInline.create(N1.create(N0.create(S0.make("z")))) as DeepAlias)
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+xy
+
+```
+
+<!-- test: alias-named-type-argument-owning-heap-is-not-co-owned-trivial -->
+⭐⭐ **A `Box with N0` whose `N0` owns a String is an OWNING argument, and the CONSUME boundary has to
+say so as loudly as the DROP boundary does.** A generic-instance typealias is in neither `structTypes`
+nor `enumTypes`, so `typeArgIsOwned` must resolve it to its instance rather than look the alias name up
+there — its twin `typeIsManaged` ends in `isGenericAlias(name)` and answers "managed". Managed and not
+owned is the borrowed, feed-retained class, so a "not owned" here would make every construction pay an
+`__mm_incref` plus a destructor call where a move is owed. This program reassigns `Box.value` in a shared
+body and exits 0 whatever the walk order.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function swap(v T)
+		self.value = v
+	end 'swap'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	v1.swap(N0.create(S0.make("y")))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: alias-named-type-argument-reassigned-in-a-loop-is-leak-free -->
+The same reassignment 200 times over, so the balance is a COUNT and not a coincidence: each round moves
+a fresh `N0` into the box and drops the one it replaces. A retain without a matching decref
+— or a decref for a reference the move never took — is a leak or a double free rather than an exit 0.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function swap(v T)
+		self.value = v
+	end 'swap'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v1 = N1.create(N0.create(S0.make("start")))
+	for _ in 0 upto 200 'rounds'
+		v1.swap(N0.create(S0.make("round")))
+	end 'rounds'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: alias-named-type-argument-is-consumed-and-co-owned -->
+⭐ **The narrowing that comes with it, and the half that proves the CONSUME is real.** An owning argument
+is CONSUMED into the box, which under the durable-sink rule means the box takes its OWN
+reference rather than stealing the caller's — so `v0` stays readable and releases its reference at scope
+exit. What this pins is that the alias spelling and the inline spelling agree about the argument being
+OWNING at all.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with N0
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	let again = v0.value
+	print("{again.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+xx
+
+```
+
+<!-- test: inline-nested-type-argument-is-consumed-and-co-owned -->
+The inline spelling of the case above, accepted identically. It is the CONTROL that makes the pair a
+statement about agreement rather than about one spelling: its argument arrives tagged
+`genericInstance`, which `typeArgIsOwned` classifies through the instance directly.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+typealias N1 = Box with (Box with S0)
+
+function main() returns ExitCode
+	let v0 = N0.create(S0.make("x"))
+	let v1 = N1.create(v0)
+	print("{v1.value.value.s}")
+	let again = v0.value
+	print("{again.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+xx
+
+```
+
+<!-- test: a-bare-generic-factory-binds-t-from-its-argument -->
+⭐⭐ **`Box.create(…)` ON THE BASE BINDS `T` FROM THE FACTORY'S OWN ARGUMENT.** Called on the BASE rather
+than on an instance alias, an unbound `T` would yield no concrete instance, hence no layout descriptor,
+hence no synthesized `__destruct_<instance>` — and the record it built would never be dropped (**exit
+101**). Binding `T` from the argument closes that leak at its cause rather than forbidding the program.
+The instance is `Box with S0`, so the descriptor exists and the destructor is
+synthesized. **The exit code is the whole assertion twice over**: `3` says `T` really bound to `S0` — the
+body reads `b.value.s`, which is a `String` field reachable only through the binding — and NOT `101` says the
+record is dropped.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+function takes(b N0) returns ExitCode
+	return b.value.s.byteLength() as ExitCode
+end 'takes'
+
+function main() returns ExitCode
+	return takes(Box.create(S0.make("xyz")))
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: a-bare-generic-factory-binds-t-through-a-binding -->
+The same construct reached through a BINDING rather than inline: binding `T` from the argument does not
+depend on the argument being a temporary.
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias N0 = Box with S0
+
+function takes(b N0) returns ExitCode
+	return b.value.s.byteLength() as ExitCode
+end 'takes'
+
+function main() returns ExitCode
+	let a = Box.create(S0.make("wxyz"))
+	return takes(a)
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: a-bare-generic-factory-binds-t-from-a-generic-function-result -->
+The argument is the result of a generic function call, whose type is known only once that function's
+instance is: the factory binds `T` from it all the same.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Wrap uses T
+	export let held as T
+
+	static function create(held T) returns Self
+		return Self{held: held}
+	end 'create'
+end 'Wrap'
+
+function same(x T) uses T returns T
+	return x
+end 'same'
+
+function main() returns ExitCode
+	let w = Wrap.create(same(3 as Tally))
+	print("{w.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+
+```
+
+<!-- test: a-bare-generic-factory-binds-t-from-a-generic-static-result -->
+The same with the argument produced by a generic static function of another generic type.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Wrap uses T
+	export let held as T
+
+	static function create(held T) returns Self
+		return Self{held: held}
+	end 'create'
+end 'Wrap'
+
+type Mid uses T
+	export let item as T
+
+	static function boxUp(x U) uses U returns Tally
+		_ = x
+		return 2
+	end 'boxUp'
+end 'Mid'
+
+function main() returns ExitCode
+	let w = Wrap.create(Mid.boxUp(3 as Tally))
+	print("{w.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+
+```
+
+<!-- test: a-bare-generic-factory-binds-t-from-a-bound-generic-function-result -->
+The same with the generic function's result held in a binding first.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Wrap uses T
+	export let held as T
+
+	static function create(held T) returns Self
+		return Self{held: held}
+	end 'create'
+end 'Wrap'
+
+function same(x T) uses T returns T
+	return x
+end 'same'
+
+function main() returns ExitCode
+	let m = same(3 as Tally)
+	let w = Wrap.create(m)
+	print("{w.held}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+
+```
+
+<!-- test: error.a-bare-generic-factory-argument-from-an-undefined-call-is-the-only-report -->
+<!-- positions: moved -->
+An argument whose type nothing knows fixes no `T`, and it has already been refused at its own call, so the
+factory call reports nothing.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Wrap uses T
+	export let held as T
+
+	static function create(held T) returns Self
+		return Self{held: held}
+	end 'create'
+end 'Wrap'
+
+function main() returns ExitCode
+	let w = Wrap.create(nowhere(3 as Tally))
+	print("{w.held}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:10:22: call to undefined function 'nowhere'
+```
+
+<!-- test: a-throwing-generic-factory-releases-a-consumed-managed-argument -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A throwing generic factory that fails before it builds `Self` releases the `T`-typed argument it consumed. The
+argument is a heap string, so the call leaks it (**exit 101**) unless the shared generic body drops the parameter
+on its throw edge.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+enum StartError implements Error
+	refused
+end 'StartError'
+
+type Box uses T
+	var item as T
+	var extra as Whole
+
+	static function create(item T, extra Whole) returns Self throws StartError
+		if extra < 0 'negative'
+			throw StartError.refused
+		end 'negative'
+		return Self{item: item, extra: extra}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
+		match e 'which'
+			refused then print("refused\n")
+		end 'which'
+		return 0
+	end 'failed'
+	return 1
+end 'main'
+```
+```stdout
+refused
+```
+```exitcode
+0
+```
+
+<!-- test: a-throwing-generic-factory-with-a-scalar-argument-is-unchanged -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+The scalar control of the case above: a `T` bound to an integer has nothing to release on the throw edge, and the
+failing call still reaches its handler.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+enum StartError implements Error
+	refused
+end 'StartError'
+
+type Box uses T
+	var item as T
+	var extra as Whole
+
+	static function create(item T, extra Whole) returns Self throws StartError
+		if extra < 0 'negative'
+			throw StartError.refused
+		end 'negative'
+		return Self{item: item, extra: extra}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try Box.create(5, extra: -1) otherwise (e) 'failed'
+		match e 'which'
+			refused then print("refused\n")
+		end 'which'
+		return 0
+	end 'failed'
+	return 1
+end 'main'
+```
+```stdout
+refused
+```
+```exitcode
+0
+```
+
+<!-- test: a-throwing-generic-factory-releases-an-argument-it-already-handed-to-a-local -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A generic factory that moves its `T` argument into a local holder on one branch and then throws releases it
+exactly once: the holder owns it from the move on, and it dies with the frame. The other branch still builds `Self`
+from the argument.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+enum StartError implements Error
+	refused
+end 'StartError'
+
+type Holder uses T
+	var item as T
+
+	static function wrap(item T) returns Self
+		return Self{item: item}
+	end 'wrap'
+
+	function held() returns Whole
+		return 1
+	end 'held'
+end 'Holder'
+
+type Box uses T
+	var item as T
+	var extra as Whole
+
+	static function create(item T, extra Whole) returns Self throws StartError
+		if extra < 0 'negative'
+			let holder = Holder.wrap(item)
+			if holder.held() > 0 'held'
+				throw StartError.refused
+			end 'held'
+			throw StartError.refused
+		end 'negative'
+		return Self{item: item, extra: extra}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try Box.create("another label long enough to be a heap string", extra: -5) otherwise (e) 'failed'
+		match e 'which'
+			refused then print("refused\n")
+		end 'which'
+		return 0
+	end 'failed'
+	return 1
+end 'main'
+```
+```stdout
+refused
+```
+```exitcode
+0
+```
+
+<!-- test: per-instance-alias-decays-at-a-type-parameter-argument -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⭐ **A PER-INSTANCE alias argument DECAYS at a bare `T` parameter, exactly as it does everywhere else.**
+`WA.Idx` is a nominal identity only against another per-instance alias; met by a target that is
+not one — here `T` bound to the ranged alias `Integer`, whose type-argument identity is deliberately
+empty — it carries no claim and decays to its underlying scalar.
+
+The type-parameter check must therefore ask the SAME door the parser's coercion sites ask
+(`aggregatesConflict`, which owns that decay) and not the bare rule beneath it. Asked the bare way it would
+read the decaying argument as "an aggregate meeting a scalar" and REJECT this program, while
+`takesPlain(t)` — the same value into the same `Integer` — is accepted one site over. Both forms are
+pinned here so the two cannot answer differently.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Wrapper uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Idx = int(0 to u64.max)
+	export var value as T
+	export var tag as Idx
+
+	static function create(value T, tag Idx) returns Self
+		return Self{value: value, tag: tag}
+	end 'create'
+
+	function getTag() returns Idx
+		return self.tag
+	end 'getTag'
+end 'Wrapper'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias WA = Wrapper with Integer
+
+typealias IntBox = Box with Integer
+
+function takesPlain(_ Integer) returns ExitCode
+	return 0
+end 'takesPlain'
+
+function main() returns ExitCode
+	let a = WA.create(1, tag: 5)
+	let t = a.getTag()
+	let b = IntBox.create(t as Integer)
+	print("{b.value}")
+	return takesPlain(a.getTag() as Integer)
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+
+```
+
+<!-- test: error.self-cycle-alias -->
+<!-- positions: moved -->
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias A = Box with A
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2012: <fragment>:14:24: Circular typealias dependency: A
+```
+
+<!-- test: error.mutual-cycle-alias -->
+<!-- positions: moved -->
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias A = Box with B
+
+typealias B = Box with A
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2012: <fragment>:14:11: Circular typealias dependency: A -> B -> A
+```
+
+<!-- test: error.self-cycle-alias-used -->
+<!-- positions: moved -->
+```maxon
+type S0
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'S0'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias A = Box with A
+
+function main() returns ExitCode
+	let x = A.create(S0.make("q"))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2012: <fragment>:14:24: Circular typealias dependency: A
+```
+
+<!-- test: error.field-access-on-builtin-array-base -->
+<!-- positions: moved -->
+⭐⭐ **A MISSING FIELD ON AN `Array` INSTANCE IS AN UNKNOWN FIELD, NOT AN UNIMPLEMENTED CONSTRUCT.**
+`stdlib/Array.maxon` is LISTED, it IS compiled, and its `type Array` declaration carries a field table
+with exactly one entry in it — `managed`.
+
+⇒ The answer is `E3018 type 'Array' has no field named 'value'`, which is what the program's mistake
+actually is: the diagnostic does not apologise for the compiler, it points at the FIELD token (`:8:13`)
+rather than at the receiver (`:8:9`), and it is the same sentence any user `type` gets for
+the same mistake instead of a container-specific copy of one.
+
+⚠ The field named here is deliberately NOT `managed`: that spelling is library-tier (E3185 outside
+`stdlib/` and `runtime/`), and where it is legal it is served — in both the chained (`arr.managed.setLength(2)`) and the value (`f(arr.managed)`) forms —
+because it is routed to the array dispatcher ahead of the field machinery
+(`arrayManagedFieldAt`). It is ALSO the one field the corpus
+declaration genuinely has, so the two doors agree on the roster; `value`
+is refused by both.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntArray = Array with Int
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(1)
+	return arr.value
+end 'main'
+```
+```maxoncstderr
+error E3018: <fragment>:8:13: type 'Array' has no field named 'value'
+```
+
+<!-- test: error.field-access-on-undeclared-generic-base -->
+<!-- positions: moved -->
+The other way a generic base has no `StructLayout`: nothing declares it. A parameter
+typed by such an alias reaches the same field-access door, and must say what is
+actually wrong — the `with` — rather than crash. (`checkGenericInstance` records E2055
+against that `with`, and the field access that follows from it is not reported.)
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntThing = Nonexistent with Int
+
+function readIt(t IntThing) returns Int
+	return t.foo
+end 'readIt'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:3:22: Type 'Nonexistent' has no associated types
+```
+
+<!-- test: error.field-reads-of-an-undeclared-generic-base-report-only-the-with -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- positions: moved -->
+Two reads of a value whose type is the refused alias, in two functions, and a `sizeof` of it: each is a consequence of
+the one E2055 recorded at the `with`, so the `with` is reported once and nothing else is.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntThing = Nonexistent with Int
+
+function readFirst(t IntThing) returns Int
+	return t.foo
+end 'readFirst'
+
+function readSecond(t IntThing) returns Int
+	return t.bar
+end 'readSecond'
+
+function main() returns ExitCode
+	// TODO: sizeof(...) is not supported in minimaxon
+	return sizeof(IntThing) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:3:22: Type 'Nonexistent' has no associated types
+```
+
+<!-- test: error.field-read-of-a-qualified-undeclared-generic-base-reports-only-the-with -->
+<!-- positions: moved -->
+A base written through a directory is judged under that spelling, and the field read that follows is a consequence of
+the one E2055 recorded at the `with`.
+```maxon
+// --- file: alpha/helper.maxon
+export function helper() returns ExitCode
+	return 0
+end 'helper'
+
+// --- file: main.maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias Thing = alpha.Nonexistent with Int
+
+function readIt(t Thing) returns Int
+	return t.foo
+end 'readIt'
+
+function main() returns ExitCode
+	return alpha.helper()
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:9:19: Type 'alpha.Nonexistent' has no associated types
+```
+
+<!-- test: a-directory-qualified-generic-base-names-that-directorys-type -->
+A generic base may be written through the directory that declares it, and means that directory's type. The
+alias, an array of it and a value built through it all agree with the type `lib/` declares.
+```maxon
+// --- file: lib/pair.maxon
+export type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	export static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+// --- file: main.maxon
+typealias Good = lib.Pair with (ExitCode, ExitCode)
+
+typealias Goods = Array with Good
+
+function total(g Good) returns ExitCode
+	return g.first + g.second
+end 'total'
+
+function main() returns ExitCode
+	let goods = Goods.create(0)
+	goods.push(Good.create(40, second: 2))
+	let g = try goods.get(0) otherwise panic("one pair was pushed")
+	return total(g)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-directory-qualified-generic-base-nests-inside-another-instance -->
+A qualified base is also read where it is an argument of another instance.
+```maxon
+// --- file: lib/pair.maxon
+export type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+// --- file: main.maxon
+typealias Goods = Array with (lib.Pair with (ExitCode, ExitCode))
+
+function main() returns ExitCode
+	let goods = Goods.create(0)
+	return goods.count() as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: two-directories-each-declaring-a-generic-type-are-told-apart-by-a-qualified-base -->
+`a/` and `b/` both declare `Pair`, with two and one type parameters. Each qualified base means its own
+directory's type, so each alias takes the arity of the type it names.
+```maxon
+// --- file: a/pair.maxon
+export type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	export static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+// --- file: b/pair.maxon
+export type Pair uses A
+	export var only as A
+
+	export static function create(only A) returns Self
+		return Self{only: only}
+	end 'create'
+end 'Pair'
+
+// --- file: main.maxon
+typealias FromA = a.Pair with (ExitCode, ExitCode)
+
+typealias FromB = b.Pair with ExitCode
+
+function main() returns ExitCode
+	let both = FromA.create(40, second: 2)
+	let single = FromB.create(5)
+	return both.first + both.second + single.only
+end 'main'
+```
+```exitcode
+47
+```
+
+<!-- test: error.a-directory-qualified-generic-base-that-is-not-generic -->
+A qualified base that names a type with no type parameters is judged as that type, exactly as the bare spelling is.
+```maxon
+// --- file: lib/plain.maxon
+export type Plain
+	export var first as ExitCode
+end 'Plain'
+
+export function helper() returns ExitCode
+	return 0
+end 'helper'
+
+// --- file: main.maxon
+typealias Bad = lib.Plain with ExitCode
+
+function total(g Bad) returns ExitCode
+	return g.first
+end 'total'
+
+function main() returns ExitCode
+	return lib.helper()
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:12:17: Type 'Plain' has no associated types
+```
+
+<!-- test: error.a-directory-qualified-generic-base-the-directory-does-not-export -->
+<!-- positions: moved -->
+A qualified base is a reference to the type, so a type the directory keeps to itself is refused at the base.
+```maxon
+// --- file: lib/pair.maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+export function helper() returns ExitCode
+	return 0
+end 'helper'
+
+// --- file: main.maxon
+typealias Good = lib.Pair with (ExitCode, ExitCode)
+
+typealias Goods = Array with Good
+
+function main() returns ExitCode
+	let goods = Goods.create(0)
+	return goods.count() as ExitCode + lib.helper()
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:13:18: type 'lib.Pair' is not exported
+```
+
+<!-- test: error.undeclared-generic-base-reaches-no-layout-query -->
+<!-- positions: moved -->
+An instance is interned for whatever base a `with` names, declared or not, so the
+whole-program instance walks (`noteDestructorUsage`'s managed-opaque-element rooting
+among them) meet an undeclared base with no fields to read. They must answer "no
+fields" and let the E2055 already recorded at the `with` be the verdict, rather than
+die inside `ProgramSignatures.baseLayoutOf` before any diagnostic is printed. ⚠ This case
+and its `sizeof` sibling below spell the undeclared base `Nonexistent`, not the name of a
+real generic: a base that is undeclared only until someone builds it dates the test to the
+day it was written, and `Nonexistent` is undeclared by construction — the same spelling the
+field-access case above uses.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntMap = Nonexistent with (Int, Int)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:3:20: Type 'Nonexistent' has no associated types
+```
+
+<!-- test: error.field-write-on-builtin-base-a-declaration-also-claims -->
+The third way a generic instance's base has no layout OF ITS OWN, and the one that is not
+about a layout being ABSENT: a declaration claims a BUILTIN base name. `type Array uses T`
+registers a field table, but every door that decides what the VALUE is — `create`, the
+method router, the box size, the drop callee — is routed to the synthesized runtime record
+by `isArrayInstance`, so the declaration's field offsets address that record. The field
+access must ask the same walk gate the destructor walks do, not `structOf`, which answers
+the different question "is a type of this NAME declared". Asked through `structOf`, this
+program would compile with no diagnostic at all: the write would land on the array record's
+element buffer POINTER and the teardown would take an access violation (0xC0000005). Reading
+is as bad and quieter — `a.value` would hand the raw heap address back as an Integer.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+type Array uses T
+	export var value as T
+end 'Array'
+
+typealias IntArray = Array with Int
+
+function main() returns ExitCode
+	var a = IntArray.create(0)
+	a.push(1)
+	a.value = 4242
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:13:2: Unsupported: a field access on 'a': `Array` is a BUILTIN whose runtime record the compiler SYNTHESIZES rather than compiling a declaration for, so a value of it carries that record's own words and not the fields `stdlib/Array.maxon` declares. The field is missing from this compiler, not from the language; reach the contents through the methods
+```
+
+<!-- test: error.field-read-on-the-second-builtin-base-a-declaration-also-claims -->
+<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- positions: moved -->
+The SECOND-NAME twin, and the READ direction — the two builtins are one rule, so a check
+that reached only one of them would leave the other silently handing out its record's own
+words as if they were the declared field.
+
+⚠ **THE CASE NAME CARRIES NO CONTAINER, because the subject is whichever base a declaration can
+claim while the compiler still owns its record.** `Set` and `List` are not such bases: their
+modules are listed, so a user `type Set` / `type List` CONTESTS a declared type rather than a
+synthesized record and takes the "a declaration wins" road instead of this gate — `a member access
+'add'/'append' on a 'unknown' value`.
+
+⇒ **`FixedArray` is the subject.** `stdlib/FixedArray.maxon` is loaded and every member of a `FixedArray` is its
+declaration's, but what this case turns on is not who serves the members but who owns the RECORD, and
+that is the compiler (`isBuiltinGenericBaseName`, which decides what `FixedArray with 3 Int` MEANS). The
+refusal's own sentence says exactly that. The `Array` write-direction twin directly above does not cover
+this direction, and `Array` would not carry the second-name half of the question at all — the
+roster's other members (`__ManagedList`, `__ManagedListNode`, `__ManagedMemoryCursor`) cannot
+serve, because `E2051` refuses a declaration whose name starts with `__` before this gate is ever
+reached.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+type FixedArray uses T
+	export var value as T
+end 'FixedArray'
+
+// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
+typealias IntVec = FixedArray with 3 Int
+
+function main() returns ExitCode
+	var v = IntVec.create()
+	return v.value
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:12:9: Unsupported: a field access on 'v': `FixedArray` is a BUILTIN whose runtime record the compiler SYNTHESIZES rather than compiling a declaration for, so a value of it carries that record's own words and not the fields `stdlib/FixedArray.maxon` declares. The field is missing from this compiler, not from the language; reach the contents through the methods
+```
+
+<!-- test: error.sizeof-of-undeclared-generic-base -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- positions: moved -->
+The other query that assumes an instance's base exists, and it is NOT the field walks'
+gate: `genericInstanceBoxSize` answers for a BUILTIN (the fixed 48-byte record) as happily
+as for a declared base, and has nothing to say only when the base is neither. `sizeof`
+folds at PARSE time, while the E2055 `checkGenericInstance` recorded against this `with` is
+drained whole-program afterwards — so `sizeof` must refuse the unknown base itself, or it dies
+inside `ProgramSignatures.baseLayoutOf`'s sibling with a stack trace and the real diagnostic never
+printed. `sizeof(Array with Int)` folds to 48; only an unknown base is refused. (`Nonexistent`
+for the reason the case above records.)
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntMap = Nonexistent with (Int, Int)
+
+function main() returns ExitCode
+	// TODO: sizeof(...) is not supported in minimaxon
+	return sizeof(IntMap) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2055: <fragment>:3:20: Type 'Nonexistent' has no associated types
+```
+
+<!-- test: error.bare-int-type-arg -->
+<!-- positions: moved -->
+⭐ **A BARE `int` IS NOT A TYPE ARGUMENT (E2061).** Everywhere else in the language a numeric
+domain has to be DECLARED — that is the whole of the ranged-typealias rule — and a `with` clause
+is no exception. `parseTypeReference` mints a bare keyword as a CONCRETE tag, so it never enters the
+name cascade that validates every other spelling; the type-argument check must refuse it itself. The fix the message names is the declaration the rule
+wants.
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with int
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2061: <fragment>:8:29: Cannot use bare type 'int' as a type argument; use a ranged typealias instead (e.g. typealias MyType = int(...))
+```
+
+<!-- test: error.float-type-arg -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **A FLOAT TYPE ARGUMENT IS REFUSED HOWEVER IT IS SPELLED (E2062).** A monomorphizing compiler would
+give the instantiation a genuine f64 slot and the question would never arise. The compiler
+DICTIONARY-PASSES: a type
+parameter is one opaque 8-byte GENERAL-PURPOSE slot, so a float value, which is born in a
+floating-point register, has no way to travel through it. Reaching the backend it would PANIC —
+*"a register-to-register move from xmm0 to rcx crosses register files"* — with no `where` constraint,
+no comparison and no method call needed; the instantiation and one call are the whole reproducer.
+This is a compiler limitation, not a language rule, so the message names no workaround: there
+is none.
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias FloatBox = Box with float
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let b = FloatBox.create(1.5)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2062: <fragment>:8:31: Cannot use 'float' as a type argument: a float type argument is not supported yet. A type parameter is an opaque 8-byte general-purpose slot under the compiler's dictionary-passing, and a float value travels in a floating-point register, so it has no way through
+```
+
+<!-- test: error.float-alias-type-arg -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **THE CASE THAT CLOSES THE SECOND SPELLING, AND THE REASON E2062 IS ASKED BEFORE E2061.**
+A ranged FLOAT typealias reaches the identical backend assertion — the alias is not the problem, the
+float is — so refusing only the bare keyword would leave the crash reachable through the very
+declaration E2061 recommends. Which is also why a bare `float`, which satisfies BOTH rules, is
+claimed by this one: "use a ranged typealias instead" is true for `int` and a trap for `float`, and a
+compiler must not route a reader into a panic with its own diagnostic. The message names the ALIAS
+the source wrote, not `float`, so a reader of the line `Box with Real` is told about `Real`.
+
+⚠ **IT CLOSES THE TYPE-ARGUMENT DOOR, NOT THE VALUE DOOR — and the difference is two lines of
+source.** Every spelling of a float TYPE ARGUMENT is refused above, but a float VALUE handed to a
+`T`-typed formal has no float in the type arguments at all: `typealias SBox = Box with String` then
+`SBox.create(1.5)`, and the same call on a `Box with Integer`. Unchecked, it reaches
+`X64Backend.emitRegRegMove` and PANICS the compiler. That door is the OPPOSITE side of one thesis
+E2062's own message states — a float cannot travel through a type parameter's general-purpose slot —
+but it is a different mechanism (`tagIsIntegral` answers `false` for `typeParameter` precisely so that
+a float into a `T` does NOT read as a lossy conversion, which is right INSIDE a generic body), so this
+rule does not reach it.
+
+⭐ **WHAT CLOSES IT IS THAT A GENERIC CALL SITE SUBSTITUTES ITS INSTANCE'S TYPE ARGUMENTS BEFORE THE
+ACTUAL-VS-FORMAL CHECK.** `IntBox.create(1.5)` is therefore the ordinary E3009
+the non-generic `takeInt(1.5)` reports, and `StrBox.create(1.5)` the ordinary E3005 —
+`error.float-actual-at-opaque-formal` and `error.float-actual-at-opaque-formal-string` below pin
+both, byte-for-byte against the non-generic wording, and `int-actual-at-opaque-formal-still-works`
+pins that an ordinary generic call is untouched. ONE RULE, BOTH PATHS. Refusing a float actual at an
+opaque formal outright is the wrong rule: it decides from the FORMAL's shape rather than from the
+instance's real type, and answers wrongly the moment a float type argument becomes legal — which
+E2062's own message says is temporary.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias FloatBox = Box with Real
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let b = FloatBox.create(1.5)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2062: <fragment>:9:31: Cannot use 'Real' as a type argument: a float type argument is not supported yet. A type parameter is an opaque 8-byte general-purpose slot under the compiler's dictionary-passing, and a float value travels in a floating-point register, so it has no way through
+```
+
+<!-- test: error.float-type-arg-builtin-generic -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+Both float spellings again on a BUILTIN base: the rule is about the ARGUMENT, so a synthesized base
+reaches it through the same `parseGenericArgNode` a declared generic does. Only the FIRST offending
+argument in a file is shown here because each alias is its own declaration — two declarations, two
+diagnostics.
+
+`Set` and `List` are the bases under the rule, and `Array` and `FixedArray` are the two that are not:
+a buffer STRIDE is written and read at the element's own type, where a
+dictionary-passed type parameter is one opaque general-purpose slot. `Set` hashes its key and `List`
+boxes its payload, and each refuses a float in its own terms at its own door — so the refusal that
+belongs at the DECLARATION is theirs.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+typealias RealSet = Set with Real
+
+typealias FloatList = List with float
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2062: <fragment>:3:30: Cannot use 'Real' as a type argument: a float type argument is not supported yet. A type parameter is an opaque 8-byte general-purpose slot under the compiler's dictionary-passing, and a float value travels in a floating-point register, so it has no way through
+error E2062: <fragment>:4:33: Cannot use 'float' as a type argument: a float type argument is not supported yet. A type parameter is an opaque 8-byte general-purpose slot under the compiler's dictionary-passing, and a float value travels in a floating-point register, so it has no way through
+```
+
+<!-- test: a-float-element-is-admitted-on-a-buffer-base -->
+<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+### The exemption, stated as an acceptance
+The refusal above is about a dictionary-passed type-parameter slot, so it lifts exactly where there is
+no such slot. Both buffer bases take both float spellings, and this is the case that turns RED if the
+exemption is ever narrowed back to `FixedArray` alone.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
+typealias Vec2 = FixedArray with 2 Real
+
+function main() returns ExitCode
+	let a = Reals.create(0)
+	// TODO: float literals are not supported in minimaxon
+	a.push(1.5)
+	let v = Vec2.create()
+	// TODO: float literals are not supported in minimaxon
+	v.set(0, value: 3.5)
+	// TODO: float literals are not supported in minimaxon
+	return trunc((try a.get(0) otherwise 0.0) + v.get(0))
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: error.bare-float-type-arg-on-a-buffer-base -->
+<!-- positions: moved -->
+### A BARE `float` on a buffer base is E2061, and only there is its advice true
+The rules overlap on the bare keyword, and the order between them decides which sentence a reader
+gets. Off a buffer base E2062 claims it, because *"declare a ranged typealias"* would send the reader
+into the very refusal they are already in. ON one the exemption lifts E2062, E2061 takes the keyword
+back, and its advice is a working program.
+```maxon
+typealias FloatArray = Array with float
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2061: <fragment>:2:35: Cannot use bare type 'float' as a type argument; use a ranged typealias instead (e.g. typealias MyType = float(...))
+```
+
+<!-- test: error.bare-type-arg-builtin-generic -->
+<!-- positions: moved -->
+The rule is about the ARGUMENT, so it does not care what the base is: a BUILTIN generic (`Array`,
+whose runtime record the compiler synthesizes rather than declaring) reaches the identical check, because
+every `Base with Args` — builtin base or declared base — parses its arguments through the one
+`parseGenericArgNode`. `Array with Int` over a declared `typealias Int = int(...)` is the spelling
+every array spec in this suite already uses.
+```maxon
+typealias IntArray = Array with int
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2061: <fragment>:2:33: Cannot use bare type 'int' as a type argument; use a ranged typealias instead (e.g. typealias MyType = int(...))
+```
+
+<!-- test: error.bare-type-arg-nested -->
+<!-- positions: moved -->
+A NESTED argument is checked by the same call, which is what makes one edit cover every reachable
+position: `parseGenericArgNode` recurses into an inner `with` and every LEAF it reaches — at any
+depth — goes through `checkGenericArgType`. The diagnostic points at the offending `int` rather
+than at the alias name, so a reader of a deeply nested instantiation is told WHICH argument is
+wrong and not merely that one of them is.
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias BadNest = Box with (Box with int)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2061: <fragment>:8:40: Cannot use bare type 'int' as a type argument; use a ranged typealias instead (e.g. typealias MyType = int(...))
+```
+
+<!-- test: bool-type-arg-admitted -->
+⭐ **`bool` IS DELIBERATELY NOT A BARE PRIMITIVE**, and this is the case that keeps the rule narrow.
+There is no range to declare for it — it is already a constrained type, its domain is its two
+values — so demanding a `typealias` over it would demand a declaration the grammar cannot even
+spell, so the bare-primitive rule names only the numerics. It must stay admitted through BOTH kinds of base: a declared generic `type`, and the
+builtin `Array`.
+```maxon
+type Sizer uses T
+	export var v as T
+
+	static function create(x T) returns Self
+		return Self{v: x}
+	end 'create'
+
+	function get() returns T
+		return self.v
+	end 'get'
+end 'Sizer'
+
+typealias BoolSizer = Sizer with bool
+
+typealias BoolArray = Array with bool
+
+function main() returns ExitCode
+	let s = BoolSizer.create(true)
+	let a = BoolArray.create(0)
+	a.push(s.get())
+	return a.count() - 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: string-and-user-type-args-admitted -->
+The other admitted shapes, and the reason the rule tests the TAG rather than the token: a `String`,
+a user `type` and a NESTED instance each reach `checkGenericArgType` with a concrete tag that is not
+`integer` or `float`, so the bare-primitive arm passes them straight to the name cascade every other
+spelling takes. These are the 900-odd `with String` / `with <UserType>` arguments the rest of the
+suite is built on; the rule may not touch one of them.
+```maxon
+type Leaf
+	export var s as String
+
+	static function make(t String) returns Self
+		return Self{s: t}
+	end 'make'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StringBox = Box with String
+
+typealias LeafBox = Box with Leaf
+
+typealias LeafBoxBox = Box with (Box with Leaf)
+
+function main() returns ExitCode
+	let sb = StringBox.create("hello")
+	print("{sb.value}")
+	let lb = LeafBox.create(Leaf.make("a"))
+	print("{lb.value.s}")
+	let nested = LeafBoxBox.create(LeafBox.create(Leaf.make("b")))
+	print("{nested.value.value.s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+helloab
+
+```
+
+<!-- test: ranged-alias-type-arg-admitted -->
+The workaround the E2061 message NAMES, demonstrated: a ranged `typealias` over `int` is an
+ordinary `named` type argument, and it works — so the diagnostic tells the reader something true
+and one edit away. It reaches the check as `named`, falls past the bare-primitive arm, and is
+resolved by the same `denotedNamedType` cascade every other name goes through.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let b = IntBox.create(42)
+	let a = IntArray.create(0)
+	a.push(b.get())
+	return (try a.get(0) otherwise 0) - 42
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.float-actual-at-opaque-formal -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+A `float` actual meeting a `T`-typed formal is refused by the type the INSTANCE substitutes for `T`,
+not by the formal's own spelling. `IntBox`'s `T` is `Integer`, so this is the identical E3009 the
+non-generic `takeInt(1.5)` gives -- one rule, both paths. Without the substitution the front
+end has nothing to check against and the float reaches the x64 emitter, which dies on a
+register-to-register move across register files -- a compiler panic on a
+program whose only defect is an ordinary lossy conversion.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let b = IntBox.create(1.5)
+	return b.value
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:11:17: argument 'v': cannot implicitly convert 'float' to 'Integer': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
+```
+
+<!-- test: error.float-actual-at-opaque-formal-string -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+The same rule where the substituted type is not numeric at all: `StrBox`'s `T` is `String`, so a
+float actual is a plain type mismatch (E3005), matching the non-generic `takeStr(1.5)`. This case
+exists because the panic is NOT specific to `Integer`, so a check
+that only taught the numeric arm would leave half the defect live.
+```maxon
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let b = StrBox.create(1.5)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:10:17: argument type mismatch for 'v': expected 'String', got 'float'
+```
+
+<!-- test: int-actual-at-opaque-formal-still-works -->
+The regression guard the two refusals need: an `int` actual at a `T`-typed formal whose instance
+substitutes an integer type is ordinary, legal, and must stay that way. A substitution rule that
+refuses this would break every generic call in the corpus.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	let b = IntBox.create(7)
+	return b.value
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.per-instance-alias-actual-at-opaque-formal -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The OTHER value door out of the same check, and the one the two float tests above do not reach: a
+per-instance alias actual (`IntWrapper.Idx` — a nominal wrapper over a plain `int`) meeting a
+`T`-typed formal whose instance substitutes a STRUCT. The scalar half of the argument rule does not
+judge it — it runs only where the type argument carries no nominal identity, and `Leaf` carries one —
+so the nominal half must. Were `aggregatesConflict` to decay any per-instance `got` against any target
+that is not itself per-instance, `Leaf` included, an `int` would be stored into the box's `T` field and
+freed by `__destruct_Box_Leaf` as a `Leaf`: a wild free, exit `0xC0000005`, from a program that
+compiled clean — the same failure mode the type-parameter argument check exists for.
+
+The rule is in the decay itself, not in a new arm here: a per-instance alias decays only where
+the target carries NO nominal identity of its own, because there is nothing for it to decay into
+otherwise. A safety argument that leaned on "a tag check runs before every one of these
+sites" would be a second fact held at six call sites — and false at this one, where the tag check
+compares `substitutedInstanceArg`'s AS-INTERNED `named` leaf against a `named` value and agrees.
+`per-instance-alias-decays-at-a-type-parameter-argument` above pins the decay that must survive.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Leaf
+	export var name as String
+end 'Leaf'
+
+type Wrapper uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Idx = int(0 to u64.max)
+	export var value as T
+	export var tag as Idx
+
+	static function create(v T, tag Idx) returns Self
+		return Self{value: v, tag: tag}
+	end 'create'
+
+	function getTag() returns Idx
+		return self.tag
+	end 'getTag'
+end 'Wrapper'
+
+type Box uses T
+	export var item as T
+
+	static function create(v T) returns Self
+		return Self{item: v}
+	end 'create'
+end 'Box'
+
+typealias IntWrapper = Wrapper with Integer
+
+typealias LeafBox = Box with Leaf
+
+function main() returns ExitCode
+	let w = IntWrapper.create(1, tag: 5)
+	let b = LeafBox.create(w.getTag())
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:27:18: argument type mismatch for 'v': expected 'Leaf', got 'IntWrapper.Idx'
+```
+
+<!-- test: opaque-field-read-of-a-struct-argument-is-that-struct -->
+⭐ **A `T`-TYPED FIELD READ FROM OUTSIDE THE GENERIC BODY IS THE INSTANCE'S ARGUMENT, AND FOR A
+STRUCT ARGUMENT IT IS THAT STRUCT.** A concrete field read retypes `T` to the instance's argument,
+and a struct argument is stored in the registry as a bare `named`, which reads as an INTEGER
+everywhere — so the retype must resolve the argument rather than hand it over as stored. Handed over
+as stored, `pb.value` on a `Box with Point` would bind a value the front end types `int` and the
+machine types a pointer. `generic-trivial-struct-arg` above builds the same box and never reads its
+field, so it cannot see this.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let pb = PointBox.create(Point.create(7))
+	let q = pb.value
+	print("{q.x}\n")
+	return q.x - 7
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: error.opaque-field-read-of-a-struct-argument-is-not-an-integer -->
+<!-- positions: moved -->
+⚠ **THE SAME READ, AND THE WORST OF ITS FACES: ARITHMETIC AGAINST A POINTER.** Typed
+`int`, `q + 0` would compile and PRINT THE RAW HEAP ADDRESS — a silent wrong answer where a
+refusing face at least stops. The correct verdict is the one a plain struct gets from
+this compiler, at the same code with the same words: a struct is not
+an operand of `+`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let pb = PointBox.create(Point.create(7))
+	let q = pb.value
+	print("{q + 0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:19:12: Cannot operate on Point and int
+```
+
+<!-- test: opaque-field-read-of-a-generic-alias-argument-is-that-instance -->
+The third face, and the one that proves the cause is the ARGUMENT's storage and not struct-hood: a
+GENERIC-ALIAS argument (`Holder with IntBox`) is stored as a bare `named` too, so an unresolved read
+would report `E3011 Unknown type 'IntBox'` — a name the program declares one line above. Resolved through
+the same door, it is the instance, and `q.value` reaches `Box`'s field.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+type Holder uses U
+	export var item as U
+
+	static function hold(v U) returns Self
+		return Self{item: v}
+	end 'hold'
+end 'Holder'
+
+typealias IntBox = Box with Integer
+
+typealias BoxHolder = Holder with IntBox
+
+function main() returns ExitCode
+	let h = BoxHolder.hold(IntBox.create(7))
+	let q = h.item
+	print("{q.value}\n")
+	return q.value - 7
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: opaque-field-read-of-a-managed-struct-argument-borrows -->
+⚠ **THE OWNERSHIP DIRECTION OF THE SAME RETYPE.** The argument here OWNS heap (a `String` field), so
+naming the read's type correctly is exactly where a drop could be invented that the box already
+owes: `q` is a BORROW of the box's content, the box drops it once at ITS scope exit, and a leak or a
+double free would both show here — the runner treats either as a failure.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Label
+	export var text as String
+	export var n as Integer
+
+	static function create(t String, n Integer) returns Self
+		return Self{text: t, n: n}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LabelBox = Box with Label
+
+function main() returns ExitCode
+	let b = LabelBox.create(Label.create("{9}", n: 3))
+	let q = b.value
+	print("{q.text} {q.n}\n")
+	return q.n - 3
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9 3
+```
+
+<!-- test: opaque-field-write-on-a-concrete-instance-drops-a-generic-alias-argument -->
+⭐⭐ **THE WRITE TWIN OF THE READ ABOVE, AND A SECOND SPELLING OF IT IS A READ-AFTER-FREE.**
+`emitFieldWrite` resolves the stored type through the same derivation the read does. Resolved any other
+way — a bare `named` handed to a cascade with a struct arm but NO generic-alias arm — this write would fall
+through to `undeclaredName`, take the SCALAR store, and neither drop the old box nor move the new one
+in: the temporary would be freed at the statement and the field would keep pointing at it, so the read
+would print `4557430888798830399` — `0x3F3F3F3F3F3F3F3F`, the free poison.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+type Holder uses U
+	export var item as U
+
+	static function hold(v U) returns Self
+		return Self{item: v}
+	end 'hold'
+end 'Holder'
+
+typealias IntBox = Box with Integer
+
+typealias BoxHolder = Holder with IntBox
+
+function main() returns ExitCode
+	let h = BoxHolder.hold(IntBox.create(7))
+	h.item = IntBox.create(8)
+	let q = h.item
+	print("{q.value}\n")
+	return q.value - 8
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+8
+```
+
+<!-- test: opaque-field-write-on-a-concrete-instance-drops-a-managed-struct-argument -->
+The OTHER arm of that same door: a STRUCT argument, which a cascade with only a struct arm would answer
+correctly — so this case alone cannot tell one derivation from two. Both arms come out of one call, so
+this case and the one above cannot part. The old `Label` owns a `String`, so a write that failed to drop it would leak
+and a write that dropped it twice would fault — the runner treats either as a failure.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Label
+	export var text as String
+	export var n as Integer
+
+	static function create(t String, n Integer) returns Self
+		return Self{text: t, n: n}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LabelBox = Box with Label
+
+function main() returns ExitCode
+	let b = LabelBox.create(Label.create("{9}", n: 3))
+	b.value = Label.create("{8}", n: 4)
+	let q = b.value
+	print("{q.text} {q.n}\n")
+	return q.n - 4
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+8 4
+```
+
+<!-- test: error.opaque-field-write-on-a-concrete-instance-refuses-another-struct -->
+<!-- positions: moved -->
+⭐⭐ **THE REFUSAL THE TWO CASES ABOVE NEED, AND WITHOUT IT THE WRITE THEY PIN IS A WILD ONE.**
+`b.value = <a Label>` is legal on a `Box with Label` because the instance binds `T`;
+`b.value = <an Other>` is the same door with the identity that binds it VIOLATED.
+The store resolves `T` → `Label` (`emitFieldWrite`); a type CHECK handed the unsubstituted `T` — which
+admits everything — would let an `Other` box be written into a `Label` slot, and reading it back would
+exit **0xC0000005**. Both readers take
+the field type from one derivation (`storedFieldType`), so the verdict and the store cannot disagree
+about what the slot holds.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Label
+	export var text as String
+	export var n as Integer
+
+	static function create(t String, n Integer) returns Self
+		return Self{text: t, n: n}
+	end 'create'
+end 'Label'
+
+type Other
+	export var k as Integer
+
+	static function create(k Integer) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Other'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LabelBox = Box with Label
+
+function main() returns ExitCode
+	var b = LabelBox.create(Label.create("hi", n: 3))
+	b.value = Other.create(99)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:4: cannot assign a value of type 'Other' to field 'value' of 'Box', which holds 'Label'
+```
+
+<!-- test: error.opaque-field-write-in-the-shared-body-refuses-a-concrete-value -->
+<!-- positions: moved -->
+⭐⭐ **THE OTHER HALF OF THAT DOOR: A SHARED BODY CANNOT NAME A CONCRETE TYPE FOR `T`.** `Box uses T`'s
+body is compiled ONCE for every instantiation, so `self.value = Label.create(77)` claims that every
+`Box with X` holds a `Label` — true of at most one instantiation and unjustifiable for the rest. Here the
+slot legitimately stays opaque (a `structRef` receiver binds nothing), so the cure is not substitution but
+the ordinary identity comparison: an empty aggregate name meeting `Label` is a conflict, exactly as
+`namedAggregatesConflict` says. No blanket "an opaque slot has no identity, so return" may stand in front
+of that comparison: unguarded, this program compiles and exits **101 — a leak** — after printing the
+`Label` box's ADDRESS as the integer the field is declared to hold.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Label
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function clobber()
+		self.value = Label.create(77)
+	end 'clobber'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	var b = IntBox.create(5)
+	b.clobber()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:15:8: cannot assign a value of type 'Label' to field 'value' of 'Box', which holds 'T'
+```
+
+<!-- test: generic-alias-union-payload-round-trips -->
+⭐⭐ **A UNION PAYLOAD IS A SLOT TOO, AND IT ANSWERS THE SLOT QUESTION THROUGH THE SAME DOOR.**
+`ProgramSignatures.declaredSlotType` re-tags a bare `named` that names a generic alias to the instance
+it denotes, and `classifyUnionPayload` resolves a payload's `named` through the same door
+(`denotedSlotType`). A cascade of its own, with a struct arm and NO generic-alias arm, would send a
+payload declared `b PB` to `undeclaredName`: the binding would keep the bare `named`, and reading it
+would be `E3011 Unknown type 'PB'` on a legal program. One door means a name
+cannot denote one thing to a struct field and another to a payload.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias NumBox = Box with Num
+
+union Payload
+	boxed(b NumBox)
+	empty
+end 'Payload'
+
+function main() returns ExitCode
+	let p = Payload.boxed(NumBox.create(7))
+	match p 'k'
+		empty then print("none\n")
+		boxed(b) then print("v={b.value}\n")
+	end 'k'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=7
+```
+
+<!-- test: array-alias-union-payload-round-trips -->
+The same door under the alias form the corpus actually writes: an `Array` typealias is a generic alias,
+so without it `list(xs Nums)` would be `E3011 Unknown type 'Nums'` at the binding — and with it every
+container-typed payload. The payload is the instance, so `xs.count()` dispatches.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Nums = Array with Integer
+
+union Payload
+	list(xs Nums)
+	empty
+end 'Payload'
+
+function main() returns ExitCode
+	let a = Nums.create(0)
+	a.push(4)
+	a.push(5)
+	let p = Payload.list(a)
+	match p 'k'
+		empty then print("none\n")
+		list(xs) then print("n={xs.count()} first={try xs.get(0) otherwise 0}\n")
+	end 'k'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=2 first=4
+```
+
+<!-- test: managed-instance-union-payload-moves-out-and-drops-once -->
+⚠ **THE OWNERSHIP DIRECTION, AND IT IS WHY A MISCLASSIFIED PAYLOAD IS NOT MERELY A REFUSAL.** Classified
+`undeclaredName`, the payload would NOT be managed: `moveInPayload` would store the pointer without
+consuming the temporary, so the box would be freed at the end of the construct statement while the union
+kept pointing at it — the same dangling store a misresolved `emitFieldWrite` prints the free poison from. Classified as
+the instance it is, the construct MOVES it in and the match binding moves it out and drops it once. The
+instance owns a `String`, so a missed drop leaks (exit 101) and a double drop faults — the runner treats
+either as a failure.
+```maxon
+type Label
+	export var text as String
+
+	static function create(t String) returns Self
+		return Self{text: t}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LabelBox = Box with Label
+
+union Payload
+	boxed(b LabelBox)
+	empty
+end 'Payload'
+
+function show(b LabelBox)
+	let q = b.value
+	print("t={q.text}\n")
+end 'show'
+
+function main() returns ExitCode
+	let p = Payload.boxed(LabelBox.create(Label.create("{9}")))
+	match p 'k'
+		empty then print("none\n")
+		boxed(b) then show(b)
+	end 'k'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+t=9
+```
+
+<!-- test: generic-alias-union-payload-drops-through-the-cascade -->
+The drop half, with NOTHING bound: an unmatched managed payload is freed by the union's own
+`__destruct_<U>` cascade, which is synthesized only when `caseHasManagedField` says the case carries
+one — a whole-program walk that reads the payload column with no reader file and so asks the same
+door. Misclassified, this program would still compile, and that is the point: the payload would be
+silently freed at the construct statement instead, so the box would outlive its own content. The box
+owns it and the cascade frees it exactly once.
+```maxon
+type Label
+	export var text as String
+
+	static function create(t String) returns Self
+		return Self{text: t}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LabelBox = Box with Label
+
+union Payload
+	boxed(b LabelBox)
+	empty
+end 'Payload'
+
+function main() returns ExitCode
+	let p = Payload.boxed(LabelBox.create(Label.create("{9}")))
+	match p 'k'
+		empty then print("none\n")
+		boxed then print("boxed\n")
+	end 'k'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+boxed
+```
+
+<!-- test: function-alias-union-payload-calls-through -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The THIRD arm the shared door gives a payload: a FUNCTION typealias is re-tagged exactly as a generic
+one is. Bound out of the payload as a bare `named` — an int — interpolating it would be
+`E2015 … a value of type 'unknown'` and calling it would have no signature to check. It is a code
+pointer, a scalar payload, and it calls.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias UnaryOp = function(Integer) returns Integer
+
+function twice(v Integer) returns Integer
+	return v * 2
+end 'twice'
+
+union Payload
+	op(f UnaryOp)
+	empty
+end 'Payload'
+
+function main() returns ExitCode
+	let p = Payload.op(twice)
+	match p 'k'
+		empty then print("none\n")
+		op(f) then print("f={f(3)}\n")
+	end 'k'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+f=6
+```
+
+<!-- test: a-field-chain-through-a-generic-instance-field -->
+⭐⭐ **A FIELD CHAIN THROUGH A GENERIC-INSTANCE-TYPED FIELD.** `structLayoutOfType` — the door a
+chain's BASE resolves through — knows `genericInstance`, and so must `structLayoutOfField`, the door
+each later HOP resolves through. Without it `o.b.value` on a plain `type Outer` with `export var b as
+IntBox` would be refused by a message that contradicts itself, because `typeTagName(genericInstance)` prints
+`"struct"`: *"a field access through 'Outer.b', which is declared 'struct' and not a struct"*. No type
+parameter appears anywhere in this program's chain — the receiver `o` is an ordinary struct.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+type Outer
+	export var b as IntBox
+
+	static function create(v IntBox) returns Self
+		return Self{b: v}
+	end 'create'
+end 'Outer'
+
+function main() returns ExitCode
+	let o = Outer.create(IntBox.create(7))
+	print("{o.b.value}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: a-field-chain-through-a-type-parameter-field -->
+⭐ **THE SECOND SPELLING, AND IT IS THE SAME DOOR.** `pb.value.x` hops through a field the shared generic
+body typed `T`, so `structLayoutOfField` sees a `typeParameter` where the first case gives it a
+`genericInstance` — one function, two tags. Continuing the walk therefore needs the hop's type
+SUBSTITUTED through the instance in hand, which is the same substitution `emitFieldLoad` applies to
+the loaded VALUE (`instanceSubstitutedType`); left unsubstituted a `typeParameter` reads as an INTEGER
+(`tagIsIntegral`). `opaque-field-read-of-a-struct-argument-is-that-struct` above is this program with the
+read SPLIT INTO TWO STATEMENTS, which is precisely the hop that does not go through the walk.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let pb = PointBox.create(Point.create(7))
+	print("{pb.value.x}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: a-three-hop-chain-through-an-instance-survives-both-substitutions -->
+Both hops in one chain: `o.b` is a generic-instance field, `.value` is that instance's `T`-typed field, and
+`.n` is a plain field of the struct `T` turned out to be. The substitution has to survive more than one hop
+or the third one reads an integer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Leaf
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Leaf'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+end 'Box'
+
+typealias LeafBox = Box with Leaf
+
+type Outer
+	export var b as LeafBox
+
+	static function create(v LeafBox) returns Self
+		return Self{b: v}
+	end 'create'
+end 'Outer'
+
+function main() returns ExitCode
+	let o = Outer.create(LeafBox.create(Leaf.create(9)))
+	print("{o.b.value.n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9
+```
+
+<!-- test: error.a-field-chain-through-a-builtin-instance-field-is-still-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+⛔⛔ **THE MEMORY-SAFETY GATE, CARRIED ACROSS TO THE HOP DOOR.** `structLayoutOfType` does not ask `structOf`
+for an instance — it asks `genericInstanceHasBaseLayout` first, and its header records what happens without
+that, with no diagnostic anywhere and a compile that exits 0: `a.value` on an `Array with Integer`
+prints the element buffer POINTER read as an Integer, and `a.value = 4242` overwrites that
+pointer and takes an access violation (0xC0000005) in the teardown. `structOf` answering "a type of this name
+is declared" is NOT the same fact as "this instance's fields live at that layout": for a BUILTIN base the
+runtime record is a synthesized struct unrelated to any user `type` of the same name.
+
+So a HOP door that knows `genericInstance` without the gate would carry that miscompile one door over.
+This case is what says it does not.
+
+⭐⭐ **THE GATE HOLDS AGAINST A REAL DECLARATION, AND THAT IS THE POINT WORTH PINNING.** There IS a
+`type Array` declaration — `stdlib/Array.maxon` is listed — and it DOES carry a `StructLayout`, so
+`structOf` answers YES for this name. That is precisely the condition `genericInstanceHasBaseLayout`
+exists to distinguish from — *"a type of this name is declared"* is NOT the fact *"this instance's fields
+live at that layout"*, because the buffer an `Array with Integer` carries is the synthesized runtime
+record and not the corpus struct. The miscompile in the paragraph above (`a.value` reading the element
+buffer POINTER, `a.value = 4242` overwriting it and taking a 0xC0000005) is what the gate prevents.
+
+⇒ The refusal is `E3018 type 'Array' has no field named 'value'`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+type Holder
+	export var a as IntArray
+
+	static function create(a IntArray) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let h = Holder.create([1, 2, 3])
+	print("{h.a.value}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3018: <fragment>:12:14: type 'Array' has no field named 'value'
+```
+
+<!-- test: generic-managed-return-round-trips -->
+⭐⭐ **A `T`-RETURNING METHOD ON A MANAGED CONCRETE INSTANCE HANDS BACK THE CONCRETE TYPE, AND THE ROUND TRIP
+IS WHAT PROVES IT.** `bx.echo(Alpha.create())` is accepted — its argument is the opaque `T`, which
+agrees with everything — and FEEDING THE RESULT BACK is accepted too. Left opaque, the result would be
+refused at the second call (`E3005 … expected 'Alpha', got 'type parameter'`) and at `back.a`
+(`E2015 … declared 'type parameter' and not a struct type`): one instantiation, one method, and the two
+directions disagreeing.
+
+What makes both halves true is an ORDER, not a rule: the drop enrolment (`valueIsManagedHeap` →
+`trackOwnedTemp`) runs AFTER the retype. Enrolled inside the MINT, while the tag is still the opaque `T`,
+it would always answer "owns nothing", and the retype would have to decline to fire for a managed argument
+because that decision had already been made.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Alpha
+	export var a as Integer
+
+	static function create() returns Self
+		return Self{a: 1}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var tag as Integer
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function echo(v T) returns T
+		return v
+	end 'echo'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create()
+	let got = bx.echo(Alpha.create())
+	let back = bx.echo(got)
+	print("a={back.a}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a=1
+```
+
+<!-- test: generic-managed-return-drops-once -->
+⛔⛔ **A managed `T` return bound to a `let` and left to fall out of scope.** The enrolment is asked after
+the retype, so the value the retype makes managed is the value the drop decision enrolls — the two agree,
+and this is the case that says so: a hundred boxes allocated, each dropped exactly once. A missed enrolment is a
+leak (the runner reports exit 101); a doubled one faults on the poisoned box.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Alpha
+	export var a as Integer
+
+	static function create(a Integer) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var tag as Integer
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function echo(v T) returns T
+		return v
+	end 'echo'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create()
+	var i = 0 as Integer
+	var total = 0 as Integer
+	while i < 100 'loop'
+		let back = bx.echo(Alpha.create(i))
+		total = total + back.a
+		i = i + 1
+	end 'loop'
+	return (total - 4950) as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-managed-string-return-drops-once -->
+The OTHER half of `valueIsManagedHeap` — a BYTE RECORD rather than an aggregate. `Box with String` reaches
+the enrolment through `tagIsByteRecord`, not `valueIsNonTextAggregate`, so an enrolment that covered only
+the aggregate half would pass the case above and leak here. A hundred fused String records, each returned out
+of the shared body and dropped once; the byte lengths of `0`…`99` sum to 190.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var tag as Integer
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function echo(v T) returns T
+		return v
+	end 'echo'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let bx = StrBox.create()
+	var i = 0 as Count
+	var total = 0 as BytePos
+	while i < 100 'loop'
+		let s = bx.echo("{i}")
+		total = total + s.byteLength()
+		i = i + 1
+	end 'loop'
+	return (total - 190) as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: generic-managed-return-passed-on -->
+⚠ **THE ENROLMENT AND THE CALLER-SIDE CONSUME MEET HERE, AND THIS IS THE PATH THAT DOUBLE-FREES IF THEY
+DISAGREE.** The `T` result is enrolled as an owned temporary and then MOVED into `Wrap`'s field by
+`applyCallerConsume`, which poisons the source and takes it back off the pending list. Enrol without the
+transfer and the box is freed at the statement while the field still points at it; transfer without the
+enrolment and nobody ever owed the drop. The answer is the non-generic `Wrap.create(Alpha.create(5))`'s,
+which reads back 5.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Alpha
+	export var a as Integer
+
+	static function create(a Integer) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Alpha'
+
+type Wrap
+	export var held as Alpha
+
+	static function create(v Alpha) returns Self
+		return Self{held: v}
+	end 'create'
+end 'Wrap'
+
+type Box uses T
+	export var tag as Integer
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function echo(v T) returns T
+		return v
+	end 'echo'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create()
+	let w = Wrap.create(bx.echo(Alpha.create(5)))
+	print("{w.held.a}\n")
+	return w.held.a - 5
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+```
+
+<!-- test: generic-managed-return-relayed-inside-the-generic-body -->
+⭐⭐ **THE CO-OWN MUST NOT COMPOUND, AND THIS IS THE SHAPE THAT WOULD MAKE IT.** `relay()` returns what
+`self.get()` returned — a `T` produced by a call made INSIDE the shared body. If both returns took a
+reference the box would take two and be dropped once: a LEAK, not a double free, and therefore invisible
+to a crash and visible only to the leak gate. The `+1` is the CALLEE's, taken at its `return`
+(`emitOwnedValueReturn` → `coOwnBorrowedOpaque` → `__retain_type_param`) and only for a value its frame
+does not already own (`borrowedValueOwesAHandoffReference`). `get` returns the borrowed `self.value` and
+takes it; inside `relay` that call's result is an owned temporary (`enrolOwnedCallTemp`), so `relay`
+hands it on with no second reference. Pinned because a second reference here would pass every other case
+in this file.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Alpha
+	export var a as Integer
+
+	static function create(a Integer) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+
+	function relay() returns T
+		return self.get()
+	end 'relay'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create(Alpha.create(3))
+	let r = bx.relay()
+	print("r={r.a}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+r=3
+```
+
+<!-- test: generic-managed-return-is-retyped-at-the-call -->
+⭐ **THE RETYPE IS WHAT MAKES THE ARGUMENT AN `Alpha`.** `b.get()` yields an opaque-tagged value, and
+retyped it is the `Alpha` that `overAlpha` declares. The value 7 is the non-generic
+`overAlpha(Alpha.create(3))`'s answer, which this program must agree with.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Alpha
+	export var a as Integer
+
+	static function create(a Integer) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function overAlpha(x Alpha) returns Integer
+	return x.a + 4
+end 'overAlpha'
+
+function main() returns ExitCode
+	let b = AlphaBox.create(Alpha.create(3))
+	print("{overAlpha(b.get())}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: generic-managed-union-return-is-retyped-at-the-call -->
+⛔⛔ **`Box with Shape` for a BOXED UNION: THE SUBSTITUTED TYPE IS THE UNION ITSELF.** Were the substituted
+type left a bare `named` (which reads as an INTEGER), the argument of `overShape(b.get())` would be an
+Integer and not the union. The substitution goes through `declaredSlotType`, so the union name is
+re-interned as itself and `overShape` takes it, and this case is what says so. The non-generic
+`overShape(Shape.circle(3))` answers 7, and so must this program.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Shape
+	circle(r Integer)
+	square(s Integer)
+end 'Shape'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias ShapeBox = Box with Shape
+
+function overShape(x Shape) returns Integer
+	match x 'k'
+		circle(r) then return r + 4
+		square(s) then return s + 5
+	end 'k'
+end 'overShape'
+
+function main() returns ExitCode
+	let b = ShapeBox.create(Shape.circle(3))
+	print("{overShape(b.get())}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: generic-managed-return-of-an-rdata-literal-copies -->
+⛔ **THE REASON THE REFERENCE CANNOT BE A BARE INCREF.** `"hi"` is a wholly immortal `.rdata` literal —
+record AND bytes, `capacity@16 == ImmortalRecordCapacity` — whose header lives in read-only memory, so
+`__mm_incref` on it is a read-modify-write of a page the loader mapped read-only. What the hand-off emits
+CLONES it instead, which is what the case name records and what its `byteLength()` of 2 measures.
+
+⚠ **THE ROUTE, AND WHY BOTH ROADS END IN ONE CLONE.** The `+1` for a `returns T` hand-off
+is the CALLEE's, taken in `emitOwnedValueReturn` through the enclosing instance's descriptor
+(`coOwnBorrowedOpaque` → `__retain_type_param`, whose `retainFunc@64` is `__str_clone` for a byte-record
+instantiation), and `main` emits nothing at all after the call. The concrete callee takes no
+COPY either — `retainBorrowedByteRecord` → `__str_retain`, which clones an immortal record and increfs a heap
+one off that same `capacity@16`. And `-2` is `RdataBufferCapacity`, a byte-string literal whose record is an
+ordinary `__mm_alloc` box; a String literal's wholly-immortal record has its own
+`ImmortalRecordCapacity`. Both roads end in ONE clone, which is why the answer is the same either way.
+
+The answer agrees with the non-generic `let s = "hi"`, whose `byteLength()` is 2.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var tag as Integer
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function echo(v T) returns T
+		return v
+	end 'echo'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let bx = StrBox.create()
+	let s = bx.echo("hi")
+	print("{s}\n")
+	return s.byteLength() - 2
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hi
+```
+
+<!-- test: generic-managed-return-routed-through-a-try-block -->
+⚠ **THE SUBSTITUTED RESULT MEETS THE BLOCK-FORM `try`'s ROUTING, WHICH IS AN ORDERING THE RETYPE CANNOT
+MOVE.** `routeToTryBlock` rewrites the call to a `tryCall` and builds the throw edge, and
+it depends on the result's drop obligation being settled before the op is appended — on the error edge the
+result register is never written, so releasing it there faults. The callee takes the SUBSTITUTED result's
+reference at its own `return` (`emitOwnedValueReturn`), so the caller emits nothing after the call and
+adopts the result as an owned temporary (`enrolOwnedCallTemp`), which `routeToTryBlock` takes back off the
+pending drops while it builds the error edge. Both paths run here: `run(0)` returns through the body, `run(1)` throws out of the same call.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(a Integer) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var tag as Integer
+
+	static function create(t Integer) returns Self
+		return Self{tag: t}
+	end 'create'
+
+	function echo(v T) returns T throws Boom
+		if self.tag > 0 'blows'
+			throw Boom.bad
+		end 'blows'
+		return v
+	end 'echo'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function run(t Integer) returns Integer
+	let bx = AlphaBox.create(t)
+	try 'work'
+		let back = bx.echo(Alpha.create(9))
+		print("ok={back.a}\n")
+	end 'work' otherwise (e) 'bad'
+		match e 'kind'
+			bad then print("caught\n")
+		end 'kind'
+	end 'bad'
+	return 0
+end 'run'
+
+function main() returns ExitCode
+	let a = run(0)
+	let b = run(1)
+	return a + b
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok=9
+caught
+```
+
+<!-- test: expression-form-try-over-a-substituted-return -->
+⭐⭐ **THE EXPRESSION FORM OF THE CASE THE BLOCK FORM ABOVE HANDLES.** What it pins is the ANSWER — `v=9`
+off the ok edge of an expression-form `try` over a substituted managed return.
+
+⚠ An expression `try` splits on the error flag right after the call, and on the error edge the result
+register is never written — so nothing that takes a reference to the result may sit in the block both
+edges flow from.
+
+**THERE IS NOTHING AT THE CALL TO PLACE.** The `+1` for a substituted `T` return is the CALLEE's
+(`emitOwnedValueReturn` → `coOwnBorrowedOpaque` → `__retain_type_param`), so the caller emits no promotion
+for a substituted `T` at all — this case's emitted code shows `Box.fetch` making that call and
+`tryok:` holding a single `jmp trycont`.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(v Integer) returns Self
+		return Self{a: v}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function fetch(strict bool) returns T throws Boom
+		if strict 'strict'
+			throw Boom.bad
+		end 'strict'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create(Alpha.create(9))
+	let got = try bx.fetch(false) otherwise Alpha.create(0)
+	print("v={got.a}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=9
+```
+
+<!-- test: expression-form-try-over-a-substituted-string-return -->
+The other managed spelling: a `String` substitution. Both spellings are ONE construct, and nothing is
+emitted at this call for either: the `+1` for a substituted `T` return is taken by the CALLEE
+(`emitOwnedValueReturn`), so nothing trails the call, and a borrowed `String`
+handed off is RETAINED rather than copied (`retainBorrowedByteRecord` → `__str_retain`).
+What the case pins is the ANSWER: `v=hi` off the ok edge of an expression-form `try`
+over a substituted managed return.
+```maxon
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function fetch(strict bool) returns T throws Boom
+		if strict 'strict'
+			throw Boom.bad
+		end 'strict'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let bx = StrBox.create("hi")
+	let got = try bx.fetch(false) otherwise "no"
+	print("v={got}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=hi
+```
+
+<!-- test: expression-form-try-over-a-trivial-substituted-return -->
+⭐ **THE NEGATIVE CONTROL: A TRIVIAL INSTANTIATION.** It owns no heap, and there is no caller-side promotion
+for either instantiation: the `+1` belongs to the CALLEE, so `Box with Alpha` emits nothing after its call
+either (see `expression-form-try-over-a-substituted-return`), and `Box with Integer` and `Box with Alpha`
+are symmetric at the call. What this case holds is the ANSWER for the trivial instantiation — it compiles,
+runs and returns 9.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function fetch(strict bool) returns T throws Boom
+		if strict 'strict'
+			throw Boom.bad
+		end 'strict'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function main() returns ExitCode
+	let bx = IntBox.create(9)
+	let got = try bx.fetch(false) otherwise 0
+	print("v={got}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=9
+```
+
+<!-- test: condition-form-try-over-a-substituted-return -->
+<!-- skip: if try is not supported in minimaxon -->
+⚠ **THE SIBLING DOOR.** `if let x = try …` does not
+go through `parseTry` at all — `parseCatchingCondition` runs the same three steps and lets the `if` own the
+fork — but it takes the target's VALUE through the identical `parseTryCallTarget`. Its ok edge is the
+`if`'s THEN block, where the expression form's is `tryok` (the condition tests `flag == 0`, so then IS the
+ok edge).
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(v Integer) returns Self
+		return Self{a: v}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function fetch(strict bool) returns T throws Boom
+		if strict 'strict'
+			throw Boom.bad
+		end 'strict'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function main() returns ExitCode
+	let bx = AlphaBox.create(Alpha.create(9))
+	// TODO: if try is not supported in minimaxon
+	if let got = try bx.fetch(false) 'ok'
+		print("v={got.a}\n")
+	end 'ok' else 'bad'
+		print("boom\n")
+	end 'bad'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=9
+```
+
+<!-- test: try-over-a-call-whose-argument-is-a-substituted-return -->
+⭐ **THE SECOND NEGATIVE CONTROL: A SUBSTITUTED RESULT AS AN ARGUMENT OF THE TRY TARGET.** `bx.get()`
+returns `Alpha`, and `get` takes that reference at its own `return` (`emitOwnedValueReturn`), so the caller
+adopts the result as an owned temporary (`enrolOwnedCallTemp`) BEFORE `consume`'s call, on the
+unconditional path. The value is one `consume` is handed, not one the fork's ok edge produces, so the fork
+owes it nothing beyond releasing it once on whichever edge runs.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(v Integer) returns Self
+		return Self{a: v}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function consume(a Alpha) returns Integer throws Boom
+	if a.a > 100 'big'
+		throw Boom.bad
+	end 'big'
+	return a.a
+end 'consume'
+
+function main() returns ExitCode
+	let bx = AlphaBox.create(Alpha.create(9))
+	let n = try consume(bx.get()) otherwise 0
+	print("n={n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=9
+```
+
+<!-- test: try-over-a-substituted-return-whose-receiver-is-a-fork-temporary -->
+⭐⭐ **THE RESULT'S REFERENCE IS TAKEN BEFORE THE FORK'S OWN DROPS — AND THIS IS THE PROGRAM THAT CAN
+TELL.** `try make(f).fetch()` builds its receiver as a TEMPORARY, and `desugarTry` releases the fork's
+temporaries at the top of BOTH edges (they are live on each and each must drop them once). The box's
+release runs `__destruct_Box_Alpha`, which decrefs the very `Alpha` the result names — so a reference taken
+after those drops would retain a freed record and `got.a` would read the `0x3F3F…` poison. `fetch` takes it
+at its own `return` (`emitOwnedValueReturn` → `coOwnBorrowedOpaque`), before the call returns, so it holds
+the field alive across the box's death and the answer is **11**.
+
+Every other case in this family binds its receiver, so the box outlives the statement and the ordering is
+unobservable.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(v Integer) returns Self
+		return Self{a: v}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+	export var fail as bool
+
+	static function create(v T, f bool) returns Self
+		return Self{value: v, fail: f}
+	end 'create'
+
+	function fetch() returns T throws Boom
+		if self.fail 'boom'
+			throw Boom.bad
+		end 'boom'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function make(f bool) returns AlphaBox
+	return AlphaBox.create(Alpha.create(11), f: f)
+end 'make'
+
+function forkTemp(f bool) returns Integer
+	let got = try make(f).fetch() otherwise Alpha.create(1)
+	return got.a
+end 'forkTemp'
+
+function main() returns ExitCode
+	print("ok={forkTemp(false)} err={forkTemp(true)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok=11 err=1
+```
+
+<!-- test: condition-form-try-over-a-substituted-return-whose-receiver-is-a-fork-temporary -->
+<!-- skip: if try is not supported in minimaxon -->
+⛔⛔ **THE SIBLING DOOR'S FORK TEMPORARY.** A catching `if` releases its condition's temporaries PER EDGE
+(`takeCatchingForkTemps`), at the head of its then block and of its else block. One release in the ENTRY
+block, dominating both edges, is right for every plain condition and wrong for exactly this one:
+`__destruct_Box_Alpha` would run before the branch, so a read on the then edge would reach a freed record
+and `got.a` would read the poison (`ok=4557430888798830399`).
+
+⭐ The pair of cases — this one and its `otherwise` twin above — is what keeps the two `try` doors from
+drifting apart.
+```maxon
+typealias Integer = int(0 to 125)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+type Alpha
+	export var a as Integer
+
+	static function create(v Integer) returns Self
+		return Self{a: v}
+	end 'create'
+end 'Alpha'
+
+type Box uses T
+	export var value as T
+	export var fail as bool
+
+	static function create(v T, f bool) returns Self
+		return Self{value: v, fail: f}
+	end 'create'
+
+	function fetch() returns T throws Boom
+		if self.fail 'boom'
+			throw Boom.bad
+		end 'boom'
+		return self.value
+	end 'fetch'
+end 'Box'
+
+typealias AlphaBox = Box with Alpha
+
+function make(f bool) returns AlphaBox
+	return AlphaBox.create(Alpha.create(11), f: f)
+end 'make'
+
+function forkTemp(f bool) returns Integer
+	// TODO: if try is not supported in minimaxon
+	if let got = try make(f).fetch() 'ok'
+		return got.a
+	end 'ok' else 'bad'
+		return 1
+	end 'bad'
+end 'forkTemp'
+
+function main() returns ExitCode
+	print("ok={forkTemp(false)} err={forkTemp(true)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok=11 err=1
+```
+
+<!-- test: error.a-type-parameter-belongs-to-the-type-that-declares-it -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **`Array with U` IN ONE GENERIC TYPE AND `Array with V` IN ANOTHER ARE TWO TYPES, AND A DIAGNOSTIC
+MUST SAY WHICH.** A `typeParameter` is identified by a digest of `(declaring type, parameter name)`
+(`ProgramSignatures.typeParamTokenFor`), not by its POSITION in its declaring type's `uses` list. Keyed
+by position, `HoldA`'s first parameter and `HoldB`'s first parameter would be ONE value — and
+`GenericInstanceRegistry.instanceKey`, which mixes each argument's `(tag, id)` pair, would give
+`Array with U` and `Array with V` ONE key: not two names for two types, but one interned type.
+`deriveInstanceDisplayNames` would then settle the two spellings by FIRST DECLARATION, which is the
+right rule for two names that really are true of one type and the wrong one for a type the key had
+merged by accident — so this program, and its twin below that differs only in which type is declared
+first, would name the value's type `HoldA.Items` in one order and `HoldB.Items` in the other: one
+program, two answers, decided by declaration order. That is the build-order artifact
+`StdlibLoader.maxon` bars from a diagnostic.
+
+⭐ **THE PAIR IS THE GATE, AND NO ORDER-DEPENDENT CITATION CAN PASS IT**: the two cases pin ONE
+byte-identical sentence, so a compiler that lets declaration order pick the name must fail exactly one
+of them WHATEVER text is pinned. The rule is in the KEY, and NOT in the display rule.
+
+The refusal itself is correct in both orders: an `Array` of `Num` and an `Array` of `String` are
+different types. Only the NAME is at stake.
+
+⚠ **THE `got` SIDE IS THE INSTANCE VIEW.** `b.items` on a `HoldB with String` does not keep the shared
+body's `Array with V` — it is substituted to the type the receiver actually fixes, `Array with String` — so
+the sentence names that type by the `typealias` the program declares for it (`Strs`) rather than by the
+inner alias of the declaration it was read through (`HoldB.Items`). The two orders must still print ONE
+byte-identical sentence, and a compiler that lets declaration order pick the name fails exactly one of them.
+
+⚠ `Strs` is declared here ON PURPOSE, in both cases identically. Without it the program names
+`Array with String` nowhere, and `instanceDisplayName` falls back to a name no line of this program
+wrote — an alias the standard library declares for that instance, or the instance's own rendering. That
+fallback is not pinned here, because pinning it would couple this case to the library's names.
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias Nums = Array with Num
+
+typealias Strs = Array with String
+
+type HoldA uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with U
+	export var items as Items
+
+	static function of(first U) returns HoldA
+		var xs = Items.create(0)
+		xs.push(first)
+		return HoldA{items: xs}
+	end 'of'
+
+	function total(other Nums) returns Num
+		return other.count()
+	end 'total'
+end 'HoldA'
+
+type HoldB uses V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with V
+	export var items as Items
+
+	static function of(first V) returns HoldB
+		var xs = Items.create(0)
+		xs.push(first)
+		return HoldB{items: xs}
+	end 'of'
+end 'HoldB'
+
+typealias HoldANum = HoldA with Num
+
+typealias HoldBStr = HoldB with String
+
+function main() returns ExitCode
+	let a = HoldANum.of(42)
+	let b = HoldBStr.of("hello")
+	var s = Strs.create(0)
+	s.push("names the type the refusal quotes")
+	return a.total(b.items)
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:40:11: argument type mismatch for 'other': expected 'Nums', got 'Strs'
+```
+
+<!-- test: error.a-type-parameter-belongs-to-the-type-that-declares-it-swapped -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The RED-GATE CONTROL of the case above: the same program with the two type declarations exchanged, and
+the same pinned sentence, to the byte. `HoldA` is 14 lines and `HoldB` is 10 either way, so
+`a.total(b.items)` sits at the same line in both — which is what leaves declaration order as the only
+difference between the two cases, and therefore the only thing the pair can be measuring.
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias Nums = Array with Num
+
+typealias Strs = Array with String
+
+type HoldB uses V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with V
+	export var items as Items
+
+	static function of(first V) returns HoldB
+		var xs = Items.create(0)
+		xs.push(first)
+		return HoldB{items: xs}
+	end 'of'
+end 'HoldB'
+
+type HoldA uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with U
+	export var items as Items
+
+	static function of(first U) returns HoldA
+		var xs = Items.create(0)
+		xs.push(first)
+		return HoldA{items: xs}
+	end 'of'
+
+	function total(other Nums) returns Num
+		return other.count()
+	end 'total'
+end 'HoldA'
+
+typealias HoldANum = HoldA with Num
+
+typealias HoldBStr = HoldB with String
+
+function main() returns ExitCode
+	let a = HoldANum.of(42)
+	let b = HoldBStr.of("hello")
+	var s = Strs.create(0)
+	s.push("names the type the refusal quotes")
+	return a.total(b.items)
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:40:11: argument type mismatch for 'other': expected 'Nums', got 'Strs'
+```
+
+<!-- test: an-inner-alias-field-crosses-into-a-parameter-of-its-own-instance -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⭐⭐ **THE LEGAL COUNTERPART OF THE PAIR ABOVE.** The two cases above pin that
+`HoldA`'s `Items` and `HoldB`'s `Items` are DIFFERENT types and a diagnostic must say which. This one pins
+the other half of that sentence: **`HoldA`'s `Items` and `HoldA`'s `Items` are the SAME type**, so a value
+read out of one `HoldA with Num` may be handed to a parameter of another one. Refusing it would read
+**`E3005: argument type mismatch for 'other': expected 'HoldANum.Items', got 'HoldA.Items'`** — a program
+handing a value to a parameter of its own type, refused, with a sentence naming one type twice. It builds,
+runs and prints `ok`.
+
+⚠ **THE MECHANISM IS THE SAME DECLARATION-VIEW/INSTANCE-VIEW SPLIT the extension crash is made of**, one
+surface over: substitution must not stop at a bare `typeParameter`. A field whose declared type is a generic
+INSTANCE (`Array with T`, reached through the inner `typealias Items`) is substituted too, so `b.items` is
+the `Array with Num` the receiver fixes rather than the shared body's opaque `Array with T`. The NON-generic
+control is the case below: the identical store on a plain `type`, which is what says the store is
+ownership-legal and the question is purely one of substitution.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+type HoldA uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	export var items as Items
+
+	static function create(seed T) returns Self
+		let arr = Items.create(0)
+		arr.resize(1)
+		try arr.set(0, value: seed) otherwise panic("seeded slot 0 must exist after resize(1)")
+		return Self{items: arr}
+	end 'create'
+
+	function adopt(other Items)
+		self.items = other
+	end 'adopt'
+
+	function isSingle() returns bool
+		return self.items.count() == 1
+	end 'isSingle'
+end 'HoldA'
+
+typealias HoldANum = HoldA with Num
+
+function main() returns ExitCode
+	let b = HoldANum.create(7)
+	let a = HoldANum.create(1)
+	a.adopt(b.items)
+	if a.isSingle() 'ok'
+		print("ok\n")
+	end 'ok'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok
+```
+
+<!-- test: the-same-field-store-on-a-non-generic-type -->
+The one-variable CONTROL of the case above: the identical program with the type parameter removed and the
+array alias hoisted to file scope, so nothing is substituted and nothing can fail to be. It is what ties a
+refusal of the case above to the substitution and not to the store, to the array's ownership, or to
+`adopt`'s signature.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias NumArray = Array with Num
+
+type HoldConcrete
+	export var items as NumArray
+
+	static function create(seed Num) returns Self
+		let arr = NumArray.create(0)
+		arr.resize(1)
+		try arr.set(0, value: seed) otherwise panic("seeded slot 0 must exist after resize(1)")
+		return Self{items: arr}
+	end 'create'
+
+	function adopt(other NumArray)
+		self.items = other
+	end 'adopt'
+
+	function isSingle() returns bool
+		return self.items.count() == 1
+	end 'isSingle'
+end 'HoldConcrete'
+
+function main() returns ExitCode
+	let b = HoldConcrete.create(7)
+	let a = HoldConcrete.create(1)
+	a.adopt(b.items)
+	if a.isSingle() 'ok'
+		print("ok\n")
+	end 'ok'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok
+```
+
+### ⭐⭐ An OPAQUE type parameter may not stand where a CONCRETE AGGREGATE is declared
+
+A generic body compiles ONCE, for the declaration view, and a `T` there is one opaque machine word whose
+representation no instantiation has fixed. A CONCRETE AGGREGATE place — a `String`, a struct, a generic
+instance, a function value, a `Character` — is a promise that the word is a POINTER to a particular record
+with a particular destructor, and the shared body cannot keep that promise: it is dereferenced, stored and
+DROPPED under the declared type. Admitted, a `T` passed there compiles with no diagnostic at all and the
+program faults (`0xC0000005`), because the deferral that admits a type parameter lives in the TAG domain and
+a primitive formal has no other domain to be judged in.
+
+**The refusal does NOT depend on what the instantiations bind.** It is refused at `Outer with String` — where
+`T` really is `String` — exactly as it is refused at `Outer with Integer`, and
+`error.opaque-type-parameter-at-a-concrete-aggregate-argument-is-refused-at-a-matching-instantiation` below
+pins that.
+The MANAGED FIELD door answers it the same way: it compares the tags EXACTLY (`Parser.requireManagedValueMatches`), so `self.s = t` is refused at every
+instantiation.
+Deciding it from the instantiation set instead would need an ALL-fold over every `with` in the program, and
+would make a body's validity change when an unrelated file adds a second instantiation.
+
+⚠ **The SCALAR quadrant is deliberately NOT refused, and that is a BOUND on this rule rather than a claim
+that it is sound.** A `T` meeting a declared `int`/`bool` place is a word moving to a word-shaped slot: it
+dereferences nothing and drops nothing, so the worst it can produce is a wrong NUMBER, never the fault above —
+and `array-declared-record`'s `the-self-spelling-of-a-corpus-served-member-reaches-the-same-body` is a
+committed program that returns an opaque element as its ranged-int alias and depends on being allowed to.
+Refusing that quadrant as well costs three committed cases, two of
+them `error.` cases whose own subject it masks; separating the sound instances from the unsound ones needs the
+instantiation fold this rule deliberately does without.
+
+<!-- test: error.opaque-type-parameter-at-a-concrete-aggregate-argument -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Inner uses P
+	let p as P
+	let s as String
+
+	function tag() returns Integer
+		return s.count()
+	end 'tag'
+
+	static function create(p P, s String) returns Self
+		return Self{p: p, s: s}
+	end 'create'
+end 'Inner'
+
+type Outer uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias I = Inner with T
+	var n as Integer
+
+	function build(t T) returns Integer
+		let i = I.create(t, s: t)
+		return n + i.tag()
+	end 'build'
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Outer'
+
+typealias O = Outer with Integer
+
+function main() returns ExitCode
+	var o = O.create()
+	print("{o.build(42)}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:22:13: argument type mismatch for 's': expected 'String', got 'type parameter': a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+```
+
+<!-- test: error.opaque-type-parameter-at-a-concrete-aggregate-argument-of-a-plain-function -->
+The same rule with no generic in the CALLEE at all — a plain `takeText(s String)` reached from inside a
+generic body. It is the wider shape and the one that shows the rule is not about the callee's own
+instance: the argument door alone decides it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function takeText(s String) returns Integer
+	return s.count()
+end 'takeText'
+
+type Outer uses T
+	var n as Integer
+
+	function build(t T) returns Integer
+		return takeText(t) + n
+	end 'build'
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Outer'
+
+typealias O = Outer with Integer
+
+function main() returns ExitCode
+	var o = O.create()
+	print("{o.build(42)}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:10: argument type mismatch for 's': expected 'String', got 'type parameter': a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+```
+
+<!-- test: error.opaque-type-parameter-at-a-concrete-aggregate-argument-is-refused-at-a-matching-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **THE CONTROL, AND IT IS A REFUSAL.** The first case's program with its ONE instantiation changed to
+`Outer with String`, so `T` is bound to exactly the type the formal declares — without this rule it would
+compile and print `3`. It is refused, for the reason the section above gives: the body is checked once,
+against a declaration view no `with` has reached, and the answer cannot be allowed to depend on which
+instantiations the rest of the program happens to contain.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Inner uses P
+	let p as P
+	let s as String
+
+	function tag() returns Integer
+		return s.count()
+	end 'tag'
+
+	static function create(p P, s String) returns Self
+		return Self{p: p, s: s}
+	end 'create'
+end 'Inner'
+
+type Outer uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias I = Inner with T
+	var n as Integer
+
+	function build(t T) returns Integer
+		let i = I.create(t, s: t)
+		return n + i.tag()
+	end 'build'
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Outer'
+
+typealias O = Outer with String
+
+function main() returns ExitCode
+	var o = O.create()
+	print("{o.build("ab")}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:22:13: argument type mismatch for 's': expected 'String', got 'type parameter': a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+```
+
+<!-- test: error.opaque-type-parameter-returned-at-a-concrete-aggregate-return -->
+⚠ **THE RETURN QUADRANT HAS TWO REFUSALS, AND THIS CASE RECORDS WHICH ONE SPEAKS.**
+The DESCRIPTOR door refuses this program as well (`E2015`, "takes a reference to a
+borrowed type-parameter value"): returning a `T` means taking a reference to it, and a `static function` has
+no `self` to read the instantiation's descriptor from. The coercion rule answers first, because the type
+fault is the more fundamental one — following E2015's advice and moving the body to an instance method lands
+on this same refusal — and because its cure ("declare the place at the type parameter too", i.e. `returns T`)
+is the one that makes the program compile. It is pinned so that the ordering is a decision on the record
+rather than a side effect nothing observes.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Outer uses T
+	var n as Integer
+
+	static function pick(t T) returns String
+		return t
+	end 'pick'
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Outer'
+
+typealias O = Outer with Integer
+
+function main() returns ExitCode
+	print("{O.pick(42)}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:3: Cannot return 'type parameter' from function declared to return 'String'
+```
+
+<!-- test: error.opaque-type-parameter-at-a-boxed-union-argument-explains-itself -->
+A boxed UNION formal carries a NOMINAL identity, so this pairing is refused by the argument door's identity
+arm and never reaches the tag rule at all. It is pinned because the READER is
+the same reader: one fault gets one explanation, so the identity arm quotes the same tail the tag arm does
+whenever the ARGUMENT is the opaque one.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function takeMsg(m Message) returns Integer
+	return match m 'm'
+		silent gives 1
+		text(b) gives b.count()
+	end 'm'
+end 'takeMsg'
+
+type Outer uses T
+	var n as Integer
+
+	function build(t T) returns Integer
+		return takeMsg(t) + n
+	end 'build'
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Outer'
+
+typealias O = Outer with Integer
+
+function main() returns ExitCode
+	var o = O.create()
+	print("{o.build(42)}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:20:10: argument type mismatch for 'm': expected 'Message', got 'type parameter': a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+```
+
+<!-- test: error.concrete-value-passed-to-a-type-parameter-parameter -->
+The mirror of `error.opaque-field-write-in-the-shared-body-refuses-a-concrete-value`, one door along: a
+concrete `Label` handed to a parameter the shared body declares as `T`. Both are the same rule about
+the same thing — a `T` place is opaque inside the shared body — and both are decided by the one
+identity comparison (`ProgramSignatures.aggregatesConflict`) over an EMPTY expected name meeting
+`Label`. Unguarded, this program compiles with no diagnostic at all and passes the
+`Label` box's ADDRESS into a slot the instantiation has fixed as an integer, so `b.clobber() as
+ExitCode` range-checks a pointer and dies `panic: Range check failed: value outside typealias
+'ExitCode'` — a wrong answer that reaches runtime, which is why this case exists.
+
+The door decides only the case where the binding question answers itself: the receiver is a value of
+the declaring type ITSELF (a `structRef`, so no `with` has reached it) and the formal is that
+declaration's OWN parameter, so no concrete aggregate can be that `T`. It must NOT refuse by the
+value's runtime identity — `stdlib/Interfaces.maxon` hands a concrete iterator to a parameter declared
+`Source` and is correct, because the instance two levels up binds `Source` to exactly that iterator,
+and that call reaches the SUBSTITUTED check instead. A receiverless call is out for a different
+reason: its subject is the call's own result, which is the unbound-`T` construct
+`error.bare-generic-constructor-unbound-t` already pins where the value meets a typed place.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+type Label
+	export let n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Label'
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function put(v T) returns T
+		return v
+	end 'put'
+
+	function clobber() returns T
+		return put(Label.create(77))
+	end 'clobber'
+end 'Box'
+
+typealias NumBox = Box with Num
+
+function main() returns ExitCode
+	var b = NumBox.create(1)
+	return b.clobber() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:24:10: argument type mismatch for 'v': expected 'type parameter', got 'Label': one body serves every instantiation, so a concrete type named here is claimed of every 'with' in the program — true of at most one of them. Pass a value of the parameter's own type, or make the call from a concrete instantiation, where the type argument is known
+```
+
+<!-- test: error.a-nested-datatype-is-refused-rather-than-instantiated-forever -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var a as A
+	export var b as B
+
+	static function create(a A, b B) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+end 'Pair'
+
+type Nest uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Deeper = Nest with Doubled
+	export var v as T
+	var deeper as Deeper
+
+	static function create(v T, deeper Deeper) returns Self
+		return Self{v: v, deeper: deeper}
+	end 'create'
+end 'Nest'
+
+typealias ValNest = Nest with Val
+
+function peek(n ValNest) returns Val
+	return n.v
+end 'peek'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3184: <fragment>:18:16: field 'deeper' of generic type 'Nest' is declared 'Nest.Deeper', which holds 'Nest' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+```
+
+<!-- test: error.a-wrong-arity-instance-inside-a-field-reports-the-arity-error -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+type Box uses V
+	export var v as V
+end 'Box'
+
+type Cell uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias PairU = Pair with U
+	export var p as PairU
+end 'Cell'
+
+type Holder uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias BoxT = Box with T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias CellBox = Cell with BoxT
+	export var c as CellBox
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:10:20: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-alias-in-a-type-reports-the-arity-error-instead-of-panicking -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`Bad` gives `Pair` one type argument for its two parameters. The alias is refused where it is written, and a function
+that returns it is a consequence of that refusal: the compiler reports E2056 and does not build an instance of `Pair`
+with one argument.
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+type Holder
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Bad = Pair with ExitCode
+
+	static function create() returns Bad
+		panic("never built")
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:8:18: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-alias-field-read-reports-only-the-arity-error -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A field read of a value whose type is the refused alias is a consequence of the same E2056: the compiler reports it
+alone and does not add that the base type is not declared.
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+type Holder
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Bad = Pair with ExitCode
+
+	static function create() returns Bad
+		panic("never built")
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create()
+	return h.first
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:8:18: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-alias-field-read-in-a-generic-body-still-reports-the-arity-error -->
+A refusal inside a generic function body fails the whole file, so the arity error recorded at the `typealias` is the
+only report the file has: the field read that follows from it is not reported, and the arity error is.
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+typealias Bad = Pair with ExitCode
+
+function make() returns Bad
+	panic("never built")
+end 'make'
+
+function peek(x T) uses T returns ExitCode
+	return make().first
+end 'peek'
+
+function main() returns ExitCode
+	return peek(1 as ExitCode)
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
+own member of that name and so the extension's alias is never what a conformer reads.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Container uses Item
+	function only() returns Item
+end 'Container'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Container
+	export typealias Pairs = Pair with Item
+end 'Container'
+
+type Bag implements Container with Integer
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Pairs = Array with Integer
+	export var value as Integer
+
+	static function create(v Integer) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function only() returns Integer
+		return self.value
+	end 'only'
+end 'Bag'
+
+function main() returns ExitCode
+	let b = Bag.create(3)
+	return (b.only() - 3) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-alias-in-a-conditional-extension-no-conformer-meets-reports-the-arity-error -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- positions: moved -->
+The same refusal when the alias sits in a conditional extension whose `where` clause no conformer meets: the alias is
+judged where it is written, whether or not any conformer ever reads it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Container uses Item
+	function only() returns Item
+end 'Container'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Container where Item implements Comparable
+	export typealias Pairs = Pair with Item
+end 'Container'
+
+type Thing
+	export var n as Integer
+
+	static function create(v Integer) returns Self
+		return Self{n: v}
+	end 'create'
+end 'Thing'
+
+type Bag implements Container with Thing
+	export var value as Thing
+
+	static function create(v Thing) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function only() returns Thing
+		return self.value
+	end 'only'
+end 'Bag'
+
+function main() returns ExitCode
+	let b = Bag.create(Thing.create(3))
+	return (b.only().n - 3) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-alias-in-an-extension-of-an-interface-nothing-implements-reports-the-arity-error -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- positions: moved -->
+The same refusal when nothing implements the extended interface at all.
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Container uses Item
+	function only() returns Item
+end 'Container'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Container
+	export typealias Pairs = Pair with Item
+end 'Container'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:12:27: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: error.a-wrong-arity-top-level-alias-used-by-a-function-reports-the-arity-error-instead-of-panicking -->
+The same refusal for a top-level alias: the arity error is reported when a function returns the alias and `main` binds
+its result, exactly as when nothing names the alias.
+```maxon
+type Pair uses A, B
+	export var first as A
+	export var second as B
+end 'Pair'
+
+typealias Bad = Pair with ExitCode
+
+function create() returns Bad
+	panic("never built")
+end 'create'
+
+function main() returns ExitCode
+	let h = create()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), but 1 were supplied
+```
+
+<!-- test: a-nested-datatype-through-a-function-typed-field-compiles -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+public typealias Val = int(i64.min to i64.max)
+
+public type Pair uses A, B
+	export var a as A
+	export var b as B
+
+	static function create(a A, b B) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+end 'Pair'
+
+public type Nest uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Deeper = Nest with Doubled
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	export typealias Grow = function(Deeper) returns Val
+	export var v as T
+	var f as Grow
+
+	static function create(v T, f Grow) returns Self
+		return Self{v: v, f: f}
+	end 'create'
+end 'Nest'
+
+public typealias ValNest = Nest with Val
+
+public function peek(n ValNest) returns Val
+	return n.v
+end 'peek'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-closure-is-accepted-by-a-function-type-over-a-nested-datatype -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var a as A
+	export var b as B
+
+	static function create(a A, b B) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+end 'Pair'
+
+type Nest uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Deeper = Nest with Doubled
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	export typealias Grow = function(Deeper) returns Val
+	export var v as T
+	var f as Grow
+
+	static function create(v T, f Grow) returns Self
+		return Self{v: v, f: f}
+	end 'create'
+end 'Nest'
+
+typealias ValNest = Nest with Val
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let n = ValNest.create(7, f: function(_) gives 0)
+	return n.v as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: an-array-literal-takes-its-element-type-from-a-static-call-through-a-generic-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Octet = int(0 to 255)
+
+type Bag uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+
+	static function first(items Items) returns T
+		return try items.get(0) otherwise panic("empty")
+	end 'first'
+end 'Bag'
+
+typealias OctetBag = Bag with Octet
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let head = OctetBag.first([7, 8, 9])
+	return head as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.a-closure-over-a-nested-alias-of-an-unfixed-type-parameter-is-not-typed -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var a as A
+	export var b as B
+end 'Pair'
+
+type Nest uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Deeper = Nest with Doubled
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	export typealias Grow = function(Deeper) returns Val
+	export var v as T
+	var f as Grow
+
+	static function create(v T, f Grow) returns Self
+		return Self{v: v, f: f}
+	end 'create'
+end 'Nest'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let n = Nest.create(7, f: function(_) gives 0)
+	return n.v as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:23:37: Unsupported: parameter '_' with no type — the compiler infers an omitted parameter type only for a closure literal passed where the parameter is declared with a function type; every other parameter declares its type
+```
+
+<!-- test: error.mutually-recursive-generics-growing-through-another-base -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Pair uses L, R
+	export var l as L
+	export var r as R
+end 'Pair'
+
+type A uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Next = B with Doubled
+	export var v as T
+	export var next as Next
+end 'A'
+
+type B uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Back = A with U
+	export var back as Back
+end 'B'
+
+typealias ValA = A with Val
+
+function peek(n ValA) returns Val
+	return n.v
+end 'peek'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3184: <fragment>:14:21: field 'next' of generic type 'A' is declared 'A.Next', which holds 'A' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+```
+
+<!-- test: error.mutually-recursive-generics-growing-through-another-base-across-files -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// --- file: grows.maxon
+export typealias Val = int(i64.min to i64.max)
+
+export type Pair uses L, R
+	export var l as L
+	export var r as R
+end 'Pair'
+
+export type A uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Doubled = Pair with (T, T)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Next = B with Doubled
+	export var v as T
+	export var next as Next
+end 'A'
+
+// --- file: main.maxon
+export type B uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Back = A with U
+	export var back as Back
+end 'B'
+
+typealias ValA = A with Val
+
+function peek(n ValA) returns Val
+	return n.v
+end 'peek'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3184: <fragment>:15:21: field 'next' of generic type 'A' is declared 'A.Next', which holds 'A' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+```
+
+<!-- test: error.generic-value-passed-at-two-consuming-arguments -->
+A value of an opaque type parameter handed to two parameters that each keep it would be released twice, so the
+second argument is refused: it names a value the first already gave away.
+```maxon
+type DPair uses T
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	static function echo(v T) returns T
+		return v
+	end 'echo'
+
+	static function twice(v T) returns Self
+		let w = DPair.echo(v)
+		return DPair.create(w, b: w)
+	end 'twice'
+end 'DPair'
+
+typealias StrDPair = DPair with String
+
+function main() returns ExitCode
+	let p = StrDPair.twice("{7}")
+	print("{p.a}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:26: use of moved value 'w': it is passed at two arguments of this call, and handing it to a parameter that takes it moves it
+```
+
+<!-- test: a-generic-factory-builds-two-records-from-one-managed-argument -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+Each record a generic factory builds from its `T` argument holds a reference of its own: dropping one record leaves
+the string the other holds readable, and the leak gate is clean.
+```maxon
+type Box uses T
+	var v as T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Peers = Array with Self
+
+	static function twice(v T) returns Peers
+		let out = Peers.create(0)
+		out.push(Self{v: v})
+		out.push(Self{v: v})
+		return out
+	end 'twice'
+
+	function held() returns T
+		return self.v
+	end 'held'
+end 'Box'
+
+typealias TextBox = Box with String
+
+function heapString(a String, b String) returns String
+	let sb = StringBuilder.create()
+	sb.append(a)
+	sb.append(b)
+	return sb.build()
+end 'heapString'
+
+function main() returns ExitCode
+	let boxes = TextBox.twice(heapString("first payload ", b: "long enough to allocate"))
+	let first = try boxes.pop() otherwise panic("one")
+	_ = try boxes.pop() otherwise panic("two")
+	let noise = heapString("overwrite payload ", b: "long enough to allocate xxxxxxxx")
+	print("{first.held()}\n")
+	print("{noise}\n")
+	return 0
+end 'main'
+```
+```stdout
+first payload long enough to allocate
+overwrite payload long enough to allocate xxxxxxxx
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-reads-its-argument-after-storing-it -->
+A generic factory keeps its `T` argument readable after a record has stored it, as a concrete managed parameter
+is, and returns the record without a leak.
+```maxon
+type Solo uses T where T implements Equatable
+	var a as T
+
+	static function create(item T) returns Self
+		let built = Self{a: item}
+		if built.sameAs(item) 'same'
+			return built
+		end 'same'
+		panic("the stored value must equal the argument")
+	end 'create'
+
+	function sameAs(other T) returns bool
+		return self.a.equals(other)
+	end 'sameAs'
+
+	function held() returns T
+		return self.a
+	end 'held'
+end 'Solo'
+
+function main() returns ExitCode
+	let s = Solo.create("another label long enough to be a heap string")
+	print(s.held())
+	print("\n")
+	return 0
+end 'main'
+```
+```stdout
+another label long enough to be a heap string
+```
+```exitcode
+0
+```
+
+<!-- test: a-concrete-string-factory-builds-two-records-from-one-argument -->
+The concrete twin of the two cases above: a `String` parameter stored into two fields, and read after it was
+stored, behaves as the generic body does.
+```maxon
+type Pair
+	export var a as String
+	var b as String
+
+	static function create(item String) returns Self
+		return Self{a: item, b: item}
+	end 'create'
+end 'Pair'
+
+type Solo
+	export var a as String
+
+	static function create(item String) returns Self
+		let built = Self{a: item}
+		print(item)
+		return built
+	end 'create'
+end 'Solo'
+
+function main() returns ExitCode
+	let p = Pair.create("a label long enough to be a heap string")
+	let s = Solo.create("another label long enough to be a heap string\n")
+	print(p.a)
+	print("\n")
+	print(s.a)
+	return 0
+end 'main'
+```
+```stdout
+another label long enough to be a heap string
+a label long enough to be a heap string
+another label long enough to be a heap string
+```
+```exitcode
+0
+```
+
+<!-- test: a-throwing-generic-factory-releases-what-it-stored-before-it-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A generic factory that stores its `T` argument in a record and then throws releases the record's reference and its
+own: nothing is left owned.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+enum StartError implements Error
+	refused
+end 'StartError'
+
+type Box uses T
+	var item as T
+	var extra as Whole
+
+	static function create(item T, extra Whole) returns Self throws StartError
+		let built = Self{item: item, extra: extra}
+		if built.extra < 0 'negative'
+			throw StartError.refused
+		end 'negative'
+		return built
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
+		match e 'which'
+			refused then print("refused\n")
+		end 'which'
+		return 0
+	end 'failed'
+	return 1
+end 'main'
+```
+```stdout
+refused
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-drops-an-argument-on-every-path-that-did-not-store-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+A generic factory that stores `item` on one branch and `spare` on the other drops whichever it did not store on
+every path, whether it returns or throws. The same body over a `String` and over a promise leaks neither the
+string nor the promise's green thread, on the path that stored the argument and on the path that did not.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+enum KeepError implements Error
+	refused
+end 'KeepError'
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError
+		if keep 'kept'
+			let built = Self{slot: item, origin: 1}
+			if refuse 'refusedKept'
+				throw KeepError.refused
+			end 'refusedKept'
+			return built
+		end 'kept'
+		let fallback = Self{slot: spare, origin: 2}
+		if refuse 'refusedFallback'
+			throw KeepError.refused
+		end 'refusedFallback'
+		return fallback
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+typealias TextHolder = Holder with String
+
+typealias PromiseHolder = Holder with IntPromise
+
+function attemptText(keep bool, refuse bool) returns String
+	let built = try TextHolder.create(longText("item"), spare: longText("spare"), keep: keep, refuse: refuse) otherwise return "refused"
+	return "{built.slot} {built.source()}"
+end 'attemptText'
+
+function attemptPromise(keep bool, refuse bool) returns Whole
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = try PromiseHolder.create(async work(1), spare: async work(2), keep: keep, refuse: refuse) otherwise return 0
+	return built.source()
+end 'attemptPromise'
+
+function main() returns ExitCode
+	print("{attemptText(true, refuse: false)}\n")
+	print("{attemptText(false, refuse: false)}\n")
+	print("{attemptText(true, refuse: true)}\n")
+	print("{attemptText(false, refuse: true)}\n")
+	print("{attemptPromise(true, refuse: false)}\n")
+	print("{attemptPromise(false, refuse: false)}\n")
+	print("{attemptPromise(true, refuse: true)}\n")
+	print("{attemptPromise(false, refuse: true)}\n")
+	return 0
+end 'main'
+```
+```stdout
+item payload long enough to allocate 1
+spare payload long enough to allocate 2
+refused
+refused
+1
+2
+0
+0
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-pushes-a-copy-of-a-type-parameter-argument-it-also-reassigns -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A generic factory that copies its `T` parameter into a local it reassigns and pushes the local into an array it builds owns neither the
+caller's cell nor a second reference to the pushed value: the caller's variable and the array each keep what
+they hold, and the leak gate is clean.
+```maxon
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Hold uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with U
+	export var items as Items
+
+	static function of(first U, replacement U, swap bool) returns Hold
+		let xs = Items.create(0)
+		var chosen = first
+		if swap 'swapped'
+			chosen = replacement
+		end 'swapped'
+		xs.push(chosen)
+		return Hold{items: xs}
+	end 'of'
+end 'Hold'
+
+typealias TextHold = Hold with String
+
+function main() returns ExitCode
+	let original = longText("original")
+	let swapped = TextHold.of(original, replacement: longText("replacement"), swap: true)
+	let other = longText("kept")
+	let kept = TextHold.of(other, replacement: longText("unused"), swap: false)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in swapped.items 'each'
+		print("{s}\n")
+	end 'each'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in kept.items 'eachKept'
+		print("{s}\n")
+	end 'eachKept'
+	return 0
+end 'main'
+```
+```stdout
+replacement payload long enough to allocate
+kept payload long enough to allocate
+```
+```exitcode
+0
+```
+
+<!-- test: a-concrete-factory-pushes-a-string-argument-it-also-reassigns -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The concrete twin of the case above: a `mutable` `String` parameter that is reassigned and then pushed into an array the
+factory builds, with the caller's variable and the array each keeping what they hold.
+```maxon
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Hold
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with String
+	export var items as Items
+
+	static function of(mutates first String, replacement String, swap bool) returns Hold
+		let xs = Items.create(0)
+		if swap 'swapped'
+			first = replacement
+		end 'swapped'
+		xs.push(first)
+		return Hold{items: xs}
+	end 'of'
+end 'Hold'
+
+function main() returns ExitCode
+	var original = longText("original")
+	let swapped = Hold.of(original, replacement: longText("replacement"), swap: true)
+	var other = longText("kept")
+	let kept = Hold.of(other, replacement: longText("unused"), swap: false)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in swapped.items 'each'
+		print("{s}\n")
+	end 'each'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in kept.items 'eachKept'
+		print("{s}\n")
+	end 'eachKept'
+	return 0
+end 'main'
+```
+```stdout
+replacement payload long enough to allocate
+kept payload long enough to allocate
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-drops-an-argument-stored-on-only-some-paths-into-a-join -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A generic factory that stores `item` into a local record on one branch and goes on to the code both branches
+share drops it on the path that skipped the store, whether the factory then returns or throws. The same body over
+a `String` and over a promise leaks neither the string nor the promise's green thread.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+enum KeepError implements Error
+	refused
+end 'KeepError'
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Pieces = Array with Self
+
+	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError
+		let pieces = Pieces.create(0)
+		var made = 2 as Whole
+		if keep 'kept'
+			pieces.push(Self{slot: item, origin: 1})
+			made = 3
+		end 'kept'
+		if refuse 'refused'
+			throw KeepError.refused
+		end 'refused'
+		return Self{slot: spare, origin: made}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+typealias TextHolder = Holder with String
+
+typealias PromiseHolder = Holder with IntPromise
+
+function attemptText(keep bool, refuse bool) returns String
+	let built = try TextHolder.create(longText("item"), spare: longText("spare"), keep: keep, refuse: refuse) otherwise return "refused"
+	return "{built.slot} {built.source()}"
+end 'attemptText'
+
+function attemptPromise(keep bool, refuse bool) returns Whole
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = try PromiseHolder.create(async work(1), spare: async work(2), keep: keep, refuse: refuse) otherwise return 0
+	return built.source()
+end 'attemptPromise'
+
+function main() returns ExitCode
+	print("{attemptText(true, refuse: false)}\n")
+	print("{attemptText(false, refuse: false)}\n")
+	print("{attemptText(true, refuse: true)}\n")
+	print("{attemptText(false, refuse: true)}\n")
+	print("{attemptPromise(true, refuse: false)}\n")
+	print("{attemptPromise(false, refuse: false)}\n")
+	print("{attemptPromise(true, refuse: true)}\n")
+	print("{attemptPromise(false, refuse: true)}\n")
+	return 0
+end 'main'
+```
+```stdout
+spare payload long enough to allocate 3
+spare payload long enough to allocate 2
+refused
+refused
+3
+2
+0
+0
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-drops-an-argument-stored-in-a-loop-only-when-it-breaks -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+A generic factory that stores `item` in a loop only on the iteration that breaks drops it when the loop runs out
+instead, with the record it stored beforehand released either way. The same body over a `String` and over a
+promise leaks neither.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, stopAt Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 1 as Whole
+		while round < 4 'scan'
+			if round == stopAt 'hit'
+				found = Self{slot: item, origin: round}
+				break
+			end 'hit'
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+typealias TextHolder = Holder with String
+
+typealias PromiseHolder = Holder with IntPromise
+
+function attemptText(stopAt Whole) returns String
+	let built = TextHolder.create(longText("item"), spare: longText("spare"), stopAt: stopAt)
+	return "{built.slot} {built.source()}"
+end 'attemptText'
+
+function attemptPromise(stopAt Whole) returns Whole
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseHolder.create(async work(1), spare: async work(2), stopAt: stopAt)
+	return built.source()
+end 'attemptPromise'
+
+function main() returns ExitCode
+	print("{attemptText(2)}\n")
+	print("{attemptText(9)}\n")
+	print("{attemptPromise(2)}\n")
+	print("{attemptPromise(9)}\n")
+	return 0
+end 'main'
+```
+```stdout
+item payload long enough to allocate 2
+spare payload long enough to allocate 0
+2
+0
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-instantiated-only-at-a-promise-drops-it-when-it-throws-first -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+A generic factory instantiated at a promise alone, with no managed instantiation beside it, drops the promise it
+was handed on the path that throws before storing it, and keeps it in the record on the path that stores it.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+enum KeepError implements Error
+	refused
+end 'KeepError'
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, refuse bool) returns Self throws KeepError
+		if refuse 'refused'
+			throw KeepError.refused
+		end 'refused'
+		return Self{slot: item, origin: 1}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+typealias PromiseHolder = Holder with IntPromise
+
+function attempt(refuse bool) returns Whole
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = try PromiseHolder.create(async work(1), refuse: refuse) otherwise return 0
+	return built.source()
+end 'attempt'
+
+function main() returns ExitCode
+	print("{attempt(false)}\n")
+	print("{attempt(true)}\n")
+	return 0
+end 'main'
+```
+```stdout
+1
+0
+```
+```exitcode
+0
+```
+
+<!-- test: a-generic-factory-stores-a-copy-of-a-type-parameter-argument-it-also-reassigns -->
+A generic factory that copies its `T` parameter into a local it reassigns and then stores the local in the record it builds leaves the caller's
+variable and the record each holding their own reference, and the leak gate is clean.
+```maxon
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Wrap uses U
+	export var item as U
+
+	static function of(first U, replacement U, swap bool) returns Wrap
+		var chosen = first
+		if swap 'swapped'
+			chosen = replacement
+		end 'swapped'
+		return Wrap{item: chosen}
+	end 'of'
+end 'Wrap'
+
+typealias TextWrap = Wrap with String
+
+function main() returns ExitCode
+	let original = longText("original")
+	let swapped = TextWrap.of(original, replacement: longText("replacement"), swap: true)
+	let other = longText("kept")
+	let kept = TextWrap.of(other, replacement: longText("unused"), swap: false)
+	print("{swapped.item}\n")
+	print("{kept.item}\n")
+	print("{original}\n")
+	print("{other}\n")
+	return 0
+end 'main'
+```
+```stdout
+replacement payload long enough to allocate
+kept payload long enough to allocate
+original payload long enough to allocate
+kept payload long enough to allocate
+```
+```exitcode
+0
+```
+
+<!-- test: a-string-only-generic-factory-stores-its-argument-in-every-loop-iteration -->
+A generic factory whose type parameter no instantiation fills with a promise stores its `T` argument on every
+iteration of a loop, as the same body over a `String` does: each store holds its own reference, the record the
+loop leaves holds the last, and the leak gate is clean.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, n Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 0 as Whole
+		while round < n 'scan'
+			found = Self{slot: item, origin: round + 1}
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+typealias TextHolder = Holder with String
+
+function attemptText(n Whole) returns String
+	let built = TextHolder.create(longText("item"), spare: longText("spare"), n: n)
+	return "{built.slot} {built.source()}"
+end 'attemptText'
+
+function main() returns ExitCode
+	print("{attemptText(0)}\n")
+	print("{attemptText(2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+spare payload long enough to allocate 0
+item payload long enough to allocate 2
+```
+```exitcode
+0
+```
+
+<!-- test: a-string-only-generic-factory-reads-its-argument-through-a-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+The same body over a `String` alone captures its `T` argument in a closure and hands it back, on the path that
+stores the result and on the path that does not, without a leak.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, keep bool) returns Self
+		// TODO: closures are not supported in minimaxon
+		let f = function() gives item
+		if keep 'kept'
+			return Self{slot: f(), origin: 1}
+		end 'kept'
+		return Self{slot: spare, origin: 2}
+	end 'create'
+end 'Holder'
+
+typealias TextHolder = Holder with String
+
+function main() returns ExitCode
+	let a = TextHolder.create(longText("item"), spare: longText("spare"), keep: true)
+	let b = TextHolder.create(longText("item"), spare: longText("spare"), keep: false)
+	print("{a.slot}\n{b.slot}\n")
+	return 0
+end 'main'
+```
+```stdout
+item payload long enough to allocate
+spare payload long enough to allocate
+```
+```exitcode
+0
+```
+
+<!-- test: error.a-generic-factory-over-a-promise-stores-its-argument-in-a-loop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A shared generic body means what it means at a concrete type: a `T` argument stored on every iteration of a loop is
+refused when some instantiation of `T` is a promise, exactly as the same body over a promise parameter is.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, n Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 0 as Whole
+		while round < n 'scan'
+			found = Self{slot: item, origin: round + 1}
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+end 'Holder'
+
+typealias PromiseHolder = Holder with IntPromise
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseHolder.create(async work(1), spare: async work(2), n: 1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: error.a-concrete-factory-stores-a-promise-argument-in-a-loop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The concrete twin of the case above, refused with the same sentence.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder
+	public var slot as IntPromise
+	var origin as Whole
+
+	static function create(item IntPromise, spare IntPromise, n Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 0 as Whole
+		while round < n 'scan'
+			found = Self{slot: item, origin: round + 1}
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = Holder.create(async work(1), spare: async work(2), n: 1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: error.a-generic-factory-over-a-promise-stores-its-argument-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A `T` argument stored in two records is refused when some instantiation of `T` is a promise, as a promise
+parameter stored twice is: a green thread has one owner.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+end 'Holder'
+
+typealias PromiseHolder = Holder with IntPromise
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseHolder.create(async work(1))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: error.a-concrete-factory-stores-a-promise-argument-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The concrete twin of the case above, refused with the same sentence.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder
+	public var slot as IntPromise
+	var origin as Whole
+
+	static function create(item IntPromise) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = Holder.create(async work(1))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: error.a-generic-factory-over-a-promise-hands-its-argument-back-through-a-closure -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A `T` argument captured by a closure that gives it away is refused when some instantiation of `T` is a promise,
+as a captured promise is: the closure owns its capture and its body may run any number of times.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, keep bool) returns Self
+		// TODO: closures are not supported in minimaxon
+		let f = function() gives item
+		if keep 'kept'
+			return Self{slot: f(), origin: 1}
+		end 'kept'
+		return Self{slot: spare, origin: 2}
+	end 'create'
+end 'Holder'
+
+typealias PromiseHolder = Holder with IntPromise
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseHolder.create(async work(1), spare: async work(2), keep: false)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:15:22: a promise cannot be borrowed through 'item': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. This one is a closure's capture: the closure owns it for as long as the closure lives, and its body may run any number of times, so no run of it may give the promise away. Await it in the function that spawned it, or hand the closure what it needs as a parameter
+```
+
+<!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A promise reaches a shared body only through a view: `Holder with U` inside `Outer uses U`, with `Holder` never
+written at a promise and no field of `Outer` holding one. Its factory storing the `T` argument twice is refused
+with the sentence the same factory gets when `Holder` is written at the promise.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+type Outer uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Inner = Holder with U
+	public var count as Whole
+
+	static function build(item U) returns Self
+		let made = Inner.create(item)
+		return Self{count: made.source()}
+	end 'build'
+end 'Outer'
+
+typealias PromiseOuter = Outer with IntPromise
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseOuter.build(async work(1))
+	print("{built.count}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-in-a-loop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The loop twin of the case above: a `T` argument stored on every iteration is refused through the view with the
+sentence it gets when `Holder` is written at the promise.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, n Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 0 as Whole
+		while round < n 'scan'
+			found = Self{slot: item, origin: round + 1}
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+type Outer uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Inner = Holder with U
+	public var count as Whole
+
+	static function build(item U, spare U) returns Self
+		let made = Inner.create(item, spare: spare, n: 1)
+		return Self{count: made.source()}
+	end 'build'
+end 'Outer'
+
+typealias PromiseOuter = Outer with IntPromise
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseOuter.build(async work(1), spare: async work(2))
+	print("{built.count}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: a-factory-reached-through-a-declaration-view-of-a-string-stores-its-argument-twice-and-in-a-loop -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same two factories reached through the same view at a `String` store their argument twice and on every
+iteration, as the bodies over a `String` do, and the leak gate is clean.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+function longText(tag String) returns String
+	let sb = StringBuilder.create()
+	sb.append(tag)
+	sb.append(" payload long enough to allocate")
+	return sb.build()
+end 'longText'
+
+type Twice uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Twice'
+
+type Looped uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T, spare T, n Whole) returns Self
+		var found = Self{slot: spare, origin: 0}
+		var round = 0 as Whole
+		while round < n 'scan'
+			found = Self{slot: item, origin: round + 1}
+			round = round + 1
+		end 'scan'
+		return found
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Looped'
+
+type Outer uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias InnerTwice = Twice with U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias InnerLooped = Looped with U
+	public var count as Whole
+
+	static function build(item U, spare U) returns Self
+		let twice = InnerTwice.create(item)
+		let looped = InnerLooped.create(item, spare: spare, n: 2)
+		return Self{count: twice.source() + looped.source()}
+	end 'build'
+end 'Outer'
+
+typealias TextOuter = Outer with String
+
+function main() returns ExitCode
+	let built = TextOuter.build(longText("item"), spare: longText("spare"))
+	print("{built.count}\n")
+	return 0
+end 'main'
+```
+```stdout
+4
+```
+```exitcode
+0
+```
+
+<!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-stores-its-argument-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A promise reaches a shared body only around a ring: `RingLeft` and `RingRight` name each other at `(V, U)`, and
+`Holder with U` inside `RingLeft` is a promise only because `main` names `RingRight` with the promise second.
+Its factory storing the `T` argument twice is refused with the sentence the same factory gets when `Holder` is
+written at the promise.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+type RingLeft uses U, V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Inner = Holder with U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Across = RingRight with (V, U)
+	public var count as Whole
+
+	static function build(item U, other V, deep bool) returns Self
+		if deep 'turn'
+			let turned = Across.build(other, other: item, deep: false)
+			return Self{count: turned.count}
+		end 'turn'
+		let made = Inner.create(item)
+		return Self{count: made.source()}
+	end 'build'
+end 'RingLeft'
+
+type RingRight uses U, V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Across = RingLeft with (V, U)
+	public var count as Whole
+
+	static function build(item U, other V, deep bool) returns Self
+		let turned = Across.build(other, other: item, deep: deep)
+		return Self{count: turned.count}
+	end 'build'
+end 'RingRight'
+
+typealias PromiseRight = RingRight with (Whole, IntPromise)
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseRight.build(1, other: async work(1), deep: false)
+	print("{built.count}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-in-another-file-stores-its-argument-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The same ring with the promise named only in a second file: the generics' file names no promise, and the
+refusal still lands on the factory's second store.
+```maxon
+// --- file: a_generics.maxon
+typealias Whole = int(i64.min to i64.max)
+
+type Holder uses T
+	public var slot as T
+	var origin as Whole
+
+	static function create(item T) returns Self
+		let first = Self{slot: item, origin: 1}
+		return Self{slot: item, origin: first.origin + 1}
+	end 'create'
+
+	function source() returns Whole
+		return self.origin
+	end 'source'
+end 'Holder'
+
+type RingLeft uses U, V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Inner = Holder with U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Across = RingRight with (V, U)
+	public var count as Whole
+
+	static function build(item U, other V, deep bool) returns Self
+		if deep 'turn'
+			let turned = Across.build(other, other: item, deep: false)
+			return Self{count: turned.count}
+		end 'turn'
+		let made = Inner.create(item)
+		return Self{count: made.source()}
+	end 'build'
+end 'RingLeft'
+
+type RingRight uses U, V
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Across = RingLeft with (V, U)
+	public var count as Whole
+
+	static function build(item U, other V, deep bool) returns Self
+		let turned = Across.build(other, other: item, deep: deep)
+		return Self{count: turned.count}
+	end 'build'
+end 'RingRight'
+// --- file: b_use.maxon
+typealias IntPromise = Promise with Whole
+
+function work(n Whole) returns Whole
+	Scheduler.yield()
+	return n
+end 'work'
+
+typealias PromiseRight = RingRight with (Whole, IntPromise)
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let built = PromiseRight.build(1, other: async work(1), deep: false)
+	print("{built.count}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:11:21: use of moved value 'item': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: error.a-field-reaching-its-owner-through-a-held-container-nests-without-end -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`Nest.kids` holds an array of `Nest` over a type built from `U`, which no value of `U` is stored in; the instances are laid out all the same, so the nesting never ends.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Cell uses T
+	export let item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Cell'
+
+type Nest uses T, U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Kid = Nest with (T, Cell with U)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Kids = Array with Kid
+	export let item as T
+	export let kids as Kids
+
+	static function create(item T) returns Self
+		return Self{item: item, kids: Kids.create(0)}
+	end 'create'
+end 'Nest'
+
+typealias TallyNest = Nest with (Tally, Tally)
+
+function main() returns ExitCode
+	let n = TallyNest.create(1)
+	print("{n.item} {n.kids.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3184: <fragment>:16:21: field 'kids' of generic type 'Nest' is declared 'Nest.Kids', which holds 'Nest' again over a type built from its own type parameters: instantiating it would nest without end. Declare the field over the type's own parameters, or remove the recursion
+```

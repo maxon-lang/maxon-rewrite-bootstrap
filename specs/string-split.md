@@ -1,0 +1,298 @@
+---
+feature: string-split
+status: experimental
+keywords: [string, split, delimiter, tokenize]
+category: types
+---
+
+# String Split
+
+## Documentation
+
+The `split` method divides a string into an array of substrings, separated by a delimiter string.
+
+**Signature:** `split(delimiter: String) returns Array with String`
+
+```text
+let parts = "hello world foo".split(" ")   // ["hello", "world", "foo"]
+let csv = "a,b,c".split(",")              // ["a", "b", "c"]
+```
+
+If the delimiter is not found, the result is a single-element array containing the original string. If the delimiter is empty, the original string is returned as a single-element array.
+
+Consecutive delimiters produce empty strings in the result:
+
+```text
+let parts = "a,,b".split(",")   // ["a", "", "b"]
+```
+
+## Tests
+
+<!-- test: split-by-space -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "hello world foo"
+	let parts = s.split(" ")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+hello
+world
+foo
+```
+
+<!-- test: split-by-comma -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "a,b,c"
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+a
+b
+c
+```
+
+<!-- test: split-no-match -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "hello"
+	let parts = s.split("xyz")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+hello
+```
+
+<!-- test: split-empty-string -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = ""
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("[{p}]\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+[]
+```
+
+<!-- test: split-consecutive-delimiters -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "a,,b"
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("[{p}]\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+[a]
+[]
+[b]
+```
+
+<!-- test: split-delimiter-at-start -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = ",hello"
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("[{p}]\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+[]
+[hello]
+```
+
+<!-- test: split-delimiter-at-end -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "hello,"
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("[{p}]\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+[hello]
+[]
+```
+
+<!-- test: split-empty-delimiter -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "hello"
+	let parts = s.split("")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+hello
+```
+
+<!-- test: split-multi-char-delimiter -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = "one::two::three"
+	let parts = s.split("::")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+one
+two
+three
+```
+
+<!-- test: split-only-delimiters -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	let s = ",,"
+	let parts = s.split(",")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("[{p}]\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+[]
+[]
+[]
+```
+
+<!-- test: split-delimiter-longer-than-the-string -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A delimiter longer than the string cannot occur in it: the answer is the string, and the search never starts.
+```maxon
+function main() returns ExitCode
+	let parts = "ab".split("abcdef")
+	print("{parts.count()}\n")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in parts 'loop'
+		print("{p}\n")
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+ab
+```
+
+<!-- test: replace-old-longer-than-the-string -->
+An `old` longer than the string cannot occur in it: `replace` answers the string unchanged.
+```maxon
+function main() returns ExitCode
+	print("{"ab".replace("abcdef", with: "x")}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ab
+```

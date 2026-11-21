@@ -1,0 +1,434 @@
+---
+feature: generic-opaque-cursor-element
+status: stable
+keywords: [generics, type-parameter, ownership, layout-descriptor, iterable, for-in, cursor, dictionary]
+category: type-system
+---
+
+# A `for … in self` whose element is the enclosing type's own parameter
+
+## Documentation
+
+`stdlib/Interfaces.maxon`'s `extension Iterable` is re-parsed once per CONFORMER, so a
+`type Bag uses Element implements Iterable with (Element, BagIter)` gets a `Bag.containsWhere` whose body is
+`for item in self`. The loop's element is `current()`'s result, and a `returns <type parameter>` impl
+hands its caller a `+1` (`generic-opaque-owned-return` owns that convention) — so the trip OWNS its
+element and releases it before the next one begins.
+
+For a shared generic body that release is `__drop_type_param`, which reads the destructor out of the
+enclosing instance's layout descriptor at run time. The descriptor arrives as a hidden parameter reserved
+before the body is parsed, and **no token shows that this body needs one**: the loop's
+`createIterator()`, `current()` and `advance()` are emitted by the compiler, so they appear in no token
+the descriptor-need pre-scan reads, and the self-call edges it follows are token-shaped too. The
+reservation is taken from the loop itself; without it the body would emit a drop with nothing to drop
+through and be refused with `E2015` — at `stdlib/Interfaces.maxon`, a line the user never wrote.
+
+**`containsWhere` is the one traversal in the library that drops rather than moves**: `map` and `filter` `push` their element into an
+`Array with Element` and that store already reserves the descriptor. And every listed conformer escapes
+for a different accidental reason — `Set` and `Array` declare their own `contains`, `Map`'s element is a
+tuple rather than a bare parameter, `Range` and `String` have concrete elements — so a user's own generic
+`Iterable` is what reaches it.
+
+### What the reservation rests on, and what it deliberately does not reach
+
+The source must be the BARE receiver. `for … in self` walks the enclosing instance, so the protocol calls
+are DIRECT into the conformer's own shared bodies and the descriptor the drop reads is the one the method
+already carries.
+
+Any other source — a parameter, a field, a local — may be a value held at a parameterized interface or at
+a `where`-constrained type parameter, whose protocol calls are witness dispatches through a table that
+carries no dictionary at all. That shape is still refused, and the refusal is what keeps it from being
+built; see `error.a-cursor-over-a-parameter-is-still-refused` below.
+
+Nor does the reservation follow from the LOOP alone: it is taken only when the cursor genuinely yields a
+bare type parameter. A conformer whose element is concrete — `Map`, whose `MapIterator.current()` hands
+back a `(Key, Value)` tuple — owes no `__drop_type_param` at all. Its `map` carries a descriptor for the
+`ElementArray{}` it builds, not for the loop.
+
+### A cursor has TWO spellings, and the reservation is a property of the TYPE, not of the spelling
+
+`createIterator()` may name its cursor directly (`returns BagIterator`) or through an inner generic-instance
+alias (`typealias BagIter = BagIterator with Element`, then `returns BagIter`). Only the first is a type's
+own name: a method is filed under the type that declares it, so `BagIter.current` resolves to nothing by
+name. The question "does this cursor hand out a bare type parameter?" is therefore asked of the TYPE the
+alias denotes; asked of the name, it would silently answer *no* for the aliased spelling — no descriptor,
+and the loop's own drop refused at a line the user never wrote.
+
+**The corpus writes it the second way.** `stdlib/List.maxon`, `stdlib/Set.maxon`, `stdlib/Array.maxon` and
+`stdlib/FixedArray.maxon` all declare a `<Type>Iter` alias; `stdlib/Map.maxon` is the only conformer in the library
+that spells its cursor bare.
+
+## Tests
+
+### `containsWhere` on a generic conformer
+
+The program the reservation serves. `isBig(30)` is true, so the loop takes the early-exit path out
+of the middle of the body — the trip's release has to happen on that exit as well as on the fall-through.
+
+<!-- test: contains-on-a-generic-conformer -->
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+export type BagIter uses Element implements Iterator with Element
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function current() returns Element
+		return slot
+	end 'current'
+
+	export function advance() throws IterationError
+		throw IterationError.exhausted
+	end 'advance'
+end 'BagIter'
+
+type Bag uses Element implements Iterable with (Element, BagIter)
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function createIterator() returns BagIter throws IterationError
+		return BagIter.create(slot)
+	end 'createIterator'
+end 'Bag'
+
+typealias IntBag = Bag with Int
+
+function isBig(n Int) returns bool
+	return n > 10
+end 'isBig'
+
+function main() returns ExitCode
+	let b = IntBag.create(30)
+	if b.containsWhere(isBig) 'yes'
+		return 1
+	end 'yes'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+### The same `containsWhere`, with the cursor named through an alias
+
+The program above with ONE thing changed: the cursor is reached through
+`typealias BagIter = BagIterator with Element` instead of by its own name. Nothing about what the loop OWNS
+differs — the element is `current()`'s bare type parameter and is released per trip — so this
+case and the one above must answer identically. It is `stdlib/List.maxon`'s spelling, so every program
+whose cone reaches `extension Iterable` depends on it.
+
+<!-- test: contains-through-an-aliased-cursor -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+export type BagIterator uses Element implements Iterator with Element
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function current() returns Element
+		return slot
+	end 'current'
+
+	export function advance() throws IterationError
+		throw IterationError.exhausted
+	end 'advance'
+end 'BagIterator'
+
+type Bag uses Element implements Iterable with (Element, BagIter)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias BagIter = BagIterator with Element
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function createIterator() returns BagIter throws IterationError
+		return BagIter.create(slot)
+	end 'createIterator'
+end 'Bag'
+
+typealias IntBag = Bag with Int
+
+function isBig(n Int) returns bool
+	return n > 10
+end 'isBig'
+
+function main() returns ExitCode
+	let b = IntBag.create(30)
+	if b.containsWhere(isBig) 'yes'
+		return 1
+	end 'yes'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+### An aliased cursor over a MANAGED element, every trip
+
+The aliased spelling's half of the refcount arithmetic, and the half a wrong reservation cannot hide in: five
+trips take five references and give five back, on the fall-through exit. A missing release is exit 101 and a
+surplus one frees the `String` the bag still holds.
+
+<!-- test: aliased-cursor-releases-every-trip -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Count = int(0 to u32.max)
+
+export type BagIterator uses Element implements Iterator with Element
+	var slot as Element
+	var remaining as Count
+
+	static function create(v Element, remaining Count) returns Self
+		return Self{slot: v, remaining: remaining}
+	end 'create'
+
+	export function current() returns Element
+		return slot
+	end 'current'
+
+	export function advance() throws IterationError
+		if remaining <= 1 'atTheLast'
+			throw IterationError.exhausted
+		end 'atTheLast'
+		remaining = remaining - 1
+	end 'advance'
+end 'BagIterator'
+
+type Bag uses Element implements Iterable with (Element, BagIter)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias BagIter = BagIterator with Element
+	var slot as Element
+	let repeats as Count
+
+	static function create(v Element, repeats Count) returns Self
+		return Self{slot: v, repeats: repeats}
+	end 'create'
+
+	export function createIterator() returns BagIter throws IterationError
+		return BagIter.create(slot, remaining: repeats)
+	end 'createIterator'
+end 'Bag'
+
+typealias StrBag = Bag with String
+
+function isEmpty(s String) returns bool
+	return s.byteLength() == 0
+end 'isEmpty'
+
+function main() returns ExitCode
+	let b = StrBag.create("a string long enough to be heap allocated", repeats: 5)
+	if b.containsWhere(isEmpty) 'found'
+		return 1
+	end 'found'
+	print("none of 5\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+none of 5
+```
+
+### The same body over a MANAGED element
+
+`Bag with String` makes the per-trip `+1` a real reference. One retain per trip against one release per
+trip is the whole of the contract: a missing release is exit 101, and a surplus one frees the `String` the
+bag still holds.
+
+<!-- test: contains-over-a-managed-element -->
+```maxon
+export type BagIter uses Element implements Iterator with Element
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function current() returns Element
+		return slot
+	end 'current'
+
+	export function advance() throws IterationError
+		throw IterationError.exhausted
+	end 'advance'
+end 'BagIter'
+
+type Bag uses Element implements Iterable with (Element, BagIter)
+	var slot as Element
+
+	static function create(v Element) returns Self
+		return Self{slot: v}
+	end 'create'
+
+	export function createIterator() returns BagIter throws IterationError
+		return BagIter.create(slot)
+	end 'createIterator'
+end 'Bag'
+
+typealias StrBag = Bag with String
+
+function isLong(s String) returns bool
+	return s.byteLength() > 5
+end 'isLong'
+
+function main() returns ExitCode
+	let b = StrBag.create("a string long enough to be heap allocated")
+	if b.containsWhere(isLong) 'long'
+		print("long\n")
+		return 1
+	end 'long'
+	print("short\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+long
+```
+
+### Every trip releases its own element
+
+The arithmetic is the argument: N trips take N references and give N back, and the fall-through exit —
+the one the early-return case above never reaches — is where the last of them is released. The predicate
+matches nothing, so every trip runs.
+
+<!-- test: every-trip-releases-its-own-element -->
+```maxon
+typealias Count = int(0 to u32.max)
+
+export type BagIter uses Element implements Iterator with Element
+	var slot as Element
+	var remaining as Count
+
+	static function create(v Element, remaining Count) returns Self
+		return Self{slot: v, remaining: remaining}
+	end 'create'
+
+	export function current() returns Element
+		return slot
+	end 'current'
+
+	export function advance() throws IterationError
+		if remaining <= 1 'atTheLast'
+			throw IterationError.exhausted
+		end 'atTheLast'
+		remaining = remaining - 1
+	end 'advance'
+end 'BagIter'
+
+type Bag uses Element implements Iterable with (Element, BagIter)
+	var slot as Element
+	let repeats as Count
+
+	static function create(v Element, repeats Count) returns Self
+		return Self{slot: v, repeats: repeats}
+	end 'create'
+
+	export function createIterator() returns BagIter throws IterationError
+		return BagIter.create(slot, remaining: repeats)
+	end 'createIterator'
+end 'Bag'
+
+typealias StrBag = Bag with String
+
+function isEmpty(s String) returns bool
+	return s.byteLength() == 0
+end 'isEmpty'
+
+function main() returns ExitCode
+	let b = StrBag.create("a string long enough to be heap allocated", repeats: 5)
+	if b.containsWhere(isEmpty) 'found'
+		return 1
+	end 'found'
+	print("none of 5\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+none of 5
+```
+
+### error.a-cursor-over-a-parameter-is-still-refused
+
+⛔ **THE HALF THAT IS NOT SERVED, AND THE REFUSAL IS LOAD-BEARING.** `source` is held at
+`Bag with (Element, Cursor with Element)` — a PARAMETERIZED INTERFACE over the enclosing type's own
+parameter — so `current()` is a witness dispatch into a generic conformer's impl, and a witness table
+carries no layout descriptor for that impl to read. Reserving a descriptor here would let the body
+compile and the dispatch would jump with a null dictionary, faulting `0xC0000005`. The receiver `self` is
+the one spelling that can never be an existential, which is why it is served while this waits on a witness
+ABI that carries a descriptor.
+
+<!-- test: error.a-cursor-over-a-parameter-is-still-refused -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Cursor uses Element
+	function current() returns Element
+	function advance() throws IterationError
+end 'Cursor'
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Bag uses Element, Iter
+	function createIterator() returns Iter throws IterationError
+end 'Bag'
+
+type Collector uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias ElementArray = Array with Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias ElementCursor = Cursor with Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias ElementBag = Bag with (Element, ElementCursor)
+	export var items as ElementArray
+
+	static function create() returns Self
+		return Self{items: ElementArray.create(0)}
+	end 'create'
+
+	function count(source ElementBag) returns Integer
+		var n = 0 as Integer
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for item in source 'collect'
+			n = n + 1
+		end 'collect'
+		return n
+	end 'count'
+end 'Collector'
+
+typealias IntCollector = Collector with Integer
+
+function main() returns ExitCode
+	var c = IntCollector.create()
+	c.items.push(7)
+	print("{c.items.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:23:11: Unsupported: 'count' owns an opaque type-parameter value it must release on some path: the element of a `for … in` over a value held at a PARAMETERIZED interface, which is `current()`'s result, dispatched through a witness table into a generic conformer's impl — and a witness table carries no layout descriptor for that impl to read, so the element cannot be released. Store the element into an `Array with <type parameter>`, iterate `self`, or iterate in a method of a concrete instantiation
+```

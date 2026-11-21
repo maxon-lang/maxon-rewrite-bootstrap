@@ -1,0 +1,4474 @@
+---
+feature: range-check-panic
+status: experimental
+keywords: [range, typealias, panic, runtime, bounds check]
+category: runtime
+---
+
+# Range Check Panic
+
+## Documentation
+
+A ranged typealias binds every value that meets it. Wherever a value reaches a place declared with
+one — a **call argument**, a `return`, a **struct-literal field**, a **field store**, a field's
+**declared default**, an **array element**, a **rebind** of a ranged `var`, global or static, an
+explicit `as` — the declared bounds are enforced.
+
+**A REBIND IS A DOOR.** `var s = 0 as Score` then `s = s + 200` panics at the rebind, so a ranged
+`var` never holds a value outside its own range. `assignment.md`'s `assign-ranged-typealias` and
+`a-rebind-out-of-range-panics-at-the-rebind` pin both outcomes.
+
+**How they are enforced depends on what the compiler can know, and the two halves are one rule:**
+
+- **The value is known at compile time** — it traces back to a literal, or to a constants-enum case's
+  raw value — and it is a **compile error (E3005)** naming the value, the type and its bounds. This
+  applies at **every** position above. A program that provably violates a range never gets built.
+- **The value is not known at compile time** — the compiler emits a **runtime range check** where the
+  value lands. If it is out of range the program panics, naming the type, with a stack trace.
+
+### Example
+
+```text
+typealias Percent = int(0 to 100)
+
+function clamp(x Percent) returns Percent
+    return x
+end 'clamp'
+```
+
+`clamp(101)` is refused at compile time — the 101 is right there. A value the compiler cannot fold
+reaches a runtime check — `clamp`'s ENTRY guard on the parameter, before its body runs:
+
+```text
+Range check failed: value outside typealias 'Percent'
+Stack trace:
+  in clamp
+  in main
+  in mrt_start
+```
+
+### ⚠ Where the RUNTIME check is emitted — and WHERE a call argument's lands
+
+The runtime half is enforced for **every** position: a `return`, a struct-literal field, a field
+store, a field's declared default, an explicit `as`, an **array element** and a **call argument**.
+
+⚠ **"Enforced for every position" is not "emitted at every position", and the CALL ARGUMENT is the one
+that keeps them apart.** Its guard is emitted at the callee's ENTRY, not where the argument is written,
+so a call argument still owes the compile-time half *alone at its own site* — that is what
+`RangeCheckGuard.compileTimeOnly` names, it is still passed (by `checkArgAgainstParamRange` and by
+nothing else), and `checkArgAgainstParamRange` panics if the shared decider ever answers `guard` there.
+Read this paragraph before concluding the enum has no live case.
+
+**A call argument's runtime check is not emitted where the argument is written**, and the obstacle is
+mechanical: a check is a BRANCH, so it splits the block it lands in, and an argument is evaluated
+part-way through building an argument list — a guard placed there lands PAST the call, with the callee
+already run on the value the range forbids. The guard therefore stands somewhere else: the
+runtime half of the argument door belongs to the **callee's entry**: one guard per narrowed parameter
+per function, emitted once, standing in front of every caller.
+
+Three consequences follow, and all three are pinned below:
+
+- **The panic names the PARAMETER's declaration line, not the caller's.** One guard serves every call
+  site, so a caller's line is not a fact it holds. The parameter list is where the premise is declared.
+- **It covers callers a call-site rule structurally could not** — a call through a function value has
+  no callee name at the call site to look a parameter's range up by.
+- **A guarded leaf function stops being a leaf**, because the panic block calls `mrt_panic`. That is a
+  per-FUNCTION cost on the in-range path, not an instruction count on the failing one.
+
+**The compile-time half at a call argument fires first**: `clamp(101)` is
+refused by E3005 and never builds, so no entry guard ever runs for it. A parameter that promises
+nothing gains nothing — no guard, no frame, byte-identical codegen — and there are exactly three such
+shapes: the signed-full `int(i64.min to i64.max)`, a raw `bits(64)` pattern, and a full-range float.
+An unsigned-full `int(0 to u64.max)` parameter gains no entry guard either, for a different reason:
+it is a quantity, whose only test is for a negative from a signed type, and that test stands at the
+CALL, where the argument's type is known — an argument whose type is already unsigned passes with
+nothing to test.
+
+### An ARRAY ELEMENT goes the other way, and the difference is where the ALIAS is known
+
+An element travels as `__managed_push`/`__managed_set`/`__managed_insert`'s third argument into a shared `Array`
+body whose parameter is the OPAQUE element type, so a callee-entry guard has no narrowed parameter to
+stand behind. But the argument obstacle above never applied to it either: an element's alias is right
+there in the instance's declared element type, at parse time, so it records an ordinary positioned site
+and its guard goes at the **store**, immediately in front of the `__managed_*` call.
+
+⚠ **A slot nothing wrote crosses no door at all**, so it is refused where it would be made: `Array.resize`,
+`__ManagedMemory.setLength` and `FixedArray.create` expose zero-initialized slots, and over an element whose range
+excludes zero each of them is **E3106** at compile time. `safety.md`'s
+`error.resize-cannot-expose-a-zero-to-a-non-zero-alias`, `array-slots.md`'s
+`error.set-length-cannot-publish-slots-of-an-element-that-excludes-zero` and `arrays.md`'s
+`error.a-fixed-array-cannot-hold-an-alias-that-excludes-zero` pin the three.
+
+### ⭐ A `return` of a guarded parameter is ALREADY guarded — and the elision has to earn that
+
+In `function f(x T) returns T … return x` the entry cascade and a return cascade would test the same
+value against the same alias. The second is elided, and because this whole mechanism
+exists *because* an elision rested on a premise nothing enforced, the premise is stated rather than
+assumed. **All four clauses are required, and each one is what a case below breaks:**
+
+1. **The same VALUE.** SSA numbers a value once, and a parameter's `ValueId` is defined by its `param`
+   op. A `var` shadow reassigned before the `return` is a *different* id, and a parameter cannot be
+   mutated at all (E2013) — so "this `return` returns that parameter" is an identity, not an inference.
+2. **The same ALIAS.** The parameter's alias name and the function's return alias name are looked up
+   through the *same* file (`FunctionRangeChecks.filePath`), so equal names are the same declaration and
+   therefore the same bounds.
+3. **DOMINANCE.** The entry guard splits the entry block at the end of its `param` ops — before a single
+   body op — so every path to every `return` passes through it. A `return` inside a branch is covered
+   for free, and there is no path that reaches a `return` without it.
+4. **THE ENTRY GUARD ACTUALLY EXISTS.** Both sites ask one decision function (`needsRuntimeGuard`) with
+   the same value and the same alias, and the return site asks it *first*: it reaches the elision only
+   on the answer that made the entry guard fire. A full-range alias, or a range whose bounds both elide,
+   emits nothing at either site.
+
+Break any of 1, 2 or 4 and the return guard is emitted. That is what
+`return-of-a-reassigned-shadow-is-still-guarded`, `return-through-a-narrower-alias-is-still-guarded` and
+`return-of-a-computed-value-is-still-guarded` pin; `return-of-a-second-ranged-parameter-is-covered-by-its-entry-guard`
+and `entry-guard-covers-a-return-inside-a-branch` pin the elision itself, the first by keying on the
+VALUE (not on "is there a ranged parameter") and the second on clause 3.
+
+### ⭐⭐ A value the destination PROVABLY ADMITS gets no check
+
+A `Byte = int(0 to u8.max)` cast to `ExitCode` cannot be outside `ExitCode`'s range on **any** target —
+`int(0 to u32.max)` on Windows *strictly* contains `0 to 255`, and `int(0 to 255)` on Linux, macOS and
+WASI *is* `0 to 255`, which is contained in itself. The cast is REQUIRED — a `Byte` is not an `ExitCode`,
+and `as` is the one door between two aliases (`nominal-typealias.md`) — and **no range check is emitted
+for it**: the containment is a **proof** that the source range lies inside the destination, and a runtime
+bounds cascade behind that proof tests a value that cannot fail it. E3010 is a different question, asked
+of the NAMES: it refuses a cast to the value's own alias and a literal cast to the type its destination
+already declares, and never one between two aliases whatever their ranges.
+
+**The rule is the containment relation and nothing else** — *emit nothing when the source's declared range
+is inside the destination's* — asked through one predicate (`TypeRules.rangeCoversRange`). It is not a
+rule about `ExitCode`, about builtins, or about which alias is "wide":
+
+- **Every door asks it**, because every door holds both ends: a `return`, an explicit `as`, a
+  struct-literal field, a field store, a field's declared default, an array element, a rebind.
+- **A source that names no alias proves nothing**, and that is the direction that keeps the check: an unnamed
+  number, a folded literal, a `trunc` result. So the **compile-time E3005 half is untouched** —
+  `InsertRangeChecks` reports it only for a value it can fold, and a folded literal denotes no alias.
+- **Equal ranges are contained.** `returns ExitCode` returning an `ExitCode` call result emits nothing.
+- **Anything else guards, and panics** — the mechanism above, none of which this elision removes.
+
+⚠ **WHAT THE ELISION RESTS ON, stated rather than assumed** (the same discipline the four clauses above
+are written in): *a value denoting alias `A` is in `A`'s range*. Every door in this spec maintains it — a
+cast guards its result, a parameter is guarded at the callee's entry, a `return` before its `ret`, a field
+or element at its store. The producers of slots nothing wrote — `Array.resize`, `__ManagedMemory.setLength`
+and `FixedArray.create` — cross no door, so over an element whose range excludes zero they are refused at compile
+time (**E3106**, see the array-element section above), and the premise holds for every value.
+
+### ⛔⛔ A guard runs on the PATH ITS SITE IS ON — and a ternary's TRUE ARM moves after it is parsed
+
+The runtime half of every door is emitted **in the block the value is checked in**, so a cast in a branch
+that is not taken does not fire. A guard site is therefore a POSITION — a block plus an ordinal — and not
+just a value: a narrowing `int`→`int` cast emits no op of its own, so there is nothing else to anchor to.
+
+**One construct invalidates such a position after it is recorded, and it is the inline conditional.** The
+true arm of `<t> if <c> else <f>` is written *before* the `if` announces the form, so the parser emits it
+onto the unconditional path and then **relocates** it into a `ternarytrue` block only one edge reaches. A
+guard site recorded while that arm parsed names a block the value has left. Both halves of the resulting
+mistake are pinned below:
+
+- **The value is merely READ in the arm** (a parameter, anything from a dominating block): nothing is out
+  of order, so the cascade simply runs on **both** edges. `(i as Small) if flag else 7` panicked for an
+  out-of-range `i` with `flag` FALSE, where the answer is `7`.
+- **The value is COMPUTED in the arm**: the cascade is emitted in a block that DOMINATES the definition it
+  reads, which is a use above its def. Liveness carries the operand out of the entry block and the
+  register allocator refuses the function — *"value N is live-in to block 0 but was never colored"*. This
+  is what the compiler's own source reaches, because `stdlib/Array.maxon`'s `ElementIndex` puts a guard on
+  every computed array index.
+
+**The cure is that the arm's SITES move with the arm's OPS** (`Parser.rehomeArmRangeSites`, called from
+`parseTernaryExpression` where `detachOpRefsAbove`'s ops are re-attached), which is the relocation's own
+arithmetic and no new decision: an op that stood at position `p` of the start block stands at `p - mark`
+of the continuation. It is not a rule about ternaries in `InsertRangeChecks` — that pass never learns the
+arm existed, and could not: the only frame that knows which ops moved is the one that moved them.
+
+## Tests
+
+<!-- test: range-check-panic.upper-bound -->
+Above the maximum, and not foldable — so a runtime check is what fires, and the trace names `clamp`.
+`one * 101` is a `Percent` by name only (arithmetic adopts its operand's alias without proving it), so it
+reaches `clamp` with no cast to refuse it at the call. ⭐ The guard is `clamp`'s ENTRY guard, at the
+parameter's own line (5), not the one on its `return` (6): the value was already outside `Percent` when
+it crossed the boundary, and the parameter list is where that premise is declared.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Percent = int(0 to 100)
+
+function clamp(x Percent) returns Percent
+	return x
+end 'clamp'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	let one = opaque(1) as Percent
+	return clamp(one * 101) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.upper-bound.test:5: Range check failed: value outside typealias 'Percent'
+Stack trace:
+  in clamp
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.lower-bound -->
+Below the minimum. `Natural`'s lower bound is 0, so a negative value is out of range even though it
+is a perfectly ordinary `int` — and, as above, the `Natural`-named `one - 2` reaches `check` uncast, so
+`check`'s entry guard is what refuses it, at the parameter's line.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Natural = int(0 to i64.max)
+
+function check(n Natural) returns Natural
+	return n
+end 'check'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	let one = opaque(1) as Natural
+	return check(one - 2) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.lower-bound.test:5: Range check failed: value outside typealias 'Natural'
+Stack trace:
+  in check
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.in-range -->
+The half that must keep working: an in-range argument passes every guard and returns normally.
+⭐ Its emitted code (`--emit-ir`) is also where the return-guard elision is visible — `check`'s entry guard is the ONLY
+cascade in the function, with no `return` cascade over the same `ValueId` against the same alias, and
+no second panic block or second `.rdata` blob. See the
+Documentation above for the four clauses that elision rests on.
+```maxon
+typealias SmallInt = int(0 to 10)
+
+function check(x SmallInt) returns SmallInt
+	return x
+end 'check'
+
+function main() returns ExitCode
+	return check(5)
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: range-check-panic.nested-call -->
+The stack trace goes as deep as the value does: `process` receives an in-range `Score`, computes one
+that is not, and `validate` is where it is refused — at `validate`'s parameter (line 4), the boundary
+the bad value crosses first.
+```maxon
+typealias Score = int(0 to 100)
+
+function validate(s Score) returns Score
+	return s
+end 'validate'
+
+function process(x Score) returns Score
+	return validate(x * 3)
+end 'process'
+
+function main() returns ExitCode
+	return process(50)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.nested-call.test:4: Range check failed: value outside typealias 'Score'
+Stack trace:
+  in validate
+  in process
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.error.literal-argument -->
+<!-- positions: moved -->
+The compile-time half at a call argument. `clamp(101)` never reaches a runtime check because it never builds.
+```maxon
+typealias Percent = int(0 to 100)
+
+function clamp(x Percent) returns Percent
+	return x
+end 'clamp'
+
+function main() returns ExitCode
+	return clamp(101)
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/range-check-panic/range-check-panic.error.literal-argument.maxon:9:10: Value 101 is outside the range of 'Percent' (int(0 to 100))
+```
+
+<!-- test: range-check-panic.error.literal-argument-through-interface -->
+<!-- positions: moved -->
+And through an interface-typed receiver, where the interface's declared parameter is the range the literal must fit.
+```maxon
+typealias ByteCount = int(1 to 8)
+
+typealias Address = int(0 to 4096)
+
+interface Backend
+	function readMemory(address Address, bytes ByteCount) returns ByteCount
+end 'Backend'
+
+type Ram implements Backend
+	let base as Address
+
+	static function create() returns Self
+		return Self{base: 0}
+	end 'create'
+
+	function readMemory(address Address, bytes ByteCount) returns ByteCount
+		if address == self.base 'start'
+			return bytes
+		end 'start'
+		return 1
+	end 'readMemory'
+end 'Ram'
+
+type Debugger
+	let backend as Backend
+
+	static function create() returns Self
+		return Self{backend: Ram.create()}
+	end 'create'
+
+	function readWide(address Address) returns ByteCount
+		return self.backend.readMemory(address, bytes: 9)
+	end 'readWide'
+end 'Debugger'
+
+function main() returns ExitCode
+	let debugger = Debugger.create()
+	return debugger.readWide(0)
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:32:25: Value 9 is outside the range of 'ByteCount' (int(1 to 8))
+```
+
+<!-- test: range-check-panic.witness-literal-argument-to-an-associated-type-is-not-checked-against-a-same-named-alias -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+A literal argument at a parameter written as an associated type is checked against the conformer's binding, not against an unrelated alias that happens to share the associated type's name.
+```maxon
+// --- file: a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Accumulator uses Item
+	function add(item Item) returns Self
+	function total() returns Integer
+end 'Accumulator'
+
+type IntSum implements Accumulator with Integer
+	let sum as Integer
+
+	function add(item Integer) returns IntSum
+		return IntSum{sum: sum + item}
+	end 'add'
+
+	function total() returns Integer
+		return sum
+	end 'total'
+
+	static function create(sum Integer) returns Self
+		return Self{sum: sum}
+	end 'create'
+end 'IntSum'
+
+typealias IntAccumulator = Accumulator with Integer
+
+function addNine(acc IntAccumulator) returns Integer
+	let next = acc.add(9)
+	return next.total()
+end 'addNine'
+
+function main() returns ExitCode
+	if isEmpty() 'empty'
+		return addNine(IntSum.create(0))
+	end 'empty'
+	return 1
+end 'main'
+
+// --- file: b/b.maxon
+typealias Item = int(0 to 3)
+
+export function isEmpty() returns bool
+	let count = 0 as Item
+	return count == 0
+end 'isEmpty'
+```
+```exitcode
+9
+```
+
+<!-- test: range-check-panic.witness-literal-argument-checks-the-interface-files-alias -->
+A literal argument through an interface-typed receiver is checked against the alias the interface's own file declares, not against an unmarked alias of the same name in another directory.
+```maxon
+// --- file: a.maxon
+typealias Item = int(0 to 100)
+
+interface Store
+	function put(item Item) returns Item
+end 'Store'
+
+type Shelf implements Store
+	let base as Item
+
+	static function create() returns Self
+		return Self{base: 0}
+	end 'create'
+
+	function put(item Item) returns Item
+		if item > self.base 'above'
+			return item
+		end 'above'
+		return self.base
+	end 'put'
+end 'Shelf'
+
+type Holder
+	let store as Store
+
+	static function create() returns Self
+		return Self{store: Shelf.create()}
+	end 'create'
+
+	function stock() returns Item
+		return self.store.put(50)
+	end 'stock'
+end 'Holder'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	if holder.stock() == 50 and tiny() 'stocked'
+		return 0
+	end 'stocked'
+	return 1
+end 'main'
+
+// --- file: z/z.maxon
+typealias Item = int(0 to 3)
+
+export function tiny() returns bool
+	let one = 1 as Item
+	return one == 1
+end 'tiny'
+```
+```exitcode
+0
+```
+
+<!-- test: range-check-panic.error.an-exported-field-of-a-file-private-alias-is-refused -->
+<!-- positions: moved -->
+Two unmarked `Item` aliases coexist in two directories. A literal stored to `Box.item` from another file would have to be checked against the alias the field was declared with, and the field is refused where it is declared: an exported field cannot be typed by an unmarked alias.
+```maxon
+// --- file: a/a.maxon
+typealias Item = int(0 to 255)
+
+export type Box
+	export var item as Item
+
+	export static function create() returns Self
+		return Self{item: 0}
+	end 'create'
+end 'Box'
+
+// --- file: main.maxon
+typealias Item = int(0 to 200)
+
+function main() returns ExitCode
+	let floor = 0 as Item
+	var b = Box.create()
+	b.item = 250
+	if floor == 0 'stored'
+		return b.item
+	end 'stored'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3167: a/<fragment>:6:22: exported field 'a.Box.item' names unexported typealias 'Item' in its type
+```
+
+<!-- test: range-check-panic.witness-literal-argument-to-a-base-interfaces-associated-type -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+A literal argument at a base interface's associated-type parameter, dispatched through the derived interface, is checked against the conformer's binding, not against an alias that shares the associated type's name.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Item = int(0 to 3)
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Source uses Item
+	function take(item Item) returns Item
+end 'Source'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Sink extends Source uses Item
+	function extra() returns Integer
+end 'Sink'
+
+type Keeper implements Sink with Integer
+	let base as Integer
+
+	function take(item Integer) returns Integer
+		return self.base + item
+	end 'take'
+
+	function extra() returns Integer
+		return 1
+	end 'extra'
+
+	static function create() returns Self
+		return Self{base: 0}
+	end 'create'
+end 'Keeper'
+
+function useIt(t Sink) returns Integer
+	let taken = t.take(50)
+	return taken
+end 'useIt'
+
+function small() returns bool
+	let one = 1 as Item
+	return one == 1
+end 'small'
+
+function main() returns ExitCode
+	if useIt(Keeper.create()) == 50 and small() 'taken'
+		return 0
+	end 'taken'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: range-check-panic.an-interface-result-crossing-into-another-files-alias-is-guarded -->
+An interface call's result is typed by the interface file's alias, so returning it where another file's alias is declared converts between two aliases and carries that alias's guard.
+```maxon
+// --- file: a.maxon
+typealias Fill = int(0 to 100)
+
+interface Gauge
+	function read() returns Fill
+end 'Gauge'
+
+type Tank implements Gauge
+	let fill as Fill
+
+	static function create() returns Self
+		return Self{fill: 90}
+	end 'create'
+
+	function read() returns Fill
+		return self.fill
+	end 'read'
+end 'Tank'
+
+function makeTank() returns Gauge
+	return Tank.create()
+end 'makeTank'
+
+// --- file: z.maxon
+typealias Level = int(0 to 3)
+
+function relay(g Gauge) returns Level
+	return g.read()
+end 'relay'
+
+function main() returns ExitCode
+	return relay(makeTank())
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at z.maxon:4: Range check failed: value outside typealias 'Level'
+Stack trace:
+  in relay
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-alias-beside-a-same-named-type-is-named-as-its-file-spells-it -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A file's own alias that shares its name with another directory's unmarked type is named in the panic exactly
+as the file writes it.
+```maxon
+// --- file: a/t.maxon
+type Score
+	export let v as ExitCode
+
+	static function make() returns Score
+		return Score{v: 0}
+	end 'make'
+end 'Score'
+
+export function scoreBase() returns ExitCode
+	return Score.make().v
+end 'scoreBase'
+
+// --- file: app/main.maxon
+typealias Signed = int(i64.min to i64.max)
+
+typealias Score = int(0 to 10)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function narrow(v Signed) returns Score
+	return v as Score
+end 'narrow'
+
+function main() returns ExitCode
+	return narrow(launder(11)) as ExitCode + scoreBase()
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at main.maxon:9: Range check failed: value outside typealias 'Score'
+Stack trace:
+  in narrow
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-library-alias-beside-an-authors-type-is-named-through-stdlib -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The library's `ElementIndex` beside an author's enum of that name is named `stdlib.ElementIndex` in the panic,
+the spelling a compile-time diagnostic gives it in the same file.
+```maxon
+// --- file: a/e.maxon
+export enum ElementIndex
+	below = -5
+	above = 7
+end 'ElementIndex'
+
+// --- file: app/main.maxon
+typealias Signed = int(i64.min to i64.max)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let val = try arr.get(launder(a.ElementIndex.above.rawValue - 8) as stdlib.ElementIndex) otherwise 99
+	return val
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at main.maxon:9: Range check failed: value outside typealias 'stdlib.ElementIndex'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-hash-result-into-a-same-named-alias-is-guarded -->
+`hash()` returns the standard library's `HashValue`; returning it where the file declares its own `HashValue` converts between two aliases and carries that alias's guard.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias HashValue = int(0 to 3)
+
+function h(x Integer) returns HashValue
+	return x.hash()
+end 'h'
+
+function main() returns ExitCode
+	return h(12345)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-hash-result-into-a-same-named-alias-is-guarded.test:6: Range check failed: value outside typealias 'HashValue'
+Stack trace:
+  in h
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.error.literal-cast-to-inner-alias -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+A literal cast to an alias declared inside an extension body is checked against that alias's range.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntegerArray = Array with Integer
+
+// TODO: extension blocks are not supported in minimaxon
+extension Array
+	typealias Level = int(0 to 64)
+	function topLevel() returns Level
+		let top = 100 as Level
+		return top
+	end 'topLevel'
+end 'Array'
+
+function main() returns ExitCode
+	let values = IntegerArray.create(0)
+	return values.topLevel()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:9:19: Value 100 is outside the range of 'Level' (int(0 to 64))
+```
+
+<!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-admits-its-top-value -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A full-unsigned alias declared inside an extension body admits `u64.max` at a direct call, as a file-scope one does.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Meter
+	let reading as Integer
+
+	static function create() returns Self
+		return Self{reading: 0}
+	end 'create'
+
+	function raw() returns Integer
+		return self.reading
+	end 'raw'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Wide = int(0 to u64.max)
+	function take(w Wide) returns bool
+		return w == u64.max
+	end 'take'
+end 'Meter'
+
+function main() returns ExitCode
+	let meter = Meter.create()
+	if meter.take(u64.max) and meter.raw() == 0 'top'
+		return 0
+	end 'top'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-through-an-interface-takes-a-large-unsigned-word -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A large unsigned word reaches a full-unsigned nested-alias parameter through an interface: the call site checks the argument, and the conformer takes no sign test at its entry.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Meter
+	let reading as Integer
+
+	static function create() returns Self
+		return Self{reading: 0}
+	end 'create'
+
+	function raw() returns Integer
+		return self.reading
+	end 'raw'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Wide = int(0 to u64.max)
+end 'Meter'
+
+interface Taker
+	function take(w Meter.Wide) returns bool
+end 'Taker'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter implements Taker
+	function take(w Meter.Wide) returns bool
+		return w == u64.max
+	end 'take'
+end 'Meter'
+
+function drive(t Taker) returns bool
+	return t.take(u64.max)
+end 'drive'
+
+function main() returns ExitCode
+	let meter = Meter.create()
+	if drive(meter) and meter.raw() == 0 'top'
+		return 0
+	end 'top'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: range-check-panic.error.a-nested-alias-index-on-an-array-conformer-is-checked -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+An `Array` conformer declares its `get` index as an alias nested in its body, and an out-of-range literal index is refused against that alias. The conformer stores its elements in a `__ManagedMemory`, which only a source file under `stdlib/` or `runtime/` may name (E3185), so the case compiles in the library tier.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Array uses Element implements BuiltinArrayLiteral
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias ElementMemory = __ManagedMemory with Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Idx = int(0 to 9)
+	export var managed as ElementMemory
+
+	static function init(mutates managed ElementMemory) returns Self
+		return Self{managed: managed}
+	end 'init'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function get(index Idx) returns Element throws ArrayError
+		return try managed.get(index) otherwise throw ArrayError.indexOutOfBounds
+	end 'get'
+end 'Array'
+
+typealias NumArray = Array with Num
+
+function main() returns ExitCode
+	var a = NumArray.create(0)
+	a.push(7)
+	let v = try a.get(-1) otherwise 0
+	return v
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:27:17: Value -1 is outside the range of 'Idx' (int(0 to 9))
+```
+
+<!-- test: range-check-panic.inner-alias-cast-guard -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A runtime value cast to an alias declared inside an extension body carries that alias's guard.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Meter
+	let scale as Integer
+
+	static function create() returns Self
+		return Self{scale: 100}
+	end 'create'
+
+	function scaleOf() returns Integer
+		return self.scale
+	end 'scaleOf'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Level = int(0 to 64)
+	function level() returns Level
+		return self.scaleOf() as Level
+	end 'level'
+end 'Meter'
+
+function main() returns ExitCode
+	let meter = Meter.create()
+	return meter.level()
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.inner-alias-cast-guard.test:20: Range check failed: value outside typealias 'Level'
+Stack trace:
+  in Meter.level
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.error.literal-float-field-out-of-range -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A float literal at a struct-literal field is checked against the field's float range.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(0.0 to 100.0)
+
+type Gauge
+	let level as Real
+
+	static function create() returns Self
+		// TODO: float literals are not supported in minimaxon
+		return Self{level: 150.0}
+	end 'create'
+
+	function value() returns Real
+		return self.level
+	end 'value'
+end 'Gauge'
+
+function main() returns ExitCode
+	let gauge = Gauge.create()
+	return trunc(gauge.value())
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:17: Value 150 is outside the range of 'Real' (float(0 to 100))
+```
+
+<!-- test: range-check-panic.error.literal-struct-field -->
+<!-- positions: moved -->
+And at a struct-literal field, which is the same rule at a different place.
+```maxon
+typealias Percent = int(0 to 100)
+
+type Reading
+	export var pct as Percent
+
+	static function create() returns Self
+		return Self{pct: 101}
+	end 'create'
+end 'Reading'
+
+function main() returns ExitCode
+	let r = Reading.create()
+	return r.pct
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/range-check-panic/range-check-panic.error.literal-struct-field.maxon:8:17: Value 101 is outside the range of 'Percent' (int(0 to 100))
+```
+
+<!-- test: range-check-panic.runtime-argument -->
+A runtime out-of-range argument is refused AT THE PARAMETER, before the callee's body runs. `by`
+excludes 0, so `a / by` is a bare divide with no `try` spellable -- the proof the elision rests on is
+the parameter's declared range, and this is the check that makes that proof true. The panic names the
+line the premise is DECLARED on (`divide`'s parameter list), not the line that wrote the argument: one
+guard stands in front of every call, including a call through a function value that has no argument
+list to blame. `one - one` is a `NonZero` by name and `0` by value, and crosses into `by` with no cast.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function divide(a Integer, by NonZero) returns Integer
+	return ((a as NonZero) / by) as Integer
+end 'divide'
+
+function main() returns ExitCode
+	let one = opaque(1) as NonZero
+	return divide(10, by: one - one) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.runtime-argument.test:9: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in divide
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.full-range-argument-gains-no-guard -->
+⭐ **THE CONTROL THAT KEEPS THE COST HONEST.** `Integer` spans the whole of `i64`, so it forbids
+nothing — and a parameter that promises nothing must gain nothing. `aliasAdmitsEveryValue` discards it
+before a cascade is ever built, so `passthrough` stays a LEAF: no `__rc_ok`, no `__rc_panic`, no `mrt_panic`
+call, and therefore no frame. The emitted code (`--emit-ir`) shows it, and nothing in the suite pins it;
+that leaf is the reason the entry guard is a cost only where a range is genuinely narrowed.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function passthrough(n Integer) returns Integer
+	return n + 1
+end 'passthrough'
+
+function main() returns ExitCode
+	return passthrough(6)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: range-check-panic.float-argument -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ A narrowed FLOAT parameter is checked on exactly the same terms as an integer one. The loop counter here is
+the literal 2, so `i * 1.0` is a float whose interval is `[2.0, 2.0]`, and the argument is refused where it is
+written rather than at the parameter's entry guard.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Ratio = float(0.0 to 1.0)
+
+function scale(r Ratio) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return r * 100.0
+end 'scale'
+
+function main() returns ExitCode
+	for i in 2 upto 3 'each'
+		// TODO: float literals are not supported in minimaxon
+		let big = i * 1.0
+		return trunc(scale(big))
+	end 'each'
+	return 0
+end 'main'
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```maxoncstderr
+error E3005: <fragment>:11:18: Value 2 is outside the range of 'Ratio' (float(0 to 1))
+```
+
+<!-- test: range-check-panic.float-argument-unproven -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+⭐ A narrowed FLOAT parameter is guarded on exactly the same terms as an integer one. Shipping the
+integer half alone would have replaced *five doors of which four guard* with *parameters of which only
+the int ones guard* — a fresh instance of the very asymmetry the entry guard exists to delete. The
+cascade is the f64 one `emitGuardAt` already forks for the `as` and `return` doors; nothing about a
+parameter is special. The argument wears `Ratio` without proving it, so no interval is known and the
+entry guard is what catches it.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Ratio = float(0.0 to 1.0)
+
+function scale(r Ratio) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return r * 100.0
+end 'scale'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let half = 0.5 as Ratio
+	// TODO: float literals are not supported in minimaxon
+	let big = half * 4.0
+	return trunc(scale(big))
+end 'main'
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.float-argument-unproven.test:4: Range check failed: value outside typealias 'Ratio'
+Stack trace:
+  in scale
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.error.literal-argument-into-a-divisor -->
+<!-- positions: moved -->
+⭐ **THE COMPILE-TIME HALF FIRES FIRST, AND IT IS STRICTLY BETTER THAN THE RUNTIME ONE.** `divide`
+carries an entry guard, but a literal argument never reaches it: E3005 refuses the program at the
+line that wrote the `0`, naming the value, the type and its bounds — a caller-anchored diagnostic the
+one shared entry guard structurally cannot give. The two halves coexist.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function divide(a Integer, by NonZero) returns Integer
+	return ((a as NonZero) / by) as Integer
+end 'divide'
+
+function main() returns ExitCode
+	return divide(10, by: 0)
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/range-check-panic/range-check-panic.error.literal-argument-into-a-divisor.maxon:10:10: Value 0 is outside the range of 'NonZero' (int(1 to 9223372036854775807))
+```
+
+<!-- test: range-check-panic.entry-guard-on-a-parameter-no-body-reads -->
+⭐⭐ **THE GUARD IS NOT DEAD CODE, EVEN WHEN NOTHING BUT THE PREMISE CONSUMES IT.** `unused`'s body never
+mentions its parameter — it is spelled `_`, the ignore name, because a parameter no body reads is exactly
+what this case is about and E3012 refuses any other spelling of it — so the only thing the entry guard
+establishes is *the premise itself* — and a guard whose
+sole consumer is a premise is exactly what a naive dead-value pass deletes. That is not a hypothetical:
+the whole point of this mechanism is that the divide prover TRUSTS a `NonZero` parameter, so a pass that
+elided the guard on the grounds that nothing reads the value would silently let a zero reach the unguarded divide,
+with every existing case still green. Pinned so `pruneDeadBlockArgs` / `elimTrivialBlockArgs` /
+`foldConstOperands` — and anything later that walks uses — has a test standing in front of it. The zero
+arrives uncast, as `one - one`, so `unused`'s entry guard is the only check between it and the parameter.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function unused(_ NonZero) returns Integer
+	return 7
+end 'unused'
+
+function main() returns ExitCode
+	let one = opaque(1) as NonZero
+	return unused(one - one) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.entry-guard-on-a-parameter-no-body-reads.test:9: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in unused
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.argument-through-a-function-value-is-guarded -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+⭐⭐ **THE CLAIM THE CALLEE-ENTRY DESIGN RESTS ON, AND THE ONLY CASE THAT CAN TEST IT.** The reason the
+guard belongs to the callee rather than the call is that a call-site rule structurally cannot reach every
+caller: a call through a function VALUE has no callee name at the call site to look a parameter's range
+up by, so `callIndirect` / `witnessCall` would have stayed open for ever. Here `apply` receives an in-range
+`1` and passes `b - b` — a `NonZero` by name, `0` by value, with no cast — through `f`, so the only
+check left between the zero and the divide is `divide`'s entry guard. The trace shows the whole route —
+`main` → `apply` → `__fnref_divide` → `divide` — with the guard firing inside `divide`, at its parameter
+line, where the range is declared.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias DivFn = function(Integer, NonZero) returns Integer
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function divide(a Integer, b NonZero) returns Integer
+	return ((a as NonZero) / b) as Integer
+end 'divide'
+
+function apply(f DivFn, a Integer, b NonZero) returns Integer
+	return f(a, b - b)
+end 'apply'
+
+function main() returns ExitCode
+	let fn = divide
+	return apply(fn, a: 10, b: opaque(1) as NonZero) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.argument-through-a-function-value-is-guarded.test:10: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in divide
+  in __fnref_divide
+  in apply
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.return-of-a-reassigned-shadow-is-still-guarded -->
+⚠ **CLAUSE 1 BROKEN: the returned value is not the parameter any more.** `y` starts as `x` — which mints
+no op, so at that point it IS the parameter's `ValueId` — and is then REASSIGNED, which rebinds it to the
+call's result. A `return` guard elided on "the function has a ranged parameter" rather than on the
+VALUE would let `99` out through a `SmallInt`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias SmallInt = int(0 to 10)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function check(x SmallInt) returns SmallInt
+	var y = x
+	y = opaque(99) as SmallInt
+	return y
+end 'check'
+
+function main() returns ExitCode
+	return check(5)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.return-of-a-reassigned-shadow-is-still-guarded.test:11: Range check failed: value outside typealias 'SmallInt'
+Stack trace:
+  in check
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.return-through-a-narrower-alias-is-still-guarded -->
+⚠ **CLAUSE 2 BROKEN: same value, DIFFERENT alias.** `x` is a `Wide` the entry guard admits and a `Narrow`
+the return must refuse. An elision keyed on "the returned value is a ranged parameter" — without
+comparing the alias NAMES — would return `50` through a type declared `int(0 to 10)`.
+```maxon
+typealias Wide = int(0 to 100)
+
+typealias Narrow = int(0 to 10)
+
+function narrow(x Wide) returns Narrow
+	return x
+end 'narrow'
+
+function main() returns ExitCode
+	return narrow(50)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.return-through-a-narrower-alias-is-still-guarded.test:6: Range check failed: value outside typealias 'Narrow'
+Stack trace:
+  in narrow
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.return-of-a-computed-value-is-still-guarded -->
+⚠ **CLAUSE 1 BROKEN THE OTHER WAY: the value never was the parameter.** `x * 3` is a `binOp` result, so
+the entry guard says nothing about it — the parameter it was computed FROM was in range, and the result
+is not.
+```maxon
+typealias SmallInt = int(0 to 10)
+
+function grow(x SmallInt) returns SmallInt
+	return x * 3
+end 'grow'
+
+function main() returns ExitCode
+	return grow(5)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.return-of-a-computed-value-is-still-guarded.test:5: Range check failed: value outside typealias 'SmallInt'
+Stack trace:
+  in grow
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.return-of-a-second-ranged-parameter-is-covered-by-its-entry-guard -->
+⭐ **THE ELISION ITSELF, and the case that says it keys on the VALUE.** `pick` returns its SECOND ranged
+parameter, so an elision that asked "does this function have a ranged parameter" and an elision that
+asked "is this value parameter 0" would both answer differently from the right one. Its emitted code
+(`--emit-ir`) shows it, and nothing in the suite pins it: two entry cascades, one per parameter, and NONE at the `return`.
+```maxon
+typealias SmallInt = int(0 to 10)
+
+function pick(_ SmallInt, b SmallInt) returns SmallInt
+	return b
+end 'pick'
+
+function main() returns ExitCode
+	return pick(1, b: 7)
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: range-check-panic.entry-guard-covers-a-return-inside-a-branch -->
+⭐ **CLAUSE 3, which is the one that cannot be broken by writing a program.** The entry guard splits the
+entry block before any body op, so it DOMINATES every `return` — including one inside a branch, whose own
+guard is elided. `99` is refused at `pick`'s parameter line before the `if` is even evaluated, which is
+what a dominating guard means: there is no path to that `return` that skips it. `three * 33` reaches `x`
+as a `SmallInt` by name with no cast, so that entry guard is the check that refuses it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias SmallInt = int(0 to 10)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function pick(x SmallInt, flag Integer) returns SmallInt
+	if flag > 0 'yes'
+		return x
+	end 'yes'
+	return 3
+end 'pick'
+
+function main() returns ExitCode
+	let three = opaque(3) as SmallInt
+	return pick(three * 33, flag: 1) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.entry-guard-covers-a-return-inside-a-branch.test:9: Range check failed: value outside typealias 'SmallInt'
+Stack trace:
+  in pick
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-contained-return-emits-no-guard -->
+⭐ **THE CONTAINED RETURN.** `pick` returns a `Byte`, `main` returns an `ExitCode`, and `int(0 to 255)` is
+inside `ExitCode`'s range on every target — strictly, under Windows' `int(0 to u32.max)`; as an equal
+range, under the `int(0 to 255)` Linux, macOS and WASI carry — so the `as ExitCode` that `main`'s
+`return` owes gets nothing on any of them. Its emitted code (`--emit-ir`) shows it, and nothing in the
+suite pins it: `pick` keeps its own cascade
+(the `Integer` it computes from is NOT inside `Byte`, so that one is earned), and `main` is a `bl` and a
+`ret`.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function pick() returns Byte
+	return opaque(7)
+end 'pick'
+
+function main() returns ExitCode
+	return pick()
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: range-check-panic.an-identical-range-return-emits-no-guard -->
+The boundary of the rule: the two ranges are the SAME range, which is contained in itself. Every `main`
+in the corpus that returns an `ExitCode`-returning call is this program, and a guard there would run a
+full bounds cascade against a value that had just passed the identical cascade one frame down.
+The rule is containment, so it does not care *which* range `ExitCode` carries on the target — only that
+the two ends of the `return` name the same one.
+```maxon
+function code() returns ExitCode
+	return 7
+end 'code'
+
+function main() returns ExitCode
+	return code()
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: range-check-panic.an-uncontained-return-is-still-guarded -->
+⚠ **THE NEGATIVE CONTROL, and the one that matters most.** `Wide` is not inside `Narrow`, so nothing is
+proved and the guard stands at the `return`. Off by one at the top: `101` is a legal `Wide` and
+not a legal `Narrow`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Wide = int(0 to 1000)
+
+typealias Narrow = int(0 to 100)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function widen() returns Wide
+	return opaque(101)
+end 'widen'
+
+function narrow() returns Narrow
+	return widen()
+end 'narrow'
+
+function main() returns ExitCode
+	return narrow()
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.an-uncontained-return-is-still-guarded.test:15: Range check failed: value outside typealias 'Narrow'
+Stack trace:
+  in narrow
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.the-source-alias-keeps-its-own-guard -->
+⚠ **THE ELISION MOVES NOTHING UPSTREAM.** It is the DOWNSTREAM door that proves nothing to check; the
+door the value actually entered through is untouched, and it is the one that fires. `300` is outside
+`Byte`, so `pick` panics naming `Byte` — `main`'s elided `ExitCode` check never gets a value at all.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function pick() returns Byte
+	return opaque(300)
+end 'pick'
+
+function main() returns ExitCode
+	return pick()
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.the-source-alias-keeps-its-own-guard.test:10: Range check failed: value outside typealias 'Byte'
+Stack trace:
+  in pick
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-contained-field-store-and-element-store-emit-no-guard -->
+⭐ **THE OTHER DOORS ASK THE SAME QUESTION, and here the answer IS observable** — a field store and an
+array-element store take no `as`, so E3010 never stands in front of them. `Small` is inside `Wide` at
+both, and the two `return`s that hand a `Wide` back through a `returns Wide` are contained as well: the
+emitted code (`--emit-ir`) holds no `__rc_panic` block anywhere.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Wide = int(0 to 1000)
+
+typealias Wides = Array with Wide
+
+type Box
+	export var v as Wide
+
+	static function create() returns Box
+		return Self{v: 1}
+	end 'create'
+end 'Box'
+
+function small() returns Small
+	return 5
+end 'small'
+
+function fieldStore() returns Wide
+	let b = Box.create()
+	b.v = small() as Wide
+	return b.v
+end 'fieldStore'
+
+function elementStore() returns Wide
+	let a = Wides.create(0)
+	a.push(small() as Wide)
+	return try a.get(0) otherwise panic("no slot")
+end 'elementStore'
+
+function main() returns ExitCode
+	print("f={fieldStore()} e={elementStore()}\n")
+	return 0
+end 'main'
+```
+```stdout
+f=5 e=5
+```
+
+
+<!-- test: range-check-panic.an-uncontained-field-store-is-still-guarded -->
+⚠ The negative control for the field door, one value past the bound the elision would need. `Loose` is
+not inside `Wide`, so the store guards, and `1001` is what the guard is for.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Loose = int(0 to 2000)
+
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var v as Wide
+
+	static function create() returns Box
+		return Self{v: 1}
+	end 'create'
+end 'Box'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function loose() returns Loose
+	return opaque(1001)
+end 'loose'
+
+function main() returns ExitCode
+	let b = Box.create()
+	b.v = loose() as Wide
+	print("v={b.v}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.an-uncontained-field-store-is-still-guarded.test:24: Range check failed: value outside typealias 'Wide'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.an-uncontained-element-store-is-still-guarded -->
+⚠ The negative control for the array-element door, whose guard stands at the STORE rather than at
+the callee's entry — so the elision has to leave that one standing too. The pushed value carries no
+alias (`-loose()`, whose range `0 to 2000` is not inside `Wide`), because a value of another named alias
+is E3005 at the `push` and a value cast `as Wide` is guarded at the cast.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Loose = int(-2000 to 0)
+
+typealias Wide = int(0 to 1000)
+
+typealias Wides = Array with Wide
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function loose() returns Loose
+	return opaque(-1001)
+end 'loose'
+
+function main() returns ExitCode
+	let a = Wides.create(0)
+	a.push(-loose())
+	let v = try a.get(0) otherwise panic("no slot")
+	print("v={v}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.an-uncontained-element-store-is-still-guarded.test:17: Range check failed: value outside typealias 'Wide'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+
+### A COUNTED LOOP'S COUNTER CARRIES A RANGE, AND A GUARD IT COVERS IS DEAD
+
+`for r in 0 upto 64` steps its counter through `0 … 63` and nothing else. That is a fact about every
+value the body ever sees, so a range check the counter reaches — an `as` cast, a `return`, a field or
+element store, or the entry guard of a callee that gets inlined here — **cannot fail**, and the
+compiler does not emit it.
+
+⚠ **IT IS AN INTERVAL, NOT A TYPE.** The counter's written type is still the bare `int` its bounds were
+written at: nothing NAMES `0 … 63`, so `r as RegNum` is **not** an *unneeded cast* (E3010 refuses a cast to
+the value's own alias, or a literal's cast to its destination's declared type, and a counter is neither), and a counter that happens to exclude zero does **not**
+make `n / r` an infallible divide. Only the questions about whether a runtime GUARD can fail read it.
+
+**Both bounds must be constants the compiler can fold** — a literal, or an immutable top-level `let`.
+`for r in 0 upto xs.count()` proves nothing and every guard under it stands.
+
+**The interval is the one the BODY runs on**, which is `[a, b-1]` for `upto` and `[a, b]` for `to`. A
+loop that runs no trip states no interval, and an inclusive loop whose top is `i64.max` states none
+either: its step wraps to `i64.min` rather than ever failing the test.
+
+
+<!-- test: range-check-panic.a-counted-loop-counter-proves-a-cast -->
+The counter of `0 upto 64` is in `0 … 63`, which is exactly `RegNum` — so the cast's cascade is not
+emitted, and the cast is still not an E3010 (an interval names no alias to have repeated).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto 64 'scan'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=2016
+```
+
+
+<!-- test: range-check-panic.a-counted-loop-one-past-the-alias-is-refused -->
+<!-- positions: moved -->
+⚠ **THE DISCRIMINATING CASE FOR THE EXCLUSIVE ARITHMETIC.** One more trip and the counter reaches 64,
+which `RegNum` does not admit — so the cast is refused at compile time. A rule that took the interval as
+`[0, b-2]`, or that compared it the other way round, would compile it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto 65 'scan'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:15: Value 64 is outside the range of 'RegNum' (int(0 to 63))
+```
+
+
+<!-- test: range-check-panic.an-inclusive-counted-loop-at-its-top-bound-is-proven -->
+`to` includes its bound, so `0 to 63` is the same interval `0 upto 64` is — the same 2016, and the
+same elision.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 to 63 'scan'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=2016
+```
+
+
+<!-- test: range-check-panic.an-inclusive-counted-loop-one-past-its-top-bound-is-refused -->
+<!-- positions: moved -->
+⚠ **THE DISCRIMINATING CASE FOR THE INCLUSIVE ARITHMETIC**, and it is the one that would go silently
+wrong if `to` were read as `upto`: under `[0, 63]` the cast would be admitted rather than refused at 64.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 to 64 'scan'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:15: Value 64 is outside the range of 'RegNum' (int(0 to 63))
+```
+
+
+<!-- test: range-check-panic.a-runtime-loop-bound-proves-nothing -->
+A bound the compiler cannot fold states no interval, however obvious the value is at run time — so
+the guard stands and fires at 64.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto opaque(100) 'scan'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-runtime-loop-bound-proves-nothing.test:12: Range check failed: value outside typealias 'RegNum'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+
+### A RUNTIME limit still states the counter's FLOOR — and the floor is where the guards are
+
+⭐⭐ **A LIMIT THAT DOES NOT FOLD STILL BOUNDS THE COUNTER FROM BELOW.** `for i in 0 upto xs.count()`
+cannot fold its top, but its START is a literal, so every trip runs on `i >= 0` — which is the whole of
+what a non-negative element index needs. The interval is recorded ONE-SIDED as `[start, i64.max]`.
+Over this compiler's own self-compile it retires nearly every range-check site an interval could
+reach, and almost all of them are `ElementIndex`.
+
+⚠ **THE CEILING IS WHAT MUST BE PROVED, NOT THE FLOOR — and a limit above `i64.max` is where it fails.**
+The loop test runs at a signedness valid for both operands, so `i < xs` over an `int(0 to u64.max)` limit
+compares PATTERNS: the counter climbs through `i64.max` into the negative ones with the test still holding,
+and a recorded floor of 0 would vouch for a signed-negative value. `limitStatesANonNegativeCeiling` is what
+refuses that, and an INCLUSIVE loop with the same shape besides — it steps PAST its limit, so a runtime top
+has no constant for `inclusiveTopBoundWraps` to test.
+
+<!-- test: range-check-panic.a-runtime-limit-still-proves-the-floor -->
+The floor alone, from a limit whose declared range is non-negative. `i as NonNeg` cannot fail and its
+emitted code (`--emit-ir`) carries no cascade.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+function opaque(n NonNeg) returns NonNeg
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 upto opaque(3) 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=3
+```
+
+<!-- test: range-check-panic.a-counted-limit-proves-the-floor -->
+⭐ The corpus's own shape, and the one the 635 are: a `count()` is minted UNNAMED, so nothing DECLARES a
+range for it — the ceiling comes from the interval recorded where the call is emitted. Its emitted code
+(`--emit-ir`) carries no cascade either.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+typealias Ints = Array with Integer
+
+function main() returns ExitCode
+	let xs = Ints.create(0)
+	xs.push(10)
+	xs.push(20)
+	xs.push(30)
+	var total = 0 as Integer
+	for i in 0 upto xs.count() 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=3
+```
+
+<!-- test: range-check-panic.a-runtime-limit-proves-no-ceiling -->
+⚠ The discriminating negative for the FLOOR: only the low bound is stated, so a target the counter can
+climb past keeps its guard and fires. `Small` admits `0` and `1`; the third trip is `2`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+typealias Small = int(0 to 1)
+
+function opaque(n NonNeg) returns NonNeg
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 upto opaque(3) 'each'
+		let g = i as Small
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-runtime-limit-proves-no-ceiling.test:13: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-runtime-start-proves-no-floor -->
+⚠ The discriminating negative for the START. A start that does not fold states no floor, so the guard
+stands — and here it fires on the first trip, at `-2`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in opaque(-2) upto opaque(3) 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-runtime-start-proves-no-floor.test:12: Range check failed: value outside typealias 'NonNeg'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-unsigned-runtime-limit-proves-no-floor -->
+⚠⚠ **THE SOUNDNESS CASE. `Word` reaches ABOVE `i64.max`, so the test runs UNSIGNED** — the counter would
+climb through `i64.max` into the negative patterns with `i < limit` still holding, and a floor of 0 would
+vouch for a signed-negative value. The interval is withheld and the cast keeps its guard.
+
+⚠ **NO ANSWER CAN SHOW THIS, AND NEITHER CAN THIS CASE'S VERDICT** — the wrap is 2^63 trips away, and
+nothing in the suite pins the emitted code: removing `limitStatesANonNegativeCeiling`'s bound test leaves
+the suite green at exit 0. The emitted code (`--emit-ir`) shows the guard; what keeps the rule honest is
+the paragraph on `limitStatesANonNegativeCeiling`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+typealias Word = int(0 to u64.max)
+
+function opaque(n Word) returns Word
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 upto opaque(3) 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=3
+```
+
+<!-- test: range-check-panic.a-signed-runtime-limit-proves-no-floor -->
+⚠ **A CONSERVATIVE REFUSAL, AND SAYING SO IS THE POINT.** An `Integer` limit is not the unsound shape above:
+admitting negatives pins the test to the SIGNED reading, under which the counter stops at `limit - 1` and
+the floor would hold. It is refused because `limitStatesANonNegativeCeiling` asks for a limit provably
+inside `0 … i64.max` and answers on the DECLARED range alone — a narrower rule than soundness needs, and a
+much easier one to be sure of, and in this compiler's self-compile it costs only a handful of the sites
+an interval could reach.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 upto opaque(3) 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=3
+```
+
+<!-- test: range-check-panic.an-inclusive-runtime-limit-proves-no-floor -->
+⚠ The red gate for the half-open restriction. An inclusive loop steps PAST its limit, and a runtime top
+hands `inclusiveTopBoundWraps` no constant to test — so the interval is withheld whatever the limit's type
+says. The emitted code (`--emit-ir`) carries the cascade that survives.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+function opaque(n NonNeg) returns NonNeg
+	return n
+end 'opaque'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 to opaque(3) 'each'
+		let g = i as NonNeg
+		total = total + (g as Integer)
+	end 'each'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=6
+```
+
+<!-- test: range-check-panic.a-capacity-is-not-a-count -->
+<!-- tier: stdlib -->
+⛔ **THE RED GATE FOR THE `count` WITHHOLD.** The interval is recorded where `__managed_count` is emitted
+and NOWHERE ELSE on that arm's siblings: a `capacity()` answers a NEGATIVE SENTINEL for a buffer its record
+does not own — `-1` for a slice, which `stdlib/Array.maxon`'s `ReportedCapacity` header states and pins —
+so a value that is not a count must not inherit a count's floor. Hoist the record above the arm dispatch,
+or fold `capacity` onto it, and this case prints `c=-1` and exits 0 instead of panicking.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+typealias Ints = Array with Integer
+
+function main() returns ExitCode
+	let xs = Ints.create(0)
+	xs.push(10)
+	xs.push(20)
+	xs.push(30)
+	let sl = try xs.slice(0, endIndex: 2) otherwise panic("slice")
+	print("cap={sl.managed.capacity()}\n")
+	let c = sl.managed.capacity() as NonNeg
+	print("c={c}\n")
+	return 0
+end 'main'
+```
+```stdout
+cap=-1
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-capacity-is-not-a-count.test:13: Range check failed: value outside typealias 'NonNeg'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-empty-counted-loop-proves-nothing -->
+A loop that runs no trip has no interval to state. Nothing is elided and nothing runs; the emitted
+code (`--emit-ir`) carries the guard that survives.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 5 upto 5 'none'
+		let g = r as RegNum
+		total = total + (g as Integer)
+	end 'none'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=0
+```
+
+
+<!-- test: range-check-panic.an-inclusive-counted-loop-to-i64-max-keeps-its-guard -->
+⚠ An inclusive loop ending at `i64.max` never fails its own test — the step WRAPS to `i64.min`, which
+`NonNeg` does not admit — so no interval is stated and the guard stays. No answer can show that (the
+wrap is 2^63 trips away): the emitted code (`--emit-ir`) carries the cascade, and nothing in the suite
+pins it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonNeg = int(0 to i64.max)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 to i64.max 'forever'
+		let g = r as NonNeg
+		total = total + (g as Integer)
+		break
+	end 'forever'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=0
+```
+
+
+<!-- test: range-check-panic.a-counted-loop-counter-proves-a-callees-parameter -->
+A narrowed PARAMETER's guard stands at the callee's entry, in front of every caller — until the callee
+is inlined here, where there is exactly one caller and it already knows the argument is in range. The
+spliced cascade is then not copied at all.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function weigh(table Integer, regNum RegNum) returns Integer
+	return table + (regNum as Integer)
+end 'weigh'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto 64 'scan'
+		total = total + weigh(1, regNum: r)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=2080
+```
+
+
+<!-- test: range-check-panic.a-counted-loop-past-a-callees-parameter-is-refused -->
+<!-- positions: moved -->
+⚠ The negative control for the inlined cascade: the counter is not inside `RegNum`, so the argument is
+refused at compile time.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function weigh(table Integer, regNum RegNum) returns Integer
+	return table + (regNum as Integer)
+end 'weigh'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto 100 'scan'
+		total = total + weigh(1, regNum: r)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:21: Value 99 is outside the range of 'RegNum' (int(0 to 63))
+```
+
+
+<!-- test: range-check-panic.a-ranged-parameter-proves-a-callees-parameter -->
+The second proof a call site can hold: the argument is one of THIS function's own narrowed
+parameters, whose entry cascade dominates every call it makes. `twice` keeps its own guard — it is
+still called from anywhere — and both inlined copies of `weigh`'s lose theirs.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function weigh(table Integer, regNum RegNum) returns Integer
+	return table + (regNum as Integer)
+end 'weigh'
+
+function twice(table Integer, reg RegNum) returns Integer
+	return weigh(table, regNum: reg) + weigh(table, regNum: reg)
+end 'twice'
+
+function main() returns ExitCode
+	print("t={twice(1, reg: 7)}\n")
+	return 0
+end 'main'
+```
+```stdout
+t=16
+```
+
+
+<!-- test: range-check-panic.a-wider-parameter-does-not-prove-a-narrower-one -->
+⚠ The negative control for that second proof: `Wide` admits values `RegNum` does not, so the caller's
+own guard proves nothing about the callee's and the spliced cascade stays. Both frames are in the
+trace, which is what says the panic is still the callee's.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+typealias Wide = int(0 to 1000)
+
+function weigh(table Integer, regNum RegNum) returns Integer
+	return table + (regNum as Integer)
+end 'weigh'
+
+function twice(table Integer, reg Wide) returns Integer
+	return weigh(table, regNum: reg as RegNum) + weigh(table, regNum: reg as RegNum)
+end 'twice'
+
+function main() returns ExitCode
+	print("t={twice(1, reg: 200)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-wider-parameter-does-not-prove-a-narrower-one.test:11: Range check failed: value outside typealias 'RegNum'
+Stack trace:
+  in twice
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.an-inclusive-counted-loop-past-the-unsigned-top-still-panics -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+⚠⚠ **THE DISCRIMINATING CASE FOR THE TOP BOUND.** A `to` loop runs the
+body AT its bound, steps past it and tests again — so at the top of the domain the test READS, the step wraps
+to that domain's bottom and the loop never leaves. There are two tops, because `emitCompare` picks a
+signedness valid for both operands: this counter is declared over `int(0 to u64.max)`, so the test compiles
+UNSIGNED, walks past `-1` into `0, 1, …`, and the interval `[-5, -1]` stops being true on the sixth trip.
+Refusing only the SIGNED top would print `n=7 last=1` and exit 0; the guard belongs here and fires.
+⚠ `(0 - 5) as Big` is spelled as a SUBTRACTION on purpose: a written `-5` is refused at a declared lower
+bound of 0 before the program runs (E3005), and this case pins the RUNTIME guard — the counter has to
+arrive negative through arithmetic, not through a literal the parser marks.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Big = bits(64)
+
+typealias Neg = int(-5 to -1)
+
+function main() returns ExitCode
+	var n = 0 as Integer
+	var last = 0 as Integer
+	for i in ((0 - 5) as Big) to u64.max 'wrap'
+		let g = i as Neg
+		last = g as Integer
+		n = n + 1
+		if n > 6 'enough'
+			break
+		end 'enough'
+	end 'wrap'
+	print("n={n} last={last}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.an-inclusive-counted-loop-past-the-unsigned-top-still-panics.test:10: Range check failed: value outside typealias 'Neg'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-counted-divisor-is-a-bare-divide -->
+A counted loop between literal bounds gives its counter a known interval, and `1 upto 10` excludes 0, so
+`i` is a proven divisor: `100 / i` cannot throw and is written bare, exactly as a divide by a ranged type
+excluding 0 is.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var t = 0 as Integer
+	for i in 1 upto 10 'l'
+		t = t + 100 / i
+	end 'l'
+	print("t={t}\n")
+	return 0
+end 'main'
+```
+```stdout
+t=281
+```
+
+⭐⭐ **A GUARDED CAST PROVES A DIVISOR A REASSIGNED `var` CANNOT, AND THE LINE BETWEEN THEM IS *NAMED AND GUARDED*.**
+<!-- test: range-check-panic.a-counter-cast-to-a-nonzero-alias-is-a-bare-divide -->
+`0 upto 4` admits 0, but the cast to `NonZero` guards the value into `1 to 1000`, and the narrower fact
+proves the divisor, so the divide is bare.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to 1000)
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for i in 0 upto 4 'l'
+		if i > 0 'positive'
+			let q = 100 / (i as NonZero)
+			total = total + (q as Integer)
+		end 'positive'
+	end 'l'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+183
+```
+
+
+<!-- test: range-check-panic.a-guarded-float-cast-proves-a-divisor-a-merge-cannot -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+⭐⭐ **THE POSITIVE COUNTERPART OF THE WITHHOLD ABOVE, AND THE LINE BETWEEN THEM IS *NAMED AND GUARDED*.**
+`d` is a reassigned `var`, so it denotes nothing a merge or an interval could vouch for — but `as Positive`
+is a DECLARED alias, and the cast emits the runtime guard the next case fires. Past that guard the value
+satisfies `Positive` whatever it was before, so `8.0 / s` is `safety.md`'s escape hatch and needs no `try`.
+⚠ The proof cannot ride the SOURCE value: `d` is a bare local, one value under two names, and stamping it
+would vouch for `d` on paths the guard never ran on. The cast mints its own value to carry it.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Positive = float(2.2250738585072014e-308 to f64.max)
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	var d = 0.0 as FullRangeFloat
+	// TODO: float literals are not supported in minimaxon
+	d = d + 4.0
+	let s = d as Positive
+	print("q={8.0 / s}\n")
+	return 0
+end 'main'
+```
+```stdout
+q=2.0
+```
+
+
+<!-- test: range-check-panic.a-guarded-float-cast-that-fails-still-panics -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+⛔ **WHAT MAKES THE PROOF ABOVE LEGITIMATE.** The same shape with `d` landing on `0.0`: the guard the cast
+emits is what stands between a bare `divsd` and a division by zero, so it must still fire — and it must fire
+at the CAST, before the divide the proof exempted. An elided guard here would print `q=inf`.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Positive = float(2.2250738585072014e-308 to f64.max)
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	var d = 1.0 as FullRangeFloat
+	// TODO: float literals are not supported in minimaxon
+	d = d - 1.0
+	let s = d as Positive
+	print("q={8.0 / s}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-guarded-float-cast-that-fails-still-panics.test:7: Range check failed: value outside typealias 'Positive'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-merge-fed-by-a-counted-loop-denotes-the-vars-alias -->
+`x` is an `if`-continuation merge, and one of its edges stores a counted counter whose interval lies
+inside `Small`. Every store into the ranged `var` is a range door, so the merge denotes `Small` and reads
+into `Integer` with the one cast; a second `as Small` would be E3010.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 10)
+
+function main() returns ExitCode
+	var t = 0 as Integer
+	for r in 0 upto 5 'l'
+		var x = 1 as Small
+		if r > 2 'high'
+			x = r
+		end 'high' else 'low'
+			x = 1
+		end 'low'
+		t = t + (x as Integer)
+	end 'l'
+	print("t={t}\n")
+	return 0
+end 'main'
+```
+```stdout
+t=10
+```
+
+
+<!-- test: range-check-panic.a-guard-in-an-unselected-ternary-arm-does-not-fire -->
+⛔⛔ **A GUARD BELONGS TO ITS ARM, AND A CONDITIONAL EXPRESSION'S TRUE ARM IS *RELOCATED* AFTER IT IS
+PARSED.** A site records the block control was in and the ordinal that block stood at, because an
+int->int cast emits no op to anchor to — and `parseTernaryExpression` then lifts the true arm's ops off
+the unconditional path into `ternarytrue`. A site left where it was recorded would describe a position
+that holds a different value, its cascade would run in the CONDITION's block on both edges, and this
+program would panic `value outside typealias 'Small'` where the answer is `7`. The arm's sites travel with
+its ops (`Parser.rehomeArmRangeSites`).
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function widen(n Wide) returns Wide
+	return n * 100
+end 'widen'
+
+function pick(i Wide, flag bool) returns Small
+	return (i as Small) if flag else 7
+end 'pick'
+
+function main() returns ExitCode
+	return pick(widen(5), flag: false)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: range-check-panic.a-guard-in-the-selected-ternary-arm-still-fires -->
+The positive control for the case above, and the half that says the guard was MOVED rather than lost:
+the identical program with the condition TRUE panics, at the arm's own line.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function widen(n Wide) returns Wide
+	return n * 100
+end 'widen'
+
+function pick(i Wide, flag bool) returns Small
+	return (i as Small) if flag else 7
+end 'pick'
+
+function main() returns ExitCode
+	return pick(widen(5), flag: true)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-guard-in-the-selected-ternary-arm-still-fires.test:10: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in pick
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-value-computed-inside-a-ternary-arm-is-guarded-there -->
+⛔ The same defect's louder half: when the guarded value is COMPUTED in the arm rather than merely read
+there, the misplaced cascade READS a value defined in a block it dominates, and the register allocator
+refuses the function outright — *"seedInUse: value N is live-in to block 0 but was never colored"*, so
+the program does not build at all. The shape is an ordinary one, because `stdlib/Array.maxon`'s
+`ElementIndex` puts a guard on every computed array index: `a.get(i - n)` inside a conditional
+expression's true arm has it. The second call also
+carries an OUT-OF-RANGE value down the arm that is NOT selected, so a guard that merely survived in the
+wrong block would be caught here too and not only by the compile.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function widen(n Wide) returns Wide
+	return n * 100
+end 'widen'
+
+function pick(i Wide, flag bool) returns Small
+	return ((i + 1) as Small) if flag else 7
+end 'pick'
+
+function main() returns ExitCode
+	print("{pick(widen(0), flag: true)}\n")
+	print("{pick(widen(5), flag: false)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+7
+```
+
+<!-- test: range-check-panic.a-computed-value-in-the-selected-ternary-arm-still-panics -->
+The fourth corner, and the one that says the computed shape's guard was MOVED rather than dropped: the
+same program with the arm SELECTED and the computation out of range panics, from the arm's own line.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function widen(n Wide) returns Wide
+	return n * 100
+end 'widen'
+
+function pick(i Wide, flag bool) returns Small
+	return ((i + 1) as Small) if flag else 7
+end 'pick'
+
+function main() returns ExitCode
+	return pick(widen(5), flag: true)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-computed-value-in-the-selected-ternary-arm-still-panics.test:10: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in pick
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-return-through-the-exit-cascade-is-still-guarded -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Percent = int(0 to 100)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function scale(n Integer) returns Percent
+	let label = "n={n}"
+	if n > 10 'big'
+		return opaque(n * 20)
+	end 'big'
+	print("{label}\n")
+	return n
+end 'scale'
+
+function main() returns ExitCode
+	print("{scale(opaque(3))}\n")
+	print("{scale(opaque(42))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+n=3
+3
+```
+```stderr
+panic at range-check-panic.a-return-through-the-exit-cascade-is-still-guarded.test:13: Range check failed: value outside typealias 'Percent'
+Stack trace:
+  in scale
+  in main
+  in mrt_start
+```
+
+
+<!-- test: range-check-panic.a-guarded-return-whose-only-drop-was-promoted-away -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Percent = int(0 to 100)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Point
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function scale(n Integer) returns Percent
+	let p = Point.create(n, y: 1)
+	if n > 10 'big'
+		return opaque(n * 20)
+	end 'big'
+	return p.x + p.y
+end 'scale'
+
+function main() returns ExitCode
+	print("{scale(opaque(3))}\n")
+	print("{scale(opaque(42))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+4
+```
+```stderr
+panic at range-check-panic.a-guarded-return-whose-only-drop-was-promoted-away.test:22: Range check failed: value outside typealias 'Percent'
+Stack trace:
+  in scale
+  in main
+  in mrt_start
+```
+
+<!-- test: a-large-count-reaches-a-function-value-through-a-generic-cell -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A `Count` above `i64.max` stored in a generic cell is checked where it enters the cell, so the cell's call through a function value passes it on.
+```maxon
+type Cell uses T
+	export var v as T
+	export var pick as Pick
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Pick = function(T) returns T
+
+	static function make(v T, pick Pick) returns Self
+		return Self{v: v, pick: pick}
+	end 'make'
+
+	export function run() returns T
+		return self.pick(self.v)
+	end 'run'
+end 'Cell'
+
+typealias CountCell = Cell with Count
+
+function echo(c Count) returns Count
+	return c
+end 'echo'
+
+function top(one Count) returns Count
+	return one shl 63
+end 'top'
+
+function main() returns ExitCode
+	let cell = CountCell.make(top(1), pick: echo)
+	print("{cell.run()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775808
+```
+
+<!-- test: a-negative-value-into-a-generic-cell-is-refused-where-it-enters -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`n` is derived from a counted loop's counter, so the `-1` it reaches is known at compile time and the
+cell's `Count` parameter refuses it with E3005.
+```maxon
+type Cell uses T
+	export var v as T
+	export var pick as Pick
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Pick = function(T) returns T
+
+	static function make(v T, pick Pick) returns Self
+		return Self{v: v, pick: pick}
+	end 'make'
+
+	export function run() returns T
+		return self.pick(self.v)
+	end 'run'
+end 'Cell'
+
+typealias CountCell = Cell with Count
+
+function echo(c Count) returns Count
+	return c
+end 'echo'
+
+function main() returns ExitCode
+	for i in 0 upto 2 'each'
+		let n = i - 1
+		let cell = CountCell.make(n, pick: echo)
+		print("{cell.run()}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:26:24: Value -1 is outside the range of 'Count' (int(0 to 18446744073709551615))
+```
+
+<!-- test: a-large-count-reaches-a-service-handler -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+```maxon
+function top(one Count) returns Count
+	return one shl 63
+end 'top'
+
+type Sink
+	var seen = 0 as Count
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function put(c Count)
+		self.seen = c
+	end 'put'
+
+	export function get() returns Count
+		return self.seen
+	end 'get'
+end 'Sink'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Sink.create()
+	try h.put(top(1)) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let got = try await h.get() otherwise 0
+	print("{got}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775808
+```
+
+<!-- test: a-negative-value-sent-to-a-service-handler-is-refused-at-the-send -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+On wasm32-wasi this case's expected diagnostic is displaced by E3104 ('spawn' lowers to the runtime entry '__cown_spawn', which has no wasm32-wasi implementation), so the lane is excluded.
+
+`i - 1` is arithmetic over a counted loop's counter, so the `-1` it reaches is known at compile time and
+the handler's `Count` parameter refuses it at the send with E3005.
+```maxon
+type Sink
+	var seen = 0 as Count
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function put(c Count)
+		self.seen = c
+	end 'put'
+end 'Sink'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Sink.create()
+	for i in 0 upto 2 'each'
+		try h.put(i - 1) otherwise panic("an open mailbox with room takes the send")
+	end 'each'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:18:9: Value -1 is outside the range of 'Count' (int(0 to 18446744073709551615))
+```
+
+<!-- test: a-large-count-through-a-generic-instances-function-field -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+Calling a concrete instance's function-typed field substitutes its parameter type, so a large `Count` passes through it.
+```maxon
+type Cell uses T
+	export var pick as Pick
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Pick = function(T) returns T
+
+	static function make(pick Pick) returns Self
+		return Self{pick: pick}
+	end 'make'
+end 'Cell'
+
+typealias CountCell = Cell with Count
+
+function echo(c Count) returns Count
+	return c
+end 'echo'
+
+function top(one Count) returns Count
+	return one shl 63
+end 'top'
+
+function main() returns ExitCode
+	let cell = CountCell.make(echo)
+	print("{cell.pick(top(1))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775808
+```
+
+<!-- test: a-negative-value-through-a-closure-is-refused-at-the-call -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A negative value handed to a closure's `Count` parameter is refused where the closure is called. `n` is
+derived from a counted loop's counter, so its interval is known and the refusal is a compile error.
+```maxon
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let f = function(tag String, c Count) gives c if tag == "x" else c
+	for i in 0 upto 2 'each'
+		let n = i - 1
+		print("{f("x", n)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:12: Value -1 is outside the range of 'Count' (int(0 to 18446744073709551615))
+```
+
+<!-- test: a-negative-difference-into-a-generic-cell-panics-at-the-subtraction -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The run-time twin of the refusal above: `args - 2` is a `Count` difference the compiler cannot evaluate, so the borrow is caught where the difference is computed, before the value reaches the cell.
+```maxon
+type Cell uses T
+	export var v as T
+	export var pick as Pick
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Pick = function(T) returns T
+
+	static function make(v T, pick Pick) returns Self
+		return Self{v: v, pick: pick}
+	end 'make'
+
+	export function run() returns T
+		return self.pick(self.v)
+	end 'run'
+end 'Cell'
+
+typealias CountCell = Cell with Count
+
+function echo(c Count) returns Count
+	return c
+end 'echo'
+
+function main() returns ExitCode
+	let n = CommandLine.args().count() - 2
+	let cell = CountCell.make(n, pick: echo)
+	print("{cell.run()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-negative-difference-into-a-generic-cell-panics-at-the-subtraction.test:24: Range check failed: value outside typealias 'Count'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: a-negative-difference-sent-to-a-service-handler-panics-at-the-send -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+The run-time twin of the refusal above: the difference is unknown to the compiler, so the handler's `Count` parameter catches the borrow when the send is made.
+```maxon
+type Sink
+	var seen = 0 as Count
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function put(c Count)
+		self.seen = c
+	end 'put'
+end 'Sink'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Sink.create()
+	try h.put(CommandLine.args().count() - 2) otherwise panic("an open mailbox with room takes the send")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-negative-difference-sent-to-a-service-handler-panics-at-the-send.test:16: Range check failed: value outside typealias 'Count'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: a-negative-difference-through-a-closure-panics-at-the-call -->
+<!-- skip: closures are not supported in minimaxon -->
+The run-time twin of the refusal above: the difference is unknown to the compiler, so the closure's `Count` parameter catches the borrow where the closure is called.
+```maxon
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let f = function(tag String, c Count) gives c if tag == "x" else c
+	print("{f("x", CommandLine.args().count() - 2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-negative-difference-through-a-closure-panics-at-the-call.test:4: Range check failed: value outside typealias 'Count'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-sum-past-a-callees-parameter-still-panics -->
+⚠ The run-time twin of the refusal above, and it pins the FRAME as well as the panic: the argument is a sum of two `RegNum`s, which wears `RegNum` without proving it, so the cascade is copied as it always was and the slow arm re-issues the real call — the trace names `weigh`, at `weigh`'s own parameter line.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RegNum = int(0 to 63)
+
+function weigh(table Integer, regNum RegNum) returns Integer
+	return table + (regNum as Integer)
+end 'weigh'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	for r in 0 upto 64 'scan'
+		let cell = r as RegNum
+		total = total + weigh(1, regNum: cell + cell)
+	end 'scan'
+	print("total={total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-sum-past-a-callees-parameter-still-panics.test:5: Range check failed: value outside typealias 'RegNum'
+Stack trace:
+  in weigh
+  in main
+  in mrt_start
+```
+
+<!-- test: a-user-pop-over-a-literal-array-proves-nothing-about-its-result -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A user declaration named like a library move-out door is decided by its own body, not by its name: `Picker.pop` returns its `fallback`, so nothing known about the elements of the literal array it was handed bounds that result, and `show` checks the value against `Small` where it enters.
+```maxon
+typealias Small = int(0 to 10)
+
+type Picker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+
+	static function pop(a Items, fallback T) returns T
+		_ = a
+		return fallback
+	end 'pop'
+end 'Picker'
+
+function show(s Small) returns Small
+	return s
+end 'show'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2, 3]
+	let hundred = 100
+	let s = show(Picker.pop(a, fallback: hundred))
+	print("{s}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-user-pop-over-a-literal-array-proves-nothing-about-its-result.test:13: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in show
+  in main
+  in mrt_start
+```
+
+<!-- test: a-user-get-over-a-literal-array-proves-nothing-about-its-result -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The same rule for a user declaration named like a library read: `Picker.get` returns its `fallback`, not an element of the literal array it was handed, so the result carries no bound from that array and `show` checks it against `Small`.
+```maxon
+typealias Small = int(0 to 10)
+
+type Picker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+
+	static function get(a Items, fallback T) returns T
+		_ = a
+		return fallback
+	end 'get'
+end 'Picker'
+
+function show(s Small) returns Small
+	return s
+end 'show'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2, 3]
+	let hundred = 100
+	let s = show(Picker.get(a, fallback: hundred))
+	print("{s}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-user-get-over-a-literal-array-proves-nothing-about-its-result.test:13: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in show
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-count-subtraction-that-borrows-panics-in-a-let -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+⛔⛔ **ARITHMETIC ON A FULL-WIDTH UNSIGNED ALIAS IS RANGE-CHECKED WHERE IT IS COMPUTED, NOT WHERE ITS RESULT LANDS.** Every 64-bit pattern is a value of `int(0 to u64.max)`, so a wrapped difference is a perfectly good pattern (`2 - 3` reads as `u64.max`) and no later door can tell it from a real count. A `let` has no door at all, so the check is on the subtraction itself.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [1, 2, 3]
+	let d = a.count() - b.count()
+	print("d {d}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-count-subtraction-that-borrows-panics-in-a-let.test:5: Range check failed: value outside typealias 'Count'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-count-subtraction-that-borrows-panics-in-a-for-bound -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The same subtraction as a counted loop's bound: an unchecked wrapped difference reads as `u64.max` and sends the loop over `0 to u64.max`. A loop bound is no door either, so the check is on the subtraction.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [1, 2, 3]
+	for i in 0 to (a.count() - b.count()) 'scan'
+		print("i {i}\n")
+		if i > 2 'enough'
+			break
+		end 'enough'
+	end 'scan'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-count-subtraction-that-borrows-panics-in-a-for-bound.test:5: Range check failed: value outside typealias 'Count'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-addition-past-the-unsigned-top-panics -->
+`+` is checked for a carry out of bit 63: `u64.max + 1` is `0` as a pattern and `2^64` as a number, and the alias holds numbers.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function grow(base Slot, by Slot) returns Slot
+	return base + by
+end 'grow'
+
+function main() returns ExitCode
+	print("{grow(u64.max, by: 1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.an-addition-past-the-unsigned-top-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in grow
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-multiplication-past-the-unsigned-top-panics -->
+`*` is checked for a nonzero high word of the 128-bit product: `2^32 * 2^32` is `0` as a pattern.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function scale(base Slot, by Slot) returns Slot
+	return base * by
+end 'scale'
+
+function main() returns ExitCode
+	print("{scale(4294967296, by: 4294967296)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-multiplication-past-the-unsigned-top-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in scale
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-subtraction-that-borrows-panics-in-a-full-unsigned-function -->
+The same borrow through a parameter and a `return`, which is where a named function's own door would otherwise be the only check: the panic names the typealias and the subtraction's line.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function shrink(base Slot, by Slot) returns Slot
+	return base - by
+end 'shrink'
+
+function main() returns ExitCode
+	print("{shrink(3, by: 4)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-subtraction-that-borrows-panics-in-a-full-unsigned-function.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in shrink
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.full-unsigned-arithmetic-that-stays-in-range-does-not-panic -->
+The control for the four panics above: each operator at the very edge of the range. `u64.max - 1 + 1` and `3 * (u64.max / 3)` both land on `u64.max`, `7 - 7` on `0`, and `(2^32 - 1) * 2^32` is the largest product of that shape that still fits.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function grow(base Slot, by Slot) returns Slot
+	return base + by
+end 'grow'
+
+function shrink(base Slot, by Slot) returns Slot
+	return base - by
+end 'shrink'
+
+function scale(base Slot, by Slot) returns Slot
+	return base * by
+end 'scale'
+
+function main() returns ExitCode
+	print("{grow(u64.max - 1, by: 1)}\n")
+	print("{shrink(7, by: 7)}\n")
+	print("{scale(6148914691236517205, by: 3)}\n")
+	print("{scale(4294967295, by: 4294967296)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615
+0
+18446744073709551615
+18446744069414584320
+```
+
+<!-- test: range-check-panic.a-merged-operand-plus-a-value-wraps-and-panics -->
+⛔⛔ **THE OPERATION'S CHECK DOES NOT DEPEND ON WHAT THE COMPILER KNOWS ABOUT ITS OPERANDS.** A value that merges two `Slot`s through a conditional is a `Slot` by name only, so it is not recorded as unsigned; the sum is still tested for a carry out of bit 63, and a sum that wraps to a small number panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function lowerPlus(a Slot, b Slot, c Slot) returns Slot
+	let lower = a if a < b else b
+	return lower + c
+end 'lowerPlus'
+
+function main() returns ExitCode
+	print("{lowerPlus(u64.max, b: u64.max, c: 2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-merged-operand-plus-a-value-wraps-and-panics.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in lowerPlus
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-merged-operand-sum-above-the-signed-top-does-not-panic -->
+The other half of the case above: a sum that is at least `2^63` is a bit-63-set pattern and a legitimate `Slot`, so the operation's check must not read it as a negative.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function lowerPlus(a Slot, b Slot, c Slot) returns Slot
+	let lower = a if a < b else b
+	return lower + c
+end 'lowerPlus'
+
+function main() returns ExitCode
+	print("{lowerPlus(9223372036854775808, b: u64.max, c: 5)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775813
+```
+
+<!-- test: range-check-panic.a-merged-operand-times-a-constant-wraps-and-panics -->
+A merged operand times a constant factor: `2^62 * 4` is `0` as a pattern and `2^64` as a number.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function quadruple(x Slot, y Slot) returns Slot
+	let larger = x if x > y else y
+	return larger * 4
+end 'quadruple'
+
+function main() returns ExitCode
+	print("{quadruple(4611686018427387904, y: 1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-merged-operand-times-a-constant-wraps-and-panics.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in quadruple
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-counted-difference-plus-the-top-wraps-and-panics -->
+`(i as Slot) - 1` over a counted loop's counter has a proven interval, so the subtraction carries no check; the sum with `u64.max` has no proof, and it panics on the trip where it carries.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	let top = u64.max as Slot
+	for i in 1 upto 3 'each'
+		let below = (i as Slot) - 1
+		print("{below + top}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+18446744073709551615
+```
+```stderr
+panic at range-check-panic.a-counted-difference-plus-the-top-wraps-and-panics.test:8: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.full-unsigned-edge-pairs-agree-on-the-folded-and-the-runtime-path -->
+The same operand pairs through both paths: folded constants in `main`, and runtime parameters in the functions. The pairs sit on the edges of each operator: the largest sums, differences and products that fit, in the three places a signed reading goes wrong (`2^63 - 1`, `2^63`, `u64.max`), and a factor of `0`, `1`, `2^32` and `u64.max`. Every line is printed twice and the two copies agree.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function plus(a Slot, b Slot) returns Slot
+	return a + b
+end 'plus'
+
+function minus(a Slot, b Slot) returns Slot
+	return a - b
+end 'minus'
+
+function times(a Slot, b Slot) returns Slot
+	return a * b
+end 'times'
+
+function main() returns ExitCode
+	let zero = 0 as Slot
+	let one = 1 as Slot
+	let half = 9223372036854775808 as Slot
+	let halfLess = half - one
+	let top = u64.max as Slot
+	let word = 4294967296 as Slot
+	let wordLess = word - one
+	let wordMore = word + one
+	print("{halfLess + half} {plus(9223372036854775807, b: 9223372036854775808)}\n")
+	print("{top + zero} {plus(top, b: zero)}\n")
+	print("{half - halfLess} {minus(half, b: halfLess)}\n")
+	print("{top - top} {minus(top, b: top)}\n")
+	print("{zero - zero} {minus(zero, b: zero)}\n")
+	print("{wordLess * wordMore} {times(wordLess, b: wordMore)}\n")
+	print("{word * wordLess} {times(word, b: wordLess)}\n")
+	print("{top * one} {times(top, b: one)}\n")
+	print("{top * zero} {times(top, b: zero)}\n")
+	print("{zero * top} {times(zero, b: top)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615 18446744073709551615
+18446744073709551615 18446744073709551615
+1 1
+0 0
+0 0
+18446744073709551615 18446744073709551615
+18446744069414584320 18446744069414584320
+18446744073709551615 18446744073709551615
+0 0
+0 0
+```
+
+<!-- test: range-check-panic.a-carry-out-of-bit-63-panics-on-the-runtime-path -->
+`2^63 + 2^63` is `0` as a pattern and `2^64` as a number: the two operands are each below `u64.max`, so only the carry can tell.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function plus(a Slot, b Slot) returns Slot
+	return a + b
+end 'plus'
+
+function main() returns ExitCode
+	print("{plus(9223372036854775808, b: 9223372036854775808)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-carry-out-of-bit-63-panics-on-the-runtime-path.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in plus
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-carry-out-of-bit-63-on-folded-operands-is-refused -->
+The pair above with both operands known to the compiler. A result the compiler can compute that leaves the alias is E3005, as a literal outside it is: the program is refused at the operator, and nothing reaches run time.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	let half = 9223372036854775808 as Slot
+	let sum = half + half
+	print("{sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:17: The result of 9223372036854775808 + 9223372036854775808 is outside the range of 'Slot' (int(0 to 18446744073709551615))
+```
+
+<!-- test: range-check-panic.a-borrow-across-the-signed-midpoint-panics-on-the-runtime-path -->
+`2^63 - 1` is below `2^63` read unsigned, though it is the larger number read signed: the borrow is a comparison of the operands as unsigned.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function minus(a Slot, b Slot) returns Slot
+	return a - b
+end 'minus'
+
+function main() returns ExitCode
+	print("{minus(9223372036854775807, b: 9223372036854775808)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-borrow-across-the-signed-midpoint-panics-on-the-runtime-path.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in minus
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-borrow-across-the-signed-midpoint-on-folded-operands-is-refused -->
+The pair above with both operands known to the compiler: E3005 at the operator, naming the operands.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	let half = 9223372036854775808 as Slot
+	let below = half - 1
+	let difference = below - half
+	print("{difference}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:25: The result of 9223372036854775807 - 9223372036854775808 is outside the range of 'Slot' (int(0 to 18446744073709551615))
+```
+
+<!-- test: range-check-panic.zero-minus-the-top-panics -->
+`0 - u64.max` borrows although the right operand is a negative pattern.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function minus(a Slot, b Slot) returns Slot
+	return a - b
+end 'minus'
+
+function main() returns ExitCode
+	print("{minus(0, b: u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.zero-minus-the-top-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in minus
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-constant-factor-at-its-limit-does-not-panic -->
+A multiplication by a constant is a comparison of the other operand with `floor(u64.max / factor)`. At the limit it fits: the factor may be on either side, `2^32`, or the negative pattern `u64.max`.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function timesThree(x Slot) returns Slot
+	return x * 3
+end 'timesThree'
+
+function threeTimes(x Slot) returns Slot
+	return 3 * x
+end 'threeTimes'
+
+function timesTop(x Slot) returns Slot
+	return x * u64.max
+end 'timesTop'
+
+function timesWord(x Slot) returns Slot
+	return x * 4294967296
+end 'timesWord'
+
+function main() returns ExitCode
+	print("{timesThree(6148914691236517205)}\n")
+	print("{threeTimes(6148914691236517205)}\n")
+	print("{timesTop(1)}\n")
+	print("{timesTop(0)}\n")
+	print("{timesWord(4294967295)}\n")
+	print("{timesWord(0)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615
+18446744073709551615
+18446744073709551615
+0
+18446744069414584320
+0
+```
+
+<!-- test: range-check-panic.a-constant-right-factor-past-its-limit-panics -->
+One past the limit of a constant factor on the right.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function timesThree(x Slot) returns Slot
+	return x * 3
+end 'timesThree'
+
+function main() returns ExitCode
+	print("{timesThree(6148914691236517206)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-constant-right-factor-past-its-limit-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in timesThree
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-constant-left-factor-past-its-limit-panics -->
+One past the limit of a constant factor on the left.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function threeTimes(x Slot) returns Slot
+	return 3 * x
+end 'threeTimes'
+
+function main() returns ExitCode
+	print("{threeTimes(6148914691236517206)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-constant-left-factor-past-its-limit-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in threeTimes
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-negative-pattern-factor-admits-only-zero-and-one -->
+The constant `u64.max` is the negative pattern `-1`: its limit is `1`, and the unsigned comparison is what keeps `2` from reading as below it.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function timesTop(x Slot) returns Slot
+	return x * u64.max
+end 'timesTop'
+
+function main() returns ExitCode
+	print("{timesTop(2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-negative-pattern-factor-admits-only-zero-and-one.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in timesTop
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-two-to-the-32-factor-past-its-limit-panics -->
+`2^32 * 2^32` against a constant `2^32` factor.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function timesWord(x Slot) returns Slot
+	return x * 4294967296
+end 'timesWord'
+
+function main() returns ExitCode
+	print("{timesWord(4294967296)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-two-to-the-32-factor-past-its-limit-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in timesWord
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-product-of-two-runtime-words-over-the-top-panics -->
+A product of two values neither of which the compiler knows has no constant factor to compare against, so it tests the high word of the 128-bit product: `2^32 * 2^32` has a high word of `1`.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function times(a Slot, b Slot) returns Slot
+	return a * b
+end 'times'
+
+function main() returns ExitCode
+	print("{times(4294967296, b: 4294967296)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-product-of-two-runtime-words-over-the-top-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in times
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-product-with-the-top-bit-set-panics -->
+`2^63 * 2`, where the product's low word is `0`.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function times(a Slot, b Slot) returns Slot
+	return a * b
+end 'times'
+
+function main() returns ExitCode
+	print("{times(9223372036854775808, b: 2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-product-with-the-top-bit-set-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in times
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.the-product-of-the-top-with-itself-panics -->
+`u64.max * u64.max`, the largest high word there is.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function times(a Slot, b Slot) returns Slot
+	return a * b
+end 'times'
+
+function main() returns ExitCode
+	print("{times(u64.max, b: u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.the-product-of-the-top-with-itself-panics.test:5: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in times
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-product-over-the-top-of-folded-operands-is-refused -->
+The factors known to the compiler: the product is E3005 at the operator.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	let word = 4294967296 as Slot
+	let product = word * word
+	print("{product}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:21: The result of 4294967296 * 4294967296 is outside the range of 'Slot' (int(0 to 18446744073709551615))
+```
+
+<!-- test: range-check-panic.a-var-doubled-past-the-top-panics -->
+A `var` operand: the loop doubles `acc` until `2^63 * 2`, which is the 64th trip.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	var acc = 1 as Slot
+	for _ in 0 upto 70 'double'
+		acc = acc * 2
+	end 'double'
+	print("{acc}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-var-doubled-past-the-top-panics.test:7: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-counted-loops-bounded-sum-is-not-a-panic-site -->
+The control for the proof: a counter's interval covers `(i as Slot) + 1`, so the sum is computed with no check, and the loop runs to its end.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	var total = 0 as Slot
+	for i in 0 upto 10 'each'
+		total = total + ((i as Slot) + 1)
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+55
+```
+
+<!-- test: range-check-panic.negating-a-full-width-unsigned-value-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+⛔ **`-n` OVER A FULL-WIDTH UNSIGNED ALIAS IS A COMPILE ERROR.** `Count` holds `0 to u64.max`, so the negation of any value above 0 is outside it, and a wrapping negation is a different operation. The message names the two spellings that mean something: a `bits(64)` typealias for the deliberate wrap, a signed alias for the number.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let n = [1, 2].count()
+	let m = -n
+	print("{m}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3218: <fragment>:4:10: unary '-' cannot negate a value of 'Count': it holds 0 to u64.max, so the negation of any value above 0 is outside it. Write a deliberately wrapping negation over a `bits(64)` typealias, or convert the value to a signed typealias first with `as`
+```
+
+<!-- test: range-check-panic.negating-a-pattern-or-a-signed-value-is-unchanged -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+A `bits(64)` pattern wraps under `-`, and a signed alias is negated as a number.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+typealias Delta = int(-100 to 100)
+
+function main() returns ExitCode
+	let w = 5 as Word
+	let d = 7 as Delta
+	print("{-w} {-d}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551611 -7
+```
+
+<!-- test: range-check-panic.a-counted-difference-plus-half-the-range-does-not-panic -->
+A sum that lands at or above `2^63` is a legitimate `Slot` whatever the left operand's proof is: the operation's check is a carry test, never a test of the result's sign.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function main() returns ExitCode
+	let half = 9223372036854775808 as Slot
+	for i in 1 upto 3 'each'
+		let below = (i as Slot) - 1
+		print("{below + half}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775808
+9223372036854775809
+```
+
+<!-- test: range-check-panic.a-difference-under-its-order-does-not-panic -->
+`a - b` is in range on every path where a dominating condition has established `b <= a`, so the check the operation would otherwise carry is not emitted. The shapes: the true arm of `a >= b`, the false arm of `a < b`, a guard clause that returned on `a < b`, `not (a < b)`, the right operand of `and`, the false arm of an inline conditional, a constant floor from `n > 0`, `n >= 2` and `n == 0`, and `a - a`. Each runs at the edge of its order, where the difference is `0`.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function ifGreaterEqual(a Slot, b Slot) returns Slot
+	if a >= b 'ordered'
+		return a - b
+	end 'ordered'
+	return 0
+end 'ifGreaterEqual'
+
+function elseOfLess(a Slot, b Slot) returns Slot
+	if a < b 'short'
+		return 0
+	end 'short' else 'long'
+		return a - b
+	end 'long'
+end 'elseOfLess'
+
+function guardClause(a Slot, b Slot) returns Slot
+	if a < b 'short'
+		return 0
+	end 'short'
+	return a - b
+end 'guardClause'
+
+function negated(a Slot, b Slot) returns Slot
+	if not (a < b) 'long'
+		return a - b
+	end 'long'
+	return 0
+end 'negated'
+
+function conjoined(a Slot, b Slot) returns bool
+	return a >= b and a - b == 0
+end 'conjoined'
+
+function clamped(a Slot, b Slot) returns Slot
+	return 0 if a < b else a - b
+end 'clamped'
+
+function afterZero(n Slot) returns Slot
+	if n > 0 'positive'
+		return n - 1
+	end 'positive'
+	return 0
+end 'afterZero'
+
+function afterTwo(n Slot) returns Slot
+	if n >= 2 'atLeastTwo'
+		return n - 2
+	end 'atLeastTwo'
+	return 0
+end 'afterTwo'
+
+function afterNonZero(n Slot) returns Slot
+	if n == 0 'empty'
+		return 0
+	end 'empty'
+	return n - 1
+end 'afterNonZero'
+
+function selfDifference(a Slot) returns Slot
+	return a - a
+end 'selfDifference'
+
+function main() returns ExitCode
+	print("{ifGreaterEqual(9, b: 9)} {ifGreaterEqual(9, b: 4)} {ifGreaterEqual(4, b: 9)}\n")
+	print("{elseOfLess(9, b: 9)} {elseOfLess(9, b: 4)} {elseOfLess(4, b: 9)}\n")
+	print("{guardClause(9, b: 9)} {guardClause(9, b: 4)} {guardClause(4, b: 9)}\n")
+	print("{negated(9, b: 9)} {negated(9, b: 4)} {negated(4, b: 9)}\n")
+	print("{conjoined(9, b: 9)} {conjoined(4, b: 9)}\n")
+	print("{clamped(9, b: 9)} {clamped(9, b: 4)} {clamped(4, b: 9)}\n")
+	print("{afterZero(1)} {afterZero(0)} {afterTwo(2)} {afterTwo(1)} {afterNonZero(1)} {afterNonZero(0)}\n")
+	print("{selfDifference(u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0 5 0
+0 5 0
+0 5 0
+0 5 0
+true false
+0 5 0
+0 0 0 0 0 0
+0
+```
+
+<!-- test: range-check-panic.a-sum-under-its-bound-does-not-panic -->
+`i + 1` is in range where `i < n` holds, because `n` is at most `u64.max`; a constant bound leaves room for a constant addend that fits under it. The shapes: the true arm of `i < n`, a guard clause that returned on `i >= n`, the body of `while i < n`, and `i < 100` with `i + 5`.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function next(i Slot, n Slot) returns Slot
+	if i < n 'below'
+		return i + 1
+	end 'below'
+	return i
+end 'next'
+
+function afterGuard(i Slot, n Slot) returns Slot
+	if i >= n 'done'
+		return i
+	end 'done'
+	return i + 1
+end 'afterGuard'
+
+function walk(n Slot) returns Slot
+	var i = 0 as Slot
+	while i < n 'each'
+		i = i + 1
+	end 'each'
+	return i
+end 'walk'
+
+function underConstant(i Slot) returns Slot
+	if i < 100 'small'
+		return i + 5
+	end 'small'
+	return i
+end 'underConstant'
+
+function main() returns ExitCode
+	print("{next(u64.max - 1, n: u64.max)} {next(3, n: 3)} {afterGuard(u64.max - 1, n: u64.max)} {afterGuard(5, n: 5)}\n")
+	print("{walk(0)} {walk(12)} {underConstant(99)} {underConstant(100)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615 3 18446744073709551615 5
+0 12 104 100
+```
+
+<!-- test: range-check-panic.a-difference-under-the-opposite-order-still-panics -->
+The order `a >= b` bounds `a - b`, not `b - a`: the reversed subtraction in the same arm keeps its check.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function reversed(a Slot, b Slot) returns Slot
+	if a >= b 'ordered'
+		return b - a
+	end 'ordered'
+	return 0
+end 'reversed'
+
+function main() returns ExitCode
+	print("{reversed(5, b: 3)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-difference-under-the-opposite-order-still-panics.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in reversed
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-reassigned-operand-after-its-order-still-panics -->
+`x` is rewritten after `x >= b` held, so the order says nothing about the value the subtraction reads and the borrow panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function halved(a Slot, b Slot) returns Slot
+	var x = a
+	if x >= b 'ordered'
+		x = x shr 1
+		return x - b
+	end 'ordered'
+	return 0
+end 'halved'
+
+function main() returns ExitCode
+	print("{halved(4, b: 3)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-reassigned-operand-after-its-order-still-panics.test:9: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in halved
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-sum-under-a-non-strict-bound-still-panics -->
+`i <= n` leaves `i` free to equal `u64.max`, so `i + 1` keeps its carry check.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function next(i Slot, n Slot) returns Slot
+	if i <= n 'atMost'
+		return i + 1
+	end 'atMost'
+	return i
+end 'next'
+
+function main() returns ExitCode
+	print("{next(u64.max, n: u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-sum-under-a-non-strict-bound-still-panics.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in next
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-order-ends-with-the-branch-that-established-it -->
+The order `a >= b` holds inside its own arm and nowhere else: after the `if` the subtraction is checked again, and a borrow there panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function after(a Slot, b Slot) returns Slot
+	var seen = 0 as Slot
+	if a >= b 'ordered'
+		seen = a - b
+	end 'ordered'
+	return seen + (a - b)
+end 'after'
+
+function main() returns ExitCode
+	print("{after(5, b: 3)}\n")
+	print("{after(3, b: 5)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+4
+```
+```stderr
+panic at range-check-panic.an-order-ends-with-the-branch-that-established-it.test:11: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in after
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-difference-above-the-signed-top-crosses-a-door-intact -->
+A difference that no borrow can reach is a legitimate pattern above `2^63` when its operands are, and it keeps passing every door it reaches: a return into another full-width alias, a store into a variable, and a narrower alias's range check on a value that fits.
+```maxon
+typealias Instant = int(0 to u64.max)
+
+typealias Span = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function elapsed(now Instant, since Instant) returns Span
+	if now < since 'skew'
+		return 0
+	end 'skew'
+	return now - since
+end 'elapsed'
+
+function narrowed(now Instant, since Instant) returns Small
+	if now < since 'skew'
+		return 0
+	end 'skew'
+	return (now - since) as Small
+end 'narrowed'
+
+function main() returns ExitCode
+	print("{elapsed(u64.max, since: 1)} {elapsed(u64.max, since: 0)} {elapsed(3, since: 5)}\n")
+	print("{narrowed(u64.max, since: u64.max - 7)} {narrowed(2, since: 5)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551614 18446744073709551615 0
+7 0
+```
+
+<!-- test: range-check-panic.a-difference-under-its-order-too-wide-for-a-narrow-alias-still-panics -->
+The order removes the borrow check, not the range check of the alias the difference lands in: a difference above the narrow alias's top still panics at its door.
+```maxon
+typealias Instant = int(0 to u64.max)
+
+typealias Small = int(0 to 100)
+
+function narrowed(now Instant, since Instant) returns Small
+	if now < since 'skew'
+		return 0
+	end 'skew'
+	return (now - since) as Small
+end 'narrowed'
+
+function main() returns ExitCode
+	print("{narrowed(u64.max, since: 1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-difference-under-its-order-too-wide-for-a-narrow-alias-still-panics.test:10: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in narrowed
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-loop-condition-does-not-outlive-a-rewritten-bound -->
+`i < m` holds when the loop body starts, but the body rewrites `m` before it subtracts, so the order says nothing about the new `m` and the borrow panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function walk(n Slot) returns Slot
+	var i = 0 as Slot
+	var m = n
+	while i < m 'each'
+		m = m shr 1
+		i = (m - 1) + i
+	end 'each'
+	return i
+end 'walk'
+
+function main() returns ExitCode
+	print("{walk(1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-loop-condition-does-not-outlive-a-rewritten-bound.test:10: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in walk
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-callee-that-rewrites-a-by-reference-operand-voids-its-order -->
+`x >= b` held, then a callee rewrote `x` through a `mutable` parameter. The subtraction reads the variable again, and the order about the old value does not cover it.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function clear(mutates x Slot)
+	x = 0
+end 'clear'
+
+function wiped(a Slot, b Slot) returns Slot
+	var x = a
+	if x >= b 'ordered'
+		clear(x)
+		return x - b
+	end 'ordered'
+	return 0
+end 'wiped'
+
+function main() returns ExitCode
+	print("{wiped(5, b: 3)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-callee-that-rewrites-a-by-reference-operand-voids-its-order.test:13: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in wiped
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-field-rewritten-after-its-order-keeps-the-check -->
+A field is compared, a mutating call rewrites it, and the field is read again: each read is a new load, so the order established for the first read does not cover the second.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+type Pair
+	export var a as Slot
+	export var b as Slot
+
+	static function create(a Slot, b Slot) returns Pair
+		return Pair{a: a, b: b}
+	end 'create'
+
+	export function wipe()
+		self.a = 0
+	end 'wipe'
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.create(5, b: 3)
+	if p.a >= p.b 'ordered'
+		p.wipe()
+		print("{p.a - p.b}\n")
+	end 'ordered'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-field-rewritten-after-its-order-keeps-the-check.test:22: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-disjunction-establishes-no-order-for-its-arm -->
+`a >= b or c` is true when `c` is, whatever `a` and `b` are, so its true arm may not assume `b <= a` and the subtraction keeps its check.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function either(a Slot, b Slot, c bool) returns Slot
+	if a >= b or c 'innerEither'
+		return a - b
+	end 'innerEither'
+	return 0
+end 'either'
+
+function main() returns ExitCode
+	print("{either(3, b: 5, c: true)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-disjunction-establishes-no-order-for-its-arm.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in either
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.an-else-if-chain-whose-later-arm-falls-through-establishes-no-order -->
+Only the first arm returns, and it returns on `c`, which says nothing about `a` and `b`. The second arm falls through on `a < b`, so after the chain the subtraction can still borrow.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function chained(a Slot, b Slot, c bool) returns Slot
+	if c 'first'
+		return 0
+	end 'first' else if a < b 'second'
+		print("short\n")
+	end 'second'
+	return a - b
+end 'chained'
+
+function main() returns ExitCode
+	print("{chained(3, b: 5, c: false)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+short
+```
+```stderr
+panic at range-check-panic.an-else-if-chain-whose-later-arm-falls-through-establishes-no-order.test:11: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in chained
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-then-arm-that-leaves-only-conditionally-establishes-no-order -->
+The `a < b` arm returns only when `c` holds, so control can reach the code after the `if` with `a < b` still true.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function sometimes(a Slot, b Slot, c bool) returns Slot
+	if a < b 'short'
+		if c 'leave'
+			return 0
+		end 'leave'
+	end 'short'
+	return a - b
+end 'sometimes'
+
+function main() returns ExitCode
+	print("{sometimes(3, b: 5, c: false)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-then-arm-that-leaves-only-conditionally-establishes-no-order.test:11: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in sometimes
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-sum-of-two-under-a-strict-bound-still-panics -->
+`i < n` leaves room for `1`, not for `2`: at `i = u64.max - 1` the sum `i + 2` carries and panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function next(i Slot, n Slot) returns Slot
+	if i < n 'below'
+		return i + 2
+	end 'below'
+	return i
+end 'next'
+
+function main() returns ExitCode
+	print("{next(u64.max - 1, n: u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-sum-of-two-under-a-strict-bound-still-panics.test:6: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in next
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-nonzero-leaves-room-for-one-not-two -->
+`n == 0` having returned leaves `n >= 1`, so `n - 1` is proven and `n - 2` is not: at `n = 1` it borrows and panics.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function afterNonZero(n Slot) returns Slot
+	if n == 0 'empty'
+		return 0
+	end 'empty'
+	return n - 2
+end 'afterNonZero'
+
+function main() returns ExitCode
+	print("{afterNonZero(1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at range-check-panic.a-nonzero-leaves-room-for-one-not-two.test:9: Range check failed: value outside typealias 'Slot'
+Stack trace:
+  in afterNonZero
+  in main
+  in mrt_start
+```
+
+<!-- test: range-check-panic.a-floor-of-two-from-greater-than-one-is-proven -->
+`n > 1` is `n >= 2`, so `n - 2` cannot borrow, at the floor and at the top.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function afterOne(n Slot) returns Slot
+	if n > 1 'atLeastTwo'
+		return n - 2
+	end 'atLeastTwo'
+	return 0
+end 'afterOne'
+
+function main() returns ExitCode
+	print("{afterOne(2)} {afterOne(1)} {afterOne(u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0 0 18446744073709551613
+```
+
+<!-- test: range-check-panic.a-constant-bound-at-the-signed-top-leaves-room-for-one -->
+A bound written above `i64.max` is still read as an unsigned number: `i < 9223372036854775808` puts `i` at most `2^63 - 1`, so `i + 1` cannot carry.
+```maxon
+typealias Slot = int(0 to u64.max)
+
+function next(i Slot) returns Slot
+	if i < 9223372036854775808 'below'
+		return i + 1
+	end 'below'
+	return i
+end 'next'
+
+function main() returns ExitCode
+	print("{next(9223372036854775807)} {next(9223372036854775808)} {next(u64.max)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9223372036854775808 9223372036854775808 18446744073709551615
+```
+
+<!-- test: error.an-integer-constant-cast-to-a-float-alias-outside-its-range -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+function main() returns ExitCode
+	let s = 3000 as Real
+	print("{s}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:15: Value 3000 is outside the range of 'Real' (float(-1000 to 1000))
+```
+
+<!-- test: an-integer-cast-to-a-float-alias-outside-its-range-panics-at-run-time -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+typealias Wide = int(0 to 100000)
+
+function launder(n Wide) returns Wide
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	let fits = launder(3) as Real
+	print("{fits}\n")
+	let s = launder(3000) as Real
+	print("{s}\n")
+	return 0
+end 'main'
+```
+```stdout
+3.0
+```
+```exitcode
+1
+```
+```stderr
+panic at an-integer-cast-to-a-float-alias-outside-its-range-panics-at-run-time.test:12: Range check failed: value outside typealias 'Real'
+Stack trace:
+  in main
+  in mrt_start
+```

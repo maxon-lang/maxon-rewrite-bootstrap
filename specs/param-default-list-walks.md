@@ -1,0 +1,1040 @@
+---
+feature: param-default-list-walks
+status: selfhosted
+keywords: [default, default-values, parameters, ownership, generics, token-scan]
+category: core
+---
+
+# A Parameter Default Does Not Truncate the Parameter List
+
+## Documentation
+
+the compiler answers several whole-program questions about a function from its TOKENS, before any file is
+parsed — which parameters a body moves into durable storage, which type parameter each parameter
+feeds, which are bare inner aliases. Each of those is a peek-only walk of the parameter list, and each
+advances from one parameter to the next by finding the token that ENDS the current one.
+
+A `= <default>` sits between a parameter's type and that end. A walk that steps by the end of the
+TYPE therefore stops at the first defaulted parameter and reports a parameter list with every later
+parameter missing — silently, because a short list is a well-formed list. The facts those scans exist
+to publish then go unrecorded for the dropped parameters, and every one of them is an OWNERSHIP fact.
+
+These cases pin that the scans see the whole list. Each pairs a program that declares a default
+BEFORE the parameter the fact belongs to with the identical program that does not, so the two must
+agree; the second is the control, and it passed throughout.
+
+## Tests
+
+<!-- test: generic-feed-after-defaulted-param -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+A defaulted parameter ahead of a type-parameter-typed one. `item` feeds `T`, so a concrete
+instantiation over `String` must CONSUME the argument — the box takes ownership of the heap record.
+Unrecorded, the caller keeps ownership too, drops the String at scope exit, and the next iteration
+reads a freed record: a use-after-free.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var item as T
+
+	// TODO: default parameter values are not supported in minimaxon
+	static function create(_ Integer = 1, item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	var total = 0 as ExitCode
+	var i = 0 as Integer
+	while i < 50 'loop'
+		let s = "hello!"
+		let b = StrBox.create(2, item: s)
+		print("{b.item}")
+		total = 6
+		i = i + 1
+	end 'loop'
+	return total
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!
+
+```
+
+<!-- test: generic-feed-without-default-control -->
+The control: the identical program with the default removed. It must answer the same, which is what
+makes the case above a statement about the walk rather than about generics.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var item as T
+
+	static function create(_ Integer, item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	var total = 0 as ExitCode
+	var i = 0 as Integer
+	while i < 50 'loop'
+		let s = "hello!"
+		let b = StrBox.create(2, item: s)
+		print("{b.item}")
+		total = 6
+		i = i + 1
+	end 'loop'
+	return total
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!
+
+```
+
+<!-- test: generic-feed-after-two-defaulted-params -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+Two defaults ahead of the fed parameter, one of them a String — so the walk has to step over a
+default whose expression is not a bare literal token, and the fed parameter sits at index 2.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var item as T
+
+	// TODO: default parameter values are not supported in minimaxon
+	static function create(_ Integer = 1, _ String = "n", item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	var total = 0 as ExitCode
+	var i = 0 as Integer
+	while i < 50 'loop'
+		let s = "hello!"
+		let b = StrBox.create(2, item: s)
+		print("{b.item}")
+		total = 6
+		i = i + 1
+	end 'loop'
+	return total
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!
+
+```
+
+<!-- test: error.a-discarded-parameter-names-nothing-to-read -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+Two `_` parameters ahead of a named one, both defaulted and both labelled `_` at the call. `_` is the discard and binds nothing, so no body can read one, and a position that cannot be read carries no fact the call could attribute to the wrong one of the two.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Bag
+	export var n as Num
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+end 'Bag'
+
+type Keeper
+	export var bag as Bag
+	export var tag as Num
+
+	// TODO: default parameter values are not supported in minimaxon
+	static function make(_ Num = 1, _ Bag = Bag.create(), tag Num) returns Self
+		return Self{bag: _, tag: tag}
+	end 'make'
+end 'Keeper'
+
+function main() returns ExitCode
+	let k = Keeper.make(tag: 3)
+	return (k.bag.n + k.tag) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:17:20: Undefined variable '_'
+```
+
+<!-- test: error.a-discarded-parameter-is-not-the-last-underscore -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+Two `_` parameters, and a body that adds `_` to a named one. There is no `_` to read, so the sum is refused rather than answering with whichever `_` a name-keyed lookup lands on.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: default parameter values are not supported in minimaxon
+function add(_ Num = 1, _ Num = 2, tag Num) returns Num
+	return _ + tag
+end 'add'
+
+function main() returns ExitCode
+	return add(tag: 3) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:5:9: Undefined variable '_'
+```
+
+<!-- test: two-discarded-defaulted-parameters-leak-nothing -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+The program above without the read: two defaulted `_` parameters, the second a record, ahead of a named one, called with both defaults filled. Neither `_` is bound, enrolled or recorded under a shared name, so the record the default builds is dropped once and the run ends clean.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Bag
+	export var n as Num
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+end 'Bag'
+
+type Keeper
+	export var bag as Bag
+	export var tag as Num
+
+	// TODO: default parameter values are not supported in minimaxon
+	static function make(_ Num = 1, _ Bag = Bag.create(), tag Num) returns Self
+		return Self{bag: Bag.create(), tag: tag}
+	end 'make'
+end 'Keeper'
+
+function main() returns ExitCode
+	let k = Keeper.make(tag: 3)
+	return (k.bag.n + k.tag) as ExitCode
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: a-discard-binds-nothing-in-every-other-position -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`_` outside a parameter list still discards: a closure parameter, a `for` variable, a tuple element, a union payload beside a named one, and the `_ =` statement.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Probe = function(Num) returns bool
+
+union Shape
+	circle(radius Num)
+	rect(width Num, height Num)
+end 'Shape'
+
+function ask(f Probe, v Num) returns bool
+	return f(v)
+end 'ask'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (4, 5)
+end 'pair'
+
+function sides(shape Shape) returns Num
+	var found = 0 as Num
+	match shape 'pick'
+		circle(radius) then found = radius
+		rect(_, height) then found = height
+	end 'pick'
+	return found
+end 'sides'
+
+function bump() returns Num
+	print("bump\n")
+	return 2
+end 'bump'
+
+function main() returns ExitCode
+	var total = 0 as Num
+	// TODO: closures are not supported in minimaxon
+	if ask(function(_) gives true, v: 1) 'yes'
+		total = total + 1
+	end 'yes'
+	for _ in 0 upto 3 'rep'
+		total = total + 1
+	end 'rep'
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (first, _) = pair()
+	total = total + first
+	total = total + sides(Shape.rect(2, height: 7))
+	total = total + sides(Shape.circle(9))
+	_ = bump()
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+24
+```
+```stdout
+bump
+
+```
+
+<!-- test: each-defaulted-discard-fills-its-own-slot -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+Two `_` parameters, the second defaulted to the caller's line. Both defaults are supplied under the one name `_`, so a reader that finds a slot by that name would put the line number into the first `_` and refuse it against `Small`. The line lands in the `SourceLineNumber` slot.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Num = int(0 to 1000)
+
+// TODO: default parameter values are not supported in minimaxon
+function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
+	return tag
+end 'f'
+
+function main() returns ExitCode
+	return f(tag: 7) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-discard-defaulted-by-a-call-fills-its-own-slot -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+The same two slots with the wider default produced by a call rather than a caller-location constant.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Big = int(0 to 1000)
+
+typealias Num = int(0 to 1000)
+
+function wide() returns Big
+	return 500
+end 'wide'
+
+// TODO: default parameter values are not supported in minimaxon
+function f(_ Small = 3, _ Big = wide(), tag Num) returns Num
+	return tag
+end 'f'
+
+function main() returns ExitCode
+	return f(tag: 7) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-message-with-two-defaulted-discards-fills-each-slot -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A service message declaring two `_` parameters: the request's payload slots are filled by position, not by the shared name `_`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 5)
+
+type Meter
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	export function bump(_ Small = 3, _ SourceLineNumber = __line__, by Integer)
+		self.n = self.n + by
+	end 'bump'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Meter'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Meter.create()
+	try h.bump(by: 4) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let total = try await h.total() otherwise panic("the service is running")
+	print("total={total}\n")
+	h.shutdown()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+total=4
+```
+
+<!-- test: a-spawned-call-fills-each-defaulted-discard-into-its-own-slot -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+`async f(tag: 5)` supplies both defaulted `_` arguments to the spawn.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Num = int(0 to 1000)
+
+// TODO: default parameter values are not supported in minimaxon
+function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
+	sleep(1)
+	return tag
+end 'f'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async f(tag: 5)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r = await p
+	return r as ExitCode
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: functions-with-defaulted-discards-each-fill-their-own-slots -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+Two functions declaring the same two defaulted `_` parameters and differing in the type of the named one.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Num = int(0 to 1000)
+
+// TODO: default parameter values are not supported in minimaxon
+function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
+	return tag
+end 'f'
+
+// TODO: default parameter values are not supported in minimaxon
+function fText(_ Small = 3, _ SourceLineNumber = __line__, tag String) returns Num
+	return tag.count() as Num
+end 'fText'
+
+function main() returns ExitCode
+	return (f(tag: 7) + fText(tag: "two")) as ExitCode
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: a-generic-instance-method-fills-each-defaulted-discard-into-its-own-slot -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+An instance method of a generic type with two defaulted `_` parameters before the one that carries the type parameter.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Num = int(0 to 1000)
+
+type Box uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	function put(_ Small = 3, _ SourceLineNumber = __line__, value T) returns T
+		return value
+	end 'put'
+end 'Box'
+
+typealias NumBox = Box with Num
+
+function main() returns ExitCode
+	let b = NumBox.create(4)
+	let got = b.put(value: 6)
+	return got as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: a-destructured-discard-of-a-managed-element-leaks-nothing -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`let (label, _) = …` over a tuple whose discarded element is a record: the element is neither bound nor released by the pattern, and the tuple's owner drops it once.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Bag
+	export var n as Num
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+end 'Bag'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (String, Bag)
+	// TODO: tuple values and types are not supported in minimaxon
+	return ("kept", Bag.create())
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (label, _) = pair()
+	print("{label}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kept
+```
+
+<!-- test: error.a-message-whose-handler-writes-its-parameter-after-a-discard-refuses-a-shared-value -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The message's first parameter is a defaulted `_`, so `p` is the second parameter and the second payload slot. A handler that writes `p` may not be sent a read-only value both threads reach.
+```maxon
+typealias Cells = Array with Integer
+
+type Store
+	var seen as Integer
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	export function bump(_ Integer = 1, p isolated Cells) returns Integer
+		p.push(1)
+		self.seen = self.seen + 1
+		return p.count() as Integer
+	end 'bump'
+end 'Store'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Shared = [7 as Integer]
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Store.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (try await h.bump(p: Shared) otherwise 0) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3200: <fragment>:22:30: 'Shared' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: a-message-whose-handler-only-reads-its-parameter-after-a-discard-accepts-a-shared-value -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+The same message with a handler that only reads `p`.
+```maxon
+typealias Cells = Array with Integer
+
+type Store
+	var seen as Integer
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	// TODO: parameter capability 'immutable' is not supported in minimaxon
+	export function keep(_ Integer = 1, p immutable Cells) returns Integer
+		self.seen = self.seen + 1
+		return try p.get(0) otherwise 0
+	end 'keep'
+end 'Store'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Shared = [7 as Integer]
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Store.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let got = try await h.keep(p: freeze(Shared.clone())) otherwise 0
+	print("{got}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: error.a-message-with-an-interface-parameter-before-a-discard-refuses-a-shared-value -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+An interface-typed first parameter takes a witness half in the payload slot after its own, so `p` is the fourth payload slot but the third parameter.
+```maxon
+interface Describable
+	function describe() returns Integer
+end 'Describable'
+
+type Tag implements Describable
+	export var n as Integer
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+
+	function describe() returns Integer
+		return self.n
+	end 'describe'
+end 'Tag'
+
+typealias Cells = Array with Integer
+
+type Store
+	var seen as Integer
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	// TODO: default parameter values are not supported in minimaxon
+	export function bump(d isolated Describable, _ Integer = 1, p isolated Cells) returns Integer
+		p.push(d.describe())
+		self.seen = self.seen + 1
+		return p.count() as Integer
+	end 'bump'
+end 'Store'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Shared = [7 as Integer]
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Store.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (try await h.bump(Tag.create(), p: Shared) otherwise 0) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3200: <fragment>:38:44: 'Shared' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: a-promise-forwarded-by-a-method-with-discards-through-a-later-function-parameter-is-handed-on -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+An instance method with a receiver and two `_` parameters hands its promise to a function-typed parameter that comes after them. The function-typed parameter's position is read in the method's own numbering, receiver included, and the promise is taken by the function it reaches.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+function work() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'work'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Sink = function(pending mutable IntPromiseArray, p IntPromise)
+
+function keep(mutates pending IntPromiseArray, p IntPromise)
+	pending.push(p)
+end 'keep'
+
+type Hub
+	var relayed as Integer
+
+	static function create() returns Self
+		return Self{relayed: 0}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	function relay(_ Integer = 1, _ Integer = 2, sink Sink, pending IntPromiseArray, p IntPromise)
+		self.relayed = self.relayed + 1
+		sink(pending, p)
+	end 'relay'
+end 'Hub'
+
+function main() returns ExitCode
+	let hub = Hub.create()
+	let pending = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	hub.relay(sink: keep, pending: pending, p: async work())
+	var sum = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for q in pending 'drain'
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		sum = sum + await q
+	end 'drain'
+	print("{sum}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: a-conformer-that-discards-a-parameter-another-conformer-stores-leaks-nothing -->
+<!-- skip: 'merge' region expressions are not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+One requirement, two conformers: `Keeper` stores the record it is handed, `Dropper` declares the same parameter `_`. Called through dispatch, the record the caller built is owned by `Keeper` and released by the caller for `Dropper`, so the program ends clean.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Record
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Record'
+
+interface Taker
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	function take(mutates self, item isolated Record)
+end 'Taker'
+
+type Keeper implements Taker
+	var held as Record
+
+	static function create() returns Self
+		return Self{held: Record.create(0)}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	function take(item isolated Record)
+		// TODO: 'merge' region expressions are not supported in minimaxon
+		self.held = merge item
+	end 'take'
+end 'Keeper'
+
+type Dropper implements Taker
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	function take(_ isolated Record)
+		self.count = self.count + 1
+	end 'take'
+end 'Dropper'
+
+function feed(sink Taker)
+	sink.take(Record.create(1))
+end 'feed'
+
+function main() returns ExitCode
+	let keeper = Keeper.create()
+	let dropper = Dropper.create()
+	feed(keeper)
+	feed(dropper)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.two-labelled-discards-name-the-discard-and-never-a-synthesized-label -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+Labelling `_` twice, the second time out of declaration order, fills the first `_` twice. The diagnostic spells the parameter `_`; the second `_`, which the call left to its default, never appears in it under a name of its own.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: default parameter values are not supported in minimaxon
+function f(_ Num = 1, _ Num = 2, tag Num) returns Num
+	return tag
+end 'f'
+
+function main() returns ExitCode
+	return f(_: 1, tag: 3, _: 2) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3038: <fragment>:9:25: duplicate argument for parameter '_' of 'f'
+```
+
+<!-- test: instance-methods-run-their-own-defaults -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+Two instance methods with a defaulted `_` each. The receiver sits at position 0 of both signatures, and the default each call runs is its own method's.
+```maxon
+typealias Small = int(0 to 5)
+
+typealias Num = int(0 to 1000)
+
+function note(n Num) returns Small
+	print("note {n}\n")
+	return 1
+end 'note'
+
+type Gadget
+	var n as Num
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	function m(_ Small = note(1), tag Num) returns Num
+		return self.n + tag
+	end 'm'
+
+	// TODO: default parameter values are not supported in minimaxon
+	function mText(_ Small = note(2), tag String) returns Num
+		return self.n + tag.count() as Num
+	end 'mText'
+end 'Gadget'
+
+function main() returns ExitCode
+	let g = Gadget.create()
+	return (g.m(tag: 3) + g.mText(tag: "s")) as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+note 1
+note 2
+```
+
+<!-- test: a-body-discard-statement-does-not-write-a-discarded-parameter -->
+`_ = bump()` in the body of a function that declares a `_` parameter is the discard statement. It writes nothing, so the function takes its parameter by value and a `let` argument is accepted.
+```maxon
+typealias Num = int(0 to 1000)
+
+function bump() returns Num
+	print("bump\n")
+	return 2
+end 'bump'
+
+function f(_ Num, tag Num) returns Num
+	_ = bump()
+	return tag
+end 'f'
+
+function main() returns ExitCode
+	let x = 5
+	return f(x, tag: 1) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+bump
+```
+
+<!-- test: a-match-payload-discard-leaves-a-discarded-parameter-alone -->
+A payload `_` in a body that also declares a `_` parameter rebinds nothing.
+```maxon
+typealias Num = int(0 to 1000)
+
+union Shape
+	circle(radius Num)
+	rect(width Num, height Num)
+end 'Shape'
+
+function g(_ Num, shape Shape) returns Num
+	var found = 0 as Num
+	match shape 'pick'
+		circle(radius) then found = radius
+		rect(_, height) then found = height
+	end 'pick'
+	return found
+end 'g'
+
+function main() returns ExitCode
+	let x = 5
+	return g(x, shape: Shape.rect(2, height: 7)) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.a-destructured-discard-names-nothing-to-read -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+`let (first, _) = …` takes the first element and throws the second away; `_` is not bound, so it cannot be read afterwards.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (4, 5)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (first, _) = pair()
+	return (first + _) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:10:18: Undefined variable '_'
+```
+
+<!-- test: error.a-declaring-assignment-discard-names-nothing-to-read -->
+<!-- skip: tuple assignment is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+`(let _, let second) = …` discards its first element exactly as `(_, let second) = …` does, so `_` is not bound there either.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (4, 5)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple assignment is not supported in minimaxon
+	(let _, let second) = pair()
+	return (second + _) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:10:19: Undefined variable '_'
+```
+
+<!-- test: default-holding-commas-does-not-split-the-list -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+A default whose expression carries commas of its own — a constructor call — must not be read as
+further parameters. `flag` is the third parameter and is reached only if the walk steps over the
+whole `Point.create(1, y: 2)` rather than stopping at its first comma.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+// TODO: default parameter values are not supported in minimaxon
+function pick(base Integer, origin Point = Point.create(1, y: 2), flag bool = true) returns Integer
+	if flag 'yes'
+		return base + origin.x + origin.y
+	end 'yes'
+	return base
+end 'pick'
+
+function main() returns ExitCode
+	return pick(39)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-bare-call-in-a-method-default-means-the-free-function-beside-a-later-types-method-of-that-name -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+A default expression is parsed after every body of its file, in the scope of the type that declares it. A later type's method named like a free function must not become a sibling of this type.
+```maxon
+typealias Count = int(0 to 100)
+
+function helper() returns Count
+	return 7
+end 'helper'
+
+type First
+	export var seed as Count
+
+	static function create() returns Self
+		return Self{seed: 1}
+	end 'create'
+
+	// TODO: default parameter values are not supported in minimaxon
+	function run(extra Count = helper()) returns Count
+		return self.seed + extra
+	end 'run'
+end 'First'
+
+type Last
+	export var seed as Count
+
+	static function create() returns Self
+		return Self{seed: 2}
+	end 'create'
+
+	static function helper() returns Count
+		return 50
+	end 'helper'
+end 'Last'
+
+function main() returns ExitCode
+	let first = First.create()
+	let last = Last.create()
+	print("{first.run()} {last.seed} {Last.helper()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+8 2 50
+```

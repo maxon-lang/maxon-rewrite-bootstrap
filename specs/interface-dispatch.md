@@ -1,0 +1,4575 @@
+---
+feature: interface-dispatch
+status: stable
+keywords: [interface, dispatch, monomorphization, polymorphism, implements]
+category: type-system
+---
+
+# Interface Dispatch
+
+## Documentation
+
+### Interface-Typed Parameters
+
+Functions can declare parameters with interface types. Any concrete type that implements the interface can be passed as an argument:
+
+```text
+interface Drawable
+  function draw() returns int
+end 'Drawable'
+
+type Circle implements Drawable
+  function draw() returns int
+    return 1
+  end 'draw'
+end 'Circle'
+
+function render(item Drawable) returns int
+  return item.draw()
+end 'render'
+```
+
+At compile time, the compiler creates specialized copies of the function for each concrete type used at call sites (monomorphization). This means `render(myCircle)` calls a version of `render` specialized for `Circle`, with direct static dispatch to `Circle.draw`.
+
+### Multiple Concrete Types
+
+When multiple concrete types are passed to the same interface-typed parameter at different call sites, the compiler generates one specialization per concrete type:
+
+```text
+render(myCircle)   // calls renderScene$Circle
+render(mySquare)   // calls renderScene$Square
+```
+
+### Type Safety
+
+The compiler verifies at each call site that the argument's type actually implements the required interface. Passing a type that does not implement the interface is a compile error.
+
+
+## Tests
+
+<!-- test: basic-interface-dispatch -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet() returns Integer
+end 'Greeter'
+
+type Hello implements Greeter
+	let value as Integer
+
+	function greet() returns Integer
+		return value + 1
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Hello'
+
+function callGreet(g Greeter) returns Integer
+	return g.greet()
+end 'callGreet'
+
+function main() returns ExitCode
+	let h = Hello.create(41)
+	return callGreet(h)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: dispatch-multiple-types -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Scorer
+	function score() returns Integer
+end 'Scorer'
+
+type Alpha implements Scorer
+	let n as Integer
+
+	function score() returns Integer
+		return n * 2
+	end 'score'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Alpha'
+
+type Beta implements Scorer
+	let n as Integer
+
+	function score() returns Integer
+		return n * 3
+	end 'score'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Beta'
+
+function getScore(s Scorer) returns Integer
+	return s.score()
+end 'getScore'
+
+function main() returns ExitCode
+	let a = Alpha.create(10)
+	let b = Beta.create(10)
+	return getScore(a) + getScore(b)
+end 'main'
+```
+```exitcode
+50
+```
+
+
+<!-- test: dispatch-void-method -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Printer
+	function show()
+end 'Printer'
+
+type Thing implements Printer
+	let label as Integer
+
+	function show()
+		print("{label}\n")
+	end 'show'
+
+	static function create(label Integer) returns Self
+		return Self{label: label}
+	end 'create'
+end 'Thing'
+
+function display(p Printer)
+	p.show()
+end 'display'
+
+function main() returns ExitCode
+	let t = Thing.create(99)
+	display(t)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+99
+```
+
+
+<!-- test: dispatch-with-method-args -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Adder
+	function add(n Integer) returns Integer
+end 'Adder'
+
+type Accumulator implements Adder
+	let total as Integer
+
+	function add(n Integer) returns Integer
+		return total + n
+	end 'add'
+
+	static function create(total Integer) returns Self
+		return Self{total: total}
+	end 'create'
+end 'Accumulator'
+
+function addVia(a Adder, n Integer) returns Integer
+	return a.add(n)
+end 'addVia'
+
+function main() returns ExitCode
+	let acc = Accumulator.create(30)
+	return addVia(acc, n: 12)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: dispatch-named-first-arg -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// An interface (or type-parameter) method call may name its FIRST argument
+// whatever its defaults: the shared body has no concrete callee whose
+// declaration could refuse the label, so it binds against the interface.
+// A concrete receiver's call raises E2052 at parse time when the method's
+// first parameter has no default.
+interface Combiner
+	function combine(first Integer, second Integer) returns Integer
+end 'Combiner'
+
+type Summer implements Combiner
+	let bias as Integer
+
+	function combine(first Integer, second Integer) returns Integer
+		return bias + first + second
+	end 'combine'
+
+	static function create(bias Integer) returns Self
+		return Self{bias: bias}
+	end 'create'
+end 'Summer'
+
+function combineVia(c Combiner) returns Integer
+	return c.combine(first: 12, second: 30)
+end 'combineVia'
+
+function main() returns ExitCode
+	let s = Summer.create(0)
+	return combineVia(s)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: dispatch-error-missing-arg-label -->
+The label grammar is the SAME rule at an interface dispatch as at a direct call:
+`parameter-labels` rules that the first argument is positional unless its parameter
+has a default, and every argument after it must carry a `name:` label. Only the FIRST argument's label is optional
+here (see `dispatch-named-first-arg` for why); the rest are not, and a dispatch is
+not a hole in the grammar.
+
+The compiler refuses this with its OWN registered code and wording — `E2053`, anchored on the
+offending ARGUMENT rather than on the call.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Combiner
+	function combine(first Integer, second Integer) returns Integer
+end 'Combiner'
+
+type Summer implements Combiner
+	let bias as Integer
+
+	function combine(first Integer, second Integer) returns Integer
+		return bias + first + second
+	end 'combine'
+
+	static function create(bias Integer) returns Self
+		return Self{bias: bias}
+	end 'create'
+end 'Summer'
+
+function combineVia(c Combiner) returns Integer
+	return c.combine(12, 30)
+end 'combineVia'
+
+function main() returns ExitCode
+	let s = Summer.create(0)
+	return combineVia(s)
+end 'main'
+```
+```maxoncstderr
+error E2053: <fragment>:22:23: the second and later arguments must be named ('name: value')
+```
+
+
+<!-- test: dispatch-error-unknown-arg-label -->
+A label that names no parameter of the dispatched requirement is the same error it
+is at a direct call. A dispatch path that consumed a label without reading it would
+bind `bogus:` to `second` positionally and run — a wrong answer with no diagnostic,
+which is the worst of the three ways this can go.
+
+The compiler answers `E3037`, which names the requirement the label failed against.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Combiner
+	function combine(first Integer, second Integer) returns Integer
+end 'Combiner'
+
+type Summer implements Combiner
+	let bias as Integer
+
+	function combine(first Integer, second Integer) returns Integer
+		return bias + first + second
+	end 'combine'
+
+	static function create(bias Integer) returns Self
+		return Self{bias: bias}
+	end 'create'
+end 'Summer'
+
+function combineVia(c Combiner) returns Integer
+	return c.combine(12, bogus: 30)
+end 'combineVia'
+
+function main() returns ExitCode
+	let s = Summer.create(0)
+	return combineVia(s)
+end 'main'
+```
+```maxoncstderr
+error E3037: <fragment>:22:23: 'Combiner.combine' has no parameter named 'bogus'
+```
+
+
+<!-- test: dispatch-named-args-out-of-order -->
+`parameter-labels` rules that named arguments may be supplied in ANY order, and a
+dispatch binds each label to the parameter it NAMES rather than to the parameter at
+the argument's source position. Subtraction is deliberately non-commutative so the
+binding is observable in the exit code: bound by LABEL this returns 8, bound by
+source POSITION it would return -8, which is not an exit code at all.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Subtractor
+	function subtract(minuend Integer, subtrahend Integer) returns Integer
+end 'Subtractor'
+
+type Difference implements Subtractor
+	let bias as Integer
+
+	function subtract(minuend Integer, subtrahend Integer) returns Integer
+		return minuend - subtrahend + bias
+	end 'subtract'
+
+	static function create(bias Integer) returns Self
+		return Self{bias: bias}
+	end 'create'
+end 'Difference'
+
+function subtractVia(s Subtractor) returns Integer
+	return s.subtract(subtrahend: 2, minuend: 10)
+end 'subtractVia'
+
+function main() returns ExitCode
+	let d = Difference.create(0)
+	return subtractVia(d)
+end 'main'
+```
+```exitcode
+8
+```
+
+
+<!-- test: dispatch-multiple-methods -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+	function perimeter() returns Integer
+end 'Shape'
+
+type Rect implements Shape
+	let w as Integer
+	let h as Integer
+
+	function area() returns Integer
+		return w * h
+	end 'area'
+
+	function perimeter() returns Integer
+		return 2 * (w + h)
+	end 'perimeter'
+
+	static function create(w Integer, h Integer) returns Self
+		return Self{w: w, h: h}
+	end 'create'
+end 'Rect'
+
+function measure(s Shape) returns Integer
+	return s.area() + s.perimeter()
+end 'measure'
+
+function main() returns ExitCode
+	let r = Rect.create(3, h: 4)
+	return measure(r)
+end 'main'
+```
+```exitcode
+26
+```
+
+
+<!-- test: dispatch-with-print -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Describable
+	function describe() returns Integer
+end 'Describable'
+
+type Widget implements Describable
+	let id as Integer
+
+	function describe() returns Integer
+		return id
+	end 'describe'
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Widget'
+
+type Gadget implements Describable
+	let id as Integer
+
+	function describe() returns Integer
+		return id * 10
+	end 'describe'
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Gadget'
+
+function showDescription(d Describable)
+	print("{d.describe()}\n")
+end 'showDescription'
+
+function main() returns ExitCode
+	let w = Widget.create(5)
+	let g = Gadget.create(3)
+	showDescription(w)
+	showDescription(g)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+30
+```
+
+
+<!-- test: dispatch-nonconforming-error -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Runnable
+	function run() returns Integer
+end 'Runnable'
+
+type NotRunnable
+	let x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'NotRunnable'
+
+function execute(r Runnable) returns Integer
+	return r.run()
+end 'execute'
+
+function main() returns ExitCode
+	let n = NotRunnable.create(1)
+	return execute(n)
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/dispatch-nonconforming-error.maxon:23:9: argument type mismatch for 'r': type 'NotRunnable' does not implement interface 'Runnable'
+```
+
+
+<!-- test: dispatch-arg-ranged-widening -->
+⭐ **THE ANTI-FALSE-REFUSAL CONTROL for the two refusals below.** A `Small`-typed binding widening into an
+`Integer` parameter is legal, and it must stay legal reached through the WITNESS as well as directly — a
+ranged alias carries the `named` tag where the resolved formal carries `integer`, so a door that started
+comparing argument types NOMINALLY would refuse this and print nothing at all. Both spellings of the same
+call are here so the pair cannot come apart.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 10)
+
+interface Runner
+	function run(n Integer) returns Integer
+end 'Runner'
+
+type Direct implements Runner
+	export var tag as Integer
+
+	static function create() returns Direct
+		return Self{tag: 0}
+	end 'create'
+
+	function run(n Integer) returns Integer
+		return n
+	end 'run'
+end 'Direct'
+
+function viaWitness(r Runner, s Small) returns Integer
+	return r.run(s as Integer)
+end 'viaWitness'
+
+function main() returns ExitCode
+	let d = Direct.create()
+	let a = viaWitness(d, s: 5)
+	let b = d.run(5)
+	print("witness={a} direct={b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+witness=5 direct=5
+```
+
+
+<!-- test: dispatch-arg-type-mismatch-error -->
+⭐ **ONE COMPILER DISAGREEING WITH ITSELF.** `dispatchWitnessMethod` checked the method NAME, the ARITY and
+the LABELS and compared no argument TYPE anywhere, so `r.run("nope")` at a `run(n Integer)` requirement
+compiled clean and printed a pointer read as an int — while the IDENTICAL call by direct dispatch was
+already refused E3005. The cure is to make the witness path ask the same helper the direct path asks, so
+the two cannot come to disagree again.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Runner
+	function run(n Integer) returns Integer
+end 'Runner'
+
+type Direct implements Runner
+	export var tag as Integer
+
+	static function create() returns Direct
+		return Self{tag: 0}
+	end 'create'
+
+	function run(n Integer) returns Integer
+		return n
+	end 'run'
+end 'Direct'
+
+function drive(r Runner) returns Integer
+	return r.run("nope")
+end 'drive'
+
+function main() returns ExitCode
+	let v = drive(Direct.create())
+	print("v={v}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:22:11: argument type mismatch for 'n': expected 'Integer', got 'String'
+```
+
+
+<!-- test: dispatch-arg-wrong-function-shape-error -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The FUNCTION-SHAPE half of the same door. Two different function types share the `function` tag exactly as
+two different structs share `structRef`, so the tag comparison the argument check ends with can never
+settle it — the shapes are compared whole-program, by the same `checkOneArgType` arm a direct call's
+function-typed parameter goes through. Unchecked, a two-parameter function reached a one-parameter formal
+and the call read a slot nobody passed on the register targets, trapping `indirect call type mismatch` on
+wasm32-wasi.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias OneArg = function(Integer) returns Integer
+
+interface Runner
+	function run(f OneArg) returns Integer
+end 'Runner'
+
+type Direct implements Runner
+	export var tag as Integer
+
+	static function create() returns Direct
+		return Self{tag: 0}
+	end 'create'
+
+	function run(f OneArg) returns Integer
+		return f(7)
+	end 'run'
+end 'Direct'
+
+function twoArg(a Integer, b Integer) returns Integer
+	return a + b
+end 'twoArg'
+
+function drive(r Runner) returns Integer
+	return r.run(twoArg)
+end 'drive'
+
+function main() returns ExitCode
+	let v = drive(Direct.create())
+	print("v={v}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:27:11: argument type mismatch for 'f': expected 'fn(Integer) returns Integer', got 'fn(Integer, Integer) returns Integer'
+```
+
+
+<!-- test: dispatch-throwing-arg-widening -->
+The `try` half of the argument check, positive side. A `witnessDispatch` op is REWRITTEN to
+`witnessTryDispatch` when the call is written under `try`, so the arguments arrive at the check through a
+second op shape — and a check wired to only one of them would leave the throwing half unguarded while the
+suite stayed green. This is the control that says the guarded half still accepts.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+interface Risky
+	function risk(n Integer) returns Integer throws Boom
+end 'Risky'
+
+type Safe implements Risky
+	export var tag as Integer
+
+	static function create() returns Safe
+		return Self{tag: 0}
+	end 'create'
+
+	function risk(n Integer) returns Integer throws Boom
+		return n + 1
+	end 'risk'
+end 'Safe'
+
+function drive(r Risky) returns Integer
+	return try r.risk(41) otherwise 0
+end 'drive'
+
+function main() returns ExitCode
+	print("v={drive(Safe.create())}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=42
+```
+
+
+<!-- test: dispatch-throwing-arg-type-mismatch-error -->
+And the refusal through the same op shape. The `try` decides how the error flag travels and says nothing
+about what may be passed, so the argument rule is the plain dispatch's, unchanged.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+interface Risky
+	function risk(n Integer) returns Integer throws Boom
+end 'Risky'
+
+type Safe implements Risky
+	export var tag as Integer
+
+	static function create() returns Safe
+		return Self{tag: 0}
+	end 'create'
+
+	function risk(n Integer) returns Integer throws Boom
+		return n + 1
+	end 'risk'
+end 'Safe'
+
+function drive(r Risky) returns Integer
+	return try r.risk("no") otherwise 0
+end 'drive'
+
+function main() returns ExitCode
+	print("v={drive(Safe.create())}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:26:15: argument type mismatch for 'n': expected 'Integer', got 'String'
+```
+
+
+<!-- test: dispatch-extended-interface -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Base
+	function base() returns Integer
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Derived extends Base
+	function derived() returns Integer
+end 'Derived'
+
+type Impl implements Derived
+	let n as Integer
+
+	function base() returns Integer
+		return n
+	end 'base'
+
+	function derived() returns Integer
+		return n * 2
+	end 'derived'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Impl'
+
+function callBase(b Base) returns Integer
+	return b.base()
+end 'callBase'
+
+function callDerived(d Derived) returns Integer
+	return d.derived()
+end 'callDerived'
+
+function main() returns ExitCode
+	let i = Impl.create(10)
+	return callBase(i) + callDerived(i)
+end 'main'
+```
+```exitcode
+30
+```
+
+
+<!-- test: dispatch-same-type-twice -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Counter
+	function count() returns Integer
+end 'Counter'
+
+type SimpleCounter implements Counter
+	let n as Integer
+
+	function count() returns Integer
+		return n
+	end 'count'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'SimpleCounter'
+
+function getCount(c Counter) returns Integer
+	return c.count()
+end 'getCount'
+
+function main() returns ExitCode
+	let c1 = SimpleCounter.create(17)
+	let c2 = SimpleCounter.create(25)
+	return getCount(c1) + getCount(c2)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: dispatch-three-types -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Valued
+	function value() returns Integer
+end 'Valued'
+
+type One implements Valued
+	function value() returns Integer
+		return 1
+	end 'value'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'One'
+
+type Two implements Valued
+	function value() returns Integer
+		return 2
+	end 'value'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'Two'
+
+type Three implements Valued
+	function value() returns Integer
+		return 3
+	end 'value'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'Three'
+
+function getValue(v Valued) returns Integer
+	return v.value()
+end 'getValue'
+
+function main() returns ExitCode
+	let a = One.create()
+	let b = Two.create()
+	let c = Three.create()
+	return getValue(a) + getValue(b) + getValue(c)
+end 'main'
+```
+```exitcode
+6
+```
+
+
+<!-- test: dispatch-interface-return-type -->
+⭐⭐ **THE RETURN ABI.** An interface RETURN hands back a fat pointer, so it needs a second return
+register on a NON-throwing call — and the compiler has one. `StdOp.errorReturn`/`StdOp.tryCall` and the
+R10 / x9 / second-wasm-result plumbing behind them exist for the error flag; an interface-returning
+function writes the WITNESS there instead. **Same register convention, same op shape, no new Std op and
+no new backend arm**. The one gate is the predicate: *does this function use
+the secondary return slot* is `throws` **OR** *returns an interface*, spelled once in
+`functionUsesSecondaryReturnSlot` and asked by both return emitters and the wasm signature builder.
+
+⚠ There is exactly ONE such register and both halves want it, so a function that is BOTH is refused —
+see `error.interface-returning-function-cannot-throw` below. Skipping the return-witness path instead
+would degrade the value to a bare pointer with no diagnostic at all; silence is the one unacceptable outcome.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+type Factory
+	let seed as Integer
+
+	function make() returns Producer
+		return Widget.create(seed)
+	end 'make'
+
+	static function create(seed Integer) returns Self
+		return Self{seed: seed}
+	end 'create'
+end 'Factory'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	let f = Factory.create(42)
+	let p = f.make()
+	return consume(p)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-return-forwards-an-existential-parameter -->
+The FORWARD half of the return witness. The returned value is ALREADY an existential — a parameter
+threaded onward — so the witness half is the one it arrived with (`pairedWitnessOf`), never a table
+re-resolved from its own interface, which would ask for `(Producer, Producer)` and find nothing. The same
+split an existential ARGUMENT makes, through the same one helper.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function passThrough(p Producer) returns Producer
+	return p
+end 'passThrough'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	let w = Widget.create(42)
+	let p = passThrough(w)
+	return consume(p) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-return-of-a-field-read -->
+An interface-typed FIELD read handed back through an interface RETURN — the field and return halves meeting.
+The value half comes out of the field's first slot and the witness out of the one beside it, and the
+return then puts them in the two registers a caller reads.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+type Holder
+	let inner as Producer
+
+	function get() returns Producer
+		return inner
+	end 'get'
+
+	static function create(inner Producer) returns Self
+		return Self{inner: inner}
+	end 'create'
+end 'Holder'
+
+function wrap(p Producer) returns Holder
+	return Holder.create(p)
+end 'wrap'
+
+function main() returns ExitCode
+	let h = wrap(Widget.create(42))
+	let g = h.get()
+	return g.produce() as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-return-dispatches-per-conformer -->
+⭐ **THE ANSWER THE ABI IS FOR.** One interface-returning function, two conformers, two different
+`produce` bodies — so the witness that came back in the secondary register is what decides which one
+runs. 10 through `Widget` plus 16×2 through `Gizmo` is 42; a dropped witness cannot produce it, and a
+witness taken from the DECLARED type rather than from the returned value would answer 26 or 52.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+type Gizmo implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value * 2
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Gizmo'
+
+function make(flag bool, seed Integer) returns Producer
+	if flag 'whichConformer'
+		return Widget.create(seed)
+	end 'whichConformer'
+	return Gizmo.create(seed)
+end 'make'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	let a = make(true, seed: 10)
+	let b = make(false, seed: 16)
+	return (consume(a) + consume(b)) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-return-into-a-reassigned-var -->
+A returned existential is OWNED, so the `var` that holds one must DROP what it held before it takes the
+next. The first `make` result is unreachable after the reassignment and its box must be released exactly
+once — a leak or a double free here is an exit 101 or a crash, not a wrong number.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function make(seed Integer) returns Producer
+	return Widget.create(seed)
+end 'make'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	var p = make(10)
+	p = make(42)
+	return consume(p) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-return-of-two-conformers-beside-an-owned-local -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet() returns String
+end 'Greeter'
+
+type English implements Greeter
+	let name as String
+
+	function greet() returns String
+		return "hello {name}"
+	end 'greet'
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'English'
+
+type French implements Greeter
+	let name as String
+
+	function greet() returns String
+		return "bonjour {name}"
+	end 'greet'
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'French'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function pick(formal bool, who String) returns Greeter
+	let note = "picked {who}"
+	if formal 'formal'
+		return French.create(who)
+	end 'formal'
+	print("{note}\n")
+	return English.create(who)
+end 'pick'
+
+function main() returns ExitCode
+	let a = pick(opaque(1) > 0, who: "ann{opaque(1)}")
+	let b = pick(opaque(0) > 0, who: "bob{opaque(2)}")
+	print("{a.greet()}\n")
+	print("{b.greet()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+picked bob2
+bonjour ann1
+hello bob2
+```
+
+
+<!-- test: error.interface-returning-function-cannot-throw -->
+⛔ **THE ONE SECONDARY REGISTER, CONTESTED.** A throwing function already spends it on the error flag, so
+an interface return has nowhere left to put the witness. Admitted, it would emit the throwing return
+with a constant-0 flag and hand back a bare pointer with no diagnostic. This refusal is
+what keeps the E2015 sentence about the second register true.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+enum MakeError
+	broken
+end 'MakeError'
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function make(seed Integer) returns Producer throws MakeError
+	return Widget.create(seed)
+end 'make'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-returning-function-cannot-throw.maxon:24:10: Unsupported: a THROWING function's return type declared at the interface type 'Producer' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a return hands back one register plus a second, but on a throwing function that second register already carries the error flag — there is exactly one of it and both halves want it. Declare the function without `throws` — a non-throwing function returns the witness half in that same second register — or return a concrete type and report the error some other way
+```
+
+
+<!-- test: error.interface-return-of-a-nonconformer -->
+⭐ **THE VERDICT THE PARSER CANNOT TAKE.** A `returns <Interface>` function is a WIDENING position, so the
+parse-time tag check refuses no concrete return — its verdict is the
+whole-program conformance door the call ARGUMENT already asked (`SemanticCheck.existentialWideningVerdict`),
+because an `implements` clause is recorded when its own file is parsed and the two files have no ordering.
+Without it a non-conformer reaches `ensureWitnessTable` and PANICS the compiler on a slot no conformance
+filled.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Gadget
+	let value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Gadget'
+
+function make(seed Integer) returns Producer
+	return Gadget.create(seed)
+end 'make'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.interface-return-of-a-nonconformer.maxon:17:2: return type mismatch in 'make': type 'Gadget' does not implement interface 'Producer'
+```
+
+
+<!-- test: error.interface-return-of-a-nonconformer-at-two-returns-beside-an-owned-local -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Gadget
+	let value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Gadget'
+
+function make(seed Integer) returns Producer
+	let label = "seed {seed}"
+	if seed > 0 'positive'
+		return Gadget.create(seed)
+	end 'positive'
+	print("{label}\n")
+	return Gadget.create(0)
+end 'make'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.interface-return-of-a-nonconformer-at-two-returns-beside-an-owned-local.maxon:20:3: return type mismatch in 'make': type 'Gadget' does not implement interface 'Producer'
+error E3005: specs/interface-dispatch/error.interface-return-of-a-nonconformer-at-two-returns-beside-an-owned-local.maxon:24:2: return type mismatch in 'make': type 'Gadget' does not implement interface 'Producer'
+```
+
+
+<!-- test: error.interface-return-of-a-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+A `float` CONFORMS — it declares the intrinsic `Comparable`/`Equatable`/`Hashable` — and still cannot be
+widened, because the fat pointer's value half is a general-purpose machine word and a float travels in a
+floating-point register. That is the argument position's E3121 asked at the return, through the same one
+verdict, so the two widening positions cannot come to disagree about a float.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Ranked
+	function rank() returns Integer
+end 'Ranked'
+
+function pick() returns Ranked
+	// TODO: float literals are not supported in minimaxon
+	return 2.5
+end 'pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3121: specs/interface-dispatch/error.interface-return-of-a-float.maxon:9:2: Cannot return a `float` from 'pick', which is declared to return the interface type 'Ranked': a value held at an interface type is a two-word fat pointer `(value, witness)` whose value half is a general-purpose machine word, and a float travels in a floating-point register, so it has no way through. This is the same limit `float` has as a generic type argument (E2062). Wrap the float in a type that implements 'Ranked', or declare the return type as `float`
+```
+
+
+<!-- test: error.function-value-of-an-interface-returning-function -->
+⛔ A DIRECT call reads the secondary return register; a call through a function VALUE does not — its whole
+signature rides on `StdOp.callIndirect`, which has room for one result. So the refusal is at the line that
+makes the VALUE, not at the call: the same ABI fact that refuses a THROWING function as a function
+value. ⚠ Without it, `witnessOfValue` panics the compiler on a `callIndirect` result nothing can pair.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function make(seed Integer) returns Producer
+	return Widget.create(seed)
+end 'make'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	let f = make
+	return consume(f(42)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.function-value-of-an-interface-returning-function.maxon:29:10: Unsupported: a function value's return type declared at the interface type 'Producer' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a call through a function value carries its whole signature on the call op (`callIndirect`), where there is room for ONE result — so the second register is never read and the witness half is dropped. Declare the return at a concrete type, or hand the interface back from a NAMED function called DIRECTLY, whose second return register carries the witness half
+```
+
+
+<!-- test: error.closure-returning-an-interface -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+The other route to the same function value, and the reason the refusal is a POSITION rather than one call
+site: a closure declares no return type at all — it is INFERRED from the `gives` expression — so there was
+nothing for the function-TYPE door to refuse. Refused at the `gives`, the line that decided it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Producer
+	function produce() returns Integer
+end 'Producer'
+
+type Widget implements Producer
+	let value as Integer
+
+	function produce() returns Integer
+		return value
+	end 'produce'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function make(seed Integer) returns Producer
+	return Widget.create(seed)
+end 'make'
+
+function consume(p Producer) returns Integer
+	return p.produce()
+end 'consume'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let mk = function() gives make(42)
+	return consume(mk()) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.closure-returning-an-interface.maxon:29:22: Unsupported: a function value's return type declared at the interface type 'Producer' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a call through a function value carries its whole signature on the call op (`callIndirect`), where there is room for ONE result — so the second register is never read and the witness half is dropped. Declare the return at a concrete type, or hand the interface back from a NAMED function called DIRECTLY, whose second return register carries the witness half
+```
+
+
+<!-- test: dispatch-transitive-leak -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Worker
+	function process(values IntArray) returns Integer
+end 'Worker'
+
+type SumWorker implements Worker
+	let tag as Integer
+
+	function process(values IntArray) returns Integer
+		var total = 0 as Integer
+		var i = 0 as Count
+		while i < values.count() 'loop'
+			let v = try values.get(i as ElementIndex) otherwise 0
+			total = total + v
+			i = i + 1
+		end 'loop'
+		return total
+	end 'process'
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+end 'SumWorker'
+
+// Level 3: leaf function that uses the interface and creates temporaries
+function processOne(w Worker, value Integer) returns Integer
+	let arr = IntArray.create(0)
+	arr.push(value)
+	return w.process(arr)
+end 'processOne'
+
+// Level 2: intermediate function that calls level 3
+function processTwo(w Worker, a Integer, b Integer) returns Integer
+	let r1 = processOne(w, value: a)
+	let r2 = processOne(w, value: b)
+	return r1 + r2
+end 'processTwo'
+
+// Level 1: entry point that creates the concrete type and passes through
+function doWork(w Worker) returns Integer
+	return processTwo(w, a: 10, b: 32)
+end 'doWork'
+
+function main() returns ExitCode
+	let worker = SumWorker.create()
+	return doWork(worker)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-field-pass-as-arg -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	let n as Integer
+
+	function tag() returns Integer
+		return n
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Marker'
+
+// Holder stores an interface-typed field. main() constructs a Holder
+// over a Marker, then reads the field (h.t) and passes it to a
+// function expecting the same interface type. The construction and
+// the field-read happen in the same function so monomorphization can
+// propagate the concrete type (`Marker`) through the Holder instance
+// and rewrite the indirect dispatch in `callTag` to `Marker.tag`.
+//
+// Regression guard for two parser bugs around interface-typed fields,
+// both diagnosed via the FunctionRegAllocator interface-field
+// workaround in the self-hosted register allocator:
+//   1. Field-access op produced a MaxonStruct with empty TypeName,
+//      crashing FillDefaultArgs with NullReferenceException at the
+//      call site (Dictionary.TryGetValue, key=null).
+//   2. After fixing the empty TypeName, the call-site type-check
+//      rejected the value with E3005 "type '' does not implement
+//      interface 'Tagged'" because the value registered in the
+//      variables table for the field still carried no struct-type
+//      name, so the resolved MaxonStruct came back with an empty
+//      TypeName at the next use.
+type Holder
+	export let t as Tagged
+
+	static function create(t Tagged) returns Self
+		return Self{t: t}
+	end 'create'
+end 'Holder'
+
+function callTag(t Tagged) returns Integer
+	return t.tag()
+end 'callTag'
+
+function main() returns ExitCode
+	let m = Marker.create(42)
+	let h = Holder.create(m)
+	return callTag(h.t)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-param-threaded-through-helpers -->
+An interface-typed parameter passed down through several helper functions —
+each receiving it as a parameter and forwarding it — must still dispatch its
+method at the innermost call. When the receiver value's recorded type degrades
+to a bare `named(InterfaceName)` (as happens when an interface param is threaded
+arg→param→arg across call boundaries), the resolver's dynamic-dispatch guard
+must still recognize it as an interface receiver and route the method through
+witness dispatch rather than flagging the call as unresolved. Mirrors the
+compiler's own register allocator threading a `RegAllocTarget` interface through
+`computeLiveness → scanUseDef → scanOpUseDefPacked` before calling
+`regTarget.noteOpDefs(...)`.
+```maxon
+typealias Tick = int(0 to 100)
+
+interface Counter
+	function value() returns Tick
+end 'Counter'
+
+type Fixed implements Counter
+	let n as Tick
+
+	static function create(n Tick) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function value() returns Tick
+		return n
+	end 'value'
+end 'Fixed'
+
+// Innermost: dispatches the interface method on a value whose static type is
+// the interface, reached only after two forwarding hops.
+function deepest(c Counter) returns Tick
+	return c.value() + c.value()
+end 'deepest'
+
+function middle(c Counter) returns Tick
+	return deepest(c)
+end 'middle'
+
+function outer(c Counter) returns Tick
+	return middle(c)
+end 'outer'
+
+function main() returns ExitCode
+	let f = Fixed.create(5)
+	return outer(f)
+end 'main'
+```
+```exitcode
+10
+```
+
+
+<!-- test: interface-param-declared-after-consumer -->
+An interface used as a parameter type may be DECLARED LATER in source than the
+function that consumes it (or in a later-parsed file). A concrete conformer
+passed to such a parameter must compile AND dispatch correctly — the parameter
+is a fat-pointer/witness receiver regardless of whether the interface
+declaration has been seen yet when the annotation is interned. A pre-parse
+interface-name scan registers every interface name before any annotation is
+resolved, so `run(q OpQuery)` here — which
+precedes both `OpQuery` and its conformer `X64Query` — interns `OpQuery` as an
+interface type and `q.value()` dispatches through the witness table rather than
+crashing for a missing witness companion. Mirrors the compiler's own
+`RegisterAllocator` consuming a `TargetOpQuery` declared in a later-parsed file.
+```maxon
+typealias Num = int(0 to 100)
+
+function run(q OpQuery) returns Num
+	return q.value()
+end 'run'
+
+type X64Query implements OpQuery
+	export var v as Num
+
+	static function make(v Num) returns X64Query
+		return X64Query{v: v}
+	end 'make'
+
+	function value() returns Num
+		return self.v
+	end 'value'
+end 'X64Query'
+
+interface OpQuery
+	function value() returns Num
+end 'OpQuery'
+
+function main() returns ExitCode
+	let q = X64Query.make(7)
+	return run(q)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: interface-self-field-passed-as-arg -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	let n as Integer
+
+	function tag() returns Integer
+		return n
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Marker'
+
+function callTag(t Tagged) returns Integer
+	return t.tag()
+end 'callTag'
+
+// Holder reads its OWN interface-typed field via a bare `tagged` reference
+// inside a method (a selfFieldLoad) and passes it to a function expecting the
+// interface. selfFieldLoad must pair the field's witness half (offset+8) the
+// same way an explicit `h.field` load does — else passing it as an interface
+// arg panics in `witnessForInterfaceArg` with "no witness paired".
+type Holder
+	let tagged as Tagged
+
+	function dispatch() returns Integer
+		return callTag(tagged)
+	end 'dispatch'
+
+	static function create(tagged Tagged) returns Self
+		return Self{tagged: tagged}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Marker.create(9))
+	return h.dispatch()
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: interface-borrowed-field-drop-in-loop -->
+```maxon
+typealias StrArray = Array with String
+
+typealias Tag = int(0 to u64.max)
+
+interface Query
+	function score() returns bool
+end 'Query'
+
+type ConcreteQuery implements Query
+	export let tag as Tag
+
+	static function create(tag Tag) returns ConcreteQuery
+		return Self{tag: tag}
+	end 'create'
+
+	function score() returns bool
+		return self.tag >= 0
+	end 'score'
+end 'ConcreteQuery'
+
+// `Allocator` stores a BORROWED interface value into a field, alongside enough
+// fresh state that its constructor exceeds the inline budget (a real non-inlined
+// constructor, like the compiler's own `FunctionRegAllocator`). The allocator is a
+// short-lived local dropped at the end of `allocateFor`, and its synthesized
+// destructor decrefs the interface field. The conformer passed in is OWNED by
+// `main` and kept alive across the whole loop, so the field holds only a BORROW —
+// the destructor must NOT release it: the borrowed value stored into the field takes
+// its own store-incref, so the destructor's decref balances it. Runs under the
+// suite's leak gate, so an over-release or leak fails it.
+type Allocator
+	export var query as Query
+	export var f0 as StrArray
+	export var f1 as StrArray
+	export var f2 as StrArray
+	export var f3 as StrArray
+	export var f4 as StrArray
+	export var f5 as StrArray
+
+	static function create(query Query) returns Allocator
+		return Self{query: query, f0: StrArray.create(0), f1: StrArray.create(0), f2: StrArray.create(0), f3: StrArray.create(0), f4: StrArray.create(0), f5: StrArray.create(0)}
+	end 'create'
+
+	function run() returns bool
+		return self.query.score() and self.f0.count() == 0
+	end 'run'
+end 'Allocator'
+
+function allocateFor(query Query) returns bool
+	let allocator = Allocator.create(query)
+	return allocator.run()
+end 'allocateFor'
+
+function main() returns ExitCode
+	let concrete = ConcreteQuery.create(7)
+	var trueCount = 0 as Count
+	var i = 0 as Count
+	while i < 4 'loop'
+		if allocateFor(concrete) 'ok'
+			trueCount = trueCount + 1
+		end 'ok'
+		i = i + 1
+	end 'loop'
+	return trueCount as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: fields-after-an-existential-read-at-the-right-offset -->
+⭐⭐ **AN INTERFACE-TYPED FIELD TAKES TWO SLOTS, SO EVERY FIELD AFTER IT MOVES — and a layout that counted
+FIELDS rather than SLOTS would put them all one word low, silently.** `StructLayout.offsetOfField` is a
+prefix sum over `fieldSlotCount` (`Project.maxon`), which is what this case exists to observe: `label` sits
+before the fat pointer and `extra` after it, so reading `extra` correctly is only possible if the carve-out
+was counted. `sizeof(Holder)` is **32** — four slots for three fields — where the count-only rule says 24.
+It is also the MIXED cascade: the destructor drops a `String` at `+0` through `__str_decref`, the
+existential at `+8` through `__drop_existential`, and skips the scalar at `+24`, so the leak gate is what
+proves the three offsets and the three drop kinds line up.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	export let s as String
+	let n as Integer
+
+	function tag() returns Integer
+		return n + (self.s.byteLength() as Integer)
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{s: "abc", n: n}
+	end 'create'
+end 'Marker'
+
+type Holder
+	export let label as String
+	export let t as Tagged
+	export let extra as Integer
+
+	static function create(t Tagged) returns Self
+		return Self{label: "hi", t: t, extra: 5}
+	end 'create'
+end 'Holder'
+
+function callTag(t Tagged) returns Integer
+	return t.tag()
+end 'callTag'
+
+function main() returns ExitCode
+	let h = Holder.create(Marker.create(3))
+	print("size={sizeof(Holder)} label={h.label} extra={h.extra}\n")
+	return callTag(h.t)
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+size=32 label=hi extra=5
+```
+
+<!-- test: interface-field-on-a-generic-type -->
+A GENERIC type's own interface-typed field survives substitution into the per-instance destructor cascade.
+An interface-typed generic ARGUMENT is refused at the instantiation, so it is easy to read this arm as
+unreachable — it is not: `t` here is the base struct's own field, and substitution leaves it exactly as
+declared, so `__destruct_<instance>` has to drop it through `__drop_existential` while it drops the
+substituted `T` (trivial here) through nothing at all. Two drop KINDS in one cascade, under the leak gate.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntBox = Box with Integer
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	let n as Integer
+
+	function tag() returns Integer
+		return n
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Marker'
+
+type Box uses T
+	export let t as Tagged
+	export let v as T
+
+	static function create(t Tagged, v T) returns Self
+		return Self{t: t, v: v}
+	end 'create'
+
+	function score() returns Integer
+		return self.t.tag()
+	end 'score'
+end 'Box'
+
+function main() returns ExitCode
+	let b = IntBox.create(Marker.create(8), v: 1)
+	return b.score()
+end 'main'
+```
+```exitcode
+8
+```
+
+<!-- test: interface-field-reassigned -->
+A `var` interface-typed field REASSIGNED: the old fat pointer's value half is released through its OWN
+witness (the conformer it was holding, not the one replacing it) and the new pair is stored over both
+slots. The witness half has to move with the value or the next dispatch would call the OLD conformer's
+method with the NEW conformer's receiver — and under the leak gate an old value released twice, or never,
+fails as loudly as a wrong answer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	let n as Integer
+
+	function tag() returns Integer
+		return n
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Marker'
+
+type Holder
+	export var t as Tagged
+
+	static function create(t Tagged) returns Self
+		return Self{t: t}
+	end 'create'
+
+	function replace(other Tagged) returns Integer
+		self.t = other
+		return self.t.tag()
+	end 'replace'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Marker.create(3))
+	return h.replace(Marker.create(9))
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: scalar-conformer-co-owned-into-a-var -->
+⭐⭐ **AN EXISTENTIAL'S VALUE HALF IS NOT ALWAYS A POINTER, AND CO-OWNING ONE MUST ASK ITS WITNESS FIRST.**
+`int` and `bool` conform intrinsically (`isIntrinsicBuiltinConformance`) and are held at an interface as
+their RAW VALUE in a general-purpose register — that is precisely what makes them representable there
+where a `float` is not (E3121). A `var` bound to a borrowed managed aggregate becomes a SECOND OWNER of it
+(`__mm_retain`), and an existential is under that rule too — so the
+incref has to be gated on the same `destroyFunc@8` word the DROP is gated on, which is 0 for a conformer
+that owns no record. **A plain `__mm_retain` on the value half would write through `7 - 24 + 16`; the
+witness-gated retain answers 11.** `__retain_existential` is that gate, and it is the exact inverse of `__drop_existential`:
+a conformer whose drop is inert has an inert retain.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function use(h Comparable, replace bool) returns Integer
+	var v = h
+	if replace 'maybe'
+		v = h
+	end 'maybe'
+	return 11 if true else 12
+end 'use'
+
+function main() returns ExitCode
+	return use(7, replace: false) as ExitCode
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: literal-conformer-widened-to-an-owning-existential -->
+⭐⭐ **A `String` LITERAL WIDENED TO AN INTERFACE IS AN IMMORTAL `.rdata` RECORD, AND CO-OWNING ONE MUST
+COPY RATHER THAN INCREF.** The compiler has no `MmImmortalRefcount` sentinel: the invariant is that an immortal
+record NEVER reaches a refcount write. On the CONCRETE borrow→own doors that is upheld at RUN TIME —
+`Parser.promoteBorrowedToOwned` routes a byte record at a HAND-OFF to
+`retainBorrowedByteRecord`, and `__str_retain` reads the record's own `capacity@16` and takes the CLONE
+arm for an immortal one and the incref arm for a heap one, which is a question no frame holding a
+borrowed `String` can answer for itself. The EXISTENTIAL path splits the same fact one level up — per
+CONFORMER, at compile time, where the type is known — because an `__mm_incref` on an `.rdata` record is a
+read-modify-write of READ-ONLY memory. The witness table's
+`retainFunc@16` is what splits it — `__str_clone` for a byte-record conformer (an independently-droppable
+fresh heap record, which is what launders the literal), `__mm_retain` for an aggregate, 0 for a scalar.
+```maxon
+typealias Tally = int(0 to 100)
+
+// The discard below is the whole shape, so `widen` must have an effect — discarding a PURE result is
+// E3064 (`discarded-results.md`) and the program would never reach the retain this case is about.
+function widen(h Hashable, mutates widenings Tally) returns Hashable
+	widenings = widenings + 1
+	return h
+end 'widen'
+
+function main() returns ExitCode
+	var widenings = 0 as Tally
+	print("A")
+	_ = widen("abc", widenings: widenings)
+	print("B")
+	return widenings - 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+AB
+```
+
+<!-- test: literal-conformer-dispatched-and-dropped -->
+The literal-conformer retain above, carried all the way through: the widened existential is BOUND, so a
+scope-exit `__drop_existential` releases exactly the record the retain handed back — and it must be the
+CLONE, not the literal, or the drop decrefs `.rdata`. The clone is a real `String` record, so the dispatch
+through the witness table answers the same hash the heap spelling of the same five bytes does, and the leak
+gate (exit 101) is what proves the extra reference was released exactly once.
+```maxon
+function widen(h Hashable) returns Hashable
+	return h
+end 'widen'
+
+function main() returns ExitCode
+	let n = 1
+	let heap = widen("ab{n}cd")
+	let literal = widen("ab1cd")
+	print("heap=literal: {heap.hash() == literal.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+heap=literal: true
+```
+
+<!-- test: literal-conformer-stored-in-a-holder-field -->
+The same laundering one call boundary out: a `String` literal widened into a CONSUMED argument reaches
+durable storage — an interface-typed field, which outlives the frame and whose destructor releases the
+value half through the witness. `coOwnBorrowedForConsume` must therefore hand the container the retain's
+RESULT rather than the borrow it was given; storing the original would put the immortal literal in a slot
+`__destruct_Holder` later drops.
+```maxon
+type Holder
+	export var h as Hashable
+
+	static function create(h Hashable) returns Self
+		return Self{h: h}
+	end 'create'
+end 'Holder'
+
+function hold(h Hashable) returns Holder
+	return Holder.create(h)
+end 'hold'
+
+function main() returns ExitCode
+	let box = hold("ab1cd")
+	print("held is the literal's hash: {box.h.hash() == "ab1cd".hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+held is the literal's hash: true
+```
+
+<!-- test: literal-conformer-stored-directly-in-an-interface-field -->
+The same laundering with no call at all: the struct literal is the widening site, so a borrowed `String`
+literal and an owned interpolation are each moved into the field by the conformer's own protocol — a clone
+of the immortal literal, the adopted heap record — and the witness half is the table of the conformer the
+store named. Both hashes agree, and the leak gate proves each record is released once, through its witness.
+```maxon
+type Holder
+	export let literal as Hashable
+	export let heap as Hashable
+
+	static function create(n Integer) returns Self
+		return Self{literal: "ab1cd", heap: "ab{n}cd"}
+	end 'create'
+end 'Holder'
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let box = Holder.create(1)
+	print("literal=heap: {box.literal.hash() == box.heap.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+literal=heap: true
+```
+
+<!-- test: borrowed-conformer-stored-directly-in-two-interface-fields -->
+A BORROWED conformer stored directly into two interface-typed fields is co-owned by each, and a later store
+through `self` replaces one of them: the displaced value is released through its own witness before the new
+conformer is dispatched through its. Under the leak gate a reference taken or released one time too many
+fails as loudly as a wrong answer. Returns `3 + 9 = 12`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Marker implements Tagged
+	let n as Integer
+
+	function tag() returns Integer
+		return n
+	end 'tag'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Marker'
+
+type Pair
+	var first as Tagged
+	let second as Tagged
+
+	static function create(m Marker) returns Self
+		return Self{first: m, second: m}
+	end 'create'
+
+	function total() returns Integer
+		self.first = Marker.create(9)
+		return self.second.tag() + self.first.tag()
+	end 'total'
+end 'Pair'
+
+function main() returns ExitCode
+	let m = Marker.create(3)
+	let p = Pair.create(m)
+	return p.total()
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: scalar-conformer-stored-directly-in-an-interface-field -->
+An `int` conforms intrinsically and is held at an interface as its raw value, so storing one directly moves
+nothing and its witness's release is inert — the field is widened and dropped with no reference counted.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder
+	export let key as Hashable
+	export let size as Integer
+
+	static function create(size Integer) returns Self
+		return Self{key: size, size: size}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(7)
+	return h.size as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.non-conformer-stored-directly-in-an-interface-field -->
+A direct store asks the argument position's conformance verdict, naming the field.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Tagged
+	function tag() returns Integer
+end 'Tagged'
+
+type Plain
+	let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Plain'
+
+type Holder
+	let t as Tagged
+
+	static function create(n Integer) returns Self
+		return Self{t: Plain.create(n)}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(4)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:20:10: field type mismatch for 'Holder.t': type 'Plain' does not implement interface 'Tagged'
+```
+
+<!-- test: error.float-stored-directly-in-an-interface-field -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A `float` conforms and still has no way into the fat pointer's value half, so a direct store is refused with
+the argument position's reason.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+type Holder
+	let c as Comparable
+
+	static function create(r Real) returns Self
+		return Self{c: r}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let h = Holder.create(2.5)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3121: <fragment>:8:10: Cannot store a `float` into the field 'Holder.c', which is declared at the interface type 'Comparable': a value held at an interface type is a two-word fat pointer `(value, witness)` whose value half is a general-purpose machine word, and a float travels in a floating-point register, so it has no way through. This is the same limit `float` has as a generic type argument (E2062). Wrap the float in a type that implements 'Comparable', or declare the field as `float`
+```
+
+<!-- test: interface-param-checked-divide-survives-specialization -->
+### A possibly-zero divide in an interface-param function survives specialization
+An interface-parameter function is CLONED per concrete argument type (monomorphization's
+interface-alias specialization path). A possibly-zero integer `/` in its body is a throwing
+`__checked_div` op carrying its own mod/signedness metadata; the clone must rebuild it as
+itself, not as a plain try-call the lowering cannot emit.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Scorer
+	function score() returns Integer
+end 'Scorer'
+
+type Alpha implements Scorer
+	let n as Integer
+
+	function score() returns Integer
+		return n * 2
+	end 'score'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Alpha'
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function ratioVia(s Scorer, d Integer) returns Integer
+	let base = s.score()
+	return try (base / d) otherwise panic("ratioVia: d was 0")
+end 'ratioVia'
+
+function main() returns ExitCode
+	let a = Alpha.create(21)
+	return ratioVia(a, d: opaque(3)) as ExitCode
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: interface-param-checked-float-divide-survives-specialization -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+### A possibly-zero FLOAT divide in an interface-param function survives specialization
+The float sibling of the integer case above. Float `/` is throwing too, so a possibly-zero one is
+a `__checked_div` op whose ResultKind is Float; the interface-alias specialization cloner must carry
+that kind through, or the clone strands as a plain try-call the lowering cannot emit.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+interface Scorer
+	function score() returns Real
+end 'Scorer'
+
+type Alpha implements Scorer
+	let n as Real
+
+	function score() returns Real
+		// TODO: float literals are not supported in minimaxon
+		return n * 2.0
+	end 'score'
+
+	static function create(n Real) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Alpha'
+
+function opaque(x Real) returns Real
+	return x
+end 'opaque'
+
+function ratioVia(s Scorer, d Real) returns Real
+	let base = s.score()
+	return try (base / d) otherwise panic("ratioVia: d was 0")
+end 'ratioVia'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let a = Alpha.create(21.0)
+	// TODO: float literals are not supported in minimaxon
+	let r = ratioVia(a, d: opaque(3.0))
+	// TODO: float literals are not supported in minimaxon
+	return 14 if r == 14.0 else 1
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: dispatch-discriminating-merge -->
+⭐⭐ **The ONE case that can tell a correct existential from a broken one.**
+Every merge case the corpus holds is undiscriminating in BOTH axes at once:
+`cross-block-method-receiver`'s `interface-method-statement-after-if-merge` branches on the constant
+`if 2 > 1` and hands the SAME implementor to both parameters, so an implementation that dispatches on
+the last statically-assigned type — which is what monomorphization structurally does — returns the
+right answer for the wrong reason.
+
+This case removes both coincidences: TWO different implementors, and a condition the compiler cannot
+fold (`pick` is a parameter). The branch is NOT taken, so the answer must be `A`'s. **An implementation
+that dispatches on the last statically-assigned type returns 2 — `B`'s answer — where a control with
+one implementor for both parameters returns 1.** the compiler's fat pointer
+carries the witness with the value across the merge phi, so the branch not taken cannot supply it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shower
+	function show() returns Integer
+end 'Shower'
+
+type A implements Shower
+	function show() returns Integer
+		return 1
+	end 'show'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'A'
+
+type B implements Shower
+	function show() returns Integer
+		return 2
+	end 'show'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'B'
+
+function run(s Shower, again Shower, pick Integer) returns Integer
+	var t = s
+	if pick > 0 'grow'
+		t = again
+	end 'grow'
+	return t.show()
+end 'run'
+
+function main() returns ExitCode
+	return run(A.create(), again: B.create(), pick: 0) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: interface-dispatch.narrow-formal-through-existential -->
+⭐⭐ **A REQUIREMENT WHOSE FORMAL IS NARROWER THAN THE MACHINE WORD, DISPATCHED THROUGH AN
+EXISTENTIAL.** `ExitCode` is a `u32`, so `Runner.take` is emitted with a wasm `i32` parameter while
+every other argument of every indirect call is an `i64`; `call_indirect` type-checks the call site's
+declared functype against the target's own EXACTLY, so the two must agree on that one argument or the
+call cannot be made at all. Returns `31`.
+**Where the two disagree, x64-windows still exits `31` while wasmtime traps with
+`wasm trap: indirect call type mismatch` — `call_indirect` declaring
+`(param i64 i64) (result i64)` against `$Runner.take (param i64 i32) (result i64)`.**
+⚠ **`ExitCode` IS THE ONLY NARROW TYPE THAT CAN REACH THIS.** `bool` is the other narrow Std type, and it is safe by an accident of SYNTAX rather than by
+the mechanism: it is a KEYWORD, so `parseTypeReference` tags it `boolean` directly and never mints a
+`named`, and `typealias Flag = bool` is refused (E2015). `ExitCode` is an IDENTIFIER, so the same
+function mints a bare `named` for it, which collapses to `i64` — while the conformer's impl declares
+its parameter from the RESOLVED signature, where `exitCode` collapses to `u32`. Deriving the call
+site's widths from the interface's own declared formals is what makes the two ends one answer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Exiter
+	function take(c ExitCode) returns Integer
+end 'Exiter'
+
+type Runner implements Exiter
+	let base as Integer
+
+	function take(c ExitCode) returns Integer
+		return base + (c as Integer)
+	end 'take'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Runner'
+
+function useExiter(e Exiter) returns Integer
+	return e.take(11)
+end 'useExiter'
+
+function main() returns ExitCode
+	return useExiter(Runner.create(20)) as ExitCode
+end 'main'
+```
+```exitcode
+31
+```
+
+<!-- test: interface-dispatch.narrow-formal-through-type-parameter -->
+The CONSTRAINED-TYPE-PARAMETER twin of the case above — the other receiver kind the one witness
+dispatch mechanism serves. It is not a second repro: the two receivers reach `appendWitnessCall`
+by different routes (a threaded witness PARAMETER against a fat pointer's witness half), and a
+call-site width derived from anything the RECEIVER carries would have to answer for both.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Exiter
+	function take(c ExitCode) returns Integer
+end 'Exiter'
+
+type Runner implements Exiter
+	let base as Integer
+
+	function take(c ExitCode) returns Integer
+		return base + (c as Integer)
+	end 'take'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Runner'
+
+type Box uses T where T implements Exiter
+	let item as T
+
+	function run() returns Integer
+		return self.item.take(11)
+	end 'run'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias RunnerBox = Box with Runner
+
+function main() returns ExitCode
+	return RunnerBox.create(Runner.create(20)).run() as ExitCode
+end 'main'
+```
+```exitcode
+31
+```
+
+<!-- test: interface-dispatch.narrow-formal-through-throwing-requirement -->
+The THROWING twin, which lowers to `witnessTryCall` rather than `witnessCall` — a different Std op
+with its own argument marshalling and its own interned functype (the trailing i64 error flag makes it
+a distinct wasm type even at the same arity). The masks are built at both `appendWitnessCall` and
+`appendWitnessTryCall`, so a mask built at one and not the other leaves exactly this program broken.
+See `witness-throws.md` for the throwing witness ABI itself; this case is about the ARGUMENT width.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+enum TakeError implements Error
+	tooSmall
+end 'TakeError'
+
+interface Exiter
+	function take(c ExitCode) returns Integer throws TakeError
+end 'Exiter'
+
+type Runner implements Exiter
+	let base as Integer
+
+	function take(c ExitCode) returns Integer throws TakeError
+		if c < 5 'small'
+			throw TakeError.tooSmall
+		end 'small'
+		return base + (c as Integer)
+	end 'take'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Runner'
+
+type Box uses T where T implements Exiter
+	let item as T
+
+	function run() returns Integer
+		return try self.item.take(11) otherwise 55
+	end 'run'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias RunnerBox = Box with Runner
+
+function main() returns ExitCode
+	return RunnerBox.create(Runner.create(20)).run() as ExitCode
+end 'main'
+```
+```exitcode
+31
+```
+
+<!-- test: error.float-cannot-be-held-at-an-interface -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **A `float` HAS NO WAY INTO AN EXISTENTIAL, AND IT CONFORMS — WHICH IS WHY THE REFUSAL IS ITS OWN
+RULE.** `float` declares the intrinsic `Comparable`/`Equatable`/`Hashable` conformances, so every
+type-system question about this program answers YES. What stops it is REPRESENTATION: a value held at
+an interface travels as a fat pointer whose value half is a general-purpose machine word — that word is
+what a dispatch hands the impl as its receiver, read out of an integer register by every conformer —
+and a float lives in a floating-point register. Widening one is a cross-register-file move, which no
+`TargetOp` performs: a move's two ends are colored into one file by construction, and the two converts
+and the `movqGprXmm` bitcast are each their own op.
+**Without the rule this program reaches the x64 emitter and PANICS there —
+`a register-to-register move from xmm0 to rcx crosses register files` — with no source position and
+nothing an author could act on.** It is E2062's fact one widening position over: dictionary passing
+gives a type parameter and an existential the SAME opaque slot, so it gives them the same limit.
+⚠ ONE parameter, named `_`, and a second one PROVING the check is per-argument is not expressible,
+three ways over. A `float` actual is the only thing that reaches E3121, so the parameter must be
+a builtin protocol; those declare only `Self`-typed requirements, which are undispatchable on an
+existential (`requireWitnessSelfArgs`), so the parameter can never be USED; an unused NAMED parameter is
+E3012 and a second `_` cannot be supplied, because arguments after the first must carry a label and `_`
+is not one (E2053). The check itself is written per position (`checkOneArgType` runs once per argument),
+and the day a builtin protocol declares a nullary requirement this case grows its second parameter. This case is about the ARGUMENT; consuming it through
+the two operands of `c < other` is the address-compare shape
+`error.existentials-cannot-be-compared` below refuses, which never reaches E3121 at all.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function use(_ Comparable) returns Integer
+	return 11
+end 'use'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	return use(2.5) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3121: specs/interface-dispatch/error.float-cannot-be-held-at-an-interface.maxon:9:9: Cannot pass a `float` as '_', which is declared at the interface type 'Comparable': a value held at an interface type is a two-word fat pointer `(value, witness)` whose value half is a general-purpose machine word, and a float travels in a floating-point register, so it has no way through. This is the same limit `float` has as a generic type argument (E2062). Wrap the float in a type that implements 'Comparable', or take the parameter as a `float`
+```
+
+<!-- test: error.existentials-cannot-be-compared -->
+⭐⭐ **COMPARING TWO VALUES HELD AT ONE INTERFACE WOULD ANSWER WITH THEIR HEAP ADDRESSES, SILENTLY, ON
+EVERY TARGET.** `typeClassOf` gives `interfaceRef` its own class, so a pair of existentials passes the
+agreement gate; neither is a float, so the domain test passes them too — and without the rule the
+comparison lowers to an integer compare of the two fat pointers' VALUE HALVES.
+**On two distinct `Wrapped(7)` boxes that compare answers `7 == 7` with `false`, `7 != 7` with `true` and
+`7 >= 7` with `false`, and `a(2) > b(1)` FLIPS its answer when the two allocations are reordered.** Reference identity
+answering a question the author asked about values — word for word the hazard `comparableOperands`
+refuses for two structs, one tag over.
+It is also the OPERATOR half of a rule whose METHOD half is this: dispatching a `Self`-typed
+requirement on an existential is refused by `requireWitnessSelfArgs`, because two values held at one
+interface may have different dynamic types and nothing can prove they match — which is exactly what
+`==` and `<` need. Both doors read the one sentence in `IrInterface.ExistentialPairUnprovableReason`.
+⚠ All six operators are refused, not only the two the corpus exercises. A MIXED pair (an existential
+against an `int`) is untouched and still reads as the type mismatch it is.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Wrapped implements Comparable
+	let v as Integer
+
+	function compare(other Wrapped) returns Ordering
+		if self.v > other.v 'gt'
+			return Ordering.greaterThan
+		end 'gt'
+		if self.v < other.v 'lt'
+			return Ordering.lessThan
+		end 'lt'
+		return Ordering.equalTo
+	end 'compare'
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+end 'Wrapped'
+
+function existEq(c Comparable, other Comparable) returns bool
+	return c == other
+end 'existEq'
+
+function main() returns ExitCode
+	return 0 if existEq(Wrapped.create(7), other: Wrapped.create(7)) else 1
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.existentials-cannot-be-compared.maxon:23:11: cannot compare values held at an interface type using '==': two values held at one interface may have different dynamic types, and nothing here can prove they match, so the comparison would be answered by the two fat pointers' ADDRESSES rather than by their values. Compare concrete values, or dispatch a requirement the interface declares
+```
+
+<!-- test: error.closure-parameter-at-an-interface-type -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **A CLOSURE PARAMETER DECLARED AT AN INTERFACE TYPE IS REFUSED; UNREFUSED, IT PANICS THE PARSER WITH NO
+POSITION.**
+```text
+panic at Parser.maxon: Parser.witnessOfValue: value v0 is typed as an interface but no witness half is
+paired with it — every producer of an existential must call `pairInterfaceWitness`
+```
+A value held at an interface is a two-word fat pointer `(value, witness)`, and the witness half travels
+as an ADJACENT HIDDEN ARGUMENT that only a named function's signature reserves. A lifted closure's
+parameters are bound by a different door than a function's, and that door pairs no witness — so the
+first use of the parameter would ask for a half that is never there.
+⚠ The closure is bound to a LOCAL rather than passed at a declared function type, and that is
+deliberate: `typealias ShapeFn = function(Shape) returns Integer` is itself refused
+(`error.interface-typed-function-type-parameter`), and it is refused EARLIER — so routing this case
+through one would test that rule instead of this one. A local binding is the shape that still reaches
+the closure's own parameter list.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let f = function(t Shape) gives t.area()
+	return f(Sq.create(7)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.closure-parameter-at-an-interface-type.maxon:21:19: Unsupported: a closure parameter declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a function value is called indirectly, through a call that reserves no adjacent slot for the witness half. Declare the parameter at a concrete type, or pass the interface to a named function DIRECTLY, whose signature reserves the adjacent slot
+```
+
+<!-- test: error.interface-typed-requirement-parameter -->
+⭐⭐ **AN INTERFACE-TYPED PARAMETER ON A REQUIREMENT IS REFUSED, BECAUSE A WITNESS CALL HAS ROOM FOR ONE
+WORD.** Five other declared places refuse an existential for the same reason — a struct
+field, a union payload, a return type, a container element and a closure parameter — because a value
+held at an interface is a two-word fat pointer and each of those has room for one word.
+**Unrefused, it faults with a proper CONFORMER actual**, not merely with a mistyped one: exit 139
+(SEGFAULT) on x64-windows and a trap on wasm. With the parameter present but never dispatched on, x64
+answers CORRECTLY (the value half arrives, the witness half is simply dropped) while wasm still traps on
+the call itself — which is what says the formal is unrepresentable rather than unchecked.
+⚠ Refused at the DECLARATION, where the author has something to change, and not at the dispatch — the
+rule the four storage positions state. The refusal is NOTED by the shared interface reader and
+thrown only on the real-parse path, because that reader's other caller is the tolerant whole-program
+fold, which swallows a `ParseError` and would silently drop the interface from the index.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+interface Runner
+	function run(c Shape) returns Integer
+end 'Runner'
+
+type R implements Runner
+	let base as Integer
+
+	function run(c Shape) returns Integer
+		return self.base + c.area()
+	end 'run'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'R'
+
+function useIt(r Runner) returns Integer
+	return r.run(Sq.create(11))
+end 'useIt'
+
+function main() returns ExitCode
+	return useIt(R.create(20)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-requirement-parameter.maxon:21:15: Unsupported: an interface requirement's parameter declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a witness call carries one machine word per argument, so the witness half is dropped and the impl dispatches through whatever the next slot happens to hold. Declare the parameter at a concrete type, or declare the requirement over a type parameter the interface constrains
+```
+
+<!-- test: error.interface-typed-requirement-parameter-through-a-type-parameter -->
+<!-- positions: moved -->
+The SECOND dispatch door. The requirement is refused at its declaration, so it does not matter which
+receiver reaches it — but both doors collapse the formal identically (139 on x64, a trap on wasm,
+through a `where T is` body exactly as through an existential), so a refusal placed at either dispatch
+site instead of at the declaration would close only one.
+This case is what proves the declaration is the right place.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+interface Runner
+	function run(c Shape) returns Integer
+end 'Runner'
+
+type R implements Runner
+	let base as Integer
+
+	function run(c Shape) returns Integer
+		return self.base + c.area()
+	end 'run'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'R'
+
+type Box uses T where T implements Runner
+	let item as T
+
+	function go() returns Integer
+		return self.item.run(Sq.create(11))
+	end 'go'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias RBox = Box with R
+
+function main() returns ExitCode
+	return RBox.create(R.create(20)).go() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-requirement-parameter-through-a-type-parameter.maxon:21:15: Unsupported: an interface requirement's parameter declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a witness call carries one machine word per argument, so the witness half is dropped and the impl dispatches through whatever the next slot happens to hold. Declare the parameter at a concrete type, or declare the requirement over a type parameter the interface constrains
+```
+
+<!-- test: error.interface-typed-parameter-on-a-throwing-requirement -->
+The THIRD door: a throwing requirement lowers to `witnessTryCall`, a different Std op with its own
+argument marshalling, and it collapses the formal identically (139 on x64, a trap on wasm).
+Pinned because a refusal wired into the non-throwing dispatch alone would leave exactly this shape live.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+enum RunError implements Error
+	tooSmall
+end 'RunError'
+
+interface Runner
+	function run(c Shape) returns Integer throws RunError
+end 'Runner'
+
+type R implements Runner
+	let base as Integer
+
+	function run(c Shape) returns Integer throws RunError
+		if self.base < 5 'small'
+			throw RunError.tooSmall
+		end 'small'
+		return self.base + c.area()
+	end 'run'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'R'
+
+function useIt(r Runner) returns Integer
+	return try r.run(Sq.create(11)) otherwise 55
+end 'useIt'
+
+function main() returns ExitCode
+	return useIt(R.create(20)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-parameter-on-a-throwing-requirement.maxon:25:15: Unsupported: an interface requirement's parameter declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a witness call carries one machine word per argument, so the witness half is dropped and the impl dispatches through whatever the next slot happens to hold. Declare the parameter at a concrete type, or declare the requirement over a type parameter the interface constrains
+```
+
+<!-- test: interface-dispatch.interface-parameter-on-a-plain-function-still-compiles -->
+⭐⭐ **THE FALSE-REJECT CONTROL, AND THE SHARPEST ONE IN THIS CHANGE.** A plain function's parameter is
+the position that DOES have room — its signature reserves an adjacent hidden argument for the witness
+half — so it must keep compiling and answering correctly while the requirement's parameter is refused.
+The two are one token apart in the source and one `DeclaredStoragePosition` apart in the compiler.
+`20 + 11`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+function takeShape(c Shape, base Integer) returns Integer
+	return base + c.area()
+end 'takeShape'
+
+type Holder
+	let base as Integer
+
+	function measure(c Shape) returns Integer
+		return self.base + c.area()
+	end 'measure'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Holder'
+
+type Helper
+	static function measure(c Shape, base Integer) returns Integer
+		return base + c.area()
+	end 'measure'
+end 'Helper'
+
+function main() returns ExitCode
+	return (takeShape(Sq.create(11), base: 20) - Holder.create(20).measure(Sq.create(11)) + Helper.measure(Sq.create(11), base: 31)) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.interface-typed-function-type-parameter -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **AN INTERFACE-TYPED POSITION INSIDE A FUNCTION TYPE.** (A TUPLE ELEMENT is another, reached by a route no field/parameter/return reader owns — see `error.interface-typed-tuple-element`. The count is deliberately not written down in the compiler either; `DeclaredStoragePosition` is the count.)
+Unrefused, it faults even given a proper conformer: exit 139 (SEGFAULT) on x64-windows and a PANIC in
+the wasm backend.
+The reason is the closure parameter's, exactly: a function VALUE is called through the uniform
+`(userargs, env)` indirect ABI, which carries one machine word per argument, so the fat pointer's
+witness half has nowhere to travel. The value reaching the call is a `__fnref_` thunk or a lifted
+closure and both are that shape — which is why the two positions share one clause rather than
+spelling it twice.
+⚠ It is refused at the `typealias`, not at the call, so a CLOSURE assigned to such a type is refused
+here too — earlier than the closure-parameter rule would have caught it, and pointing at the
+declaration the author would change.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias ShapeFn = function(Shape) returns Integer
+
+function measure(c Shape) returns Integer
+	return c.area()
+end 'measure'
+
+function apply(f ShapeFn, v Shape) returns Integer
+	return f(v)
+end 'apply'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-function-type-parameter.maxon:20:30: Unsupported: a function type's parameter declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a function value is called indirectly, through a call that reserves no adjacent slot for the witness half. Declare the parameter at a concrete type, or pass the interface to a named function DIRECTLY, whose signature reserves the adjacent slot
+```
+
+<!-- test: error.function-value-of-an-interface-taking-function -->
+⭐⭐ **THE SAME ABI FACT REACHED WITHOUT A FUNCTION TYPE ANYWHERE, WHICH IS WHY THE CASE ABOVE COULD NOT
+REFUSE IT.** `let f = measure` takes a function value off the NAME, so nothing declares a function type for
+`parseTypeReference` to catch — and `measure`'s own parameter list is legal, because a DIRECT call reserves
+the adjacent witness slot and fills it. What is unrepresentable is the VALUE USE, so that is where the
+refusal sits, and the remedy is to call `measure` directly.
+⚠ **Unrefused, the program faults inside `measure`, reached through `__fnref_measure`** — the thunk
+forwards one word per user parameter and the witness companion `Parser.bindExistentialWitnessParams`
+reserves goes unwritten, so `c.area()` dispatches through whatever the register holds.
+⚠ It is E3156 rather than E2015 because the answer needs RESOLVED parameter types: the interface arm of
+`parseTypeReference` is gated on `allFilesFolded`, so a parameter type the declaration sweep recorded still
+carries a bare `named`. A function value's RETURN type has no such problem — it crosses the signature index
+through `adoptReturnType` — which is why `error.function-value-of-an-interface-returning-function` above is
+the parser's and this one is not.
+⭐ Its FALSE-REJECT CONTROL is the whole of `first-class-functions.md`: a function value whose target takes
+a concrete parameter is untouched, and so is one whose target takes a FUNCTION parameter, because a function
+value is one word — its closure record — and travels in its argument's own slot
+(`first-class-function.nested-function-type-agrees-by-alias-name`).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+function measure(c Shape) returns Integer
+	return c.area()
+end 'measure'
+
+function main() returns ExitCode
+	let f = measure
+	return f(Sq.create(42)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3156: <fragment>:25:10: cannot use 'measure' as a function value: its parameter 'c' is declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a function value is called indirectly, through a call that reserves no adjacent slot for the witness half. Call 'measure' DIRECTLY, whose signature reserves that slot, or declare the parameter at a concrete type
+```
+
+<!-- test: interface-dispatch.function-values-over-concrete-types-still-compile -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The FALSE-REJECT CONTROL for the case above. A function type whose parameter is a CONCRETE type is
+untouched, and so is a function value stored in a struct FIELD and called back out of it — the two
+shapes closest to the refused one. Only an interface-typed parameter loses its second word; nothing
+else about function values is refused. `31 + 11`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias SqFn = function(Sq) returns Integer
+
+function measure(v Sq) returns Integer
+	return v.area()
+end 'measure'
+
+function apply(f SqFn, v Sq) returns Integer
+	return f(v)
+end 'apply'
+
+type Holder
+	let f as SqFn
+
+	static function create(f SqFn) returns Self
+		return Self{f: f}
+	end 'create'
+
+	function run(v Sq) returns Integer
+		return self.f(v)
+	end 'run'
+end 'Holder'
+
+function main() returns ExitCode
+	return (apply(measure, v: Sq.create(31)) + Holder.create(measure).run(Sq.create(11))) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.interface-typed-tuple-element -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **AN INTERFACE-TYPED POSITION THAT REACHES THE BACKEND WITHOUT ITS OWN DOOR.** A tuple type is
+interned as a SYNTHESIZED STRUCT, so its element list is read by `parseTupleTypeReference` — a third
+route, belonging to no field, parameter or return reader — so it asks a door of its own. Without one the
+`interfaceRef` travels into `internTupleType` → `mangleTypeArg` and **PANICS** in
+`LayoutDescriptor.primitiveTypeTagName`.
+⚠ `checkGenericArgType` refuses an interface type as a generic ARGUMENT and nowhere else, and a tuple
+element is not a generic argument. So that panic's assertion states the RULE rather than one of its
+enforcers, and says that reaching it means a further way to write a type into a slot exists.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Shape, Integer)
+
+function take(p Pair) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return p.1
+end 'take'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-tuple-element.maxon:20:19: Unsupported: a tuple element declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a tuple is a synthesized struct, so an element is a field slot: one machine word. Declare the element at a concrete type, or pass the interface alongside the tuple as a PARAMETER of a named function, which carries its witness as an adjacent argument
+```
+
+<!-- test: error.interface-typed-tuple-element-in-a-parameter -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- positions: moved -->
+The SECOND of the three spellings that reach `parseTupleTypeReference` — an inline tuple type in a
+parameter position, with no `typealias` in sight. Pinned separately because each spelling reaches the
+element loop by a different caller, and a guard placed at the `typealias` alone would close only one.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function take(p(Shape, Integer)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return p.1
+end 'take'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-tuple-element-in-a-parameter.maxon:20:18: Unsupported: a tuple element declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a tuple is a synthesized struct, so an element is a field slot: one machine word. Declare the element at a concrete type, or pass the interface alongside the tuple as a PARAMETER of a named function, which carries its witness as an adjacent argument
+```
+
+<!-- test: error.interface-typed-tuple-element-in-a-return -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+The THIRD spelling, pinned because the three reach the element loop by genuinely different paths rather
+than being one shape written three ways.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: tuple return types are not supported in minimaxon
+function make() returns (Shape, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (Sq.create(1), 2)
+end 'make'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-tuple-element-in-a-return.maxon:20:26: Unsupported: a tuple element declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a tuple is a synthesized struct, so an element is a field slot: one machine word. Declare the element at a concrete type, or pass the interface alongside the tuple as a PARAMETER of a named function, which carries its witness as an adjacent argument
+```
+
+<!-- test: interface-dispatch.tuples-over-concrete-types-still-compile -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The FALSE-REJECT CONTROL for the three above: a tuple whose elements are CONCRETE still interns,
+still holds a conformer, and still answers. Only an interface-typed element loses its second word.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Sq implements Shape
+	let s as Integer
+
+	function area() returns Integer
+		return self.s
+	end 'area'
+
+	static function create(s Integer) returns Self
+		return Self{s: s}
+	end 'create'
+end 'Sq'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Sq, Integer)
+
+function take(p Pair) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return p.0.area() + p.1
+end 'take'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return take((Sq.create(11), 31)) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.interface-typed-requirement-return -->
+⭐⭐ **THE RETURN HALF OF THE REQUIREMENT POSITION.** `parseInterfaceMethod` reads its return through
+`parseOptionalReturnType`, so without the door the declared type degrades silently to the machine word —
+the program COMPILES and links, and the first dispatch on the result reports the misdirecting
+`a member access 'area' on a 'int' value`.
+⚠ It has its own `returnType` arm, apart from a declared function's return: a direct call's return WRITES the second register, and a witness slot's signature
+carries the requirement's return as one machine word, with no register for the witness half. It is
+noted-then-thrown rather than thrown in place, for the reason the parameter half is — the reader is
+shared with a tolerant whole-program fold.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+interface Maker
+	function make() returns Shape
+end 'Maker'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-requirement-return.maxon:9:18: Unsupported: an interface requirement's return type declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a requirement is dispatched through a witness-table slot that carries the return as one machine word — so the second register is never read and the witness half is dropped. Declare the return at a concrete type, or hand the interface back from a NAMED function called DIRECTLY, whose second return register carries the witness half
+```
+
+<!-- test: error.interface-typed-function-type-return -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The other return: a FUNCTION TYPE's. `readFunctionTypeAlias` reads it with a bare
+`parseTypeReference`, so without the door it degrades the same way. It is its own position too —
+`StdOp.callIndirect` carries its whole signature ON THE OP and has room for one result — gated on the
+same `recordSignature` flag its parameter half uses so the tolerant sweep cannot veto.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias MakeFn = function(Integer) returns Shape
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/interface-dispatch/error.interface-typed-function-type-return.maxon:8:38: Unsupported: a function type's return type declared at the interface type 'Shape' — a value held at an interface type is a two-word fat pointer `(value, witness)`, and a call through a function value carries its whole signature on the call op (`callIndirect`), where there is room for ONE result — so the second register is never read and the witness half is dropped. Declare the return at a concrete type, or hand the interface back from a NAMED function called DIRECTLY, whose second return register carries the witness half
+```
+
+<!-- test: dispatch-arg-per-instance-alias-mismatch-error -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **A WITNESS DISPATCH AGREES WITH A DIRECT CALL, one identity KIND over.** `witnessFormalDeclaredType`
+recovers the formal's pre-erasure identity for more than a boxed enum: a PER-INSTANCE ranged alias erases
+to bare `integer` exactly as a boxed enum does, so with no carrier the formal would read as a plain int
+and any int would satisfy it.
+
+**The DIRECT call `im.take(n)` is `E3005: expected 'IntPool.Idx', got 'int'`, and the identical
+requirement dispatched through a witness answers the same.** Otherwise `9999` — a value four orders of
+magnitude outside the declared `int(0 to 15)` — would reach the formal, and a ranged type's guarantee
+would be silently voided on one of the two routes.
+
+The carrier is asked of `SemanticCheck.aggregateNameFor`, the whole-program
+classifier this pass already owns, rather than of a classification of its own — LIVE first and PRE-ERASURE second — the same two steps
+`checkOneArgType` takes for every other argument.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Pool uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Idx = int(0 to 15)
+	export var v as T
+
+	static function create(v T) returns Pool
+		return Self{v: v}
+	end 'create'
+end 'Pool'
+
+typealias IntPool = Pool with Integer
+
+interface Taker
+	function take(i IntPool.Idx) returns Integer
+end 'Taker'
+
+type Impl implements Taker
+	let base as Integer
+
+	function take(i IntPool.Idx) returns Integer
+		return base + (i as Integer)
+	end 'take'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Impl'
+
+type Box uses T where T implements Taker
+	let item as T
+
+	function go(n Integer) returns Integer
+		return self.item.take(n)
+	end 'go'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias ImplBox = Box with Impl
+
+function main() returns ExitCode
+	print("v={ImplBox.create(Impl.create(20)).go(9999)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:36:20: argument type mismatch for 'i': expected 'IntPool.Idx', got 'Integer'
+```
+
+<!-- test: dispatch-arg-per-instance-alias-agrees -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⚠ **THE FALSE-REFUSAL CONTROL for the case above.** The carrier must name the per-instance alias on BOTH
+sides, so the legal call — a genuine `IntPool.Idx` actual at an `IntPool.Idx` formal, through a witness —
+has to stay green. A cure that merely started refusing would take this program with it.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Pool uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Idx = int(0 to 15)
+	export var v as T
+
+	static function create(v T) returns Pool
+		return Self{v: v}
+	end 'create'
+end 'Pool'
+
+typealias IntPool = Pool with Integer
+
+interface Taker
+	function take(i IntPool.Idx) returns Integer
+end 'Taker'
+
+type Impl implements Taker
+	let base as Integer
+
+	function take(i IntPool.Idx) returns Integer
+		return base + (i as Integer)
+	end 'take'
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Impl'
+
+type Box uses T where T implements Taker
+	let item as T
+
+	function go() returns Integer
+		return self.item.take(3 as IntPool.Idx)
+	end 'go'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias ImplBox = Box with Impl
+
+function main() returns ExitCode
+	print("v={ImplBox.create(Impl.create(20)).go()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=23
+```
+
+### A witness impl that reaches STDLIB, through every route that builds a table
+
+A witness table's method slots are `.rdata` relocations, so the implementation each one names is named
+by no `call` anywhere in the module. The Maxon-tier reachability walk that decides which stdlib bodies
+this compile even BUILDS (`StdlibSource.reachableMaxonFunctionNames`) therefore credits them itself, at
+the conformer it reaches (`markEveryDeclaredWitnessImplOf`): dead-function elimination DOES follow the
+relocations, so a stdlib function a requirement implementation calls and the walk missed would be one
+the two derivations disagree on, which `requireUnreachableLibraryStayedDead` refuses with a panic.
+
+`print` is why this is pinned and not merely noted. It is an ordinary `stdlib/Print.maxon` call and
+reaches this route exactly as `sleep(1)` does, but *a witness impl that prints* is among the commonest shapes in the language, where *a witness impl that sleeps* is exotic.
+
+⚠ **THESE ARE THREE ROUTES, NOT THREE SPELLINGS OF ONE.** `LowerMaxonToStd.ensureWitnessTable` has three
+callers and only the first involves a dispatch, so a reach keyed on the `witnessDispatch` op leaves the
+other two panicking. A reach keyed on a signature is wrong the other way: it credits every conformance
+in the program, including every LISTED STDLIB module's. What holds is the
+CONFORMER: a witness table for `T` needs a `T` VALUE, and a `T` value needs a reached function OF `T`.
+
+⚠ **THE CONFORMER'S FIELD IS AN INT, SO THESE THREE CASES ARE ABOUT THE WITNESS IMPL ALONE.** A
+conformer with a MANAGED field is released through the witness header's `destroyFunc@8`, another
+`.rdata` edge, whose destructor needs `__str_decref` on a program whose witness impl calls no stdlib at
+all; `witness-conformer-with-a-managed-field-reaching-no-stdlib` pins that route.
+
+The DISPATCHED route — the table is built, and jumped through.
+
+<!-- test: witness-impl-reaching-stdlib-when-dispatched -->
+```maxon
+typealias Tag = int(0 to 100)
+
+interface Printer
+	function show()
+end 'Printer'
+
+type Thing implements Printer
+	let label as Tag
+
+	static function create(label Tag) returns Self
+		return Self{label: label}
+	end 'create'
+
+	function show()
+		print("shown: {label}\n")
+	end 'show'
+end 'Thing'
+
+type Holder
+	export let p as Printer
+	export let n as ExitCode
+
+	static function create(p Printer, n ExitCode) returns Self
+		return Self{p: p, n: n}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Thing.create(7), n: 3)
+	h.p.show()
+	return h.n
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+shown: 7
+```
+
+The WIDENED-BUT-NEVER-DISPATCHED route. The same program with the one dispatch removed — the table is
+still built and every slot still relocated, so `Thing.show` is still live code the walk must credit.
+Whether anything ever jumps through a table is a separate question from whether one exists.
+
+<!-- test: witness-impl-reaching-stdlib-when-only-boxed -->
+```maxon
+typealias Tag = int(0 to 100)
+
+interface Printer
+	function show()
+end 'Printer'
+
+type Thing implements Printer
+	let label as Tag
+
+	static function create(label Tag) returns Self
+		return Self{label: label}
+	end 'create'
+
+	function show()
+		print("never shown\n")
+	end 'show'
+end 'Thing'
+
+type Holder
+	let p as Printer
+	export let n as ExitCode
+
+	static function create(p Printer, n ExitCode) returns Self
+		return Self{p: p, n: n}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Thing.create(7), n: 3)
+	return h.n
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+```
+
+The RETURN route. A widening has exactly two SITES in the language — a call argument and a return — and
+this is the other one: no interface-typed parameter appears anywhere, so a rule keyed on parameters
+alone would miss it.
+
+<!-- test: witness-impl-reaching-stdlib-through-a-returned-existential -->
+```maxon
+typealias Tag = int(0 to 100)
+
+interface Printer
+	function show()
+end 'Printer'
+
+type Thing implements Printer
+	let label as Tag
+
+	static function create(label Tag) returns Self
+		return Self{label: label}
+	end 'create'
+
+	function show()
+		print("never shown\n")
+	end 'show'
+end 'Thing'
+
+// The discard is the shape under test, so `box` must have an effect — see `discarded-results.md`.
+function box(mutates boxes Tag) returns Printer
+	boxes = boxes + 1
+	return Thing.create(7)
+end 'box'
+
+function main() returns ExitCode
+	var boxes = 0 as Tag
+	_ = box(boxes)
+	return 2 + boxes
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+```
+
+The `where T is Iface` CONSTRAINT route, whose table is built at every call to a constrained method
+even when the body never touches `T` — `constantAnswer()` returns a literal and the witness for
+`Point`'s `Digest` conformance is still materialized and still relocated.
+
+<!-- test: witness-impl-reaching-stdlib-through-an-untouched-constraint -->
+```maxon
+typealias Code = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code
+		print("never shown\n")
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function constantAnswer() returns Code
+		return 3
+	end 'constantAnswer'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	return b.constantAnswer()
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+```
+
+And the same constraint DISPATCHED, so the pair brackets the constraint route exactly as the first two
+cases bracket the widening route.
+
+<!-- test: witness-impl-reaching-stdlib-through-a-dispatched-constraint -->
+```maxon
+typealias Code = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code
+		print("digesting {self.x}\n")
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(3))
+	return b.itemDigest()
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+digesting 3
+```
+
+<!-- test: a-witness-argument-of-a-contested-nominal-name-reads-the-interfaces-file -->
+A witness call's formal names the type the interface's own file declares, not an unmarked alias of the same name in another directory.
+```maxon
+// --- file: a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Msg
+	ping(n Integer)
+	quit
+end 'Msg'
+
+interface Sink
+	function take(m Msg) returns Integer
+end 'Sink'
+
+type Counter implements Sink
+	let base as Integer
+
+	static function create() returns Self
+		return Self{base: 0}
+	end 'create'
+
+	function take(m Msg) returns Integer
+		match m 'which'
+			ping(n) then return self.base + n
+			quit then return self.base
+		end 'which'
+	end 'take'
+end 'Counter'
+
+type Post
+	let sink as Sink
+
+	static function create() returns Self
+		return Self{sink: Counter.create()}
+	end 'create'
+
+	function send() returns Integer
+		return self.sink.take(Msg.ping(1))
+	end 'send'
+end 'Post'
+
+function main() returns ExitCode
+	let post = Post.create()
+	if post.send() == 1 and bothWays() 'sent'
+		return 1
+	end 'sent'
+	return 0
+end 'main'
+
+// --- file: z/z.maxon
+typealias Msg = int(0 to 3)
+
+export function bothWays() returns bool
+	let low = 1 as Msg
+	return low == 1
+end 'bothWays'
+```
+```exitcode
+1
+```
+
+<!-- test: witness-conformer-with-a-managed-field-reaching-no-stdlib -->
+```maxon
+typealias Tag = int(0 to 100)
+
+interface Sized
+	function size() returns Tag
+end 'Sized'
+
+type Thing implements Sized
+	let label as String
+
+	static function create(label String) returns Self
+		return Self{label: label}
+	end 'create'
+
+	function size() returns Tag
+		return 7
+	end 'size'
+end 'Thing'
+
+type Holder
+	export let p as Sized
+	export let n as ExitCode
+
+	static function create(p Sized, n ExitCode) returns Self
+		return Self{p: p, n: n}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Thing.create("a label"), n: 3)
+	return h.n + (h.p.size() as ExitCode)
+end 'main'
+```
+```exitcode
+10
+```
+
+The GLOBAL-INITIALIZER route. A module-level `let` cannot hold an interface value (an initializer of an interface type is refused), so the global holds the concrete enum and the widening happens in `main`. The enum is named by nothing but the initializer of that `let`: no function body mentions `Color`, so no reached function is OF `Color`, yet the table for its `Named` conformance is built and its `name` slot must still name a built body.
+
+<!-- test: witness-impl-of-an-enum-named-only-by-a-global-initializer -->
+```maxon
+interface Named
+	function name() returns String
+end 'Named'
+
+enum Color implements Named
+	red
+
+	function name() returns String
+		return "red"
+	end 'name'
+end 'Color'
+
+type Holder
+	export let named as Named
+
+	static function create(named Named) returns Self
+		return Self{named: named}
+	end 'create'
+end 'Holder'
+
+let Fallback = Color.red
+
+function main() returns ExitCode
+	let holder = Holder.create(Fallback)
+	print("{holder.named.name()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+red
+```
+
+The same route with the interface and the enum both in the standard library: the user's program names the enum only in the global's initializer.
+
+<!-- test: witness-impl-of-a-library-enum-named-only-by-a-global-initializer -->
+```maxon
+// --- stdlib-overlay: Console.maxon
+public interface ZNamed
+	function name() returns String
+end 'ZNamed'
+
+public enum ZColor implements ZNamed
+	red
+
+	public function name() returns String
+		return "red"
+	end 'name'
+end 'ZColor'
+// --- file: main.maxon
+type Holder
+	export let named as ZNamed
+
+	static function create(named ZNamed) returns Self
+		return Self{named: named}
+	end 'create'
+end 'Holder'
+
+let Fallback = ZColor.red
+
+function main() returns ExitCode
+	let holder = Holder.create(Fallback)
+	print("{holder.named.name()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+red
+```
+
+The same route when the requirement implementation itself reaches stdlib (`print`), the body the walk can credit only through the conformer.
+
+<!-- test: witness-impl-reaching-stdlib-of-an-enum-named-only-by-a-global-initializer -->
+```maxon
+interface Speaker
+	function speak()
+end 'Speaker'
+
+enum Mood implements Speaker
+	calm
+
+	function speak()
+		print("calm\n")
+	end 'speak'
+end 'Mood'
+
+type Holder
+	export let speaker as Speaker
+
+	static function create(speaker Speaker) returns Self
+		return Self{speaker: speaker}
+	end 'create'
+end 'Holder'
+
+let Default = Mood.calm
+
+function main() returns ExitCode
+	let holder = Holder.create(Default)
+	holder.speaker.speak()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+calm
+```
+
+
+<!-- test: interface-return-of-two-conformers-at-three-depths-of-owned-locals -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Herald
+	function announce() returns String
+end 'Herald'
+
+type Welsh implements Herald
+	let name as String
+
+	function announce() returns String
+		return "shwmae {name}"
+	end 'announce'
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'Welsh'
+
+type Dutch implements Herald
+	let name as String
+
+	function announce() returns String
+		return "hallo {name}"
+	end 'announce'
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'Dutch'
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+function choose(n Integer) returns Herald
+	let opening = "opening {n}"
+	let middle = "middle {n}"
+	if n == 1 'one'
+		return Welsh.create(opening)
+	end 'one'
+	let closing = "closing {n}"
+	if n == 2 'two'
+		return Dutch.create(middle)
+	end 'two'
+	print("{opening} {middle} {closing}\n")
+	return Welsh.create(closing)
+end 'choose'
+
+function main() returns ExitCode
+	for n in 1 upto 4 'each'
+		let herald = choose(opaque(n))
+		print("{herald.announce()}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+shwmae opening 1
+hallo middle 2
+opening 3 middle 3 closing 3
+shwmae closing 3
+```
+
+
+<!-- test: interface-requirement-returning-byte-array-throws-through-two-conformers -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+enum ProbeError implements Error
+	refused
+end 'ProbeError'
+
+interface Transform
+	function run(data ByteArray) returns ByteArray throws ProbeError
+end 'Transform'
+
+type Doubler implements Transform
+	let limit as Count
+
+	static function create(limit Count) returns Self
+		return Self{limit: limit}
+	end 'create'
+
+	function run(data ByteArray) returns ByteArray throws ProbeError
+		if data.count() > self.limit 'big'
+			throw ProbeError.refused
+		end 'big'
+		let out = ByteArray.create(0)
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for b in data 'each'
+			out.push(b)
+			out.push(b)
+		end 'each'
+		return out
+	end 'run'
+end 'Doubler'
+
+type Reverser implements Transform
+	let limit as Count
+
+	static function create(limit Count) returns Self
+		return Self{limit: limit}
+	end 'create'
+
+	function run(data ByteArray) returns ByteArray throws ProbeError
+		if data.count() > self.limit 'big'
+			throw ProbeError.refused
+		end 'big'
+		let out = ByteArray.create(0)
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for b in data 'each'
+			out.insert(0, value: b)
+		end 'each'
+		return out
+	end 'run'
+end 'Reverser'
+
+function apply(t Transform, data ByteArray) returns ByteArray throws ProbeError
+	let r = try t.run(data)
+	return r
+end 'apply'
+
+function orEmpty(t Transform, data ByteArray) returns ByteArray
+	let r = try t.run(data) otherwise ByteArray.create(0)
+	return r
+end 'orEmpty'
+
+function show(bytes ByteArray)
+	print("{bytes.count()}:")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for b in bytes 'each'
+		print(" {b}")
+	end 'each'
+	print("\n")
+end 'show'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let data = ByteArray from [1, 2, 3]
+	let doubled = try apply(Doubler.create(8), data: data) otherwise ByteArray.create(0)
+	show(doubled)
+	let reversed = try apply(Reverser.create(8), data: data) otherwise ByteArray.create(0)
+	show(reversed)
+	let refused = try apply(Doubler.create(2), data: data) otherwise ByteArray.create(0)
+	show(refused)
+	show(orEmpty(Reverser.create(8), data: data))
+	show(orEmpty(Doubler.create(2), data: data))
+	show(orEmpty(Reverser.create(2), data: data))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+6: 1 1 2 2 3 3
+3: 3 2 1
+0:
+3: 3 2 1
+0:
+0:
+```
+
+<!-- test: interface-requirement-returning-a-user-array-alias-through-two-conformers -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Numbers = Array with Integer
+
+interface Source
+	function nums(n Integer) returns Numbers
+end 'Source'
+
+type Counting implements Source
+	let start as Integer
+
+	static function create(start Integer) returns Self
+		return Self{start: start}
+	end 'create'
+
+	function nums(n Integer) returns Numbers
+		let out = Numbers.create(0)
+		for i in 0 upto n 'each'
+			out.push(self.start + i)
+		end 'each'
+		return out
+	end 'nums'
+end 'Counting'
+
+type Squares implements Source
+	let scale as Integer
+
+	static function create(scale Integer) returns Self
+		return Self{scale: scale}
+	end 'create'
+
+	function nums(n Integer) returns Numbers
+		let out = Numbers.create(0)
+		for i in 0 upto n 'each'
+			out.push(i * i * self.scale)
+		end 'each'
+		return out
+	end 'nums'
+end 'Squares'
+
+function report(s Source, n Integer)
+	let size = s.nums(n).count()
+	let xs = s.nums(n)
+	print("{size} {xs.count()}:")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in xs 'each'
+		print(" {x}")
+	end 'each'
+	print("\n")
+end 'report'
+
+function main() returns ExitCode
+	report(Counting.create(10), n: 3)
+	report(Squares.create(2), n: 4)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3: 10 11 12
+4 4: 0 2 8 18
+```
+
+<!-- test: interface-requirements-returning-byte-array-and-a-map-alias-through-two-conformers -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A requirement returning the stdlib `ByteArray` without `throws`, and one returning a user alias of a `Map`,
+called through an interface-typed parameter: each result is the container its requirement declares, so its
+`count()` and its element reads work for either conformer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Tally = Map with (String, Integer)
+
+interface Survey
+	function packed() returns ByteArray
+	function tally() returns Tally
+end 'Survey'
+
+type Small implements Survey
+	let base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function packed() returns ByteArray
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return ByteArray from [9, 8, 7]
+	end 'packed'
+
+	function tally() returns Tally
+		let t = Tally.create()
+		t.upsert("x", value: self.base * 10)
+		return t
+	end 'tally'
+end 'Small'
+
+type Large implements Survey
+	let base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function packed() returns ByteArray
+		let out = ByteArray.create(0)
+		for i in 0 upto 4 'each'
+			out.push((200 + i) as Byte)
+		end 'each'
+		return out
+	end 'packed'
+
+	function tally() returns Tally
+		let t = Tally.create()
+		t.upsert("x", value: self.base)
+		t.upsert("y", value: self.base + 5)
+		return t
+	end 'tally'
+end 'Large'
+
+function report(s Survey)
+	let packed = s.packed()
+	let first = try packed.get(0) otherwise 0
+	let last = try packed.get(packed.count() - 1) otherwise 0
+	print("packed {packed.count()}: {first} {last}\n")
+	let tally = s.tally()
+	let x = try tally.get("x") otherwise 0
+	let y = try tally.get("y") otherwise -1
+	print("tally {tally.count()}: {x} {y}\n")
+end 'report'
+
+function main() returns ExitCode
+	report(Small.create(4))
+	report(Large.create(7))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+packed 3: 9 7
+tally 1: 40 -1
+packed 4: 200 203
+tally 2: 7 12
+```
+
+<!-- test: error.interface-requirement-result-keeps-its-alias -->
+<!-- positions: moved -->
+A call through an interface-typed value is typed by the requirement's declared return alias, exactly as a
+direct call to the conformer is: `Other` is a second alias of the same instance, so the result of `m.make()`
+does not fit an `Other` parameter.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias Other = Array with Integer
+
+interface Maker
+	function make() returns IntArray
+end 'Maker'
+
+type Builder implements Maker
+	let seed as Integer
+
+	static function create(seed Integer) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function make() returns IntArray
+		var xs = IntArray.create(0)
+		xs.push(self.seed)
+		return xs
+	end 'make'
+end 'Builder'
+
+function head(xs Other) returns Integer
+	return try xs.get(0) otherwise 0
+end 'head'
+
+function viaInterface(m Maker) returns Integer
+	return head(m.make())
+end 'viaInterface'
+
+function main() returns ExitCode
+	return viaInterface(Builder.create(42)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.interface-requirement-result-keeps-its-alias.maxon:29:9: argument type mismatch for 'xs': expected 'Other', got 'IntArray'
+```
+
+<!-- test: error.a-witness-argument-of-another-instance-is-refused -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+An argument to a call through an interface-typed value is judged against the requirement's declared
+parameter alias, exactly as a direct call to the conformer judges it: a `Strings` is not an `IntArray`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias Strings = Array with String
+
+interface Summer
+	function total(xs IntArray) returns Integer
+end 'Summer'
+
+type Adder implements Summer
+	let base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function total(xs IntArray) returns Integer
+		var t = self.base
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for x in xs 'each'
+			t = t + x
+		end 'each'
+		return t
+	end 'total'
+end 'Adder'
+
+function viaInterface(s Summer) returns Integer
+	return s.total(Strings.create(0))
+end 'viaInterface'
+
+function main() returns ExitCode
+	return viaInterface(Adder.create(0)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-instance-is-refused.maxon:27:11: argument type mismatch for 'xs': expected 'IntArray', got 'Strings'
+```
+
+<!-- test: error.a-witness-argument-of-another-alias-is-refused -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+`Other` is a second alias of the same instance as `IntArray`, so an `Other` argument does not fit the
+requirement's `IntArray` parameter through the interface, as it does not fit it in a direct call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias Other = Array with Integer
+
+interface Summer
+	function total(xs IntArray) returns Integer
+end 'Summer'
+
+type Adder implements Summer
+	let base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function total(xs IntArray) returns Integer
+		var t = self.base
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for x in xs 'each'
+			t = t + x
+		end 'each'
+		return t
+	end 'total'
+end 'Adder'
+
+function viaInterface(s Summer) returns Integer
+	return s.total(Other.create(0))
+end 'viaInterface'
+
+function main() returns ExitCode
+	return viaInterface(Adder.create(0)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-alias-is-refused.maxon:27:11: argument type mismatch for 'xs': expected 'IntArray', got 'Other'
+```
+
+<!-- test: interface-requirement-returning-a-character-through-two-conformers -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A requirement returning `Character` hands each conformer's grapheme back through the interface-typed value,
+owned by the caller exactly as a direct call's result is.
+```maxon
+interface Glyphs
+	function glyph() returns Character
+end 'Glyphs'
+
+type Letter implements Glyphs
+	let ch as Character
+
+	static function create(ch Character) returns Self
+		return Self{ch: ch}
+	end 'create'
+
+	function glyph() returns Character
+		return self.ch
+	end 'glyph'
+end 'Letter'
+
+type Mark implements Glyphs
+	let ch as Character
+
+	static function create(ch Character) returns Self
+		return Self{ch: ch}
+	end 'create'
+
+	function glyph() returns Character
+		return self.ch
+	end 'glyph'
+end 'Mark'
+
+function codeOf(g Glyphs) returns ExitCode
+	let c = g.glyph()
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for cp in c.codepoints() 'first'
+		return cp
+	end 'first'
+	return 0
+end 'codeOf'
+
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	return codeOf(Letter.create('A')) + codeOf(Mark.create('B'))
+end 'main'
+```
+```exitcode
+131
+```
+
+<!-- test: error.a-witness-argument-to-a-character-formal-is-refused -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+An argument to a requirement's `Character` parameter is judged through the interface exactly as a direct
+call to the conformer judges it: an integer is not a `Character`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Sink
+	function put(c Character) returns Integer
+end 'Sink'
+
+type Counter implements Sink
+	let base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function put(c Character) returns Integer
+		var n = self.base
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for _ in c.codepoints() 'each'
+			n = n + 1
+		end 'each'
+		return n
+	end 'put'
+end 'Counter'
+
+function viaInterface(s Sink) returns Integer
+	return s.put(5)
+end 'viaInterface'
+
+function main() returns ExitCode
+	return viaInterface(Counter.create(0)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:27:11: argument type mismatch for 'c': expected 'Character', got 'int'
+```
+
+<!-- test: interface-returning-function-with-a-panic-path -->
+A function that returns an interface type may abort on a path of its own. The abort's dead return carries
+no conformer, so it widens through no witness table.
+```maxon
+interface Speaker
+	function speak() returns ExitCode
+end 'Speaker'
+
+type Dog implements Speaker
+	let volume as ExitCode
+
+	static function create(volume ExitCode) returns Self
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns ExitCode
+		return self.volume
+	end 'speak'
+end 'Dog'
+
+function adopt(volume ExitCode) returns Speaker
+	if volume > 100 'tooLoud'
+		panic("too loud")
+	end 'tooLoud'
+	return Dog.create(volume)
+end 'adopt'
+
+function main() returns ExitCode
+	let speaker = adopt(7)
+	return speaker.speak()
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: interface-returning-function-with-a-guarded-shift -->
+The guard a shift by a count of unknown sign adds aborts on a path of its own, and a function returning an
+interface type widens nothing there either.
+```maxon
+typealias Signed = int(i64.min to i64.max)
+
+interface Speaker
+	function speak() returns Signed
+end 'Speaker'
+
+type Dog implements Speaker
+	let volume as Signed
+
+	static function create(volume Signed) returns Self
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns Signed
+		return self.volume
+	end 'speak'
+end 'Dog'
+
+function adopt(volume Signed, count Signed) returns Speaker
+	return Dog.create(volume shl count)
+end 'adopt'
+
+function main() returns ExitCode
+	let speaker = adopt(3, count: 2)
+	return speaker.speak() as ExitCode
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: interface-return-of-a-try-otherwise-panic-in-two-match-arms -->
+A function declared to return an interface type returns a different conformer from each arm of a `match`,
+each reached through `try … otherwise panic`.
+```maxon
+enum SpeakerError implements Error
+	tooLoud
+end 'SpeakerError'
+
+interface Speaker
+	function speak() returns ExitCode
+end 'Speaker'
+
+type Dog implements Speaker
+	let volume as ExitCode
+
+	static function create(volume ExitCode) returns Self throws SpeakerError
+		if volume > 100 'tooLoud'
+			throw SpeakerError.tooLoud
+		end 'tooLoud'
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns ExitCode
+		return self.volume
+	end 'speak'
+end 'Dog'
+
+type Cat implements Speaker
+	let volume as ExitCode
+
+	static function create(volume ExitCode) returns Self throws SpeakerError
+		if volume > 100 'tooLoud'
+			throw SpeakerError.tooLoud
+		end 'tooLoud'
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns ExitCode
+		return self.volume + 1
+	end 'speak'
+end 'Cat'
+
+enum Kind
+	dog
+	cat
+end 'Kind'
+
+function adopt(kind Kind, volume ExitCode) returns Speaker
+	match kind 'kind'
+		dog then return try Dog.create(volume) otherwise panic("a dog of this volume was refused")
+		cat then return try Cat.create(volume) otherwise panic("a cat of this volume was refused")
+	end 'kind'
+end 'adopt'
+
+function main() returns ExitCode
+	let first = adopt(Kind.dog, volume: 10)
+	let second = adopt(Kind.cat, volume: 20)
+	return first.speak() + second.speak()
+end 'main'
+```
+```exitcode
+31
+```
+
+<!-- test: match-expression-returning-two-conformers-through-the-declared-interface -->
+A `match` expression returned from a function declared to return an interface type gives a different
+conformer from each arm.
+```maxon
+interface Speaker
+	function speak() returns ExitCode
+end 'Speaker'
+
+type Dog implements Speaker
+	let volume as ExitCode
+
+	static function create(volume ExitCode) returns Self
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns ExitCode
+		return self.volume
+	end 'speak'
+end 'Dog'
+
+type Cat implements Speaker
+	let volume as ExitCode
+
+	static function create(volume ExitCode) returns Self
+		return Self{volume: volume}
+	end 'create'
+
+	function speak() returns ExitCode
+		return self.volume + 1
+	end 'speak'
+end 'Cat'
+
+enum Kind
+	dog
+	cat
+end 'Kind'
+
+function adopt(kind Kind, volume ExitCode) returns Speaker
+	return match kind 'kind'
+		dog gives Dog.create(volume)
+		cat gives Cat.create(volume)
+	end 'kind'
+end 'adopt'
+
+function main() returns ExitCode
+	let first = adopt(Kind.dog, volume: 10)
+	let second = adopt(Kind.cat, volume: 20)
+	return first.speak() + second.speak()
+end 'main'
+```
+```exitcode
+31
+```

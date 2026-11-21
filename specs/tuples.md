@@ -1,0 +1,6618 @@
+---
+feature: tuples
+status: stable
+keywords: [tuple, pair, destructuring, positional]
+category: types
+---
+
+# Tuples
+
+## Documentation
+
+### Overview
+
+Tuples are fixed-size, ordered collections of values with potentially different types. They use parenthesized syntax for both type annotations and literals.
+
+```text
+let point = (10, 20)
+let pair = (42, "hello")
+```
+
+### Element Access
+
+Access tuple elements using positional dot syntax `.0`, `.1`, `.2`, etc.:
+
+```text
+let t = (10, 20)
+t.0   // 10
+t.1   // 20
+```
+
+### Destructuring
+
+Tuples can be destructured into individual variables:
+
+```text
+let (x, y) = (10, 20)
+// x is 10, y is 20
+```
+
+Tuple destructuring also works in `for` loops when the iterator returns a tuple:
+
+```text
+let m = ["a": 1, "b": 2]
+for (key, value) in m 'loop'
+  print("{key}: {value}\n")
+end 'loop'
+```
+
+### As Function Parameters and Return Types
+
+Tuples can be used as function parameters and return types:
+
+```text
+function swap(t (Integer, Integer)) returns (Integer, Integer)
+  return (t.1, t.0)
+end 'swap'
+```
+
+A returned pair may cost nothing. A two-element tuple whose elements are register-wide — a whole-word
+integer or a `bool` — returned by a function that does not throw and whose address is not taken, comes
+back in the two return registers and allocates nothing. Every other tuple is a heap record, and a pair
+that escapes into an array or any other container keeps its heap record.
+
+### Casts
+
+`t as T` between two tuple types converts element by element: each element whose type differs takes the
+cast its own value would, with that cast's refusals (E3009, E3131) and range checks (E3005 for a constant,
+a run-time panic otherwise), and a nested tuple converts the same way. The result is a new tuple and the
+source is left as it was, so a later write through either name reaches only its own tuple. A cast whose
+elements each denote the same type and capability, such as two brands of one instance, shares the record.
+A cast on a tuple literal converts the literal's own element values, and retypes the literal when no
+element converts.
+
+```text
+typealias Small = int(0 to 100)
+typealias Big = int(0 to 100000)
+typealias SmallPair = (Small, Small)
+var wide = (1 as Big, 2 as Big)
+let narrow = wide as SmallPair
+wide.0 = 5000      // narrow.0 is 1
+```
+
+A tuple converts only to a tuple with the same number of elements (E3009), and each element keeps its
+capability (E3226): build the tuple from a frozen element (`freeze x.clone()`), or from a `clone()` for an
+unmarked element.
+`immutable` on an element of a value type means the type itself, so `(immutable P, W)` is the type
+`(P, W)`.
+
+## Tests
+
+<!-- test: basic-tuple -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (10, 32)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: mixed-type-tuple -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	let t = (40, 2.5)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + trunc(t.1)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-as-param -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+function sum(t(Integer, Integer)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1
+end 'sum'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return sum((10, 32))
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-as-return -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function makePair(a Integer, b Integer) returns (Integer, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'makePair'
+
+function main() returns ExitCode
+	let t = makePair(10, b: 32)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function makePair(a Integer, b Integer) returns (Integer, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'makePair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = makePair(10, b: 32)
+	return x + y
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: three-element-tuple -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2, 39)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1 + t.2
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-field-write -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var t = (0 as FullRangeInt, 0 as FullRangeInt)
+	// TODO: tuple element access is not supported in minimaxon
+	t.0 = 20
+	// TODO: tuple element access is not supported in minimaxon
+	t.1 = 22
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-with-string -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (42, "hello")
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: let-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let (x, y) = (10, 32)
+	return x + y
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: for-destructuring-map -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["a": 10, "b": 32]
+	var sum = 0 as FullRangeInt
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, value) in m 'loop'
+		sum = sum + value
+	end 'loop'
+	return sum
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: small-tuple-return-allocates-nothing -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+A returned tuple of exactly two register-wide fields is a VALUE: it comes back in the two return
+registers rather than a heap record, so the call allocates nothing. Returning the pair by register
+is what makes this observable — the heap lowering is still the fallback for every tuple and every
+shape that does not fit the gate.
+
+⭐ **THE ASSERTION IS THE ABSENCE OF A `__Tuple2` LINE.** Everything the block below does hold is
+the interpolation `print` builds — one `InterpolationScratch` per `{…}` and the `StringRecord` they
+are copied into, the same shape `mm-trace.md`'s `heap-alloc-free` pins. A `__Tuple2` line reappearing
+here is the value convention ceasing to cover `pair`, which is the regression to chase.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Num, b Num) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pair'
+
+function main() returns ExitCode
+	let p = pair(10, b: 20)
+	print("{p._0} {p._1}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+11 22
+```
+```mm-trace
+mm_alloc InterpolationScratch #1 size=20
+mm_alloc InterpolationScratch #2 size=20
+mm_alloc StringRecord #3 size=62
+mm_decref InterpolationScratch #1 rc=0
+mm_free InterpolationScratch #1
+mm_decref InterpolationScratch #2 rc=0
+mm_free InterpolationScratch #2
+mm_decref StringRecord #3 rc=0
+mm_free StringRecord #3
+```
+
+<!-- test: value-tuple-return-through-function-value -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A function whose address is taken is called by its TYPE, and a function type cannot say which return
+convention its target uses — a throwing and a non-throwing `(Num, Num) -> (Num, Num)` are the same type,
+and an indirect call captures exactly one result. So `apply(pair)` holds `pair` to the heap convention,
+here and at every other call site in the program.
+
+⭐ **THE FAMILY'S SHARED RULE, which the four cases below are shapes outside of.** The compiler gives a function
+the two-register convention only when its return touches no record at all: every `return` in it either
+builds a fresh two-word box nothing else in that function can see, or forwards another value-convention
+call's pair straight back out — AND at least one call site of it reads the two halves and drops the box
+through the trivial `__mm_decref`, or forwards the pair into a value-convention return. Every other site
+builds the record from the two registers. A function none of whose sites reads or forwards keeps the heap
+record, and every element-ownership question with it. Returns 33.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias PairOp = function(Num, Num) returns (Num, Num)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Num, b Num) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pair'
+
+function apply(f PairOp) returns Num
+	let r = f(10, 20)
+	return r._0 + r._1
+end 'apply'
+
+function main() returns ExitCode
+	return apply(pair)
+end 'main'
+```
+```exitcode
+33
+```
+
+<!-- test: value-tuple-forwarded-through-an-address-taken-wrapper -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+⛔⛔ **A FORWARDING WRAPPER THAT IS ITSELF OFF THE CONVENTION.** `forward`'s address is taken, so it is off
+the convention; `pair` is not. `forward` builds the record from the two registers `pair` returns in, so it
+returns the record its TYPE says it returns and `apply` reads 33 on every target.
+
+⚠ **NEITHER NEIGHBOUR CATCHES IT.** `value-tuple-return-through-function-value` takes `pair`'s address
+DIRECTLY, so `pair` is excluded and nothing is rewritten; `value-tuple-return-forwarded` forwards through a
+wrapper nobody takes the address of, so both ends are on the convention and agree. It takes BOTH facts at
+once — a forwarding wrapper that is itself excluded — and this is that program. Returns 33.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias PairOp = function(Num, Num) returns (Num, Num)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Num, b Num) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pair'
+
+// TODO: tuple return types are not supported in minimaxon
+function forward(a Num, b Num) returns (Num, Num)
+	return pair(a, b: b)
+end 'forward'
+
+function apply(f PairOp) returns Num
+	let r = f(10, 20)
+	return r._0 + r._1
+end 'apply'
+
+function main() returns ExitCode
+	return apply(forward)
+end 'main'
+```
+```exitcode
+33
+```
+
+<!-- test: value-tuple-return-forwarded -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+`return pair(...)` forwards a two-register result straight back out: `pair` writes the pair into the two
+return registers, `forward` hands those same two values on without ever naming a record, and `main` reads
+them out of the registers. Nothing allocates at either end, and the EMPTY ```mm-trace below is what says so
+on every run — a `__Tuple2` line appearing there is the forwarding shape ceasing to be recognised, at
+either end. Returns 33.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Num, b Num) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pair'
+
+// TODO: tuple return types are not supported in minimaxon
+function forward(a Num, b Num) returns (Num, Num)
+	return pair(a, b: b)
+end 'forward'
+
+function main() returns ExitCode
+	let f = forward(10, b: 20)
+	return f._0 + f._1
+end 'main'
+```
+```exitcode
+33
+```
+```mm-trace
+
+```
+
+<!-- test: value-tuple-return-of-param -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Returning a tuple PARAM. The param keeps the POINTER convention — it arrives as a record and is BORROWED,
+so returning it must not release it — and `return t` therefore COPIES: it reads both halves back out of the
+record into a fresh one. That copy is a box nothing else in `echo` can see, which is the fresh-pair shape,
+so it is elided and the two halves leave in the registers instead. The one allocation left is `main`'s
+`(5, 6)` literal, which is an ARGUMENT and so has to be a record. Returns 11.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function echo(t(Num, Num)) returns (Num, Num)
+	return t
+end 'echo'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let e = echo((5, 6))
+	return e._0 + e._1
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: value-tuple-escaping-into-array-stays-heap -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A returned tuple that ESCAPES into an array stays a heap record. An array holds 8-byte element pointers, so
+the record has to outlive the frame; `p` both escapes into `xs` AND is returned, so the record is the
+array's while a register return would copy its halves out, and releasing it would be a leak on one side and
+a double-free on the other. The record `stash` returns is therefore read by something other than the
+return, which is exactly what the gate refuses — and `pair` loses the convention here too, because its
+only call site would build the record from the registers. Returns 66 (11+22 from the return, 11+22 read back out of the
+array).
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+typealias PairArray = Array with Pair
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Num, b Num) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pair'
+
+// TODO: tuple return types are not supported in minimaxon
+function stash(xs PairArray) returns (Num, Num)
+	let p = pair(10, b: 20)
+	xs.push(p)
+	return p
+end 'stash'
+
+function main() returns ExitCode
+	let xs = PairArray.create(0)
+	let r = stash(xs)
+	let q = try xs.get(0) otherwise panic("element 0 was just pushed")
+	return r._0 + r._1 + q._0 + q._1
+end 'main'
+```
+```exitcode
+66
+```
+
+<!-- test: throwing-value-tuple-return -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A THROWING tuple-returning function keeps the heap convention: there is ONE secondary return register, a
+try-call's already carries the error flag, and the error path has no tuple to hand back. The two claimants
+are mutually exclusive by the same predicate that decides either, so a throwing function is off the value
+convention at its declaration. The success path yields 33 and the error path takes the `otherwise`, giving
+75.
+```maxon
+typealias Num = int(0 to 1000)
+
+enum Err
+	bad
+end 'Err'
+
+// TODO: tuple return types are not supported in minimaxon
+function pairThrows(a Num, b Num) returns (Num, Num) throws Err
+	if a > 900 'guard'
+		throw Err.bad
+	end 'guard'
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a + 1, b + 2)
+end 'pairThrows'
+
+function run(a Num) returns Num throws Err
+	let t = try pairThrows(a, b: 20)
+	return t._0 + t._1
+end 'run'
+
+function main() returns ExitCode
+	let good = try run(10) otherwise 0
+	let bad = try run(950) otherwise 42
+	return good + bad
+end 'main'
+```
+```exitcode
+75
+```
+
+<!-- test: a-bool-half-pair-returns-in-registers -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+RED: today a `(bool, Num)` return is a heap `__Tuple2` on every call, because a bool half is read as
+an `i1` and the two-register convention admits only whole-word halves — so a `__Tuple2` alloc, decref
+and free appear in the trace below and this case fails on its `mm-trace` block.
+
+A `bool` is a whole return-register value like any other: a pair of a bool and an integer is a VALUE,
+and the call must allocate nothing, exactly as `(Num, Num)` already does in
+`small-tuple-return-allocates-nothing`. Both `return` shapes here are fresh two-word boxes nothing
+else in `classify` can see, and `main`'s only uses of the pair are the two half reads.
+
+⭐ **THE ASSERTION IS THE ABSENCE OF A `__Tuple2` LINE.** The block holds the interpolation `print`
+builds and nothing else — one `InterpolationScratch` per `{…}` (five bytes for the bool's text, 21 for
+the integer's) and the `StringRecord` they are copied into.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function classify(x Num) returns (bool, Num)
+	if x == 0 'zero'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (false, 0)
+	end 'zero'
+	// TODO: tuple values and types are not supported in minimaxon
+	return (x > 500, x + 1)
+end 'classify'
+
+function main() returns ExitCode
+	let p = classify(750)
+	print("{p._0} {p._1}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true 751
+```
+```mm-trace
+mm_alloc InterpolationScratch #1 size=5
+mm_alloc InterpolationScratch #2 size=20
+mm_alloc StringRecord #3 size=65
+mm_decref InterpolationScratch #1 rc=0
+mm_free InterpolationScratch #1
+mm_decref InterpolationScratch #2 rc=0
+mm_free InterpolationScratch #2
+mm_decref StringRecord #3 rc=0
+mm_free StringRecord #3
+```
+
+<!-- test: a-bool-half-pair-returns-in-registers-from-two-call-sites -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+RED: the bool in the HIGH half is refused by the same gate, so `split` keeps the heap record and the
+trace below carries a `__Tuple2` alloc, decref and free per call site.
+
+The bool on the other end of the pair, and called TWICE so the result cannot be the frame-local a
+called-once leaf earns: the register arm is what deletes the box here. Each call builds a fresh
+two-word box, each call site reads both halves and drops the box through the trivial `__mm_decref`,
+so nothing allocates at either end and the block is the interpolation alone.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function split(x Num) returns (Num, bool)
+	if x == 0 'zero'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (0, false)
+	end 'zero'
+	// TODO: tuple values and types are not supported in minimaxon
+	return (x + 1, x > 500)
+end 'split'
+
+function main() returns ExitCode
+	let a = split(10)
+	let b = split(700)
+	print("{a._0} {a._1} {b._0} {b._1}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+11 false 701 true
+```
+```mm-trace
+mm_alloc InterpolationScratch #1 size=20
+mm_alloc InterpolationScratch #2 size=5
+mm_alloc InterpolationScratch #3 size=20
+mm_alloc InterpolationScratch #4 size=5
+mm_alloc StringRecord #5 size=74
+mm_decref InterpolationScratch #1 rc=0
+mm_free InterpolationScratch #1
+mm_decref InterpolationScratch #2 rc=0
+mm_free InterpolationScratch #2
+mm_decref InterpolationScratch #3 rc=0
+mm_free InterpolationScratch #3
+mm_decref InterpolationScratch #4 rc=0
+mm_free InterpolationScratch #4
+mm_decref StringRecord #5 rc=0
+mm_free StringRecord #5
+```
+
+<!-- test: a-bool-half-pair-return-is-read-back-correctly -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+RED: nothing — this case is GREEN today, on the heap convention, and its whole job is to stay green
+when the pair comes back in registers. It carries no trace marker, so it is the ONE case of the three
+that reaches the wasm lane — where the flag rides an `i64` local that every bool consumer wraps back
+to `i32`, and a dropped or swapped half is a validation failure rather than a wrong word.
+
+`probe` is called TWICE so it keeps a frame of its own and really hands the pair back in the two
+registers, and each call site reads both halves and drops the box through the one trivial
+`__mm_decref` — the call-site shape, rather than the frame-local one the other two cases take. The
+exit code is computed from BOTH halves of BOTH results: each bool chooses a value and each integer is
+one, so a half read out of the wrong register, or a bool widened from the wrong bits, is a different
+exit code. Returns 42.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function probe(x Num) returns (bool, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (x > 500, x - 500)
+end 'probe'
+
+function main() returns ExitCode
+	let hit = probe(542)
+	let miss = probe(500)
+	let value = hit._1 if hit._0 else 100
+	let bonus = 200 if miss._0 else 0
+	return value + bonus
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: for-in-over-map-allocates-no-tuple -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+A `for` loop over a Map allocates NO tuple record per iteration. `MapIterator.current()` builds its
+`(key, value)` pair as a fresh box nothing else in that body can see and returns it, so the box is deleted
+and the pair leaves in the two return registers; the loop reads both halves out and drops nothing.
+
+⭐⭐ **THE GATE IS DECIDED PER COMPILE, AND THIS PROGRAM IS WHY IT HAS TO BE.** `current()` is ONE shared
+generic body over `(Key, Value)`, so it cannot know whether its two words need dropping — but its CALL SITE
+does, from the concrete instantiation. Here the pair is `(Integer, Integer)`, the loop's drop of it is the
+trivial `__mm_decref`, and no record is needed at either end. Over a `Map with (String, String)` that drop
+is a `__destruct___Tuple2.String.String` cascade instead, the call site cannot take a register pair, and
+`current()` keeps the heap convention for that whole program — which is what makes handing the two words
+over as owned impossible to get wrong.
+
+⛔ **THE `mm-trace` BLOCK IS THE PIN, AND IT HOLDS EVERY ALLOCATION THE Map MACHINERY ITSELF MAKES AND NOT ONE
+`__Tuple2` LINE.** A per-iteration record coming back — by the value convention ceasing to cover
+`current()`, or by the loop body gaining a use of the pair that is neither a half read nor the drop — puts
+three of them there and turns this red. Its ids are densely renumbered by first appearance, so a
+regenerated block shifts every later `#n`; regenerate it with `--update-required`, never by hand.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntMap = Map with (Integer, Integer)
+
+function sum(m IntMap) returns Integer
+	var total = 0 as Integer
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, v) in m 'loop'
+		total = total + v
+	end 'loop'
+	return total
+end 'sum'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 20, 3: 30]
+	return sum(m)
+end 'main'
+```
+```exitcode
+60
+```
+```mm-trace
+mm_alloc ArrayRecord #1 size=48
+mm_alloc ArrayRecord #2 size=48
+mm_alloc ArrayRecord #3 size=48
+mm_alloc ArrayRecord #4 size=48
+mm_alloc Map #5 size=56
+mm_alloc ArrayRecord #6 size=48
+mm_decref ArrayRecord #1 rc=0
+mm_free ArrayRecord #1
+mm_alloc ElementBuffer #7 size=128
+mm_alloc ArrayRecord #8 size=48
+mm_decref ArrayRecord #2 rc=0
+mm_free ArrayRecord #2
+mm_alloc ElementBuffer #9 size=128
+mm_alloc ArrayRecord #10 size=48
+mm_decref ArrayRecord #3 rc=0
+mm_free ArrayRecord #3
+mm_alloc ElementBuffer #11 size=16
+mm_alloc ArrayRecord #12 size=48
+mm_decref ArrayRecord #4 rc=0
+mm_free ArrayRecord #4
+mm_alloc ElementBuffer #13 size=64
+mm_alloc CursorRecord #14 size=16
+mm_incref ArrayRecord #10 rc=2
+mm_incref ArrayRecord #6 rc=2
+mm_alloc CursorRecord #15 size=16
+mm_incref ArrayRecord #6 rc=3
+mm_incref ArrayRecord #8 rc=2
+mm_alloc CursorRecord #16 size=16
+mm_incref ArrayRecord #8 rc=3
+mm_alloc MapIterator #17 size=32
+mm_incref CursorRecord #14 rc=2
+mm_decref ArrayRecord #8 rc=2
+mm_decref ArrayRecord #6 rc=2
+mm_decref CursorRecord #14 rc=1
+mm_decref MapIterator #17 rc=0
+mm_decref CursorRecord #15 rc=0
+mm_decref ArrayRecord #6 rc=1
+mm_free CursorRecord #15
+mm_decref CursorRecord #16 rc=0
+mm_decref ArrayRecord #8 rc=1
+mm_free CursorRecord #16
+mm_decref CursorRecord #14 rc=0
+mm_decref ArrayRecord #10 rc=1
+mm_free CursorRecord #14
+mm_free MapIterator #17
+mm_decref Map #5 rc=0
+mm_decref ArrayRecord #6 rc=0
+mm_decref ElementBuffer #7 rc=0
+mm_free ElementBuffer #7
+mm_free ArrayRecord #6
+mm_decref ArrayRecord #8 rc=0
+mm_decref ElementBuffer #9 rc=0
+mm_free ElementBuffer #9
+mm_free ArrayRecord #8
+mm_decref ArrayRecord #10 rc=0
+mm_decref ElementBuffer #11 rc=0
+mm_free ElementBuffer #11
+mm_free ArrayRecord #10
+mm_decref ArrayRecord #12 rc=0
+mm_decref ElementBuffer #13 rc=0
+mm_free ElementBuffer #13
+mm_free ArrayRecord #12
+mm_free Map #5
+```
+<!-- test: destructure-match-result-then-compare -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Destructuring `let (a, b) = match X { … gives (x, y) }` binds the elements of a
+tuple produced by a match-expression arm, then COMPARES each binding. The
+match-result merge slot refines to `genericInstance(__Tuple2, [Slot, bool])`
+only on a later type-resolution converge pass; before that, the destructure's
+`tmp._0` / `tmp._1` field reads off the still-unspecialised `named(__Tuple2)`
+receiver would yield the bare `_T0` / `_T1` tuple type-parameters. The tuple
+field-load stays unresolved until the receiver refines, so both bindings (and
+the compares on them) resolve to their concrete element types. Returns `2`.
+```maxon
+typealias Slot = int(0 to 100)
+
+union Thing
+	alpha(s Slot, flag bool)
+	beta
+end 'Thing'
+
+function pick(t Thing) returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (slot, flag) = match t 'm'
+		// TODO: tuple values and types are not supported in minimaxon
+		alpha(s, f) gives (s, f)
+		// TODO: tuple values and types are not supported in minimaxon
+		beta gives (0 as Slot, false)
+	end 'm'
+	if slot != 5 'notFive'
+		return 1
+	end 'notFive'
+	if flag != true 'notTrue'
+		return 3
+	end 'notTrue'
+	return 2
+end 'pick'
+
+function main() returns ExitCode
+	return pick(Thing.alpha(5, flag: true))
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: nested-tuple-chained-access -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`t.0.1` reaches the second element of a NESTED tuple. A number greedily takes a following `.` as a
+fraction, which would lex `t.0.1` as `identifier(t)`, `dot`, `floatLiteral(0.1)` — two indices fused into one
+token. A number can follow a `.` for exactly
+one reason (there is no `.5` float form and every other dotted form has an identifier on its right), so
+the lexer refuses the fraction there and both hops survive.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = ((1, 2), 39)
+	// TODO: float literals are not supported in minimaxon
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0.0 + t.0.1 + t.1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: an-eight-deep-nesting-is-one-type-however-it-is-spelled -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+⭐ **NESTING DEPTH, WHICH NO OTHER CASE TAKES PAST THREE.** A nested element is cited by an interned
+token, so a tuple's identity costs time linear in its depth — and this is the case that says the CITATION is
+still an identity rather than merely cheap.
+
+The two spellings must converge: `readDeep` declares its parameter through an eight-link ALIAS CHAIN and
+`main` hands it a bare LITERAL nested eight deep. If the citation split those into two types the call is
+`E3005`; if it fused two DIFFERENT levels the eight `.0` hops land on the wrong slot and the arithmetic
+moves. Returns 1 + 9 + 2.
+```maxon
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L0 = (int, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L1 = (L0, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L2 = (L1, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L3 = (L2, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L4 = (L3, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L5 = (L4, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L6 = (L5, int)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias L7 = (L6, int)
+
+function readDeep(t L7) returns Integer
+	// TODO: float literals are not supported in minimaxon
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0.0.0.0.0.0.0.0 + t.1
+end 'readDeep'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = ((((((((1, 2), 3), 4), 5), 6), 7), 8), 9)
+	// TODO: float literals are not supported in minimaxon
+	return (readDeep(t) + t.0.0.0.0.0.0.0.1) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+12
+```
+
+<!-- test: tuple-element-from-method-call -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+An element built from a METHOD-CALL RESULT. A tuple reaching lowering with no parse-time-pinned type for
+the element would give its `__mm_alloc` a NULL destructor and never release the element's box. The layout is minted from the element VALUES' own types at the
+literal, so the struct element is an ordinary managed field and the tuple's synthesized drop cascade
+frees it. A leak exits 101 rather than 42.
+```maxon
+type Point
+	export let x as Integer
+
+	static function create(x Integer) returns Point
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, Point.create(41))
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1.x
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-element-names-join-injectively -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Two DIFFERENT tuple types whose element names differ only in where an `_` falls. A tuple's mangled name
+joins its elements, and `_` is inside the identifier alphabet — so an `_` join would spell `(A_B, C)`
+and `(A, B_C)` identically, and the second would silently take the first's layout: `t.0.gamma` would
+then be resolved against `A_B`'s field table, which has no `gamma`. The join uses a character no element
+name can hold, so the two stay distinct. Returns 3 + 34.
+```maxon
+type A_B
+	export let alpha as Integer
+
+	static function create(alpha Integer) returns Self
+		return Self{alpha: alpha}
+	end 'create'
+end 'A_B'
+
+type A
+	export let gamma as Integer
+
+	static function create(gamma Integer) returns Self
+		return Self{gamma: gamma}
+	end 'create'
+end 'A'
+
+type C
+	export let beta as Integer
+
+	static function create(beta Integer) returns Self
+		return Self{beta: beta}
+	end 'create'
+end 'C'
+
+type B_C
+	export let delta as Integer
+
+	static function create(delta Integer) returns Self
+		return Self{delta: delta}
+	end 'create'
+end 'B_C'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function first(t(A_B, C)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0.alpha + t.1.beta
+end 'first'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function second(t(A, B_C)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0.gamma * 10 + t.1.delta
+end 'second'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let p = (A_B.create(1), C.create(2))
+	// TODO: tuple values and types are not supported in minimaxon
+	let q = (A.create(3), B_C.create(4))
+	return first(p) + second(q)
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+37
+```
+
+<!-- test: tuple-var-field-write-with-string-element -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A `var` tuple holding a MANAGED element, written through `.1` and read back. The write rides the same
+`storeIndirect` a struct field write does, and the String is released by the tuple's drop cascade at
+scope exit — a missed drop exits 101.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = ("a", 1 as FullRangeInt)
+	// TODO: tuple element access is not supported in minimaxon
+	t.1 = 41
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1 + 1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: whole-tuple-reassignment-drops-the-old-record -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Reassigning a whole `var` tuple drops the record it held before binding the new one. The old box owns a
+`String`, so a missed drop is a leak (101) and a doubled one an over-release.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var t = ("a", 10 as FullRangeInt)
+	// TODO: tuple values and types are not supported in minimaxon
+	t = ("b", 32)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1 + 10
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: array-of-tuples-from-a-literal -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A `[<identifier>…]` array literal whose elements are TUPLES, in a program that ALSO declares
+`Array with <a tuple typealias>`. Both spellings reach the generic-instance registry, and the registry
+keys on the argument's `(tag, id)` while the compiled name reads only the NAME — so an element arg
+carrying the wrong tag interns a SECOND instance that compiles to the first's symbol, and
+`checkTypeSymbolNamespace` rejected this whole program with `E3006 duplicate definition of
+'Array_<T>'`, blaming a `typealias` the author wrote exactly once. A tuple type is `structRef` at every
+spelling (`Parser.parseTypeReference`), so `arrayInstanceForNamedElement` must mint that tag too.
+Returns 45 (3 + 40 from element 1, plus the count).
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+typealias PairArray = Array with Pair
+
+function count(xs PairArray) returns Num
+	return xs.count()
+end 'count'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let p = (1, 2)
+	// TODO: tuple values and types are not supported in minimaxon
+	let q = (3, 40)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [p, q]
+	let r = try xs.get(1) otherwise panic("pushed")
+	// TODO: tuple element access is not supported in minimaxon
+	return r.0 + r.1 + xs.count()
+end 'main'
+```
+```exitcode
+45
+```
+
+<!-- test: array-of-managed-element-tuples-drops-each -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`Array with <a tuple typealias whose elements are themselves ALIASES>`, holding a MANAGED element. The
+DECLARATION SWEEP spells a tuple's elements the way the source did (`__Tuple2.Num.String`), because the
+alias registry that says what `Num` means is still being built; every VALUE the array holds carries the
+canonical `__Tuple2.int.String`, and only that layout reaches `installStructDestructors`. Read raw, the
+array's `element_destroy@40` stamp named a destructor nobody synthesizes and the x64 backend died —
+`panic … resolveCallFixups: call to unknown function '__destruct___Tuple2.Num.String'`. A generic
+instance's stored ARGUMENT is a second door this index's types leave by, so it canonicalizes exactly as
+`adoptType` does. Returns 4 (2 + the count).
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Tagged = (Num, String)
+
+typealias TaggedArray = Array with Tagged
+
+function main() returns ExitCode
+	let xs = TaggedArray.create(0)
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((1, "hello"))
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((2, "world"))
+	let r = try xs.get(1) otherwise panic("pushed")
+	print("{r.1}\n")
+	// TODO: tuple element access is not supported in minimaxon
+	return (r.0 as Count) + xs.count()
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+world
+```
+
+<!-- test: parenthesized-grouping-is-not-a-tuple -->
+A parenthesized expression with no comma is grouping, and stays so: `(2 + 3) * 4` is 20.
+```maxon
+function main() returns ExitCode
+	let x = (2 + 3) * 4
+	return x + 22
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.one-element-tuple-type -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A one-element tuple TYPE is refused: `(a)` is grouping and must stay grouping, so parentheses around a
+single type would be indistinguishable from it.
+```maxon
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Solo = (int)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:2:18: Unsupported: a one-element tuple type (a tuple has at least 2 elements, and parentheses around a single type would be indistinguishable from grouping)
+```
+
+<!-- test: error.destructure-arity-mismatch -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+Every element must be named. The count is checked against the tuple the initializer produced.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let (x, y, z) = (1, 2)
+	return x
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:3:2: Unsupported: a destructuring binding of 3 names against a tuple of 2 elements (every element must be named)
+```
+
+<!-- test: error.destructure-of-a-non-tuple -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+Only a tuple can be destructured.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = 42
+	return x
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:3:2: Unsupported: a destructuring binding of a 'int' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)
+```
+
+<!-- test: error.a-tuple-literal-holding-a-call-nothing-declares-is-undefined-at-that-call -->
+<!-- skip: tuple assignment is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple literal holding a call nothing declares is refused once, at that call. The tuple has no type to
+intern, and nothing is reported about it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var s = "a string padded out long enough to heap allocate"
+	var n = 0 as Integer
+	// TODO: tuple assignment is not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	(s, n) = (nosuch(1), 2)
+	print("{s}{n}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:7:12: call to undefined function 'nosuch'
+```
+
+<!-- test: error.a-destructuring-declaration-of-a-tuple-literal-holding-a-call-nothing-declares-is-undefined-at-that-call -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+The same literal destructured into new bindings, with the call past the first element, is refused once, at
+that call.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let (a, b) = (1, nosuch(2))
+	print("{a}{b}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:3:19: call to undefined function 'nosuch'
+```
+
+<!-- test: error.a-bound-tuple-literal-holding-a-call-nothing-declares-is-undefined-at-that-call -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple literal bound whole, with the call in its middle, is refused once, at that call, and the reads of
+the binding report nothing.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, nosuch(2), 3)
+	print("{triple.0}{triple.2}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:3:19: call to undefined function 'nosuch'
+```
+
+<!-- test: error.a-tuple-literal-holding-a-call-nothing-declares-passed-at-a-tuple-parameter-is-undefined-at-that-call -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple literal holding a call nothing declares, handed to a tuple parameter, is refused once, at that call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+function takes(pair(Integer, Integer)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return pair.0
+end 'takes'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return takes((frobnicate(1), 2)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:9:16: call to undefined function 'frobnicate'
+```
+
+<!-- test: error.a-returned-tuple-literal-holding-a-call-nothing-declares-is-undefined-at-that-call -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple literal returned from a function declared to return a tuple is refused once, at the call inside it,
+and nothing is reported at the return.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Integer, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (nosuch(1), 2)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (a, b) = pair()
+	print("{a}{b}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:5:10: call to undefined function 'nosuch'
+```
+
+### ⭐ A TUPLE OVER A GENERIC TYPE PARAMETER
+
+A tuple may hold a type parameter, and three facts make it a type: its IDENTITY (a type-parameter token is a
+digest of `(declaring type, parameter)`, so two parameters mangle and intern apart), its LAYOUT (a type
+parameter lowers to an opaque machine word and every non-existential field is one slot, so `(T, Int)` is
+statically 16 bytes), and its DROP CASCADE, through the layout descriptor the instance carries. The
+value-side rule keeps its own refusal at the construction site.
+the category error; the value-side rule keeps its own refusal at the construction site.
+
+⚠ It is pinned in BOTH element classes deliberately. A scalar `T` proves only that the shape parses; the
+MANAGED one is where a wrong cascade would show, as a double free or a leak — and a leak is exit 101, which
+is a failure of this case rather than a note.
+
+<!-- test: tuple-of-a-type-parameter -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+type Box uses T
+	export let v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function pack() returns Integer
+		// TODO: tuple values and types are not supported in minimaxon
+		let t = (self.v, 1)
+		// TODO: tuple element access is not supported in minimaxon
+		return t.1
+	end 'pack'
+end 'Box'
+
+function main() returns ExitCode
+	let b = Box.create(5)
+	return b.pack()
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+1
+```
+
+<!-- test: a-tuple-of-a-type-parameter-instantiated-only-by-inference-body-first -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+### A generic instantiated only by an argument-inferred `create` takes its reference, whichever comes first
+No declaration names the instance, so the declarations alone say `Box` is uninstantiated and `pack` needs no
+layout descriptor; the parse of `main` mints it. The front end files that and settles the index again, so `pack`
+reserves the descriptor its tuple takes a reference through — with the body above the `create` that
+instantiates it (here over a heap `String`, whose reference the tuple must release: no leak), and below
+(`tuple-of-a-type-parameter` above is the same order over an `Integer`).
+```maxon
+type Box uses T
+	export let v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function pack() returns Integer
+		// TODO: tuple values and types are not supported in minimaxon
+		let t = (self.v, 1)
+		// TODO: tuple element access is not supported in minimaxon
+		return t.1
+	end 'pack'
+end 'Box'
+
+function heapText() returns String
+	let builder = StringBuilder.create()
+	builder.append("a heap string long enough to allocate ")
+	builder.append("and then some")
+	return builder.build()
+end 'heapText'
+
+function main() returns ExitCode
+	let b = Box.create(heapText())
+	return b.pack()
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+1
+```
+
+<!-- test: a-tuple-of-a-type-parameter-instantiated-only-by-inference-use-first -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	let b = Box.create(5)
+	return b.pack()
+end 'main'
+
+type Box uses T
+	export let v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function pack() returns Integer
+		// TODO: tuple values and types are not supported in minimaxon
+		let t = (self.v, 1)
+		// TODO: tuple element access is not supported in minimaxon
+		return t.1
+	end 'pack'
+end 'Box'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+1
+```
+
+<!-- test: tuple-of-a-managed-type-parameter -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same body instantiated over `String`, so the tuple's element 0 is an opaque word that really does own
+heap. It exits 7, with no leak.
+```maxon
+type Box uses T
+	export let v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function pack() returns Integer
+		// TODO: tuple values and types are not supported in minimaxon
+		let t = (self.v, 1)
+		// TODO: tuple element access is not supported in minimaxon
+		return t.1
+	end 'pack'
+end 'Box'
+
+typealias StrBox = Box with String
+
+function main() returns ExitCode
+	let b = StrBox.create("hello")
+	return b.pack() + 6
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-text-first -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`Sink` never types a value at `T`: the only place `T` appears is the tuple its `make` field returns, and the tuple's release is a read of `T`'s descriptor. `Top with String` and `Top with Integer` each hand `Sink` their own, so the two instances of `Sink` must not share one descriptor. The `String` instance is built first, and an `Integer` tuple released through it would free an integer as text.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Sink uses K, T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: tuple typealiases are not supported in minimaxon
+	typealias Pair = (T, K)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Maker = function() returns Pair
+	let make as Maker
+	var count as Integer
+
+	static function create(make Maker) returns Self
+		return Self{make: make, count: 0}
+	end 'create'
+
+	function run()
+		let r = self.make()
+		// TODO: tuple element access is not supported in minimaxon
+		self.count = self.count + r.1
+	end 'run'
+
+	function total() returns Integer
+		return self.count
+	end 'total'
+end 'Sink'
+
+type Top uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Maker = function() returns (U, Integer)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias S = Sink with (Integer, U)
+	var sink as S
+
+	static function create(make Maker) returns Self
+		return Self{sink: S.create(make)}
+	end 'create'
+
+	function go()
+		self.sink.run()
+	end 'go'
+
+	function total() returns Integer
+		return self.sink.total()
+	end 'total'
+end 'Top'
+
+typealias TopInt = Top with Integer
+
+typealias TopText = Top with String
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let b = TopText.create(function() gives ("a heap string long enough to allocate", 3))
+	b.go()
+	// TODO: closures are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let a = TopInt.create(function() gives (5, 2))
+	a.go()
+	print("{a.total()} {b.total()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 3
+```
+
+<!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-integer-first -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same program with the `Integer` instance built first: a `String` tuple released through the `Integer` descriptor would never free its text, which is exit 101.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Sink uses K, T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: tuple typealiases are not supported in minimaxon
+	typealias Pair = (T, K)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Maker = function() returns Pair
+	let make as Maker
+	var count as Integer
+
+	static function create(make Maker) returns Self
+		return Self{make: make, count: 0}
+	end 'create'
+
+	function run()
+		let r = self.make()
+		// TODO: tuple element access is not supported in minimaxon
+		self.count = self.count + r.1
+	end 'run'
+
+	function total() returns Integer
+		return self.count
+	end 'total'
+end 'Sink'
+
+type Top uses U
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Maker = function() returns (U, Integer)
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias S = Sink with (Integer, U)
+	var sink as S
+
+	static function create(make Maker) returns Self
+		return Self{sink: S.create(make)}
+	end 'create'
+
+	function go()
+		self.sink.run()
+	end 'go'
+
+	function total() returns Integer
+		return self.sink.total()
+	end 'total'
+end 'Top'
+
+typealias TopInt = Top with Integer
+
+typealias TopText = Top with String
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let a = TopInt.create(function() gives (5, 2))
+	a.go()
+	// TODO: closures are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let b = TopText.create(function() gives ("a heap string long enough to allocate", 3))
+	b.go()
+	print("{a.total()} {b.total()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 3
+```
+
+<!-- test: duplicate-owned-element-co-owns -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+One owned value CAN fill two slots of one record: each slot is a durable sink and takes its own reference,
+so the tuple's drop cascade releases exactly the two it took and `s` releases the one it
+holds.
+```maxon
+function main() returns ExitCode
+	let s = "hello"
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (s, s)
+	print("{t.0}{t.1}{s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hellohellohello
+```
+
+<!-- test: returned-tuple-copies-only-when-trivial -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+⭐ **THE TWO HALVES OF `return t` ON A TUPLE PARAMETER, PINNED SIDE BY SIDE, BECAUSE THEY DIFFER.** A
+TRIVIAL tuple gets its own record — the caller's `a` keeps its `2` after the returned `b` is written — and
+that is what a tuple is for. A MANAGED-element tuple gets an `__mm_retain` instead, because a shallow copy
+would leave two records pointing at one `String` and free it twice, so writing through the returned `n` shows
+on `m`. The split is a soundness one, not a taste one. Both halves are pinned because a share nobody pins can
+become a wrong answer without a test noticing.
+
+⚠ The exit code deliberately adds 7. `a.1 + m.1` alone is `2 + 99` = **101**, which is the runtime's
+LEAK-DETECTED exit code — a spec whose correct answer collides with the failure marker cannot tell the two
+apart, and this one nearly did.
+```maxon
+
+typealias Num = int(i64.min to i64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function echoTrivial(t(Num, Num)) returns (Num, Num)
+	return t
+end 'echoTrivial'
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function echoManaged(t(String, Num)) returns (String, Num)
+	return t
+end 'echoManaged'
+
+// TODO: tuple return types are not supported in minimaxon
+function seedTrivial() returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2)
+end 'seedTrivial'
+
+// TODO: tuple return types are not supported in minimaxon
+function seedManaged() returns (String, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return ("a heap allocated tuple element", 3)
+end 'seedManaged'
+
+function main() returns ExitCode
+	let a = seedTrivial()
+	var b = echoTrivial(a)
+	// TODO: tuple element access is not supported in minimaxon
+	b.1 = 99
+	let m = seedManaged()
+	let n = echoManaged(m)
+	// TODO: tuple element access is not supported in minimaxon
+	n.1 = 99
+	print("trivial a.1={a.1} b.1={b.1} managed m.1={m.1} n.1={n.1}")
+	// TODO: tuple element access is not supported in minimaxon
+	return (a.1 + m.1 + 7) as ExitCode
+end 'main'
+```
+```stdout
+trivial a.1=2 b.1=99 managed m.1=99 n.1=99
+```
+```exitcode
+108
+```
+
+<!-- test: merged-tuple-copies-at-every-hand-off -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+⭐⭐ **THE VALUE-SEMANTICS ANSWER BELONGS TO THE HAND-OFF, NOT TO THE `return` KEYWORD.** The case
+above pins `return t`; this one pins the two doors that reach the caller through a MERGE first — a ternary arm
+and a `try … otherwise` fallback — and a BINDING as the negative control. A borrowed trivial tuple is copied at
+a hand-off and INCREF'd at a binding, so `a.1` and `m.1` keep their `2` while `g.1` reads the `55` the callee
+wrote through its alias.
+
+⚠ The merge is why this is pinned. A merged value reaches the same shared promotion as a returned one, and an
+incref'd tuple would answer the return copy's `not valueIsOwnedHeap` question wrongly by design, so the copy
+gate lives in `promoteBorrowedToOwned`, where all three doors ask it.
+```maxon
+
+typealias Num = int(i64.min to i64.max)
+
+enum Fail
+	nope
+end 'Fail'
+
+// TODO: tuple return types are not supported in minimaxon
+function risky(ok bool) returns (Num, Num) throws Fail
+	if ok 'ok'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (7, 8)
+	end 'ok'
+	throw Fail.nope
+end 'risky'
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function viaMerge(t(Num, Num), c bool) returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return t if c else (7, 8)
+end 'viaMerge'
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function viaFallback(t(Num, Num)) returns (Num, Num)
+	return try risky(false) otherwise t
+end 'viaFallback'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function viaBinding(t(Num, Num)) returns Num
+	var q = t
+	// TODO: tuple element access is not supported in minimaxon
+	q.1 = 55
+	return 0
+end 'viaBinding'
+
+// TODO: tuple return types are not supported in minimaxon
+function seedTrivial() returns (Num, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2)
+end 'seedTrivial'
+
+function main() returns ExitCode
+	let a = seedTrivial()
+	var b = viaMerge(a, c: true)
+	// TODO: tuple element access is not supported in minimaxon
+	b.1 = 99
+	let m = seedTrivial()
+	var n = viaFallback(m)
+	// TODO: tuple element access is not supported in minimaxon
+	n.1 = 99
+	let g = seedTrivial()
+	let z = viaBinding(g)
+	print("merged a.1={a.1} fallback m.1={m.1} binding g.1={g.1} z={z}")
+	// TODO: tuple element access is not supported in minimaxon
+	return (a.1 + m.1 + g.1 + 9) as ExitCode
+end 'main'
+```
+```stdout
+merged a.1=2 fallback m.1=2 binding g.1=55 z=0
+```
+```exitcode
+68
+```
+
+### A tuple typealias across a FILE BOUNDARY, in BOTH orders
+
+⭐⭐ **A TUPLE ALIAS MINTS NO IDENTITY OF ITS OWN, SO EVERY DECLARED POSITION SPELLED WITH ONE HAS TO BE
+RESOLVED THROUGH THE ALIAS REGISTRY — AND THAT REGISTRY HAS A FILLING ORDER.** The tolerant declaration
+sweep reads a struct FIELD and a RETURN clause, and the sweep's copy is the one the whole-program index
+stores. Asked there, "is `Pair` a tuple alias?" answers *how far the sweep had got*: the alias is
+registered the moment its own file is walked, so a sibling file walked BEFORE it records the position as a
+bare `named("Pair")` and one walked AFTER records the tuple's `structRef`.
+
+⚠ Every declared position spelled with the alias resolves it the same way in both walk orders: a field
+`var p as Pair` and its drop, `returns Pair` on a function and on a method, a nested tuple `(Pair, Int)`,
+`Array with Pair`, and a `some(v Pair)` union payload.
+
+⚠ **THE PAIR BELOW DECLARES ITS TWO FILES IN THE TWO ORDERS, AND THAT IS WHAT IT GETS.** `build` takes an
+ORDERED list of paths and the runner names each case's files in the order the case declares them, so each
+half below compiles in its own order. The loader sorts nothing (`StdlibLoader`'s header), because a sort would hide the dependence rather than surface it.
+
+A `named` that the sweep left under an alias spelling is repaired at the READ door — a declared slot's type
+(`ProgramSignatures.declaredSlotType`), a call result (`Parser.resolveNamedAlias`), and the four classifiers
+that read a RAW layout field type, through the one resolution `ProgramSignatures.denotedAggregateName`
+names. That is the same arrangement a function alias and a generic-instance alias have.
+
+⚠ **`parseTypeReference`'s tuple-alias arm is NOT gated on `allFilesFolded` — the three sibling arms are.**
+`recordTupleAlias` writes DURING the walk rather than at `foldFile`, so for a tuple alias the SWEEP's
+resolved answer is the common case; gating it moves every `Array with <a tuple alias>` onto the bare `named`
+spelling, which seven index doors read RAW off the stored generic-instance ARGUMENT — and that changes this
+file's `value-tuple-escaping-into-array-stays-heap` element size and the answer of
+`array-of-managed-element-tuples-drops-each`.
+
+<!-- test: sibling-files-tuple-alias-in-every-declared-position -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+
+⭐ Every position a tuple alias can hold that the declaration SWEEP reads: a struct field (whose drop
+cascade must reach it), a method return, a free-function return, a tuple SLOT, an `Array` element and a
+union payload. The alias file declares nothing but aliases, so the two cases emit the same functions and
+their emitted code must read alike. Returns 2 + 4 + 6 + 8 + 10 + 12 + 14 + 16 = 72.
+```maxon
+// --- file: alias.maxon
+typealias Int = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Int, Int)
+
+typealias PairArray = Array with Pair
+
+// --- file: main.maxon
+type Holder
+	export var p as Pair
+
+	static function create() returns Holder
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{p: (2, 4)}
+	end 'create'
+
+	function pair() returns Pair
+		// TODO: tuple values and types are not supported in minimaxon
+		return (6, 8)
+	end 'pair'
+end 'Holder'
+
+union Slot
+	empty
+	some(v Pair)
+end 'Slot'
+
+function make() returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (10, 0)
+end 'make'
+
+// TODO: tuple return types are not supported in minimaxon
+function nested() returns (Pair, Int)
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((12, 0), 0)
+end 'nested'
+
+function main() returns ExitCode
+	let h = Holder.create()
+	let xs = PairArray.create(0)
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((14, 0))
+	let e = try xs.get(0) otherwise return 1
+	let n = nested()
+	// TODO: tuple values and types are not supported in minimaxon
+	let s = Slot.some((16, 0))
+	let sv = match s 'm'
+		empty gives 0
+		// TODO: tuple element access is not supported in minimaxon
+		some(v) gives v.0
+	end 'm'
+	// TODO: tuple element access is not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	return (h.p.0 + h.p.1 + h.pair().0 + h.pair().1 + make().0 + n.0.0 + e.0 + sv) as ExitCode
+end 'main'
+```
+```exitcode
+72
+```
+
+<!-- test: sibling-files-tuple-alias-in-every-declared-position-either-order -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+
+⭐ **THE IDENTICAL PROGRAM, ITS TWO FILES DECLARED THE OTHER WAY ROUND.** Both halves are kept because the
+program's meaning must not depend on which file the walk reaches first.
+```maxon
+// --- file: main.maxon
+type Holder
+	export var p as Pair
+
+	static function create() returns Holder
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{p: (2, 4)}
+	end 'create'
+
+	function pair() returns Pair
+		// TODO: tuple values and types are not supported in minimaxon
+		return (6, 8)
+	end 'pair'
+end 'Holder'
+
+union Slot
+	empty
+	some(v Pair)
+end 'Slot'
+
+function make() returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (10, 0)
+end 'make'
+
+// TODO: tuple return types are not supported in minimaxon
+function nested() returns (Pair, Int)
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((12, 0), 0)
+end 'nested'
+
+function main() returns ExitCode
+	let h = Holder.create()
+	let xs = PairArray.create(0)
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((14, 0))
+	let e = try xs.get(0) otherwise return 1
+	let n = nested()
+	// TODO: tuple values and types are not supported in minimaxon
+	let s = Slot.some((16, 0))
+	let sv = match s 'm'
+		empty gives 0
+		// TODO: tuple element access is not supported in minimaxon
+		some(v) gives v.0
+	end 'm'
+	// TODO: tuple element access is not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	return (h.p.0 + h.p.1 + h.pair().0 + h.pair().1 + make().0 + n.0.0 + e.0 + sv) as ExitCode
+end 'main'
+
+// --- file: alias.maxon
+typealias Int = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Int, Int)
+
+typealias PairArray = Array with Pair
+```
+```exitcode
+72
+```
+
+<!-- test: error.nested-tuple-name-does-not-depend-on-which-file-declares-it -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+
+⭐⭐ **A NESTED TUPLE'S NAME IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM.** This case
+and its twin below are the SAME program with the SAME file NAMES; the only difference is which of the two
+sibling files declares which alias. Nothing a compiler may observe about the program has changed — `PX` is
+`((int, int), int)` in both — so the two cases pin **one byte-identical sentence**, and a citation decided by
+the order the directory handed the files over cannot satisfy both, whatever text is pinned.
+
+⚠ **THE PAIR ABOVE (`sibling-files-tuple-alias-in-every-declared-position{,-either-order}`) CANNOT SEE THIS
+AND IS NOT A SUBSTITUTE.** It varies the order the two files appear in THIS BLOCK, and the harness stages
+both under the same two names either way — so `Compiler.collectMaxonSources` walks them identically and both
+halves mint identically. It pins that the two declaration orders AGREE ON THE PROGRAM'S MEANING; this pair
+pins that they agree on the NAME. Swapping the file CONTENTS is what moves the walk, and it is why these two
+cases exist rather than a marker flip on those.
+
+⚠ **THE MESSAGE NAMES BOTH TYPES ON PURPOSE.** A one-type message could be made to agree by accident; a
+sentence carrying the returned type AND the declared type pins the whole citation in both directions at one
+anchor, in `main.maxon` — the one file whose name and contents are identical across the pair, so the
+location never moves either.
+```maxon
+// --- file: aaa.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+export typealias PX = ((int, int), int)
+
+export function makeX() returns PX
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((1, 2), 3)
+end 'makeX'
+
+// --- file: zzz.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+export typealias PY = ((String, String), int)
+
+export function makeY() returns PY
+	// TODO: tuple values and types are not supported in minimaxon
+	return (("a", "b"), 7)
+end 'makeY'
+
+// --- file: main.maxon
+function coerce(t PY) returns PX
+	return t
+end 'coerce'
+
+function main() returns ExitCode
+	// TODO: tuple element access is not supported in minimaxon
+	return coerce(makeY()).1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:18:2: Cannot return '((String, String), int)' from function declared to return 'PX'
+```
+
+<!-- test: error.nested-tuple-name-does-not-depend-on-which-file-declares-it-swapped -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+
+⭐ **THE IDENTICAL PROGRAM, THE TWO ALIASES DECLARED THE OTHER WAY ROUND.** `aaa.maxon` holds `PY` and
+`zzz.maxon` holds `PX`. **The pinned sentence below must stay byte-identical to its twin's** — that equality
+IS the assertion, and it is the whole reason this case is not a duplicate. If a change makes these two
+diverge, do NOT re-derive two different pins: a divergence here means the tuple citation depends on the
+walk.
+```maxon
+// --- file: aaa.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+export typealias PY = ((String, String), int)
+
+export function makeY() returns PY
+	// TODO: tuple values and types are not supported in minimaxon
+	return (("a", "b"), 7)
+end 'makeY'
+
+// --- file: zzz.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+export typealias PX = ((int, int), int)
+
+export function makeX() returns PX
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((1, 2), 3)
+end 'makeX'
+
+// --- file: main.maxon
+function coerce(t PY) returns PX
+	return t
+end 'coerce'
+
+function main() returns ExitCode
+	// TODO: tuple element access is not supported in minimaxon
+	return coerce(makeY()).1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:18:2: Cannot return '((String, String), int)' from function declared to return 'PX'
+```
+
+<!-- test: error.self-referential-tuple-alias -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+
+⚠ **THE TERMINATION CASE FOR THE READ-DOOR REPAIR.** Resolving a tuple-alias element follows the alias to
+its target, and an alias NAME — unlike the nested tuple names the canonicalizing walk otherwise strips a
+level off at every step — can name the very tuple being canonicalized. `typealias P = (P, Int)` registers
+`__Tuple2.P.int` whose element 0 is `named("P")` whose target is `__Tuple2.P.int`. It is refused, and the
+point of the case is that it is refused rather than recursing until the stack ends.
+
+⚠ The declared type is a nest deeper than the source wrote: each real-parse read of
+a self-naming alias re-registers it one level further out, so the type grows with the number of reads. It
+is DETERMINISTIC and the program is illegal either way; the case pins it so that a change in the
+termination rule cannot pass unnoticed.
+
+⚠⚠ **THE MESSAGE DOES NOT SHOW THAT DEPTH.** A diagnostic prints the returned value's type in its source
+form, `((int, int), int)`, and the declared type as the alias spells it, `P` — so the pinned text names the
+alias rather than the nest the termination rule built. Internally a nested element is cited by a token that is
+the SHA-256 digest of the cited tuple's registered name (`ProgramSignatures.tupleElementTokenFor`), a pure function of
+the structure, so an unrelated tuple interned first moves no citation, and emission orders by the mangled
+label (`SignatureIndex.mangleTypeArg`) rather than by any dense instance id.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias P = (P, Int)
+
+function make() returns P
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((1, 2), 3)
+end 'make'
+
+function main() returns ExitCode
+	let t = make()
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:2: Cannot return '((int, Int), Int)' from function declared to return 'P'
+```
+
+<!-- test: error.self-referential-tuple-alias-with-an-unrelated-tuple-interned-alongside -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+
+⭐⭐ **THE CASE ABOVE, WITH AN UNRELATED SIBLING FILE THAT INTERNS TWO TUPLES OF ITS OWN.** The program
+`main.maxon` holds is byte-identical to the one above; `aaa.maxon` adds `((String, String), int)`, which is a
+different type in every respect and is walked FIRST. The diagnostic is the same sentence the case above pins,
+and only the fragment line moves (a file marker sits in front of the program).
+
+⚠ It does NOT vary the walk order, and deliberately: `error.nested-tuple-name-does-not-depend-on-which-file-declares-it{,-swapped}`
+already pins that axis by swapping two files' CONTENTS. What this pins is the other one — that an
+UNRELATED interning does not reach a citation at all.
+```maxon
+// --- file: aaa.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+export typealias Other = ((String, String), int)
+
+export function makeOther() returns Other
+	// TODO: tuple values and types are not supported in minimaxon
+	return (("a", "b"), 1)
+end 'makeOther'
+
+// --- file: main.maxon
+typealias Int = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias P = (P, Int)
+
+function make() returns P
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((1, 2), 3)
+end 'make'
+
+function main() returns ExitCode
+	let t = make()
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:14:2: Cannot return '((int, Int), Int)' from function declared to return 'P'
+```
+
+<!-- test: error.a-tuple-over-a-contested-alias-is-named-in-source-form -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+`pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Bytes` over a `Byte` of their own, and
+`Holder.pair` is a `(Bytes, String)` of `pkg/lib.maxon`'s. An exported field cannot be typed by a
+unmarked alias, even as a tuple's element, so the field is refused; the tuple it hands to
+`app/main.maxon`'s `takesNarrow` is a different `Bytes` and is refused beside it, each named by the file it
+comes from.
+```maxon
+// --- file: pkg/lib.maxon
+typealias Byte = int(0 to 1000)
+
+typealias Bytes = Array with Byte
+
+export type Holder
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Bytes, String)
+
+	export static function make() returns Holder
+		var b = Bytes.create(0)
+		b.push(300)
+		// TODO: tuple values and types are not supported in minimaxon
+		return Holder{pair: (b, "wide")}
+	end 'make'
+end 'Holder'
+
+// --- file: app/main.maxon
+typealias Byte = int(0 to u8.max)
+
+typealias Bytes = Array with Byte
+
+// TODO: tuple parameter types are not supported in minimaxon
+function takesNarrow(p(Bytes, String)) returns ExitCode
+	// TODO: tuple element access is not supported in minimaxon
+	return p.0.count() as ExitCode
+end 'takesNarrow'
+
+function main() returns ExitCode
+	return takesNarrow(Holder.make().pair)
+end 'main'
+```
+```maxoncstderr
+error E3005: app/<fragment>:25:9: argument type mismatch for 'p': expected '(Bytes, String)', got '(pkg.Bytes, String)'
+error E3167: pkg/<fragment>:6:13: exported field 'pkg.Holder.pair' names unexported typealias 'Bytes' in its type
+```
+
+### A tuple typealias as a GENERIC TYPE ARGUMENT — the RAW instance-argument doors
+
+⭐⭐ **A GENERIC INSTANCE'S TYPE ARGUMENT IS A *STORED* TYPE, NOT A DECLARED SLOT — so no read door re-tags
+it, and the alias-spelling repair has to happen at each door that reads it.** `Box with Pair` interns ONE
+argument, minted by whichever pass first met the spelling; the declaration SWEEP meets it with
+`parseTypeReference`'s tuple-alias arm answering `isTupleAlias("Pair")`, which is false until the alias's own
+declaration has been walked. **Within one file that is simply "the alias is declared BELOW its use", which is
+deterministic** — the cross-file lottery above is the same fact with the filesystem holding the ticket.
+
+⚠ Two doors read that argument raw: `ProgramSignatures.typeLogicalByteSize` (`sizeof(T)`,
+`elementLogicalSize@56`) and `ProgramSignatures.typeArgIsOwned` (the CONSUME boundary). A bare `named` there
+would give a WRONG ANSWER rather than a diagnostic — the machine-word size `8` for a two-slot tuple, and a
+tuple that owns a `String` read as co-owned trivial.
+
+Both resolve through `ProgramSignatures.denotedAggregateName`, the one door that says what a `named`
+denotes. The consume boundary and the drop boundary must read ONE name: they are read together, so a name
+they answer differently about does not give a coarse answer, it manufactures a kind the type does not have.
+
+<!-- test: sizeof-of-a-tuple-alias-type-argument-declared-below-its-use -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+
+⭐ `sizeof(T)` inside a shared generic body, instantiated at a tuple typealias whose declaration sits BELOW
+the instantiation — so the SWEEP recorded the instance's argument as a bare `named`. A `(Integer, Integer)`
+tuple is a two-slot box: **16**. Answering the `named` fallback's 8 is silent — the program still compiles
+and runs.
+```maxon
+type Sizer uses T
+	export var dummy as Integer
+
+	static function create() returns Self
+		return Self{dummy: 0}
+	end 'create'
+
+	function typeSize() returns Integer
+		// TODO: sizeof(...) is not supported in minimaxon
+		return sizeof(T)
+	end 'typeSize'
+end 'Sizer'
+
+typealias PairSizer = Sizer with TPair
+
+function main() returns ExitCode
+	let s = PairSizer.create()
+	return s.typeSize()
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias TPair = (Integer, Integer)
+```
+```exitcode
+16
+```
+
+<!-- test: a-tuple-alias-type-argument-declared-below-its-instantiation-is-constructible -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+
+The sibling above reads `sizeof(T)` through the shared body and never constructs one. This case constructs
+the instance: the file's own `(6, 3)` is passed to the factory its own alias names.
+
+One file, one declaration, nothing contested: the only condition is that `Pair` is declared BELOW the
+instantiation that names it, which is the same condition the sibling above pins for `sizeof`. A type
+argument is interned once and no later pass re-tags it, so the bare spelling is resolved where the instance
+is scoped.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var item as T
+
+	static function create(item T) returns Box
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias BoxA = Box with Pair
+
+function sixAndThree() returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (6, 3)
+end 'sixAndThree'
+
+function main() returns ExitCode
+	let b = BoxA.create(sixAndThree())
+	// TODO: tuple element access is not supported in minimaxon
+	return (b.item.0 - b.item.1) as ExitCode
+end 'main'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Integer, Integer)
+```
+```exitcode
+3
+```
+
+<!-- test: a-tuple-alias-type-argument-declared-above-its-instantiation-is-constructible -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same program with `Pair` declared ABOVE the instantiation: the sweep then spells the argument as a tuple
+record under its written element names, and it still denotes the canonical tuple.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Integer, Integer)
+
+type Box uses T
+	export var item as T
+
+	static function create(item T) returns Box
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias BoxA = Box with Pair
+
+function sixAndThree() returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (6, 3)
+end 'sixAndThree'
+
+function main() returns ExitCode
+	let b = BoxA.create(sixAndThree())
+	// TODO: tuple element access is not supported in minimaxon
+	return (b.item.0 - b.item.1) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: shared-body-reassign-with-a-heap-owning-tuple-alias-instantiation -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+
+⭐ A shared generic body reassigns its opaque `T` field, and the SAME generic is ALSO instantiated at a tuple
+typealias that OWNS heap (`(Integer, String)`), declared BELOW the instantiation. The reassign gate scans
+every instantiation of `Box` and asks each argument's KIND; the heap-owning tuple must read `consumeMoved`,
+since read as borrowed it would be retained at the feed where a move is owed. `PairBox` is held by a field type so the instantiation is
+live without being constructed.
+```maxon
+type Box uses Element
+	export var saved as Element
+
+	static function create(first Element) returns Self
+		return Self{saved: first}
+	end 'create'
+
+	function replace(next Element)
+		self.saved = next
+	end 'replace'
+end 'Box'
+
+typealias StringBox = Box with String
+
+typealias PairBox = Box with TPair
+
+type Holder
+	export var b as PairBox
+
+	static function create(b PairBox) returns Self
+		return Self{b: b}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: sizeof(...) is not supported in minimaxon
+	_ = sizeof(Holder)
+	let b = StringBox.create("alpha")
+	b.replace("beta")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias TPair = (Integer, String)
+```
+```exitcode
+0
+```
+
+<!-- test: array-of-managed-element-tuples-clones-each -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+⭐ The CLONE half of `array-of-managed-element-tuples-drops-each`. The
+DECLARATION SWEEP spells a tuple's elements the way the source did (`__Tuple2.String.Integer`) because the
+alias registry that says what `Integer` means is still being built, so `Array with Pair` stores that spelling
+as its type ARGUMENT; every VALUE the array holds carries the canonical `__Tuple2.String.int`, and only THAT
+layout is committed to `project.structTypes`, which is the registry `installStructCloners` walks. The
+descriptor's ownership words and its copy word read ONE derivation of the argument, canonical at the door
+rather than at one of its readers. Returns 6 (the cloned tuple's 5, plus the clone's count).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (String, Integer)
+
+typealias Pairs = Array with Pair
+
+function main() returns ExitCode
+	let xs = Pairs.create(0)
+	let sb = StringBuilder.create()
+	sb.append("a heap ")
+	sb.append("payload")
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((sb.build(), 5))
+	let ys = xs.clone()
+	let cloned = try ys.get(0) otherwise panic("cloned")
+	print("{cloned.0}\n")
+	// TODO: tuple element access is not supported in minimaxon
+	return cloned.1 + ys.count() as Integer
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+a heap payload
+```
+
+<!-- test: array-of-bare-primitive-element-tuples-clones-each -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The CONTROL for the case above, and the reason the two are a pair: with the element spelled `int` rather than
+through a ranged alias, the sweep's spelling and the canonical one are the SAME bytes, so this program
+compiled and ran throughout — a clone case written only this way would have passed for a reason that has
+nothing to do with the defect. The ALIAS is the discriminator, not the tuple and not the clone.
+Returns 6.
+```maxon
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (String, int)
+
+typealias Pairs = Array with Pair
+
+function main() returns ExitCode
+	let xs = Pairs.create(0)
+	let sb = StringBuilder.create()
+	sb.append("a heap ")
+	sb.append("payload")
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((sb.build(), 5))
+	let ys = xs.clone()
+	let cloned = try ys.get(0) otherwise panic("cloned")
+	print("{cloned.0}\n")
+	// TODO: tuple element access is not supported in minimaxon
+	return cloned.1 + ys.count()
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+a heap payload
+```
+
+<!-- test: array-of-managed-element-tuples-clone-balances-both-copies -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The BALANCE twin: a naming fix that installs the WRONG cloner links, so both copies are read after the clone
+and both are dropped at scope exit. An under-retained element faults or prints poison on the second read
+(`__mm_free` poisons with `0x3F`); an over-retained one leaks the String record and the run exits **101**. The
+element cloner the `copyFunc@32` slot points at must be the same tuple's, so the clone owns an INDEPENDENT
+String record and the original keeps its own. Returns 8 (3 + 3, plus one count each).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (String, Integer)
+
+typealias Pairs = Array with Pair
+
+function main() returns ExitCode
+	let xs = Pairs.create(0)
+	let sb = StringBuilder.create()
+	sb.append("shared ")
+	sb.append("record")
+	// TODO: tuple values and types are not supported in minimaxon
+	xs.push((sb.build(), 3))
+	let ys = xs.clone()
+	let original = try xs.get(0) otherwise panic("pushed")
+	let copied = try ys.get(0) otherwise panic("cloned")
+	print("{original.0}|{copied.0}\n")
+	// TODO: tuple element access is not supported in minimaxon
+	return original.1 + copied.1 + xs.count() as Integer + ys.count() as Integer
+end 'main'
+```
+```exitcode
+8
+```
+```stdout
+shared record|shared record
+```
+
+<!-- test: array-of-substituted-entry-tuples-clones-each -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⭐ The SUBSTITUTED half of the case above. A tuple minted by SUBSTITUTION is in no file's artifact —
+`MapIterator.current()`'s declared `Entry = (Key, Value)` becomes `(String, String)` at the call site,
+straight into the whole-program index — so it never reaches `project.structTypes`, and this program spells no
+tuple type anywhere for it to reach through. `installStructDestructors` and `installStructCloners` both walk
+the index's own tuple layouts for that reason, so an `Array` of such entries gets an installed cloner, with no
+ranged alias and no `typealias` in the program at all. Returns 2 (one element in each of the two arrays), or 9 if the
+entry loop never ran.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["a": "x"]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in m 'each'
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let arr = [e]
+		let cp = arr.clone()
+		let copied = try cp.get(0) otherwise panic("cloned")
+		print("{copied.0}{copied.1}\n")
+		return (cp.count() + arr.count()) as ExitCode
+	end 'each'
+	return 9
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+ax
+```
+
+<!-- test: array-of-substituted-entry-tuples-with-a-struct-element-clones-each -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The case above with a MANAGED STRUCT in the substituted entry, so the missing cloner is one whose body has a
+NESTED cloner of its own (`__clone___Tuple2.String.Point` calling `__clone_Point`): the substituted tuple has
+to be visible to the installer AND its nesting has to be closed, and a fix that only made the symbol exist
+would emit a body calling a second symbol nobody built. Same walk, one level deeper. Returns 2, or 9 if
+the entry loop never ran.
+```maxon
+type Point
+	export var name as String
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'Point'
+
+typealias PointMap = Map with (String, Point)
+
+function main() returns ExitCode
+	let m = PointMap.create()
+	m.upsert("a", value: Point.create("alpha"))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in m 'each'
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let arr = [e]
+		let cp = arr.clone()
+		let copied = try cp.get(0) otherwise panic("cloned")
+		print("{copied.0}{copied.1.name}\n")
+		return (cp.count() + arr.count()) as ExitCode
+	end 'each'
+	return 9
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+aalpha
+```
+
+### A tuple literal's RECORD elements are owned whichever door minted the tuple type
+
+A tuple literal is a struct literal of a synthesized type, and every element that owns heap is moved in
+through `__mm_own` exactly as a `Self{…}` field is — whichever door minted the tuple type. Two doors do:
+the literal itself, and the declaration sweep, which mints the type from any signature in the program
+spelling it (`returns (A, B)`) before any body is parsed, with elements still bare `named`s that the real
+parse re-tags at every read. The cases below cover both, and every one returns 42 with the exit code as the
+pin, because the wrong answer here is a range panic (exit 1) or a leak (exit 101), never a quiet number.
+
+⛔⛔ **A SWEEP-MINTED TUPLE'S RECORD ELEMENT IS A RECORD.** `parseTupleLiteral` and `fieldTypeOf` must agree
+on what each element of the layout denotes; a record element is then moved in through `__mm_own`, so the
+binding's scope-exit drop never releases what the tuple holds. The answer must not depend on whether `pair`
+is spliced by the called-once inliner or stays a call, nor on whether the elements are `let`-bound locals or
+fresh `create` results.
+
+⚠ **WHICH element a disagreement would reach follows the order the interners meet the record TYPES in, not
+the tuple position and not the evaluation order** — so the cases below vary all three: `(b, a)`, `type B`
+declared above `type A`, and `(A, A)`.
+
+The `(A, Integer)` case, the echoed-parameter case and the bound-literal-in-`main` case are the CONTROLS:
+a scalar element has nothing to release, a parameter is moved into the tuple with no release of its own,
+and a tuple type no signature spells is minted by the literal itself from elements already tagged
+`structRef`, which no interner has to re-tag.
+
+<!-- test: a-tuple-of-two-records-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, B)
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair()
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-a-record-and-an-integer-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The scalar-element control.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, Integer)
+	let a = A.create(40)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, 2)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, k) = pair()
+	return (x.n + k) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-a-built-record-and-an-echoed-parameter-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The parameter control: element 1 is a record the callee RECEIVED and hands back, which is moved into the
+tuple with no release of its own.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function build(seed Integer, given B) returns (A, B)
+	let a = A.create(seed)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, given)
+end 'build'
+
+function main() returns ExitCode
+	let b = B.create(2)
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = build(40, given: b)
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-records-called-once-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`pair` is called ONCE, so the called-once inliner splices it into `main` and the tuple record it leaves
+behind is what the caller reads. Its twin below keeps `pair` a call.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(seed Integer) returns (A, B)
+	let a = A.create(seed)
+	let b = B.create(seed + 2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair(20)
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-records-called-twice-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same `pair`, called TWICE, so it stays a call and the caller reads the record `pair`'s own `ret`
+hands back. 10 + 12 + 9 + 11.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(seed Integer) returns (A, B)
+	let a = A.create(seed)
+	let b = B.create(seed + 2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair(10)
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (p, q) = pair(9)
+	return (x.n + y.m + p.n + q.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-records-of-one-type-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Both elements are the SAME record type — the shape that released BOTH.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, A)
+	let a = A.create(40)
+	let b = A.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair()
+	return (x.n + y.n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-fresh-records-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+No locals at all: both elements are `create` results moved straight into the literal.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, B)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (A.create(40), B.create(2))
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair()
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-records-in-reverse-position-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The literal is `(b, a)`, so the record the defect released sits at element 0.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (B, A)
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (b, a)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (y, x) = pair()
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-of-two-records-whose-types-are-declared-in-the-other-order-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The first case with `type B` declared ABOVE `type A` and nothing else changed — the shape that would move
+the released element to `a` if the decision followed interner order rather than the tuple.
+```maxon
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, B)
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair()
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-literal-of-two-record-locals-owns-both -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The bound-literal control: no signature in the program spells `(A, B)`, so the literal mints the type
+itself from elements already tagged `structRef`, and both go through `__mm_own` whichever layout copy is
+read.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+function main() returns ExitCode
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (a, b)
+	// TODO: tuple element access is not supported in minimaxon
+	return (t.0.n + t.1.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-bound-tuple-of-two-records-returned-by-name-survives-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The literal is BOUND first and the binding is returned — the bound-literal control moved into a function
+whose signature spells `(A, B)`. It went red with the literal cases above, which located the defect in the
+literal's element classification rather than in `return`.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, B)
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (a, b)
+	return t
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair()
+	return (x.n + y.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-bound-tuple-literal-owns-both-when-another-signature-spells-the-tuple -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The trigger is whole-program, not the enclosing signature: `main` spells no tuple type, but `pair`'s
+signature makes the sweep mint `(A, B)` before any body is parsed, and `main`'s own literal reads that
+layout. 40 + 2 + 0 + 0.
+```maxon
+type A
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'A'
+
+type B
+	export var m as Integer
+
+	static function create(m Integer) returns Self
+		return Self{m: m}
+	end 'create'
+end 'B'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (A, B)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (A.create(0), B.create(0))
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (p, q) = pair()
+	let a = A.create(40)
+	let b = B.create(2)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (a, b)
+	// TODO: tuple element access is not supported in minimaxon
+	return (t.0.n + t.1.m + p.n + q.m) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+
+<!-- test: a-tuple-literal-holding-a-closure-fills-a-function-typed-column -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A closure literal written as a tuple element takes the function type the receiving column declares, exactly as it
+does at a parameter or an array element.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Slot
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Thunk, Integer)
+
+	static function create() returns Self
+		// TODO: tuple values and types are not supported in minimaxon
+		// TODO: closures are not supported in minimaxon
+		return Self{pair: (function() gives 40, 2)}
+	end 'create'
+
+	function rearm(base Integer)
+		// TODO: tuple values and types are not supported in minimaxon
+		// TODO: closures are not supported in minimaxon
+		self.pair = (function() gives base, 1)
+	end 'rearm'
+end 'Slot'
+
+function main() returns ExitCode
+	let s = Slot.create()
+	// TODO: tuple element access is not supported in minimaxon
+	let first = s.pair.0 () + s.pair.1
+	s.rearm(41)
+	// TODO: tuple element access is not supported in minimaxon
+	let second = s.pair.0 () + s.pair.1
+	// TODO: tuple values and types are not supported in minimaxon
+	var t = (idle, 0 as Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	// TODO: closures are not supported in minimaxon
+	t = (function() gives 7, 1)
+	print("{first} {second} {t.0()}\n")
+	return 0
+end 'main'
+```
+```stdout
+42 42 7
+```
+
+<!-- test: a-tuple-literal-in-a-conditional-arm-fills-a-function-typed-column -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple literal written as a `match` arm, or as a conditional's arm beside a value that is no literal, takes the
+column types the receiving slot declares.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+enum Mode
+	quiet
+	live
+end 'Mode'
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+function seven() returns Integer
+	return 7
+end 'seven'
+
+type Slot
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Thunk, Integer)
+
+	static function create() returns Self
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{pair: (idle, 0)}
+	end 'create'
+
+	function choose(mode Mode)
+		self.pair = match mode 'mode'
+			// TODO: tuple values and types are not supported in minimaxon
+			quiet gives (idle, 1)
+			// TODO: tuple values and types are not supported in minimaxon
+			live gives (seven, 2)
+		end 'mode'
+	end 'choose'
+end 'Slot'
+
+// TODO: tuple parameter types are not supported in minimaxon
+// TODO: tuple return types are not supported in minimaxon
+function keptOrArmed(kept(Thunk, Integer), keep bool) returns (Thunk, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return kept if keep else (seven, 3)
+end 'keptOrArmed'
+
+function main() returns ExitCode
+	let s = Slot.create()
+	s.choose(Mode.live)
+	// TODO: tuple element access is not supported in minimaxon
+	let first = s.pair.0 () + s.pair.1
+	s.pair = keptOrArmed(s.pair, keep: false)
+	// TODO: tuple element access is not supported in minimaxon
+	let second = s.pair.0 () + s.pair.1
+	print("{first} {second}\n")
+	return 0
+end 'main'
+```
+```stdout
+9 10
+```
+
+<!-- test: a-nested-tuple-and-an-array-of-tuples-fill-function-typed-columns -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple nested in a tuple, and a tuple written as an element of an array literal, each take the function-typed
+column its position declares.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Entry = (Thunk, Integer)
+
+typealias Entries = Array with Entry
+
+function seven() returns Integer
+	return 7
+end 'seven'
+
+function eight() returns Integer
+	return 8
+end 'eight'
+
+type Table
+	// TODO: tuple values and types are not supported in minimaxon
+	export var nested as ((Thunk, Integer), Integer)
+	export var entries as Entries
+
+	static function create() returns Self
+		// TODO: tuple values and types are not supported in minimaxon
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return Self{nested: ((seven, 1), 2), entries: [(seven, 3), (eight, 4)]}
+	end 'create'
+end 'Table'
+
+function main() returns ExitCode
+	let t = Table.create()
+	// TODO: tuple element access is not supported in minimaxon
+	let inner = t.nested.0
+	let last = try t.entries.get(1) otherwise inner
+	print("{inner.0()} {inner.1} {t.nested.1} {last.0()} {last.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+7 1 2 8 4
+```
+
+<!-- test: a-tuple-literal-argument-to-an-inline-tuple-parameter-fills-a-function-typed-column -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+A tuple literal handed to a parameter whose tuple type is written inline takes the column types that parameter
+declares, as it does through an alias.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function seven() returns Integer
+	return 7
+end 'seven'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function run(armed(Thunk, Integer)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return armed.0 () + armed.1
+end 'run'
+
+function main() returns ExitCode
+	print("{run((seven, 1))} {run((function() gives 40, 2))}\n")
+	return 0
+end 'main'
+```
+```stdout
+8 42
+```
+
+<!-- test: a-tuple-literal-argument-to-a-method-fills-a-function-typed-column -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple literal handed to a method takes the column types its parameter declares.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Armed = (Thunk, Integer)
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+function seven() returns Integer
+	return 7
+end 'seven'
+
+type Slot
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Thunk, Integer)
+
+	static function create() returns Self
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{pair: (idle, 0)}
+	end 'create'
+
+	function arm(armed Armed)
+		self.pair = armed
+	end 'arm'
+end 'Slot'
+
+function main() returns ExitCode
+	let s = Slot.create()
+	// TODO: tuple values and types are not supported in minimaxon
+	s.arm((seven, 2))
+	print("{s.pair.0() + s.pair.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+9
+```
+
+<!-- test: a-pair-returned-at-three-depths-through-shared-drop-blocks -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A pair returned from three depths of owned bindings reaches the caller whole. Each `return` releases its
+innermost binding in place and branches into the drop blocks it shares with every other exit, so the
+pair rides from one shared drop block to the next before it leaves.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(n Integer) returns Integer
+	return n
+end 'opaque'
+
+// TODO: tuple return types are not supported in minimaxon
+function measure(n Integer) returns (Integer, Integer)
+	let a = "a{n}"
+	let b = "bb{n}"
+	if n == 1 'one'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (n, a.byteLength() as Integer)
+	end 'one'
+	let c = "ccc{n}"
+	if n == 2 'two'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (n, b.byteLength() as Integer)
+	end 'two'
+	if n == 3 'three'
+		// TODO: tuple values and types are not supported in minimaxon
+		return (n, c.byteLength() as Integer)
+	end 'three'
+	print("{a} {b} {c}\n")
+	// TODO: tuple values and types are not supported in minimaxon
+	return (0, (a.byteLength() + b.byteLength() + c.byteLength()) as Integer)
+end 'measure'
+
+function main() returns ExitCode
+	for n in 1 upto 5 'each'
+		// TODO: tuple destructuring declarations are not supported in minimaxon
+		let (x, y) = measure(opaque(n))
+		print("{x} {y}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 2
+2 3
+3 4
+a4 bb4 ccc4
+0 9
+```
+
+<!-- test: a-tuple-element-above-i64-max-keeps-its-unsigned-alias -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple element of an unsigned alias keeps that alias, so a value above `i64.max` passes its range check when destructured or read by position.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Wide, b Wide) returns (Wide, Wide)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function first(a Wide) returns Wide
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (h, _) = pair(a, b: 1)
+	return h
+end 'first'
+
+function second(b Wide) returns Wide
+	let t = pair(1, b: b)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1
+end 'second'
+
+function main() returns ExitCode
+	print("{first(18446744073709551615)} {second(9223372036854775808)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615 9223372036854775808
+```
+
+<!-- test: a-tuple-parameter-and-a-nested-tuple-keep-their-unsigned-alias -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+A tuple literal passed to a tuple parameter, and a nested tuple destructured, both hold values above i64.max under their alias.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+function second(t(Wide, Wide)) returns Wide
+	// TODO: tuple element access is not supported in minimaxon
+	return t.1
+end 'second'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function innermost(t(Wide, (Wide, Wide))) returns Wide
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (_, inner) = t
+	// TODO: tuple element access is not supported in minimaxon
+	return inner.1
+end 'innermost'
+
+function main() returns ExitCode
+	print("{second((1, 18446744073709551615))} {innermost((1, (2, 9223372036854775808)))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615 9223372036854775808
+```
+
+<!-- test: a-signed-element-and-an-unsigned-element-each-keep-their-reading -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A signed element reads negative and an unsigned element reads above i64.max, in one tuple; the unsigned elements divide and order unsigned.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function mixed(a Integer, b Wide) returns (Integer, Wide)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'mixed'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = mixed(-1, b: 18446744073709551615)
+	let t = mixed(-1, b: 18446744073709551614)
+	print("{x} {y} {t.1 / 2} {y > t.1}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+-1 18446744073709551615 9223372036854775807 true
+```
+
+<!-- test: an-iterator-pair-keeps-the-elements-unsigned-alias -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+The element of a `withIterator` pair over an unsigned alias keeps its alias.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias WideArray = Array with Wide
+
+function top(values WideArray) returns Wide
+	var best = 0 as Wide
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, item) in values.withIterator() 'each'
+		if item > best 'bigger'
+			best = item
+		end 'bigger'
+	end 'each'
+	return best
+end 'top'
+
+function main() returns ExitCode
+	let values = WideArray.create(0)
+	values.push(5)
+	values.push(18446744073709551615)
+	values.push(9223372036854775808)
+	print("{top(values)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615
+```
+
+<!-- test: error.a-signed-value-into-an-unsigned-column-is-refused -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple literal's unsigned column is a door like a struct field of that alias: a value of another alias is refused there.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Integer) returns (Wide, Wide)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, 1)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, _) = pair(1)
+	print("{x}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:10: cannot assign a value of type 'Integer' to element 0 of tuple (Wide, Wide), which holds 'Wide' — cast the value with 'as Wide'
+```
+
+<!-- test: error.a-tuple-of-one-alias-does-not-pass-as-another -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+Every tuple element keeps its alias, so a tuple of one alias is not a tuple of another.
+```maxon
+typealias Tally = int(0 to 1000)
+
+typealias Score = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Tally, Tally)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2)
+end 'pair'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function total(p(Score, Score)) returns Score
+	// TODO: tuple element access is not supported in minimaxon
+	return p.0 + p.1
+end 'total'
+
+function main() returns ExitCode
+	print("{total(pair())}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/tuples/error.a-tuple-of-one-alias-does-not-pass-as-another.maxon:14:10: argument type mismatch for 'p': expected '(Score, Score)', got '(Tally, Tally)'
+```
+
+<!-- test: error.a-tuple-element-keeps-its-range -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Tally = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function pair() returns (Tally, Tally)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2000)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (a, b) = pair()
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/tuples/error.a-tuple-element-keeps-its-range.maxon:5:13: Value 2000 is outside the range of 'Tally' (int(0 to 1000))
+```
+
+<!-- test: a-let-tuple-field-is-range-known -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A field of a `let` tuple literal is the number written there, so it fits an alias that admits it.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (3, 4)
+	// TODO: tuple element access is not supported in minimaxon
+	let a = t.0
+	print("{take(a)} {take(t.1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 4
+```
+
+<!-- test: a-destructured-let-tuple-is-range-known -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Destructuring a `let` tuple literal binds names that keep the range of the elements written, whether the tuple is named or in place.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (3, 4)
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (p, q) = t
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
+	let (u, w) = (7, 8)
+	print("{take(p + q)} {take(u + w)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7 15
+```
+
+<!-- test: error.a-let-tuple-field-outside-a-narrower-alias -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple field is checked against the alias it is handed to, with the element's value named.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (3, 400)
+	// TODO: tuple element access is not supported in minimaxon
+	let big = t.1
+	let w = take(big)
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:10: Value 400 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.a-let-tuple-field-write-is-refused -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple of values is a value, so a field write through a `let` tuple reassigns part of the `let` and is refused as reassigning a `let` String is.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1 as Count, 2 as Count)
+	// TODO: tuple element access is not supported in minimaxon
+	t.0 = 5
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2013: <fragment>:4:2: 't' is a let and cannot be reassigned
+```
+
+<!-- test: a-tuple-literal-keeps-each-field-its-own-integer-type -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple's fields are separate slots, so a negative field and a field above `i64.max` do not share an integer type and each keeps its own value.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (-1, u64.max)
+	print("{t.0}\n")
+	print("{t.1}\n")
+	// TODO: tuple element access is not supported in minimaxon
+	if t.1 > 1 'greater'
+		print("greater\n")
+	end 'greater'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+-1
+18446744073709551615
+greater
+```
+
+<!-- test: error.a-tuple-literal-of-another-brand-is-refused-at-a-tuple-parameter -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple type is its element aliases in order, so `(Ys, Item)` is not `(Xs, Item)` even though both arrays are one instance.
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function pass(p(Xs, Item))
+	// TODO: tuple element access is not supported in minimaxon
+	take(p.0)
+end 'pass'
+
+function main() returns ExitCode
+	let ys = Ys.create(0)
+	// TODO: tuple values and types are not supported in minimaxon
+	pass((ys, 1 as Item))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:16:2: argument type mismatch for 'p': expected '(Xs, Item)', got '(Ys, Item)'
+```
+
+<!-- test: error.a-tuple-element-read-keeps-its-brand -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+An element read out of a `(Ys, Item)` is a `Ys`.
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function pass(p(Ys, Item))
+	// TODO: tuple element access is not supported in minimaxon
+	take(p.0)
+end 'pass'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	pass((Ys.create(0), 1 as Item))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:2: argument type mismatch for 'xs': expected 'Xs', got 'Ys'
+```
+
+<!-- test: error.a-destructured-tuple-element-keeps-its-brand -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let pair = (Ys.create(0), 1 as Item)
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (a, n) = pair
+	print("{n}\n")
+	take(a)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:14:2: argument type mismatch for 'xs': expected 'Xs', got 'Ys'
+```
+
+<!-- test: error.a-tuple-typealias-keeps-its-element-brands -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias XPair = (Xs, Item)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias YPair = (Ys, Item)
+
+function pass(p XPair)
+	// TODO: tuple element access is not supported in minimaxon
+	take(p.0)
+end 'pass'
+
+function make() returns YPair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (Ys.create(0), 1 as Item)
+end 'make'
+
+function main() returns ExitCode
+	pass(make())
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:22:2: argument type mismatch for 'p': expected 'XPair', got '(Ys, Item)'
+```
+
+<!-- test: error.a-callback-over-a-tuple-of-one-brand-refuses-a-body-over-another -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Visit = function((Xs, Item))
+
+// TODO: tuple parameter types are not supported in minimaxon
+function seeYs(p(Ys, Item))
+	print("{p.1}\n")
+end 'seeYs'
+
+function run(v Visit)
+	// TODO: tuple values and types are not supported in minimaxon
+	v((Xs.create(0), 1 as Item))
+end 'run'
+
+function main() returns ExitCode
+	run(seeYs)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:21:2: argument type mismatch for 'v': expected 'fn((Xs, Item))', got 'fn((Ys, Item))'
+```
+
+<!-- test: a-tuple-literal-element-without-a-brand-fits-a-branded-tuple-parameter -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+An element that carries no brand fits the brand its tuple parameter declares, as a literal fits any alias of its kind.
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function pass(p(Xs, Item))
+	// TODO: tuple element access is not supported in minimaxon
+	take(p.0)
+	print("{p.1}\n")
+end 'pass'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	pass(([1 as Item, 2 as Item], 3 as Item))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+3
+```
+
+<!-- test: a-tuple-of-matching-brands-is-accepted-and-reads-back-its-brand -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+function take(xs Xs)
+	print("{xs.count()}\n")
+end 'take'
+
+// TODO: tuple parameter types are not supported in minimaxon
+function pass(p(Xs, Item))
+	// TODO: tuple element access is not supported in minimaxon
+	take(p.0)
+end 'pass'
+
+function main() returns ExitCode
+	let xs = Xs.create(0)
+	// TODO: tuple values and types are not supported in minimaxon
+	pass((xs, 1 as Item))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0
+```
+
+<!-- test: error.two-tuples-differing-only-by-the-file-an-alias-brand-comes-from-name-each-one -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+`pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Xs` over one and the same instance, and `Holder.pair` is a `(Xs, Item)` of `pkg/lib.maxon`'s. An exported field cannot be typed by an unmarked alias, even as a tuple's element, so the field is refused; the tuple it hands to `app/main.maxon`'s `takes` is a different `Xs` and is refused beside it, each named by the file it comes from.
+```maxon
+// --- file: item/item.maxon
+export typealias Item = int(0 to 100)
+
+// --- file: pkg/lib.maxon
+typealias Xs = Array with Item
+
+export type Holder
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Xs, Item)
+
+	export static function make() returns Holder
+		// TODO: tuple values and types are not supported in minimaxon
+		return Holder{pair: (Xs.create(0), 1 as Item)}
+	end 'make'
+end 'Holder'
+
+// --- file: app/main.maxon
+typealias Xs = Array with Item
+
+// TODO: tuple parameter types are not supported in minimaxon
+function takes(p(Xs, Item)) returns ExitCode
+	// TODO: tuple element access is not supported in minimaxon
+	return p.1 as ExitCode
+end 'takes'
+
+function main() returns ExitCode
+	return takes(Holder.make().pair)
+end 'main'
+```
+```maxoncstderr
+error E3005: app/<fragment>:24:9: argument type mismatch for 'p': expected '(Xs, Item)', got '(pkg.Xs, Item)'
+error E3167: pkg/<fragment>:8:13: exported field 'pkg.Holder.pair' names unexported typealias 'Xs' in its type
+```
+
+<!-- test: error.two-tuples-differing-only-by-brand-name-the-brands -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+Two tuples over one instance whose elements are branded differently print their brands, so the refusal reads `(Xs, Item)` against `(Ys, Item)`.
+```maxon
+typealias Item = int(0 to 100)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var pair = (Xs.create(0), 1 as Item)
+	// TODO: tuple values and types are not supported in minimaxon
+	pair = (Ys.create(0), 2 as Item)
+	// TODO: tuple element access is not supported in minimaxon
+	return pair.1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:2: cannot assign a value of type '(Ys, Item)' to variable 'pair', which holds '(Xs, Item)'
+```
+
+<!-- test: a-borrowed-trivial-tuple-starts-a-service-as-a-copy -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple none of whose elements owns heap has value semantics, so a borrowed one handed to a service's
+factory is copied in rather than refused: the service's copy and the caller's are two values. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+type Keeper
+	var pair as Pair
+
+	static function create(pair Pair) returns Self
+		return Self{pair: pair}
+	end 'create'
+
+	export function total() returns Num
+		// TODO: tuple element access is not supported in minimaxon
+		return self.pair.0 + self.pair.1
+	end 'total'
+end 'Keeper'
+
+function launch(p Pair) returns Num
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let k = spawn Keeper.create(p)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await k.total() otherwise panic("the keeper is running")
+	k.shutdown()
+	return t
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let p = (3 as Num, 40 as Num)
+	// TODO: tuple element access is not supported in minimaxon
+	return launch(p) + p.0 - 3
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-trivial-tuple-read-out-of-a-field-is-sent-as-a-copy -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A trivial tuple read out of a field is sent to a service as a copy: the message carries its own value and the
+field keeps the caller's. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+type Spot
+	export var pair as Pair
+
+	static function create(pair Pair) returns Self
+		return Self{pair: pair}
+	end 'create'
+end 'Spot'
+
+type Tally
+	var sum as Num
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function take(pair Pair)
+		// TODO: tuple element access is not supported in minimaxon
+		self.sum = pair.0 + pair.1
+	end 'take'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+end 'Tally'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let spot = Spot.create((3 as Num, 40 as Num))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let t = spawn Tally.create()
+	try t.take(spot.pair) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sum = try await t.total() otherwise panic("the tally is running")
+	t.shutdown()
+	// TODO: tuple element access is not supported in minimaxon
+	return sum + spot.pair.0 - 3
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-tuple-alias-message-parameter-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Two sibling directories each declare their own `Num` and `Pair`. `Tally.take`'s message carries the second
+directory's `Pair`, so the tuple sent is the one the message holds. Returns 46.
+```maxon
+// --- file: first/first.maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+function pick(p Pair) returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return p.0
+end 'pick'
+
+export function first() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return pick((3 as Num, 40 as Num))
+end 'first'
+
+// --- file: second/second.maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+type Tally
+	var sum as Num
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function take(pair Pair)
+		// TODO: tuple element access is not supported in minimaxon
+		self.sum = pair.0 + pair.1
+	end 'take'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+end 'Tally'
+
+export function second() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let t = spawn Tally.create()
+	// TODO: tuple values and types are not supported in minimaxon
+	try t.take((3 as Num, 40 as Num)) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sum = try await t.total() otherwise panic("the tally is running")
+	t.shutdown()
+	return sum
+end 'second'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return first() + second()
+end 'main'
+```
+```exitcode
+46
+```
+
+<!-- test: a-closure-capturing-a-borrowed-tuple-sees-a-write-through-an-alias -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A closure that captures a borrowed tuple holds a reference to the caller's record, as a binding does, so a
+write through `var q = t` is what the closure reads. Returns 55.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+function capture(t(Num, Num)) returns Num
+	// TODO: closures are not supported in minimaxon
+	// TODO: tuple element access is not supported in minimaxon
+	let r = function() gives t.1
+	var q = t
+	// TODO: tuple element access is not supported in minimaxon
+	q.1 = 55
+	return r()
+end 'capture'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let g = (1 as Num, 2 as Num)
+	return capture(g) as ExitCode
+end 'main'
+```
+```exitcode
+55
+```
+
+<!-- test: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+Two sibling directories each declare their own `Num` and `Nums`. `Tally.take`'s message carries the second
+directory's `Nums`, so the array sent is the one the message holds. Returns 46.
+```maxon
+// --- file: first/first.maxon
+typealias Num = int(0 to 1000)
+
+typealias Nums = Array with Num
+
+function head(xs Nums) returns Num
+	return try xs.get(0) otherwise 0
+end 'head'
+
+export function first() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return head([3 as Num])
+end 'first'
+
+// --- file: second/second.maxon
+typealias Num = int(0 to 1000)
+
+typealias Nums = Array with Num
+
+type Tally
+	var sum as Num
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	export function take(items isolated Nums)
+		self.sum = try items.get(0) otherwise 0
+	end 'take'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+end 'Tally'
+
+export function second() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let t = spawn Tally.create()
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let items = Nums.create(0) as isolated Nums
+	items.push(43 as Num)
+	try t.take(items) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sum = try await t.total() otherwise panic("the tally is running")
+	t.shutdown()
+	return sum
+end 'second'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return first() + second()
+end 'main'
+```
+```exitcode
+46
+```
+
+<!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-as-a-copy -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`Box with Pair` keeps its factory's `item` in its state; a borrowed trivial tuple handed to that factory is
+copied in, so the service owns its state alone. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+type Box uses T
+	var item as T
+	var tag as Num
+
+	static function create(item T, tag Num) returns Self
+		return Self{item: item, tag: tag}
+	end 'create'
+
+	export function tagOf() returns Num
+		return self.tag
+	end 'tagOf'
+end 'Box'
+
+function launch(p Pair) returns Num
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Box.create(p, tag: 43)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.tagOf() otherwise panic("the box is running")
+	h.shutdown()
+	return t
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return launch((3 as Num, 40 as Num))
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`echo` hands back a tuple the compiler cannot prove this frame owns alone; a trivial tuple has no identity,
+so it is sent as a copy and `b` keeps its value. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+function echo(p Pair) returns Pair
+	return p
+end 'echo'
+
+type Tally
+	var sum as Num
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function take(pair Pair)
+		// TODO: tuple element access is not supported in minimaxon
+		self.sum = pair.0 + pair.1
+	end 'take'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+end 'Tally'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var b = echo((3 as Num, 1 as Num))
+	// TODO: tuple element access is not supported in minimaxon
+	b.1 = 40
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let t = spawn Tally.create()
+	try t.take(b) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sum = try await t.total() otherwise panic("the tally is running")
+	t.shutdown()
+	// TODO: tuple element access is not supported in minimaxon
+	return sum + b.0 - 3
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-from-a-generic-body-as-a-copy -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`launch` is generic, so inside it `x` is a `T`; called with a trivial tuple, the service's factory is still
+handed a copy. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+type Box uses T
+	var item as T
+	var tag as Num
+
+	static function create(item T, tag Num) returns Self
+		return Self{item: item, tag: tag}
+	end 'create'
+
+	export function tagOf() returns Num
+		return self.tag
+	end 'tagOf'
+end 'Box'
+
+function launch(x T) uses T returns Num
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Box.create(x, tag: 43)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let t = try await h.tagOf() otherwise panic("the box is running")
+	h.shutdown()
+	return t
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let p = (3 as Num, 40 as Num)
+	return launch(p)
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-generic-function-declared-before-the-body-that-mints-its-tuple-argument-compiles -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`launch`'s instance takes a tuple only `main`'s body spells, and `launch` is declared first; the instance
+still knows the tuple's layout. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+function launch(x T) uses T returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return x.0 + x.1
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return launch((3 as Num, 40 as Num))
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-generic-function-declared-before-the-body-that-mints-its-tuple-of-an-array-compiles -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same, with a tuple whose first element is an array. Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+function launch(x T) uses T returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return x.0.count() as Num + x.1
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [1 as Num, 2 as Num, 3 as Num]
+	// TODO: tuple values and types are not supported in minimaxon
+	return launch((xs, 40 as Num))
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-tuple-literal-argument-is-typed-by-the-declaration-its-reader-can-see -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+Two sibling directories each declare a `launch`. The second's is generic, so the tuple literal it is called
+with is typed by that one, not by the first directory's `launch(p Pair)`, which it cannot see. Returns 46.
+```maxon
+// --- file: first/first.maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Num, Num)
+
+function launch(p Pair) returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return p.0
+end 'launch'
+
+export function first() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return launch((3 as Num, 40 as Num))
+end 'first'
+
+// --- file: second/second.maxon
+typealias Num = int(0 to 1000)
+
+function launch(x T) uses T returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return x.0 + x.1
+end 'launch'
+
+export function second() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	return launch((3 as Num, 40 as Num))
+end 'second'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return first() + second()
+end 'main'
+```
+```exitcode
+46
+```
+
+<!-- test: a-generic-function-declared-before-the-body-that-mints-a-tuple-of-an-array-of-a-tuple-compiles -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple inside an array inside the tuple argument: every layout the instance needs travels with it.
+Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+function launch(x T) uses T returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return x.0.count() as Num + x.1 + 2
+end 'launch'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return launch(([(3 as Num, 1 as Num)], 40 as Num))
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: a-generic-function-handed-a-tuple-only-another-instance-spells-compiles -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+`launch`'s instance takes the tuple `wrap`'s instance returns; no body outside an instance writes that tuple.
+Returns 43.
+```maxon
+typealias Num = int(0 to 1000)
+
+// TODO: tuple return types are not supported in minimaxon
+function wrap(x T) uses T returns (T, Num)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (x, 40)
+end 'wrap'
+
+function launch(x T) uses T returns Num
+	// TODO: tuple element access is not supported in minimaxon
+	return x.0 + x.1
+end 'launch'
+
+function main() returns ExitCode
+	return launch(wrap(3 as Num))
+end 'main'
+```
+```exitcode
+43
+```
+
+<!-- test: error.a-function-value-into-a-tuple-element-names-the-element -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A function value stored into a tuple element of a scalar alias is refused naming the element in source terms, the way a struct field names itself.
+```maxon
+typealias Wide = int(0 to 1000)
+
+function f(x Wide) returns Wide
+	return x
+end 'f'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var t = (1 as Wide, 2 as Wide)
+	// TODO: tuple element access is not supported in minimaxon
+	t.0 = f
+	print("{t.1}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:10:8: cannot assign a value of type 'function' to element 0 of tuple (Wide, Wide), which holds 'Wide': a function value is only usable where a function type declared with 'typealias' is expected
+```
+
+<!-- test: error.a-tuple-pushed-into-an-array-of-words-names-the-tuple-type -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple handed to an array of scalars is named by its tuple type, not by the kind word `struct`.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+typealias Words = Array with Word
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (0, 1)
+	var words = Words.create(0)
+	words.push(t)
+	return words.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:8: argument type mismatch for 'value': expected 'Word', got '(int, int)'
+```
+
+<!-- test: error.a-tuple-operand-of-an-arithmetic-operator-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let a = (1, 2) + 3
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:3:17: Cannot operate on (int, int) and int
+```
+
+<!-- test: error.a-tuple-operand-of-a-shift-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = t shl 1
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:4:12: Cannot operate on (int, int) and int
+```
+
+<!-- test: error.a-tuple-dividend-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = t / 2
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:4:12: Cannot operate on (int, int) and int
+```
+
+<!-- test: error.the-same-tuple-on-both-sides-of-an-operator-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = t + t
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:12: operator '+' is not defined for type '(int, int)'
+```
+
+<!-- test: error.two-different-tuples-on-an-operator-name-both-tuple-types -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	// TODO: tuple values and types are not supported in minimaxon
+	let u = (1, "one")
+	let a = t + u
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:5:12: Cannot operate on (int, int) and (int, String)
+```
+
+<!-- test: error.a-negated-tuple-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = -t
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:4:10: Cannot negate (int, int)
+```
+
+<!-- test: error.not-of-a-tuple-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = not t
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:10: operator 'not' requires integer operands, but this one is (int, int)
+```
+
+<!-- test: error.an-interpolated-tuple-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let s = "{t}"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:4:12: Type '(int, int)' used in string interpolation must have a toString method
+```
+
+<!-- test: error.a-tuple-scrutinee-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	match t 'm'
+		1 then print("one")
+		default then print("other")
+	end 'm'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2028: <fragment>:5:3: pattern type 'int' does not match scrutinee type '(int, int)'
+```
+
+<!-- test: error.a-tuple-condition-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	if t 'c'
+		print("x")
+	end 'c'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:5: 'if' requires a bool condition, got '(int, int)'
+```
+
+<!-- test: error.a-tuple-ternary-condition-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	let a = 1 if t else 2
+	return a as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2028: <fragment>:4:12: ternary expression requires a bool condition, got '(int, int)'
+```
+
+<!-- test: error.a-tuple-returned-as-a-scalar-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function pair() returns Integer
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	return t
+end 'pair'
+
+function main() returns ExitCode
+	return pair() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:2: Cannot return '(int, int)' from function declared to return 'Integer'
+```
+
+<!-- test: error.a-tuple-assigned-to-a-scalar-variable-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	var n = 1 as Integer
+	n = t
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:2: cannot assign a value of type '(int, int)' to variable 'n', which holds 'Integer'
+```
+
+<!-- test: error.iterating-a-tuple-names-the-tuple-type -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in t 'f'
+		print("x")
+	end 'f'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:4:2: Unsupported: `for … in` over a `(int, int)` value — the compiler iterates an `Array`, a `FixedArray`, a `List`, a `Map`'s `(key, value)` entries, a `String`'s grapheme clusters, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `current()` + `advance() throws IterationError`
+```
+
+<!-- test: error.a-tuple-range-bound-names-the-tuple-type -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	var trips = 0 as Count
+	for x in t to 3 'l'
+		trips = trips + 1
+	end 'l'
+	return trips as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:5:11: Unsupported: a counted `for … in <lo> to|upto <hi>` range needs INTEGER bounds — got a '(int, int)'. The loop variable is a counter stepped by 1, which no other domain has a meaning for; iterate a `float`/`String` by indexing an `Array` over it
+```
+
+<!-- test: error.a-tuple-in-a-character-set-literal-names-the-tuple-type -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (1, 2)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let cs = CharSet from [t]
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:25: 'CharSet' requires an argument of type Character, but its argument is (int, int)
+```
+
+<!-- test: multi-line-tuple-literal -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple literal may span lines: a line break between its elements is layout.
+```maxon
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (10, 20, 12)
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1 + t.2
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: multi-line-tuple-type-and-destructuring -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: tuple parameter types are not supported in minimaxon
+function sum(t(Integer, Integer)) returns Integer
+	// TODO: tuple element access is not supported in minimaxon
+	return t.0 + t.1
+end 'sum'
+
+// TODO: tuple return types are not supported in minimaxon
+function pair(a Integer, b Integer) returns (Integer, Integer)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (x, y) = pair(3, b: 4)
+	// TODO: tuple values and types are not supported in minimaxon
+	return sum((x, y)) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-pair-from-a-function-holding-standing-calls-allocates-only-for-a-throwing-forwarder -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+`twin` returns a pair built from two calls to `churn`, which is too large to be spliced, so `twin` is a real function with calls standing in it. Its result is read out of the two return registers at the loop in `main` and forwarded out of `checkedTwin`, whose throwing return cannot carry a pair in registers: `checkedTwin` builds a record from the two registers it receives. The loop runs a thousand times and the trace holds one record per checked call, two in all, and nothing else, so `twin` is not held to the heap convention by the one caller that needs a record.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WordPair = (Word, Word)
+
+enum PairError implements Error
+	tooBig
+end 'PairError'
+
+function churn(x Word) returns Word
+	var acc = x
+	acc = acc xor (acc shl 13)
+	acc = acc xor (acc shr 7)
+	acc = acc xor (acc shl 17)
+	acc = acc + 0x9E3779B97F4A7C15
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 5)
+	acc = acc + 0x7F4A7C159E3779B9
+	acc = acc xor (acc shr 3)
+	acc = acc xor (acc shl 29)
+	acc = acc + 0x1234567890ABCDEF
+	acc = acc xor (acc shr 19)
+	return acc
+end 'churn'
+
+function twin(a Word, b Word) returns WordPair
+	let first = churn(a) xor ((a shl 3) + (b shr 5)) xor ((a shr 7) + (b shl 11)) xor ((a shl 13) + (b shr 17))
+	let second = churn(b shr 8) xor ((b shl 3) + (a shr 5)) xor ((b shr 7) + (a shl 11)) xor ((b shl 13) + (a shr 17))
+	// TODO: tuple values and types are not supported in minimaxon
+	return (first, second)
+end 'twin'
+
+function checkedTwin(a Word, b Word) returns WordPair throws PairError
+	if a == 77 or b == 78 or a == 79 or b == 80 or a == 81 or b == 82 'tooBig'
+		throw PairError.tooBig
+	end 'tooBig'
+	return twin(a, b: b)
+end 'checkedTwin'
+
+function main() returns ExitCode
+	var lo = 1 as Word
+	var hi = 2 as Word
+	for _ in 0 upto 1000 'rounds'
+		// TODO: tuple destructuring declarations are not supported in minimaxon
+		let (x, y) = twin(lo, b: hi)
+		lo = y
+		hi = x
+	end 'rounds'
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (p, q) = try checkedTwin(hi, b: lo) otherwise panic("unreachable")
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (r, s) = try checkedTwin(lo, b: hi) otherwise panic("unreachable")
+	return ((p xor q xor r xor s) and 127) as ExitCode
+end 'main'
+```
+```exitcode
+63
+```
+```mm-trace
+mm_alloc __Tuple2.Word.Word #1 size=16
+mm_alloc __Tuple2.Word.Word #2 size=16
+mm_decref __Tuple2.Word.Word #2 rc=0
+mm_free __Tuple2.Word.Word #2
+mm_decref __Tuple2.Word.Word #1 rc=0
+mm_free __Tuple2.Word.Word #1
+```
+
+<!-- test: a-rebuilt-pair-with-a-bool-half-reads-back-the-same-bool -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+`flagged` holds standing calls, so it is a real function whose pair rides the two return registers: the loop's first call reads the halves out and drops the box. The second call passes its result to `inspect`, which takes the tuple as a record, so that one site builds the record from the two registers it receives. The bool half is stored into the record's eight-byte slot and read back through the bool load, so a stale upper byte in the register would flip `inspect`'s branch. The trace holds one record per loop round and nothing else.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Flagged = (bool, Word)
+
+function churn(x Word) returns Word
+	var acc = x
+	acc = acc xor (acc shl 13)
+	acc = acc xor (acc shr 7)
+	acc = acc xor (acc shl 17)
+	acc = acc + 0x9E3779B97F4A7C15
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 5)
+	acc = acc + 0x7F4A7C159E3779B9
+	acc = acc xor (acc shr 3)
+	acc = acc xor (acc shl 29)
+	acc = acc + 0x1234567890ABCDEF
+	acc = acc xor (acc shr 19)
+	return acc
+end 'churn'
+
+function flagged(a Word, b Word) returns Flagged
+	let first = churn(a) xor ((a shl 3) + (b shr 5)) xor ((a shr 7) + (b shl 11)) xor ((a shl 13) + (b shr 17))
+	let second = churn(b shr 8) xor ((b shl 3) + (a shr 5)) xor ((b shr 7) + (a shl 11)) xor ((b shl 13) + (a shr 17))
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((first and 1) == 1, first xor second)
+end 'flagged'
+
+function inspect(t Flagged, k Word) returns Word
+	var acc = churn(t._1 xor k)
+	if t._0 'up'
+		acc = acc + (acc shl 3)
+		acc = acc xor (acc shr 5)
+		acc = acc + (acc shl 7)
+		acc = acc xor (acc shr 11)
+		acc = acc + (acc shl 13)
+		acc = acc xor (acc shr 17)
+		acc = acc + (acc shl 19)
+		acc = acc xor (acc shr 23)
+	end 'up' else 'down'
+		acc = acc xor (acc shl 9)
+		acc = acc + (acc shr 13)
+		acc = acc xor (acc shl 17)
+		acc = acc + (acc shr 19)
+		acc = acc xor (acc shl 21)
+		acc = acc + (acc shr 25)
+		acc = acc xor (acc shl 29)
+		acc = acc + (acc shr 31)
+	end 'down'
+	acc = acc xor (acc shr 23)
+	acc = acc + (acc shl 5)
+	acc = acc xor (acc shr 7)
+	acc = acc + (acc shl 11)
+	return acc xor (acc shr 13)
+end 'inspect'
+
+function main() returns ExitCode
+	var tally = 0 as Word
+	for round in 0 upto 4 'rounds'
+		// TODO: tuple destructuring declarations are not supported in minimaxon
+		let (up, word) = flagged(tally, b: round as Word)
+		if up 'raise'
+			tally = tally + word
+		end 'raise'
+		tally = tally xor inspect(flagged(word, b: tally), k: round as Word)
+	end 'rounds'
+	tally = tally xor inspect(flagged(tally, b: 7), k: 9)
+	return (tally and 127) as ExitCode
+end 'main'
+```
+```exitcode
+27
+```
+```mm-trace
+mm_alloc __Tuple2.bool.Word #1 size=16
+mm_decref __Tuple2.bool.Word #1 rc=0
+mm_free __Tuple2.bool.Word #1
+mm_alloc __Tuple2.bool.Word #2 size=16
+mm_decref __Tuple2.bool.Word #2 rc=0
+mm_free __Tuple2.bool.Word #2
+mm_alloc __Tuple2.bool.Word #3 size=16
+mm_decref __Tuple2.bool.Word #3 rc=0
+mm_free __Tuple2.bool.Word #3
+mm_alloc __Tuple2.bool.Word #4 size=16
+mm_decref __Tuple2.bool.Word #4 rc=0
+mm_free __Tuple2.bool.Word #4
+mm_alloc __Tuple2.bool.Word #5 size=16
+mm_decref __Tuple2.bool.Word #5 rc=0
+mm_free __Tuple2.bool.Word #5
+```
+
+<!-- test: a-rebuilt-pair-with-a-managed-half-releases-the-half-with-the-record -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+The same shape with a String half. `named` returns its pair in registers because the first site reads out the halves and releases the string through the cascade; the second site passes the result to `describe`, which takes the tuple as a record, so that site builds one from the two registers. The record owns the string, and releasing the record releases it: the trace pairs every string record with a free.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Named = (String, Word)
+
+function churn(x Word) returns Word
+	var acc = x
+	acc = acc xor (acc shl 13)
+	acc = acc xor (acc shr 7)
+	acc = acc xor (acc shl 17)
+	acc = acc + 0x9E3779B97F4A7C15
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 5)
+	acc = acc + 0x7F4A7C159E3779B9
+	acc = acc xor (acc shr 3)
+	acc = acc xor (acc shl 29)
+	acc = acc + 0x1234567890ABCDEF
+	acc = acc xor (acc shr 19)
+	return acc
+end 'churn'
+
+function named(a Word, b Word) returns Named
+	let first = churn(a) xor ((a shl 3) + (b shr 5)) xor ((a shr 7) + (b shl 11)) xor ((a shl 13) + (b shr 17))
+	let second = churn(b shr 8) xor ((b shl 3) + (a shr 5)) xor ((b shr 7) + (a shl 11)) xor ((b shl 13) + (a shr 17))
+	// TODO: tuple values and types are not supported in minimaxon
+	return ("n{first and 255}", first xor second)
+end 'named'
+
+function describe(t Named, k Word) returns Word
+	var acc = churn(t._1 xor k)
+	acc = acc + (acc shl 3)
+	acc = acc xor (acc shr 5)
+	acc = acc + (acc shl 7)
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 9)
+	acc = acc + (acc shr 13)
+	acc = acc xor (acc shl 17)
+	acc = acc + (acc shr 19)
+	acc = acc xor (acc shl 21)
+	acc = acc + (acc shr 25)
+	acc = acc xor (acc shl 29)
+	acc = acc + (acc shr 31)
+	acc = acc xor (acc shr 23)
+	acc = acc + (acc shl 5)
+	acc = acc xor (acc shr 7)
+	acc = acc + (acc shl 11)
+	return acc + (t._0.byteLength() as Word)
+end 'describe'
+
+function main() returns ExitCode
+	var tally = 0 as Word
+	for round in 0 upto 2 'rounds'
+		// TODO: tuple destructuring declarations are not supported in minimaxon
+		let (label, word) = named(tally, b: round as Word)
+		tally = tally xor word xor (label.byteLength() as Word)
+		tally = tally xor describe(named(word, b: tally), k: round as Word)
+	end 'rounds'
+	tally = tally xor describe(named(tally, b: 7), k: 9)
+	return (tally and 127) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+```mm-trace
+mm_alloc InterpolationScratch #1 size=20
+mm_alloc StringRecord #2 size=60
+mm_decref InterpolationScratch #1 rc=0
+mm_free InterpolationScratch #1
+mm_alloc StringRecord #3 size=60
+mm_alloc InterpolationScratch #4 size=20
+mm_alloc StringRecord #5 size=60
+mm_decref InterpolationScratch #4 rc=0
+mm_free InterpolationScratch #4
+mm_alloc __Tuple2.String.Word #6 size=16
+mm_decref __Tuple2.String.Word #6 rc=0
+mm_decref StringRecord #5 rc=0
+mm_free StringRecord #5
+mm_free __Tuple2.String.Word #6
+mm_decref StringRecord #3 rc=0
+mm_free StringRecord #3
+mm_decref StringRecord #2 rc=0
+mm_free StringRecord #2
+mm_alloc InterpolationScratch #7 size=20
+mm_alloc StringRecord #8 size=60
+mm_decref InterpolationScratch #7 rc=0
+mm_free InterpolationScratch #7
+mm_alloc StringRecord #9 size=60
+mm_alloc InterpolationScratch #10 size=20
+mm_alloc StringRecord #11 size=60
+mm_decref InterpolationScratch #10 rc=0
+mm_free InterpolationScratch #10
+mm_alloc __Tuple2.String.Word #12 size=16
+mm_decref __Tuple2.String.Word #12 rc=0
+mm_decref StringRecord #11 rc=0
+mm_free StringRecord #11
+mm_free __Tuple2.String.Word #12
+mm_decref StringRecord #9 rc=0
+mm_free StringRecord #9
+mm_decref StringRecord #8 rc=0
+mm_free StringRecord #8
+mm_alloc InterpolationScratch #13 size=20
+mm_alloc StringRecord #14 size=61
+mm_decref InterpolationScratch #13 rc=0
+mm_free InterpolationScratch #13
+mm_alloc __Tuple2.String.Word #15 size=16
+mm_decref __Tuple2.String.Word #15 rc=0
+mm_decref StringRecord #14 rc=0
+mm_free StringRecord #14
+mm_free __Tuple2.String.Word #15
+```
+
+<!-- test: a-caller-on-the-convention-builds-a-record-at-its-one-site-that-needs-one -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- MmTrace -->
+`relay` returns its pair in registers: it forwards `twin`'s pair straight out on one path, and the same function passes `twin`'s pair to `inspect` on the other, where the callee takes a record. `relay` stays on the convention and builds the one record at the second site; `main` reads relay's halves out of the registers. The trace holds one record per call that took the second path and no record for the forwarded one.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WordPair = (Word, Word)
+
+function churn(x Word) returns Word
+	var acc = x
+	acc = acc xor (acc shl 13)
+	acc = acc xor (acc shr 7)
+	acc = acc xor (acc shl 17)
+	acc = acc + 0x9E3779B97F4A7C15
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 5)
+	acc = acc + 0x7F4A7C159E3779B9
+	acc = acc xor (acc shr 3)
+	acc = acc xor (acc shl 29)
+	acc = acc + 0x1234567890ABCDEF
+	acc = acc xor (acc shr 19)
+	return acc
+end 'churn'
+
+function twin(a Word, b Word) returns WordPair
+	let first = churn(a) xor ((a shl 3) + (b shr 5)) xor ((a shr 7) + (b shl 11)) xor ((a shl 13) + (b shr 17))
+	let second = churn(b shr 8) xor ((b shl 3) + (a shr 5)) xor ((b shr 7) + (a shl 11)) xor ((b shl 13) + (a shr 17))
+	// TODO: tuple values and types are not supported in minimaxon
+	return (first, second)
+end 'twin'
+
+function inspect(t WordPair, k Word) returns Word
+	var acc = churn(t._0 xor k)
+	acc = acc + (acc shl 3)
+	acc = acc xor (acc shr 5)
+	acc = acc + (acc shl 7)
+	acc = acc xor (acc shr 11)
+	acc = acc xor (acc shl 9)
+	acc = acc + (acc shr 13)
+	acc = acc xor (acc shl 17)
+	acc = acc + (acc shr 19)
+	acc = acc xor (acc shl 21)
+	acc = acc + (acc shr 25)
+	acc = acc xor (acc shl 29)
+	acc = acc + (acc shr 31)
+	acc = acc xor (acc shr 23)
+	acc = acc + (acc shl 5)
+	acc = acc xor (acc shr 7)
+	acc = acc + (acc shl 11)
+	return acc xor t._1
+end 'inspect'
+
+function relay(flag Word, a Word, b Word) returns WordPair
+	if flag == 0 'forward'
+		return twin(a, b: b)
+	end 'forward'
+	let spent = inspect(twin(b, b: a), k: flag)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (spent, a xor b)
+end 'relay'
+
+function main() returns ExitCode
+	var lo = 1 as Word
+	var hi = 2 as Word
+	for round in 0 upto 4 'rounds'
+		// TODO: tuple destructuring declarations are not supported in minimaxon
+		let (x, y) = relay(round and 1, a: lo, b: hi)
+		lo = y
+		hi = x xor (round as Word)
+	end 'rounds'
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (p, q) = relay(1, a: hi, b: lo)
+	// TODO: tuple values and types are not supported in minimaxon
+	let scratch = inspect((p, q), k: 3)
+	return ((lo xor hi xor p xor q xor scratch) and 127) as ExitCode
+end 'main'
+```
+```exitcode
+91
+```
+```mm-trace
+mm_alloc __Tuple2.Word.Word #1 size=16
+mm_decref __Tuple2.Word.Word #1 rc=0
+mm_free __Tuple2.Word.Word #1
+mm_alloc __Tuple2.Word.Word #2 size=16
+mm_decref __Tuple2.Word.Word #2 rc=0
+mm_free __Tuple2.Word.Word #2
+mm_alloc __Tuple2.Word.Word #3 size=16
+mm_decref __Tuple2.Word.Word #3 rc=0
+mm_free __Tuple2.Word.Word #3
+mm_alloc __Tuple2.Word.Word #4 size=16
+mm_decref __Tuple2.Word.Word #4 rc=0
+mm_free __Tuple2.Word.Word #4
+```
+
+<!-- test: a-cast-tuple-literal-read-by-a-call-in-the-return-expression -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function sumOf(triple MyTriple) returns MyWord
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (a, b, c) = triple
+	return a + b + c
+end 'sumOf'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, 2, 3) as MyTriple
+	let first = sumOf(triple)
+	let second = sumOf(triple)
+	print("{first} {second}\n")
+	return sumOf(triple) as ExitCode
+end 'main'
+```
+```stdout
+6 6
+```
+```exitcode
+6
+```
+
+<!-- test: a-cast-tuple-literal-outlives-an-interpolation -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, 2, 3) as MyTriple
+	// TODO: tuple element access is not supported in minimaxon
+	let k = triple.0 + 6
+	print("{k}\n")
+	print("{triple.0} {triple.1} {triple.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+7
+1 2 3
+```
+
+<!-- test: a-cast-tuple-literal-with-a-managed-field-outlives-an-interpolation -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Labelled = (MyWord, MyWord, String)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let labelled = (1, 2, "abc") as Labelled
+	// TODO: tuple element access is not supported in minimaxon
+	let k = labelled.0 + 6
+	print("{k}\n")
+	print("{labelled.0} {labelled.1} {labelled.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+7
+1 2 abc
+```
+
+<!-- test: a-call-result-cast-between-tuple-aliases-outlives-an-interpolation -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias OtherWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias OtherTriple = (OtherWord, OtherWord, OtherWord)
+
+function raw(seed MyWord) returns MyTriple
+	// TODO: tuple values and types are not supported in minimaxon
+	return (seed, seed, seed)
+end 'raw'
+
+function main() returns ExitCode
+	let t = raw(4) as OtherTriple
+	// TODO: tuple element access is not supported in minimaxon
+	let k = t.0 + 6
+	print("{k}\n")
+	print("{t.0} {t.1} {t.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+10
+4 4 4
+```
+
+<!-- test: a-field-read-cast-to-a-tuple-alias-outlives-the-field-being-replaced -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias OtherWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, String)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias OtherTriple = (OtherWord, OtherWord, String)
+
+type Holder
+	var p as MyTriple
+
+	static function create() returns Holder
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{p: (1, 2, "abc")}
+	end 'create'
+
+	function swap()
+		// TODO: tuple values and types are not supported in minimaxon
+		self.p = (7, 8, "xyz")
+	end 'swap'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create()
+	let t = h.p as OtherTriple
+	h.swap()
+	let n = 5
+	print("{n}\n")
+	print("{t.0} {t.1} {t.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+1 2 abc
+```
+
+<!-- test: a-var-cast-to-a-tuple-alias-outlives-the-var-being-reassigned -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias OtherWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, String)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias OtherTriple = (OtherWord, OtherWord, String)
+
+function make(n MyWord) returns MyTriple
+	// TODO: tuple values and types are not supported in minimaxon
+	return (n, n, "abc{n}")
+end 'make'
+
+function main() returns ExitCode
+	var src = make(1)
+	let t = src as OtherTriple
+	src = make(2)
+	let n = 5
+	print("{n}\n")
+	print("{t.0} {t.1} {t.2} {src.0}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+1 1 abc1 2
+```
+
+<!-- test: error.a-tuple-cast-refuses-a-constant-element-outside-its-target -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function main() returns ExitCode
+	let big = 200000
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, 2, big) as MyTriple
+	print("{triple.2}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:27: Value 200000 is outside the range of 'MyWord' (int(0 to 100000))
+```
+
+<!-- test: a-tuple-cast-panics-on-an-element-outside-its-target-at-run-time -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Wide = int(0 to 1000000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function launder(n Wide) returns Wide
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, 2, launder(200000)) as MyTriple
+	print("{triple.2}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-tuple-cast-panics-on-an-element-outside-its-target-at-run-time.test:11: Range check failed: value outside typealias 'MyWord'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: a-nested-tuple-cast-panics-on-an-inner-element-outside-its-target -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Wide = int(0 to 1000000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Inner = (MyWord, MyWord)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Outer = (Inner, MyWord)
+
+function launder(n Wide) returns Wide
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let outer = ((1, launder(200000)), 2) as Outer
+	print("{outer.0.1}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-nested-tuple-cast-panics-on-an-inner-element-outside-its-target.test:12: Range check failed: value outside typealias 'MyWord'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: a-call-result-cast-to-a-narrower-tuple-alias-panics-on-an-element-outside-it -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Wide = int(0 to 1000000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WideTriple = (Wide, Wide, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function wide(n Wide) returns WideTriple
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2, n)
+end 'wide'
+
+function main() returns ExitCode
+	let fits = wide(3) as MyTriple
+	print("{fits.2}\n")
+	let triple = wide(200000) as MyTriple
+	print("{triple.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+3
+```
+```exitcode
+1
+```
+```stderr
+panic at a-call-result-cast-to-a-narrower-tuple-alias-panics-on-an-element-outside-it.test:14: Range check failed: value outside typealias 'MyWord'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: a-tuple-cast-from-integer-to-float-elements-converts-each-element -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WidePair = (Wide, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias RealPair = (Real, Real)
+
+function launder(n Wide) returns Wide
+	return n
+end 'launder'
+
+function pairOf(a Wide, b Wide) returns WidePair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pairOf'
+
+function main() returns ExitCode
+	let wide = pairOf(1, b: 2)
+	let real = wide as RealPair
+	print("{real.0} {real.1}\n")
+	// TODO: tuple values and types are not supported in minimaxon
+	let direct = (launder(3), 4) as RealPair
+	print("{direct.0} {direct.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+1.0 2.0
+3.0 4.0
+```
+
+<!-- test: error.a-tuple-cast-from-float-to-integer-elements-is-refused-as-the-scalar-is -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WidePair = (Wide, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias RealPair = (Real, Real)
+
+function pairOf(a Real, b Real) returns RealPair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (a, b)
+end 'pairOf'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let r = pairOf(1.5, b: 2.5)
+	let w = r as WidePair
+	print("{w.0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:11:12: Cannot cast from Real to int
+```
+
+<!-- test: error.a-tuple-cast-from-a-string-element-to-an-integer-is-refused-as-the-scalar-is -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Labelled = (Wide, String)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Numbers = (Wide, Wide)
+
+function labelOf(n Wide) returns Labelled
+	// TODO: tuple values and types are not supported in minimaxon
+	return (n, "abc")
+end 'labelOf'
+
+function main() returns ExitCode
+	let l = labelOf(1)
+	let n = l as Numbers
+	print("{n.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:10:12: Cannot cast from String to int
+```
+
+<!-- test: a-tuple-cast-converts-the-integer-elements-of-a-mixed-tuple-and-keeps-the-rest -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Mixed = (Wide, String, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Converted = (Real, String, Wide)
+
+function mixedOf(n Wide) returns Mixed
+	// TODO: tuple values and types are not supported in minimaxon
+	return (n, "hello", 3)
+end 'mixedOf'
+
+function main() returns ExitCode
+	let source = mixedOf(1)
+	let converted = source as Converted
+	print("{converted.0} {converted.1} {converted.2}\n")
+	print("{source.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+1.0 hello 3
+hello
+```
+
+<!-- test: a-nested-tuple-cast-converts-integer-elements-at-every-depth -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WNest = ((Wide, Wide), Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias RNest = ((Real, Real), Real)
+
+function nestOf(n Wide) returns WNest
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((n, 2), 3)
+end 'nestOf'
+
+function main() returns ExitCode
+	let r = nestOf(7) as RNest
+	print("{r.0.0} {r.0.1} {r.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+7.0 2.0 3.0
+```
+
+<!-- test: a-tuple-cast-rebuild-keeps-a-nested-managed-tuple-it-does-not-convert -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(-1000.0 to 1000.0)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Labelled = (Wide, String)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Target = (Labelled, Real)
+
+function launder(n Wide) returns Wide
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = ((launder(1), "a{launder(2)}"), launder(3)) as Target
+	print("{t.0.1} {t.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+a2 3.0
+```
+
+<!-- test: error.a-tuple-cast-refuses-an-enum-element-as-the-scalar-does -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+enum Color
+	red
+	green
+end 'Color'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Tagged = (Color, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Numbers = (Wide, Wide)
+
+function taggedOf(n Wide) returns Tagged
+	// TODO: tuple values and types are not supported in minimaxon
+	return (Color.green, n)
+end 'taggedOf'
+
+function main() returns ExitCode
+	let t = taggedOf(1)
+	let n = t as Numbers
+	print("{n.0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:14:12: Cannot cast from enum to int
+```
+
+<!-- test: a-try-call-result-cast-to-a-narrower-tuple-alias-panics-on-an-element-outside-it -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Wide = int(0 to 1000000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias WideTriple = (Wide, Wide, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+enum Err
+	bad
+end 'Err'
+
+function wide(n Wide) returns WideTriple throws Err
+	if n > 900000 'tooBig'
+		throw Err.bad
+	end 'tooBig'
+	// TODO: tuple values and types are not supported in minimaxon
+	return (1, 2, n)
+end 'wide'
+
+function run() returns MyWord throws Err
+	let triple = try wide(200000) as MyTriple
+	// TODO: tuple element access is not supported in minimaxon
+	return triple.2
+end 'run'
+
+function main() returns ExitCode
+	let last = try run() otherwise 0
+	print("{last}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-try-call-result-cast-to-a-narrower-tuple-alias-panics-on-an-element-outside-it.test:20: Range check failed: value outside typealias 'MyWord'
+Stack trace:
+  in run
+  in main
+  in mrt_start
+```
+
+<!-- test: a-tuple-cast-yields-a-new-tuple-so-a-write-through-the-source-or-the-result-reaches-neither-other -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A tuple cast between types whose elements differ is a conversion: the result is a new tuple, so a later
+write through either name cannot put a value into the other that its element type refuses.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Big = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias SmallPair = (Small, Small)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias BigPair = (Big, Big)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	var wide = (1 as Big, 2 as Big)
+	let narrow = wide as SmallPair
+	// TODO: tuple element access is not supported in minimaxon
+	wide.0 = 5000
+	print("{narrow.0}\n")
+	// TODO: tuple values and types are not supported in minimaxon
+	let small = (1 as Small, 2 as Small)
+	var widened = small as BigPair
+	// TODO: tuple element access is not supported in minimaxon
+	widened.1 = 70000
+	print("{small.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+1
+2
+```
+
+<!-- test: error.a-tuple-cast-refuses-an-integer-element-to-an-enum-as-the-scalar-does -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+enum Color
+	red
+	green
+end 'Color'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Numbers = (Wide, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Tagged = (Color, Wide)
+
+function numbersOf(n Wide) returns Numbers
+	// TODO: tuple values and types are not supported in minimaxon
+	return (n, 2)
+end 'numbersOf'
+
+function main() returns ExitCode
+	let n = numbersOf(1)
+	let t = n as Tagged
+	print("{t.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:14:12: Cannot cast from Wide to enum 'Color' — an integer is not a case; use 'Color.fromRawValue(raw)', which throws 'noSuchRawValue' for a value no case carries
+```
+
+<!-- test: error.a-tuple-cast-refuses-a-container-element-as-the-scalar-does -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+typealias Narrow = int(0 to 100)
+
+typealias Wides = Array with Wide
+
+typealias Narrows = Array with Narrow
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Holding = (Wides, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Narrowed = (Narrows, Wide)
+
+function holdingOf(n Wide) returns Holding
+	let w = Wides.create(0)
+	w.push(n)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (w, n)
+end 'holdingOf'
+
+function main() returns ExitCode
+	let h = holdingOf(1)
+	let n = h as Narrowed
+	print("{n.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3131: <fragment>:15:12: Cannot cast to 'Narrows': a container's elements have a storage layout of their own, so 'Wides' cannot be retagged as one — build the container with the element type you need, or convert it element by element
+```
+
+<!-- test: a-tuple-literal-cast-whose-elements-already-fit-keeps-its-values -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias MyTriple = (MyWord, MyWord, MyWord)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let triple = (1, 2, 3) as MyTriple
+	print("{triple.0} {triple.1} {triple.2}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2 3
+```
+
+<!-- test: a-tuple-cast-whose-elements-differ-only-by-brand-shares-its-record -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A cast whose elements all denote the same type, here differing only by the brand of a container, is a retag: the two names share the record.
+```maxon
+typealias Item = int(0 to 1000)
+
+typealias Xs = Array with Item
+
+typealias Ys = Array with Item
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias XPair = (Xs, Item)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias YPair = (Ys, Item)
+
+function pairOf(n Item) returns XPair
+	let xs = Xs.create(0)
+	xs.push(n)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (xs, n)
+end 'pairOf'
+
+function main() returns ExitCode
+	let source = pairOf(7)
+	let result = source as YPair
+	// TODO: tuple element access is not supported in minimaxon
+	source.1 = 8
+	// TODO: tuple element access is not supported in minimaxon
+	result.1 = 9
+	print("{source.1} {result.1}\n")
+	print("{source.0.count()} {result.0.count()}\n")
+	return 0
+end 'main'
+```
+```stdout
+9 9
+1 1
+```
+
+<!-- test: error.a-tuple-cast-between-tuples-of-different-arity-is-refused -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (MyWord, MyWord)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Triple = (MyWord, MyWord, MyWord)
+
+function pairOf(n MyWord) returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (n, 2)
+end 'pairOf'
+
+function main() returns ExitCode
+	let p = pairOf(1)
+	let t = p as Triple
+	print("{t.2}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:10:12: Cannot cast from a tuple of 2 elements to a tuple of 3 elements — a tuple converts only to a tuple with the same number of elements
+```
+
+<!-- test: error.a-tuple-cast-refuses-to-freeze-an-element -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple cast keeps each element's capability: changing one would let a write through the other name reach a frozen element, or a frozen element be written.
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Plain = (Box, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable Box, Wide)
+
+function plainOf(n Wide) returns Plain
+	// TODO: tuple values and types are not supported in minimaxon
+	return (Box.create(n), n)
+end 'plainOf'
+
+function main() returns ExitCode
+	let source = plainOf(4)
+	let result = source as Frozen
+	print("{result.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'Box' to 'immutable Box': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```
+
+<!-- test: error.a-tuple-cast-refuses-to-thaw-an-element -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Plain = (Box, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable Box, Wide)
+
+function frozenOf(n Wide) returns Frozen
+	// TODO: tuple values and types are not supported in minimaxon
+	return (freeze(Box.create(n)), n)
+end 'frozenOf'
+
+function main() returns ExitCode
+	let source = frozenOf(4)
+	let result = source as Plain
+	print("{result.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'immutable Box' to 'Box': a tuple cast keeps each element's capability; copy the element (x.clone()) and build the tuple from it
+```
+
+<!-- test: error.a-tuple-cast-refuses-to-freeze-an-element-of-a-nested-tuple -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias PlainNest = ((Wide, Box), Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias FrozenNest = ((Wide, immutable Box), Wide)
+
+function nestOf(n Wide) returns PlainNest
+	// TODO: tuple values and types are not supported in minimaxon
+	return ((n, Box.create(n)), n)
+end 'nestOf'
+
+function main() returns ExitCode
+	let source = nestOf(4)
+	let result = source as FrozenNest
+	print("{result.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:16:22: Cannot cast element 0.1 of a tuple from 'Box' to 'immutable Box': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```
+
+<!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-mutable-element -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable Box, Wide)
+
+function main() returns ExitCode
+	let b = Box.create(1)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (b, 2) as Frozen
+	print("{t.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:12:17: Cannot cast element 0 of a tuple from 'Box' to 'immutable Box': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```
+
+<!-- test: a-tuple-literal-cast-of-a-frozen-element-to-the-immutable-column-is-accepted -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable Box, Wide)
+
+function main() returns ExitCode
+	let f = freeze(Box.create(1))
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (f, 2) as Frozen
+	print("{t.0.n} {t.1}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2
+```
+
+<!-- test: a-capability-on-a-value-type-tuple-element-names-the-same-type -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A capability word on a tuple element whose type is a value means the type itself: `(immutable P, Wide)` is the type `(P, Wide)`, so a cast between them keeps its values and the two pass for each other.
+```maxon
+typealias Wide = int(0 to 1000)
+
+type P
+	export let n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'P'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias PlainP = (P, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias FrozenP = (immutable P, Wide)
+
+function total(pair PlainP) returns Wide
+	// TODO: tuple element access is not supported in minimaxon
+	return pair.0.n + pair.1
+end 'total'
+
+function frozenOf(n Wide) returns FrozenP
+	// TODO: tuple values and types are not supported in minimaxon
+	return (P.create(n), 2)
+end 'frozenOf'
+
+function main() returns ExitCode
+	let p = P.create(1)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (p, 2) as FrozenP
+	print("{t.0.n} {t.1}\n")
+	print("{total(frozenOf(5))}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2
+7
+```
+
+<!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-freshly-built-element -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable Box, Wide)
+
+function main() returns ExitCode
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (Box.create(1), 2) as Frozen
+	print("{t.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:11:29: Cannot cast element 0 of a tuple from 'Box' to 'immutable Box': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```
+
+<!-- test: a-capability-on-a-payload-union-element-with-immutable-payloads-names-the-same-type -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A union with a payload whose payloads are all immutable is a value, so a capability word on its tuple element names the same type.
+```maxon
+typealias Wide = int(0 to 1000)
+
+union U
+	num(n Wide)
+	none
+end 'U'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias PlainU = (U, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias FrozenU = (immutable U, Wide)
+
+function show(u U) returns Wide
+	return match u 'm'
+		num(n) gives n
+		none gives 0
+	end 'm'
+end 'show'
+
+function total(pair PlainU) returns Wide
+	// TODO: tuple element access is not supported in minimaxon
+	return show(pair.0) + pair.1
+end 'total'
+
+function frozenOf(n Wide) returns FrozenU
+	// TODO: tuple values and types are not supported in minimaxon
+	return (U.num(n), 2)
+end 'frozenOf'
+
+function main() returns ExitCode
+	let u = U.num(1)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (u, 2) as FrozenU
+	print("{show(t.0)} {t.1}\n")
+	print("{total(frozenOf(5))}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2
+7
+```
+
+<!-- test: a-capability-on-a-record-element-holding-only-an-immutable-field-names-the-same-type -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+A record whose only field is an immutable `Box` is a value, so a capability word on its tuple element names the same type.
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box
+	export var n as Wide
+
+	static function create(n Wide) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type R
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	export let f as immutable Box
+
+	static function create(n Wide) returns Self
+		return Self{f: freeze(Box.create(n))}
+	end 'create'
+end 'R'
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias PlainR = (R, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias FrozenR = (immutable R, Wide)
+
+function total(pair PlainR) returns Wide
+	// TODO: tuple element access is not supported in minimaxon
+	return pair.0.f.n + pair.1
+end 'total'
+
+function frozenOf(n Wide) returns FrozenR
+	// TODO: tuple values and types are not supported in minimaxon
+	return (R.create(n), 2)
+end 'frozenOf'
+
+function main() returns ExitCode
+	let r = R.create(1)
+	// TODO: tuple values and types are not supported in minimaxon
+	let t = (r, 2) as FrozenR
+	print("{t.0.f.n} {t.1}\n")
+	print("{total(frozenOf(5))}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2
+7
+```
+
+<!-- test: error.a-tuple-cast-refuses-to-freeze-a-generic-service-handle-element -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+type Box uses T
+	var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	export function peek() returns T
+		return self.item
+	end 'peek'
+end 'Box'
+
+typealias WideBoxHandle = Box.handle with Wide
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Plain = (WideBoxHandle, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable WideBoxHandle, Wide)
+
+function plainOf(n Wide) returns Plain
+	// TODO: tuple values and types are not supported in minimaxon
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return (spawn Box.create(n), n)
+end 'plainOf'
+
+function main() returns ExitCode
+	let source = plainOf(4)
+	let result = source as Frozen
+	print("{result.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:20:22: Cannot cast element 0 of a tuple from 'WideBoxHandle' to 'immutable WideBoxHandle': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```
+
+<!-- test: error.a-tuple-cast-refuses-to-freeze-a-shared-value-element -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to 1000)
+
+typealias FlagCell = SharedValue with Wide
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Plain = (FlagCell, Wide)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Frozen = (immutable FlagCell, Wide)
+
+function plainOf(n Wide) returns Plain
+	// TODO: tuple values and types are not supported in minimaxon
+	return (FlagCell.create(n), n)
+end 'plainOf'
+
+function main() returns ExitCode
+	let source = plainOf(4)
+	let result = source as Frozen
+	print("{result.1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3226: <fragment>:11:22: Cannot cast element 0 of a tuple from 'FlagCell' to 'immutable FlagCell': a tuple cast keeps each element's capability; freeze the element (freeze x.clone()) and build the tuple from it
+```

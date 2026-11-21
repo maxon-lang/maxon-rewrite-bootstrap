@@ -1,0 +1,1610 @@
+---
+feature: sched-runqueue
+status: stable
+keywords: [scheduler, green-threads, coroutine, run-queue, ring, work-stealing, GMP, async, MAXON_MAX_PROCS]
+category: system
+---
+
+# The strand queue, and the green-thread run-queue hierarchy behind it
+
+## Documentation
+
+⚖ **AN `async f(…)` CALL DOES NOT CREATE A GREEN THREAD.** *"async is not supposed to create a new
+green thread. It allows a function to yield the current green thread while waiting for a blocking
+operation"* (user ruling). What it creates is a **COROUTINE** of the green thread that called it,
+and the whole of the scheduler a Maxon program can reach follows from that one sentence:
+
+| | |
+|---|---|
+| **a coroutine** | what `async f(…)` creates. It is OWNED by one green thread (`GtOffOwner`), joins that green thread's STRAND, and runs only on the machine holding the strand. A coroutine spawned by a coroutine belongs to the SAME green thread, so the relation is transitive and every frame `async` ever creates, at any nesting depth, lands in exactly one strand. |
+| **a green thread** | a unit the P/M scheduler may hand to any OS thread. `main` is one — `__gt_run_main` runs it as an ordinary green thread — and **`spawn` is the producer of every other** (a spawned SERVICE is a green thread). A green thread's owner is ITSELF, which is what closes the chain above. |
+
+⇒ **only one green thread can hold references to a box at a time, and that is a language guarantee
+rather than a thread count.** A strand runs on at most one machine at a time: a machine runs it only after
+winning its holder word by compare-and-swap, and it moves between machines only as its owner's token, whose
+publish to a run queue is a release and whose pop is an acquire. So every refcount read-modify-write on a
+box happens on the machine running that box's strand, one machine at a time, and sees every write the
+previous machine made.
+
+**The strand queue** is an intrusive FIFO through `GtOffNext`, with its two ends on the owning green
+thread's own struct, holding whichever members of the strand are runnable. A run queue never holds a
+member: it holds the strand's OWNER as a token, and the machine that pops the token becomes the strand's
+one executor (`GtOffStrandHolder`) and runs members off this queue (`__gt_run_strand`) until it is empty.
+A readied coroutine joins the back and a readied owner the FRONT, so a strand runs its owner first when
+the owner is ready. `__gt_coro_enqueue` appends and `__gt_strand_next` is the one place the strand runner
+asks what runs next. The strand's own lock, a word in the owner's struct, covers every access to the
+queue, because whoever completes a wait readies the waiter onto it — another machine firing a timer,
+answering a reply, or draining the poller for a finished pipe read. No other strand's traffic, and none of
+the scheduler's, meets that lock.
+
+⚠ **THE TWO DOORS DIFFER IN WHO TAKES THAT LOCK, AND A READER WHO GETS IT BACKWARDS WRITES A RACE.**
+`__gt_strand_next` takes it around its own dequeue, and only when an acquire load of the queue head has
+found a member. Finding the queue empty, it gives the strand up with no lock: it frees the holder word with
+an atomic add, then re-reads the head with an acquire load and claims the strand back by compare-and-swap
+if a member arrived in between. A readier pushes and then claims, so the two sides form a Dekker pair and a
+member is never left on a free strand. `__gt_coro_enqueue` does **not** take the lock — it REQUIRES the
+caller to hold it, because its callers already do: `__gt_ready_locked`, the one door every waker readies a
+coroutine through, and the strand runner placing a yielder. A runtime lock is RECURSIVE on its owner
+thread, so calling it without the lock produces no diagnostic anywhere — only a queue two OS
+threads can be inside at once.
+
+**A yield goes to the TAIL**, which is the whole content of *"let someone else have a turn"*. The
+other choice lets a thousand yields from one green thread leave a sibling that has never run still
+unrun, and the tail is what refuses it.
+
+### The green-thread run-queue hierarchy — and every green-thread program reaches it
+
+The run queue is Go's three tiers. What they schedule is strand TOKENS — a green thread standing for itself and
+every coroutine it owns — so every green-thread program reaches them with `main`'s own token:
+`__gt_run_main` readies `main` onto its machine's ring before the scheduler loop's first search. `async`
+never adds a token; a `spawn` does, so a program that spawns services puts many through all three:
+
+| Tier | What it is | Who writes it |
+|---|---|---|
+| **the per-P ring** | 256 fixed slots on the P struct, addressed by two MONOTONIC counters (`runqhead`, `runqtail`); the slot is `counter mod 256` and the length is `tail - head` | the owning P's M pushes at the tail with no lock; the owner AND any thief take from the head by CAS |
+| **the global queue** | an intrusive FIFO through `GtOffRunqNext` — its own link, because an owner can sit on its strand queue while its token waits here | every mutation under `__sched_lock` |
+| **stealing** | four rounds, each visiting every other ACTIVE P once from a random start, grabbing HALF a victim's ring into the thief's own | the thief, by CAS on the victim's head |
+
+⛔ **A SECOND MACHINE IS STARTED BY A PUBLISHED TOKEN AND AN IDLE PROCESSOR TO RUN IT ON.** The only thing
+that starts a worker is `__sched_wake_or_spawn`, reached when a token is published — a `spawn`, or a strand
+readied while no machine held it. An `async`-only program has one token, `main`'s: its coroutines are
+readied onto `main`'s strand, and the machine that fires a timer or reaps a child for a strand runs that
+strand's token itself and then pays the wake the ready owed, as Go's `wakep` does, which starts a machine
+only on an idle processor. So a program whose only green thread is `main` keeps one M at one processor, and
+above one it may reach a second that has only `main`'s token to run (`SchedRuntime.maxon`'s header).
+
+⭐ **A `spawn` IS WHAT ADDS TOKENS** (`specs/services.md`, *"A send MOVES, and that is load-bearing"*). `__cown_spawn` calls
+`__gt_spawn_green` and publishes the new green thread's token to a P RING, which is exactly what a ring, a
+steal and a worker loop are for — so the five cases at the END of this file, which run services, are where
+the tiers carry more than `main`'s one token.
+
+### The dropped-thread protocol, which is unchanged
+
+**A ring cannot be spliced** — and neither can a queue somebody may already be walking — so a dropped
+coroutine cannot be taken out of one. A green thread and a coroutine are each owned by TWO parties that
+finish at moments neither can observe, so every GT carries a **teardown rendezvous word**, and each
+party adds its own half-ticket to it exactly once:
+
+| Party | Who that is | What it does first | Ticket |
+|---|---|---|---|
+| the **consumer** | the promise's owner: `await`, `try await`, or `__gt_promise_drop` (and the `cancel` that routes through it) | takes the result, or renounces it; gives back the thread's slot in the green-thread live count | 1 |
+| the **runner** | whoever finishes with the thread's EXECUTION: the strand runner whose context switch came back from a `completed` thread, the scheduler party that takes a tombstone off a queue, or a dropper that has deregistered a PARKED thread from every store | samples the stack the thread needed, and returns it to the stack pool unless it is the current seed size | 2 |
+
+**The party whose add hands back the OTHER ticket is SECOND, and the second party performs the
+teardown** — the releaser call and the struct free. Neither side has to know what the other is doing,
+and every read of the struct that precedes a party's own add is safe by construction, which is what
+makes the runner's stack-length load and the awaiter's `result` load race-free without a lock.
+
+A coroutine renounced while it was still QUEUED reads exactly `1` in that word, and that is the whole
+dropped-thread test: `__gt_strand_next` refuses to hand such a coroutine back, and
+`__gt_coro_sweep_dropped` takes the ones sitting at the queue's front — which is what keeps a
+spawn-and-drop loop that never schedules anything bounded. **The word is a field of its own and not a
+status**, because the hand-assembled trampoline overwrites `status` with `completed` unconditionally and
+a park overwrites it with `waiting`: a mark left there is erased by exactly the events the rendezvous
+exists to meet.
+
+⛔⛔ **A CASE THAT ASSERTS A PROPERTY OF ONE P NAMES ITS PROCESSOR COUNT.** A case CAN name its own
+processor count — `<!-- procs: N -->`, whose parser and whose gate are `specs/sched-default-procs.md`'s
+— and the five SERVICE cases below carry `procs: 1` explicitly rather than inheriting the default, which
+is the machine's processor count. Each of them asserts something that IS a property of
+one P — a ring's own monotonic counters, the every-61st-schedule fairness tick, the ring-versus-global
+preference a yielder is routed against, a steal count of zero — so the marker is what preserves the
+assertion rather than what narrows it. A global counter is not a channel either: a message may not write
+a module-level `var` at all (`specs/green-thread-globals.md`, E3143), so every service case below tallies
+in `self` and reports through an awaited reply. The COROUTINE half holds at any count — a strand runs one
+member at a time, on one machine at a time, in its own queue's order at any processor count, so the
+`async` answers below are the answers everywhere — except a reuse count (`recycledThreads`), which is a property of one
+processor's free list and is pinned to one. **Work stealing, the head
+CAS under contention and the Dekker
+fence on the ring publish are out of reach from a case pinned to one P**; the multi-processor gate is
+`scripts/multicore-stress/pin-matrix.sh`, which drives the `multicore-stress` programs across
+`MAXON_MAX_PROCS ∈ {1, 2, 7, 12}` and asserts `workers=1 steals=0` at one processor of every COROUTINE-only
+program whose `monitor=` reading is 0 — at one processor a second M comes to such a program only from the
+system monitor, and above one its readings are reported and not judged — and
+`workers >= 2, steals > 0` at N ≥ 2 of every SPAWN-driven one.
+
+⛔⛔ **`procs: 1` PINS THE PROCESSOR COUNT AND NOTHING ELSE; AN ORDER THAT ALSO ASSUMES `main` KEEPS THAT
+PROCESSOR ACROSS ITS SPAWNS CARRIES `<!-- preempt: off -->` AS WELL.** One processor does not mean `main`
+holds it: the system monitor asks any strand that has held its processor for 10 ms of WALL time to yield,
+and a preempted `main` goes to the GLOBAL queue's tail while its machine takes `runnext` — so a ring order
+written against "`main` spawns three services and then parks" is broken by the host holding the process
+off a core for 10 ms between two of the spawns (`specs/sched-preempt.md`'s
+`a-main-preempted-between-two-spawns-runs-the-earlier-one-first` pins what that produces). `preempt: off`
+(`MAXON_PREEMPT=off`, read once at start) withdraws the request and the syscall retake, so the premise holds
+by construction; the cases below whose pinned output is an ORDER carry it, and the ones pinning a count, a
+sum or a `steals=0` do not, because those hold whoever runs when.
+
+⛔ **AND THE DROPPED-WHILE-EXECUTING SHAPE IS UNREACHABLE FOR A COROUTINE ALTOGETHER, WHATEVER ELSE THE
+PROGRAM SPAWNS.** It needs a second M popping the thread out of the dropper's queue while the dropper is
+still spawning. A coroutine's queue is its strand's, and only the machine holding the strand pops it — the
+machine running the dropper — so no processor count exposes it.
+`scripts/multicore-stress/drop-running-torture.maxon` measures the shape a `spawn` DOES expose.
+
+⚠ **NO CASE HERE CARRIES AN `unsupported-targets:` MARKER, AND NONE MAY.** They are all green-thread
+programs, and the green-thread substrate exists on exactly the lanes that have written it — all four native
+lanes. A lane without it refuses the program at its own span,
+which the harness counts as a SKIP naming the case; a marker would make the same fact invisible
+(`docs/SPECS.md`, *Which lanes a case excludes*). `async-scheduler.md`'s *Targets*
+section is the one statement of that gate.
+
+## Tests
+
+<!-- test: sched-runqueue.a-coroutine-spawned-by-a-coroutine-joins-its-owners-queue -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**THE TRANSITIVITY THE WHOLE PIN RESTS ON.** A coroutine's owner is its SPAWNER'S owner, not its spawner
+— so `inner`, spawned by the coroutine `outer`, belongs to the same green thread `main` does, and lands
+in the SAME queue as `sibling`, which `main` spawned. It is the case that states the transitivity
+DIRECTLY, in positions rather than in an exit code: `outer` runs first, spawns `inner` behind `sibling`,
+and then awaits `inner` — which parks `outer`, and the strand runner takes the ONE queue in order, so
+`sibling` runs before `inner` even though `inner` is what is being awaited and `sibling` is nobody's
+business.
+⚠ **IT IS NOT THE ONLY CASE THAT CAN SEE THE STAMP BE *WRONG* RATHER THAN MISSING.** With `__gt_spawn`
+stamping `gt.owner = currentGt` — the SPAWNER — instead of `currentGt.owner`, this case reads
+`ra=0 rb=1 posA=1 posB=2 posC=0` (`inner` lands in `outer`'s own queue rather than `main`'s, so `await c`
+bails and answers the unset result slot), **every other case in THIS FILE still passes** because none of
+them nests an `async` inside an `async` — and **EIGHT cases elsewhere go red for the same sabotage**:
+`async-await.nested`, `.nested-two-levels`, `.nested-in-expression`, `.nested-spawn-then-await-late`,
+`.nested-void`, `.nested-try-await`, `.nested-sleep`, and `async-scheduler.nested`. So the transitivity is
+gated whether or not this case exists; what this case adds is a reading that says WHICH queue rather than
+a wrong answer. Removing the stamp altogether is the coarser sabotage and does not need this case: an
+`owner` of 0 makes `__gt_coro_enqueue` write its queue ends through a null pointer, so **every**
+green-thread program takes an access violation (exit `0xC0000005`).
+A zero here is not a benign default and a plausible-looking non-zero is not enough either.
+```maxon
+typealias Cell = SharedValue with Integer
+
+function tick(order Cell) returns Integer
+	let next = order.current() + 1
+	order.publish(next)
+	return next
+end 'tick'
+
+function inner(order Cell, posC Cell) returns Integer
+	Scheduler.parallelBoundary()
+	posC.publish(tick(order))
+	return 1
+end 'inner'
+
+function sibling(order Cell, posB Cell) returns Integer
+	Scheduler.parallelBoundary()
+	posB.publish(tick(order))
+	return 1
+end 'sibling'
+
+function outer(order Cell, posA Cell, posC Cell) returns Integer
+	Scheduler.parallelBoundary()
+	posA.publish(tick(order))
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let c = async inner(order.clone(), posC: posC.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await c
+end 'outer'
+
+function main() returns ExitCode
+	let order = Cell.create(0 as Integer)
+	let posA = Cell.create(0 as Integer)
+	let posB = Cell.create(0 as Integer)
+	let posC = Cell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let a = async outer(order.clone(), posA: posA.clone(), posC: posC.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let b = async sibling(order.clone(), posB: posB.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let ra = await a
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let rb = await b
+	print("ra={ra} rb={rb} posA={posA.current()} posB={posB.current()} posC={posC.current()}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+ra=1 rb=1 posA=1 posB=2 posC=3
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.spawn-order-is-fifo-within-one-green-thread -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**FIFO WITHIN ONE GREEN THREAD.** A strand queue is a queue and not a stack: three coroutines spawned
+in order run in that order, whatever order their promises are awaited in. The awaits here run BACKWARDS
+on purpose — `p3` first — so a queue that handed back the newest entry would be visible as `a3=1`.
+```maxon
+typealias Cell = SharedValue with Integer
+
+function tick(order Cell) returns Integer
+	let next = order.current() + 1
+	order.publish(next)
+	return next
+end 'tick'
+
+function first(order Cell, a1 Cell) returns Integer
+	Scheduler.parallelBoundary()
+	a1.publish(tick(order))
+	return 1
+end 'first'
+
+function second(order Cell, a2 Cell) returns Integer
+	Scheduler.parallelBoundary()
+	a2.publish(tick(order))
+	return 1
+end 'second'
+
+function third(order Cell, a3 Cell) returns Integer
+	Scheduler.parallelBoundary()
+	a3.publish(tick(order))
+	return 1
+end 'third'
+
+function main() returns ExitCode
+	let order = Cell.create(0 as Integer)
+	let a1 = Cell.create(0 as Integer)
+	let a2 = Cell.create(0 as Integer)
+	let a3 = Cell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async first(order.clone(), a1: a1.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async second(order.clone(), a2: a2.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async third(order.clone(), a3: a3.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let s = (await p3) + (await p2) + (await p1)
+	print("s={s} a1={a1.current()} a2={a2.current()} a3={a3.current()}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+s=3 a1=1 a2=2 a3=3
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**THE MOST RECENTLY READIED GREEN THREAD RUNS NEXT, AHEAD OF THE RING** — Go's `runnext`
+(`vendor/go/src/runtime/proc.go`, `runqput` with `next`). A `spawn` readies its service at once, so of three
+spawned in order the third holds the slot and the first two wait in the ring. Each service answers its
+message the moment it runs, so the index `awaitAny()` names is the one that ran first: the third, then the
+ring in its own order. The slot is what keeps a reply beside the thread that woke it, where its data is.
+
+⚠ **THE ORDER ASSUMES `main` KEEPS THE PROCESSOR ACROSS ALL THREE `spawn`s, WHICH ONLY `preempt: off` MAKES
+TRUE.** The monitor asks a strand that has held its processor for 10 ms of WALL time to yield; a preempted
+`main` goes to the global tail and its machine takes `runnext`, so a `main` held off a core between the second
+and third spawn sees the FIRST service answer first, and reads `first=1 sum=6` against this pin. With the switch off nothing takes `main`'s processor until it
+parks in `awaitAny()`; `specs/sched-preempt.md`'s
+`a-main-preempted-between-two-spawns-runs-the-earlier-one-first` is the same program with the preemption
+forced, pinning the other order.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias ReplyPromise = Promise with Integer
+
+typealias ReplyPromiseArray = Array with ReplyPromise
+
+type Marker
+	var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+
+	export function rank() returns Integer
+		return self.id
+	end 'rank'
+end 'Marker'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn Marker.create(1)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn Marker.create(2)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let c = spawn Marker.create(3)
+	let replies = ReplyPromiseArray.create(0)
+	replies.push(try a.rank() otherwise panic("an open mailbox with room takes the send"))
+	replies.push(try b.rank() otherwise panic("an open mailbox with room takes the send"))
+	replies.push(try c.rank() otherwise panic("an open mailbox with room takes the send"))
+	let first = replies.awaitAny()
+	var sum = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in replies 'drainthemall'
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		sum = sum + (await p)
+	end 'drainthemall'
+	print("first={first} sum={sum}\n")
+	return 0
+end 'main'
+```
+```stdout
+first=2 sum=6
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-runnext-ping-pong-pair-cannot-starve-a-bystander -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+⭐ **TWO THREADS THAT READY EACH OTHER CANNOT KEEP ONE PROCESSOR FOR EVER.** Each bounce readies its peer into
+the slot, so scheduling alone never reaches the ring, where the bystander waits. The spawn order is what
+puts it there: a `spawn` readies at once, so `Pong`, spawned last, holds the slot and the ring reads
+`[Ping, Bystander]` — the pair starts bouncing before the bystander's turn comes, and only the monitor's
+preemption request lets it in. A thread taken from the slot inherits the slice instead of counting a schedule
+of its own, so the pair reads to the monitor as one long slice and is asked to yield every lap
+(`specs/sched-preempt.md`). The request is honoured at the pair's next mailbox entry, which parks the thread on
+the global queue as a function-entry guard would, so its peer finds no one to ready and the ring behind the
+pair runs.
+
+⭐ **THE PROPERTY IS "THE BYSTANDER RUNS WHILE THE PAIR IS STILL BOUNCING", NOT AN ORDER INSIDE A FIXED
+WINDOW.** A request takes effect only if it lands before the thread's last honour check of its turn, runtime
+code included, so how many laps it takes is chance. The pair therefore bounces until the bystander has run:
+`poke` sends `Ping` a `stop`, and the first hit `Ping` takes after it ends the exchange. `totalBounces` is only the failure bound — seconds of bouncing — and a pair
+that is never preempted reaches it, prints `pingpong-done` first and fails the order below.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+let totalBounces = 30000000
+
+type Ping
+	var seen as Integer
+	var stopped as bool
+
+	static function create() returns Self
+		return Self{seen: 0, stopped: false}
+	end 'create'
+
+	export function hit(pong Pong.handle, me Ping.handle, n Integer)
+		self.seen = self.seen + 1
+		if n > 0 and not self.stopped 'bounce'
+			try pong.hit(me.clone(), pong: pong.clone(), n: n - 1) otherwise panic("a bounce finds room in the peer's mailbox")
+		end 'bounce' else 'last'
+			print("pingpong-done\n")
+		end 'last'
+	end 'hit'
+
+	export function stop()
+		self.stopped = true
+	end 'stop'
+end 'Ping'
+
+type Pong
+	var seen as Integer
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function hit(ping Ping.handle, pong Pong.handle, n Integer)
+		self.seen = self.seen + 1
+		if n > 0 'bounce'
+			try ping.hit(pong.clone(), me: ping.clone(), n: n - 1) otherwise panic("a bounce finds room in the peer's mailbox")
+		end 'bounce'
+	end 'hit'
+end 'Pong'
+
+type Bystander
+	var poked as Integer
+
+	static function create() returns Self
+		return Self{poked: 0}
+	end 'create'
+
+	export function poke(ping Ping.handle)
+		self.poked = self.poked + 1
+		print("bystander-ran\n")
+		try ping.stop() otherwise panic("an open mailbox with room takes the stop")
+	end 'poke'
+end 'Bystander'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let ping = spawn Ping.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let idle = spawn Bystander.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let pong = spawn Pong.create()
+	try ping.hit(pong.clone(), me: ping.clone(), n: totalBounces) otherwise panic("an open mailbox with room takes the send")
+	try idle.poke(ping.clone()) otherwise panic("an open mailbox with room takes the send")
+	return 42
+end 'main'
+```
+```stdout
+bystander-ran
+pingpong-done
+```
+```exitcode
+42
+```
+
+<!-- test: sched-runqueue.a-yield-hands-the-processor-to-a-never-run-sibling -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**THE TAIL, AND THE ARM THAT DOES NOT DECIDE IT.** A yield parks the yielder and the strand runner places
+it: behind whatever its strand already has runnable, or — with nothing else runnable — at the back of its
+strand queue with the strand's token on the GLOBAL queue (`a-yield-goes-behind-the-global-queue`).
+`yielder` yields a thousand times while `sibling` has never run, and this case pins the half of that which
+decides whether `sibling` ever gets a turn:
+
+• **the TAIL** — a yielder placed at the strand queue's FRONT would be handed straight back on the next
+  pop, a thousand times over, and a sibling that had never run would still be unrun. It is the tail that
+  lets `sibling` in.
+• **not the arm** — both arms append the yielder behind `sibling`; the arm decides only whether the strand
+  also goes behind the global queue, which nothing in this program can see.
+
+It reads the sibling's flag as its own result, so the assertion is what the YIELDER saw.
+```maxon
+typealias Cell = SharedValue with Integer
+
+function yielder(siblingRan Cell) returns Integer
+	var i = 0 as Integer
+	while i < 1000 'spin'
+		Scheduler.yield()
+		i = i + 1
+	end 'spin'
+	return siblingRan.current()
+end 'yielder'
+
+function sibling(siblingRan Cell) returns Integer
+	Scheduler.parallelBoundary()
+	siblingRan.publish(1 as Integer)
+	return 1
+end 'sibling'
+
+function main() returns ExitCode
+	let siblingRan = Cell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let y = async yielder(siblingRan.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let s = async sibling(siblingRan.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = await y
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let done = await s
+	print("seen={seen} done={done}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+seen=1 done=1
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-dropped-coroutine-in-the-queue-is-skipped-not-run -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**THE POPPER'S HALF OF THE DROPPED-THREAD PROTOCOL.** `marker`'s promise is dropped while two live
+coroutines sit around it in the queue — one ahead of it, one behind — so the drop's own front-of-queue
+sweep cannot reach it and `__gt_strand_next` is what has to refuse it. While `main` is parked on its
+awaits the strand runner reaches `marker`, and it must reclaim that coroutine instead of running it, so
+`ran` stays 0 and the two live results still arrive. A scheduler that ran it would both set `ran` and leave
+a thread nobody awaits, which is the green-thread live-count abort (75) rather than 7.
+```maxon
+typealias Cell = SharedValue with Integer
+
+function marker(ran Cell) returns Integer
+	Scheduler.parallelBoundary()
+	let next = ran.current() + 1
+	ran.publish(next)
+	return 1
+end 'marker'
+
+function ok(v Integer) returns Integer
+	Scheduler.parallelBoundary()
+	return v
+end 'ok'
+
+function main() returns ExitCode
+	let ran = Cell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async ok(3)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let m = async marker(ran.clone())
+	m.cancel()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async ok(4)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let a = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let b = await p2
+	print("ran={ran.current()}")
+	return (a + b) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+ran=0
+```
+```exitcode
+7
+```
+
+<!-- test: sched-runqueue.a-spawn-drop-loop-stays-bounded -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE SWEEP'S HALF.** Five thousand coroutines are spawned and dropped while `main` never parks, so the
+strand runner never reaches them, nothing would pop them and the mark alone would leave five thousand
+records alive. Each drop instead sweeps the tombstones off the FRONT of the dropped coroutine's own owner's
+queue, where the one it just marked is sitting, and reclaims it — so the next spawn takes that same record
+back off the free list. The first spawn has nothing to reuse and each of the other 4,999 reuses the one
+before it, which `Scheduler.counters().recycledThreads` counts.
+
+✅ **THIS CASE OWNS THE FRONT SWEEP.** With the drop's front sweep removed, this case reads `recycled=0`
+while the other two drop cases below stay GREEN, so the count is this case's road and nobody else's.
+```maxon
+typealias Cell = SharedValue with Integer
+
+function neverRuns(ran Cell) returns Integer
+	Scheduler.parallelBoundary()
+	let next = ran.current() + 1
+	ran.publish(next)
+	return 1
+end 'neverRuns'
+
+function main() returns ExitCode
+	let ran = Cell.create(0 as Integer)
+	var i = 0 as Integer
+	while i < 5000 'loop'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let p = async neverRuns(ran.clone())
+		p.cancel()
+		i = i + 1
+	end 'loop'
+	print("ran={ran.current()} recycled={Scheduler.counters().recycledThreads}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+ran=0 recycled=4999
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-drop-that-arrives-after-completion-reclaims -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE RUNNER-FIRST ARRIVAL ORDER.** `p` is never awaited, but while `main` is parked on `await q` its strand
+runs `p` too, so `p` runs to completion and the strand runner's `__gt_runner_done` adds the RUNNER ticket
+while the promise is still live —
+the struct survives, because it still holds a result an un-awaited promise owns. The loop body's scope exit
+then drops `p`, and that dropper is the SECOND arrival: it finds the runner's ticket and reclaims. After a
+warm-up round has put both of its records back, each of the three rounds spawns twice and both spawns are
+served from the free list — `Scheduler.counters().recycledThreads` grows by exactly 6 — so every record came back. A
+dropper that failed to reclaim `p` would leave each round one record short, and its second spawn would carve
+a fresh one. `isComplete()` is what proves the case reached the order it names — a `p` that had NOT
+completed would be the tombstone order the two cases above cover instead.
+
+✅ **THIS CASE OWNS THE CONSUMER HALF.** With the drop's consumer half removed, this case reads
+`recycled=3` and exits 75.
+```maxon
+function done() returns Integer
+	Scheduler.yield()
+	return 1
+end 'done'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	var finished = 0 as Integer
+	var i = 0 as Integer
+	while i < 1 'warm'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let p = async done()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let q = async done()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + await q
+		finished = finished + (1 if p.isComplete() else 0)
+		p.cancel()
+		i = i + 1
+	end 'warm'
+	let recycledBefore = Scheduler.counters().recycledThreads
+	var j = 0 as Integer
+	while j < 3 'completedThenDropped'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let p = async done()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let q = async done()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + await q
+		finished = finished + (1 if p.isComplete() else 0)
+		p.cancel()
+		j = j + 1
+	end 'completedThenDropped'
+	let recycled = Scheduler.counters().recycledThreads - recycledBefore
+	print("total={total} finished={finished} recycled={recycled}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+total=4 finished=4 recycled=6
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-drop-of-a-parked-thread-renounces-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**A DROP RENOUNCES A PARKED THREAD; IT DOES NOT FREE IT.** `s` parks on a timer without end (`ForeverMs`), so
+the loop body's scope exit drops a thread that is registered in the timer store and that nothing but the drop can
+end. The drop takes it out of the store under `__sched_lock` and READIES it: the thread resumes from its `sleep`
+early, runs its own body out, unwinds its own frame, and its own completion performs the runner's half. Three
+iterations with no hang, because a drop that left the deadline in the store would wait for ever and the runner
+would report the case TIMED OUT.
+
+⛔⛔ **THE DROP MAY NOT PERFORM THE RUNNER's HALF ITSELF, AND THAT IS WHAT THIS COUNT PINS.** The runner's half
+frees the STACK the parked thread is suspended on — and nothing can unwind a suspended frame from outside, so
+every heap value that thread's locals own is stranded. With no socket anywhere in it, a coroutine
+holding one interpolated `String` inside a `sleep`, dropped while parked, exits **101** when the drop frees its
+stack and **0** when the drop renounces it.
+
+⛔⛔ **THE `Scheduler.yield()` AT THE TOP OF THE MEASURED LOOP IS A SYNCHRONISATION POINT, NOT A PAUSE — WITHOUT
+IT THIS NUMBER RACES THE RECLAIM AND VARIES BY LANE.** The renounced sleeper is readied onto MAIN's strand
+queue, and a coroutine is never stolen off a strand (the case above pins exactly that), so a yield puts `main`
+BEHIND it in one FIFO and the thread has run to completion by the time `main` is scheduled again. That is what
+makes the free list's contents a FACT at every spawn below rather than a question about when a machine got
+round to it. Without it the reading differs by lane, because the spawns and the reclaims interleave
+differently. ⚠ A `sleep()` here would be
+the same race with a longer fuse; the yield waits for the EVENT.
+
+✅ **TWO READINGS, AND THE COUNT IS THE ONLY THING THAT TELLS THEM APART.** Six spawns happen inside the
+window, and each one either takes a record off the free list or carves a new one:
+  • **`recycled=6`** — every spawn was served from the free list. Each round frees two records before the next
+    round's spawns: `await f` reclaims that round's `done`, and the yield above lets the previous round's
+    renounced sleeper finish and give its record back.
+  • **`recycled=3`** — the renounced record is NEVER reclaimed, so only the awaited `done` of each round comes
+    back and every sleeper's spawn carves. The sabotage reading: remove the reclamation from this arm
+    altogether and the case still exits 0, because the consumer's half has already debited the green-thread live count
+    and the exit gate reads clean.
+The two cases above stay GREEN under both.
+```maxon
+function done() returns Integer
+	Scheduler.yield()
+	return 1
+end 'done'
+
+function sleeper() returns Integer
+	sleep(ForeverMs)
+	return 9
+end 'sleeper'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	var stillParked = 0 as Integer
+	var i = 0 as Integer
+	while i < 1 'warm'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let s = async sleeper()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let f = async done()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + await f
+		stillParked = stillParked + (0 if s.isComplete() else 1)
+		s.cancel()
+		i = i + 1
+	end 'warm'
+	let recycledBefore = Scheduler.counters().recycledThreads
+	var j = 0 as Integer
+	while j < 3 'parkedThenDropped'
+		// The previous round's renounced sleeper is queued ahead of us on this strand; one yield lets it run
+		// out, so both records are back before the two spawns below ask for one. See the note above.
+		Scheduler.yield()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let s = async sleeper()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let f = async done()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + await f
+		stillParked = stillParked + (0 if s.isComplete() else 1)
+		s.cancel()
+		j = j + 1
+	end 'parkedThenDropped'
+	let recycled = Scheduler.counters().recycledThreads - recycledBefore
+	print("total={total} stillParked={stillParked} recycled={recycled}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+total=4 stillParked=4 recycled=6
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-thousand-parked-drops-carve-a-bounded-population -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 4 -->
+**THE PARKED DROP'S RECLAIM, READ AS A POPULATION.** The case above counts reuse, which is exact only while
+every spawn and every reclaim share one processor's free list, and it is pinned to one processor for that
+reason. At several processors `main` itself does not keep a list: a preempted `main` goes to the global queue
+and any machine resumes it, and a program whose green threads spread across machines splits further. A
+reclaimed record may then wait on another processor's list while a spawn carves a fresh one — so there a
+reuse count can come up short with nothing lost, and a record lost every round can hide in that slack. `Scheduler.counters().threadRecordsCarved` is the reading that holds either way: how many
+records the scheduler's arena has ever carved. A spawn carves only when its processor's list and the global
+one are both empty, so a runtime that reclaims every dropped sleeper carves no more than the records live at
+once — `main`, this round's sleeper and its finisher — plus fewer than 64 waiting on each other processor's
+list, however many rounds run. A thousand rounds is more than five times that bound at four processors, so a
+record stranded every round cannot stay under it. The bound is taken from `Scheduler.processorCount()` rather than
+written as a number, so it follows the count the scheduler resolved.
+
+✅ **THIS CASE OWNS THE RUNNER'S HALF, AND THE EXIT GATE CANNOT SEE IT.** With the runner's half removed from the parked-drop
+arm, this case reads `bounded=false` — 1,002 records carved at four processors against a bound of 192 — and
+still exits 0, because the consumer's half has already debited the green-thread live count. A runtime whose reclaim never
+returns a record to a free list reads `bounded=false` too, with 2,001 carved.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+let rounds = 1000
+
+// Live at once: `main`, this round's sleeper and this round's finisher.
+let peakLive = 3
+
+// A processor's free list holds fewer than 64 records.
+let listSlack = 63
+
+function done() returns Integer
+	Scheduler.yield()
+	return 1
+end 'done'
+
+function sleeper() returns Integer
+	sleep(ForeverMs)
+	return 9
+end 'sleeper'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	var stillParked = 0 as Integer
+	var i = 0 as Integer
+	while i < rounds 'parkedThenDropped'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let s = async sleeper()
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let f = async done()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + await f
+		stillParked = stillParked + (0 if s.isComplete() else 1)
+		s.cancel()
+		i = i + 1
+	end 'parkedThenDropped'
+	let bound = peakLive + listSlack * ((Scheduler.processorCount() as Integer) - 1)
+	let carved = Scheduler.counters().threadRecordsCarved as Integer
+	print("total={total} stillParked={stillParked} bounded={carved <= bound}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=1000 stillParked=1000 bounded=true
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.no-coroutine-is-ever-stolen -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**THE STEAL COUNTER, AND WHAT IT READS BY CONSTRUCTION.** `Scheduler.counters().steals` walks
+`__sched_procs` and sums every processor's steal counter, so it is the only way a Maxon program can
+observe that work stealing happened at all. A coroutine is never a token on a run queue — it waits on its
+green thread's strand queue, which only the machine holding the strand reads — so **no coroutine is ever
+stolen at any processor count**. The one token this program publishes to a ring is `main`'s, at bring-up,
+before the system monitor could have started a second machine; after that `main` never parks, and a
+preemption puts it on the global queue, which a machine takes from without stealing. So this reads 0
+everywhere, not just at the one processor a spec case gets.
+
+⚠ **WHAT THE CASE PINS IS THE QUERY.** The builtin, the `__sched_steal_count` walk it roots and the per-P
+counter it reads are all emitted and all answer. `multicore-stress/pin-matrix.sh`, which can raise
+`MAXON_MAX_PROCS`, is where the zero becomes a measurement of the pin.
+```maxon
+function work(v Integer) returns Integer
+	Scheduler.parallelBoundary()
+	return v
+end 'work'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async work(5)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r = await p
+	print("r={r} steals={Scheduler.counters().steals}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+r=5 steals=0
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 4 -->
+⭐⭐ **A STRAND WITH COROUTINES IS READIED FROM OUTSIDE WHILE ONE OF ITS MEMBERS RUNS.** `Hub` is a service,
+so a green thread, and each `round` runs three coroutines on its strand. `napper` parks on a 1 ms timer.
+`spinner` runs meanwhile and yields every 64 steps, and each yield polls the stores, which can fire the
+timer and ready `napper` onto the strand queue while the strand is held. At four processors another machine
+can fire it too. Meanwhile `main` sends `poke` to the owner, which usually lands while the owner is
+running or parked on an `await` and only enqueues the message. The next round's send finds the owner
+parked on its mailbox and readies it. Every one of those readies meets the strand runner's pops and its yield placements on the same
+strand queue, resume slot and holder word. A ready lost there hangs the round. A member run twice, or run on
+two machines at once, gives a wrong total. The answer is fixed: every round adds `r`, the spinner's sum and
+1, and every poke is counted once.
+
+✅ **IT IS A CONTROL: ANY SOUND STRAND PROTOCOL PASSES IT, AND IT HOLDS THIS ONE TO ITS ANSWERS.** A strand
+that has coroutines guards its queue with a lock of its own. A readier pushes and then claims the holder
+word by compare-and-swap under that lock. The releaser takes no lock: it finds the queue empty, frees the
+holder with an atomic add, and re-reads the queue head with an acquire load, claiming the strand back if a
+member arrived. A yielder is placed under the strand lock, and takes `__sched_lock` only to put the
+strand's token on the global queue. `a-timer-readies-a-coroutine-while-its-sibling-runs-at-one-processor` is its twin at one
+processor.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+let rounds = 40
+
+let spinSteps = 2000
+
+let yieldEvery = 64
+
+function napper(v Integer) returns Integer
+	sleep(1)
+	return v
+end 'napper'
+
+function spinner(steps Integer) returns Integer
+	var acc = 0 as Integer
+	for i in 0 upto steps 'spin'
+		acc = acc + i
+		if i mod yieldEvery == 0 'turn'
+			Scheduler.yield()
+		end 'turn'
+	end 'spin'
+	return acc
+end 'spinner'
+
+type Hub
+	var pokes as Integer
+
+	static function create() returns Self
+		return Self{pokes: 0}
+	end 'create'
+
+	export function round(r Integer) returns Integer
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let a = async napper(r)
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let b = async spinner(spinSteps)
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let c = async napper(1)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		return (await a) + (await b) + (await c)
+	end 'round'
+
+	export function poke()
+		self.pokes = self.pokes + 1
+	end 'poke'
+
+	export function pokeCount() returns Integer
+		return self.pokes
+	end 'pokeCount'
+end 'Hub'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let hub = spawn Hub.create()
+	var total = 0 as Integer
+	for r in 0 upto rounds 'eachRound'
+		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
+		try hub.poke() otherwise panic("an open mailbox with room takes the send")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + (await reply)
+	end 'eachRound'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let pokes = try await hub.pokeCount() otherwise 0
+	print("total={total} pokes={pokes}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=79960820 pokes=40
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs-at-one-processor -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE ONE-PROCESSOR TWIN OF `a-timer-readies-a-coroutine-while-its-sibling-runs`.** With one processor
+`main` and `Hub` take turns on it, and the spinner's yields are where the strand most often finds the timer
+due. The readies arrive in fewer orders than at four processors, and they must give the same answer. Like
+its twin, it is a control.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+let rounds = 40
+
+let spinSteps = 2000
+
+let yieldEvery = 64
+
+function napper(v Integer) returns Integer
+	sleep(1)
+	return v
+end 'napper'
+
+function spinner(steps Integer) returns Integer
+	var acc = 0 as Integer
+	for i in 0 upto steps 'spin'
+		acc = acc + i
+		if i mod yieldEvery == 0 'turn'
+			Scheduler.yield()
+		end 'turn'
+	end 'spin'
+	return acc
+end 'spinner'
+
+type Hub
+	var pokes as Integer
+
+	static function create() returns Self
+		return Self{pokes: 0}
+	end 'create'
+
+	export function round(r Integer) returns Integer
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let a = async napper(r)
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let b = async spinner(spinSteps)
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let c = async napper(1)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		return (await a) + (await b) + (await c)
+	end 'round'
+
+	export function poke()
+		self.pokes = self.pokes + 1
+	end 'poke'
+
+	export function pokeCount() returns Integer
+		return self.pokes
+	end 'pokeCount'
+end 'Hub'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let hub = spawn Hub.create()
+	var total = 0 as Integer
+	for r in 0 upto rounds 'eachRound'
+		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
+		try hub.poke() otherwise panic("an open mailbox with room takes the send")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		total = total + (await reply)
+	end 'eachRound'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let pokes = try await hub.pokeCount() otherwise 0
+	print("total={total} pokes={pokes}\n")
+	return 0
+end 'main'
+```
+```stdout
+total=79960820 pokes=40
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.ring-overflow-runs-every-spawned-service -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**THE OVERFLOW, AND THE PROOF THAT NOTHING IS LOST IN IT.** Three hundred `spawn`s run back to back with
+nothing between them that yields, so all 300 green threads are published before the first one runs. The ring
+fills to its 256 slots and the 257th push moves the OLDEST HALF plus the new thread to the global queue. The
+drain then unwinds both tiers, and every one of the 300 handles its one message exactly once whichever tier
+it ended up in.
+
+⛔⛔ **A SERVICE HAS NO MODULE-LEVEL CHANNEL.** `specs/green-thread-globals.md` refuses a message's write to
+a module-level `var`, so each `Sink` tallies into its own field and `main` sums 300 awaited replies on the
+one green thread that awaited them. This program's answer is processor-independent by construction, so the
+shape can be read at more than one processor here as well as in `multicore-stress/service-torture.maxon`.
+
+⭐ **AND `beforeAnyRan` IS AN AWAITED REPLY FROM SINK #1, WHICH IS STRICTLY MORE THAN A GLOBAL COULD
+SAY.** Read off a global, the number could only ever be 0 — nothing has been *sent*, so no handler can have
+run whatever the scheduler does, and the line would assert nothing. Read as a reply from the FIRST-spawned sink —
+the one the 257th push moved out of the ring and onto the global queue — it says that thread is alive,
+scheduled and answering, at the point in the program where the overflow has just happened and before a single
+`bump` exists to confuse the reading.
+
+⚠ **A LOST THREAD IS A DIAGNOSIS RATHER THAN A SHORT NUMBER, AND NOTHING SPINS WAITING FOR ONE.** A thread the overflow dropped never runs, so the reply `main` awaits from it never resolves, every
+green thread in the program is parked and none can become ready — which is the scheduler's `checkdead`,
+**exit 92**, taken by the last machine to go idle (`services.a-scheduler-deadlock-decides-the-same-at-four-processors`
+measures it at four processors). The case's `<!-- procs: 1 -->` pins the ring arithmetic above, not the
+detector, which decides under `__sched_lock` at every count.
+
+⭐ **ITS RED HALF.** With `__sched_runq_put`'s overflow not publishing the thread that overflowed it —
+one line, the `emitSchedEnqueueLocked` at `moveDone` — exactly one thread is lost, which is the arithmetic:
+pushes 1-256 fill the ring, push 257 moves 128 out and drops the new one, and pushes 258-300 fit in the room
+that made. The program then stops at the reply that never comes.
+```maxon
+typealias SinkHandleArray = Array with Sink.handle
+
+type Sink
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump()
+		self.n = self.n + 1
+	end 'bump'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Sink'
+
+function main() returns ExitCode
+	let sinks = SinkHandleArray.create(0)
+	var i = 0 as Integer
+	while i < 300 'spawnEach'
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		sinks.push(spawn Sink.create())
+		i = i + 1
+	end 'spawnEach'
+	// Sink #1 is the thread the 257th push moved to the global queue. Nothing has been sent yet, so this
+	// asks the overflow's own victim to answer 0 — see the note above.
+	let first = try sinks.get(0) otherwise panic("sinks.get OOB at 0 — the loop above pushed 300")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let beforeAnyRan = try await first.total() otherwise 0
+	print("beforeAnyRan={beforeAnyRan}\n")
+	var k = 0 as Integer
+	while k < 300 'sendEach'
+		let sink = try sinks.get(k as ElementIndex) otherwise panic("sinks.get OOB at {k} — the loop is bounded by the count the pushes above filled")
+		try sink.bump() otherwise panic("an open mailbox with room takes the send")
+		k = k + 1
+	end 'sendEach'
+	var ran = 0 as Integer
+	var n = 0 as Integer
+	while n < 300 'collect'
+		let sink = try sinks.get(n as ElementIndex) otherwise panic("sinks.get OOB at {n} — the loop is bounded by the count the pushes above filled")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		ran = ran + (try await sink.total() otherwise 0)
+		n = n + 1
+	end 'collect'
+	print("ran={ran}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+beforeAnyRan=0
+ran=300
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.the-ring-index-wraps-past-its-capacity -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE WRAP.** `runqhead`/`runqtail` are monotonic counters, not indices. One service takes six thousand
+messages one at a time, each drained before the next is sent, so the service is woken and re-published
+six thousand times while the ring never holds more than one thread — which drives both counters far past
+256 without ever filling a single slot. A counter used directly as a slot index addresses further and
+further past the end of the P struct.
+
+⚠⚠ **THE COUNT IS SIX THOUSAND BECAUSE A SMALLER ONE IS GREEN UNDER THE SABOTAGE IT EXISTS TO CATCH.** An
+unmasked index writes and reads through the SAME wrong address, so the program's own answer stays correct
+while it scribbles on whatever follows the P struct; the only observable is when it walks out of the
+mapped region entirely. **Against exactly that sabotage** (`emitRunqSlotAddr` addressing the raw
+monotonic counter with no `and RunqIndexMask`), one round count per build of this very program:
+
+| rounds | reading under the sabotage |
+|---|---|
+| 400 | `sum=400`, exit 0 — **GREEN under the sabotage it exists to catch** |
+| 1,000 | `sum=1000`, exit 0 |
+| 2,000 | `sum=2000`, exit 0 |
+| 3,000 | `sum=3000`, exit 0 |
+| 4,000 | **SEGFAULT** (exit 139; through the harness, `0xC0000005`) |
+| 5,000 | SEGFAULT |
+| 6,000 | SEGFAULT |
+
+⇒ six thousand is the smallest round number with a comfortable margin past the point where the mask stops
+being invisible. **DO NOT "simplify" it**: the table above is what a smaller count buys.
+
+⛔ **THE TALLY LIVES IN `self`, WHICH `green-thread-globals.md` REQUIRES, AND NOTHING SPINS ON A SHARED
+WORD.** The round ASKS, and a reply is queued behind the tick that came before it, so the await is the
+settle. **That only widens the margin the table above measures:** a round publishes the service twice —
+the tick and the reply — so the monotonic counters reach any given distance past 256 in FEWER rounds than a
+single publish per round would, and 6,000 remains a floor rather than a number to re-derive.
+
+⚠ **`<!-- procs: 1 -->` IS WHAT KEEPS THAT TABLE APPLICABLE.** The distance a counter travels is per-P; a
+service free to migrate between Ps splits its wakes across several rings and each one advances more slowly,
+which is the one change that could put 6,000 rounds back under the threshold.
+```maxon
+type Step
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function tick()
+		self.n = self.n + 1
+	end 'tick'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Step'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Step.create()
+	var sum = 0 as Integer
+	var i = 0 as Integer
+	while i < 6000 'rounds'
+		try h.tick() otherwise panic("an open mailbox with room takes the send")
+		// Queued behind the tick, so this IS the settle: the service is drained and re-published once more
+		// per round, which is what drives both monotonic counters far past 256 slots.
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		sum = try await h.total() otherwise 0
+		i = i + 1
+	end 'rounds'
+	print("sum={sum}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+sum=6000
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.the-global-queue-is-consulted-within-sixty-one-slices -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**THE FAIRNESS CHECK, AND THE ONE SHAPE THAT CAN SEE IT.** A ring overflow moves the OLDEST half of the
+ring to the global queue, so leaf #1 — the first published — ends up at the global head while the rest stay
+in the ring. The scheduler prefers its ring, so without the every-61st-slice global check leaf #1 would run
+only after all of them; with it, it runs within 61 slices of the first leaf.
+
+⭐ **THE QUANTITY IS SLICES, NOT POSITIONS, AND THE `runnext` SLOT IS WHY THAT DISTINCTION MATTERS.** A
+thread taken from the slot inherits the slice it was handed, so it costs no tick — here each leaf's `note`
+readies `Tally` into the slot, and `Tally` therefore rides the leaf's own slice. Counting RUNS would count
+those too and measure something the check does not act on. `Scheduler.counters().slices` is the tick the
+check itself tests, read in the LEAF, since reading it in `Tally` would time `Tally`.
+
+⭐⭐ **THE SETUP IS A BURST OF SENDS TO PARKED SERVICES, AND A HELLO TO EVERY LEAF IS WHAT MAKES IT ONE.** Publishing by
+`spawn` alone cannot be relied on: 300 spawns take longer than one 10 ms slice, and a preemption in the
+middle (`specs/sched-preempt.md`) lets the leaves drain as they are created, so the ring never fills and
+nothing reaches the global queue. `main` awaits a reply from each leaf in turn. At one processor with
+preemption off a leaf runs on after it replies, up to its park on an empty mailbox, before `main` is scheduled
+again, so once the last reply is in every leaf is parked and no clock has to say how long that takes. The 300
+sends then ready them all in id order — which costs no slices at all, on every lane — the 257th ready
+overflows the ring, and the batch it moves is leaves #1..#129 with #1 at its head.
+
+⛔ **THE CASE STATES WHETHER ITS OWN SETUP HAPPENED.** `Scheduler.counters().globalPushes` across the burst
+is that witness: `pushed=true` means the overflow really did put threads on the global queue, so the
+reading below is about the check. A `pushed=false` reading is the setup having dissolved, and it fails
+this case rather than passing it quietly.
+
+⭐ **THE PROPERTY IS THE BOUND OF 61**, not the phase at which the first consult after the burst falls.
+
+⛔⛔ **THE SEQUENCE IS A SERVICE'S MAILBOX AND NOT A MODULE-LEVEL `var`, WHICH `green-thread-globals.md`
+REFUSES.** This case's subject is an ORDER ACROSS SERVICES, so its tally cannot live in any one leaf's
+`self`. It lives in a 301st service: each leaf sends `note(id, slice)` without awaiting a reply as it runs, and a
+mailbox is FIFO, so the order the notes are enqueued is the order the leaves ran, with no word two green
+threads both step.
+
+⚠ **THE DRAIN HAS NO BOUND, SO A LEAF THE OVERFLOW DROPPED IS A TIMEOUT.** `main` asks `Tally` for the count
+rather than reading a word, and a count that never reaches `leafCount` leaves `main` asking for ever, which the
+runner reports as TIMED OUT; a bound in polls would be a clock against how long the leaves take on a slow host.
+`main` sleeps between asks: back to back, ask and reply would keep `main` and `Tally` handing the `runnext`
+slot to each other, which `preempt: off` leaves nothing to break.
+```maxon
+typealias LeafHandleArray = Array with Leaf.handle
+
+let leafCount = 300
+
+let fairnessInterval = 61
+
+let drainPollMs = 1
+
+// The 301st service, and the only shared sequence in the program. A send is an ENQUEUE, so the order these
+// arrive in is the order the leaves ran — with no word two green threads both step.
+type Tally
+	var n as Integer
+	var firstSlice as Integer
+	var oldestSlice as Integer
+
+	static function create() returns Self
+		return Self{n: 0, firstSlice: 0, oldestSlice: 0}
+	end 'create'
+
+	export function note(id Integer, slice Integer)
+		self.n = self.n + 1
+		if self.n == 1 'firstToRun'
+			self.firstSlice = slice
+		end 'firstToRun'
+		if id == 1 'oldest'
+			self.oldestSlice = slice
+		end 'oldest'
+	end 'note'
+
+	export function count() returns Integer
+		return self.n
+	end 'count'
+
+	export function slicesWaited() returns Integer
+		return self.oldestSlice - self.firstSlice
+	end 'slicesWaited'
+end 'Tally'
+
+type Leaf
+	var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+
+	export function hello() returns Integer
+		return self.id
+	end 'hello'
+
+	export function go(sink Tally.handle)
+		try sink.note(self.id, slice: Scheduler.counters().slices as Integer) otherwise panic("the collector's mailbox holds every leaf's note")
+	end 'go'
+end 'Leaf'
+
+function main() returns ExitCode
+	let leaves = LeafHandleArray.create(0)
+	var i = 0 as Integer
+	while i < leafCount 'spawnEach'
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		leaves.push(spawn Leaf.create(i + 1))
+		i = i + 1
+	end 'spawnEach'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let tally = spawn Tally.create()
+	// Each leaf has replied and run on to its park on an empty mailbox, so the burst below is what publishes them.
+	var h = 0 as Integer
+	while h < leafCount 'helloEach'
+		let leaf = try leaves.get(h as ElementIndex) otherwise panic("leaves.get OOB at {h} — the loop is bounded by the count the pushes above filled")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		_ = try await leaf.hello() otherwise panic("a leaf answers while its handle is held")
+		h = h + 1
+	end 'helloEach'
+	let pushedBefore = Scheduler.counters().globalPushes
+	var k = 0 as Integer
+	while k < leafCount 'sendEach'
+		let leaf = try leaves.get(k as ElementIndex) otherwise panic("leaves.get OOB at {k} — the loop is bounded by the count the pushes above filled")
+		// A temporary argument moves, so each leaf gets its own reference to the collector.
+		try leaf.go(tally.clone()) otherwise panic("an open mailbox with room takes the send")
+		k = k + 1
+	end 'sendEach'
+	let burstPushes = Scheduler.counters().globalPushes - pushedBefore
+	var runCount = 0 as Integer
+	while runCount < leafCount 'drain'
+		sleep(drainPollMs)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		runCount = try await tally.count() otherwise 0
+	end 'drain'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let waited = try await tally.slicesWaited() otherwise 0 - 1
+	print("runCount={runCount} pushed={burstPushes > 0} within={waited <= fairnessInterval}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+runCount=300 pushed=true within=true
+```
+```exitcode
+0
+```
+<!-- test: sched-runqueue.a-yield-goes-behind-the-global-queue -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**THE BACK OF THE QUEUE, AND THE ONLY SHAPE AT ONE PROCESSOR THAT CAN SEE IT.** A drained yielder goes to
+the GLOBAL queue's tail; the scheduler consults its RING first, so anything pushed to the ring AFTER the
+yielder was drained still runs BEFORE the yielder resumes. That is Go's split exactly (`Gosched` →
+`globrunqput`, `goready` → `runqput`).
+
+⚠ **AND IT TAKES THREE GREEN THREADS, BECAUSE TWO CANNOT TELL THE TWO ENDS APART.** Both ends are FIFO,
+so a yielder routed to either one lands behind everything already queued — the difference only shows
+against a thread queued AFTERWARDS. `yielder` yields (and is drained while `spawner` is still waiting in
+the ring); `spawner` then runs and `spawn`s `spawnee` into the ring; the ring is preferred, so `spawnee`
+runs FIRST and the yielder resumes second. Routed to the ring instead, the yielder would sit ahead of
+`spawnee` and the two positions would swap.
+
+⭐⭐ **IT GOES RED FOR TWO DIFFERENT CAUSES, AND IT IS THE ONLY CASE IN THIS FILE THAT CATCHES EITHER.**
+A yield that hands off to nobody at all — one that asks only about its owner's coroutines — reads
+`sPos=2 yPos=1`, and so does a yielder's publish re-pointed at the local ring, for the reason this case's
+own prose names. **Under that second sabotage every other case in this file stays GREEN, `a-yield-hands-the-processor-to-a-never-run-sibling`
+included**: that one discriminates the FRONT of a queue from its TAIL, which a single FIFO can express,
+and is blind to RING-versus-GLOBAL, which only a green thread has two tiers to have. The publish this case
+guards is the strand runner's `__gt_enqueue` of the strand's token when a yielder's strand has nothing else
+runnable (`GtRuntime.buildGtRunStrand`).
+
+⚠ **`spawnee`'s HANDLE IS DROPPED BEFORE IT HAS RUN, AND THAT IS THE POINT AT WHICH IT IS STILL QUEUED.**
+A drop closes the mailbox, and a closed mailbox DRAINS what is already in it — so the message survives
+its handle and the service still runs it once.
+
+⛔⛔ **THE POSITIONS COME OFF A COLLECTOR'S MAILBOX AND NOT OFF A MODULE-LEVEL `var`, WHICH
+`green-thread-globals.md` REFUSES.** Like the fairness case above, this one's subject is an ORDER ACROSS
+services, so the sequence cannot live in any one of them; it lives in a `Tally` service each of the three
+sends `note(id)` to as it runs. A send is an ENQUEUE and a mailbox is FIFO, so the arrival order IS the run
+order — the same discrimination a shared word would make, through a channel with no read-modify-write in it.
+
+⚠ **`Tally` IS SPAWNED THIRD, AFTER `y` AND `s`.** Both of those keep the publication slots the argument
+above turns on; a collector spawned ahead of them would take `y`'s.
+
+`main` sleeps between its asks for the count, for the fairness case's reason above, and the drain has no bound:
+a note that never arrives is a TIMEOUT.
+```maxon
+let drainPollMs = 1
+
+let spawneeId = 1
+
+let yielderId = 2
+
+// The only shared sequence in the program — see the note above.
+type Tally
+	var n as Integer
+	var sPos as Integer
+	var yPos as Integer
+
+	static function create() returns Self
+		return Self{n: 0, sPos: 0, yPos: 0}
+	end 'create'
+
+	export function note(id Integer)
+		self.n = self.n + 1
+		if id == spawneeId 'theSpawnee'
+			self.sPos = self.n
+		end 'theSpawnee' else 'theYielder'
+			self.yPos = self.n
+		end 'theYielder'
+	end 'note'
+
+	export function count() returns Integer
+		return self.n
+	end 'count'
+
+	export function spawneePosition() returns Integer
+		return self.sPos
+	end 'spawneePosition'
+
+	export function yielderPosition() returns Integer
+		return self.yPos
+	end 'yielderPosition'
+end 'Tally'
+
+type Spawnee
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function go(sink Tally.handle)
+		try sink.note(spawneeId) otherwise panic("the collector's mailbox holds every note")
+	end 'go'
+end 'Spawnee'
+
+type Spawner
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function go(sink Tally.handle)
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		let child = spawn Spawnee.create()
+		// A parameter cannot be moved by a send, so the child gets its own reference.
+		try child.go(sink.clone()) otherwise panic("an open mailbox with room takes the send")
+	end 'go'
+end 'Spawner'
+
+type Yielder
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function go(sink Tally.handle)
+		Scheduler.yield()
+		try sink.note(yielderId) otherwise panic("the collector's mailbox holds every note")
+	end 'go'
+end 'Yielder'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let y = spawn Yielder.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let s = spawn Spawner.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let tally = spawn Tally.create()
+	try y.go(tally.clone()) otherwise panic("an open mailbox with room takes the send")
+	try s.go(tally.clone()) otherwise panic("an open mailbox with room takes the send")
+	var order = 0 as Integer
+	while order < 2 'drain'
+		sleep(drainPollMs)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		order = try await tally.count() otherwise 0
+	end 'drain'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sPos = try await tally.spawneePosition() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let yPos = try await tally.yielderPosition() otherwise 0
+	print("sPos={sPos} yPos={yPos}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+sPos=1 yPos=2
+```
+```exitcode
+0
+```
+
+<!-- test: sched-runqueue.nothing-is-stolen-on-one-processor -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE STEAL COUNTER, AND THE ONE ANSWER A SPEC CAN PIN — the SERVICE twin of
+`no-coroutine-is-ever-stolen` above, and the reason the two are different cases.** That one reads 0
+because a coroutine is never a token on a run queue, and the one token its program publishes, `main`'s,
+never has a second machine to take it. This one reads 0 for the opposite reason: twelve services and twelve
+hundred messages DO fill a ring and the steal rounds ARE reached — there is simply nobody to steal from at
+one processor. That is what makes the `steals > 0` reading in `multicore-stress/pin-matrix.sh` a
+measurement rather than a number that is always there.
+
+⭐ **AT TWELVE PROCESSORS IT GOES RED AND ITS TWIN STAYS GREEN — which is the whole reason these are two
+cases.** Run at twelve processors, so that there IS somebody to steal from, this case reads
+`done=1200 steals=1062` or thereabouts — while `no-coroutine-is-ever-stolen` above **passes unchanged**,
+because a coroutine is never a token a thief can take, at any processor count. One change, two opposite
+answers, each the one its case claims.
+
+⛔⛔ **THE TALLY IS IN `self` AND NOT IN A MODULE-LEVEL `var`, WHICH `green-thread-globals.md` REFUSES.**
+`done = done + 1` on a module-level word inside `Work.go` would be a load, an add and a store on a word twelve
+green threads share, and at `MAXON_MAX_PROCS=16` it loses updates with every run exiting 0 — the shape
+`green-thread-globals.md` opens with. Each `Work` tallies into its own field and `main` sums twelve awaited
+replies on the one green thread that awaited them, so the 1200 is arithmetic rather than a coincidence of
+scheduling. **Nothing spins waiting for the drain, and that is a strength, not a simplification:** a reply
+arrives only after the 100 `go`s queued ahead of it, so the awaits ARE the drain — a bounded spin could give
+up and print a short number that looked like a lost message, while here a lost message shows as a short sum
+and nothing else can produce one.
+
+⚠ **AND IT CARRIES `<!-- procs: 1 -->`, WHICH ITS NAME IMPLIES.**
+`steals=0` is a claim about ONE processor and is false at any other count — at twelve it reads
+`steals=1062`. The `done=1200` half is processor-independent; the `steals=0` half is not, and
+pinning the count is what keeps it the assertion its name makes.
+```maxon
+typealias WorkHandleArray = Array with Work.handle
+
+type Work
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function go()
+		self.n = self.n + 1
+	end 'go'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Work'
+
+function main() returns ExitCode
+	let workers = WorkHandleArray.create(0)
+	var i = 0 as Integer
+	while i < 12 'spawnEach'
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		workers.push(spawn Work.create())
+		i = i + 1
+	end 'spawnEach'
+	var r = 0 as Integer
+	while r < 100 'eachRound'
+		var k = 0 as Integer
+		while k < 12 'eachWorker'
+			let worker = try workers.get(k as ElementIndex) otherwise panic("workers.get OOB at {k} — the loop is bounded by the count the pushes above filled")
+			try worker.go() otherwise panic("an open mailbox with room takes the send")
+			k = k + 1
+		end 'eachWorker'
+		r = r + 1
+	end 'eachRound'
+	// A reply is queued behind the 100 sends that came before it, so awaiting all twelve is the drain.
+	var done = 0 as Integer
+	var n = 0 as Integer
+	while n < 12 'collect'
+		let worker = try workers.get(n as ElementIndex) otherwise panic("workers.get OOB at {n} — the loop is bounded by the count the pushes above filled")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		done = done + (try await worker.total() otherwise 0)
+		n = n + 1
+	end 'collect'
+	print("done={done} steals={Scheduler.counters().steals}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+done=1200 steals=0
+```
+```exitcode
+0
+```

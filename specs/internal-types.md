@@ -1,0 +1,90 @@
+---
+feature: internal-types
+status: stable
+keywords: [internal, opaque, __ManagedMemory, __ManagedList, __ManagedListNode, builtin]
+category: type-system
+---
+
+# Builtin Types
+
+## Documentation
+
+### Builtin Types
+
+Types prefixed with `__` are compiler builtin types. They are registered by the compiler and have builtin methods that are intercepted during parsing.
+
+The builtin types are:
+- `__ManagedMemory` — heap-backed buffer storage used by `Array`, `String`, and other collections
+- `__ManagedList` — doubly-linked list container
+- `__ManagedListNode` — node in a `__ManagedList`
+- `__ManagedListError` — error type for managed list operations
+
+### Using __ManagedMemory
+
+`__ManagedMemory` provides low-level heap buffer operations, and it is library-tier: only a source file under `stdlib/` or `runtime/` may name the type, its statics or its methods, or read a value's `.managed` buffer (E3185 anywhere else). The standard library builds `Array`, `String` and the other collections on it; a program uses those.
+
+```text
+typealias Int = int(i64.min to i64.max)
+
+type MyBuffer uses Element
+  var managed as __ManagedMemory
+end 'MyBuffer'
+```
+
+### __ManagedMemory Methods
+
+All methods that access buffer elements perform runtime bounds checking and panic on out-of-bounds access.
+
+Instance methods:
+- `length()` returns int — element count
+- `capacity()` returns int — allocated capacity
+- `elementSize()` returns int — bytes per element
+- `setLength(n)` — set element count (panics if n > capacity)
+- `get(index)` returns Element — read element at index (panics if index >= length)
+- `set(index, value)` — write element at index (panics if index >= capacity)
+- `grow(newCapacity)` — grow buffer via realloc (panics if newCapacity < current capacity)
+- `shiftRight(index, count)` — shift elements right (throws `shiftOutOfBounds` unless `index + count < length`)
+- `shiftLeft(index, count)` — shift elements left (throws `shiftOutOfBounds` unless `index >= 1` and `index + count <= length`)
+- `byteAt(index)` returns int — read single byte (panics if index >= length * elementSize)
+- `setByte(index, value)` — write single byte (panics if index >= length * elementSize)
+- `append(other)` — append another buffer's data in-place (grows if needed)
+- `slice(start, end)` returns __ManagedMemory — create slice [start, end) (panics if end > length or start > end)
+- `toCString()` returns int — raw buffer pointer
+- `makeCharFromBytes(pos, len)` returns int — extract character
+
+Static methods:
+- `__ManagedMemory.create(capacity, elementSize)` returns __ManagedMemory
+- `__ManagedMemory.fromCString(ptr)` returns __ManagedMemory
+
+## Tests
+
+<!-- test: array-public-api -->
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntArray = Array with Int
+
+function main() returns ExitCode
+	let arr = IntArray.create(0)
+	arr.push(10)
+	arr.push(20)
+	arr.push(30)
+	return arr.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: array-literal-works -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3, 4, 5]
+	return arr.count()
+end 'main'
+```
+```exitcode
+5
+```

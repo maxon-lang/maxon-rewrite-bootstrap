@@ -1,0 +1,449 @@
+---
+feature: shared-memory-builtins
+status: experimental
+keywords: [shared-memory, SharedSegment, mapping, ring, debugstream, monitor, ipc, win32]
+category: system
+---
+
+# `stdlib/SharedMemory.maxon` — a named section two processes both map
+
+## Documentation
+
+A DebugStream trace does not travel down a pipe. The traced child writes fixed-size records into a
+ring in a NAMED shared section, and the process watching it maps the same section by name and decodes
+what it finds there. `stdlib/SharedMemory.maxon` is the door to that section, and it exists so a
+consumer of the ring can be written in Maxon at all: without it the tree holds no decoder for the
+ring.
+
+`SharedSegment.create(name, bytes:)` publishes a section of that many bytes under the name, or adopts
+the one already published there, and maps it into this process; `SharedSegment.publish(name, bytes:)`
+publishes a new section and refuses a name that is already published. The mapping is torn down by
+`close()`, which withdraws the name only when this segment published it. `readWord` / `writeWord` address the mapping in
+64-bit words at a byte offset, `copyOut` lifts a byte range out of it, and `segmentName()` answers the
+name the section is published under — the one a second process needs in order to map the same bytes.
+
+Every accessor is bounds-checked against the size the section was created with: a `readWord` or
+`writeWord` whose 8 bytes, or a `copyOut` whose `offset + byteCount`, would reach past the end throws
+`SharedMemoryError.outOfBounds`, so the three carry `throws SharedMemoryError` and are called with `try`.
+After `close()` the mapping is gone, and each of the three throws `SharedMemoryError.closed` rather than
+touching the address the mapping used to occupy. A `SharedSegment` is unique: it has one owner, and `clone()` of one is E3214.
+
+⛔ **A NAME IS HELD TO WHAT EVERY LANE CAN PUBLISH, ON EVERY LANE.** `create` throws
+`SharedMemoryError.invalidName` before any host call for a name that is empty, longer than 31 bytes, or
+holds a `/`, a `\` or a NUL byte. 31 bytes is Darwin's `PSHMNAMLEN`, the smallest limit of the lanes;
+a `/` is a directory separator under `/dev/shm`, a `\` names a Win32 object namespace, and a NUL ends
+the name the host sees short of the one `segmentName()` answers. Refusing only where a host would
+refuse would let a program that runs on Windows fail on macOS with a bare `createFailed`.
+
+⚠ **A WORD IS ADDRESSED BY A BYTE OFFSET, NOT BY A WORD INDEX.** The ring's header and its records are
+laid out in bytes by a format neither side owns, so an accessor that silently scaled its argument
+would put every consumer's reads one stride away from the producer's writes — which is why
+`distinct-offsets-hold-distinct-words` writes at 0 and at 8 and reads both back, rather than writing
+once and trusting the round trip.
+
+⚠ **`copyOut` IS THE BYTE-LEVEL VIEW, AND IT IS THE ONE THAT PINS THE LAYOUT.** A word written and
+read back through this file's own accessors agrees with itself whatever byte order either of them
+used; only a byte-level reading can say the section holds the little-endian bytes a decoder written
+against the wire format will find there.
+
+**Targets — every lane that provides the `sharedMemory` host facility.** A section is a Win32 section
+object (`CreateFileMapping` / `MapViewOfFile`) on x64-windows and a `/dev/shm` mapping on the POSIX
+lanes; `wasm32-wasi` has no such object, so the compiler refuses `__shm_*` there with E3104 and these
+cases are reported as skipped rather than run.
+
+## Tests
+
+<!-- test: shared-memory-builtins.a-word-round-trips-through-a-mapping -->
+A section is created, one word is written at an offset and read back identical. This is the floor: a
+mapping that could not be created, or one whose writes went somewhere the reads do not, fails here
+before any layout question is asked.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-round-trip", bytes: 4096) otherwise return 3
+	try segment.writeWord(0, value: 1234567) otherwise return 4
+	let stored = try segment.readWord(0) otherwise return 5
+	segment.close()
+	print("stored={stored}\n")
+	return 0
+end 'main'
+```
+```stdout
+stored=1234567
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.distinct-offsets-hold-distinct-words -->
+⭐ **THE OFFSET IS HONOURED RATHER THAN IGNORED.** Two words are written at two offsets and both are
+read back. An accessor that dropped its offset, or scaled it as a word index on one side only, would
+answer the SAME number twice — which a single round trip cannot see.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-offsets", bytes: 4096) otherwise return 3
+	try segment.writeWord(0, value: 11) otherwise return 4
+	try segment.writeWord(8, value: 22) otherwise return 5
+	let first = try segment.readWord(0) otherwise return 6
+	let second = try segment.readWord(8) otherwise return 7
+	segment.close()
+	print("first={first} second={second}\n")
+	return 0
+end 'main'
+```
+```stdout
+first=11 second=22
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.copy-out-answers-the-bytes-a-write-word-left -->
+`copyOut` reads the section as BYTES, so it says what `writeWord` actually left there. The word is
+`258` = `0x0102`, whose little-endian first four bytes are `2 1 0 0`; a big-endian store, or a write
+that landed at another offset, changes every one of them.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-copy-out", bytes: 4096) otherwise return 3
+	try segment.writeWord(0, value: 258) otherwise return 8
+	let octets = try segment.copyOut(0, byteCount: 4) otherwise return 9
+	segment.close()
+	let b0 = try octets.get(0) otherwise return 4
+	let b1 = try octets.get(1) otherwise return 5
+	let b2 = try octets.get(2) otherwise return 6
+	let b3 = try octets.get(3) otherwise return 7
+	print("count={octets.count()} b0={b0} b1={b1} b2={b2} b3={b3}\n")
+	return 0
+end 'main'
+```
+```stdout
+count=4 b0=2 b1=1 b2=0 b3=0
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.a-named-segment-closes-without-leaking -->
+Every section is published under a name a second process can map, so `segmentName()` must answer a
+real one. Four create/close cycles run in a case that exits 0: the suite's leak gate is exit **101**,
+so a `close()` that unmapped nothing, or a segment record the cycle never released, turns this case
+red without any assertion of its own having to know how the mapping is held.
+```maxon
+typealias NameTally = int(0 to u64.max)
+
+function main() returns ExitCode
+	var named = 0 as NameTally
+	for cycle in 0 upto 4 'eachCycle'
+		let segment = try SharedSegment.create("maxon-spec-shm-name-{cycle}", bytes: 4096) otherwise return 3
+		if segment.segmentName().byteLength() > 0 'published'
+			named = named + 1
+		end 'published'
+		segment.close()
+	end 'eachCycle'
+	print("named={named}\n")
+	return 0
+end 'main'
+```
+```stdout
+named=4
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.a-name-some-lane-cannot-publish-is-refused-on-every-lane -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+⛔ **THE NAME RULE IS THE SAME ON EVERY LANE, WHATEVER THE HOST WOULD HAVE ACCEPTED.** A name of
+exactly 31 bytes is published; a 32-byte name, an empty one, and names holding `/`, `\` or a NUL are
+each refused with `invalidName` (7). Win32 alone publishes every one of them but the `\` name (5), and
+refuses that one as `createFailed` (3), so every refused line reads 7 only because the rule runs ahead of
+the host.
+```maxon
+function createOutcome(name String) returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let segment = try SharedSegment.create(name, bytes: 4096) otherwise (e) 'refused'
+		return match e 'why'
+			invalidName gives 7
+			createFailed gives 3
+			mapFailed or
+			outOfBounds or
+			closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	return 5
+end 'createOutcome'
+
+function main() returns ExitCode
+	let atLimit = createOutcome("maxon-spec-shm-31-bytes-exactly")
+	let pastLimit = createOutcome("maxon-spec-shm-32-bytes-exactly!")
+	let empty = createOutcome("")
+	let slash = createOutcome("maxon-spec/shm")
+	let backslash = createOutcome("maxon-spec\\shm")
+	let nul = createOutcome("maxon-spec\0shm")
+	print("at-limit={atLimit} past-limit={pastLimit} empty={empty} slash={slash} backslash={backslash} nul={nul}\n")
+	return 0
+end 'main'
+```
+```stdout
+at-limit=5 past-limit=7 empty=7 slash=7 backslash=7 nul=7
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.a-word-read-past-the-segment-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+⛔ **AN ACCESS THAT REACHES PAST THE SEGMENT THROWS `outOfBounds` INSTEAD OF READING WHATEVER LIES BEYOND
+IT.** A word is 8 bytes, so offset 4090 in a 4096-byte section starts inside the mapping and ends 2 bytes
+past it. Exit 7 is reachable only through the `outOfBounds` arm; a read that succeeded returns 5.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-read-past-end", bytes: 4096) otherwise return 3
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let word = try segment.readWord(4090) otherwise (e) 'refused'
+		segment.close()
+		return match e 'why'
+			outOfBounds gives 7
+			createFailed or
+			mapFailed or
+			invalidName or
+			closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	print("read {word} past the end\n")
+	return 5
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: shared-memory-builtins.a-word-written-past-the-segment-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+The write twin of the read above: a store that straddles the end would overwrite memory the section
+does not own, so it is refused by the same bound before any byte moves.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-write-past-end", bytes: 4096) otherwise return 3
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try segment.writeWord(4090, value: 1) otherwise (e) 'refused'
+		segment.close()
+		return match e 'why'
+			outOfBounds gives 7
+			createFailed or
+			mapFailed or
+			invalidName or
+			closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	return 5
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: shared-memory-builtins.copy-out-past-the-segment-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+`copyOut`'s bound is `offset + byteCount`: 4000 + 200 ends 104 bytes past a 4096-byte section, although
+the offset alone is inside it.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-copy-past-end", bytes: 4096) otherwise return 3
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let octets = try segment.copyOut(4000, byteCount: 200) otherwise (e) 'refused'
+		segment.close()
+		return match e 'why'
+			outOfBounds gives 7
+			createFailed or
+			mapFailed or
+			invalidName or
+			closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	print("copied {octets.count()} bytes past the end\n")
+	return 5
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: shared-memory-builtins.every-accessor-throws-closed-after-close -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+⛔ **A CLOSED SEGMENT HAS NO MAPPING, SO EVERY ACCESSOR THROWS `closed` INSTEAD OF REACHING THE ADDRESS IT
+USED TO HAVE.** The offset is inside the 4096 bytes the segment was created with, so the bound passes; only
+the `closed` arm can answer each of the three, and a read, write or copy that reached the unmapped view
+prints `read`, `wrote` or `copied` instead.
+```maxon
+function verdict(e SharedMemoryError) returns String
+	return match e 'why'
+		closed gives "closed"
+		createFailed or
+		mapFailed or
+		invalidName or
+		outOfBounds gives "other"
+	end 'why'
+end 'verdict'
+
+function readAfterClose(segment SharedSegment) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let word = try segment.readWord(0) otherwise (e) 'refused'
+		return verdict(e)
+	end 'refused'
+	return "read {word}"
+end 'readAfterClose'
+
+function writeAfterClose(segment SharedSegment) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try segment.writeWord(8, value: 7) otherwise (e) 'refused'
+		return verdict(e)
+	end 'refused'
+	return "wrote"
+end 'writeAfterClose'
+
+function copyAfterClose(segment SharedSegment) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let octets = try segment.copyOut(0, byteCount: 16) otherwise (e) 'refused'
+		return verdict(e)
+	end 'refused'
+	return "copied {octets.count()}"
+end 'copyAfterClose'
+
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-after-close", bytes: 4096) otherwise return 3
+	try segment.writeWord(0, value: 42) otherwise return 4
+	segment.close()
+	print("read={readAfterClose(segment)} write={writeAfterClose(segment)} copy={copyAfterClose(segment)}\n")
+	return 0
+end 'main'
+```
+```stdout
+read=closed write=closed copy=closed
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.a-clone-of-a-segment-is-refused -->
+<!-- positions: moved -->
+⛔ **A SEGMENT HAS ONE OWNER, SO IT HAS NO COPY.** A copy of a segment record would be a second name for one mapping, and closing the original would unmap it under the copy. `SharedSegment` is unique, so `clone()` is refused (E3214) and no program holds a handle whose mapping another handle can close.
+```maxon
+function main() returns ExitCode
+	let segment = try SharedSegment.create("maxon-spec-shm-clone-refused", bytes: 4096) otherwise return 3
+	try segment.writeWord(0, value: 42) otherwise return 4
+	let copy = segment.clone()
+	segment.close()
+	let word = try copy.readWord(0) otherwise return 5
+	print("read {word}\n")
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:5:13: 'SharedSegment' is unique and cannot be cloned
+```
+
+<!-- test: shared-memory-builtins.an-adopter-closing-keeps-the-publishers-name -->
+A second `create` of a published name ADOPTS the section, and its `close()` releases only its own view:
+the name stays published for as long as the publisher holds it. A third `create` of the same name after
+the adopter has closed therefore adopts the publisher's section again and reads the word the publisher
+wrote (77); an adopter that withdrew the name would leave the third `create` publishing a fresh, zeroed
+section (0).
+```maxon
+function main() returns ExitCode
+	let publisher = try SharedSegment.create("maxon-spec-shm-adopter-close", bytes: 4096) otherwise return 3
+	try publisher.writeWord(0, value: 77) otherwise return 4
+	let adopter = try SharedSegment.create("maxon-spec-shm-adopter-close", bytes: 4096) otherwise return 5
+	let seen = try adopter.readWord(0) otherwise return 6
+	adopter.close()
+	let later = try SharedSegment.create("maxon-spec-shm-adopter-close", bytes: 4096) otherwise return 7
+	let stillSeen = try later.readWord(0) otherwise return 8
+	later.close()
+	publisher.close()
+	print("adopter={seen} later={stillSeen}\n")
+	return 0
+end 'main'
+```
+```stdout
+adopter=77 later=77
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.publish-refuses-a-name-already-published -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+`SharedSegment.publish` never adopts: a name some other segment already publishes is refused with
+`createFailed` (3), so a caller that needs a FRESH section can never be handed a stale one. Once the
+publisher closes, the name is free and a second `publish` succeeds (5).
+```maxon
+function publishOutcome(name String) returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let segment = try SharedSegment.publish(name, bytes: 4096) otherwise (e) 'refused'
+		return match e 'why'
+			createFailed gives 3
+			invalidName or
+				mapFailed or
+				outOfBounds or
+				closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	return 5
+end 'publishOutcome'
+
+function main() returns ExitCode
+	let first = try SharedSegment.publish("maxon-spec-shm-publish-twice", bytes: 4096) otherwise return 6
+	let whileHeld = publishOutcome("maxon-spec-shm-publish-twice")
+	first.close()
+	let afterClose = publishOutcome("maxon-spec-shm-publish-twice")
+	print("while-held={whileHeld} after-close={afterClose}\n")
+	return 0
+end 'main'
+```
+```stdout
+while-held=3 after-close=5
+```
+```exitcode
+0
+```
+
+<!-- test: shared-memory-builtins.create-refuses-an-existing-segment-too-small -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A `create` that finds the name already published by a section smaller than it asks for is refused at once with
+`createFailed` (3) on every lane, rather than retried or handed a mapping shorter than asked. Asking for no more
+than the section holds adopts it (5).
+```maxon
+function createOutcome(name String, bytes SegmentByteCount) returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let segment = try SharedSegment.create(name, bytes: bytes) otherwise (e) 'refused'
+		return match e 'why'
+			createFailed gives 3
+			invalidName or
+				mapFailed or
+				outOfBounds or
+				closed gives 4
+		end 'why'
+	end 'refused'
+	segment.close()
+	return 5
+end 'createOutcome'
+
+function main() returns ExitCode
+	let publisher = try SharedSegment.publish("maxon-spec-shm-too-small", bytes: 4096) otherwise return 6
+	let larger = createOutcome("maxon-spec-shm-too-small", bytes: 65536)
+	let same = createOutcome("maxon-spec-shm-too-small", bytes: 4096)
+	publisher.close()
+	print("larger={larger} same={same}\n")
+	return 0
+end 'main'
+```
+```stdout
+larger=3 same=5
+```
+```exitcode
+0
+```

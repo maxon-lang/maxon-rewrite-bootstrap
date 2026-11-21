@@ -1,0 +1,176 @@
+---
+feature: abs
+status: stable
+keywords: abs, absolute value, math
+category: math-intrinsic
+---
+# abs
+
+## Documentation
+
+Calculate the absolute value of a number.
+
+**Signature:** `abs(x float) float`
+
+**Parameters:**
+- `x` - The number to take the absolute value of (must be float)
+
+**Returns:** The absolute value of the input (always non-negative)
+
+**Example:**
+
+```maxon
+let x = -5.5
+let y = abs(x)       // 5.5
+
+let i = -42.0
+let j = abs(i)       // 42.0
+
+// To get an int result:
+let k = trunc(abs(-3.7))   // 3
+```
+**Notes:**
+- `abs(0.0)` returns `0.0`
+- `abs(x)` always returns a non-negative value
+- Currently only works with float type
+- For integer values, convert to float first: `abs(-42.0)`
+- Use `trunc(abs(x))` to get an integer result
+
+## Tests
+
+<!-- test: abs.float -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let neg = -5.5
+	let x = abs(neg)
+	let y = trunc(x)
+	return y
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: abs.negative-int-as-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let neg = -42.0
+	let x = abs(neg)
+	return trunc(x)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: abs.zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x = abs(0.0)
+	// TODO: float literals are not supported in minimaxon
+	if x == 0.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: abs.rt-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- Args: -5.5 -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	// TODO: float literals are not supported in minimaxon
+	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
+	return trunc(abs(x))
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: abs.rt-negative-int -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- Args: -42.0 -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	// TODO: float literals are not supported in minimaxon
+	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
+	return trunc(abs(x))
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: abs.rt-zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- Args: 0.0 -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	// TODO: float literals are not supported in minimaxon
+	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
+	let result = abs(x)
+	// TODO: float literals are not supported in minimaxon
+	if result == 0.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: abs.error-arg-named -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+The positional-argument rule is the MATH BUILTIN FAMILY's, not `min`'s alone: `abs`
+has no declaration either, so its one argument has no parameter for `x:` to name.
+Arity is irrelevant to the reason — a builtin has nothing to label at any position —
+so the arity-1 intrinsics answer with the same E2067 the arity-2 `min` does rather
+than with E2052, whose wording ("the first argument cannot be named because its
+parameter has no default") speaks of a parameter a builtin does not have.
+
+Reading the label as a variable reference instead would answer
+`E2004: Undefined variable 'x'` — a consequence of the defect rather than the defect itself.
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x = abs(x: 1.0)
+	return trunc(x)
+end 'main'
+```
+```maxoncstderr
+error E2067: <fragment>:3:14: a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)
+```
+
+<!-- test: abs.a-generic-function-named-abs-is-the-one-called -->
+A file that declares `abs` means its own: the math builtin is the compiler's only while no file declares the
+name. Returns 7.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function abs(x T) uses T returns T
+	return x
+end 'abs'
+
+function main() returns ExitCode
+	return (abs(0 - 3 as Integer) + 10) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```

@@ -1,0 +1,449 @@
+---
+feature: command-line-args
+status: stable
+keywords: [args, argv, command-line, main, CommandLine]
+category: functions
+---
+
+# Command Line Arguments
+
+## Documentation
+
+# Command Line Arguments
+
+Access command line arguments in Maxon using the `CommandLine` stdlib type.
+
+## Syntax
+
+```text
+function main() returns int
+  let args = CommandLine.args()                                            // All arguments (including argv[0])
+  let exe = try Process.executablePath() otherwise return 2                // The executable path (uses OS API; throws ProcessIntrospectionError)
+  return 0
+end 'main'
+```
+
+## API
+
+- `CommandLine.args()` - Returns `StringArray` (where `type StringArray implements Array with String`) containing all command line arguments (including argv[0])
+- `Process.executablePath()` - Returns `FilePath` containing the absolute executable path (uses GetModuleFileNameW on Windows, _NSGetExecutablePath on macOS, /proc/self/exe on Linux). Throws `ProcessIntrospectionError.pathUnavailable` if the OS lookup fails.
+
+## Properties
+
+With `let args = CommandLine.args()`:
+- `args[0]` - First argument (typically the program name/path)
+- `args[1]`, `args[2]`, etc. - Additional arguments
+- `args.count()` - Total number of arguments
+
+## Example
+
+```text
+function main() returns int
+  let exe = try Process.executablePath() otherwise return 2
+  print("Program: ")
+  print(exe.path)
+  
+  let args = CommandLine.args()
+  if args.count() > 1 'has-args'
+    print("First user argument: ")
+    var first = try args.get(1) otherwise ""
+    print(first)
+  end 'has-args'
+  
+  return 0
+end 'main'
+```
+
+Running `myprogram.exe hello world` would output:
+```
+Program: C:\path\to\myprogram.exe
+First user argument: hello
+```
+
+## Iterating Over Arguments
+
+```text
+function main() returns int
+  let args = CommandLine.args()
+  for arg in args 'loop'
+    print(arg)
+  end 'loop'
+  return 0
+end 'main'
+```
+
+## Notes
+
+- Arguments are UTF-8 encoded strings
+- Arguments containing spaces must be quoted at the shell level
+- Each call to `args()` re-parses the command line
+- `Process.executablePath()` returns the absolute path via OS-specific APIs, or throws `ProcessIntrospectionError.pathUnavailable` if the lookup fails
+- Platform support: every target
+
+## Tests
+
+<!-- test: args-length-no-extra -->
+```maxon
+function main() returns ExitCode
+	// Without extra args, count should be 1 (just argv[0])
+	let args = CommandLine.args()
+	return args.count()
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: args-with-one-arg -->
+<!-- Args: hello -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	return args.count()
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: args-with-multiple-args -->
+<!-- Args: one two three -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	return args.count()
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: access-first-arg -->
+<!-- Args: hello -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let arg = try args.get(1) otherwise ""
+	print(arg)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hello
+```
+
+<!-- test: access-multiple-args -->
+<!-- Args: foo bar baz -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let arg1 = try args.get(1) otherwise ""
+	let arg2 = try args.get(2) otherwise ""
+	let arg3 = try args.get(3) otherwise ""
+	print(arg1)
+	print("\n")
+	print(arg2)
+	print("\n")
+	print(arg3)
+	print("\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+foo
+bar
+baz
+```
+
+<!-- test: iterate-args -->
+<!-- Args: a b c -->
+```maxon
+function main() returns ExitCode
+	// Skip argv[0] and print the rest
+	let args = CommandLine.args()
+	var i = 1 as Count
+	while i < args.count() 'loop'
+		let arg = try args.get(i) otherwise ""
+		print(arg)
+		print("\n")
+		i = i + 1
+	end 'loop'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a
+b
+c
+```
+
+<!-- test: numeric-args -->
+<!-- Args: 42 -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	// Args include argv[0], so count == 2 with one user arg
+	if args.count() == 2 'check'
+		let arg = try args.get(1) otherwise ""
+		print(arg)
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+42
+```
+
+<!-- test: empty-string-arg -->
+<!-- Args: "" -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	// Empty quoted arg is at index 1 (index 0 is argv[0])
+	let arg = try args.get(1) otherwise "x"
+	if arg == "" 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: arg-with-equals -->
+<!-- Args: --key=value -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let arg = try args.get(1) otherwise ""
+	print(arg)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+--key=value
+```
+
+<!-- test: args-keep-spaces-and-utf8-bytes -->
+<!-- Args: "two words" é -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let spaced = try args.get(1) otherwise return 2
+	let accented = try args.get(2) otherwise return 3
+	print("{spaced}|{accented}|{accented.byteLength()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+two words|é|2
+```
+
+<!-- test: reading-the-arguments-leaves-no-raw-allocation-live -->
+<!-- Args: a b c -->
+Whatever a lane holds the arguments in, reading them leaves the public raw-allocation counter at 0 on every
+lane, so `HeapStats` answers alike everywhere.
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	print("{HeapStats.rawAllocationsLive()}")
+	return args.count()
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+0
+```
+
+<!-- test: executable-path -->
+```maxon
+function main() returns ExitCode
+	let exe = try Process.executablePath() otherwise return 2
+	// Just verify it returns something (the actual path varies)
+	if exe.path.byteLength() > 0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: argv-exec-parity -->
+<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+<!-- Args: alpha beta gamma -->
+```maxon
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() < 4 'count-check'
+		return 1
+	end 'count-check'
+	let a1 = try args.get(1) otherwise ""
+	if a1 != "alpha" 'a1-check'
+		return 2
+	end 'a1-check'
+	let a2 = try args.get(2) otherwise ""
+	if a2 != "beta" 'a2-check'
+		return 3
+	end 'a2-check'
+	let a3 = try args.get(3) otherwise ""
+	if a3 != "gamma" 'a3-check'
+		return 4
+	end 'a3-check'
+	let exe = try Process.executablePath() otherwise return 5
+	if exe.path.byteLength() == 0 'exe-empty'
+		return 6
+	end 'exe-empty'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: optional-int-argument-present -->
+<!-- Args: 42 -->
+```maxon
+function main() returns ExitCode
+	let n = try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise return 3
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+42
+```
+
+<!-- test: optional-int-argument-absent -->
+```maxon
+function main() returns ExitCode
+	let n = try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise return 3
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1000
+```
+
+<!-- test: optional-int-argument-zero-is-a-count -->
+<!-- Args: 0 -->
+```maxon
+function main() returns ExitCode
+	let n = try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise return 3
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0
+```
+
+<!-- test: optional-int-argument-negative-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- Args: -5 -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise (e) 'bad'
+		match e 'kind'
+			invalidFormat then print("invalidFormat\n")
+		end 'kind'
+		return 0
+	end 'bad'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+invalidFormat
+```
+
+<!-- test: optional-int-argument-non-numeric-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- Args: twelve -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise (e) 'bad'
+		match e 'kind'
+			invalidFormat then print("invalidFormat\n")
+		end 'kind'
+		return 0
+	end 'bad'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+invalidFormat
+```
+
+<!-- test: optional-int-argument-position-beyond-the-arguments -->
+<!-- Args: 7 -->
+```maxon
+function main() returns ExitCode
+	let n = try CommandLine.readOptionalIntArgument(2, otherwise: 1000) otherwise return 3
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1000
+```
+
+<!-- test: optional-int-argument-reads-the-requested-position -->
+<!-- Args: 7 9 -->
+```maxon
+function main() returns ExitCode
+	let first = try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise return 3
+	let second = try CommandLine.readOptionalIntArgument(2, otherwise: 1000) otherwise return 3
+	print("{first} {second}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7 9
+```

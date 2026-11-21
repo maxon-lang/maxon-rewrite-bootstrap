@@ -1,0 +1,1335 @@
+---
+feature: unused-export
+status: stable
+keywords: [export, public, visibility, semantic, unused]
+category: diagnostics
+---
+
+# Unused Export Diagnostics
+
+## Documentation
+
+The compiler reports a diagnostic when a declaration is more widely visible
+than its uses require:
+
+- **E3092 `semanticUnusedExportedSymbol`** — an `export` decl is never
+  referenced from any file outside its declaring directory and that
+  directory's subdirectories. Drop the modifier, so the declaration serves its
+  directory's subtree, or say `public` if it is API surface.
+
+An unmarked declaration that nothing live in its directory's subtree names is
+**E3219** (`specs/unused-unmarked-declaration.md`).
+
+### `public` is the exemption, and it is what makes the family answerable
+
+`export` and `public` are the SAME visibility — both make a declaration
+nameable from every file — and they differ in exactly one thing, which is
+the claim they make about USE:
+
+- `export` — other files may see this, **and I expect this program to use
+  it**. Audited by E3092.
+- `public` — this is **API surface**. Exempt from E3092, because
+  "no caller in this compilation" is not the same fact as "dead": a shared
+  library may legitimately export a symbol this particular program never
+  reaches.
+
+The check covers functions (including methods), types (structs, unions,
+enums), typealiases, top-level constants, and top-level variables. The
+following declarations are skipped because they have no source-level caller
+or are reached through indirect dispatch:
+
+- The entry point and module-init helpers, and every task a task file declares (the task runner enters each by name)
+- Compiler-synthesized helpers (`__construct_*`, `__field_init_*`, lifted
+  closures, etc.)
+- Methods on a declared struct or enum — the declaring TYPE owns the
+  diagnostic, so an internal helper method of a public type is not reported
+  separately
+- Every `public` declaration, which is the exemption above
+
+The file count is not part of the question: a one-file program is audited
+like any other, and an `export` nothing names is reported there too.
+
+A reference is a name spelled in source, whether or not the compiler built the
+body that spells it. An identifier in a generic function nothing instantiates,
+in a branch of `#if` the target excludes, or in a standard library body no
+program path reaches counts as a reference.
+
+The pass is scheduled after `semanticCheck` and the pipeline stops at the
+first pass that reports, so a program with any lexer, parser or semantic
+error is never audited — a half-resolved reader cannot produce spurious
+findings.
+
+## Tests
+
+Each test below places the declaring file and the calling `main.maxon` in
+different subdirectories (`api/` vs `app/`) so the call is genuinely
+outside the declaring directory's subtree. The fixture's interior symbol
+(`unusedHelper`, `LocalPoint`, etc.) is the one the diagnostic targets.
+
+<!-- test: error.unused-exported-function -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/lib.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export function unusedHelper() returns Integer
+	return 42
+end 'unusedHelper'
+
+export function publicEntry() returns Integer
+	return unusedHelper()
+end 'publicEntry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return publicEntry()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:17: exported function 'api.unusedHelper' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-unused-export-whose-name-contains-union-cases-is-reported -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+`int.unionCasesFor` is an extension method its author wrote, whose qualified name only CONTAINS the word
+a union's companion member is named by: an `export` nothing outside its file calls is reported like any
+other.
+```maxon
+// --- file: api/lib.maxon
+// TODO: extension blocks are not supported in minimaxon
+extension int
+	export function unionCasesFor() returns bool
+		return self > 3
+	end 'unionCasesFor'
+end 'int'
+
+export function publicEntry() returns ExitCode
+	return 7 if (7).unionCasesFor() else 0
+end 'publicEntry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return publicEntry()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:4:18: exported function 'api.int.unionCasesFor' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-type -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⭐ **ONE diagnostic, about the TYPE, though `LocalPoint` declares two exported METHODS.** A method takes
+its visibility from its declaring type by convention, so auditing methods separately would report an
+internal helper of a public type as dead. The type owns the finding.
+```maxon
+// --- file: api/shapes.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export type LocalPoint
+	export var x as Integer
+	export var y as Integer
+
+	export static function origin() returns LocalPoint
+		return LocalPoint{x: 0, y: 0}
+	end 'origin'
+
+	export function sum() returns Integer
+		return x + y
+	end 'sum'
+end 'LocalPoint'
+
+export function entry() returns Integer
+	let p = LocalPoint.origin()
+	return p.sum()
+end 'entry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:13: exported type 'LocalPoint' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-typealias -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The alias IS named in its declaring file — `consumeAlias`'s parameter is typed by it — and is still
+E3092, because the question is whether anything OUTSIDE its directory names it.
+```maxon
+// --- file: api/lib.maxon
+export typealias UnusedAlias = int(0 to 100)
+
+export typealias Integer = int(i64.min to i64.max)
+
+function consumeAlias(value UnusedAlias) returns Integer
+	return value
+end 'consumeAlias'
+
+export function entry() returns Integer
+	return consumeAlias(42)
+end 'entry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:3:18: exported typealias 'UnusedAlias' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-var -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/counter.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export let unusedCounter = 99 as Integer
+
+export function readCounter() returns Integer
+	return unusedCounter
+end 'readCounter'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return readCounter()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:12: exported constant 'unusedCounter' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-const -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/limits.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export let MAX_UNUSED = 100
+
+export function readMax() returns Integer
+	return MAX_UNUSED
+end 'readMax'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return readMax()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:12: exported constant 'MAX_UNUSED' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-enum -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/status.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export enum LocalStatus
+	idle
+	running
+	done
+end 'LocalStatus'
+
+function statusOrdinal(s LocalStatus) returns Integer
+	return s.ordinal
+end 'statusOrdinal'
+
+export function entry() returns Integer
+	return statusOrdinal(LocalStatus.idle)
+end 'entry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:13: exported type 'LocalStatus' is never referenced outside its declaring directory
+```
+
+<!-- test: exported-main-not-flagged -->
+
+```maxon
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+## `public` exempts every declaration kind
+
+⭐⭐ **THESE ARE THE DISCRIMINATING PAIR FOR THE WHOLE FEATURE.** Each program below is the matching
+`error.unused-exported-*` case above with ONE word changed, and each compiles clean. Without them a
+`public` that did nothing at all — an alias for `export` — would pass every other test in this file.
+
+<!-- test: public-function-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/lib.maxon
+public typealias Integer = int(i64.min to i64.max)
+
+public function unusedHelper() returns Integer
+	return 42
+end 'unusedHelper'
+
+export function publicEntry() returns Integer
+	return unusedHelper()
+end 'publicEntry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return publicEntry()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: public-type-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/shapes.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+public type LocalPoint
+	export var x as Integer
+	export var y as Integer
+
+	export static function origin() returns LocalPoint
+		return LocalPoint{x: 3, y: 4}
+	end 'origin'
+
+	export function sum() returns Integer
+		return x + y
+	end 'sum'
+end 'LocalPoint'
+
+export function entry() returns Integer
+	let p = LocalPoint.origin()
+	return p.sum()
+end 'entry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: public-typealias-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/lib.maxon
+public typealias UnusedAlias = int(0 to 100)
+
+export typealias Integer = int(i64.min to i64.max)
+
+function consumeAlias(value UnusedAlias) returns Integer
+	return value
+end 'consumeAlias'
+
+export function entry() returns Integer
+	return consumeAlias(42)
+end 'entry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: public-constant-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/limits.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+public let MAX_UNUSED = 100
+
+export function readMax() returns Integer
+	return MAX_UNUSED
+end 'readMax'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return readMax()
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: public-var-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/counter.maxon
+public typealias Integer = int(i64.min to i64.max)
+
+public let unusedCounter = 99 as Integer
+
+export function readCounter() returns Integer
+	return unusedCounter
+end 'readCounter'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return readCounter()
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: a-public-function-read-only-in-its-directory-is-not-flagged -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A `public` declaration nothing outside its declaring directory reaches is exempt; written `export`, the same
+declaration is E3092.
+```maxon
+// --- file: api/lib.maxon
+public typealias Integer = int(i64.min to i64.max)
+
+public function localHelper() returns Integer
+	return 7
+end 'localHelper'
+
+export function publicEntry() returns Integer
+	return localHelper()
+end 'publicEntry'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return publicEntry()
+end 'main'
+```
+```exitcode
+7
+```
+
+## A genuine cross-file use is never flagged
+
+These are the false-positive guards. Each names the declaration from the OTHER file through a different
+route, and each route is a separate thing the check has to be able to see.
+
+<!-- test: cross-file-constant-read-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠ **AN INLINED CONSTANT LEAVES NO OP.** A `let` with no storage is materialized at its use site, so this
+read is invisible in the IR — the check is told about it by `ProgramSignatures.constantValueOf`, the door
+the use site resolves through.
+```maxon
+// --- file: api/limits.maxon
+export let MAX_USED = 7
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return MAX_USED
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: cross-file-constant-chain-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠ **AND AN INITIALIZER IS A SECOND DOOR.** `FINAL` reads `MIDDLE` from inside a constant initializer,
+which is folded during the declaration sweep rather than read at a use site. Hooking only the use site
+would report every link of a cross-file chain as unreferenced.
+```maxon
+// --- file: app/main.maxon
+let FINAL = MIDDLE + 2
+
+function main() returns ExitCode
+	return FINAL
+end 'main'
+
+// --- file: api/middle.maxon
+export let MIDDLE = ROOT * 4
+
+// --- file: root/root.maxon
+export let ROOT = 10
+```
+```exitcode
+42
+```
+
+<!-- test: a-type-named-only-in-another-files-const-initializer-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠ **AND A TOP-LEVEL INITIALIZER IS THE SECOND DOOR FOR TYPES TOO.** `app/main.maxon` names `ColumnWidth`
+nowhere but in a constant's initializer, and the real parse SKIPS those tokens — the declaration sweep folds
+them on a throwaway `Parser` whose artifact nobody reads. A file whose every mention of another file's
+alias has that shape is not a non-reader, so the sweep records the name where it resolves it.
+```maxon
+// --- file: api/width.maxon
+export typealias ColumnWidth = int(0 to 128)
+
+export function widen(v ColumnWidth) returns ColumnWidth
+	return v
+end 'widen'
+
+// --- file: app/main.maxon
+let PAD = 7 as ColumnWidth
+
+function main() returns ExitCode
+	var width = PAD
+	width = widen(width)
+	return width
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: cross-file-var-read-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/counter.maxon
+export let usedCounter = 9 as FullRangeInt
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return usedCounter
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: cross-file-type-use-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`app/main.maxon` never writes `UsedPoint` in a TYPE position — it calls a static on it. The owner half of
+a qualified callee is what makes that a reference.
+```maxon
+// --- file: api/shapes.maxon
+export type UsedPoint
+	export var x as ExitCode
+
+	export static function origin() returns UsedPoint
+		return UsedPoint{x: 4}
+	end 'origin'
+end 'UsedPoint'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let p = UsedPoint.origin()
+	return p.x
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: cross-file-alias-in-a-signature-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠ **A RANGED ALIAS IS ERASED TO `integer` BEFORE ANY PASS SEES IT**, so a parameter typed by one leaves
+no trace in the declared signature. The reference is recovered from the set of type names each file wrote
+in a type position — the same set E3062 is answered from.
+```maxon
+// --- file: api/lib.maxon
+export typealias Score = int(0 to 100)
+
+// --- file: app/main.maxon
+function scoreOf(s Score) returns Score
+	return s
+end 'scoreOf'
+
+function main() returns ExitCode
+	return scoreOf(5)
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: cross-file-enum-case-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`Color.blue` is an EXPRESSION, not a type position and not a call, and it is how an enum is used across a
+file boundary almost every time.
+```maxon
+// --- file: api/color.maxon
+export enum Color
+	red
+	green
+	blue
+end 'Color'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let c = Color.blue
+	match c 'check'
+		blue then return 42
+		red then return 0
+		green then return 0
+	end 'check'
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: cross-file-element-member-access-is-a-reference -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠⚠ **`app/main.maxon` NEVER WRITES `Item` — IT REACHES IT, AND THE TWO DIAGNOSTICS MUST NOT CONTRADICT
+EACH OTHER OVER THAT.** The element type is behind a generic-instance alias, so a transitive walk over
+`Holder`'s field type stops at `ItemArray`; counted that way, E3092 would say to drop the `export`, and
+dropping it makes E4006 refuse `it.n` — leaving the program no legal spelling at all. The reference comes
+from the one line that DECIDES that visibility (`Parser.requireFieldAccessible`), so the audit cannot disagree with the
+resolver about it.
+```maxon
+// --- file: api/store.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export type Item
+	export let n as Integer
+
+	export static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Item'
+
+export typealias ItemArray = Array with Item
+
+export type Holder
+	export let items as ItemArray
+
+	export static function create(items ItemArray) returns Self
+		return Self{items: items}
+	end 'create'
+end 'Holder'
+
+export function makeHolder() returns Holder
+	let xs = ItemArray.create(0)
+	xs.push(Item.create(7))
+	return Holder.create(xs)
+end 'makeHolder'
+
+// --- file: app/main.maxon
+typealias Count = int(i64.min to i64.max)
+
+function total(h Holder) returns Count
+	var t = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for it in h.items 'each'
+		t = t + it.n as Count
+	end 'each'
+	return t
+end 'total'
+
+function main() returns ExitCode
+	return total(makeHolder())
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: cross-file-inferred-value-member-access-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same defect one route over: `a`'s type is INFERRED from a callee's declared return, so `app/main.maxon`
+needs `Rec` visible for `a.n` and never writes the name. Counting written names, E3092 would report it
+and E4006 would refuse the access once the advice was taken.
+```maxon
+// --- file: api/project.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export type Rec
+	export let n as Integer
+
+	export static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Rec'
+
+export function build() returns Rec
+	return Rec.create(7)
+end 'build'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let a = build()
+	return a.n
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: cross-file-union-match-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⚠⚠ **`app/main.maxon` NEVER WRITES `Answer` — A `match` ARM NAMES ITS *CASES*, NOT ITS TYPE.** That is
+the same contradiction `cross-file-element-member-access-is-a-reference` guards, arriving through the one
+door a written name cannot reach: the scrutinee's type is INFERRED from `classify`'s declared return, and
+the arms spell `small` / `big(n)`. Counting written names alone, E3092 would say to drop the `export` —
+and the program cannot compile without it, so the advice would lead to a
+spelling the compiler does not accept. The reference comes from `Parser.emitEnumTagOf`, the one line that reads into a value of a declared
+enum/union.
+```maxon
+// --- file: api/answer.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export union Answer
+	small
+	big(n Integer)
+end 'Answer'
+
+export function classify(n Integer) returns Answer
+	if n > 10 'big'
+		return Answer.big(n)
+	end 'big'
+	return Answer.small
+end 'classify'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return match classify(42) 'a'
+		small gives 1
+		big(n) gives n
+	end 'a'
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: cross-file-enum-match-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The payload-free half of the case above: a plain `enum` matched cross-file reaches the same layout through
+the same door, and a written-names count would report it the same way. The two are kept apart because a bare enum's value IS its tag
+— `emitEnumTagOf` emits nothing for it — so a cure that only credited the BOXED load would pass the union
+case and still report this one.
+```maxon
+// --- file: api/color.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export enum Shade
+	dim
+	bright
+end 'Shade'
+
+export function pick(n Integer) returns Shade
+	if n > 5 'bright'
+		return Shade.bright
+	end 'bright'
+	return Shade.dim
+end 'pick'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return match pick(7) 'c'
+		dim gives 1
+		bright gives 9
+	end 'c'
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: cross-file-enum-accessor-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`.ordinal` on a value whose enum is declared elsewhere — the third arrival at that one door, and the
+narrowest: the whole program mentions `Shade` in exactly one file.
+```maxon
+// --- file: api/color.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export enum Shade
+	dim
+	bright
+end 'Shade'
+
+export function pick(n Integer) returns Shade
+	if n > 5 'bright'
+		return Shade.bright
+	end 'bright'
+	return Shade.dim
+end 'pick'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let s = pick(7)
+	return s.ordinal as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: error.unused-exported-element-nothing-outside-reaches -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+⭐⭐ **THE DISCRIMINATING CONTROL FOR THE TWO CASES ABOVE.** The count happens inside `api/store.maxon`
+instead of `app/main.maxon` reading `it.n`, and the verdict flips back. Nothing outside `api/store.maxon` reaches INTO an `Item`, so nothing outside needs it
+visible, and the finding is correct. Crediting every type merely REACHABLE from one a file names would
+delete this diagnostic and the three families beside it (a user generic's argument, a function alias's
+signature, a tuple alias's elements).
+
+⚠ **`items`, `ItemArray` AND BOTH FACTORIES ARE UNMARKED, AND THAT IS LOAD-BEARING.** An exported field
+or signature naming `ItemArray` would demand it, and `Item` through it, at `export` (E3167), so the finding
+would disappear into the demand the signature rule makes. Nothing exported names an `Item`.
+```maxon
+// --- file: api/store.maxon
+export type Item
+	export let n as ExitCode
+
+	static function create(n ExitCode) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Item'
+
+typealias ItemArray = Array with Item
+
+export type Holder
+	let items as ItemArray
+
+	static function create(items ItemArray) returns Self
+		return Self{items: items}
+	end 'create'
+
+	export function total() returns ExitCode
+		var t = 0 as ExitCode
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for _ in self.items 'each'
+			t = t + 1
+		end 'each'
+		return t
+	end 'total'
+end 'Holder'
+
+export function makeHolder() returns Holder
+	var xs = ItemArray.create(0)
+	xs.push(Item.create(7))
+	return Holder.create(xs)
+end 'makeHolder'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return makeHolder().total()
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:3:13: exported type 'Item' is never referenced outside its declaring directory
+```
+
+<!-- test: error.unused-exported-union-nothing-outside-reaches -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+⭐⭐ **THE DISCRIMINATING CONTROL FOR THE THREE `match` / ACCESSOR CASES ABOVE.** An `Answer` is produced,
+held and matched entirely inside `api/answer.maxon`; `app/main.maxon` gets a number. Nothing outside the
+declaring directory names the union or reaches into one, so the finding is correct — and it is the credit taken
+where a value's TAG is read that the three cases above are about.
+
+⚠ `classify` and `score` are unmarked, which is what leaves `Answer`'s name undemanded: a signature
+is asked for its types and the answer counts as a reference to each, so an `export` on either one would
+credit `Answer` from inside the directory the audit is asking about.
+```maxon
+// --- file: api/answer.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export union Answer
+	small
+	big(n Integer)
+end 'Answer'
+
+function classify(n Integer) returns Answer
+	if n > 10 'big'
+		return Answer.big(n)
+	end 'big'
+	return Answer.small
+end 'classify'
+
+function score(a Answer) returns Integer
+	return match a 'm'
+		small gives 1
+		big(n) gives n
+	end 'm'
+end 'score'
+
+export function run(n Integer) returns Integer
+	return score(classify(n))
+end 'run'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	return run(42) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3092: api/<fragment>:5:14: exported type 'Answer' is never referenced outside its declaring directory
+```
+
+## Referenced, but only from inside the declaring subtree
+
+<!-- test: error.an-export-read-only-from-a-subdirectory-is-reported -->
+`pkg/sub/user.maxon` is nested under `pkg/`, so an unmarked `subtreeOnly` would reach it, and `export` was
+never needed. `Integer` is `public`, so the signature that names it owes nothing.
+```maxon
+// --- file: pkg/lib.maxon
+public typealias Integer = int(i64.min to i64.max)
+
+export function subtreeOnly() returns Integer
+	return 3
+end 'subtreeOnly'
+
+// --- file: pkg/sub/user.maxon
+export typealias Num = int(i64.min to i64.max)
+
+export function entry() returns Num
+	return subtreeOnly()
+end 'entry'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return entry()
+end 'main'
+```
+```maxoncstderr
+error E3092: pkg/<fragment>:5:17: exported function 'pkg.subtreeOnly' is never referenced outside its declaring directory
+```
+
+<!-- test: subtree-only-is-not-a-finding-when-an-outside-file-reaches-a-member -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⭐⭐ **THE SUBTREE RULE HAS THE SAME HOLE, AND IT IS CLOSED BY THE SAME REFERENCE.** `pkg/sub/user.maxon` is the
+only file that NAMES `Item` and it is strictly nested, so a subtree rule counting names would fire — while
+`main.maxon`, which is outside the subtree entirely, reaches INTO an `Item` through `h.items`. Narrowing
+`Item` to unmarked on that advice makes E4006 refuse the access, so the advice would be wrong in exactly
+the way E3092's would.
+```maxon
+// --- file: pkg/store.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export type Item
+	export let n as Integer
+
+	export static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Item'
+
+export typealias ItemArray = Array with Item
+
+export type Holder
+	export let items as ItemArray
+
+	export static function create(items ItemArray) returns Self
+		return Self{items: items}
+	end 'create'
+end 'Holder'
+
+export function makeHolder() returns Holder
+	let xs = ItemArray.create(0)
+	xs.push(Item.create(itemValue(Item.create(7)) as Integer))
+	return Holder.create(xs)
+end 'makeHolder'
+
+// --- file: pkg/sub/user.maxon
+export typealias Num = int(i64.min to i64.max)
+
+export function itemValue(i Item) returns Num
+	return i.n
+end 'itemValue'
+
+// --- file: main.maxon
+typealias Count = int(i64.min to i64.max)
+
+function total(h Holder) returns Count
+	var t = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for it in h.items 'each'
+		t = t + it.n as Count
+	end 'each'
+	return t
+end 'total'
+
+function main() returns ExitCode
+	return total(makeHolder())
+end 'main'
+```
+```exitcode
+7
+```
+
+## A finding may not depend on WHICH INTERNER an id is resolved in
+
+<!-- test: error.unused-exported-type-when-the-two-interners-disagree -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+⛔⛔ **A PROGRAM'S VERDICT MUST NOT MOVE WHEN AN UNRELATED FILE IS ADDED, AND THIS IS THE SMALLEST PROGRAM
+THAT SHOWS HOW IT COULD.** A merged function's `maxonParamTypes` carry ids minted against the PROJECT interner
+(`ParseStaging.remapArtifact`, then `TypeResolution.resolveNamedType`); the whole-program signature index
+folds a SECOND, independent per-file interner of its own. Resolving a signature's id against the index's
+table is right only while two insertion orders coincide.
+
+`aliases/casts.maxon` is what breaks the coincidence, and it needs one line to do it: `Narrow` is named ONLY
+in a BODY cast, so the real parse interns it (`parseTypeReference`) and the declaration sweep — which reads
+declarations and not bodies — does not. Every name interned after it therefore sits one id lower in the
+index's table than in the project's, and `read`'s `Holder` parameter resolves, in the index's table, to
+`Victim`: the very declaration nothing outside `records/` names. Resolved there, the finding would be
+SUPPRESSED by a credit no file earned.
+
+⚠ **The order of the two declarations in `records/types.maxon` is load-bearing** — an off-by-one names the
+NEXT interned type, so `Victim` must be the one declared after `Holder`. Without `aliases/casts.maxon` the
+two tables agree and even that resolution reports the diagnostic, so that file is what makes the case discriminating.
+```maxon
+// --- file: aliases/casts.maxon
+export typealias Wide = int(i64.min to i64.max)
+
+typealias Narrow = int(0 to 100)
+
+export function clampish(v Wide) returns Wide
+	let n = v as Narrow
+	return n
+end 'clampish'
+
+// --- file: records/types.maxon
+export type Holder
+	export var n as ExitCode
+
+	export static function make() returns Holder
+		return Holder{n: 7}
+	end 'make'
+end 'Holder'
+
+export type Victim
+	export var q as ExitCode
+
+	export static function make() returns Victim
+		return Victim{q: 1}
+	end 'make'
+end 'Victim'
+
+// --- file: use/main.maxon
+function read(h Holder) returns ExitCode
+	return h.n
+end 'read'
+
+function main() returns ExitCode
+	return read(Holder.make()) + (clampish(0) as ExitCode)
+end 'main'
+```
+```maxoncstderr
+error E3092: records/<fragment>:20:13: exported type 'Victim' is never referenced outside its declaring directory
+```
+
+## A one-file program is audited like any other
+
+<!-- test: error.a-single-file-program-is-audited -->
+⭐⭐ **A ONE-FILE PROGRAM IS AUDITED LIKE ANY OTHER.** `neverCalled` is `export` and nothing — inside the
+file or out — names it, which is exactly the fact E3092 reports; the file count is not part of the
+question. The declaration is at the fragment's root, so the diagnostic spells the name unqualified
+(`SignatureIndex.diagnosticNameInFile` returns the bare name where the namespace is empty).
+```maxon
+export function neverCalled() returns ExitCode
+	return 0
+end 'neverCalled'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3092: <fragment>:2:17: exported function 'neverCalled' is never referenced outside its declaring directory
+```
+
+## An unmarked library declaration is judged by the source that names it, not by which bodies the program builds
+
+A library file's bodies are built only when a path from `main` reaches the file, so in each program below
+`overlayCaller` is never built, and no op of it exists for the audit to read. The declaration it names is
+still named by a file of its directory: that is a fact of the source, and E3219 is about the source.
+
+<!-- test: an-unmarked-library-function-named-by-a-sibling-file-the-program-never-reaches -->
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+function overlayShared() returns OverlayCount
+	return 7
+end 'overlayShared'
+
+// --- stdlib-overlay: Math.maxon
+public function overlayCaller() returns OverlayCount
+	return overlayShared()
+end 'overlayCaller'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-unmarked-library-constant-named-by-a-sibling-file-the-program-never-reaches -->
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+let overlayShared = 5 as OverlayCount
+
+// --- stdlib-overlay: Math.maxon
+public function overlayCaller() returns OverlayCount
+	return overlayShared
+end 'overlayCaller'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.an-unmarked-library-function-no-sibling-file-names -->
+The negative control: the declaration is the same, and no other library file spells its name, so the
+audit says what it says of any unmarked declaration nothing in its directory names.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+function overlayShared() returns OverlayCount
+	return 7
+end 'overlayShared'
+
+// --- stdlib-overlay: Math.maxon
+public function overlayCaller() returns OverlayCount
+	return 8
+end 'overlayCaller'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3219: <fragment>:5:10: unused function: 'overlayShared' is not exported and nothing live in its directory names it; delete it
+```
+
+<!-- test: an-unmarked-library-function-named-by-a-never-instantiated-template-in-a-built-file -->
+The reader's file is built here (`main` calls into it), so it is the template, not the file, whose body
+no op exists for: `overlayTemplate` is never instantiated.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+function overlayShared() returns OverlayCount
+	return 7
+end 'overlayShared'
+
+// --- stdlib-overlay: Math.maxon
+public function overlayCaller() returns OverlayCount
+	return 1
+end 'overlayCaller'
+
+public function overlayTemplate(a T) uses T returns T where T implements Comparable
+	let shared = overlayShared()
+	return a if shared > 0 else a
+end 'overlayTemplate'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return overlayCaller()
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: an-unmarked-library-function-named-only-in-an-excluded-branch-of-a-sibling -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+The sibling's only mention sits in a `#if` branch no target takes, so no op and no token of the active
+stream holds it.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+function overlayShared() returns OverlayCount
+	return 7
+end 'overlayShared'
+
+// --- stdlib-overlay: Math.maxon
+// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+#if testing(true)
+
+public function overlayCaller() returns OverlayCount
+	return overlayShared()
+end 'overlayCaller'
+
+// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+#endif
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.an-unmarked-library-function-no-excluded-branch-names -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- positions: moved -->
+The negative control: the excluded branch exists and does not spell the name.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias OverlayCount = int(0 to 1000)
+
+function overlayShared() returns OverlayCount
+	return 7
+end 'overlayShared'
+
+// --- stdlib-overlay: Math.maxon
+// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+#if testing(true)
+
+public function overlayCaller() returns OverlayCount
+	return 8
+end 'overlayCaller'
+
+// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+#endif
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3219: <fragment>:5:10: unused function: 'overlayShared' is not exported and nothing live in its directory names it; delete it
+```
+
+## A declaration is judged by the source that names it, not by which bodies were built
+
+Two kinds of author code have a body no op exists for: a generic function nothing instantiates, whose body
+is read once per instantiation, and the branch of a `#if` the target excludes. A name spelled there is
+still a reference.
+
+<!-- test: an-unmarked-function-named-only-by-a-generic-function-nothing-instantiates -->
+```maxon
+// --- file: lib.maxon
+function helper() returns ExitCode
+	return 7
+end 'helper'
+
+// --- file: generic.maxon
+public function viaGeneric(a T) uses T returns T where T implements Comparable
+	let h = helper()
+	return a if h > 0 else a
+end 'viaGeneric'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-export-named-only-by-a-generic-function-nothing-instantiates -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+```maxon
+// --- file: api/lib.maxon
+export function helper() returns ExitCode
+	return 7
+end 'helper'
+
+// --- file: use/generic.maxon
+public function viaGeneric(a T) uses T returns T where T implements Comparable
+	let h = helper()
+	return a if h > 0 else a
+end 'viaGeneric'
+
+// --- file: use/main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-unmarked-function-named-only-in-an-inactive-branch -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+```maxon
+// --- file: lib.maxon
+function helper() returns ExitCode
+	return 7
+end 'helper'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if testing(true)
+	return helper()
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.an-unmarked-function-spelled-only-in-a-string-of-a-generic-function-nothing-instantiates -->
+<!-- positions: moved -->
+The negative control: only an identifier is a reference, so a template that holds the name in a string
+literal leaves the declaration unreferenced.
+```maxon
+// --- file: lib.maxon
+function helper() returns ExitCode
+	return 7
+end 'helper'
+
+// --- file: generic.maxon
+public function viaGeneric(a T) uses T returns T where T implements Comparable
+	print("helper")
+	return a
+end 'viaGeneric'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3219: <fragment>:3:10: unused function: 'helper' is not exported and nothing live in its directory names it; delete it
+```
+
+<!-- test: error.an-unmarked-function-no-inactive-branch-names -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// --- file: lib.maxon
+function helper() returns ExitCode
+	return 7
+end 'helper'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if testing(true)
+	return 1
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3219: <fragment>:3:10: unused function: 'helper' is not exported and nothing live in its directory names it; delete it
+```

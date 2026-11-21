@@ -1,0 +1,6433 @@
+---
+feature: arrays
+status: stable
+keywords: [arrays, array literal, get, set, sized array]
+category: types
+---
+# Arrays
+
+## Documentation
+
+Arrays are ordered collections of elements of the same type.
+
+## Mutable Array Literals
+
+Create a mutable array using `var` with square brackets:
+
+```text
+var numbers = [10, 20, 30]
+numbers.set(0, value: 100)  // Can modify elements
+```
+
+## Immutable Array Literals
+
+Create an immutable array using `let` with square brackets:
+
+```text
+let constants = [10, 20, 30]
+let x = try constants.get(1) otherwise 0  // Can read elements
+```
+
+## Preallocated Arrays
+
+Create an array with preallocated capacity and length using `.resize()`:
+
+```text
+typealias Integer = int(i64.min to i64.max)
+typealias IntArray = Array with Integer
+
+var buffer = IntArray.create(0)
+buffer.resize(10)   // Length is now 10, elements are zero-initialized
+buffer.set(0, value: 42)
+```
+
+Use `.reserve()` to allocate capacity without changing length (for performance when appending):
+
+```text
+typealias Integer = int(i64.min to i64.max)
+typealias IntArray = Array with Integer
+
+var buffer = IntArray.create(0)
+buffer.reserve(100)  // Capacity is 100, length is still 0
+buffer.push(42)      // Now length is 1
+```
+
+## Element Access
+
+Access array elements using the `.get()` method with a zero-based index.
+The method returns an optional value (throws on out of bounds), so use `try ... otherwise default`:
+
+```text
+let arr = [10, 20, 30]
+let first = try arr.get(0) otherwise 0   // 10
+let second = try arr.get(1) otherwise 0  // 20
+let third = try arr.get(2) otherwise 0   // 30
+```
+
+## Element Assignment
+
+Modify mutable array elements using the `.set()` method:
+
+```text
+var arr = [10, 20, 30]
+arr.set(0, value: 100)
+arr.set(1, value: 200)
+```
+
+## Tests
+
+<!-- test: literal-first -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return try [10, 20, 30].get(0) otherwise 0
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: literal-middle -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	return try arr.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: literal-last -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	return try arr.get(2) otherwise 0
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: five-elements -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [5, 10, 15, 20, 25]
+	return try arr.get(4) otherwise 0
+end 'main'
+```
+```exitcode
+25
+```
+
+<!-- test: index-assignment -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30]
+	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: assignment-middle -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [1, 2, 3]
+	try arr.set(1, value: 42) otherwise panic("test invariant: set OOB")
+	return try arr.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: assignment-last -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [1, 2, 3, 4, 5]
+	try arr.set(4, value: 99) otherwise panic("test invariant: set OOB")
+	return try arr.get(4) otherwise 0
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: multiple-access -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [5, 10, 15, 20, 25]
+	let a = try arr.get(2) otherwise 0
+	let b = try arr.get(4) otherwise 0
+	return a + b
+end 'main'
+```
+```exitcode
+40
+```
+
+<!-- test: assignment-preserves-others -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30]
+	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
+	return try arr.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: multiple-assignments -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [0, 0, 0]
+	try arr.set(0, value: 1) otherwise panic("test invariant: set OOB")
+	try arr.set(1, value: 2) otherwise panic("test invariant: set OOB")
+	try arr.set(2, value: 3) otherwise panic("test invariant: set OOB")
+	let a = try arr.get(0) otherwise 0
+	let b = try arr.get(1) otherwise 0
+	let c = try arr.get(2) otherwise 0
+	return a + b + c
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: let-array-first -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: let-array-middle -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	return try arr.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: let-array-last -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	return try arr.get(2) otherwise 0
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: let-array-multiple-access -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [5, 10, 15, 20]
+	let a = try arr.get(0) otherwise 0
+	let b = try arr.get(3) otherwise 0
+	return a + b
+end 'main'
+```
+```exitcode
+25
+```
+
+<!-- test: array-with-reserve -->
+Test that arrays can be created with `.reserve()` for preallocated capacity.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let arr = IntArray.create(0)
+	arr.reserve(5)
+	arr.push(42)
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: array-with-resize -->
+Test that arrays can be created with `.resize()` for preallocated length.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let arr = IntArray.create(0)
+	arr.resize(5)
+	try arr.set(0, value: 99) otherwise panic("test invariant: set OOB")
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: array-growth-realloc -->
+Test that arrays grow correctly when pushing many elements (triggers multiple reallocs).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let arr = IntArray.create(0)
+	var i = 0 as Integer
+	while i < 100 'loop'
+		arr.push(i)
+		i = i + 1
+	end 'loop'
+	return try arr.get(99) otherwise -1
+end 'main'
+```
+```exitcode
+99
+```
+
+### Byte Array Push and Get
+
+<!-- test: byte-array-push-get -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(10 as Byte)
+	arr.push(20 as Byte)
+	arr.push(30 as Byte)
+	let v0 = try arr.get(0) otherwise 0 as Byte
+	let v1 = try arr.get(1) otherwise 0 as Byte
+	let v2 = try arr.get(2) otherwise 0 as Byte
+	return v0 + v1 + v2
+end 'main'
+```
+```exitcode
+60
+```
+
+### Byte Array Initialized
+
+<!-- test: byte-array-initialized -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(1 as Byte)
+	arr.push(2 as Byte)
+	arr.push(3 as Byte)
+	let v0 = try arr.get(0) otherwise 0 as Byte
+	let v1 = try arr.get(1) otherwise 0 as Byte
+	let v2 = try arr.get(2) otherwise 0 as Byte
+	return v0 + v1 + v2
+end 'main'
+```
+```exitcode
+6
+```
+
+### Byte Array Set
+
+<!-- test: byte-array-set -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(10 as Byte)
+	arr.push(20 as Byte)
+	arr.push(30 as Byte)
+	try arr.set(1, value: 99 as Byte) otherwise panic("test invariant: set OOB")
+	let val = try arr.get(1) otherwise 0 as Byte
+	return val
+end 'main'
+```
+```exitcode
+99
+```
+
+### Byte Array Max Values
+
+<!-- test: byte-array-max-values -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(255 as Byte)
+	arr.push(0 as Byte)
+	arr.push(128 as Byte)
+	let v0 = try arr.get(0) otherwise 0 as Byte
+	let v1 = try arr.get(1) otherwise 99 as Byte
+	let v2 = try arr.get(2) otherwise 0 as Byte
+	if v0 != 255 'c0'
+		return 1
+	end 'c0'
+	if v1 != 0 'c1'
+		return 2
+	end 'c1'
+	if v2 != 128 'c2'
+		return 3
+	end 'c2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+### Byte Array Count
+
+<!-- test: byte-array-count -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(1 as Byte)
+	arr.push(2 as Byte)
+	arr.push(3 as Byte)
+	arr.push(4 as Byte)
+	arr.push(5 as Byte)
+	return arr.count()
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: array-literal-constant -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let numbers = [1, 2, 3, 4, 5]
+
+function main() returns ExitCode
+	var sum = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in numbers 'loop'
+		sum = sum + n
+	end 'loop'
+	return sum
+end 'main'
+```
+```exitcode
+15
+```
+
+<!-- test: array-literal-with-dependency -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+let FIRST = 10
+
+let SECOND = 20
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let values = [FIRST, SECOND, 30]
+
+function main() returns ExitCode
+	let v0 = try values.get(0) otherwise 0
+	let v1 = try values.get(1) otherwise 0
+	let v2 = try values.get(2) otherwise 0
+	return v0 + v1 + v2
+end 'main'
+```
+```exitcode
+60
+```
+
+<!-- test: error.unused-array-typealias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+A `typealias X = Array with Y` declaration must be referenced **explicitly**
+by name (`X.create()`, `let v X = ...`, etc.) — being implicitly inferable
+from a bare `[...]` array literal does not count as a use. This avoids silent
+"used implicitly" semantics that masked real unused-typealias mistakes.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let numbers = [1, 2, 3, 4, 5]
+
+function main() returns ExitCode
+	var sum = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in numbers 'loop'
+		sum = sum + n
+	end 'loop'
+	return sum
+end 'main'
+```
+```maxoncstderr
+error E3062: specs/arrays/error.unused-array-typealias.maxon:3:11: unused typealias: 'IntArray'
+```
+
+### A generic-instance typealias is unreachable from another file unless it is exported
+
+`error.unused-array-typealias` above states what counts as a use of an `Array with T` alias, and
+`X.create()` is the first spelling it names. A non-exported typealias of any form is unreachable from
+another file, exactly as `specs/export-keyword.md`'s `error.non-exported-typealias-cross-file` states
+for a ranged one: the far spelling is refused at the name, it credits no declaration, and the
+declaration nothing in its own file spells is unused. Both ends agree.
+
+<!-- test: error.generic-instance-consumer-alias-as-a-static-call-receiver -->
+The alias appears exactly once at the use site, as the base of a static call, in a file that did not
+declare it.
+```maxon
+// --- file: probe/probe.maxon
+export union Thing
+	made(detail String)
+end 'Thing'
+
+typealias ThingArray = Array with Thing
+
+// --- file: main.maxon
+function main() returns ExitCode
+	var xs = ThingArray.create(0)
+	xs.push(Thing.made("x"))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:11:11: typealias 'ThingArray' is not exported
+error E3062: probe/<fragment>:7:11: unused typealias: 'ThingArray'
+```
+
+<!-- test: error.generic-instance-consumer-alias-as-a-receiver-and-a-return-type -->
+Same two files, same alias, same declaration — the use site additionally names `ThingArray` in a
+TYPE position, as a return type. Each spelling is refused.
+```maxon
+// --- file: probe/probe.maxon
+export union Thing
+	made(detail String)
+end 'Thing'
+
+typealias ThingArray = Array with Thing
+
+// --- file: main.maxon
+function makeThings() returns ThingArray
+	return ThingArray.create(0)
+end 'makeThings'
+
+function main() returns ExitCode
+	var xs = makeThings()
+	xs.push(Thing.made("x"))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:10:31: typealias 'ThingArray' is not exported
+error E3008: <fragment>:11:9: typealias 'ThingArray' is not exported
+error E3062: probe/<fragment>:7:11: unused typealias: 'ThingArray'
+```
+
+<!-- test: error.generic-instance-consumer-a-second-file-declares-the-alias -->
+⛔ The CONTROL that bounds the two cases above, and the direction they may not be paid for. Both
+files declare `ThingArray` over the identical instance, and only `main.maxon` spells it. Deleting
+`probe.maxon`'s declaration changes nothing about this program — `main.maxon` resolves `ThingArray`
+to its OWN declaration, which is what every alias form does — so `probe.maxon`'s declaration is
+unused in exactly the sense E3062 names, and a spelling that never reached it may not credit it.
+Two declarations coexist here (`specs/export-keyword.md`'s duplicate rule refuses only one FILE
+declaring a name twice), so no collision diagnostic explains it either.
+```maxon
+// --- file: probe/probe.maxon
+export union Thing
+	made(detail String)
+end 'Thing'
+
+typealias ThingArray = Array with Thing
+
+// --- file: main.maxon
+typealias ThingArray = Array with Thing
+
+function main() returns ExitCode
+	var xs = ThingArray.create(0)
+	xs.push(Thing.made("x"))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: probe/<fragment>:7:11: unused typealias: 'ThingArray'
+```
+
+### String Array Literals
+
+<!-- test: string-array-literal-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello", "world"]
+	let s = try arr.get(0) otherwise ""
+	if s == "hello" 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: string-array-literal-iterate -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["aaa", "bbb", "ccc"]
+	var count = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in arr 'loop'
+		count = count + 1
+	end 'loop'
+	return count
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: string-array-literal-top-level -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let names = ["alice", "bob"]
+
+function main() returns ExitCode
+	var count = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in names 'loop'
+		count = count + 1
+	end 'loop'
+	return count
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: string-array-literal-top-level-pass-to-function -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let items = ["hello"]
+
+function useString(s String) returns ExitCode
+	if s == "hello" 'check'
+		return 42
+	end 'check'
+	return 0
+end 'useString'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for item in items 'loop'
+		return useString(item)
+	end 'loop'
+	return 1
+end 'main'
+```
+```exitcode
+42
+```
+
+### Slice
+
+<!-- test: slice-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30, 40, 50]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let sub = try arr.slice(1, endIndex: 4) otherwise [1]
+	let a = try sub.get(0) otherwise 0
+	let b = try sub.get(1) otherwise 0
+	let c = try sub.get(2) otherwise 0
+	return a + b + c
+end 'main'
+```
+```exitcode
+90
+```
+
+<!-- test: slice-from-start -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30, 40, 50]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let sub = try arr.slice(0, endIndex: 3) otherwise [1]
+	return sub.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: slice-to-end -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30, 40, 50]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let sub = try arr.slice(3, endIndex: 5) otherwise [1]
+	let a = try sub.get(0) otherwise 0
+	let b = try sub.get(1) otherwise 0
+	return a + b
+end 'main'
+```
+```exitcode
+90
+```
+
+<!-- test: slice-empty -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let sub = try arr.slice(1, endIndex: 1) otherwise [1]
+	return sub.count()
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-full -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let sub = try arr.slice(0, endIndex: 3) otherwise [1]
+	let a = try sub.get(0) otherwise 0
+	let b = try sub.get(1) otherwise 0
+	let c = try sub.get(2) otherwise 0
+	return a + b + c
+end 'main'
+```
+```exitcode
+60
+```
+
+<!-- test: slice-throws-invalid-end -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let sub = try arr.slice(0, endIndex: 10) otherwise return 42
+	return sub.count()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: slice-throws-inverted-range -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let sub = try arr.slice(2, endIndex: 1) otherwise return 42
+	return sub.count()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: slice-throws-invalid-start -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let sub = try arr.slice(5, endIndex: 5) otherwise return 42
+	return sub.count()
+end 'main'
+```
+```exitcode
+42
+```
+
+### Negative index
+
+A negative index would address BEFORE the buffer — an OOB heap read/write — and it never gets the chance,
+because `ElementIndex` is a checked QUANTITY: a value that arrived from a signed domain and is negative is
+refused at the DOOR of every member that takes one. The refusal is the TYPE's, not each accessor's — an
+accessor's own at-or-over-length test could never have caught it anyway, because `StdCmpPred` is signed
+and `-1 >= 3` is FALSE.
+
+A LITERAL negative is refused where it is written, by the same constant fold at every one of the six call
+sites — the accessor's own bound is not consulted at all.
+
+<!-- test: error.get-negative-index-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let val = try arr.get(-1) otherwise 99
+	return val
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: error.set-negative-index-is-refused-at-the-door -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var arr = FullRangeIntArray from [10, 20, 30]
+	try arr.set(-1, value: 5) otherwise return 99
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: error.remove-negative-index-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var arr = FullRangeIntArray from [10, 20, 30]
+	let removed = try arr.remove(-1) otherwise return 99
+	return removed
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:24: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: error.slice-negative-start-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let sub = try arr.slice(-1, endIndex: 2) otherwise return 99
+	return sub.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+Both of `slice`'s ends take an `ElementIndex`, so a negative `endIndex` is refused by the same door as a
+negative `start`. The case below writes both negative, and BOTH are reported — the refusal does not stop
+at the first argument it finds.
+
+<!-- test: error.slice-negative-end-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let sub = try arr.slice(-2, endIndex: -1) otherwise return 99
+	return sub.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:20: Value -2 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: error.insert-negative-index-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var arr = FullRangeIntArray from [10, 20, 30]
+	arr.insert(-1, value: 99)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:6: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+### A negative index the compiler cannot fold
+
+A value the compiler cannot see is refused by a runtime guard instead, and that refusal is a range
+violation rather than an error the type declares — so it PANICS, uncatchably, and the `otherwise` written
+around the call is never entered. The three cases below are the three shapes that matter: a READ, a WRITE
+with an `otherwise` around it, and `insert`.
+
+⚠ **THE THREE DO NOT ALL PANIC IN THE SAME PLACE, AND THE DIFFERENCE IS WHERE THE MEMBER'S BODY IS.**
+`insert` is served from `stdlib/Array.maxon`, so its guard stands at that function's ENTRY and the panic
+names `Array.maxon` with an `Array.insert` frame — the ordinary `RangeCheckParamSite` shape.
+`get` and `set` this compiler lowers INLINE, so there is no entry to stand at: the guard
+goes at the CALL, the panic names the caller's own line, and there is no callee frame to print
+(`Parser.recordArmServedIndexRangeCheck`). The RANGE is the same one either way — both read it out of the
+same declaration in `stdlib/Array.maxon` — and only the position the failure is reported at differs.
+
+<!-- test: get-laundered-negative-index-panics-at-the-door -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Signed = int(i64.min to i64.max)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	let val = try arr.get(launder(-1) as ElementIndex) otherwise 99
+	return val
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at get-laundered-negative-index-panics-at-the-door.test:10: Range check failed: value outside typealias 'ElementIndex'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: set-laundered-negative-index-panics-at-the-door -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Signed = int(i64.min to i64.max)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30]
+	try arr.set(launder(-1) as ElementIndex, value: 5) otherwise return 99
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at set-laundered-negative-index-panics-at-the-door.test:10: Range check failed: value outside typealias 'ElementIndex'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: insert-laundered-negative-index-panics-at-the-door -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Signed = int(i64.min to i64.max)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30]
+	arr.insert(launder(-1) as ElementIndex, value: 99)
+	print("inserted, count is now {arr.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at insert-laundered-negative-index-panics-at-the-door.test:10: Range check failed: value outside typealias 'ElementIndex'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+### Append
+
+<!-- test: append-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = FullRangeIntArray from [1, 2, 3]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [4, 5, 6]
+	a.append(b)
+	var sum = 0 as FullRangeInt
+	var i = 0 as Count
+	while i < a.count() 'loop'
+		sum = sum + (try a.get(i) otherwise 0)
+		i = i + 1
+	end 'loop'
+	return sum
+end 'main'
+```
+```exitcode
+21
+```
+
+<!-- test: append-empty-to-nonempty -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = IntArray from [1, 2, 3]
+	let b = IntArray.create(0)
+	a.append(b)
+	return a.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: append-nonempty-to-empty -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [10, 20]
+	a.append(b)
+	let first = try a.get(0) otherwise 0
+	let second = try a.get(1) otherwise 0
+	return first + second
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: append-preserves-originals -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = FullRangeIntArray from [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [3, 4]
+	a.append(b)
+	// b should still have its original elements
+	let b0 = try b.get(0) otherwise 0
+	let b1 = try b.get(1) otherwise 0
+	return b0 + b1
+end 'main'
+```
+```exitcode
+7
+```
+
+### `appendMemory` — the same append, entered through the MEMORY instead of the array
+
+`stdlib/Array.maxon:234` declares `appendMemory(source ElementMemory)`, and `:223` builds
+`append(other Self)` out of it — `append`'s whole body is `appendMemory(other.managed)`, because the
+array half of `other` was never read. Since the envelope collapse an `Array` IS its
+`__ManagedMemory`, so a caller who already HOLDS the memory would otherwise have to wrap it in an
+`Array` record just to hand it over: `StringBuilder.appendBytes` paid one allocation PER APPEND
+(`stdlib/String.maxon:871`, this member's one corpus caller).
+
+⇒ The two spellings are ONE operation, ONE argument rule and ONE emission. What is NOT folded is the
+SENTENCE: `append` declares its parameter `other` and `appendMemory` declares it `source`, so a
+refusal names the parameter of the method the author actually wrote.
+
+<!-- test: appendMemory-copies-a-raw-buffers-elements -->
+<!-- tier: stdlib -->
+### An `Array` receiver takes a raw `__ManagedMemory` — `stdlib/String.maxon:865`'s exact shape
+The receiver is a genuine `Array` and the argument is a buffer nothing wrapped, which is the whole
+point of the member existing beside `append`.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let a = ByteArray.create(0)
+	a.push(7)
+	let piece = try __ManagedMemory.create(4, 1) otherwise return 9
+	try piece.set(0, 20) otherwise return 8
+	try piece.set(1, 30) otherwise return 8
+	try piece.setLength(2) otherwise return 8
+	a.appendMemory(piece)
+	var sum = 0 as Count
+	var i = 0 as Count
+	while i < a.count() 'loop'
+		sum = sum + (try a.get(i) otherwise 0) as Count
+		i = i + 1
+	end 'loop'
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+57
+```
+
+<!-- test: appendMemory-takes-another-arrays-managed-and-preserves-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+### `stdlib/Array.maxon`'s own spelling — `append` is a caller of this member
+The receiver gains the source's elements, and the source is only read and copied out of, exactly as
+`append`'s is: the exit code is the receiver's sum (10) times ten plus the source's two elements (7).
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = FullRangeIntArray from [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [3, 4]
+	a.appendMemory(b.managed)
+	var sum = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		sum = sum + x
+	end 'each'
+	let b0 = try b.get(0) otherwise 0
+	let b1 = try b.get(1) otherwise 0
+	return sum * 10 + b0 + b1
+end 'main'
+```
+```exitcode
+107
+```
+
+<!-- test: error.appendMemory-names-its-own-parameter -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### The argument rule is `append`'s, and the sentence names `source`
+One rule (`ProgramSignatures.arrayAppendArgAdmits`) — a `Small` cannot walk into a `Bytes` through
+either spelling. Two sentences, because the corpus declares two parameter names for one operation
+and a reader is told the one they can act on.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Small = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Smalls = Array with Small
+
+function main() returns ExitCode
+	var s = Smalls.create(0)
+	s.push(150)
+	var b = Bytes.create(0)
+	b.appendMemory(s.managed)
+	return try b.get(0) otherwise 1
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:4: argument type mismatch for 'source': expected 'Bytes', got '__ManagedMemory with Small'
+```
+
+<!-- test: error.appendMemory-on-a-let-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### It WRITES the receiver, so an immutable array refuses it
+`appendMemory` is a receiver-writing method (`arrayMethodMutatesReceiver`), which is the same answer
+E3207 and the storage-written mask both read. Served as a member but omitted from that
+answer, this program would have compiled and silently written through an immutable array.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [3]
+	a.appendMemory(b.managed)
+	return a.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:5:4: 'appendMemory' needs a writable receiver; 'a' is immutable
+```
+
+<!-- test: appendMemory-keeps-an-element-read-before-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- tier: stdlib -->
+### An element read before the append stays readable after it
+`first` counts the element it hands back, so the receiver may be written while `s` is still in use.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	let s = try arr.first() otherwise ""
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let other = ["a second long string that also lives on the heap here"]
+	arr.appendMemory(other.managed)
+	print("[{s}]\n")
+	print("{arr.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[hello world 42 this is a long string for heap allocation]
+2
+```
+
+<!-- test: append-gives-the-receiver-its-own-copy-of-each-record -->
+### `append` copies a record element: a write through the receiver's element does not reach the source's
+A collection's copy clones each element it holds, so no record of the copy is a record of the original.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Cell'
+
+typealias Cells = Array with Cell
+
+function main() returns ExitCode
+	let src = Cells.create(0)
+	src.push(Cell.create(1))
+	src.push(Cell.create(2))
+	let dest = Cells.create(0)
+	dest.push(Cell.create(0))
+	dest.append(src)
+	let moved = try dest.get(1) otherwise Cell.create(-1)
+	moved.value = 99
+	let seen = try src.get(0) otherwise Cell.create(-1)
+	print("dest {moved.value} src {seen.value}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+dest 99 src 1
+```
+
+<!-- test: appendMemory-gives-the-receiver-its-own-copy-of-each-record -->
+<!-- tier: stdlib -->
+### `appendMemory` is the same copy, so the same independence
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Cell'
+
+typealias Cells = Array with Cell
+
+function main() returns ExitCode
+	let src = Cells.create(0)
+	src.push(Cell.create(1))
+	src.push(Cell.create(2))
+	let dest = Cells.create(0)
+	dest.push(Cell.create(0))
+	dest.appendMemory(src.managed)
+	let moved = try dest.get(1) otherwise Cell.create(-1)
+	moved.value = 99
+	let seen = try src.get(0) otherwise Cell.create(-1)
+	print("dest {moved.value} src {seen.value}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+dest 99 src 1
+```
+
+<!-- test: append-of-a-string-array-leaves-both-arrays-whole-and-leaks-nothing -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Appending a `String` array and dropping both arrays is leak-free
+```maxon
+typealias Names = Array with String
+
+function main() returns ExitCode
+	let src = Names.create(0)
+	src.push("the first long string that lives on the heap {40 + 2}")
+	src.push("the second long string that lives on the heap {41 + 2}")
+	let dest = Names.create(0)
+	dest.push("a destination string that lives on the heap {1 + 2}")
+	dest.append(src)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for name in dest 'each'
+		print("{name}\n")
+	end 'each'
+	print("{dest.count()} {src.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a destination string that lives on the heap 3
+the first long string that lives on the heap 42
+the second long string that lives on the heap 43
+3 2
+```
+
+<!-- test: appendMemory-of-a-string-array-leaves-both-arrays-whole-and-leaks-nothing -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+### The `appendMemory` spelling of the same, over a `String` array
+```maxon
+typealias Names = Array with String
+
+function main() returns ExitCode
+	let src = Names.create(0)
+	src.push("the first long string that lives on the heap {40 + 2}")
+	src.push("the second long string that lives on the heap {41 + 2}")
+	let dest = Names.create(0)
+	dest.push("a destination string that lives on the heap {1 + 2}")
+	dest.appendMemory(src.managed)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for name in dest 'each'
+		print("{name}\n")
+	end 'each'
+	print("{dest.count()} {src.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a destination string that lives on the heap 3
+the first long string that lives on the heap 42
+the second long string that lives on the heap 43
+3 2
+```
+
+<!-- test: append-of-an-array-of-unique-records -->
+### Appending an array of `unique` records
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Token is noncopyable
+	export var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Token'
+
+typealias Tokens = Array with Token
+
+function main() returns ExitCode
+	let src = Tokens.create(0)
+	src.push(Token.create(1))
+	let dest = Tokens.create(0)
+	dest.append(src)
+	print("{dest.count()} {src.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 1
+```
+
+<!-- test: error.appendMemory-is-not-a-value -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### It is VOID, like every other `Array` mutator
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var a = FullRangeIntArray from [1, 2]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let b = [3]
+	let x = a.appendMemory(b.managed)
+	return x
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:5:12: Function 'appendMemory' does not return a value
+```
+
+<!-- test: error.insert-on-a-let-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+### `insert` owes the same two answers
+`appendMemory`'s twins above exist because the omission would be a silent write. `insert` is on the
+same `arrayMethodMutatesReceiver` answer, so it owes the same two cases (and see
+`ranged-typealias.error.array-insert-out-of-range` for the same gap one door over).
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	arr.insert(0, value: 9)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:2: 'insert' writes its receiver (line 265: `self.resize(len + 1)`); 'arr' is immutable
+```
+
+<!-- test: insert-keeps-an-element-read-before-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	let s = try arr.first() otherwise ""
+	arr.insert(0, value: "a second long string that also lives on the heap")
+	let head = try arr.first() otherwise ""
+	print("[{s}]\n")
+	print("[{head}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[hello world 42 this is a long string for heap allocation]
+[a second long string that also lives on the heap]
+```
+
+<!-- test: error.set-on-a-let-array -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+### … and `set` is the THIRD member of that pair
+⚠ `set` is on the same `arrayMethodMutatesReceiver` answer as `insert`, reached through the same
+`parseArraySet`, so it owes the same two answers, and they are pinned here: a change to how `set` is served
+inherits a guard rather than a green suite.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try arr.set(0, value: 9) otherwise 'oob'
+		return 9
+	end 'oob'
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:10: 'set' needs a writable receiver; 'arr' is immutable
+```
+
+<!-- test: set-keeps-the-element-it-displaces-readable -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+`set` releases the slot's occupant, and `s` still holds its own reference to it.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	let s = try arr.first() otherwise ""
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try arr.set(0, value: "a second long string that also lives on the heap") otherwise 'oob'
+		return 9
+	end 'oob'
+	print("[{s}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[hello world 42 this is a long string for heap allocation]
+```
+
+<!-- test: error.reserve-on-a-let-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+### … and `reserve` is the FOURTH
+⚠ `reserve` is served by the corpus declaration, whose own write mask carries the rule. `reserve` allocates
+capacity and rewrites `buffer@0`/`capacity@16`, so an immutable array must refuse it exactly as `push`
+and `set` do.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	arr.reserve(16)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:2: 'reserve' writes its receiver (line 318: `try managed.grow(minCapacity)`); 'arr' is immutable
+```
+
+<!-- test: reserve-keeps-an-element-read-before-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+`reserve` REALLOCATES the buffer; an element read before it holds its own reference, not a slot of the old
+buffer.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	let s = try arr.first() otherwise ""
+	arr.reserve(64)
+	print("[{s}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[hello world 42 this is a long string for heap allocation]
+```
+
+<!-- test: error.clear-on-a-let-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+### … and `clear` is the FIFTH
+⚠ `clear` shortens the array and RELEASES every element on the way out, so an immutable array must refuse
+it exactly as `push` and `set` do.
+
+⛔ **A WRITE REACHING A CALLER THROUGH A METHOD'S OWN FIELD IS A USE-AFTER-FREE WHEN IT IS MISSED**, and
+`borrow-liveness.receiver-method-writing-its-own-field-through-a-corpus-member` pins that rule on another
+corpus member. This case is the local half, the one the corpus declaration's own write mask
+carries.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	arr.clear()
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:2: 'clear' writes its receiver (line 306: `managed.clear()`); 'arr' is immutable
+```
+
+<!-- test: clear-keeps-an-element-read-before-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+`clear` releases every element; the one `s` read keeps its own reference and outlives the clear.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	let s = try arr.first() otherwise ""
+	arr.clear()
+	print("[{s}]\n")
+	print("{arr.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[hello world 42 this is a long string for heap allocation]
+0
+```
+
+### Set is bounded by the LIVE LENGTH, not by the capacity
+
+`set` refuses every index at or past `count()`, and the bound is the array's own rather than the storage
+layer's: `__ManagedMemory.set` underneath admits any index below the CAPACITY, deliberately, because the
+buffer is where a caller stages slots and then publishes them with `setLength`. An `Array` has no staging
+idiom — `count()` is its whole contract — so forwarding straight through would write a slot no reader can
+reach.
+
+For a MANAGED element that is not merely invisible, it is a LEAK: the record lands outside `[0, count)`,
+which is exactly the range the element-destroy walk covers, so nothing ever releases it.
+
+<!-- test: set-past-the-live-length-is-refused -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = ["one long heap allocated string value here"]
+	arr.reserve(8)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try arr.set(2, value: "two long heap allocated string value here") otherwise 'pastLength'
+		return 42
+	end 'pastLength'
+	return arr.count()
+end 'main'
+```
+```exitcode
+42
+```
+
+A NEGATIVE index is refused too, and by a DIFFERENT mechanism — which is why it needs saying separately.
+The past-the-length refusal above is `set`'s own, a catchable `ArrayError`. A negative never reaches `set`
+at all: `index`'s `ElementIndex` is a checked QUANTITY, so the door refuses it. The `otherwise` block
+returning 42 is kept here to say that it is NOT the arm that runs: the program does not compile at all.
+
+<!-- test: error.set-negative-index-is-refused -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var arr = FullRangeIntArray from [10, 20, 30]
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try arr.set(-1, value: 99) otherwise 'negative'
+		return 42
+	end 'negative'
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+### Copy-on-Write
+
+<!-- test: slice-cow-modify-slice -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Modifying a slice must not affect the original array.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	try sub.set(0, value: 99) otherwise panic("test invariant: set OOB")
+	// Original should be unchanged
+	let original = try arr.get(1) otherwise 0
+	let modified = try sub.get(0) otherwise 0
+	if original == 20 'check'
+		if modified == 99 'check2'
+			return 0
+		end 'check2'
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-cow-modify-original -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Modifying the original array must not affect an existing slice.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
+	// Slice should be unchanged
+	let sliceVal = try sub.get(0) otherwise 0
+	let origVal = try arr.get(1) otherwise 0
+	if sliceVal == 20 'check'
+		if origVal == 99 'check2'
+			return 0
+		end 'check2'
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+### Zero-copy slices
+
+`.slice()` and `.clone()` are **O(1)**: the result shares the source's element buffer until either side
+writes, at which point that side copies out. The sharing is invisible — every case below answers what an
+eager copy would. A buffer that lives in its record's own allocation is copied at once instead, as
+[co-allocated-arrays](co-allocated-arrays.md) states.
+
+<!-- test: slice-capacity-is-a-view-until-written -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A slice reports a negative capacity — its buffer is not its own — until a write gives it a private one
+sized to its live elements. This is the one place the sharing is directly observable, and it is what says
+no buffer was allocated: an eager copy would report a grown positive capacity from the moment it was made.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	let notMine = -1
+	let asView = sub.capacity()
+	try sub.set(0, value: 99) otherwise panic("index 0 is in bounds")
+	let afterWrite = sub.capacity()
+	if asView == notMine and afterWrite == 3 'ok'
+		return 0
+	end 'ok'
+	return 2
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-and-clone-of-a-co-allocated-array-report-a-capacity-of-their-own -->
+<!-- tier: stdlib -->
+An array whose buffer lives in its record's own allocation is copied, not viewed, by `slice` and `clone`, so
+the copy reports the capacity of a buffer it owns, the larger of its length and the growth policy's minimum of 4,
+where the slice of an ordinary array reports -1.
+```maxon
+function main() returns ExitCode
+	let memory = try __ManagedMemory.create(8, 1) otherwise return 1
+	try memory.setLength(8) otherwise return 2
+	let source = ByteArray.init(memory)
+	let sub = try source.slice(1, endIndex: 3) otherwise return 3
+	let whole = source.clone()
+	if sub.capacity() != 4 'slice'
+		return 4
+	end 'slice'
+	if whole.capacity() != 8 'clone'
+		return 5
+	end 'clone'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-outlives-its-parent -->
+The parent array dies while the slice is still being read. A view holds a reference to the shared buffer,
+not to the parent record, so the bytes outlive the array they were cut from.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function makeParent() returns IntArray
+	let a = IntArray.create(0)
+	a.push(10)
+	a.push(20)
+	a.push(30)
+	a.push(40)
+	return a
+end 'makeParent'
+
+function tail(v IntArray) returns IntArray
+	return try v.slice(1, endIndex: 4) otherwise IntArray.create(0)
+end 'tail'
+
+function main() returns ExitCode
+	let sub = tail(makeParent())
+	let a = try sub.get(0) otherwise 0
+	let b = try sub.get(1) otherwise 0
+	let c = try sub.get(2) otherwise 0
+	return a + b + c
+end 'main'
+```
+```exitcode
+90
+```
+
+<!-- test: slice-bounds-are-its-own-window -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A slice is bounded by its OWN length, not the parent's, even though the parent's remaining elements sit
+immediately after it in the same buffer. Reading past the window throws rather than reading a neighbour.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	let past = try sub.get(3) otherwise 77
+	return past
+end 'main'
+```
+```exitcode
+77
+```
+
+<!-- test: slice-of-slice-flattens -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Slicing a slice windows within the window, and writing to the inner one leaves the outer one alone.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50, 60]
+	let s1 = try arr.slice(1, endIndex: 5) otherwise return 1
+	let s2 = try s1.slice(1, endIndex: 3) otherwise return 2
+	let a = try s2.get(0) otherwise 0
+	let b = try s2.get(1) otherwise 0
+	try s2.set(0, value: 7) otherwise panic("index 0 is in bounds")
+	let after = try s1.get(1) otherwise 0
+	if a == 30 and b == 40 and after == 30 and s2.count() == 2 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: cow-detach-copies-a-wide-elements-full-stride -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+⭐ **THE DETACH COPIES `length · element_size` BYTES, NOT `length`** — and nothing else in this file was
+asking. The cases above slice a wide-element array and WRITE to it, which forces the copy-on-write detach,
+but each then reads only the element it wrote or an element of the OTHER array; none reads back a surviving
+neighbour of the one it overwrote. A detach that copied a byte per element instead of a stride per element
+would satisfy every one of them, because the elements it failed to copy are never read.
+
+Here they are. `sub` is `[20, 30, 40]` over 8-byte elements, so the detach owes 24 bytes; at a stride of 1
+it would copy 3, and elements 1 and 2 would come back as the ZEROES `__mm_alloc` supplies rather than as
+`30` and `40`. This is the case that pins `__mm_cow_detach` reading `element_size@24` off the record instead
+of assuming the String's stride of 1 — one emitted function serves both records, and String is the only one
+of the two for which 1 is right.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	try sub.set(0, value: 99) otherwise panic("index 0 is in bounds")
+	let a = try sub.get(0) otherwise 0
+	let b = try sub.get(1) otherwise 0
+	let c = try sub.get(2) otherwise 0
+	if a == 99 and b == 30 and c == 40 'ok'
+		return 0
+	end 'ok'
+	return 2
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-of-a-dead-slice-still-reads -->
+Flattening, pinned by killing the record in the middle. The inner slice is cut from a slice that dies
+inside the callee, and the array both were cut from dies with it — yet the inner one still reads. This is
+what says `parent@32` holds the shared ALLOCATION and not the parent RECORD: a chain would have the inner
+view depending on a record that is already gone.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function build() returns IntArray
+	let a = IntArray.create(0)
+	var i = 0 as Integer
+	while i < 10 'fill'
+		a.push(i * 10)
+		i = i + 1
+	end 'fill'
+	return a
+end 'build'
+
+function innerOf(a IntArray) returns IntArray
+	let mid = try a.slice(2, endIndex: 8) otherwise IntArray.create(0)
+	return try mid.slice(1, endIndex: 4) otherwise IntArray.create(0)
+end 'innerOf'
+
+function main() returns ExitCode
+	let inner = innerOf(build())
+	let a = try inner.get(0) otherwise 0
+	let b = try inner.get(1) otherwise 0
+	let c = try inner.get(2) otherwise 0
+	return (a + b + c) / 10
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: many-views-detach-one-by-one -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+One buffer held by an owner, two slices and a slice-of-a-slice, then all four write in turn. The shared
+count has to walk all the way down and reclaim exactly once — every arm of the detach (owner-with-viewers,
+viewer, viewer-of-a-viewer) runs, and each side keeps the bytes it had when it copied out.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [1, 2, 3, 4, 5, 6]
+	let a = try arr.slice(0, endIndex: 3) otherwise return 1
+	let b = try arr.slice(3, endIndex: 6) otherwise return 2
+	let c = try a.slice(0, endIndex: 2) otherwise return 3
+	try arr.set(0, value: 100) otherwise panic("index 0 is in bounds")
+	try b.set(0, value: 200) otherwise panic("index 0 is in bounds")
+	try c.set(0, value: 300) otherwise panic("index 0 is in bounds")
+	try a.set(1, value: 400) otherwise panic("index 1 is in bounds")
+	let ok = (try arr.get(0) otherwise 0) == 100 and (try arr.get(3) otherwise 0) == 4 and (try b.get(0) otherwise 0) == 200 and (try b.get(1) otherwise 0) == 5 and (try c.get(0) otherwise 0) == 300 and (try c.get(1) otherwise 0) == 2 and (try a.get(0) otherwise 0) == 1 and (try a.get(1) otherwise 0) == 400
+	return 0 if ok else 9
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: two-slices-then-write-parent -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Two live slices of one array, then writes at both ends of the parent. The parent copies out once; both
+slices keep reading the original bytes.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40]
+	let v1 = try arr.slice(0, endIndex: 2) otherwise return 1
+	let v2 = try arr.slice(2, endIndex: 4) otherwise return 2
+	try arr.set(0, value: 99) otherwise panic("index 0 is in bounds")
+	try arr.set(3, value: 88) otherwise panic("index 3 is in bounds")
+	let a = try v1.get(0) otherwise 0
+	let b = try v2.get(1) otherwise 0
+	let c = try arr.get(0) otherwise 0
+	let d = try arr.get(3) otherwise 0
+	if a == 10 and b == 40 and c == 99 and d == 88 'ok'
+		return 0
+	end 'ok'
+	return 3
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-parent-grows-while-view-lives -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Pushing onto the parent reallocates its buffer. The slice keeps the old one.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30]
+	let sub = try arr.slice(0, endIndex: 3) otherwise return 1
+	arr.push(40)
+	arr.push(50)
+	let s0 = try sub.get(0) otherwise 0
+	let s2 = try sub.get(2) otherwise 0
+	let a3 = try arr.get(3) otherwise 0
+	if s0 == 10 and s2 == 30 and sub.count() == 3 and a3 == 40 and arr.count() == 5 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: append-a-slice-of-self -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+`append` reads its source AFTER growing its destination, so appending a slice of an array to that same
+array is coherent: the destination copies out first and the slice still names the original bytes.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [1, 2, 3]
+	let sub = try arr.slice(0, endIndex: 2) otherwise return 1
+	arr.append(sub)
+	var sum = 0 as FullRangeInt
+	var i = 0 as Count
+	while i < arr.count() 'loop'
+		sum = sum + (try arr.get(i) otherwise 0)
+		i = i + 1
+	end 'loop'
+	let s0 = try sub.get(0) otherwise 0
+	if sum == 9 and arr.count() == 5 and s0 == 1 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-of-empty-array-then-push -->
+An empty slice of an array that never allocated a buffer owes nothing to anyone, and still grows normally.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let empty = IntArray.create(0)
+	let e = try empty.slice(0, endIndex: 0) otherwise return 1
+	e.push(5)
+	let v = try e.get(0) otherwise 0
+	if v == 5 and e.count() == 1 and empty.count() == 0 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: empty-slice-outlives-the-array-it-grew -->
+⛔⛔ **AN EMPTY SLICE MUST OWE THE SOURCE NOTHING, NOT EVEN THE RECORD** — the
+sibling above pushes into the SLICE, which is the polarity that cannot fail; this one pushes into the
+SOURCE and then lets the source die FIRST. The view counts whatever `emitBufferHostAllocation` names, and
+an array with no buffer yet must answer "nothing hosts these bytes": naming the RECORD instead leaves the
+array's own `__managed_decref` off the last-owner path, so the element buffer it grew afterwards is never
+released and the run exits 101 with no wrong answer anywhere to point at.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function emptyViewOfAnArrayThatGrew() returns IntArray
+	let src = IntArray.create(0)
+	let view = try src.slice(0, endIndex: 0) otherwise panic("an empty slice of an empty array is in bounds")
+	src.push(1)
+	src.push(2)
+	src.push(3)
+	return view
+end 'emptyViewOfAnArrayThatGrew'
+
+function main() returns ExitCode
+	let view = emptyViewOfAnArrayThatGrew()
+	if view.count() == 0 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: slice-of-byte-string-literal -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+A slice of a `b"…"` literal views the immortal `.rdata` blob — nothing is owed and nothing is freed — and
+writing to it copies the window out first.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let lit = b"hello"
+	let mid = try lit.slice(1, endIndex: 4) otherwise return 1
+	try mid.set(0, value: 88) otherwise panic("index 0 is in bounds")
+	let m0 = try mid.get(0) otherwise 0
+	let m1 = try mid.get(1) otherwise 0
+	let l1 = try lit.get(1) otherwise 0
+	if m0 == 88 and m1 == 108 and l1 == 101 and mid.count() == 3 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: both-sides-detach-parent-first -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Both sides write. The parent copies out first and gives up the shared buffer, leaving the slice as its
+sole owner; the slice then copies out and reclaims it. This case reaches the path where a detach's release
+frees the bytes it just copied — but it does NOT *catch* a detach that released BEFORE copying.
+
+⛔⛔ **FREED BYTES DO NOT READ BACK INTACT.** `__mm_free` hands the box to the slab, which puts the slot
+back on its span's free list for the next allocation to take. A spec case is built with `--poison-freed`,
+so the payload is also POISONED with `0x3F` on the way out whether or not anything reuses it.
+
+⭐ **YET WITH THE RELEASE EMITTED AHEAD OF `__mm_cow_detach`'s COPY THIS CASE STAYS GREEN**, so the ordering
+is a rule `__managed_cow_detach` keeps on its OWN rather than one this case gates. **Why the case survives a
+recycling, poisoning allocator is an OPEN QUESTION.**
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	try arr.set(1, value: 91) otherwise panic("index 1 is in bounds")
+	try sub.set(0, value: 92) otherwise panic("index 0 is in bounds")
+	let s0 = try sub.get(0) otherwise 0
+	let s1 = try sub.get(1) otherwise 0
+	let a1 = try arr.get(1) otherwise 0
+	if s0 == 92 and s1 == 30 and a1 == 91 'ok'
+		return 0
+	end 'ok'
+	return 2
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: both-sides-detach-slice-first -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The same pair in the other order.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	try sub.set(0, value: 92) otherwise panic("index 0 is in bounds")
+	try arr.set(1, value: 91) otherwise panic("index 1 is in bounds")
+	let s0 = try sub.get(0) otherwise 0
+	let a1 = try arr.get(1) otherwise 0
+	let a2 = try arr.get(2) otherwise 0
+	if s0 == 92 and a1 == 91 and a2 == 30 'ok'
+		return 0
+	end 'ok'
+	return 2
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: every-mutator-detaches-a-view -->
+Every in-place mutator that is not already covered by `set` above, applied to a slice of one shared array:
+`clear`, `pop`, `remove`, `insert`, `resize`, `reserve`, `push`. Each must copy out before it writes, so
+none of those seven writes may reach the source — the gate is that the source reads back untouched.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function make() returns IntArray
+	let a = IntArray.create(0)
+	var i = 0 as Integer
+	while i < 8 'fill'
+		a.push(i)
+		i = i + 1
+	end 'fill'
+	return a
+end 'make'
+
+function main() returns ExitCode
+	let src = make()
+	let vClear = try src.slice(1, endIndex: 5) otherwise return 1
+	vClear.clear()
+	let vPop = try src.slice(1, endIndex: 5) otherwise return 2
+	let popped = try vPop.pop() otherwise -1
+	let vRemove = try src.slice(2, endIndex: 6) otherwise return 3
+	let removed = try vRemove.remove(0) otherwise -1
+	let vInsert = try src.slice(0, endIndex: 3) otherwise return 4
+	vInsert.insert(1, value: 99)
+	let vResize = try src.slice(0, endIndex: 4) otherwise return 5
+	vResize.resize(2)
+	let vGrow = try src.slice(0, endIndex: 2) otherwise return 6
+	vGrow.reserve(64)
+	vGrow.push(1000)
+	// Not one of those writes may have reached the shared source.
+	var k = 0 as Count
+	while k < 8 'check'
+		if (try src.get(k) otherwise -1) != k as Integer 'mismatch'
+			return 7
+		end 'mismatch'
+		k = k + 1
+	end 'check'
+	let ok = vClear.count() == 0 and popped == 4 and vPop.count() == 3 and removed == 2 and vRemove.count() == 3 and (try vInsert.get(1) otherwise 0) == 99 and vInsert.count() == 4 and vResize.count() == 2 and vGrow.count() == 3 and (try vGrow.get(2) otherwise 0) == 1000
+	return 0 if ok else 8
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: clone-of-byte-string-literal -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let lit = b"abc"
+	let copy = lit.clone()
+	try copy.set(0, value: 90) otherwise panic("index 0 is in bounds")
+	let c0 = try copy.get(0) otherwise 0
+	let l0 = try lit.get(0) otherwise 0
+	if c0 == 90 and l0 == 97 and copy.count() == 3 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: array-literal-return-from-function -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function makeNumbers() returns IntArray
+	let arr = IntArray.create(0)
+	arr.push(10)
+	arr.push(20)
+	arr.push(30)
+	return arr
+end 'makeNumbers'
+
+function main() returns ExitCode
+	let nums = makeNumbers()
+	let a = try nums.get(0) otherwise 0
+	let b = try nums.get(1) otherwise 0
+	let c = try nums.get(2) otherwise 0
+	return a + b + c
+end 'main'
+```
+```exitcode
+60
+```
+
+<!-- test: array-literal-return-push-no-leak -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function makeNumbers(a Integer, b Integer) returns IntArray
+	let arr = IntArray.create(0)
+	arr.push(a)
+	arr.push(b)
+	arr.push(a + b)
+	return arr
+end 'makeNumbers'
+
+function main() returns ExitCode
+	let nums = makeNumbers(10, b: 20)
+	let c = try nums.get(2) otherwise 0
+	return c
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: array-literal-struct-return-from-function -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function makePoints() returns PointArray
+	let p1 = Point.create(1, y: 2)
+	let p2 = Point.create(3, y: 4)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return [p1, p2]
+end 'makePoints'
+
+function main() returns ExitCode
+	let pts = makePoints()
+	let p0 = try pts.get(0) otherwise Point.create(0, y: 0)
+	let p1 = try pts.get(1) otherwise Point.create(0, y: 0)
+	return p0.x + p1.y
+end 'main'
+```
+```exitcode
+5
+```
+
+### Multi-line array literals
+
+A `[…]` literal may be written across several lines — after the `[`, after an element, and after a
+separating `,`. A newline in those positions is LAYOUT, not the end of the expression, exactly as it is
+inside a `{…}` struct literal.
+
+<!-- test: multi-line-literal-break-after-comma -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [10, 20]
+	let v = try a.get(1) otherwise 0
+	return v
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: multi-line-literal-one-element-per-line -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [10, 20, 30]
+	let v = try a.get(2) otherwise 0
+	return a.count() + v
+end 'main'
+```
+```exitcode
+33
+```
+
+<!-- test: multi-line-literal-trailing-newline-before-bracket -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [10, 20, 30]
+	return a.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: multi-line-string-literal-elements -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let words = ["alpha", "beta", "gamma"]
+	let w = try words.get(1) otherwise ""
+	if w == "beta" 'middle'
+		return words.count() as ExitCode
+	end 'middle'
+	return 99
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: multi-line-literal-top-level-let -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let xs = FullRangeIntArray from [10, 20]
+
+function main() returns ExitCode
+	let v = try xs.get(1) otherwise 0
+	return v
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: multi-line-literal-empty-still-rejected -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `[` and `]` with only a newline between them is still the EMPTY literal, and still carries the empty
+literal's own advice — the newline skip must not turn it into "expected expression".
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = []
+	return a.count()
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/arrays/multi-line-literal-empty-still-rejected.maxon:3:10: Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array
+```
+
+### An `as`-cast element fixes the literal's element type
+
+The literal's element type comes from what the first element IS, not from the token it starts with. An
+`as`-cast to a ranged alias starts with an int literal and is not an `int`, and reading the token alone
+would refuse a literal with ONE element as holding an element of another type. The corpus's own case
+(`short-circuit-evaluation`'s `guard-protects-right-side`) covers the multi-element spelling, and these
+pin the one-element and formatting-independence halves it cannot.
+
+<!-- test: single-cast-element-literal -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Index = int(0 to u64.max)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let single = [10 as Index]
+	let v = try single.get(0) otherwise 0
+	return v
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: cast-element-literal-matches-instance-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Index = int(0 to u64.max)
+
+typealias IndexArray = Array with Index
+
+function total(xs IndexArray) returns ExitCode
+	let a = try xs.get(0) otherwise 0
+	let b = try xs.get(1) otherwise 0
+	return a + b
+end 'total'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return total([10 as Index, 20 as Index])
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: int-literal-expression-element-stays-integer -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [10 + 5, 20]
+	let v = try a.get(0) otherwise 0
+	return v + a.count()
+end 'main'
+```
+```exitcode
+17
+```
+
+### Element Type Checking
+
+An element handed to `push` / `set` / `insert` must agree with the instance's element type.
+The rule is the shared coercion rule every other declared slot asks — `checkDeclaredType` for a
+trivial element, the managed heap-kind check for a managed one — because an array element is a
+storage slot like a struct field, not a special case.
+
+<!-- test: element-int-roundtrip -->
+### An int element pushed into an int-element array reads back
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	let arr = IntArray.create(0)
+	arr.push(42)
+	return try arr.get(0) otherwise 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: element-string-roundtrip -->
+### A String element pushed into a String-element array reads back
+```maxon
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	let arr = StringArray.create(0)
+	arr.push("hi")
+	let s = try arr.get(0) otherwise ""
+	if s == "hi" 'match'
+		return 7
+	end 'match'
+	return 0
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: element-struct-roundtrip -->
+### A struct element pushed into an array of that struct reads back
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Item
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Item'
+
+typealias ItemArray = Array with Item
+
+function main() returns ExitCode
+	let arr = ItemArray.create(0)
+	arr.push(Item.create(9))
+	let first = try arr.get(0) otherwise Item.create(0)
+	return first.value
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: element-byte-in-range -->
+### An in-range int literal is a legal element of a Byte-ranged array
+```maxon
+typealias Byte = int(0 to 255)
+
+typealias ByteSlots = Array with Byte
+
+function main() returns ExitCode
+	let arr = ByteSlots.create(0)
+	arr.push(65)
+	arr.insert(0, value: 12)
+	try arr.set(1, value: 77) otherwise panic("test invariant: set OOB")
+	return try arr.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+77
+```
+
+<!-- test: error.push-int-into-string-array -->
+### An int pushed into a String-element array is refused
+Unchecked, the element is stored raw and the array's decref walk frees `42` as a String
+pointer — a wild free (0xC0000005), not a diagnostic.
+```maxon
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	var arr = StringArray.create(0)
+	arr.push(42)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:6: argument type mismatch for 'value': expected 'String', got 'int'
+```
+
+<!-- test: error.push-string-into-int-array -->
+<!-- positions: moved -->
+### A String pushed into an int-element array is refused
+Unchecked, the raw record pointer is stored and read back as an integer — a silent wrong answer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push("hello")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:6: argument type mismatch for 'value': expected 'Integer', got 'String'
+```
+
+<!-- test: error.push-float-into-int-array -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### A float pushed into an int-element array is the lossy-narrowing refusal
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	// TODO: float literals are not supported in minimaxon
+	arr.push(1.5)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:7:6: cannot implicitly convert 'float' to 'Integer': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
+```
+
+<!-- test: error.push-struct-into-string-array -->
+### A struct pushed into a String-element array is refused
+Both halves name a TYPE: the `got` side names the struct (`got 'Item'`) rather than the tag's class
+word, as the sibling `push-wrong-struct-into-struct-array` below, the SAME door one arm along, does.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Item
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Item'
+
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	var arr = StringArray.create(0)
+	arr.push(Item.create(1))
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:16:6: argument type mismatch for 'value': expected 'String', got 'Item'
+```
+
+<!-- test: error.push-string-into-struct-array -->
+### A String pushed into a struct-element array is refused
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Item
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Item'
+
+typealias ItemArray = Array with Item
+
+function main() returns ExitCode
+	var arr = ItemArray.create(0)
+	arr.push("hello")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:16:6: argument type mismatch for 'value': expected 'Item', got 'String'
+```
+
+<!-- test: error.push-wrong-struct-into-struct-array -->
+### A struct of the WRONG declared type is refused
+Both values are `structRef` pointers, so only the aggregate NAME separates them — the same
+identity check a struct field's managed slot makes.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Item
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Item'
+
+type Other
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Other'
+
+typealias ItemArray = Array with Item
+
+function main() returns ExitCode
+	var arr = ItemArray.create(0)
+	arr.push(Other.create(1))
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:24:6: argument type mismatch for 'value': expected 'Item', got 'Other'
+```
+
+<!-- test: error.insert-int-into-string-array -->
+### `insert` checks its `value:` argument too
+```maxon
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	var arr = StringArray.create(0)
+	arr.push("hi")
+	arr.insert(0, value: 42)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:6: argument type mismatch for 'value': expected 'String', got 'int'
+```
+
+<!-- test: error.insert-string-into-int-array -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(1)
+	arr.insert(0, value: "hello")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:6: argument type mismatch for 'value': expected 'Integer', got 'String'
+```
+
+<!-- test: error.insert-float-into-int-array -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(1)
+	// TODO: float literals are not supported in minimaxon
+	arr.insert(0, value: 1.5)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:8:6: argument 'value': cannot implicitly convert 'float' to 'Integer': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
+```
+
+<!-- test: error.set-int-into-string-array -->
+### `set` checks its `value:` argument too
+```maxon
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	var arr = StringArray.create(0)
+	arr.push("hi")
+	try arr.set(0, value: 42) otherwise panic("test invariant: set OOB")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:10: argument type mismatch for 'value': expected 'String', got 'int'
+```
+
+<!-- test: error.set-string-into-int-array -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(1)
+	try arr.set(0, value: "hello") otherwise panic("test invariant: set OOB")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:8:10: argument type mismatch for 'value': expected 'Integer', got 'String'
+```
+
+<!-- test: error.set-float-into-int-array -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(1)
+	// TODO: float literals are not supported in minimaxon
+	try arr.set(0, value: 1.5) otherwise panic("test invariant: set OOB")
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:8:10: cannot implicitly convert 'float' to 'Integer': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
+```
+
+### `append` checks its ARGUMENT's element type too
+
+`append` is the one `Array` member whose argument is a whole other `Array`, so it is a COERCION
+site like a declared parameter — and its argument is not merely handed over, it is COPIED
+element-wise into the receiver's own storage. That makes it a bulk `push`, and it owes exactly
+what a `push` owes: **every value the argument's element can hold must be a value the receiver's
+element admits.** A `push` gets a runtime range check where the answer is not static; a bulk byte
+copy cannot have one, so the question is settled at compile time or the append is refused.
+
+The REPRESENTATION question (same managedness, same element width — what makes the byte copy
+legal at all) and the VALUE-DOMAIN question are separate, and both are asked. Keeping only the
+first would let a `Small` into a `Bytes`; replacing it with instance identity would refuse
+`[1, 2, 3]` appended to an `Array with Integer`, which the four cases above require.
+
+<!-- test: error.append-narrower-element-array -->
+<!-- positions: moved -->
+### An array of a WIDER element is refused where a narrower one is declared
+`Small` and `Byte` are both byte-packed, so the shape test alone admits this — and a `150`
+pushed as a `Small` then read back through an accessor typed `int(0 to 100)` would be a silent wrong
+answer with no diagnostic anywhere.
+
+The refusal names the two arrays by the `typealias`es this file declares for them — `Bytes` and
+`Smalls` — rather than by the instances' compiled names, because a diagnostic quotes back the spelling
+the author wrote (`ProgramSignatures.instanceDisplayName`). The elements behind
+them are `Byte$0_100` and `Small`: `stdlib/` declares `Byte` over a different range, which makes
+the name range-CONTESTED and gives each distinct range its own mint
+(`RangedAliasRegistry.settleRangeContests`). That mint is the identity the two are compared on; it is not
+what the sentence says, and `bytearray-element-size.md` carries the case where it still has to be.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Small = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Smalls = Array with Small
+
+function main() returns ExitCode
+	var s = Smalls.create(0)
+	s.push(150)
+	var b = Bytes.create(0)
+	b.append(s)
+	return try b.get(0) otherwise 1
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:4: argument type mismatch for 'other': expected 'Bytes', got 'Smalls'
+```
+
+<!-- test: error.append-narrower-element-array-through-the-buffer-surface -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### The BUFFER surface's `append` is the same door and answers the same way
+One record, two surfaces: `b.managed.append(s)` reaches `__ManagedMemory`'s `append`, whose rule
+is the `Array` one.
+
+⚠ The two programs are spelled identically bar the `.managed` hop. The buffer's `append` is non-throwing,
+so neither wraps the call in `try` — a `try` here would be a spelling the language rejects, hidden only
+because the argument refusal is raised first.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Small = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Smalls = Array with Small
+
+function main() returns ExitCode
+	var s = Smalls.create(0)
+	s.push(150)
+	var b = Bytes.create(0)
+	b.managed.append(s)
+	return try b.get(0) otherwise 1
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:12: argument type mismatch for 'other': expected '__ManagedMemory', got 'Smalls'
+```
+
+<!-- test: error.append-bool-array-into-a-byte-array -->
+<!-- positions: moved -->
+### A `bool` element is one byte and is still not a `Byte`
+The shape test admits ANY one-byte trivial element, and a `bool` is one. It has no integer value
+range to compare, so only its own identity can admit it.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Bytes = Array with Byte
+
+typealias Bools = Array with bool
+
+function main() returns ExitCode
+	var f = Bools.create(0)
+	f.push(true)
+	var b = Bytes.create(0)
+	b.append(f)
+	return b.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:10:4: argument type mismatch for 'other': expected 'Bytes', got 'Bools'
+```
+
+<!-- test: error.append-enum-array-into-a-different-enum-array -->
+<!-- positions: moved -->
+### Two enums are two machine-word elements and two types
+```maxon
+enum Colour
+	red
+	green
+end 'Colour'
+
+enum Shape
+	circle
+	square
+end 'Shape'
+
+typealias Colours = Array with Colour
+
+typealias Shapes = Array with Shape
+
+function main() returns ExitCode
+	var sh = Shapes.create(0)
+	sh.push(Shape.square)
+	var c = Colours.create(0)
+	c.append(sh)
+	return c.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:19:4: argument type mismatch for 'other': expected 'Colours', got 'Shapes'
+```
+
+<!-- test: error.append-a-non-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+### A value that is not an `Array` at all names both types, like every other argument door
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var a = FullRangeIntArray from [1, 2, 3]
+	a.append(42)
+	return a.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:4: argument type mismatch for 'other': expected 'FullRangeIntArray', got 'int'
+```
+
+<!-- test: error.append-wider-element-array-refuses-a-narrower-one -->
+<!-- positions: moved -->
+### The WIDENING direction is refused too: the element ALIASES differ
+Every `Byte` value would fit a `Small` slot, and that is not the question — `Byte` and `Small` are two
+types, so `Bytes` and `Smalls` are two instances and neither appends into the other
+(`nominal-typealias.md`, `nominal-generic-alias.md`).
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Small = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Smalls = Array with Small
+
+function main() returns ExitCode
+	var b = Bytes.create(0)
+	b.push(99)
+	var s = Smalls.create(0)
+	s.push(150)
+	s.append(b)
+	let first = try s.get(0) otherwise 0
+	let second = try s.get(1) otherwise 0
+	print("{first} {second}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:4: argument type mismatch for 'other': expected 'Smalls', got 'Bytes'
+```
+
+<!-- test: error.appendMemory-wider-element-array-refuses-a-narrower-one -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### … and the rule is the OPERATION's, so the `appendMemory` spelling refuses it identically
+`ProgramSignatures.arrayAppendArgAdmits` is ONE rule over ONE operation — `parseArrayAppend` serves
+`append`, `appendMemory` and the buffer's `append` from a single arm — so the two spellings answer the
+same question the same way, and each names its own formal.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Small = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Smalls = Array with Small
+
+function main() returns ExitCode
+	var b = Bytes.create(0)
+	b.push(99)
+	var s = Smalls.create(0)
+	s.push(150)
+	s.appendMemory(b.managed)
+	let first = try s.get(0) otherwise 0
+	let second = try s.get(1) otherwise 0
+	print("{first} {second}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:4: argument type mismatch for 'source': expected 'Smalls', got '__ManagedMemory with Byte'
+```
+
+<!-- test: append-same-alias-arrays -->
+### Two arrays of the same alias are one instance and append freely
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Bytes = Array with Byte
+
+function main() returns ExitCode
+	let a = Bytes.create(0)
+	a.push(7)
+	let b = Bytes.create(0)
+	b.push(9)
+	a.append(b)
+	let first = try a.get(0) otherwise 0
+	let second = try a.get(1) otherwise 0
+	return first + second
+end 'main'
+```
+```exitcode
+16
+```
+
+<!-- test: error.append-across-two-element-widths -->
+<!-- positions: moved -->
+### The REPRESENTATION half is live on its own
+Every `Byte` value is a `Wide` value, so the value-domain half says yes — and the two records stride
+1 and 4, so `__managed_append`'s byte copy would read the source at the wrong width. The two halves are
+INDEPENDENT: this one is refused by the shape test with the domain test agreeing, and
+`error.append-narrower-element-array` above is refused by the domain test with the shape test agreeing.
+```maxon
+typealias Byte = int(0 to 100)
+
+typealias Wide = int(0 to 100000)
+
+typealias Bytes = Array with Byte
+
+typealias Wides = Array with Wide
+
+function main() returns ExitCode
+	var b = Bytes.create(0)
+	b.push(9)
+	var w = Wides.create(0)
+	w.push(5)
+	w.append(b)
+	return w.count()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:4: argument type mismatch for 'other': expected 'Wides', got 'Bytes'
+```
+
+<!-- test: error.append-reads-the-element-alias-name-not-the-value-set -->
+<!-- positions: moved -->
+### The rule reads the element's NAME, never the value set
+`A` and `B` spell one value set under two names, and the name is the type: `As` and `Bs` are two brands
+of one instance, and a `Bs` does not append into an `As` (`nominal-generic-alias.md`). What still walks
+in unasked is a `[1, 2, 3]` literal, which carries no brand at all.
+```maxon
+typealias A = int(0 to 100)
+
+typealias B = int(0 to 100)
+
+typealias As = Array with A
+
+typealias Bs = Array with B
+
+function main() returns ExitCode
+	var a = As.create(0)
+	a.push(7)
+	var b = Bs.create(0)
+	b.push(9)
+	a.append(b)
+	print("{a.count()}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:4: argument type mismatch for 'other': expected 'As', got 'Bs'
+```
+
+<!-- test: append-across-two-brands-of-one-instance-through-as -->
+### The legal twin: two aliases over ONE instance are two brands, `as` re-brands, and the append stands
+```maxon
+typealias A = int(0 to 100)
+
+typealias As = Array with A
+
+typealias Bs = Array with A
+
+function main() returns ExitCode
+	let a = As.create(0)
+	a.push(7)
+	let b = Bs.create(0)
+	b.push(9)
+	a.append(b as As)
+	return ((try a.get(0) otherwise 0) + (try a.get(1) otherwise 0)) as ExitCode
+end 'main'
+```
+```exitcode
+16
+```
+
+<!-- test: a-float-element-reads-back-out-of-the-slot -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+### A FLOAT element rides the slot as its 64 bits and reads back a float
+The element load and store reinterpret (`containerElementWord` out, its inverse in), so the slot is
+an ordinary 8-byte stride and the value that comes back is a `float` rather than the raw pattern.
+This is the read that PANICKED — *"a float payload has no lowerable value type"* — while the
+container path asked a UNION PAYLOAD's rule about it. A payload's float genuinely has no lowering
+(there is no re-encode at the construct or the extract, which is what E2015 says); an element's
+does, and the two are different questions about different storage.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = [1.5, 2.5]
+	// TODO: float literals are not supported in minimaxon
+	let v = try a.get(0) otherwise 0.0
+	// TODO: float literals are not supported in minimaxon
+	return trunc(v + 1.0)
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: a-float-element-round-trips-through-set -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+### `set` writes a float element and `get` reads the same value back
+```maxon
+typealias Reals = Array with FullRangeFloat
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = Reals from [1.5, 2.5]
+	// TODO: float literals are not supported in minimaxon
+	try a.set(1, value: 4.75) otherwise panic("test invariant: set OOB")
+	// TODO: float literals are not supported in minimaxon
+	return trunc(try a.get(1) otherwise 0.0)
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: a-float-alias-array-from-a-literal -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A float literal array headed by a float-element alias takes the alias's element type
+```maxon
+typealias Reals = Array with FullRangeFloat
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = Reals from [1.5, 2.5]
+	// TODO: float literals are not supported in minimaxon
+	try a.set(0, value: 3.5) otherwise panic("test invariant: set OOB")
+	// TODO: float literals are not supported in minimaxon
+	var sum = 0.0 as FullRangeFloat
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		sum = sum + x
+	end 'each'
+	print("{sum}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+6.0
+```
+
+<!-- test: a-float-element-iterates -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### `for … in` yields float elements
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = [1.5, 2.5, 3.5]
+	// TODO: float literals are not supported in minimaxon
+	var sum = 0.0 as FullRangeFloat
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'each'
+		sum = sum + e
+	end 'each'
+	return trunc(sum)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-float-element-keeps-every-bit-of-its-slot -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A float element is REINTERPRETED, so every bit of the slot survives the round trip
+`trunc` reads only an element's integer part, so every case above would pass identically over a
+value that had been NUMERICALLY converted on its way into the slot rather than reinterpreted. These
+three distinguish the two: `-0.0`'s entire content is its sign bit, `0.1` has no integer domain to
+convert through, and `f64.max` overflows one. The write half (`containerElementWord`) and the read
+half (`containerSlotValueType`'s float arm) are the two ends of one round trip, and this is the case
+that says so for the LITERAL element.
+```maxon
+typealias Reals = Array with FullRangeFloat
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = Reals from [0.1, 2.5]
+	// TODO: float literals are not supported in minimaxon
+	try a.set(1, value: -0.0) otherwise panic("test invariant: set OOB")
+	// TODO: float literals are not supported in minimaxon
+	a.push(1.7976931348623157e308)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		print("{x}\n")
+	end 'each'
+	return a.count() as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+0.1
+-0.0
+179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0
+```
+
+<!-- test: a-float-elements-buffer-is-an-ordinary-eight-byte-stride -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- tier: stdlib -->
+### The buffer under a float element answers the managed surface like any other
+The element's register file is the CALLER's question, never the buffer's: what the stride holds is
+64 bits whatever they decode to, which is the whole reason a float element needs no wider slot and
+no second storage path. The managed surface is where that claim is checkable from source.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = [1.5, 2.5, 3.5]
+	print("{a.managed.length()}\n")
+	print("{a.managed.elementSize()}\n")
+	// TODO: float literals are not supported in minimaxon
+	return trunc(try a.get(2) otherwise 0.0)
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+3
+8
+```
+
+<!-- test: a-float-element-survives-a-clone -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+### A cloned float array carries its elements' bits
+```maxon
+typealias Reals = Array with FullRangeFloat
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	let a = Reals from [1.5, 2.5]
+	// TODO: float literals are not supported in minimaxon
+	a.push(3.5)
+	let c = a.clone()
+	// TODO: float literals are not supported in minimaxon
+	return trunc((try c.get(2) otherwise 0.0) + (try c.get(0) otherwise 0.0))
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: a-declared-float-element-array-round-trips -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+### A float element is spellable in SOURCE, not only mintable by a literal
+`[1.5, 2.5]` has always minted an `Array with float` the compiler stores, loads, clones and
+iterates, so refusing the same instance when a program NAMES it refused a type this compiler
+already builds and runs. An `Array`'s element is a stride in a buffer, not a dictionary-passed
+type-parameter slot, so E2062's stated reason — a general-purpose 8-byte slot a float cannot
+travel in — is not true of it; `Box with float`, where the reason IS true, is still refused.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+function main() returns ExitCode
+	let a = Reals.create(0)
+	// TODO: float literals are not supported in minimaxon
+	a.push(1.5)
+	// TODO: float literals are not supported in minimaxon
+	a.push(2.5)
+	// TODO: float literals are not supported in minimaxon
+	return trunc((try a.get(0) otherwise 0.0) + (try a.get(1) otherwise 0.0))
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: a-declared-float-element-array-crosses-a-call-boundary -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A named float-element array is a parameter type, a return type and a field type
+The whole point of naming the instance: none of these three positions can be spelled with a bare
+`Array with float`, so before the element was nameable a float array could not leave the
+expression that built it.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+type Samples
+	export var values as Reals
+
+	static function create() returns Self
+		let v = Reals.create(0)
+		// TODO: float literals are not supported in minimaxon
+		v.push(2.5)
+		return Self{values: v}
+	end 'create'
+end 'Samples'
+
+function total(xs Reals) returns Real
+	// TODO: float literals are not supported in minimaxon
+	var sum = 0.0 as Real
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in xs 'each'
+		sum = sum + x
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	let s = Samples.create()
+	// TODO: float literals are not supported in minimaxon
+	return trunc(total(s.values) + 1.5)
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: error.a-raw-byte-write-is-refused-on-a-float-element -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### A raw byte write is refused on a float element, and it is the SLOT's rule that refuses it
+E3118 admits raw bytes into an element only when the element's own value set covers every bit
+pattern of its slot. A `float`'s bounds are IEEE-754 patterns that order nothing like integers, so
+there is no comparison to make and the honest answer is refusal — the same one an element with no
+integer value set gets everywhere else. The element is nameable, so this rule is reachable from
+source as well as from a literal.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: float literals are not supported in minimaxon
+	var a = [1.5 as FullRangeFloat, 2.5]
+	try a.managed.setByte(0, value: 223) otherwise panic("test invariant: setByte OOB")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3118: <fragment>:4:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so what the element's own accessors read back is any bit pattern of its 8-byte slot — every value of int(0 to 18446744073709551615). The element 'FullRangeFloat' (float(-1.7976931348623157E+308 to 1.7976931348623157E+308)) does not admit all of them. Widen the element's declared range to cover its whole slot, or store through the `Array` surface's `set`, which range-checks each value against the element
+```
+
+<!-- test: error.a-raw-byte-write-is-refused-on-a-declared-float-element -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### The same refusal, off the element's DECLARED float alias
+The alias arm of the element's value set (`integerAliasValueRange`) answers *"not integer valued"*
+for a float alias for the reason the bare keyword's arm does; before the element was nameable that
+arm had no program that could reach it.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+function main() returns ExitCode
+	var a = Reals.create(0)
+	// TODO: float literals are not supported in minimaxon
+	a.push(1.5)
+	try a.managed.setByte(0, value: 223) otherwise panic("test invariant: setByte OOB")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3118: <fragment>:8:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so what the element's own accessors read back is any bit pattern of its 8-byte slot — every value of int(0 to 18446744073709551615). The element 'Real' (float(-1.7976931348623157E+308 to 1.7976931348623157E+308)) does not admit all of them. Widen the element's declared range to cover its whole slot, or store through the `Array` surface's `set`, which range-checks each value against the element
+```
+
+<!-- test: an-array-literal-returned-builds-the-declared-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+function make() returns Items
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return [1, 2]
+end 'make'
+
+function main() returns ExitCode
+	return try make().get(1) otherwise 0
+end 'main'
+```
+```exitcode
+2
+```
+
+
+<!-- test: an-array-literal-in-a-struct-literal-field-builds-the-fields-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+type Bag
+	export var items as Items
+
+	static function create() returns Self
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return Self{items: [3, 4]}
+	end 'create'
+end 'Bag'
+
+function main() returns ExitCode
+	let b = Bag.create()
+	return try b.items.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+4
+```
+
+
+<!-- test: an-array-literal-stored-into-a-field-builds-the-fields-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+type Bag
+	export var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+end 'Bag'
+
+function main() returns ExitCode
+	let b = Bag.create()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	b.items = [5, 6]
+	return try b.items.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+6
+```
+
+
+<!-- test: an-array-literal-field-default-builds-the-fields-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+type Bag
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	export var items = [11, 12] as Items
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'Bag'
+
+function main() returns ExitCode
+	let b = Bag.create()
+	return try b.items.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+12
+```
+
+
+<!-- test: an-array-literal-reassigned-to-a-local-builds-the-locals-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+function fresh() returns Items
+	return Items.create(0)
+end 'fresh'
+
+function main() returns ExitCode
+	var xs = fresh()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	xs = [13, 14]
+	return try xs.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+14
+```
+
+
+<!-- test: an-array-literal-union-payload-builds-the-payloads-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+union Held
+	some(items Items)
+	none
+end 'Held'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let h = Held.some([15, 16])
+	match h 'h'
+		some(items) then return try items.get(1) otherwise 0
+		none then return 0
+	end 'h'
+end 'main'
+```
+```exitcode
+16
+```
+
+
+<!-- test: an-array-literal-otherwise-fallback-builds-the-success-values-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+enum Nope implements Error
+	no
+end 'Nope'
+
+function risky() returns Items throws Nope
+	throw Nope.no
+end 'risky'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = try risky() otherwise [17, 18]
+	return try xs.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+18
+```
+
+
+<!-- test: an-array-literal-match-arm-at-a-return-builds-the-declared-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+function pick(flag bool) returns Items
+	return match flag 'f'
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		true gives [19, 20]
+		default gives Items.create(0)
+	end 'f'
+end 'pick'
+
+function main() returns ExitCode
+	return try pick(true).get(1) otherwise 0
+end 'main'
+```
+```exitcode
+20
+```
+
+
+<!-- test: an-array-literal-ternary-arm-at-a-return-builds-the-declared-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+function pick(flag bool) returns Items
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return [21, 22] if flag else Items.create(0)
+end 'pick'
+
+function main() returns ExitCode
+	return try pick(true).get(1) otherwise 0
+end 'main'
+```
+```exitcode
+22
+```
+
+
+<!-- test: an-array-literal-pushed-into-a-container-of-arrays-builds-the-element-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Measure = int(0 to 100)
+
+typealias Items = Array with Measure
+
+typealias Grid = Array with Items
+
+function main() returns ExitCode
+	let g = Grid.create(0)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	g.push([23, 24])
+	let row = try g.get(0) otherwise Items.create(0)
+	return try row.get(1) otherwise 0
+end 'main'
+```
+```exitcode
+24
+```
+
+<!-- test: error.an-array-from-head-another-file-keeps-private-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The head of `<alias> from […]` names a type, so an unmarked alias declared in another directory is refused there
+as it is in every other type position.
+```maxon
+// --- file: probe/probe.maxon
+typealias Smalls = Array with ExitCode
+
+export function probeSmalls() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = Smalls from [7, 8]
+	print("{xs.count()}")
+	return 0
+end 'probeSmalls'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = Smalls from [1, 2]
+	print("{xs.count()}")
+	return probeSmalls()
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:13:11: typealias 'Smalls' is not exported
+```
+
+<!-- test: a-consumed-promise-slot-read-by-a-for-reaches-the-consume-abort -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A promise read out of an array and awaited leaves its slot empty: the await vacates it, so the array no
+longer owns the thread. An empty slot of a managed element is a panic when it is read, but a CONSUMED
+promise slot is not that — it is a promise already given away, and awaiting it again is the
+consumed-twice abort (**118**, `promiseSlotConsumedTwice`) on every read door. These three cases read slot
+0 again after its promise was awaited, through `for`, `get` and a cursor, and each reaches the abort.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+function plain(n Integer) returns Integer
+	Scheduler.yield()
+	return n
+end 'plain'
+
+function main() returns ExitCode
+	let ps = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(4))
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(5))
+	let first = try ps.get(0) otherwise panic("two were pushed")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	var sum = await first
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for p in ps 'drain'
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		sum = sum + await p
+	end 'drain'
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+118
+```
+```stderr
+fatal error: runtime abort 118 (promiseSlotConsumedTwice)
+```
+
+<!-- test: a-consumed-promise-slot-read-by-get-reaches-the-consume-abort -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+`at(0)` is 0 at run time and a fresh value to the compiler, so the second `get` is a read the compiler
+cannot match to the first. It is not refused as an empty slot: it hands back the vacated handle, and the
+await aborts.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+function plain(n Integer) returns Integer
+	Scheduler.yield()
+	return n
+end 'plain'
+
+function at(n Integer) returns ElementIndex
+	Scheduler.yield()
+	return n as ElementIndex
+end 'at'
+
+function main() returns ExitCode
+	let ps = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(4))
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(5))
+	let first = try ps.get(0) otherwise panic("two were pushed")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	var sum = await first
+	let again = try ps.get(at(0)) otherwise panic("the slot is still in range")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	sum = sum + await again
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+118
+```
+```stderr
+fatal error: runtime abort 118 (promiseSlotConsumedTwice)
+```
+
+<!-- test: a-consumed-promise-slot-read-by-a-cursor-reaches-the-consume-abort -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+function plain(n Integer) returns Integer
+	Scheduler.yield()
+	return n
+end 'plain'
+
+function main() returns ExitCode
+	let ps = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(4))
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	ps.push(async plain(5))
+	let first = try ps.get(0) otherwise panic("two were pushed")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	var sum = await first
+	let cursor = try ps.cursor() otherwise panic("two were pushed")
+	let again = cursor.current()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	sum = sum + await again
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+118
+```
+```stderr
+fatal error: runtime abort 118 (promiseSlotConsumedTwice)
+```
+
+<!-- test: a-let-array-read-is-range-known-through-get-first-and-last -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+An element read from a `let` array literal carries the range of the elements written, whichever accessor reads it.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let cell = [37, 40]
+	let low = try cell.first() otherwise 0
+	let high = try cell.last() otherwise 0
+	let middle = try cell.get(1) otherwise 0
+	print("{take(low)} {take(high)} {take(middle)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+37 40 40
+```
+
+<!-- test: a-for-in-over-a-let-array-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The element a `for … in` binds over a `let` array carries the array's range, and arithmetic over it carries the sum of the ranges.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let cell = [1, 2, 3]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in cell 'each'
+		let y = x + 1
+		print("{take(y)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+3
+4
+```
+
+<!-- test: a-for-in-over-an-array-literal-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A literal iterated in place is the same constant a `let` of it would be.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for x in [4, 5] 'each'
+		print("{take(x * 2)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+8
+10
+```
+
+<!-- test: error.a-for-in-over-a-let-array-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The range of the whole array is what each element read carries, so the largest element is the reachable extreme the diagnostic names.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let cell = [37, 400]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in cell 'each'
+		let y = x - 1
+		print("{take(y)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:11: Value 399 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: a-merge-of-let-array-reads-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A `match` whose arms read a `let` array, or give a literal, joins the ranges of its arms.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [10, 20]
+	let m = match xs.count() 'm'
+		2 gives try xs.get(0) otherwise 0
+		default gives 5
+	end 'm'
+	print("{take(m)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+10
+```
+
+<!-- test: a-top-level-let-array-read-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A top-level `let` array is image data whose elements are all known, so a read of it is range-known too.
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let NUMS = [10, 20, 30]
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let a = try NUMS.get(1) otherwise 0
+	print("{take(a)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+20
+```
+
+<!-- test: error.a-top-level-let-array-read-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The elements of a top-level `let` array bound what a read of it can be.
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let NUMS = [10, 2000]
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let a = try NUMS.get(0) otherwise 0
+	let b = take(a)
+	return b as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:10: Value 2000 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.an-unnamed-argument-aliasing-a-let-array-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` array literal is an immutable root: an argument that names no binding but returns the same record (`pass(a)`)
+reaches the refusal `grow(a)` does.
+```maxon
+typealias CountArray = Array with Count
+
+function pass(a CountArray) returns CountArray
+	return a
+end 'pass'
+
+function grow(a CountArray)
+	a.push(2)
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	grow(pass(a))
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:14:7: 'grow' writes 'a' (line 9: `a.push(2)`); 'pass(a)' is immutable
+```
+
+<!-- test: error.an-unnamed-receiver-aliasing-a-let-array-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The receiver spelling of the same route.
+```maxon
+typealias CountArray = Array with Count
+
+function pass(a CountArray) returns CountArray
+	return a
+end 'pass'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	pass(a).push(2)
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:10:10: cannot write 'a container' through 'a call result', which is immutable
+```
+
+<!-- test: error.a-closure-capturing-a-let-array-cannot-write-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure that captures a `let` array and writes it is refused.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives (try a.pop() otherwise 0)
+	if f() == 1 'popped'
+		return 1
+	end 'popped'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:4:32: cannot write 'a' through the closure that captures it: 'a' is immutable
+```
+
+<!-- test: error.a-let-array-stored-in-a-var-struct-field-cannot-be-written-through-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` array stored into a field of a `var` record is still the immutable record.
+```maxon
+typealias CountArray = Array with Count
+
+type Holder
+	export var a as CountArray
+
+	static function create(a CountArray) returns Self
+		return Self{a: a}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	var h = Holder.create(a)
+	h.a.push(2)
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:15:6: cannot write 'a container' through 'a call result', which is read-only
+```
+
+<!-- test: error.a-let-array-element-in-a-dead-branch-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+A use is checked where it is written, not where analysis happens to reach it: an element of a `let` array that no run can take into `take` is refused exactly as a literal argument in the same branch is.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let cell = [400]
+	if 3 > 5 'never'
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for x in cell 'each'
+			print("{take(x)}\n")
+		end 'each'
+	end 'never'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:12: Value 400 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: reserve-past-the-signed-range-panics -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A reservation no allocation can satisfy is an error, never a no-op: `reserve(u64.max)` reaches the growth door and its capacity overflow, exactly as `reserve(1 shl 62)` does.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1 as Count].clone()
+	arr.reserve(u64.max)
+	return arr.count() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at Array.maxon:319: Array.reserve: the requested capacity exceeds what the buffer can hold
+Stack trace:
+  in Array.reserve
+  in main
+  in mrt_start
+```
+
+<!-- test: reserve-a-byte-array-whose-bit-total-wraps-panics -->
+The refusal is on the capacity times the element's BITS, so a one-byte element wraps at `1 shl 60` (eight bits each, `2^63` in all) long before the byte count itself would overflow. That is the first count the signed bit total cannot hold, and it is refused the way `reserve(1 shl 62)` of a word-sized element is.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(0)
+	bytes.reserve(1 shl 60)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at Array.maxon:319: Array.reserve: the requested capacity exceeds what the buffer can hold
+Stack trace:
+  in Array.reserve
+  in main
+  in mrt_start
+```
+
+<!-- test: reserve-a-word-array-past-the-bit-total-panics -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A word-sized element is 64 bits, so `1 shl 62` of them is `2^68` bits: the wrapped total is refused, and the array keeps the buffer it had.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let words = [1 as Count].clone()
+	words.reserve(1 shl 62)
+	return words.count() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at Array.maxon:319: Array.reserve: the requested capacity exceeds what the buffer can hold
+Stack trace:
+  in Array.reserve
+  in main
+  in mrt_start
+```
+
+<!-- test: growth-by-pushing-keeps-every-element-across-the-doublings -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+Growth below the wrap bound takes the allocation road with no overflow refusal: a byte array and a word array pushed through many reallocations keep every element and agree on their counts.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(0)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let words = [0 as Count].clone()
+	var wrong = 0 as Count
+	for i in 0 upto 5000 'push'
+		bytes.push((i and 0xFF) as Byte)
+		words.push(i)
+	end 'push'
+	for i in 0 upto 5000 'check'
+		let b = try bytes.get(i) otherwise panic("a pushed byte is readable")
+		let w = try words.get(i + 1) otherwise panic("a pushed word is readable")
+		if (b as Count) != (i and 0xFF) or w != i 'mismatch'
+			wrong = wrong + 1
+		end 'mismatch'
+	end 'check'
+	if bytes.count() != 5000 or words.count() != 5001 'counts'
+		wrong = wrong + 1
+	end 'counts'
+	return wrong as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-array-literal-agrees-on-a-plain-constant-and-a-backing-alias-in-either-order -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A literal array mixing a plain `let` constant and an enum's `rawValue` agrees on its element whichever comes first, because a plain constant fits the alias in either position.
+```maxon
+enum Signal
+	hangup = 1
+	interrupt = 2
+end 'Signal'
+
+let Limit = 7
+
+function main() returns ExitCode
+	var seen = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for claimed in [Limit, Signal.interrupt.rawValue] 'plainFirst'
+		seen = seen + 1
+		print("{claimed}\n")
+	end 'plainFirst'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for claimed in [Signal.hangup.rawValue, Limit] 'aliasFirst'
+		seen = seen + 1
+		print("{claimed}\n")
+	end 'aliasFirst'
+	return seen as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+7
+2
+1
+7
+```
+
+<!-- test: error.a-let-array-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` array literal is a constant its range columns were read from: handing it to an indirect call is refused.
+```maxon
+typealias CountArray = Array with Count
+
+function grow(a CountArray)
+	a.push(2)
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	let f = grow
+	f(a)
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is immutable
+```
+
+<!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- positions: moved -->
+The same for a `FixedArray from` literal.
+```maxon
+// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
+typealias CountVector = FixedArray with 3 Count
+
+function poke(v CountVector)
+	v.set(0, value: 9)
+end 'poke'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
+	let f = poke
+	f(v)
+	return v.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:11:3: 'poke' writes 'v' (it calls 'set', which writes its receiver); 'v' is immutable
+```
+
+<!-- test: a-let-array-holding-u64-max-reads-back-u64-max -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A bare literal array element is the literal's value: `u64.max` reads back as 18446744073709551615, and the `Count` door accepts it.
+```maxon
+function take(c Count) returns Count
+	return c
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	var seen = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for v in a 'each'
+		seen = seen + 1
+		print("{take(v)}\n")
+	end 'each'
+	return seen as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+1
+18446744073709551615
+```
+
+<!-- test: a-top-level-let-array-holding-u64-max-reads-back-u64-max -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The same at module scope, where the array is laid down as an image.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Words = [1, u64.max]
+
+function take(c Count) returns Count
+	return c
+end 'take'
+
+function main() returns ExitCode
+	var seen = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for v in Words 'each'
+		seen = seen + 1
+		print("{take(v)}\n")
+	end 'each'
+	return seen as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+1
+18446744073709551615
+```
+
+<!-- test: a-let-array-element-u64-max-renders-and-compares-as-u64-max -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The element is the literal's value everywhere it is read, not only at a `Count` door: it renders as 18446744073709551615, equals `u64.max` and is greater than `1`.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for v in a 'each'
+		print("{v}\n")
+		if v == u64.max 'equal'
+			print("equal\n")
+		end 'equal'
+		if v > 1 'greater'
+			print("greater\n")
+		end 'greater'
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+18446744073709551615
+equal
+greater
+```
+
+<!-- test: a-top-level-let-array-element-u64-max-renders-and-compares-as-u64-max -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The same for the image.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Words = [1, u64.max]
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for v in Words 'each'
+		print("{v}\n")
+		if v == u64.max 'equal'
+			print("equal\n")
+		end 'equal'
+		if v > 1 'greater'
+			print("greater\n")
+		end 'greater'
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+18446744073709551615
+equal
+greater
+```
+
+<!-- test: error.a-top-level-let-array-holding-minus-one-keeps-its-range-columns -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+An image whose words include a genuine `-1` keeps its bounds: a read of `[-1, 5]` is known to lie in `-1 to 5`, so the narrower `Small` refuses it at compile time.
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Words = [-1, 5]
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let a = try Words.get(1) otherwise 0
+	let b = take(a)
+	return b as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:10: Value -1 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.resize-cannot-grow-an-array-whose-element-excludes-zero -->
+<!-- positions: moved -->
+Growing exposes zero-filled slots, and zero is an element only if the element type admits it: a `Percent` of `1 to 100` does not, so `resize` is refused as it is for a managed element, and `growFilled` supplies the value.
+```maxon
+typealias Percent = int(1 to 100)
+
+typealias PercentArray = Array with Percent
+
+function main() returns ExitCode
+	var xs = PercentArray.create(0)
+	xs.resize(1)
+	return xs.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:7:5: 'resize' cannot grow an array of 'Percent': the grown slots are zero and zero is not a value of 'Percent'. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: growfilled-supplies-the-element-an-excluding-alias-needs -->
+`growFilled` makes the caller name the element, so an alias that excludes zero is grown with a value it admits.
+```maxon
+typealias Percent = int(1 to 100)
+
+typealias PercentArray = Array with Percent
+
+function main() returns ExitCode
+	let xs = PercentArray.create(0)
+	xs.growFilled(3, value: 7)
+	return (try xs.get(2) otherwise 1) as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.a-fixed-array-cannot-hold-an-alias-that-excludes-zero -->
+<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- positions: moved -->
+A `FixedArray` publishes every slot as zero at `create()`, so an element alias that excludes zero is refused.
+```maxon
+typealias Percent = int(1 to 100)
+
+// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
+typealias PercentVector = FixedArray with 3 Percent
+
+function main() returns ExitCode
+	let v = PercentVector.create()
+	return v.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:6:10: 'FixedArray.create' cannot publish slots of 'Percent': every slot is zero and zero is not a value of 'Percent'
+```
+
+<!-- test: error.a-closure-handing-a-captured-let-array-to-a-function-value-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+The same for a captured `let` array literal.
+```maxon
+typealias CountArray = Array with Count
+
+function grow(a CountArray) returns Count
+	a.push(2)
+	return a.count()
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count]
+	let f = grow
+	// TODO: closures are not supported in minimaxon
+	let g = function() gives f(a)
+	return g() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:12:29: cannot write 'a' through the closure that captures it: 'a' is immutable
+```
+
+<!-- test: error.a-closure-handing-a-captured-let-fixed-array-to-a-function-value-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- positions: moved -->
+The same for a captured `FixedArray from` literal.
+```maxon
+// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
+typealias CountVector = FixedArray with 3 Count
+
+function poke(v CountVector) returns Count
+	v.set(0, value: 9)
+	return v.count()
+end 'poke'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
+	let f = poke
+	// TODO: closures are not supported in minimaxon
+	let g = function() gives f(v)
+	return g() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:12:29: cannot write 'v' through the closure that captures it: 'v' is immutable
+```
+
+<!-- test: a-closure-capturing-a-var-array-may-hand-it-to-a-function-value -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+An array that is a clone of the literal is writable, so the same closure is accepted.
+```maxon
+typealias CountArray = Array with Count
+
+function grow(a CountArray) returns Count
+	a.push(2)
+	return a.count()
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1 as Count].clone()
+	let f = grow
+	// TODO: closures are not supported in minimaxon
+	let g = function() gives f(a)
+	return g() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: error.a-let-array-mixing-a-negative-and-a-value-above-i64-max-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A bare literal array has one integer type, and no integer type holds both `-1` and `u64.max`.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [-1, u64.max]
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:15: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: error.a-let-array-listing-the-large-value-first-is-refused-at-the-negative -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The refusal is positioned at the element that makes the column mixed, whichever order they come in.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max, -5]
+	return a.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:23: no common integer type for -5 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: error.a-top-level-let-array-mixing-a-negative-and-a-value-above-i64-max-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The same at module scope, where the array is laid down as an image.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Words = [-1, u64.max]
+
+function main() returns ExitCode
+	return Words.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:2:18: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: error.a-list-from-a-mixed-sign-literal-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The typed-head forms read their elements the same way.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = List from [-1, u64.max]
+	return xs.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:26: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: a-literal-arrays-that-each-keep-to-one-sign-class-are-accepted -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A column holding only a large value, or only a negative one, has an integer type.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let wide = [1, u64.max]
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let narrow = [-1, 5]
+	return (wide.count() + narrow.count()) as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: a-try-otherwise-over-an-unsigned-column-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The merge of a read out of `[1, u64.max]` with `0` is the unsigned interval `[0, u64.max]`, so the `let` is range-known and prints as the unsigned value it is.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	let v = try a.get(1) otherwise 0
+	print("{v}\n")
+	if v > 1 'greater'
+		print("greater\n")
+	end 'greater'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615
+greater
+```
+
+<!-- test: a-try-otherwise-over-a-top-level-unsigned-column-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The same for an image.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Words = [1, u64.max]
+
+function main() returns ExitCode
+	let v = try Words.get(1) otherwise 0
+	print("{v}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+18446744073709551615
+```
+
+<!-- test: a-ternary-over-an-unsigned-column-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A ternary joins its arms in the unsigned domain when both are non-negative.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		let w = x if x > 5 else 0
+		print("{w}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0
+18446744073709551615
+```
+
+<!-- test: a-match-gives-over-an-unsigned-column-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+So does a `match` that gives a value in each arm.
+```maxon
+enum Pick
+	keep
+	zero
+end 'Pick'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		let choice = Pick.keep if x > 5 else Pick.zero
+		let w = match choice 'pick'
+			keep gives x
+			zero gives 0
+		end 'pick'
+		print("{w}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0
+18446744073709551615
+```
+
+<!-- test: error.a-merge-of-a-negative-and-an-unsigned-value-has-no-known-range -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A merge needing both a negative value and a value above `i64.max` has no common interval, so the `let` is refused as it is for any value of unknown range.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	let v = try a.get(1) otherwise -1
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:4:10: A let cannot start from a number whose range is unknown: write 'let name = expr as Type'.
+```
+
+<!-- test: error.a-set-from-a-mixed-sign-literal-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The same for a `Set from` literal.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let s = Set from [-1, u64.max]
+	return s.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:24: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: error.a-fixed-array-from-a-mixed-sign-literal-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+And for a `FixedArray from` literal.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let v = FixedArray from [-1, u64.max]
+	return v.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:31: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: a-closure-capturing-an-unsigned-column-read-prints-it-unsigned -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A read out of `[1, u64.max]` that a closure captures is still the unsigned value it was: the closure prints 18446744073709551615 and compares it as unsigned.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, u64.max]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'each'
+		// TODO: closures are not supported in minimaxon
+		let show = function() gives "{x}"
+		// TODO: closures are not supported in minimaxon
+		let big = function() gives x > 1
+		print("{show()} {big()}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 false
+18446744073709551615 true
+```
+
+<!-- test: a-fixed-array-from-a-literal-over-an-alias-that-excludes-zero-is-accepted -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+`FixedArray from` supplies every slot, so the zero-excluding element is only refused at `create`, which publishes zeroed slots.
+```maxon
+typealias Percent = int(1 to 100)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let v = FixedArray from [10 as Percent, 20 as Percent, 30 as Percent]
+	return v.get(2) as ExitCode
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: error.a-var-cannot-start-from-a-clone-of-a-literal-array -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A copy of a literal array keeps the literal's column bounds only while no writable name can hold it, so a `var` cannot be born from one.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let a = [1, 2, 3]
+	var b = a.clone()
+	b.push(9)
+	return b.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:4:10: A var cannot start from a bare number: write 'var name = expr as Type'.
+```
+
+<!-- test: create-with-capacity-publishes-that-many-zero-elements -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+`create(n)` builds an array of `n` elements, every one zero, in one call: the length is `n` and no element needs writing first.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(16)
+	try bytes.set(3, value: 9) otherwise return 1
+	var sum = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for byte in bytes 'eachByte'
+		sum = sum + (byte as Count)
+	end 'eachByte'
+	return (bytes.count() + sum) as ExitCode
+end 'main'
+```
+```exitcode
+25
+```
+
+<!-- test: create-with-capacity-of-zero-is-empty -->
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(0)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: create-with-capacity-works-for-a-wide-element -->
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias WideArray = Array with Wide
+
+function main() returns ExitCode
+	let words = WideArray.create(5)
+	try words.set(4, value: 7) otherwise return 1
+	let last = try words.get(4) otherwise 99
+	let first = try words.get(0) otherwise 99
+	if words.count() != 5 or first != 0 'wrongShape'
+		return 1
+	end 'wrongShape'
+	return last as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: create-with-capacity-not-zeroed-is-empty-with-room -->
+`create(n, zeroed: false)` is an empty array with room for `n` elements: the length is 0 and `n` pushes need no growth.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(16, zeroed: false)
+	let before = bytes.count()
+	for i in 0 upto 16 'eachByte'
+		bytes.push((i + 1) as Byte)
+	end 'eachByte'
+	let last = try bytes.get(15) otherwise 0
+	return (before * 100 + bytes.count() + (last as Count)) as ExitCode
+end 'main'
+```
+```exitcode
+32
+```
+
+<!-- test: create-with-capacity-explicitly-zeroed-matches-the-default -->
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(4, zeroed: true)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: create-with-capacity-not-zeroed-holds-a-managed-element -->
+A `String` has no zero value, so only the not-zeroed form builds an array of them, and `push` supplies each element.
+```maxon
+typealias Words = Array with String
+
+function main() returns ExitCode
+	let words = Words.create(2, zeroed: false)
+	words.push("ab")
+	words.push("cde")
+	return (words.count() * 10 + (try words.get(1) otherwise "").byteLength()) as ExitCode
+end 'main'
+```
+```exitcode
+23
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-managed-element -->
+<!-- positions: moved -->
+A zeroed slot of a `String` would be a null pointer, so the default (zeroed) form is refused for it, naming the element and the spelling that works.
+```maxon
+typealias Words = Array with String
+
+function main() returns ExitCode
+	let words = Words.create(2)
+	return words.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:5:14: 'create(n)' cannot publish zeroed slots of 'String': zero is not a value of 'String'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-explicitly-zeroed-cannot-hold-a-managed-element -->
+<!-- positions: moved -->
+```maxon
+typealias Words = Array with String
+
+function main() returns ExitCode
+	let words = Words.create(2, zeroed: true)
+	return words.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:5:14: 'create(n)' cannot publish zeroed slots of 'String': zero is not a value of 'String'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-an-alias-that-excludes-zero -->
+<!-- positions: moved -->
+```maxon
+typealias Percent = int(1 to 100)
+
+typealias PercentArray = Array with Percent
+
+function main() returns ExitCode
+	let xs = PercentArray.create(3)
+	return xs.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:6:11: 'create(n)' cannot publish zeroed slots of 'Percent': zero is not a value of 'Percent'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-an-enum-whose-raw-values-exclude-zero -->
+<!-- positions: moved -->
+A payload-free enum is stored as its raw value, so a zeroed slot of an enum whose raw values exclude 0 holds a value that names no case, and `match` over it is not exhaustive. The default (zeroed) form is refused as it is for a ranged alias that excludes zero.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+typealias LevelArray = Array with Level
+
+function main() returns ExitCode
+	let levels = LevelArray.create(3)
+	return levels.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:10:15: 'create(n)' cannot publish zeroed slots of 'Level': zero is not a value of 'Level'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-explicitly-zeroed-cannot-hold-an-enum-whose-raw-values-exclude-zero -->
+<!-- positions: moved -->
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+typealias LevelArray = Array with Level
+
+function main() returns ExitCode
+	let levels = LevelArray.create(3, zeroed: true)
+	return levels.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:10:15: 'create(n)' cannot publish zeroed slots of 'Level': zero is not a value of 'Level'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.resize-cannot-grow-an-array-of-an-enum-whose-raw-values-exclude-zero -->
+<!-- positions: moved -->
+Growing exposes zero-filled slots, so `resize` is refused for an enum whose raw values exclude 0; `growFilled` supplies a case.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+typealias LevelArray = Array with Level
+
+function main() returns ExitCode
+	var levels = LevelArray.create(0)
+	levels.resize(2)
+	return levels.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:11:9: 'resize' cannot grow an array of 'Level': the grown slots are zero and zero is not a value of 'Level'. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-payload-free-union-whose-tags-exclude-zero -->
+<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
+<!-- positions: moved -->
+A payload-free union is stored as its tag exactly as an enum is, so an explicit tag set without 0 is refused the same way.
+```maxon
+union Phase
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	early = 3
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	late = 4
+end 'Phase'
+
+typealias PhaseArray = Array with Phase
+
+function main() returns ExitCode
+	let phases = PhaseArray.create(2)
+	return phases.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:10:15: 'create(n)' cannot publish zeroed slots of 'Phase': zero is not a value of 'Phase'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-word-union -->
+<!-- positions: moved -->
+A union whose payload cases each carry one managed pointer is one word, and the zero word is the empty word that names no case, so it is refused as any managed element is.
+```maxon
+union Held
+	text(value String)
+	nothing
+end 'Held'
+
+typealias HeldArray = Array with Held
+
+function main() returns ExitCode
+	let held = HeldArray.create(2)
+	return held.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:10:13: 'create(n)' cannot publish zeroed slots of 'Held': zero is not a value of 'Held'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-service-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A `<Service>.handle` is a pointer to a cown box, so a zeroed slot is a null handle that a send would dereference. The default (zeroed) form is refused for it exactly as it is for a record.
+```maxon
+typealias Digit = int(0 to 9)
+
+type Worker
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping() returns Digit
+		return 3
+	end 'ping'
+end 'Worker'
+
+typealias Handles = Array with Worker.handle
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let worker = spawn Worker.create()
+	let handles = Handles.create(2)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let reply = try await worker.ping() otherwise 9
+	return (reply + handles.count()) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worker.handle': zero is not a value of 'Worker.handle'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-explicitly-zeroed-cannot-hold-a-service-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+```maxon
+typealias Digit = int(0 to 9)
+
+type Worker
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping() returns Digit
+		return 3
+	end 'ping'
+end 'Worker'
+
+typealias Handles = Array with Worker.handle
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let worker = spawn Worker.create()
+	let handles = Handles.create(2, zeroed: true)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let reply = try await worker.ping() otherwise 9
+	return (reply + handles.count()) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worker.handle': zero is not a value of 'Worker.handle'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: create-with-capacity-not-zeroed-holds-a-service-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+Only the not-zeroed form builds an array of handles, and `push` supplies each one. A handle read back from the array reaches its service.
+```maxon
+typealias Digit = int(0 to 9)
+
+type Worker
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping() returns Digit
+		return 3
+	end 'ping'
+end 'Worker'
+
+typealias Handles = Array with Worker.handle
+
+function main() returns ExitCode
+	let handles = Handles.create(2, zeroed: false)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let first = spawn Worker.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let second = spawn Worker.create()
+	handles.push(first)
+	handles.push(second)
+	let picked = try handles.get(1) otherwise panic("two were pushed")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let reply = try await picked.ping() otherwise 9
+	return 0 if reply == 3 and handles.count() == 2 else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.a-handle-of-a-type-nothing-spawns-is-an-unknown-type -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+Whether a type is a service is a whole-program property, so `Worker.handle` names a type only in a program that spawns a `Worker`. Without a `spawn` the element is an unknown type, and it is refused as one rather than judged for a zero value.
+```maxon
+export typealias Digit = int(0 to 9)
+
+type Worker
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping() returns Digit
+		return 3
+	end 'ping'
+end 'Worker'
+
+typealias Handles = Array with Worker.handle
+
+function main() returns ExitCode
+	let s = Handles.create(2)
+	let h = try s.get(0) otherwise panic("get")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = try await h.ping() otherwise 9
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3011: <fragment>:14:32: Unknown type 'Worker.handle'
+error E3011: <fragment>:19:22: Unknown type 'Worker.handle'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-an-unknown-type -->
+<!-- positions: moved -->
+```maxon
+typealias Nothings = Array with Nope
+
+function main() returns ExitCode
+	let nothings = Nothings.create(2)
+	return nothings.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3011: <fragment>:2:33: Unknown type 'Nope'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-promise -->
+<!-- positions: moved -->
+A promise slot holds a pointer into the scheduler's own slab, so a zeroed slot is a null promise that `await` would dereference. The default (zeroed) form is refused as it is for any managed element.
+```maxon
+typealias Digit = int(0 to 9)
+
+typealias DigitPromise = Promise with Digit
+
+typealias DigitPromises = Array with DigitPromise
+
+function main() returns ExitCode
+	let promises = DigitPromises.create(2)
+	return promises.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:7:17: 'create(n)' cannot publish zeroed slots of 'DigitPromise': zero is not a value of 'DigitPromise'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-promise-spelled-inline -->
+<!-- positions: moved -->
+```maxon
+typealias Digit = int(0 to 9)
+
+typealias DigitPromises = Array with Promise with Digit
+
+function main() returns ExitCode
+	let promises = DigitPromises.create(2, zeroed: true)
+	return promises.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:6:17: 'create(n)' cannot publish zeroed slots of 'Promise with int(0 to 9)': zero is not a value of 'Promise with int(0 to 9)'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.resize-cannot-grow-an-array-of-promises -->
+<!-- positions: moved -->
+```maxon
+typealias Digit = int(0 to 9)
+
+typealias DigitPromise = Promise with Digit
+
+typealias DigitPromises = Array with DigitPromise
+
+function main() returns ExitCode
+	var promises = DigitPromises.create(0)
+	promises.resize(2)
+	return promises.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:8:11: 'resize' cannot grow an array of 'DigitPromise': a grown slot holds NO element — Maxon has no default constructor — so 'count()' would not agree with 'get()'. Append with 'push(value)'
+```
+
+<!-- test: create-with-capacity-not-zeroed-holds-a-promise -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+```maxon
+typealias Digit = int(0 to 9)
+
+typealias DigitPromise = Promise with Digit
+
+typealias DigitPromises = Array with DigitPromise
+
+function three() returns Digit
+	Scheduler.yield()
+	return 3
+end 'three'
+
+function main() returns ExitCode
+	let promises = DigitPromises.create(2, zeroed: false)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	promises.push(async three())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	promises.push(async three())
+	let second = try promises.pop() otherwise panic("two were pushed")
+	let first = try promises.pop() otherwise panic("two were pushed")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let sum = await first + await second
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-promise-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Digit = int(0 to 9)
+
+typealias DigitPromise = Promise with Digit
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias PromisePool = Pool with DigitPromise
+
+function main() returns ExitCode
+	let pool = PromisePool.create()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:11:22: 'create(n)' cannot publish zeroed slots of a type parameter: 'PromisePool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0). Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-function -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A function value is a closure record, so a zeroed slot is a null closure.
+```maxon
+typealias Digit = int(0 to 9)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Digit) returns Digit
+
+typealias Steps = Array with Step
+
+function main() returns ExitCode
+	let steps = Steps.create(2)
+	return steps.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:7:14: 'create(n)' cannot publish zeroed slots of 'Step': zero is not a value of 'Step'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tuple -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple is a record, so a zeroed slot is a null tuple.
+```maxon
+typealias Digit = int(0 to 9)
+
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (Digit, Digit)
+
+typealias Pairs = Array with Pair
+
+function main() returns ExitCode
+	let pairs = Pairs.create(2)
+	return pairs.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:7:14: 'create(n)' cannot publish zeroed slots of '(Digit, Digit)': zero is not a value of '(Digit, Digit)'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: create-with-capacity-zeroed-holds-an-enum-whose-first-case-is-zero -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A plain enum numbers its first case 0, an explicit raw value of 0 names a case too, and a string-backed enum stores declaration indices, so each admits the zeroed form and its zeroed slots read as the case numbered 0.
+```maxon
+enum Plain
+	first
+	second
+end 'Plain'
+
+enum Gauge
+	idle = 0
+	busy = 5
+end 'Gauge'
+
+enum Mime
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	json = "application/json"
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	html = "text/html"
+end 'Mime'
+
+typealias PlainArray = Array with Plain
+
+typealias GaugeArray = Array with Gauge
+
+typealias MimeArray = Array with Mime
+
+function main() returns ExitCode
+	let plain = PlainArray.create(2)
+	let gauges = GaugeArray.create(2, zeroed: true)
+	let mimes = MimeArray.create(0)
+	mimes.resize(2)
+	let first = try plain.get(1) otherwise Plain.second
+	let second = try gauges.get(1) otherwise Gauge.busy
+	let third = try mimes.get(1) otherwise Mime.html
+	print("{first.name} {second.name} {third.name}\n")
+	return (plain.count() + gauges.count() + mimes.count()) as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+first idle json
+```
+
+<!-- test: an-enum-whose-raw-values-exclude-zero-is-filled-with-a-case -->
+`create(0)`, `create(n, zeroed: false)`, `push` and `growFilled` publish no zero slot, so they stay legal for an enum whose raw values exclude 0.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+typealias LevelArray = Array with Level
+
+function main() returns ExitCode
+	let none = LevelArray.create(0)
+	let roomy = LevelArray.create(4, zeroed: false)
+	roomy.push(Level.high)
+	let filled = LevelArray.create(0)
+	filled.growFilled(3, value: Level.low)
+	let tail = try filled.get(2) otherwise Level.high
+	print("{none.count()} {roomy.count()} {filled.count()} {tail.rawValue}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0 1 3 10
+```
+
+<!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tag-set-without-zero-at-any-backing -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+The slot is the tag, and the test is whether 0 is one of the declared tags. A tag set that straddles 0 without containing it, an all-negative one, a float backing without `0.0` and a character backing without `'\0'` each exclude it, and each function below is refused on its own.
+```maxon
+enum Straddle
+	below = -1
+	above = 1
+end 'Straddle'
+
+enum Negative
+	deep = -2
+	shallow = -1
+end 'Negative'
+
+enum Ratio
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	half = 0.5
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	whole = 1.0
+end 'Ratio'
+
+enum Mark
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: character literals are not supported in minimaxon
+	first = 'a'
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: character literals are not supported in minimaxon
+	second = 'b'
+end 'Mark'
+
+typealias StraddleArray = Array with Straddle
+
+typealias NegativeArray = Array with Negative
+
+typealias RatioArray = Array with Ratio
+
+typealias MarkArray = Array with Mark
+
+function straddle() returns Count
+	let xs = StraddleArray.create(2)
+	return xs.count()
+end 'straddle'
+
+function negative() returns Count
+	let xs = NegativeArray.create(2)
+	return xs.count()
+end 'negative'
+
+function ratio() returns Count
+	let xs = RatioArray.create(2)
+	return xs.count()
+end 'ratio'
+
+function mark() returns Count
+	let xs = MarkArray.create(2)
+	return xs.count()
+end 'mark'
+
+function main() returns ExitCode
+	return (straddle() + negative() + ratio() + mark()) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:28:11: 'create(n)' cannot publish zeroed slots of 'Straddle': zero is not a value of 'Straddle'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+error E3106: <fragment>:34:11: 'create(n)' cannot publish zeroed slots of 'Negative': zero is not a value of 'Negative'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+error E3106: <fragment>:40:11: 'create(n)' cannot publish zeroed slots of 'Ratio': zero is not a value of 'Ratio'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+error E3106: <fragment>:46:11: 'create(n)' cannot publish zeroed slots of 'Mark': zero is not a value of 'Mark'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: create-with-capacity-zeroed-holds-an-enum-with-a-zero-tag-at-any-backing -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A tag of 0 is a case whichever way it arrives: an auto-increment that lands on 0, a float `0.0`, a character `'\0'`, and a struct or function backing, whose tags are declaration indices. A zeroed slot reads as the case that owns 0.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Meta
+	export let latency as Integer
+
+	static function create(latency Integer) returns Self
+		return Self{latency: latency}
+	end 'create'
+end 'Meta'
+
+function double(x Integer) returns Integer
+	return x * 2
+end 'double'
+
+function triple(x Integer) returns Integer
+	return x * 3
+end 'triple'
+
+enum Climb
+	below = -1
+	zero
+	above
+end 'Climb'
+
+enum Ratio
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	none = 0.0
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	whole = 1.0
+end 'Ratio'
+
+enum Mark
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: character literals are not supported in minimaxon
+	nul = '\0'
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: character literals are not supported in minimaxon
+	letter = 'a'
+end 'Mark'
+
+enum Timing
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	fast = Meta.create(1)
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	slow = Meta.create(5)
+end 'Timing'
+
+enum Op
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	doubleOp = double
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	tripleOp = triple
+end 'Op'
+
+typealias ClimbArray = Array with Climb
+
+typealias RatioArray = Array with Ratio
+
+typealias MarkArray = Array with Mark
+
+typealias TimingArray = Array with Timing
+
+typealias OpArray = Array with Op
+
+function main() returns ExitCode
+	let climbs = ClimbArray.create(2)
+	let ratios = RatioArray.create(2)
+	let marks = MarkArray.create(2)
+	let timings = TimingArray.create(2)
+	let ops = OpArray.create(2)
+	let climb = try climbs.get(1) otherwise Climb.above
+	let ratio = try ratios.get(1) otherwise Ratio.whole
+	let mark = try marks.get(1) otherwise Mark.letter
+	let timing = try timings.get(1) otherwise Timing.slow
+	let op = try ops.get(1) otherwise Op.tripleOp
+	print("{climb.name} {ratio.name} {mark.name} {timing.name} {op.name}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+zero none nul fast doubleOp
+```
+
+<!-- test: a-map-keyed-by-an-enum-whose-raw-values-exclude-zero-still-compiles -->
+A `Map` or `Set` slot table is sparse: occupancy lives in a parallel column and an unwritten slot is never read, so the library's `resize` over its opaque key column stays legal at an enum that excludes 0.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+typealias LevelMap = Map with (Level, Integer)
+
+function main() returns ExitCode
+	let m = LevelMap.create()
+	m.upsert(Level.high, value: 7)
+	m.upsert(Level.low, value: 3)
+	let sum = (try m.get(Level.high) otherwise 0) + (try m.get(Level.low) otherwise 0)
+	return sum as ExitCode
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-managed-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A generic body is compiled once for every instantiation, so `create(n)` over its type parameter publishes zeroed slots of whatever the instantiation is, and a `String` instantiation makes them null pointers.
+```maxon
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias StringPool = Pool with String
+
+function main() returns ExitCode
+	let pool = StringPool.create()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:8:22: 'create(n)' cannot publish zeroed slots of a type parameter: 'StringPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0). Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-an-enum-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias LevelPool = Pool with Level
+
+function main() returns ExitCode
+	let pool = LevelPool.create()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:13:22: 'create(n)' cannot publish zeroed slots of a type parameter: 'LevelPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0). Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-zero-excluding-alias-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Percent = int(1 to 100)
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias PercentPool = Pool with Percent
+
+function main() returns ExitCode
+	let pool = PercentPool.create()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:10:22: 'create(n)' cannot publish zeroed slots of a type parameter: 'PercentPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0). Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.resize-in-a-user-generic-body-is-refused-for-a-managed-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A library body may `resize` an opaque column it fills before reading, but a user-written generic body cannot promise that, so `resize` over its type parameter is refused when an instantiation has no zero value.
+```maxon
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function fill()
+		items.resize(3)
+	end 'fill'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias StringPool = Pool with String
+
+function main() returns ExitCode
+	var pool = StringPool.create()
+	pool.fill()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:12:9: 'resize' cannot grow an array of a type parameter: 'StringPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: error.resize-in-a-user-generic-body-is-refused-for-an-enum-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function fill()
+		items.resize(3)
+	end 'fill'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias LevelPool = Pool with Level
+
+function main() returns ExitCode
+	var pool = LevelPool.create()
+	pool.fill()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:17:9: 'resize' cannot grow an array of a type parameter: 'LevelPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: error.resize-in-a-user-generic-body-is-refused-for-a-zero-excluding-alias-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Percent = int(1 to 100)
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function fill()
+		items.resize(3)
+	end 'fill'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias PercentPool = Pool with Percent
+
+function main() returns ExitCode
+	var pool = PercentPool.create()
+	pool.fill()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:14:9: 'resize' cannot grow an array of a type parameter: 'PercentPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: error.one-zero-excluding-instantiation-refuses-a-generic-body-that-resizes -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The instantiations are judged together: one type that admits 0 beside one that does not still refuses the body.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function fill()
+		items.resize(3)
+	end 'fill'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias CountPool = Pool with Count
+
+typealias LevelPool = Pool with Level
+
+function main() returns ExitCode
+	var a = CountPool.create()
+	var b = LevelPool.create()
+	a.fill()
+	b.fill()
+	return (a.size() + b.size()) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:17:9: 'resize' cannot grow an array of a type parameter: 'LevelPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+<!-- test: a-generic-body-that-zero-fills-is-accepted-when-every-instantiation-admits-zero -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`create(n)` and `resize` over the type parameter are accepted while every instantiation has a zero value: a plain integer alias and an enum with a case whose raw value is 0.
+```maxon
+enum Gauge
+	idle = 0
+	busy = 5
+end 'Gauge'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function grow()
+		items.resize(5)
+	end 'grow'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+
+	function first() returns Element
+		return try items.get(0) otherwise panic("a zeroed slot")
+	end 'first'
+end 'Pool'
+
+typealias CountPool = Pool with Count
+
+typealias GaugePool = Pool with Gauge
+
+function main() returns ExitCode
+	let counts = CountPool.create()
+	let gauges = GaugePool.create()
+	counts.grow()
+	gauges.grow()
+	print("{counts.size()} {gauges.size()} {counts.first()} {gauges.first().name}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5 5 0 idle
+```
+
+<!-- test: a-generic-body-that-appends-is-accepted-at-an-enum-that-excludes-zero -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`push` and `growFilled` publish no zero slot, so a generic body that uses them is accepted at every instantiation, an enum whose raw values exclude 0 included.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function fill(head Element, tail Element)
+		items.growFilled(3, value: head)
+		items.push(tail)
+	end 'fill'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+
+	function last() returns Element
+		return try items.get(3) otherwise panic("a pushed slot")
+	end 'last'
+end 'Pool'
+
+typealias LevelPool = Pool with Level
+
+function main() returns ExitCode
+	let pool = LevelPool.create()
+	pool.fill(Level.high, tail: Level.low)
+	print("{pool.size()} {pool.last().rawValue}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+4 10
+```
+
+<!-- test: error.create-with-capacity-in-a-library-tier-generic-body-is-refused-for-an-enum-instantiation -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+The refusal of `create(n)` over a type parameter holds in every tier: only a library body's `resize` is trusted.
+```maxon
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+type Pool uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Element
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(3)}
+	end 'create'
+
+	function size() returns Count
+		return items.count()
+	end 'size'
+end 'Pool'
+
+typealias LevelPool = Pool with Level
+
+function main() returns ExitCode
+	let pool = LevelPool.create()
+	return pool.size() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:13:22: 'create(n)' cannot publish zeroed slots of a type parameter: 'LevelPool' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0). Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-that-a-contested-alias-excludes-zero-is-refused -->
+<!-- positions: moved -->
+`Count` is the standard library's `int(0 to u64.max)`, which admits 0, and this program declares its own `Count` that does not. The concrete `create(n)` means the program's declaration, as the instantiation of a generic body does.
+```maxon
+typealias Count = int(1 to 9)
+
+typealias CountArray = Array with Count
+
+function main() returns ExitCode
+	let counts = CountArray.create(3)
+	return counts.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:6:15: 'create(n)' cannot publish zeroed slots of 'Count': zero is not a value of 'Count'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: error.create-with-capacity-cannot-hold-a-record-with-a-zero-excluding-field -->
+<!-- positions: moved -->
+A record with a field whose range excludes 0 is not a packed word (only zero-based ranges pack), so it is a heap record and a zeroed slot of it is a null pointer.
+```maxon
+typealias Rank = int(1 to 13)
+
+typealias Suit = int(0 to 3)
+
+type Card
+	export let rank as Rank
+	export let suit as Suit
+
+	static function create(rank Rank, suit Suit) returns Self
+		return Self{rank: rank, suit: suit}
+	end 'create'
+end 'Card'
+
+typealias CardArray = Array with Card
+
+function main() returns ExitCode
+	let cards = CardArray.create(2)
+	return cards.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:17:14: 'create(n)' cannot publish zeroed slots of 'Card': zero is not a value of 'Card'. Pass 'zeroed: false' to reserve capacity and append with 'push(value)'
+```
+
+<!-- test: create-with-capacity-holds-a-packed-record-whose-fields-admit-zero -->
+A packed record whose fields are all zero-based is a word, and the zero word is a valid record, so the zeroed form is accepted.
+```maxon
+typealias Octet = int(0 to 255)
+
+typealias Suit = int(0 to 3)
+
+type Pixel
+	export let red as Octet
+	export let suit as Suit
+	export let lit as bool
+
+	static function create(red Octet, suit Suit, lit bool) returns Self
+		return Self{red: red, suit: suit, lit: lit}
+	end 'create'
+end 'Pixel'
+
+typealias PixelArray = Array with Pixel
+
+function main() returns ExitCode
+	let pixels = PixelArray.create(2)
+	let pixel = try pixels.get(1) otherwise Pixel.create(9, suit: 3, lit: true)
+	print("{pixel.red} {pixel.suit} {pixel.lit}\n")
+	return pixels.count() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+0 0 false
+```
+
+<!-- test: error.create-zeroed-must-be-a-literal -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	let flag = true
+	let bytes = ByteArray.create(4, zeroed: flag)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:4:42: Unsupported: 'zeroed:' takes the literal 'true' or 'false' — whether a type has a zero value is decided where 'create' is written
+```
+
+<!-- test: create-with-capacity-allocates-one-record-and-buffer-together -->
+<!-- MmTrace -->
+The zeroed form is one `__mm_alloc`: the record and its buffer share a box.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(16)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```exitcode
+16
+```
+
+```mm-trace
+mm_alloc ArrayRecord #1 size=80
+mm_decref ArrayRecord #1 rc=0
+mm_free ArrayRecord #1
+```
+
+<!-- test: create-with-capacity-not-zeroed-allocates-one-record-and-buffer-together -->
+<!-- MmTrace -->
+The not-zeroed form is one `__mm_alloc` too, and 16 pushes after it allocate nothing more.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(16, zeroed: false)
+	for i in 0 upto 16 'eachByte'
+		bytes.push(i as Byte)
+	end 'eachByte'
+	return bytes.count() as ExitCode
+end 'main'
+```
+```exitcode
+16
+```
+
+```mm-trace
+mm_alloc ArrayRecord #1 size=80
+mm_decref ArrayRecord #1 rc=0
+mm_free ArrayRecord #1
+```
+
+<!-- test: create-of-zero-is-an-empty-array-for-any-element -->
+`create(0)` publishes no slot, so it needs no zero element: it is the empty array, even of a `String`.
+```maxon
+typealias Words = Array with String
+
+function main() returns ExitCode
+	let words = Words.create(0)
+	words.push("abc")
+	return (words.count() * 10 + (try words.get(0) otherwise "").byteLength()) as ExitCode
+end 'main'
+```
+```exitcode
+13
+```
+
+<!-- test: a-field-default-calling-another-types-create-of-zero-is-not-an-empty-container -->
+`Tally.create(0)` is the program's own factory, not an empty array: a `Holder` built in `main` still runs it, so the field holds the five the factory makes of its zero.
+```maxon
+type Tally
+	var total as Count
+
+	static function create(start Count) returns Tally
+		return Self{total: start + 5}
+	end 'create'
+
+	function read() returns Count
+		return self.total
+	end 'read'
+end 'Tally'
+
+type Holder
+	var tally = Tally.create(0)
+
+	static function create() returns Holder
+		return Self{}
+	end 'create'
+
+	function total() returns Count
+		return self.tally.read()
+	end 'total'
+end 'Holder'
+
+function main() returns ExitCode
+	let shared = Holder.create()
+	return shared.total() as ExitCode
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: error.create-negative-capacity-is-refused -->
+<!-- positions: moved -->
+`create(n)` takes an `ElementIndex` as `resize` does, so a literal negative is refused where it is written.
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create(-1)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:14: Value -1 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: error.create-capacity-from-a-signed-domain-must-be-proven -->
+<!-- positions: moved -->
+A capacity that may be negative is not an `ElementIndex` until a cast proves it, exactly as for `resize`.
+```maxon
+function main() returns ExitCode
+	var wanted = 5 as FullRangeInt
+	wanted = wanted - 10
+	let bytes = ByteArray.create(wanted)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:5:14: argument type mismatch for 'newLength': expected 'ElementIndex', got 'FullRangeInt' — cast the argument with 'as ElementIndex'
+```
+
+<!-- test: error.resize-length-from-a-signed-domain-names-the-cast -->
+<!-- positions: moved -->
+A length that may be negative is refused with the cast that crosses it.
+```maxon
+function main() returns ExitCode
+	var bytes = ByteArray.create(0)
+	var wanted = 5 as FullRangeInt
+	wanted = wanted - 10
+	bytes.resize(wanted)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:8: argument type mismatch for 'newLength': expected 'ElementIndex', got 'FullRangeInt' — cast the argument with 'as ElementIndex'
+```
+
+<!-- test: error.reserve-capacity-from-a-signed-domain-names-the-cast -->
+<!-- positions: moved -->
+`reserve` shares `resize`'s refusal and its cast.
+```maxon
+function main() returns ExitCode
+	var bytes = ByteArray.create(0)
+	var wanted = 5 as FullRangeInt
+	wanted = wanted - 10
+	bytes.reserve(wanted)
+	return bytes.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:8: argument type mismatch for 'minCapacity': expected 'ElementIndex', got 'FullRangeInt' — cast the argument with 'as ElementIndex'
+```
+
+<!-- test: create-with-a-capacity-proven-by-a-cast-runs -->
+```maxon
+function sized(wanted FullRangeInt) returns Count
+	let size = wanted as ElementIndex
+	let bytes = ByteArray.create(size)
+	return bytes.count()
+end 'sized'
+
+function main() returns ExitCode
+	return sized(12) as ExitCode
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: error.create-without-a-capacity-is-refused -->
+<!-- positions: moved -->
+### An array created with no capacity is refused
+Every array states its capacity when it is built: `create(0)` for an empty one, `create(n)` for `n` zeros, `create(n, zeroed: false)` for room for `n`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create()
+	arr.push(1)
+	return arr.count()
+end 'main'
+```
+```maxoncstderr
+error E3195: <fragment>:6:12: 'IntArray.create()' needs a capacity: write 'create(0)' for an empty array, 'create(n)' for n zero elements, or 'create(n, zeroed: false)' for an empty array with room for n
+```
+
+<!-- test: error.byte-array-create-without-a-capacity-is-refused -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	let bytes = ByteArray.create()
+	return bytes.count()
+end 'main'
+```
+```maxoncstderr
+error E3195: <fragment>:3:14: 'ByteArray.create()' needs a capacity: write 'create(0)' for an empty array, 'create(n)' for n zero elements, or 'create(n, zeroed: false)' for an empty array with room for n
+```
+
+<!-- test: an-array-cast-to-another-alias-outlives-its-var-being-reassigned -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Words = Array with MyWord
+
+typealias Nums = Array with MyWord
+
+function main() returns ExitCode
+	var ws = Words.create(0)
+	ws.push(1)
+	ws.push(2)
+	let ns = ws as Nums
+	ws = Words.create(0)
+	ws.push(9)
+	let other = Words.create(0)
+	other.push(7)
+	other.push(8)
+	other.push(6)
+	other.push(5)
+	let n = 5
+	print("{n}\n")
+	print("{ns.count()} {ws.count()} {other.count()}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+2 1 4
+```
+
+<!-- test: an-array-local-returned-as-another-alias-is-released-once -->
+```maxon
+typealias MyWord = int(0 to 100000)
+
+typealias Words = Array with MyWord
+
+typealias Nums = Array with MyWord
+
+function build() returns Nums
+	let ws = Words.create(0)
+	ws.push(1)
+	ws.push(2)
+	return ws
+end 'build'
+
+function main() returns ExitCode
+	print("{build().count()}\n")
+	return 0
+end 'main'
+```
+```stdout
+2
+```

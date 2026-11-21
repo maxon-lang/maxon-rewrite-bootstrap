@@ -1,0 +1,706 @@
+---
+feature: managed-directory
+status: experimental
+keywords: [directory, managed, __ManagedDirectory, RAII, search]
+category: type-system
+---
+
+# __ManagedDirectory
+
+## Documentation
+
+### Overview
+
+`__ManagedDirectory` is a compiler builtin type that wraps a Windows FindFirstFile/FindNextFile search handle with automatic cleanup via a destructor when the last reference goes out of scope — a managed, RAII-based API.
+
+`__ManagedDirectory` is library-tier, like the `__ManagedMemory` values its pattern argument and its
+`filename()` answer are: only a source file under `stdlib/` or `runtime/` may name the type or call its
+statics (E3185 anywhere else). `stdlib/Directory.maxon` is built on it, and a program uses `Directory`; the
+cases below that drive it directly compile in the library tier (`<!-- tier: stdlib -->`).
+
+### Type Structure
+
+`__ManagedDirectory` has a single field:
+- `_block` (int) — Pointer to a heap-allocated block containing the search HANDLE and WIN32_FIND_DATAW
+
+### Static Methods (throwing)
+
+- `__ManagedDirectory.openSearch(managed)` — Opens a directory search with a pattern. Throws `__ManagedDirectoryError.openSearchFailed` if the path does not exist or access is denied.
+- `__ManagedDirectory.create(managed)` — Creates a directory. Throws `__ManagedDirectoryError.createFailed` on failure.
+- `__ManagedDirectory.delete(managed)` — Removes an EMPTY directory. Throws `__ManagedDirectoryError.notFound` when the path names nothing, `deleteNotEmpty` when the directory still holds an entry, and `deleteFailed` for any other refusal.
+- `__ManagedDirectory.currentPath()` — Returns the current working directory as `__ManagedMemory`. Throws `__ManagedDirectoryError.currentPathFailed` on failure.
+- `__ManagedDirectory.resolve(managed)` — Returns the physical path of an existing file or directory as `__ManagedMemory`, every symbolic link followed. Throws `__ManagedDirectoryError.notFound` when the path names nothing, `accessDenied` when it may not be looked up, and `resolveFailed` for any other refusal.
+
+### Static Methods (non-throwing)
+
+- `__ManagedDirectory.exists(managed)` — Returns true if the path is an existing directory.
+
+### Where the cases below put the directories they make
+
+Six cases here CREATE a directory, each under a name of its own directly in the working directory, and each
+removes its files and then the directory itself with `__ManagedDirectory.delete` before it returns, so a
+passing case leaves nothing behind. The runner gives every run a fresh working directory, shared by all of its cases, which is what
+keeps a stray directory out of the project root: the project-root resolver walks UP, so a directory left
+at the root is inside the project every later build resolves.
+
+### Instance Methods (throwing)
+
+- `next()` — Advance-first iteration. Advances the cursor to the next REAL entry, skipping the `.` and `..` pseudo-entries, and returns non-zero if one was found or 0 when the iteration is complete. `openSearch` does not pre-load an entry, so callers iterate `while next() != 0 { use filename() }`. Throws `__ManagedDirectoryError.nextFailed` on OS error.
+
+### Instance Methods (non-throwing)
+
+- `filename()` — Returns the current entry's filename as `__ManagedMemory`. Only valid after a `next()` call that returned non-zero (before the first `next()` there is no current entry). The runtime owns all dot-filtering, so `filename()` never returns `.` or `..`.
+- `close()` — Explicitly closes the search handle. Idempotent. Also called automatically via destructor.
+
+### Usage Pattern
+
+`__ManagedDirectory` is used as a struct field inside wrapper types:
+
+```text
+type DirSearch
+  var dir as __ManagedDirectory
+
+  static function open(pattern String) returns DirSearch throws SearchError
+    let result = try __ManagedDirectory.openSearch(pattern.toByteArray().managed) otherwise throw SearchError.notFound
+    return DirSearch{dir: result}
+  end
+
+  function filename() returns __ManagedMemory
+    return dir.filename()
+  end
+end
+```
+
+## Tests
+
+<!-- test: managed-directory.exists -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	let cwd = try __ManagedDirectory.currentPath() otherwise return 1
+	let cwdStr = String.init(cwd)
+	let exists = __ManagedDirectory.exists(cwdStr.toByteArray().managed)
+	if exists 'check'
+		return 42
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.not-exists -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	let exists = __ManagedDirectory.exists("nonexistent_dir_xyz_99999".toByteArray().managed)
+	if not exists 'check'
+		return 42
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.current-path -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	let cwd = try __ManagedDirectory.currentPath() otherwise return 1
+	let cwdStr = String.init(cwd)
+	if cwdStr.count() > 0 'hasPath'
+		return 42
+	end 'hasPath'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.open-search-nonexistent -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.openSearch("nonexistent_dir_xyz_88888/*".toByteArray().managed) otherwise 'notFound'
+		print("not found")
+		return 42
+	end 'notFound'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+```stdout
+not found
+```
+
+<!-- test: managed-directory.open-search-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.openSearch("nonexistent_dir_xyz_88888_throws/*".toByteArray().managed) otherwise 'err'
+		return 42
+	end 'err'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.create-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.create("nonexistent_parent_xyz_88888/child".toByteArray().managed) otherwise 'err'
+		return 42
+	end 'err'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.next-without-try -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	let dir = try __ManagedDirectory.openSearch("./*".toByteArray().managed) otherwise return 1
+	_ = dir.next()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3057: specs/managed-directory/managed-directory.next-without-try.maxon:4:10: throwing function requires try: 'next'
+```
+
+<!-- test: managed-directory.search-and-list -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+```maxon
+enum TestFileError implements Error
+	openFailed
+end 'TestFileError'
+
+type TestFile
+	export var file as __ManagedFile
+
+	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let wr = try __ManagedFile.openWrite(path) otherwise 'f'
+			throw TestFileError.openFailed
+		end 'f'
+		return TestFile{file: wr}
+	end 'openWrite'
+end 'TestFile'
+
+enum TestDirError implements Error
+	searchFailed
+end 'TestDirError'
+
+type TestDir
+	export var dir as __ManagedDirectory
+
+	static function search(pattern __ManagedMemory) returns TestDir throws TestDirError
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let handle = try __ManagedDirectory.openSearch(pattern) otherwise 'fail'
+			throw TestDirError.searchFailed
+		end 'fail'
+		return TestDir{dir: handle}
+	end 'search'
+end 'TestDir'
+
+function createFile(path String, content String) throws TestFileError
+	let f = try TestFile.openWrite(path.toByteArray().managed)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try f.file.write(content.toByteArray().managed) otherwise 'err'
+		f.file.close()
+		panic("write failed")
+	end 'err'
+	f.file.close()
+end 'createFile'
+
+function main() returns ExitCode
+	let dirPath = "test_managed_dir_search"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise 'createFail'
+		print("create failed")
+		return 1
+	end 'createFail'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try createFile("{dirPath}/file1.txt", content: "a") otherwise 'c1Err'
+		return 5
+	end 'c1Err'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try createFile("{dirPath}/file2.txt", content: "b") otherwise 'c2Err'
+		return 5
+	end 'c2Err'
+	// Search the directory
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let dir = try TestDir.search("{dirPath}/*".toByteArray().managed) otherwise 'searchFail'
+		print("search failed")
+		return 2
+	end 'searchFail'
+	var fileCount = 0 as Count
+	while (try dir.dir.next() otherwise return 3) != 0 'loop'
+		fileCount = fileCount + 1
+	end 'loop'
+	dir.dir.close()
+	// Clean up
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedFile.delete("{dirPath}/file1.txt".toByteArray().managed) otherwise 'del1Err'
+		return 4
+	end 'del1Err'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedFile.delete("{dirPath}/file2.txt".toByteArray().managed) otherwise 'del2Err'
+		return 4
+	end 'del2Err'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise 'delDirErr'
+		return 4
+	end 'delDirErr'
+	if fileCount == 2 'checkCount'
+		return 42
+	end 'checkCount'
+	print("unexpected count: {fileCount}")
+	return 3
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.open-search-not-found-variant -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+The errno→variant mapping ensures that opening a search on a path that does
+not exist routes to the `notFound` arm (rather than the catch-all
+`openSearchFailed`). Backed by `gt->io_error_code` populated by the runtime
+sync worker (Win32 ERROR_FILE_NOT_FOUND=2 / ERROR_PATH_NOT_FOUND=3, POSIX ENOENT=2).
+
+```maxon
+function main() returns ExitCode
+	var result = 0 as ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.openSearch("nonexistent_phaseB_search_xyz/*".toByteArray().managed) otherwise (e) 'h'
+		match e 'k'
+			notFound then result = 42
+			default panic("expected notFound")
+		end 'k'
+	end 'h'
+	return result
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.error-direct-construction -->
+A program outside the library tiers cannot name the type at all, so the construction is refused at the name.
+```maxon
+function main() returns ExitCode
+	let d = __ManagedDirectory{_block: 0}
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3185: <fragment>:3:10: '__ManagedDirectory' named outside the library tiers: the raw OS directory handle type is nameable only from a source file under stdlib/ or runtime/ — use 'Directory'
+```
+
+<!-- test: managed-directory.error-direct-construction-in-the-library-tier -->
+<!-- tier: stdlib -->
+Library code may name the type, and still cannot build one from a literal: a search comes only from
+`openSearch`.
+```maxon
+function main() returns ExitCode
+	let d = __ManagedDirectory{_block: 0}
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3072: <fragment>:3:29: '__ManagedDirectory' is a compiler builtin type and cannot be constructed directly
+```
+
+### the compiler's own cases
+
+Each of the nine cases below pins a mechanism the ten cases above do not reach,
+rather than restating a passing one.
+
+<!-- test: managed-directory.next-does-not-skip-the-first-match -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+⭐ **The advance-first PENDING flag.** `FindFirstFileW` does not merely open a
+search, it returns the FIRST entry — so a `next()` that fetches immediately
+loses it. `search-and-list` above cannot catch that: a `dir/*` pattern's first
+two entries are `.` and `..`, which the runtime's dot filter discards anyway.
+This searches `*.txt` in a directory whose first match is a REAL file.
+With the flag cleared at the open, this returns 1.
+
+```maxon
+enum ProbeError implements Error
+	failed
+end 'ProbeError'
+
+function writeFile(path String) throws ProbeError
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
+		throw ProbeError.failed
+	end 'openFail'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try f.write("x".toByteArray().managed) otherwise 'writeFail'
+		f.close()
+		throw ProbeError.failed
+	end 'writeFail'
+	f.close()
+end 'writeFile'
+
+function main() returns ExitCode
+	let dirPath = "test_md_first_match"
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
+	try writeFile("{dirPath}/alpha.txt") otherwise return 2
+	try writeFile("{dirPath}/beta.txt") otherwise return 2
+	let dir = try __ManagedDirectory.openSearch("{dirPath}/*.txt".toByteArray().managed) otherwise return 3
+	var count = 0 as ExitCode
+	while (try dir.next() otherwise return 4) != 0 'loop'
+		count = count + 1
+	end 'loop'
+	dir.close()
+	try __ManagedFile.delete("{dirPath}/alpha.txt".toByteArray().managed) otherwise return 5
+	try __ManagedFile.delete("{dirPath}/beta.txt".toByteArray().managed) otherwise return 5
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise return 5
+	if count == 2 'both'
+		return 42
+	end 'both'
+	return count
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.filename-round-trip -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+⭐ **`filename()` — which no case above reaches.** It answers with a FRESH
+owned `__ManagedMemory` copy rather than a pointer into the find block (which
+the next `next()` would invalidate), so the name survives
+being read back into a `String`. The dot filter is checked here too: `.` and
+`..` never reach the caller, so every name this sees is a real entry.
+
+```maxon
+enum ProbeError implements Error
+	failed
+end 'ProbeError'
+
+function writeFile(path String) throws ProbeError
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
+		throw ProbeError.failed
+	end 'openFail'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try f.write("x".toByteArray().managed) otherwise 'writeFail'
+		f.close()
+		throw ProbeError.failed
+	end 'writeFail'
+	f.close()
+end 'writeFile'
+
+function main() returns ExitCode
+	let dirPath = "test_md_filename"
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
+	try writeFile("{dirPath}/only.txt") otherwise return 2
+	let dir = try __ManagedDirectory.openSearch("{dirPath}/*.txt".toByteArray().managed) otherwise return 3
+	var found = 0 as Count
+	while (try dir.next() otherwise return 4) != 0 'loop'
+		let name = String.init(dir.filename())
+		if name == "only.txt" 'isTheFile'
+			found = found + 1
+		end 'isTheFile'
+	end 'loop'
+	dir.close()
+	try __ManagedFile.delete("{dirPath}/only.txt".toByteArray().managed) otherwise return 5
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise return 5
+	if found == 1 'exactlyOne'
+		return 42
+	end 'exactlyOne'
+	return 6
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.next-after-close-throws-closed -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+⚠ **`next()` after `close()` throws `closed`.** Without the guard, `close()`
+followed by `next()` would reach Win32 with a NULL handle while the pending flag
+still says an entry is waiting, and the search's FIRST entry would be replayed as
+if it were found. `__ManagedFile`'s `size`/`read`/`write` throw
+`__ManagedFileError.closed` from the identical guard, so this is the family's
+contract.
+
+```maxon
+function main() returns ExitCode
+	let dir = try __ManagedDirectory.openSearch("./*".toByteArray().managed) otherwise return 1
+	dir.close()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try dir.next() otherwise (e) 'handler'
+		match e 'kind'
+			closed then return 42
+			default panic("expected closed")
+		end 'kind'
+	end 'handler'
+	return 2
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.exists-discriminates-file-from-directory -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+`exists()` asks whether the path is a DIRECTORY, so an existing plain file is
+`false` — a `GetFileAttributesW` that merely succeeded is not the answer. The
+`not-exists` case above only covers a path that names nothing.
+
+```maxon
+enum ProbeError implements Error
+	failed
+end 'ProbeError'
+
+function writeFile(path String) throws ProbeError
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
+		throw ProbeError.failed
+	end 'openFail'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try f.write("x".toByteArray().managed) otherwise 'writeFail'
+		f.close()
+		throw ProbeError.failed
+	end 'writeFail'
+	f.close()
+end 'writeFile'
+
+function main() returns ExitCode
+	let path = "test_md_plain_file.txt"
+	try writeFile(path) otherwise return 1
+	let isDir = __ManagedDirectory.exists(path.toByteArray().managed)
+	try __ManagedFile.delete(path.toByteArray().managed) otherwise return 2
+	if isDir 'aFileIsNotADirectory'
+		return 3
+	end 'aFileIsNotADirectory'
+	return 42
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.create-existing-is-create-failed -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+`CreateDirectoryW` on a path that already exists reports
+`ERROR_ALREADY_EXISTS`, which is neither of the two errno codes the shared
+classification names — so it takes this operation's catch-all. The
+`create-throws` case above reaches the same throw through a missing PARENT,
+which is a different Win32 error, so only this one pins the catch-all.
+
+```maxon
+function main() returns ExitCode
+	let dirPath = "test_md_already_there"
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
+	var verdict = 2 as ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise (e) 'handler'
+		match e 'kind'
+			createFailed then verdict = 42
+			default panic("expected createFailed")
+		end 'kind'
+	end 'handler'
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise return 3
+	return verdict
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.auto-close -->
+<!-- tier: stdlib -->
+
+The RAII half: a search opened and NEVER closed explicitly, reclaimed only by
+the destructor at the scope exit. The exit code proves the memory half (a leaked
+find block or box fails the exit-101 gate); the OS SEARCH HANDLE half is
+structurally invisible to that gate, and only a process handle count shows it —
+without the destructor's `close`, 20,000 unclosed searches leave about 20,000
+more handles live.
+
+```maxon
+function main() returns ExitCode
+	var i = 0 as Count
+	while i < 200 'loop'
+		let dir = try __ManagedDirectory.openSearch("./*".toByteArray().managed) otherwise return 1
+		_ = try dir.next() otherwise return 2
+		i = i + 1
+	end 'loop'
+	return 42
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.error-enum-name-is-reserved -->
+
+⚠ **SEEDED IS NOT RESERVED.**
+`__ManagedDirectoryError` is seeded into the enum registry unconditionally, and
+a user declaration that could DISPLACE the seed would capture the runtime's
+ordinals and reroute every handler arm with no diagnostic anywhere. The `__`
+prefix is what makes that impossible here, and this is the case that says so.
+
+```maxon
+enum __ManagedDirectoryError implements Error
+	somethingElse
+end '__ManagedDirectoryError'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: <fragment>:2:6: identifier '__ManagedDirectoryError' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: managed-directory.dotfiles-are-entries-not-dot-pseudo-entries -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+
+⭐ **THE DOT FILTER IS THREE BYTES, AND ALL SEVENTEEN CASES ABOVE PASS IF IT IS
+ONE.** `.` is byte0 `.` + NUL, `..` is `.` `.` + NUL — so a filter that tested
+only the leading byte would hide **every dotfile in the directory** while still
+discarding exactly the two pseudo-entries the other cases care about. Nothing
+above can see the difference: `search-and-list` and
+`next-does-not-skip-the-first-match` list directories that contain no dotfile,
+and `filename-round-trip` searches `*.txt`. This one lists a directory holding
+`.gitignore` (byte1 is not NUL), `..config` (byte1 IS `.`, byte2 is not NUL) and
+a plain file, and requires all three back. With `dot1` routed
+unconditionally back to the fetch, this returns 1 and the other seventeen stay
+green.
+
+```maxon
+enum ProbeError implements Error
+	failed
+end 'ProbeError'
+
+function writeFile(path String) throws ProbeError
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
+		throw ProbeError.failed
+	end 'openFail'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try f.write("x".toByteArray().managed) otherwise 'writeFail'
+		f.close()
+		throw ProbeError.failed
+	end 'writeFail'
+	f.close()
+end 'writeFile'
+
+function main() returns ExitCode
+	let dirPath = "test_md_dotfiles"
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
+	try writeFile("{dirPath}/.gitignore") otherwise return 2
+	try writeFile("{dirPath}/..config") otherwise return 2
+	try writeFile("{dirPath}/plain.txt") otherwise return 2
+	let dir = try __ManagedDirectory.openSearch("{dirPath}/*".toByteArray().managed) otherwise return 3
+	var seen = 0 as ExitCode
+	var dots = 0 as Count
+	while (try dir.next() otherwise return 4) != 0 'loop'
+		let name = String.init(dir.filename())
+		if name == ".gitignore" 'hidden'
+			seen = seen + 1
+		end 'hidden'
+		if name == "..config" 'doubleLeading'
+			seen = seen + 1
+		end 'doubleLeading'
+		if name == "plain.txt" 'ordinary'
+			seen = seen + 1
+		end 'ordinary'
+		if name == "." 'singleDot'
+			dots = dots + 1
+		end 'singleDot'
+		if name == ".." 'doubleDot'
+			dots = dots + 1
+		end 'doubleDot'
+	end 'loop'
+	dir.close()
+	try __ManagedFile.delete("{dirPath}/.gitignore".toByteArray().managed) otherwise return 5
+	try __ManagedFile.delete("{dirPath}/..config".toByteArray().managed) otherwise return 5
+	try __ManagedFile.delete("{dirPath}/plain.txt".toByteArray().managed) otherwise return 5
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise return 5
+	if dots != 0 'pseudoEntryLeaked'
+		return 6
+	end 'pseudoEntryLeaked'
+	if seen == 3 'allThree'
+		return 42
+	end 'allThree'
+	return seen
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: managed-directory.eof-and-close-are-both-idempotent -->
+<!-- tier: stdlib -->
+
+Two contracts nothing above states. **EOF is a plain 0 and stays one**: an empty
+directory's very first `next()` is the end of the iteration, and a `next()` past
+it must answer 0 again rather than throw `nextFailed` or replay — `FindNextFileW`
+keeps reporting `ERROR_NO_MORE_FILES`, and only the `GetLastError` arm makes that
+an ordinary end. **`close()` is idempotent**: the spec says so, `__md_destruct`
+depends on it (an explicit `close()` followed by the scope-exit drop calls it
+twice), and `search-and-list` exercises close-then-drop but never close-then-close
+in one program.
+
+```maxon
+function main() returns ExitCode
+	let dirPath = "test_md_empty_search"
+	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
+	let dir = try __ManagedDirectory.openSearch("{dirPath}/*".toByteArray().managed) otherwise return 2
+	let first = try dir.next() otherwise return 3
+	if first != 0 'emptyDirectoryHasNoRealEntry'
+		return 4
+	end 'emptyDirectoryHasNoRealEntry'
+	let second = try dir.next() otherwise return 5
+	if second != 0 'eofStaysEof'
+		return 6
+	end 'eofStaysEof'
+	dir.close()
+	dir.close()
+	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise return 7
+	return 42
+end 'main'
+```
+```exitcode
+42
+```

@@ -1,0 +1,1932 @@
+---
+feature: type-casting
+status: stable
+keywords: [cast, as, type, conversion, widening, narrowing]
+category: type-system
+---
+
+# Type Casting
+
+## Documentation
+
+The `as` keyword performs safe type casting between Maxon's primitive types (`int`, `float`, `bool`).
+
+### Safe Casts (Allowed)
+
+Only widening casts that never lose data are permitted:
+
+```text
+int -> float      // 64-bit signed to 64-bit double (may lose precision for large values)
+```
+
+A cast to the type the value already has converts nothing and is refused (E3010, below).
+
+Casts between ranged-int typealiases (e.g. `int(0 to u8.max)` to `int(i64.min to i64.max)`) are
+always permitted, and they are REQUIRED: every `typealias` is a nominally distinct type, and `as` is
+the only door between two of them, in both directions (`nominal-typealias.md`). Out-of-range literals
+are rejected at compile time; out-of-range expressions are rejected at runtime by the target's range
+check, which a widening cast provably cannot fail and so does not emit. An int-to-float cast to a ranged
+float alias is checked against that range the same way: a constant out of range is E3005, and any other
+value is checked at run time.
+
+### Tuple Casts
+
+A cast between two tuple types converts element by element. Each element whose type differs goes through
+the cast its own value would take, with every refusal and range check that cast has, and a nested tuple
+converts the same way; E3010 is judged once, for the cast as written. The result is a new tuple, and the
+source is left as it was, so a later write through either name reaches only its own tuple. A cast
+whose elements each denote the same type and capability (a brand-only difference) shares the record. A cast
+written on a tuple literal converts the literal's own element values, so a constant element out of range is
+E3005. A cast between tuples of different numbers of elements is E3009, and one that changes an element's
+capability is E3226; `immutable` on a value-type element means the type itself, so `(immutable P, W)` is
+the type `(P, W)`.
+
+### Syntax
+
+```text
+expression as TargetType
+```
+
+### Examples
+
+```text
+typealias Byte = int(0 to u8.max)
+typealias Integer = int(i64.min to i64.max)
+typealias Real = float(f64.min to f64.max)
+let b = 42 as Byte       // int literal in range (OK)
+let i = b as Integer     // ranged int -> wider ranged int (OK)
+let g = 100 as Real      // int -> float widening (OK)
+
+// A cast TARGET must name a ranged typealias. The bare keyword is legal only as
+// a `typealias` RHS, so `b as int` / `100 as float` are E3005, not casts:
+//   Cannot cast to bare 'int'. Define a typealias with range constraints, ...
+```
+
+### Unsafe Casts (Compile Error E3009)
+
+Lossy conversions are not allowed. The compiler reports error E3009:
+
+```text
+let i = 5.0 as Integer   // ERROR: use trunc/round/floor/ceil instead
+let i = true as Integer  // ERROR: bool -> int not allowed
+let f = true as Real     // ERROR: bool -> float not allowed
+let b = 0 as bool        // ERROR: int -> bool not allowed
+let b = 0.0 as bool      // ERROR: float -> bool not allowed
+
+// Each target names a declared alias. A BARE `int`/`float` target is refused
+// earlier and by a different rule (E3005), so it never reaches E3009 at all.
+```
+
+For float-to-integer conversion, use the explicit conversion functions:
+- `trunc(x)` -- truncate toward zero
+- `round(x)` -- round to nearest
+- `floor(x)` -- round toward negative infinity
+- `ceil(x)` -- round toward positive infinity
+
+## Tests
+
+### Safe Casts
+
+<!-- test: int-literal-to-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 42 as Byte
+	return b
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: int-literal-zero-to-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 0 as Byte
+	return b
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: int-literal-max-to-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 255 as Byte
+	return b
+end 'main'
+```
+```exitcode
+255
+```
+
+<!-- test: byte-to-int -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 100 as Byte
+	return b
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: byte-to-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+typealias Byte = int(0 to u8.max)
+
+function toFloat(b Byte) returns Float
+	// TODO: float literals are not supported in minimaxon
+	return b + 0.0
+end 'toFloat'
+
+function seed() returns Byte
+	return 50
+end 'seed'
+
+function main() returns ExitCode
+	let b = seed()
+	let f = toFloat(b)
+	return trunc(f)
+end 'main'
+```
+```exitcode
+50
+```
+
+<!-- test: int-to-float -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function main() returns ExitCode
+	let x = 42
+	let f = x as Float
+	return trunc(f)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: int-literal-to-float -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function main() returns ExitCode
+	let f = 99 as Float
+	return trunc(f)
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: cast-in-expression -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 10 as Byte
+	let result = b + 32
+	return result
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: chained-byte-int-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+typealias Byte = int(0 to u8.max)
+
+function toFloat(b Byte) returns Float
+	// TODO: float literals are not supported in minimaxon
+	return b + 0.0
+end 'toFloat'
+
+function seed() returns Byte
+	return 25
+end 'seed'
+
+function main() returns ExitCode
+	let b = seed()
+	let f = toFloat(b)
+	return trunc(f)
+end 'main'
+```
+```exitcode
+25
+```
+
+### Unsafe Casts (Compile Errors)
+
+<!-- test: error.int-literal-out-of-range -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let x = 256 as Byte
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/type-casting/error.int-literal-out-of-range.maxon:6:14: Value 256 is outside the range of 'Byte' (int(0 to 255))
+```
+
+<!-- test: error.negative-literal-to-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let x = -1 as Byte
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/type-casting/error.negative-literal-to-byte.maxon:6:13: Value -1 is outside the range of 'Byte' (int(0 to 255))
+```
+
+<!-- test: error.float-to-int -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x = 5.0 as Integer
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.float-to-int.maxon:6:14: Cannot cast from float to int
+```
+
+<!-- test: error.bool-to-int -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let b = true
+	let x = b as Integer
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.bool-to-int.maxon:7:12: Cannot cast from bool to int
+```
+
+<!-- test: error.bool-to-float -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function main() returns ExitCode
+	let b = true
+	let x = b as Float
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.bool-to-float.maxon:7:12: Cannot cast from bool to float
+```
+
+<!-- test: error.bool-to-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = true
+	let x = b as Byte
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.bool-to-byte.maxon:7:12: Cannot cast from bool to int
+```
+
+<!-- test: error.int-to-bool -->
+```maxon
+function main() returns ExitCode
+	let x = 0 as bool
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.int-to-bool.maxon:3:12: Cannot cast from int to bool
+```
+
+<!-- test: error.float-to-bool -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x = 0.0 as bool
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.float-to-bool.maxon:3:14: Cannot cast from float to bool
+```
+
+<!-- test: error.byte-to-bool -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 42 as Byte
+	let x = b as bool
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: specs/type-casting/error.byte-to-bool.maxon:7:12: Cannot cast from Byte to bool
+```
+
+### Unneeded Casts (Compile Error E3010)
+
+A cast whose target names the value's OWN alias is rejected: it converts nothing.
+So is a numeric literal cast to exactly the type its destination already declares — a call
+argument's parameter, a `return`'s declared result, a struct-literal field or a stored field:
+the literal is checked against that type without the cast. So is a literal cast in an untyped
+`let` when every use of the `let` would take the constant it otherwise holds the same way; a
+top-level `let` keeps its cast, and so does one a closure captures.
+A literal cast stays legal where nothing declares the type — an untyped `var`, an operand, an
+array-literal element, a join of `gives`/`if`-`else`/`otherwise` arms, a generic `T` slot, a
+`let` some use of which needs the alias.
+A cast naming a DIFFERENT alias is real work whichever way the two ranges run — it
+re-declares the value's type and carries the target's range check — so it compiles.
+
+<!-- test: error.unneeded.same-type-int -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function identity(x Integer) returns Integer
+	return x
+end 'identity'
+
+function main() returns ExitCode
+	let x = identity(42)
+	let y = x as Integer
+	return y
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-type-int.maxon:11:12: unneeded cast: 'Integer' already fits in 'Integer'
+```
+
+<!-- test: error.unneeded.same-type-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function identity(x Float) returns Float
+	return x
+end 'identity'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let f = identity(42.0)
+	let g = f as Float
+	return trunc(g)
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-type-float.maxon:11:12: unneeded cast: 'Float' already fits in 'Float'
+```
+
+<!-- test: error.unneeded.same-type-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 42 as Byte
+	let c = b as Byte
+	return c
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-type-byte.maxon:7:12: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: error.unneeded.literal-named-argument -->
+<!-- positions: moved -->
+A literal cast to the type its parameter already declares converts nothing: the argument is range-checked against that type anyway.
+```maxon
+typealias ByteCount = int(1 to 8)
+
+typealias Address = int(0 to 4096)
+
+function readMemory(address Address, bytes ByteCount) returns ByteCount
+	if address == 0 'start'
+		return bytes
+	end 'start'
+	return 1
+end 'readMemory'
+
+function main() returns ExitCode
+	return readMemory(0, bytes: 1 as ByteCount)
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:13:32: unneeded cast: the literal 1 already fits in 'ByteCount'
+```
+
+<!-- test: error.unneeded.literal-argument-through-interface -->
+<!-- positions: moved -->
+The same argument reached through an interface-typed receiver: the interface's declared parameter is the destination.
+```maxon
+typealias ByteCount = int(1 to 8)
+
+typealias Address = int(0 to 4096)
+
+interface Backend
+	function readMemory(address Address, bytes ByteCount) returns ByteCount
+end 'Backend'
+
+type Ram implements Backend
+	let base as Address
+
+	static function create() returns Self
+		return Self{base: 0}
+	end 'create'
+
+	function readMemory(address Address, bytes ByteCount) returns ByteCount
+		if address == self.base 'start'
+			return bytes
+		end 'start'
+		return 1
+	end 'readMemory'
+end 'Ram'
+
+type Debugger
+	let backend as Backend
+
+	static function create() returns Self
+		return Self{backend: Ram.create()}
+	end 'create'
+
+	function readByte(address Address) returns ByteCount
+		return self.backend.readMemory(address, bytes: 1 as ByteCount)
+	end 'readByte'
+end 'Debugger'
+
+function main() returns ExitCode
+	let debugger = Debugger.create()
+	return debugger.readByte(0)
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:32:52: unneeded cast: the literal 1 already fits in 'ByteCount'
+```
+
+<!-- test: error.unneeded.literal-positional-argument -->
+A positional argument, and a negative literal: the minus is part of the literal.
+```maxon
+typealias Delta = int(-10 to 10)
+
+function shift(by Delta) returns Delta
+	return by
+end 'shift'
+
+function main() returns ExitCode
+	if shift(-3 as Delta) == -3 'shifted'
+		return 0
+	end 'shifted'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:14: unneeded cast: the literal -3 already fits in 'Delta'
+```
+
+<!-- test: error.unneeded.literal-return -->
+```maxon
+typealias Score = int(0 to 100)
+
+function passing() returns Score
+	return 50 as Score
+end 'passing'
+
+function main() returns ExitCode
+	return passing()
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:5:12: unneeded cast: the literal 50 already fits in 'Score'
+```
+
+<!-- test: error.unneeded.literal-struct-field -->
+```maxon
+typealias Score = int(0 to 100)
+
+type Result
+	let score as Score
+
+	static function create() returns Self
+		return Self{score: 7 as Score}
+	end 'create'
+
+	function value() returns Score
+		return self.score
+	end 'value'
+end 'Result'
+
+function main() returns ExitCode
+	let result = Result.create()
+	return result.value()
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:8:24: unneeded cast: the literal 7 already fits in 'Score'
+```
+
+<!-- test: error.unneeded.literal-field-store -->
+```maxon
+typealias Score = int(0 to 100)
+
+type Counter
+	var score as Score
+
+	static function create() returns Self
+		return Self{score: 0}
+	end 'create'
+
+	function bump()
+		self.score = 9 as Score
+	end 'bump'
+
+	function value() returns Score
+		return self.score
+	end 'value'
+end 'Counter'
+
+function main() returns ExitCode
+	var counter = Counter.create()
+	counter.bump()
+	return counter.value()
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:12:18: unneeded cast: the literal 9 already fits in 'Score'
+```
+
+<!-- test: error.unneeded.literal-float-argument -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(0.0 to 100.0)
+
+function half(x Real) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return x / 2.0
+end 'half'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	if half(2.5 as Real) == 1.25 'halved'
+		return 0
+	end 'halved'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:14: unneeded cast: the literal 2.5 already fits in 'Real'
+```
+
+<!-- test: error.unneeded.integer-literal-to-float-argument -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+An integer literal meets a float parameter without a cast, so the cast converts nothing here either.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(0.0 to 100.0)
+
+function half(x Real) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return x / 2.0
+end 'half'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	if half(5 as Real) == 2.5 'halved'
+		return 0
+	end 'halved'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:12: unneeded cast: the literal 5 already fits in 'Real'
+```
+
+<!-- test: error.unneeded.literal-cast-to-nested-alias -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+The destination's type may be an alias declared inside an extension body.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntegerArray = Array with Integer
+
+// TODO: extension blocks are not supported in minimaxon
+extension Array
+	typealias Level = int(0 to 64)
+	function topLevel() returns Level
+		return 64 as Level
+	end 'topLevel'
+end 'Array'
+
+function main() returns ExitCode
+	let values = IntegerArray.create(0)
+	return values.topLevel()
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:13: unneeded cast: the literal 64 already fits in 'Level'
+```
+
+<!-- test: error.unneeded.literal-float-field-store -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(0.0 to 100.0)
+
+type Gauge
+	var level as Real
+
+	static function create() returns Self
+		// TODO: float literals are not supported in minimaxon
+		return Self{level: 0.0}
+	end 'create'
+
+	function fill()
+		// TODO: float literals are not supported in minimaxon
+		self.level = 2.5 as Real
+	end 'fill'
+
+	function value() returns Real
+		return self.level
+	end 'value'
+end 'Gauge'
+
+function main() returns ExitCode
+	var gauge = Gauge.create()
+	gauge.fill()
+	// TODO: float literals are not supported in minimaxon
+	if gauge.value() == 2.5 'filled'
+		return 0
+	end 'filled'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:12:20: unneeded cast: the literal 2.5 already fits in 'Real'
+```
+
+<!-- test: error.unneeded.literal-arguments-all-reported -->
+Every redundant literal cast in one call is reported, not only the first.
+```maxon
+typealias Nib = int(0 to 15)
+
+function pack(a Nib, b Nib) returns Nib
+	if a < b 'ordered'
+		return b
+	end 'ordered'
+	return a
+end 'pack'
+
+function main() returns ExitCode
+	return pack(1 as Nib, b: 2 as Nib)
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:12:16: unneeded cast: the literal 1 already fits in 'Nib'
+error E3010: <fragment>:12:29: unneeded cast: the literal 2 already fits in 'Nib'
+```
+
+<!-- test: error.unneeded.literal-let-every-use-takes-the-constant -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A literal cast in an untyped `let` converts nothing when the constant the `let` would otherwise be serves every use the same way.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(0.0 to 100.0)
+
+function half(x Real) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return x / 2.0
+end 'half'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let level = 2.5 as Real
+	// TODO: float literals are not supported in minimaxon
+	if half(level) == 1.25 'halved'
+		return 0
+	end 'halved'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:18: unneeded cast: the literal 2.5 already fits every use of 'level'
+```
+
+<!-- test: a-top-level-let-keeps-its-cast -->
+A top-level `let` is visible to its whole directory, so it keeps its cast whatever its uses take.
+```maxon
+typealias Score = int(0 to 100)
+
+let passMark = 50 as Score
+
+function bonus(score Score) returns Score
+	return score + 1
+end 'bonus'
+
+function main() returns ExitCode
+	return bonus(passMark) as ExitCode
+end 'main'
+```
+```exitcode
+51
+```
+
+<!-- test: a-literal-let-cast-that-a-var-starts-from-is-not-unneeded -->
+A `var` starts from a value of an alias, so a `let` it starts from needs its cast.
+```maxon
+typealias Count = int(0 to 1000)
+
+function main() returns ExitCode
+	let start = 3 as Count
+	var n = start
+	n = n + start
+	if n == 6 'six'
+		return 0
+	end 'six'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.unneeded.literal-let-cast-again-to-another-alias -->
+A cast of the `let` to another alias converts the constant just as well.
+```maxon
+typealias Small = int(0 to 9)
+
+function main() returns ExitCode
+	let k = 3 as Small
+	return k as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:5:12: unneeded cast: the literal 3 already fits every use of 'k'
+```
+
+<!-- test: error.unneeded.literal-let-beside-a-partner-of-its-alias -->
+An operand beside a value of the same alias takes the constant as that alias.
+```maxon
+typealias Count = int(0 to 100)
+
+function main() returns ExitCode
+	var total = 4 as Count
+	let step = 3 as Count
+	total = total + step
+	if total == 7 'seven'
+		return 0
+	end 'seven'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:6:15: unneeded cast: the literal 3 already fits every use of 'step'
+```
+
+<!-- test: a-literal-let-cast-whose-derived-value-outgrows-its-destination-is-not-unneeded -->
+The constant product 120 does not fit `Score`, so without the cast the argument would be refused at compile time instead of checked where it runs.
+```maxon
+typealias Score = int(0 to 100)
+
+function show(score Score) returns Score
+	return score
+end 'show'
+
+function main() returns ExitCode
+	let half = 60 as Score
+	if CommandLine.args().count() > 5 'many'
+		if show(half * 2) > 0 'shown'
+			return 1
+		end 'shown'
+	end 'many'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: distinct-nested-aliases-with-one-member-name-are-not-unneeded -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+Two inner aliases that share a member name are still two aliases, so a cast from one to the other is real work.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntegerArray = Array with Integer
+
+type Meter
+	let reading as Integer
+
+	static function create() returns Self
+		return Self{reading: 7}
+	end 'create'
+
+	function raw() returns Integer
+		return self.reading
+	end 'raw'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Level = int(0 to 10)
+	function level() returns Level
+		return self.raw() as Level
+	end 'level'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Array
+	typealias Level = int(0 to 64)
+	function levelOf(meter Meter) returns Level
+		return meter.level() as Level
+	end 'levelOf'
+end 'Array'
+
+function main() returns ExitCode
+	let values = IntegerArray.create(0)
+	return values.levelOf(Meter.create())
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-nested-alias-and-a-file-scope-alias-of-one-name-are-not-unneeded -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+An alias declared inside an extension body is a different alias from a file-scope one that shares its member name.
+```maxon
+typealias Level = int(0 to 64)
+
+typealias Integer = int(i64.min to i64.max)
+
+type Meter
+	let reading as Integer
+
+	static function create() returns Self
+		return Self{reading: 7}
+	end 'create'
+
+	function raw() returns Integer
+		return self.reading
+	end 'raw'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Level = int(0 to 10)
+	function level() returns Level
+		return self.raw() as Level
+	end 'level'
+end 'Meter'
+
+function main() returns ExitCode
+	let meter = Meter.create()
+	let narrow = meter.raw() as Meter.Level
+	let wide = narrow as Level
+	return wide
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.unneeded.same-alias-name-with-a-contested-range -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+Two files declaring one alias name with different ranges still leave each file's alias its own, so a cast to it repeats it.
+```maxon
+// --- file: a.maxon
+typealias Byte = int(0 to 255)
+
+typealias Bytes = Array with Byte
+
+function main() returns ExitCode
+	var values = Bytes.create(0)
+	values.push(7)
+	if atLimit() 'limit'
+		return 1
+	end 'limit'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for b in values 'each'
+		let c = b as Byte
+		return c
+	end 'each'
+	return 0
+end 'main'
+
+// --- file: b/b.maxon
+typealias Byte = int(0 to 200)
+
+export function atLimit() returns bool
+	let top = 199 as Byte
+	return top == 200
+end 'atLimit'
+```
+```maxoncstderr
+error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: error.unneeded.same-nested-alias -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Meter
+	let reading as Integer
+
+	static function create() returns Self
+		return Self{reading: 7}
+	end 'create'
+
+	function raw() returns Integer
+		return self.reading
+	end 'raw'
+end 'Meter'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Meter
+	typealias Idx = int(0 to 9)
+	function index() returns Idx
+		let x = self.raw() as Idx
+		let y = x as Idx
+		return y
+	end 'index'
+end 'Meter'
+
+function main() returns ExitCode
+	let meter = Meter.create()
+	return meter.index()
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:21:13: unneeded cast: 'Idx' already fits in 'Idx'
+```
+
+<!-- test: a-cast-between-same-named-aliases-of-two-files-is-not-unneeded -->
+This file's `Codepoint` is a different type from the library's of that name, so a value of it reaches the
+library's `Codepoint` parameter only through an explicit conversion, and that conversion is not unneeded.
+```maxon
+typealias Codepoint = int(0 to 200)
+
+function seed() returns ExitCode
+	return 32
+end 'seed'
+
+function main() returns ExitCode
+	let space = seed() as Codepoint
+	if Unicode.isWhitespace(space as stdlib.Codepoint) 'space'
+		return 5
+	end 'space'
+	return 1
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: error.unneeded.same-alias-byte -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let b = 42 as Byte
+	let c = b as Byte
+	return c
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-alias-byte.maxon:7:12: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: error.unneeded.same-alias-int -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function identity(x Integer) returns Integer
+	return x
+end 'identity'
+
+function main() returns ExitCode
+	let x = identity(42)
+	let y = x as Integer
+	return y
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-alias-int.maxon:11:12: unneeded cast: 'Integer' already fits in 'Integer'
+```
+
+<!-- test: error.unneeded.same-alias-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function identity(x Float) returns Float
+	return x
+end 'identity'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let f = identity(42.0)
+	let g = f as Float
+	return trunc(g)
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.same-alias-float.maxon:11:12: unneeded cast: 'Float' already fits in 'Float'
+```
+
+<!-- test: widening-byte-to-integer-is-a-real-cast -->
+`Byte` fits inside `Integer`, and that is not what decides: the two are different types, so `b as
+Integer` is the cast that lets a `Byte` reach an `Integer` parameter at all.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias Byte = int(0 to u8.max)
+
+function asInteger(x Integer) returns Integer
+	return x
+end 'asInteger'
+
+function seed() returns Byte
+	return 42
+end 'seed'
+
+function main() returns ExitCode
+	let b = seed()
+	let i = b as Integer
+	return asInteger(i)
+end 'main'
+```
+```exitcode
+42
+```
+
+### A RANGE-CONTESTED alias is quoted as SOURCE spells it, here as everywhere
+
+`typealias Byte = int(0 to 200)` beside an `Array with Byte` CONTESTS the stdlib's own `Byte`, and a
+contested name is stored under the compiler's mint (`Byte$0_200`) so the two declarations can occupy one
+registry. That spelling names no line the author wrote, so every alias name a diagnostic prints goes
+through `sourceSpelledAliasName` — "quoted as source spells it" is a property of the diagnostic
+VOCABULARY and not of one E-code. E3010 prints both sides of the cast through it.
+
+<!-- test: error.unneeded.contested-alias-quoted-as-source-spells-it -->
+<!-- positions: moved -->
+```maxon
+
+typealias Byte = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+function takes(b Bytes) returns Byte
+	return (try b.get(0) otherwise 0) as Byte
+end 'takes'
+
+function main() returns ExitCode
+	var a = Bytes.create(0)
+	a.push(7)
+	return takes(a)
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.contested-alias-quoted-as-source-spells-it.maxon:7:36: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: a-contested-alias-cast-to-another-alias-is-a-real-cast -->
+The legal twin: the contested `Byte` reaches a `Wide` through the one door there is.
+```maxon
+
+typealias Byte = int(0 to 200)
+
+typealias Bytes = Array with Byte
+
+typealias Wide = int(0 to 1000)
+
+function takes(b Bytes) returns Wide
+	return (try b.get(0) otherwise 0) as Wide
+end 'takes'
+
+function main() returns ExitCode
+	let a = Bytes.create(0)
+	a.push(7)
+	return takes(a)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: widening-int-to-float-is-a-real-cast -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+An `Integer` into a float alias is a conversion AND a change of type, and `as` is how both are spelled.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias JsonFloat = float(f64.min to f64.max)
+
+function identity(x Integer) returns Integer
+	return x
+end 'identity'
+
+function main() returns ExitCode
+	let i = identity(42)
+	let f = i as JsonFloat
+	return trunc(f)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.unneeded.call-result-same-alias -->
+```maxon
+
+typealias Score = int(0 to 100)
+
+function getScore() returns Score
+	return 42
+end 'getScore'
+
+function main() returns ExitCode
+	let result = getScore() as Score
+	return result
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.call-result-same-alias.maxon:10:26: unneeded cast: 'Score' already fits in 'Score'
+```
+
+<!-- test: error.a-redundant-cast-in-an-argument-is-unneeded -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A rebound `var` keeps its alias, so casting it to that alias in an argument is unneeded, as it is
+everywhere else.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = FullRangeIntArray from [4, 5, 6]
+	var i = 0 as ElementIndex
+	var sum = 0 as FullRangeInt
+	while i < xs.count() 'each'
+		sum = sum + (try xs.get(i as ElementIndex) otherwise 0)
+		i = i + 1
+	end 'each'
+	print("{sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-redundant-cast-in-an-argument-is-unneeded.maxon:7:29: unneeded cast: 'ElementIndex' already fits in 'ElementIndex'
+```
+
+E3010 is a recoverable diagnostic: the parser keeps walking the function so every
+unneeded cast in the file is reported in a single compile, not just the first.
+
+<!-- test: error.unneeded.multiple-in-one-function -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function main() returns ExitCode
+	let a = 1 as Byte
+	let b = a as Byte
+	let c = b as Byte
+	let d = c as Byte
+	return d
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.multiple-in-one-function.maxon:7:12: unneeded cast: 'Byte' already fits in 'Byte'
+error E3010: specs/type-casting/error.unneeded.multiple-in-one-function.maxon:8:12: unneeded cast: 'Byte' already fits in 'Byte'
+error E3010: specs/type-casting/error.unneeded.multiple-in-one-function.maxon:9:12: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: error.unneeded.multiple-across-functions -->
+```maxon
+
+typealias Byte = int(0 to u8.max)
+
+function first(b Byte) returns Byte
+	let x = b as Byte
+	return x
+end 'first'
+
+function second(b Byte) returns Byte
+	let y = b as Byte
+	return y
+end 'second'
+
+function seed() returns Byte
+	return 1
+end 'seed'
+
+function main() returns ExitCode
+	let a = seed()
+	let b = first(a)
+	let c = second(b)
+	return c
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.multiple-across-functions.maxon:6:12: unneeded cast: 'Byte' already fits in 'Byte'
+error E3010: specs/type-casting/error.unneeded.multiple-across-functions.maxon:11:12: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+### Cast applied to a control-flow expression
+
+<!-- test: cast-on-ternary-expression -->
+```maxon
+typealias Mask = int(i64.min to i64.max)
+
+// The cast operand is a ternary whose result is defined in a merge block, so
+// `currentBlock` advances past the block the cast started in. The `convert`
+// (and its `castCheck`) must emit into the merge block where the operand value
+// is bound — emitting into the original block referenced the value before its
+// definition and tripped E3013 "unresolved value name" at lowering.
+function maskFor(negate bool) returns Mask
+	return (1 if negate else (-1)) as Mask
+end 'maskFor'
+
+function main() returns ExitCode
+	let m = maskFor(false)
+	if m < 0 'neg'
+		return 2
+	end 'neg'
+	return 1
+end 'main'
+```
+```exitcode
+2
+```
+
+### E3010 through a MERGED BINDING — the two joins whose incoming set is complete
+
+⭐⭐ **A MERGE MAY NOT SPEND ITS DECLARED ALIAS AS A PROOF, BUT IT MUST STILL SPEND IT WHERE EVERY
+EDGE PROVES IT — AND THESE TWO CASES ARE THE DIFFERENCE.** A LOOP HEADER phi is denied the ranged-alias
+claim because it cannot answer: its back edge is not parsed when it is minted, so nothing at the mint can
+see what will reach it. An `if` continuation and a `match`'s carried binding are not loop headers — both
+predecessors are branched in one statement after the phi is minted — and withholding there would cost two
+things at once, neither visible in a green suite: the `return` below would grow a range cascade over a
+value the two entry guards already proved, and this E3010 would not be reported at all. The two cases
+below pin that it IS reported, at that line and column.
+
+<!-- test: error.unneeded.if-merged-binding-same-alias -->
+```maxon
+typealias Num = int(0 to 1000)
+
+function pick(c bool, a Num, b Num) returns Num
+	var t = a
+	if c 'x'
+		t = b
+	end 'x'
+	return t as Num
+end 'pick'
+
+function main() returns ExitCode
+	return pick(true, a: 1, b: 2)
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:9:11: unneeded cast: 'Num' already fits in 'Num'
+```
+
+<!-- test: error.unneeded.match-carried-binding-same-alias -->
+```maxon
+typealias Num = int(0 to 1000)
+
+enum K
+	a
+	b
+end 'K'
+
+function pick(k K, x Num, y Num) returns Num
+	var t = x
+	match k 'm'
+		a then t = y
+		b then break
+	end 'm'
+	return t as Num
+end 'pick'
+
+function main() returns ExitCode
+	return pick(K.a, x: 1, y: 2)
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:15:11: unneeded cast: 'Num' already fits in 'Num'
+```
+
+### The SOURCES that state a declared alias — a field read and a `try` result
+
+⭐⭐ **E3010's gate is "the cast names the value's OWN alias", and the question that gate turns on is
+WHICH EXPRESSIONS STATE ONE.** The cases above all read a local. A struct field states the alias it is
+DECLARED with, and a `try … otherwise` result states its callee's declared return type. Each door is
+pinned twice: the same-alias cast E3010 refuses, and the cross-alias cast through the same door that is
+the one legal way across.
+
+<!-- test: error.unneeded.through-a-struct-field-read -->
+```maxon
+typealias Narrow = int(0 to u32.max)
+
+type Segment
+	export let base as Narrow
+
+	static function create(base Narrow) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Segment'
+
+function main() returns ExitCode
+	let seg = Segment.create(7)
+	let w = seg.base as Narrow
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.through-a-struct-field-read.maxon:14:19: unneeded cast: 'Narrow' already fits in 'Narrow'
+```
+
+<!-- test: a-struct-field-read-cast-to-another-alias-is-a-real-cast -->
+```maxon
+typealias Narrow = int(0 to u32.max)
+
+typealias Wide = int(i64.min to i64.max)
+
+type Segment
+	export let base as Narrow
+
+	static function create(base Narrow) returns Self
+		return Self{base: base}
+	end 'create'
+end 'Segment'
+
+function main() returns ExitCode
+	let seg = Segment.create(7)
+	let w = seg.base as Wide
+	return w as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.unneeded.through-a-try-otherwise-result -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+`ByteArray.get` returns the stdlib's `Byte`, and the `try … otherwise` result states it.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"A"
+	let ch = try bytes.get(0) otherwise panic("get")
+	let w = ch as Byte
+	return (w - 23) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.unneeded.through-a-try-otherwise-result.maxon:5:13: unneeded cast: 'Byte' already fits in 'Byte'
+```
+
+<!-- test: a-try-otherwise-result-cast-to-another-alias-is-a-real-cast -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+```maxon
+typealias Wide = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"A"
+	let ch = try bytes.get(0) otherwise panic("get")
+	let w = ch as Wide
+	return (w - 23) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+### An int alias and a float alias are two types, and the promotion does not cross them
+
+<!-- test: error.an-int-alias-does-not-reach-a-float-alias-parameter -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+An `Integer` is not a `Ratio`. The int→float promotion is a conversion of the VALUE; it does not change
+which type the argument carries, so the argument door refuses it as it refuses any other alias mismatch.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Ratio = float(f64.min to f64.max)
+
+function identity(n Integer) returns Integer
+	return n
+end 'identity'
+
+function showRatio(r Ratio)
+	print("r={r}")
+end 'showRatio'
+
+function main() returns ExitCode
+	showRatio(identity(42))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:14:2: argument type mismatch for 'r': expected 'Ratio', got 'Integer'
+```
+
+<!-- test: an-int-alias-reaches-a-float-alias-parameter-through-as -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+The legal twin, both kinds of crossing: an `Integer` into a `Ratio` parameter, and a `Narrow` into an
+`Integer` one. The int→float cast converts the value AND re-declares its type; the int→int cast re-declares
+only, and neither is E3010.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Ratio = float(f64.min to f64.max)
+
+typealias Narrow = int(0 to u32.max)
+
+function identity(n Integer) returns Integer
+	return n
+end 'identity'
+
+function showRatio(r Ratio)
+	print("r={r}")
+end 'showRatio'
+
+function showWide(v Integer)
+	print("v={v}")
+end 'showWide'
+
+function narrow(n Narrow) returns Narrow
+	return n
+end 'narrow'
+
+function main() returns ExitCode
+	showRatio(identity(42) as Ratio)
+	showWide(narrow(7) as Integer)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+r=42.0v=7
+```
+
+## A DIFFERENT CONTAINER INSTANCE IS NOT A CAST TARGET
+
+A cast to another alias of the value's OWN generic instance is a re-brand and costs nothing
+(`nominal-generic-alias.md`). A cast to a DIFFERENT instance is refused, and it cannot be a retagging:
+`Array with int(0 to u64.max)` strides EIGHT bytes per element and `Array with int(0 to 63)` strides ONE
+(`rangedAliasStorageBytes`), so retagging one as the other hands every later read a stride the buffer was not
+written at — the silent wrong answer `bytearray-element-size.md` measures at length. Converting instead would
+mean a second buffer and a range check per element: a real operation, and not one an `as` should perform in
+silence.
+
+
+<!-- test: error.a-generic-instance-is-not-a-cast-target -->
+<!-- positions: moved -->
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Narrow = int(0 to 63)
+
+typealias WideCol = Array with Wide
+
+typealias NarrowCol = Array with Narrow
+
+function widthOf(c NarrowCol) returns ExitCode
+	return c.count() as ExitCode
+end 'widthOf'
+
+function main() returns ExitCode
+	var w = WideCol.create(0)
+	w.push(5)
+	let n = w as NarrowCol
+	return widthOf(n)
+end 'main'
+```
+```maxoncstderr
+error E3131: specs/type-casting/error.a-generic-instance-is-not-a-cast-target.maxon:14:12: Cannot cast to 'NarrowCol': a container's elements have a storage layout of their own, so 'WideCol' cannot be retagged as one — build the container with the element type you need, or convert it element by element
+```
+
+<!-- test: a-scalar-alias-is-still-a-cast-target -->
+⭐ **THE CONTROL, AND IT IS WHAT SAYS THE REFUSAL DID NOT WIDEN.** The refusal reads the tag the cast TARGET
+denotes, so a ranged alias — the overwhelmingly common `as` target — is untouched, in both directions: the
+narrowing leg (`w as Narrow`) keeps its guard, and the widening leg (`n as Wide`) is a real cast between
+two types and not E3010. Lose this and every `as` in the corpus would be refused with it.
+```maxon
+typealias Wide = int(0 to u64.max)
+
+typealias Narrow = int(0 to 63)
+
+function seed() returns Wide
+	return 5
+end 'seed'
+
+function main() returns ExitCode
+	let w = seed()
+	let n = w as Narrow
+	let back = n as Wide
+	print("n={n} back={back}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=5 back=5
+```
+
+<!-- test: a-widening-cast-names-the-wider-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A widening cast gives its value the wider alias: `hi` is an `ElementIndex`, not the `Count` that `count()`
+returns, so an `ElementIndex` stores into it.
+```maxon
+typealias Values = Array with FullRangeInt
+
+function middle(lo ElementIndex, hi ElementIndex) returns ElementIndex
+	return (lo + hi) shr 1
+end 'middle'
+
+function firstAtLeast(xs Values, target FullRangeInt) returns ElementIndex
+	var lo = 0 as ElementIndex
+	var hi = xs.count() as ElementIndex
+	while lo < hi 'halve'
+		let mid = middle(lo, hi: hi)
+		let v = try xs.get(mid) otherwise panic("test invariant: mid in bounds")
+		if v < target 'right'
+			lo = mid + 1
+		end 'right' else 'left'
+			hi = mid
+		end 'left'
+	end 'halve'
+	return lo
+end 'firstAtLeast'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = Values from [1, 3, 5, 7, 9]
+	print("{firstAtLeast(xs, target: 6)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: error.a-full-range-cast-names-its-value -->
+<!-- positions: moved -->
+A cast gives its value the alias even when the alias spans the full range.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Other = int(i64.min to i64.max)
+
+function show(o Other)
+	print("{o}\n")
+end 'show'
+
+function main() returns ExitCode
+	let x = 10 as Integer
+	show(x)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/type-casting/error.a-full-range-cast-names-its-value.maxon:11:2: argument type mismatch for 'o': expected 'Other', got 'Integer' — cast the argument with 'as Other'
+```
+
+<!-- test: error.a-struct-cast-to-its-own-type-is-unneeded -->
+```maxon
+type Gauge
+	export var level = 0 as Count
+
+	static function make() returns Self
+		return Self{}
+	end 'make'
+end 'Gauge'
+
+function main() returns ExitCode
+	let g = Gauge.make() as Gauge
+	return g.level as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-struct-cast-to-its-own-type-is-unneeded.maxon:11:23: unneeded cast: 'Gauge' already fits in 'Gauge'
+```
+
+<!-- test: error.an-enum-cast-to-its-own-type-is-unneeded -->
+```maxon
+enum Shade
+	light
+	dark
+end 'Shade'
+
+function main() returns ExitCode
+	let s = Shade.dark as Shade
+	print("{s.name}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.an-enum-cast-to-its-own-type-is-unneeded.maxon:8:21: unneeded cast: 'Shade' already fits in 'Shade'
+```
+
+<!-- test: error.a-bool-cast-to-bool-is-unneeded -->
+```maxon
+function main() returns ExitCode
+	let b = true as bool
+	print("{b}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-bool-cast-to-bool-is-unneeded.maxon:3:15: unneeded cast: 'bool' already fits in 'bool'
+```
+
+<!-- test: error.a-string-cast-to-string-is-unneeded -->
+```maxon
+function main() returns ExitCode
+	let t = "x" as String
+	print("{t}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-string-cast-to-string-is-unneeded.maxon:3:14: unneeded cast: 'String' already fits in 'String'
+```
+
+<!-- test: error.a-union-cast-to-its-own-type-is-unneeded -->
+```maxon
+union Signal
+	idle
+	busy
+end 'Signal'
+
+function main() returns ExitCode
+	let s = Signal.idle as Signal
+	print("{s.name}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-union-cast-to-its-own-type-is-unneeded.maxon:8:22: unneeded cast: 'Signal' already fits in 'Signal'
+```
+
+<!-- test: error.a-top-level-cast-to-the-type-a-global-already-has-is-unneeded -->
+<!-- positions: moved -->
+```maxon
+typealias Tally = int(0 to 1000)
+
+let base = 5 as Tally
+
+let again = base as Tally
+
+function main() returns ExitCode
+	print("{again}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3010: specs/type-casting/error.a-top-level-cast-to-the-type-a-global-already-has-is-unneeded.maxon:5:18: unneeded cast: 'Tally' already fits in 'Tally'
+```
+
+<!-- test: error.a-cast-of-a-cast-is-refused -->
+<!-- positions: moved -->
+A cast takes a value, never the result of another cast: cast directly to the type you want.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 100)
+
+typealias Tiny = int(0 to 10)
+
+function shrink(x Integer) returns Tiny
+	return x as Small as Tiny
+end 'shrink'
+
+function main() returns ExitCode
+	return shrink(5) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2079: <fragment>:7:20: a cast cannot take another cast as its operand — cast directly to 'Tiny'
+```
+
+<!-- test: error.a-parenthesized-cast-of-a-cast-is-refused -->
+<!-- positions: moved -->
+Parentheses do not change it: the operand is still a cast.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 100)
+
+typealias Tiny = int(0 to 10)
+
+function shrink(x Integer) returns Tiny
+	return (x as Small) as Tiny
+end 'shrink'
+
+function main() returns ExitCode
+	return shrink(5) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2079: <fragment>:7:22: a cast cannot take another cast as its operand — cast directly to 'Tiny'
+```
+
+<!-- test: error.a-top-level-cast-of-a-cast-is-refused -->
+<!-- positions: moved -->
+A file-scope initialiser is held to the same rule.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Tiny = int(0 to 10)
+
+let Limit = 5 as Small as Tiny
+
+function main() returns ExitCode
+	return Limit as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2079: <fragment>:5:24: a cast cannot take another cast as its operand — cast directly to 'Tiny'
+```
+
+<!-- test: error.a-top-level-parenthesized-cast-of-a-cast-is-refused -->
+<!-- positions: moved -->
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Tiny = int(0 to 10)
+
+let Limit = (5 as Small) as Tiny
+
+function main() returns ExitCode
+	return Limit as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2079: <fragment>:5:26: a cast cannot take another cast as its operand — cast directly to 'Tiny'
+```
+
+<!-- test: a-top-level-cast-of-a-negated-cast-is-allowed -->
+The operand of the outer cast is a negation, not a cast, so this is no chain: at file scope as in a body, `-(x as A) as B` casts the negated value.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Signed = int(-100 to 100)
+
+let Back = -(7 as Small) as Signed
+
+function main() returns ExitCode
+	return (Back + 10) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: error.a-top-level-negated-constant-is-range-checked-after-the-negation -->
+<!-- positions: moved -->
+A cast applies to the whole negation, so `-K as Small` checks `-5`, at file scope as in a body.
+```maxon
+typealias Small = int(0 to 100)
+
+let K = 5 as Small
+
+let M = -K as Small
+
+function main() returns ExitCode
+	return (K + M) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:5:12: Value -5 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.unneeded.let-cast-argument-of-a-method -->
+<!-- positions: moved -->
+A method call's arguments are matched against the method's own parameters, receiver aside: each `let` cast names the alias of the parameter it is passed to, so both casts are unneeded.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Big = int(0 to 1000)
+
+type Holder
+	var total as Big
+
+	static function create() returns Self
+		return Self{total: 0}
+	end 'create'
+
+	function take(first Small, second Big) returns Big
+		if first > 5 'large'
+			return second
+		end 'large'
+		return self.total
+	end 'take'
+end 'Holder'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	let a = 10 as Small
+	let b = 500 as Big
+	return holder.take(a, second: b) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3010: <fragment>:23:13: unneeded cast: the literal 10 already fits every use of 'a'
+error E3010: <fragment>:24:14: unneeded cast: the literal 500 already fits every use of 'b'
+```

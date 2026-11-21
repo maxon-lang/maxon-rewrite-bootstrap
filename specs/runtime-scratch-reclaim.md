@@ -1,0 +1,341 @@
+---
+feature: runtime-scratch-reclaim
+status: stable
+keywords: [runtime, scratch, slab, free, green-threads, subprocess, spawnReadLine, memory, reclaim]
+category: system
+---
+
+# The runtime's own scratch is RETURNED to the allocator
+
+## Documentation
+
+The green-thread scheduler, the one-shot read probe and the subprocess runner all need small
+regions the language cannot name: a GT record, a mutable command line, a `STARTUPINFOW`, a
+`PROCESS_INFORMATION`, an overlapped read buffer. They carry no box header and no refcount, so the
+allocator's TRACKED live column — the one the leak gate reads — cannot see them. The per-call scratch
+comes from `__slab_alloc` directly; a GT record comes from the scheduler's own record arena, carved from
+`osAllocPages` chunks like a green thread's stack, so it moves no raw column either.
+
+⭐⭐ **THE PER-CALL SCRATCH GOES BACK TO THE ALLOCATOR; THE GT STRUCT DOES NOT.** The subprocess
+runner's command line, `STARTUPINFOW` and `PROCESS_INFORMATION`, and the read probe's ~4.2 KB, each
+belong to one call, and each goes back through the slab's free path (`slab-allocator.md`) the moment
+that call is done with it — so a program that runs N children or reads N pipes holds none of it
+afterwards. A GT struct is the one region that is never given back: a reclaimed struct goes onto
+its processor's free list and serves the next spawn, so GT records are type-stable.
+`spawn-await-loop-is-bounded` below carries that case.
+
+**What these cases can actually observe.** Nothing in the language names a slab slot, so each case
+below reads the RAW traffic columns (`HeapStats.rawAllocationsMade()` and `HeapStats.rawAllocationsLive()`)
+around a window of runtime work. The
+two scratch cases ask two questions that only a reclaiming runtime answers together:
+
+| Question | Column | A runtime that never frees |
+|---|---|---|
+| did the window take scratch from the allocator? | `rawAllocationsMade()` grew | yes — or it hid the population |
+| did it give the scratch back? | `rawAllocationsLive()` did NOT grow | **no** — live tracks total exactly |
+
+Both halves are needed. `live` alone would pass against a runtime that allocates nothing in the
+window (one whose scratch is allocated once at init), and `total` alone would pass against one that
+allocates freely and releases nothing.
+
+The GT-record case asks the recycling runtime's count instead: every spawn in the window was served
+from a free list rather than carving a fresh record, and the window took nothing from the allocator
+and left nothing live.
+
+⚠ **EACH CASE WARMS THE SCHEDULER FIRST.** `__gt_init` runs before `main` does, so the timer
+store and the poller are in place before any window opens; what a first call
+can still create for the life of the process — the GT struct its processor's free list keeps for the next
+spawn is one — belongs outside the window too. Measuring across it would credit the window with
+allocations that are *supposed* to still be live. The warm-up call is what makes the window contain
+only per-call work.
+
+**Targets — the green-thread substrate gate; see `async-scheduler.md`'s *Targets* section for the
+one statement of it.** The two probe scratch cases park a green thread on a child process or a pipe
+through probes only x64-windows builds; the GT-struct case runs on every lane with green threads, and
+`every-spawn-door-returns-its-scratch` on every lane that can spawn a child.
+
+## Tests
+
+<!-- test: runtime-scratch-reclaim.read-probe-scratch-returns -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+**THE ~4.2 KB-PER-CALL DEBT.** `spawnReadLine` builds a pipe name, a `SECURITY_ATTRIBUTES`, a
+two-handle out-param block, a mutable command line, a `STARTUPINFOW`, a `PROCESS_INFORMATION` and a
+4 KiB read region — seven allocations, per call. Were they not released, a program that read from N
+children would hold N × ~4.2 KB it could never use again. Here three reads follow a warm-up: the allocator sees the traffic (`total`
+moves by at least three regions per read) and gets all of it back (`live` does not move by more than
+one region per read).
+
+⚠ The read buffer is the one region that outlives the PARK — the kernel is writing into it while the green
+thread is suspended — so it is released only after the yielding read has returned. A DROPPED reader takes the
+same road: it is renounced rather than abandoned, so it comes back and frees its own buffer
+(`spawn-read-line.drop-in-flight`).
+```maxon
+function main() returns ExitCode
+	let warm = spawnReadLine("cmd /c echo hello")
+	let totalBefore = HeapStats.rawAllocationsMade()
+	let liveBefore = HeapStats.rawAllocationsLive()
+	let a = spawnReadLine("cmd /c echo hello")
+	let b = spawnReadLine("cmd /c echo hello")
+	let c = spawnReadLine("cmd /c echo hello")
+	let totalGrew = HeapStats.rawAllocationsMade() - totalBefore
+	let liveGrew = HeapStats.rawAllocationsLive() - liveBefore
+	var score = 0 as FullRangeInt
+	if warm + a + b + c == 28 'everyReadReturnedSevenBytes'
+		score = score + 1
+	end 'everyReadReturnedSevenBytes'
+	if totalGrew >= 9 'theReadsTookScratchFromTheAllocator'
+		score = score + 2
+	end 'theReadsTookScratchFromTheAllocator'
+	if liveGrew <= 3 'andGaveItBack'
+		score = score + 4
+	end 'andGaveItBack'
+	return score as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: runtime-scratch-reclaim.subprocess-scratch-returns -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+**NO REUSED BUFFERS.** Fixed scratch regions taken at scheduler init and reused by every call
+would be safe only because of an argument about the code — that a call writes and consumes its
+scratch inside a window with no yield in it — which is exactly the argument the read probe cannot
+make. With a free path each `__gt_process_run` call takes its own scratch and hands it back, and no
+two calls can share anything. The runner is reached through the `__Builtins.runProcess` intrinsic, which
+is library-tier, so the case compiles as a library-tier source.
+
+The two spawns in the window take their GT structs from the free list the warm-up filled, so every
+region the window counts is the runner's own scratch.
+```maxon
+function child() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 3") otherwise 99
+end 'child'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p0 = async child()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = await p0
+	let totalBefore = HeapStats.rawAllocationsMade()
+	let liveBefore = HeapStats.rawAllocationsLive()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async child()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let a = await p1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async child()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let b = await p2
+	let totalGrew = HeapStats.rawAllocationsMade() - totalBefore
+	let liveGrew = HeapStats.rawAllocationsLive() - liveBefore
+	var score = 0 as Integer
+	if w + a + b == 9 'everyChildExitedThree'
+		score = score + 1
+	end 'everyChildExitedThree'
+	if totalGrew >= 6 'eachRunTookItsScratchFromTheAllocator'
+		score = score + 2
+	end 'eachRunTookItsScratchFromTheAllocator'
+	if liveGrew <= 2 'andGaveItBack'
+		score = score + 4
+	end 'andGaveItBack'
+	return score as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: runtime-scratch-reclaim.every-spawn-door-returns-its-scratch -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- unsupported-targets: wasm32-wasi -->
+**THE PUBLIC SPAWN DOORS, AND EVERY ROAD OUT OF THEM.** A `Subprocess.run` takes scratch in three
+places the program cannot see: the stdlib's `PATH` walk (its state, the variables it reads and the
+candidate path), the request the spawn entry fills (the request record, the argument vector or command
+line, and the environment vector a caller-built environment becomes on POSIX), and the spawn core
+(the inheritable `SECURITY_ATTRIBUTES`, the child-handle scratch, the null-device name, a name and an
+out-param block per pipe, the `STARTUPINFOW` and the `PROCESS_INFORMATION`); the collect adds its own
+loop state. Each belongs to one call, so each goes back on the road that call leaves by — a child that
+ran, an executable that is not there, a working directory that is not there — and on the streaming
+door, whose handle outlives the spawn but whose request does not.
+
+Each door runs once to warm, then `Rounds` more times inside the window: the allocator must have seen
+the traffic (`total` grew by at least one region per round) and must have it all back (`live` grew by
+less than one region per round, so a single region kept per spawn fails the door). Each door reports
+its three facts on a line of its own.
+```maxon
+let Rounds = 16
+
+enum Door
+	childRuns
+	executableMissing
+	workingDirectoryMissing
+	streamingWithEnvironment
+end 'Door'
+
+function shell() returns Executable
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	return Executable.name("cmd")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	return Executable.name("sh")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+end 'shell'
+
+function exitZero() returns StringArray
+	let argv = StringArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	argv.push("/c")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	argv.push("-c")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	argv.push("exit 0")
+	return argv
+end 'exitZero'
+
+function childRuns() returns bool
+	let result = try Subprocess.run(shell(), arguments: exitZero()) otherwise return false
+	return result.exitCode() == 0
+end 'childRuns'
+
+function executableMissing() returns bool
+	_ = try Subprocess.run(Executable.path(Directory.currentPath().join("maxon-spec-no-such-executable-xyzzy")), arguments: StringArray.create(0)) otherwise return true
+	return false
+end 'executableMissing'
+
+function workingDirectoryMissing() returns bool
+	_ = try Subprocess.run(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise return true
+	return false
+end 'workingDirectoryMissing'
+
+function streamingWithEnvironment() returns bool
+	let overrides = EnvMap.create()
+	overrides.upsert("MAXON_SPEC_SCRATCH", value: "1")
+	let child = try StreamingSubprocess.spawnWithEnvironment(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.inherit, environment: Environment.inheritUpdating(overrides)) otherwise return false
+	let code = try child.wait() otherwise 1
+	child.release()
+	return code == 0
+end 'streamingWithEnvironment'
+
+function attempt(door Door) returns bool
+	return match door 'door'
+		childRuns gives childRuns()
+		executableMissing gives executableMissing()
+		workingDirectoryMissing gives workingDirectoryMissing()
+		streamingWithEnvironment gives streamingWithEnvironment()
+	end 'door'
+end 'attempt'
+
+function reportScratch(door Door)
+	var answered = attempt(door)
+	let totalBefore = HeapStats.rawAllocationsMade()
+	let liveBefore = HeapStats.rawAllocationsLive()
+	for _ in 0 upto Rounds 'round'
+		if not attempt(door) 'wrong'
+			answered = false
+		end 'wrong'
+	end 'round'
+	let tookScratch = HeapStats.rawAllocationsMade() - totalBefore >= Rounds
+	let gaveItBack = HeapStats.rawAllocationsLive() - liveBefore < Rounds
+	print("{door.name}: answered={answered} took={tookScratch} gaveBack={gaveItBack}\n")
+end 'reportScratch'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for door in Door.allCases 'door'
+		reportScratch(door)
+	end 'door'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+childRuns: answered=true took=true gaveBack=true
+executableMissing: answered=true took=true gaveBack=true
+workingDirectoryMissing: answered=true took=true gaveBack=true
+streamingWithEnvironment: answered=true took=true gaveBack=true
+```
+
+<!-- test: runtime-scratch-reclaim.spawn-await-loop-is-bounded -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE GT RECORD ITSELF, AND IT IS RECYCLED RATHER THAN RETURNED.** `__gt_reclaim` puts a finished
+thread's record on its processor's free list (Go's `gfput`), and `__gt_spawn` takes the next one from
+there, zeroed, before it carves a fresh one from the scheduler's record arena (Go's `gfget`). The records
+are TYPE-STABLE, as Go's `g` records are: a read through a handle whose thread is gone — `awaitAny()` over
+a promise already awaited (`await-any.md`) — lands in a GT record rather than in memory that has been
+given to something else.
+
+⭐ **THE MEMORY IS STILL BOUNDED.** Every record on a list was live at some moment, and a fresh one is
+carved only when the spawning processor's list and the global list are both empty. So the records a
+program ever carves number at most its peak concurrent population plus what other processors' lists
+hold, and a processor's list holds fewer than 64 — Go's bound for its `gFree` lists. A loop that spawns
+and awaits one thread at a time cycles ONE record.
+
+Eight spawn/await pairs after a warm-up whose struct is already on the list: every spawn is served
+by the free list (`Scheduler.counters().recycledThreads` grows by exactly 8), none asks the allocator
+(`HeapStats.rawAllocationsMade()` does not move — a green thread's record comes from the scheduler's arena and its
+stack from `osAllocPages`, and the raw columns count neither), and nothing is left live
+(`HeapStats.rawAllocationsLive()` does not move). The case runs at one processor: a reuse count is exact only
+while every reclaim and spawn share one processor's list, and a preempted `main` can resume on another.
+```maxon
+function work(n Integer) returns Integer
+	Scheduler.parallelBoundary()
+	return n + 1
+end 'work'
+
+function spawnAndAwait(seed Integer) returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async work(seed)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p
+end 'spawnAndAwait'
+
+function main() returns ExitCode
+	var acc = spawnAndAwait(0)
+	let totalBefore = HeapStats.rawAllocationsMade()
+	let liveBefore = HeapStats.rawAllocationsLive()
+	let recycledBefore = Scheduler.counters().recycledThreads
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	acc = spawnAndAwait(acc)
+	let totalGrew = HeapStats.rawAllocationsMade() - totalBefore
+	let liveGrew = HeapStats.rawAllocationsLive() - liveBefore
+	let recycled = Scheduler.counters().recycledThreads - recycledBefore
+	var score = 0 as Integer
+	if acc == 9 'everyThreadRanExactlyOnce'
+		score = score + 1
+	end 'everyThreadRanExactlyOnce'
+	if totalGrew == 0 and recycled == 8 'everySpawnReusedAStruct'
+		score = score + 2
+	end 'everySpawnReusedAStruct'
+	if liveGrew == 0 'andNothingWasLeftLive'
+		score = score + 4
+	end 'andNothingWasLeftLive'
+	return score as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```

@@ -1,0 +1,4704 @@
+---
+feature: service-registry
+status: experimental
+keywords: [default, registry, service, interface, handle, current, register, SharedValue, concurrency]
+category: concurrency
+---
+
+# Service registry — replaceable program-wide defaults, and `SharedValue with T`
+
+## Documentation
+
+A service type that `implements I` is reached through `I.handle`, and a `T.handle` converts to `I.handle` at
+every door. A top-level `default Key = <expression>` declares the program-wide default for `Key`: a spawn
+of a service implementing the interface `Key`, or a value of the type `Key`. `Key.current()`
+looks it up from any thread, and `Key.register(x)` replaces it for every later lookup. A default is built
+before `main` only when something reaches its key, and the program's own default wins over the stdlib's.
+`SharedValue with T` is the same live slot made at run time: `current()`, `publish(v)`, and the conditional
+`publish(v, replacing: old)`.
+
+A registry value and a `SharedValue`'s value are read by every thread at once. Their type may hold `var`
+fields, `Array`s and `Map`s, and every read — `Key.current()`, `cell.current()`, or a function returning
+either — hands back the published value as immutable data, the same as a module-level `let`'s
+record. Every write through it is refused: assigning a field of it or of anything reached through it, also
+through a `var` bound to it (E3197); calling a method that writes its receiver on it or on anything reached
+through it (E3207); passing it to a parameter the callee writes (E3207, naming the root binding the
+read was bound to); storing it, or anything reached through it, into a field not declared `immutable` (E3196),
+since the function that later writes the field cannot see where its value came from; and a function that hands
+it back declares `returns immutable` (E3209). A store written on the read itself, `cell.current().inner.x = 9`, is not a statement at
+all: an assignment's target begins at a binding (E2001), so every write reaches the view through one. The
+view is the published record itself, so a read copies nothing; `.clone()` makes a value of one's own to
+change.
+
+A type whose graph a share walk cannot mark — one reaching an OS handle, a function value or a promise —
+cannot be a registry value or a `SharedValue` (E3171). A value handed to `register` or `publish` must be
+solely owned (E3174).
+
+## Tests
+
+<!-- test: an-interface-handle-sends-and-awaits -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A handle at interface type sends a requirement that has no reply and awaits a returning one, exactly as the
+service's own handle would.
+```maxon
+interface Tally
+	function add(mutates self, by Integer)
+	function total(mutates self) returns Integer
+end 'Tally'
+
+type Counter implements Tally
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function add(by Integer)
+		self.n = self.n + by
+	end 'add'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Counter'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn Counter.create()) as Tally.handle
+	try h.add(4) otherwise panic("send add 4")
+	try h.add(5) otherwise panic("send add 5")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let total = try await h.total() otherwise 0
+	return total as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+9
+```
+
+<!-- test: a-handle-converts-to-its-interface-at-every-door -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A `Fixed.handle` becomes a `Source.handle` at an argument, a return, a field initializer, an array element and
+a message argument; each path ends in an awaited reply, and the replies are distinct powers of two. The message
+argument comes back in the message's reply, because a message body never waits for another service's reply.
+```maxon
+interface Source
+	function value() returns Integer
+end 'Source'
+
+type Fixed implements Source
+	let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	export function value() returns Integer
+		return self.n
+	end 'value'
+end 'Fixed'
+
+type Holder
+	export let source as Source.handle
+
+	static function create(concrete Fixed.handle) returns Self
+		return Self{source: concrete}
+	end 'create'
+end 'Holder'
+
+type Relay
+	var asked as Integer
+
+	static function create() returns Self
+		return Self{asked: 0}
+	end 'create'
+
+	export function ask(source Source.handle) returns Source.handle
+		self.asked = self.asked + 1
+		return source.clone()
+	end 'ask'
+end 'Relay'
+
+typealias SourceArray = Array with Source.handle
+
+function viaArgument(source Source.handle) returns Integer
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await source.value() otherwise 0
+end 'viaArgument'
+
+function viaReturn() returns Source.handle
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return spawn Fixed.create(2)
+end 'viaReturn'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let fromArgument = viaArgument(spawn Fixed.create(1))
+	let returned = viaReturn()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromReturn = try await returned.value() otherwise 0
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let holder = Holder.create(spawn Fixed.create(4))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromField = try await holder.source.value() otherwise 0
+	let sources = SourceArray.create(0)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	sources.push(spawn Fixed.create(8))
+	let element = try sources.get(0) otherwise panic("sources.get(0)")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromElement = try await element.value() otherwise 0
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let relay = spawn Relay.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let kept = try await relay.ask(spawn Fixed.create(16)) otherwise panic("the relay answers")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromMessage = try await kept.value() otherwise 0
+	return (fromArgument + fromReturn + fromField + fromElement + fromMessage) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+31
+```
+
+<!-- test: a-returning-message-may-be-sent-unawaited -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A requirement that returns a value may be sent and its reply discarded: the message still runs, in FIFO order
+before the awaited read that follows it.
+```maxon
+interface Bumper
+	function bump(mutates self, by Integer) returns Integer
+	function read() returns Integer
+end 'Bumper'
+
+type Counter implements Bumper
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(by Integer) returns Integer
+		self.n = self.n + by
+		return self.n
+	end 'bump'
+
+	export function read() returns Integer
+		return self.n
+	end 'read'
+end 'Counter'
+
+function drive(b Bumper.handle) returns Integer
+	_ = try b.bump(5) otherwise panic("send bump 5")
+	_ = try b.bump(2) otherwise panic("send bump 2")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await b.read() otherwise 0
+end 'drive'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return drive(spawn Counter.create()) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: a-service-default-is-started-before-main-and-looked-up -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Polite.create()
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await Greeter.current().greet() otherwise 0
+	return answer as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: a-value-default-is-built-before-main-and-looked-up -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(7)
+
+function main() returns ExitCode
+	return Config.current().n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: a-handler-reaches-the-registered-service-without-a-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+Each worker's handler sends to the registered `Ledger` before it replies, so the `total` `main` sends after
+both replies is queued behind both adds.
+```maxon
+interface Ledger
+	function add(mutates self, by Integer)
+	function total(mutates self) returns Integer
+end 'Ledger'
+
+type Tally implements Ledger
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function add(by Integer)
+		self.n = self.n + by
+	end 'add'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Tally'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Ledger = spawn Tally.create()
+
+type Worker
+	let k as Integer
+
+	static function create(k Integer) returns Self
+		return Self{k: k}
+	end 'create'
+
+	export function run() returns Integer
+		try Ledger.current().add(self.k) otherwise panic("send add")
+		return self.k
+	end 'run'
+end 'Worker'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn Worker.create(3)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn Worker.create(4)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromA = try await a.run() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromB = try await b.run() otherwise 0
+	if fromA + fromB != 7 'workers'
+		return 1
+	end 'workers'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let total = try await Ledger.current().total() otherwise 0
+	return total as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: a-handler-may-register -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+type Rude implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 9
+	end 'greet'
+end 'Rude'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Polite.create()
+
+type Installer
+	var installs as Integer
+
+	static function create() returns Self
+		return Self{installs: 0}
+	end 'create'
+
+	export function install() returns Integer
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		Greeter.register(spawn Rude.create())
+		self.installs = self.installs + 1
+		return self.installs
+	end 'install'
+end 'Installer'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let installer = spawn Installer.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let installs = try await installer.install() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await Greeter.current().greet() otherwise 0
+	return (answer * 10 + installs) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+91
+```
+
+<!-- test: register-replaces-the-service-for-later-lookups -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+type Rude implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 9
+	end 'greet'
+end 'Rude'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Polite.create()
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let first = try await Greeter.current().greet() otherwise 0
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	Greeter.register(spawn Rude.create())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let second = try await Greeter.current().greet() otherwise 0
+	return (first * 10 + second) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+79
+```
+
+<!-- test: a-lookup-taken-before-register-keeps-the-old-service -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+A lookup is a snapshot: the handle taken before the register still reaches the old service, which keeps
+running until its last holder drops it.
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+type Rude implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 9
+	end 'greet'
+end 'Rude'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Polite.create()
+
+function main() returns ExitCode
+	let old = Greeter.current()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	Greeter.register(spawn Rude.create())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromOld = try await old.greet() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let fromNew = try await Greeter.current().greet() otherwise 0
+	return (fromOld * 10 + fromNew) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+79
+```
+
+<!-- test: a-registered-handle-is-a-box-only-the-registry-owns -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+The registry slot holds a handle box of its own, with its own share of the mailbox, so the registering
+frame's drop of its reference and any thread's replace or release of the slot step different counts.
+<!-- MmTrace -->
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+type Rude implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 9
+	end 'greet'
+end 'Rude'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Polite.create()
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let rude = spawn Rude.create()
+	Greeter.register(rude)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await Greeter.current().greet() otherwise 0
+	return answer as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+9
+```
+```mm-trace
+mm_alloc ServiceStartRecord #1 size=8
+mm_alloc Polite.handle #2 size=8
+mm_alloc tag=0 #3 size=16
+mm_decref Polite.handle #2 rc=0
+mm_free Polite.handle #2
+mm_alloc ServiceStartRecord #4 size=8
+mm_alloc Rude.handle #5 size=8
+mm_alloc tag=0 #6 size=16
+mm_alloc tag=0 #7 size=16
+mm_decref tag=0 #3 rc=0
+mm_free tag=0 #3
+mm_decref tag=0 #6 rc=0
+mm_free tag=0 #6
+mm_alloc tag=0 #8 size=16
+mm_alloc Rude #9 size=8
+mm_decref ServiceStartRecord #4 rc=0
+mm_free ServiceStartRecord #4
+mm_decref tag=0 #8 rc=0
+mm_free tag=0 #8
+mm_decref Rude.handle #5 rc=0
+mm_free Rude.handle #5
+mm_alloc Polite #10 size=8
+mm_decref ServiceStartRecord #1 rc=0
+mm_free ServiceStartRecord #1
+mm_decref Polite #10 rc=0
+mm_free Polite #10
+mm_decref tag=0 #7 rc=0
+mm_free tag=0 #7
+mm_decref Rude #9 rc=0
+mm_free Rude #9
+```
+
+<!-- test: a-conditional-register-fails-when-the-value-moved -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+`register(new, replacing: old)` publishes only while `old` is still current: after `a` was replaced by the
+value 3 it answers `false` and 3 stays; replacing the current value answers `true`.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	let a = Config.current()
+	Config.register(Config.create(3))
+	let stale = Config.register(Config.create(2), replacing: a)
+	let afterStale = Config.current().n
+	let c = Config.current()
+	let fresh = Config.register(Config.create(5), replacing: c)
+	if stale or not fresh 'outcomes'
+		return 1
+	end 'outcomes'
+	return (afterStale * 10 + Config.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+35
+```
+
+<!-- test: a-registered-value-is-seen-live-by-every-thread -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+type Reader
+	var reads as Integer
+
+	static function create() returns Self
+		return Self{reads: 0}
+	end 'create'
+
+	export function read() returns Integer
+		self.reads = self.reads + 1
+		return Config.current().n
+	end 'read'
+end 'Reader'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let before = try await reader.read() otherwise 0
+	Config.register(Config.create(6))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let after = try await reader.read() otherwise 0
+	return (before * 10 + after) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+16
+```
+
+<!-- test: an-unreached-default-is-never-started -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+Nothing reaches `Greeter` or `Config`, so neither factory runs: no service is spawned and nothing prints.
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Loud implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		print("started\n")
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 9
+	end 'greet'
+end 'Loud'
+
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		print("built\n")
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Loud.create()
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+```
+
+<!-- test: a-program-default-wins-over-a-stdlib-default -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public typealias TonePitch = int(i64.min to i64.max)
+
+public interface Tone
+	function pitch(mutates self) returns TonePitch
+end 'Tone'
+
+public type Soft implements Tone
+	var calls as TonePitch
+
+	public static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 3
+	end 'pitch'
+end 'Soft'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Tone = spawn Soft.create()
+// --- file: main.maxon
+type Loud implements Tone
+	var calls as TonePitch
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 9
+	end 'pitch'
+end 'Loud'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Tone = spawn Loud.create()
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let pitch = try await Tone.current().pitch() otherwise 0
+	return pitch as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: the-registered-service-drains-at-exit -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+`main` sends and returns at once; the exit drain runs the registered service's queue out, in FIFO order.
+```maxon
+interface Journal
+	function write(mutates self, line Integer)
+end 'Journal'
+
+type Console implements Journal
+	var written as Integer
+
+	static function create() returns Self
+		return Self{written: 0}
+	end 'create'
+
+	export function write(line Integer)
+		self.written = self.written + 1
+		print("line {line} ({self.written})\n")
+	end 'write'
+end 'Console'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Journal = spawn Console.create()
+
+function main() returns ExitCode
+	try Journal.current().write(1) otherwise panic("send write 1")
+	try Journal.current().write(2) otherwise panic("send write 2")
+	try Journal.current().write(3) otherwise panic("send write 3")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+line 1 (1)
+line 2 (2)
+line 3 (3)
+```
+
+<!-- test: a-value-default-may-hold-a-spawned-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Polite implements Greeter
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Polite'
+
+type Route
+	export let greeter as Greeter.handle
+
+	static function create(greeter Greeter.handle) returns Self
+		return Self{greeter: greeter}
+	end 'create'
+end 'Route'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Route = Route.create(spawn Polite.create())
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await Route.current().greeter.greet() otherwise 0
+	return answer as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: a-value-default-of-a-record-with-a-narrow-int-field -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+A field of a narrow integer alias is a scalar like any other: the share walk that marks the value before it
+is published has nothing to follow there.
+```maxon
+typealias Count = int(0 to 1000)
+
+type Config
+	export let n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(3)
+
+function main() returns ExitCode
+	return Config.current().n as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: a-value-default-of-a-record-with-a-narrow-int-field-in-a-nested-record -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+The same narrow field one record down: the walk descends into `inner` and finds only a scalar there.
+```maxon
+typealias Count = int(0 to 1000)
+
+type Inner
+	export let count as Count
+
+	static function create(count Count) returns Self
+		return Self{count: count}
+	end 'create'
+end 'Inner'
+
+type Config
+	export let inner as Inner
+
+	static function create(count Count) returns Self
+		return Self{inner: Inner.create(count)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(4)
+
+function main() returns ExitCode
+	return Config.current().inner.count as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: a-shared-value-is-read-and-published-across-threads -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+type Reader
+	let cell as ConfigCell
+
+	static function create(cell ConfigCell) returns Self
+		return Self{cell: cell}
+	end 'create'
+
+	export function read() returns Integer
+		return self.cell.current().n
+	end 'read'
+end 'Reader'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create(cell.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let before = try await reader.read() otherwise 0
+	cell.publish(Config.create(6))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let after = try await reader.read() otherwise 0
+	return (before * 10 + after) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+16
+```
+
+<!-- test: a-shared-value-read-across-a-publish-stays-valid -->
+A value read before two publishes stays readable, and the replaced values are freed by the time the leak
+gate reads its counters (a leak would exit 101).
+```maxon
+type Snapshot
+	export let n as Integer
+	export let label as String
+
+	static function create(n Integer, label String) returns Self
+		return Self{n: n, label: label}
+	end 'create'
+end 'Snapshot'
+
+typealias SnapshotCell = SharedValue with Snapshot
+
+function main() returns ExitCode
+	let cell = SnapshotCell.create(Snapshot.create(3, label: "the first snapshot, long enough to be a heap string"))
+	let held = cell.current()
+	cell.publish(Snapshot.create(4, label: "the second snapshot, long enough to be a heap string"))
+	cell.publish(Snapshot.create(5, label: "the third snapshot, long enough to be a heap string"))
+	if cell.current().n != 5 'latest'
+		return 1
+	end 'latest'
+	print("{held.label}\n")
+	return held.n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+```stdout
+the first snapshot, long enough to be a heap string
+```
+
+<!-- test: a-replaced-value-is-freed-while-the-cell-lives -->
+A cell published a thousand times holds the live allocations of its current value and a bounded few
+more: a replaced value is freed once no reader can still be between loading it and retaining it, not kept
+until the cell ends.
+```maxon
+type Snapshot
+	export let n as Integer
+	export let label as String
+
+	static function create(n Integer, label String) returns Self
+		return Self{n: n, label: label}
+	end 'create'
+end 'Snapshot'
+
+typealias SnapshotCell = SharedValue with Snapshot
+
+let publishes = 1000
+
+let allowedGrowth = 16
+
+function main() returns ExitCode
+	let cell = SnapshotCell.create(Snapshot.create(0, label: "snapshot 0, long enough to be a heap string"))
+	let before = HeapStats.allocationsLive() as Integer
+	var n = 1 as Integer
+	while n <= publishes 'eachPublish'
+		cell.publish(Snapshot.create(n, label: "snapshot {n}, long enough to be a heap string"))
+		n = n + 1
+	end 'eachPublish'
+	let growth = (HeapStats.allocationsLive() as Integer) - before
+	if growth > allowedGrowth 'unbounded'
+		print("the cell holds {growth} more live allocations after {publishes} publishes\n")
+		return 1
+	end 'unbounded'
+	print("{cell.current().n}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+1000
+```
+
+<!-- test: a-conditional-publish-fails-when-the-value-moved -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	let a = cell.current()
+	cell.publish(Config.create(3))
+	let stale = cell.publish(Config.create(2), replacing: a)
+	let afterStale = cell.current().n
+	let c = cell.current()
+	let fresh = cell.publish(Config.create(5), replacing: c)
+	if stale or not fresh 'outcomes'
+		return 1
+	end 'outcomes'
+	return (afterStale * 10 + cell.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+35
+```
+
+<!-- test: a-handler-looks-up-the-registry-during-the-exit-drain -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+`main` returns with three messages still queued; the exit drain runs them, and each handler reads the value
+key, which must still be live then.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(5)
+
+type Printer
+	var said as Integer
+
+	static function create() returns Self
+		return Self{said: 0}
+	end 'create'
+
+	export function say(n Integer)
+		self.said = self.said + 1
+		print("{n + Config.current().n}\n")
+	end 'say'
+end 'Printer'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let printer = spawn Printer.create()
+	try printer.say(1) otherwise panic("send say 1")
+	try printer.say(2) otherwise panic("send say 2")
+	try printer.say(3) otherwise panic("send say 3")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+6
+7
+8
+```
+
+<!-- test: a-handler-sends-through-the-registry-during-the-exit-drain -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+The service-key sibling: during the exit drain the worker's handler looks up `Sink` and sends to it, so the
+registered service must still be reachable and must drain too. One worker sends into one collector, so the
+lines keep their order.
+```maxon
+interface Sink
+	function put(mutates self, n Integer)
+end 'Sink'
+
+type Collector implements Sink
+	var received as Integer
+
+	static function create() returns Self
+		return Self{received: 0}
+	end 'create'
+
+	export function put(n Integer)
+		self.received = self.received + 1
+		print("put {n} ({self.received})\n")
+	end 'put'
+end 'Collector'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Sink = spawn Collector.create()
+
+type Worker
+	var worked as Integer
+
+	static function create() returns Self
+		return Self{worked: 0}
+	end 'create'
+
+	export function work(n Integer)
+		self.worked = self.worked + 1
+		try Sink.current().put(n) otherwise panic("send put")
+	end 'work'
+end 'Worker'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let worker = spawn Worker.create()
+	try worker.work(1) otherwise panic("send work 1")
+	try worker.work(2) otherwise panic("send work 2")
+	try worker.work(3) otherwise panic("send work 3")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+put 1 (1)
+put 2 (2)
+put 3 (3)
+```
+
+<!-- test: a-handle-converts-at-a-callees-argument -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+`probe(spawn Counter.create())` converts the `Counter.handle` to the `Tally.handle` that `probe` declares,
+and `probeNumber` takes a plain number.
+```maxon
+interface Tally
+	function total(mutates self) returns Integer
+end 'Tally'
+
+type Counter implements Tally
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 6}
+	end 'create'
+
+	export function total() returns Integer
+		self.n = self.n + 1
+		return self.n
+	end 'total'
+end 'Counter'
+
+function probe(t Tally.handle) returns Integer
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await t.total() otherwise 0
+end 'probe'
+
+function probeNumber(n Integer) returns Integer
+	return n * 100
+end 'probeNumber'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let fromHandle = probe(spawn Counter.create())
+	let fromInteger = probeNumber(1)
+	return (fromHandle + fromInteger) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+107
+```
+
+<!-- test: a-second-implementer-with-a-different-message-order -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+Each implementer has its own send table: `Ledger` declares the requirements in the opposite order and lays
+out different fields, and a `Tally.handle` holding it still reaches the right messages.
+```maxon
+interface Tally
+	function add(mutates self, by Integer)
+	function total(mutates self) returns Integer
+end 'Tally'
+
+type Counter implements Tally
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function add(by Integer)
+		self.n = self.n + by
+	end 'add'
+
+	export function total() returns Integer
+		return self.n
+	end 'total'
+end 'Counter'
+
+type Ledger implements Tally
+	let label as String
+	var adds as Integer
+	var sum as Integer
+
+	static function create() returns Self
+		return Self{label: "a ledger label long enough to be a heap string", adds: 0, sum: 10}
+	end 'create'
+
+	export function total() returns Integer
+		return self.sum + self.adds * 100 + (self.label.byteLength() as Integer) * 0
+	end 'total'
+
+	export function add(by Integer)
+		self.adds = self.adds + 1
+		self.sum = self.sum + by
+	end 'add'
+end 'Ledger'
+
+function drive(t Tally.handle, by Integer) returns Integer
+	try t.add(by) otherwise panic("send add")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await t.total() otherwise 0
+end 'drive'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let fromCounter = drive(spawn Counter.create(), by: 3)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let fromLedger = drive(spawn Ledger.create(), by: 4)
+	return (fromCounter + fromLedger) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+117
+```
+
+<!-- test: error.an-await-cycle-through-a-second-implementer -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+`Innocent`, the first implementer of `Echo`, awaits nothing. `Relay`, the second, awaits `Bouncer`, and
+`Bouncer` awaits through an `Echo.handle`, which may hold a `Relay`, so the two could wait on each other. A
+message never waits, so `Relay.echo` and `Bouncer.back` are each refused, and the await through the interface
+handle is refused whichever implementer the handle holds, not only the first. A requirement never waits, so
+`Relay.echo` is also refused at `Echo.echo`.
+```maxon
+interface Echo
+	function echo(mutates self) returns Integer
+end 'Echo'
+
+type Innocent implements Echo
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function echo() returns Integer
+		self.calls = self.calls + 1
+		return 1
+	end 'echo'
+end 'Innocent'
+
+type Relay implements Echo
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function echo() returns Integer
+		self.calls = self.calls + 1
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		return try await spawnBouncer().back(spawn Innocent.create()) otherwise 0
+	end 'echo'
+end 'Relay'
+
+type Bouncer
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function back(e Echo.handle) returns Integer
+		self.calls = self.calls + 1
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		return try await e.echo() otherwise 0
+	end 'back'
+end 'Bouncer'
+
+function spawnBouncer() returns Bouncer.handle
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return spawn Bouncer.create()
+end 'spawnBouncer'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let relay = spawn Relay.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await relay.echo() otherwise 0
+	return answer as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3210: <fragment>:26:18: 'Relay.echo' may wait (it awaits a reply from 'Bouncer' at line 28), but a requirement never waits or yields
+error E3221: <fragment>:26:18: the message 'echo' may wait (it awaits a reply from 'Bouncer' at line 28) while holding its own service; send the request with this service's handle and handle the reply in another message
+error E3221: <fragment>:39:18: the message 'back' may wait (it awaits a reply from 'Echo' at line 41) while holding its own service; send the request with this service's handle and handle the reply in another message
+```
+
+<!-- test: a-shared-value-of-a-string -->
+A `String` is immutable, so it can be a `SharedValue`'s value: a literal at creation, an interpolated string
+at publish.
+```maxon
+typealias Label = SharedValue with String
+
+function main() returns ExitCode
+	let label = Label.create("abc")
+	let before = label.current()
+	let n = 7
+	label.publish("x{n}")
+	let after = label.current()
+	print("{before} {after}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+abc x7
+```
+
+<!-- test: error.current-reached-through-a-function-from-a-global-initializer -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A global initializer that calls anything is refused (E3220), including a call that reaches `Config.current()`: `limit`'s
+initializer calls `Limits.read`, which reads the registry.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(7)
+
+type Limits
+	export let n as Integer
+
+	static function read() returns Limits
+		return Self{n: Config.current().n}
+	end 'read'
+end 'Limits'
+
+let limit = Limits.read()
+
+function main() returns ExitCode
+	return limit.n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3220: <fragment>:20:13: the initializer of 'limit' calls 'Limits.read': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+```
+
+<!-- test: error.a-key-type-declaring-its-own-current -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A `default` key's `current` and `register` belong to the registry, so the key type may not declare its own
+static `current`.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	static function current() returns Config
+		return Config.create(0)
+	end 'current'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(7)
+
+function main() returns ExitCode
+	return Config.current().n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3175: <fragment>:9:18: `Config` is a `default` key, so `Config.current` and `Config.register` are the registry's — its own static `current` would be hidden; rename it
+note: <fragment>:14:9: the `default` for `Config`
+```
+
+<!-- test: a-message-with-a-float-parameter -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A message with no reply takes a `float` argument. A reply cell carries one integer word (E3140), so the
+awaited answer is the average in hundredths.
+```maxon
+type Averager
+	var total as FullRangeFloat
+	var count as Integer
+
+	static function create() returns Self
+		// TODO: float literals are not supported in minimaxon
+		return Self{total: 0.0, count: 0}
+	end 'create'
+
+	export function take(celsius FullRangeFloat)
+		self.total = self.total + celsius
+		self.count = self.count + 1
+	end 'take'
+
+	export function averageHundredths() returns Integer
+		// TODO: float literals are not supported in minimaxon
+		let average = try (self.total / (self.count as FullRangeFloat)) otherwise 0.0
+		// TODO: float literals are not supported in minimaxon
+		return trunc(average * 100.0)
+	end 'averageHundredths'
+end 'Averager'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Averager.create()
+	// TODO: float literals are not supported in minimaxon
+	try h.take(20.25) otherwise panic("send take 20.25")
+	// TODO: float literals are not supported in minimaxon
+	try h.take(21.5) otherwise panic("send take 21.5")
+	// TODO: float literals are not supported in minimaxon
+	try h.take(22.75) otherwise panic("send take 22.75")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let hundredths = try await h.averageHundredths() otherwise 0
+	print("{hundredths}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+2150
+```
+
+<!-- test: error.implementers-of-one-interface-that-disagree-on-a-reply -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A send through `Worker.handle` builds one request and awaits one reply for whichever implementer the handle
+holds. `Left` and `Right` both satisfy the abstract `throws Error`, but each throws its own enum, so their
+replies differ and no one send can serve both.
+```maxon
+enum LeftError implements Error
+	refused
+end 'LeftError'
+
+enum RightError implements Error
+	busy
+end 'RightError'
+
+interface Worker
+	function work(mutates self) returns Integer throws Error
+end 'Worker'
+
+type Left implements Worker
+	var runs as Integer
+
+	static function create() returns Self
+		return Self{runs: 0}
+	end 'create'
+
+	export function work() returns Integer throws LeftError
+		self.runs = self.runs + 1
+		if self.runs > 5 'tooMany'
+			throw LeftError.refused
+		end 'tooMany'
+		return 1
+	end 'work'
+end 'Left'
+
+type Right implements Worker
+	var runs as Integer
+
+	static function create() returns Self
+		return Self{runs: 0}
+	end 'create'
+
+	export function work() returns Integer throws RightError
+		self.runs = self.runs + 1
+		if self.runs > 5 'tooMany'
+			throw RightError.busy
+		end 'tooMany'
+		return 2
+	end 'work'
+end 'Right'
+
+function ask(w Worker.handle) returns Integer
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await w.work() otherwise 0
+end 'ask'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return (ask(spawn Left.create()) + ask(spawn Right.create())) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3177: <fragment>:51:21: `Worker.work` cannot be sent through `Worker.handle`: `Right` and `Left` declare it with different parameter, return or `throws` types, so one request and one reply cannot serve both — send it through each service's own handle
+```
+
+<!-- test: a-handle-converts-at-a-function-value-call -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A call through a function value is a door too: the `Fixed.handle` argument converts to the `Source.handle`
+the function type declares.
+```maxon
+interface Source
+	function value() returns Integer
+	function bump(mutates self, by Integer)
+end 'Source'
+
+type Fixed implements Source
+	var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	export function value() returns Integer
+		return self.n
+	end 'value'
+
+	export function bump(by Integer)
+		self.n = self.n + by
+	end 'bump'
+end 'Fixed'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias SourceBumper = function(Source.handle)
+
+function bumpSource(source Source.handle)
+	try source.bump(5) otherwise panic("send bump")
+end 'bumpSource'
+
+function through(f SourceBumper, source Source.handle)
+	f(source)
+end 'through'
+
+function main() returns ExitCode
+	let f = bumpSource
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let first = spawn Fixed.create(1)
+	f(first)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let second = spawn Fixed.create(5)
+	through(bumpSource, source: second)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let direct = try await first.value() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let passed = try await second.value() otherwise 0
+	return (direct * 10 + passed) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+70
+```
+
+<!-- test: a-handle-converts-at-a-closure-literal-call -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A closure literal whose parameter is written `Source.handle` inline takes a `Fixed.handle` argument
+converted at the call.
+```maxon
+interface Source
+	function value() returns Integer
+end 'Source'
+
+type Fixed implements Source
+	let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	export function value() returns Integer
+		return self.n
+	end 'value'
+end 'Fixed'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let f = function(s Source.handle) gives (try await s.value() otherwise 0)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	return f(spawn Fixed.create(3)) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+
+<!-- test: a-handle-converts-at-a-witness-call -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A requirement taking a `Tally.handle`, called through a value held at its interface type, converts the
+`Counter.handle` argument like any other call.
+```maxon
+interface Tally
+	function total(mutates self) returns Integer
+end 'Tally'
+
+type Counter implements Tally
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 6}
+	end 'create'
+
+	export function total() returns Integer
+		self.n = self.n + 1
+		return self.n
+	end 'total'
+end 'Counter'
+
+interface Probe
+	function read(t Tally.handle)
+end 'Probe'
+
+type Doubling implements Probe
+	let factor as Integer
+
+	static function create(factor Integer) returns Self
+		return Self{factor: factor}
+	end 'create'
+
+	function read(t Tally.handle)
+		for _ in 0 upto self.factor 'sends'
+			_ = try t.total() otherwise panic("send total")
+		end 'sends'
+	end 'read'
+end 'Doubling'
+
+type Holder
+	export let probe as Probe
+
+	static function create(probe Probe) returns Self
+		return Self{probe: probe}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let holder = Holder.create(Doubling.create(2))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let counter = spawn Counter.create()
+	holder.probe.read(counter)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (try await counter.total() otherwise 0) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+9
+```
+
+<!-- test: error.a-spawned-service-missing-an-interface-message-is-a-diagnostic -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A spawned service that declares an interface it does not fully implement is refused like any other partial conformer, naming the missing requirement.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function value() returns Count
+		return self.n
+	end 'value'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	print("{try await h.ping() otherwise 0}\n")
+	print("{try await b.value() otherwise 0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:20:6: Partial interface implementation: type 'B' is missing 1 method(s):
+  - ping() returns Count
+```
+
+<!-- test: error.a-non-conforming-service-spawned-first-is-still-reported-as-partial -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The same program with the non-conforming service spawned first: the order of the spawns does not decide which diagnostic is reported.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function value() returns Count
+		return self.n
+	end 'value'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	print("{try await h.ping() otherwise 0}\n")
+	print("{try await b.value() otherwise 0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:20:6: Partial interface implementation: type 'B' is missing 1 method(s):
+  - ping() returns Count
+```
+
+<!-- test: error.a-non-conforming-service-as-the-handle-is-reported-as-partial -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The non-conforming service is declared first and is the one converted to the interface handle.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function value() returns Count
+		return self.n
+	end 'value'
+end 'B'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn A.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn B.create()) as Pinger.handle
+	print("{try await h.ping() otherwise 0}\n")
+	print("{try await a.ping() otherwise 0}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:8:6: Partial interface implementation: type 'B' is missing 1 method(s):
+  - ping() returns Count
+```
+
+<!-- test: error.an-interface-message-no-service-implements-is-refused -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+When no service implementing the interface declares the requirement, the handle has no such message to send.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function value() returns Count
+		return self.n
+	end 'value'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn B.create()) as Pinger.handle
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.ping() otherwise 0
+	print("{v}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:8:6: Partial interface implementation: type 'B' is missing 1 method(s):
+  - ping() returns Count
+error E3136: <fragment>:22:22: `interface Pinger` requires `ping`, but no service implementing it declares `ping` as an `export` instance method, so `Pinger.handle` has no such message to send. Implement it on the service
+```
+
+<!-- test: error.a-withheld-interface-message-is-refused -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A service that declares the requirement as a private method withholds it: it is not a message, so the handle cannot send it.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.ping() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{v} {w}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3136: <fragment>:35:22: `interface Pinger` requires `ping`, and `type A` implements it, but not as an `export` instance method — so it is not a message of `A`, and `Pinger.handle` cannot send it to every service behind it. Declare `ping` on `A` as an `export` instance method
+```
+<!-- test: a-withheld-interface-message-with-no-send-compiles -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+The same conformers compile when nothing sends the withheld requirement through the handle.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+typealias PingerHandles = Array with Pinger.handle
+
+function main() returns ExitCode
+	let handles = PingerHandles.create(0)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	handles.push((spawn A.create()) as Pinger.handle)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{handles.count()} {w}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 9
+```
+<!-- test: an-interface-handle-held-in-an-array-shuts-down-cleanly -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+An interface handle held in an array element, beside a second service, shuts down cleanly when every conformer exports the requirement.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+typealias PingerHandles = Array with Pinger.handle
+
+function main() returns ExitCode
+	let handles = PingerHandles.create(0)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	handles.push((spawn A.create()) as Pinger.handle)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{handles.count()} {w}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 9
+```
+
+<!-- test: an-interface-handle-held-in-a-binding-shuts-down-cleanly -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+An interface handle held in a binding and sent to, beside a second service, shuts down cleanly.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.ping() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{v} {w}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7 9
+```
+
+<!-- test: error.a-withheld-interface-message-spawned-first-is-refused -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The order of the spawns does not decide whether the withheld requirement is refused.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+type A implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	function ping() returns Count
+		return self.n
+	end 'ping'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.ping() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{v} {w}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3136: <fragment>:35:22: `interface Pinger` requires `ping`, and `type A` implements it, but not as an `export` instance method — so it is not a message of `A`, and `Pinger.handle` cannot send it to every service behind it. Declare `ping` on `A` as an `export` instance method
+```
+<!-- test: error.a-withheld-message-behind-a-default-is-refused-in-either-order -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A service reached only through a `default` still withholds a private requirement from the interface handle.
+```maxon
+typealias TonePitch = int(0 to 100)
+
+interface Tone
+	function pitch(mutates self) returns TonePitch
+end 'Tone'
+
+type Loud implements Tone
+	var calls as TonePitch
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 9
+	end 'pitch'
+end 'Loud'
+
+type Soft implements Tone
+	var calls as TonePitch
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 3
+	end 'pitch'
+end 'Soft'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn Loud.create()) as Tone.handle
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let pitch = try await h.pitch() otherwise 0
+	return pitch
+end 'main'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Tone = spawn Soft.create()
+```
+```maxoncstderr
+error E3136: <fragment>:36:26: `interface Tone` requires `pitch`, and `type Soft` implements it, but not as an `export` instance method — so it is not a message of `Soft`, and `Tone.handle` cannot send it to every service behind it. Declare `pitch` on `Soft` as an `export` instance method
+```
+
+<!-- test: error.a-withheld-message-behind-a-default-declared-first-is-refused -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The same program with the `default` declared before `main`.
+```maxon
+typealias TonePitch = int(0 to 100)
+
+interface Tone
+	function pitch(mutates self) returns TonePitch
+end 'Tone'
+
+type Loud implements Tone
+	var calls as TonePitch
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 9
+	end 'pitch'
+end 'Loud'
+
+type Soft implements Tone
+	var calls as TonePitch
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	function pitch() returns TonePitch
+		self.calls = self.calls + 1
+		return 3
+	end 'pitch'
+end 'Soft'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Tone = spawn Soft.create()
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn Loud.create()) as Tone.handle
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let pitch = try await h.pitch() otherwise 0
+	return pitch
+end 'main'
+```
+```maxoncstderr
+error E3136: <fragment>:38:26: `interface Tone` requires `pitch`, and `type Soft` implements it, but not as an `export` instance method — so it is not a message of `Soft`, and `Tone.handle` cannot send it to every service behind it. Declare `pitch` on `Soft` as an `export` instance method
+```
+
+<!-- test: a-service-behind-a-derived-interface-widens-to-the-base-handle -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A service implementing a derived interface converts to its base interface's handle, beside a service implementing the base directly.
+```maxon
+typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Sub extends Pinger
+	function tag() returns Count
+end 'Sub'
+
+type A implements Sub
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+
+	export function tag() returns Count
+		return 1
+	end 'tag'
+end 'A'
+
+type B implements Pinger
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 9}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+end 'B'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let b = spawn B.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = (spawn A.create()) as Pinger.handle
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.ping() otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await b.ping() otherwise 0
+	print("{v} {w}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7 9
+```
+
+<!-- test: error.two-defaults-for-one-key -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// --- file: a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+// --- file: b.maxon
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(2)
+
+function main() returns ExitCode
+	return Config.current().n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3169: <fragment>:15:9: two `default` declarations for `Config` in one program — delete one of them
+note: <fragment>:13:9: the other `default` for `Config`
+```
+
+<!-- test: error.two-defaults-for-one-key-are-blamed-in-path-order -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The blamed `default` is the one in the file whose path sorts later byte for byte, not the one declared later.
+```maxon
+// --- file: b.maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+// --- file: a.maxon
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(2)
+
+function main() returns ExitCode
+	return Config.current().n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3169: <fragment>:13:9: two `default` declarations for `Config` in one program — delete one of them
+note: <fragment>:15:9: the other `default` for `Config`
+```
+
+<!-- test: error.a-default-whose-service-does-not-implement-its-key -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`Stranger` has a `greet` of the right shape, but it does not declare `implements Greeter`.
+```maxon
+interface Greeter
+	function greet(mutates self) returns Integer
+end 'Greeter'
+
+type Stranger
+	var calls as Integer
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function greet() returns Integer
+		self.calls = self.calls + 1
+		return 7
+	end 'greet'
+end 'Stranger'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Greeter = spawn Stranger.create()
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await Greeter.current().greet() otherwise 0
+	return answer as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3170: <fragment>:19:9: the `default` for `Greeter` spawns `Stranger`, which does not implement `Greeter` — declare `type Stranger implements Greeter`, or spawn a type that does
+```
+
+<!-- test: a-value-default-of-a-writable-type-is-read-by-a-service -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+A `var` field does not keep a type out of the registry: every reader gets a read-only view of the value.
+```maxon
+type Config
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(3)
+
+type Reader
+	var reads as Integer
+
+	static function create() returns Self
+		return Self{reads: 0}
+	end 'create'
+
+	export function read() returns Integer
+		self.reads = self.reads + 1
+		return Config.current().n
+	end 'read'
+end 'Reader'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = try await reader.read() otherwise 0
+	print("service={seen} main={Config.current().n}\n")
+	return seen as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+```stdout
+service=3 main=3
+```
+
+<!-- test: error.defaults-that-reach-each-other -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Left
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Left'
+
+type Right
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Right'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Left = Left.create(Right.current().n + 1)
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Right = Right.create(Left.current().n + 1)
+
+function main() returns ExitCode
+	return (Left.current().n + Right.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3172: <fragment>:18:9: the `default`s for `Left` and `Right` reach each other — build one of them without looking up the other
+```
+
+<!-- test: error.current-from-a-global-initializer -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(7)
+
+let limit = Config.current().n
+
+function main() returns ExitCode
+	return limit as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3173: <fragment>:12:13: `Config.current()` is reached from the initializer of `limit`, which runs before any `default` is built — call it from `main`, or from a function `main` calls
+```
+
+<!-- test: error.register-from-a-global-initializer -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(7)
+
+let first = Config.create(1)
+
+let swapped = Config.register(Config.create(9), replacing: first)
+
+function main() returns ExitCode
+	return 0 if swapped else 1
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3220: <fragment>:12:13: the initializer of 'first' calls 'Config.create': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+error E3173: <fragment>:13:15: `Config.register()` is reached from the initializer of `swapped`, which runs before any `default` is built — call it from `main`, or from a function `main` calls
+```
+
+<!-- test: error.a-registered-value-that-is-not-solely-owned -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`alias` still names the record, so publishing it would hand every thread a value this one can still reach.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	let fresh = Config.create(4)
+	let alias = fresh
+	Config.register(fresh)
+	return (alias.n + Config.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3174: <fragment>:15:18: the value published to `Config` is not solely owned here — publish a `.clone()`
+```
+
+<!-- test: a-shared-value-of-a-writable-type-is-read-across-threads -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+`next` is written while `main` still owns it, then published; the spawned reader sees each published value.
+```maxon
+type Config
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+type Reader
+	let cell as ConfigCell
+
+	static function create(cell ConfigCell) returns Self
+		return Self{cell: cell}
+	end 'create'
+
+	export function read() returns Integer
+		return self.cell.current().n
+	end 'read'
+end 'Reader'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(2))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create(cell.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let before = try await reader.read() otherwise 0
+	let next = Config.create(2)
+	next.n = next.n + 5
+	cell.publish(next)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let after = try await reader.read() otherwise 0
+	print("before={before} after={after}\n")
+	return (before * 10 + after) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+27
+```
+```stdout
+before=2 after=7
+```
+
+<!-- test: a-value-default-whose-let-field-holds-a-writable-type-is-read-by-a-service -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+`tally` holds a `Tally` whose `count` is a `var`; a service reads through the whole path.
+```maxon
+type Tally
+	export var count as Integer
+
+	static function create(count Integer) returns Self
+		return Self{count: count}
+	end 'create'
+end 'Tally'
+
+type Config
+	export let tally as Tally
+
+	static function create(count Integer) returns Self
+		return Self{tally: Tally.create(count)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(3)
+
+type Reader
+	var reads as Integer
+
+	static function create() returns Self
+		return Self{reads: 0}
+	end 'create'
+
+	export function count() returns Integer
+		self.reads = self.reads + 1
+		return Config.current().tally.count
+	end 'count'
+end 'Reader'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = try await reader.count() otherwise 0
+	print("service={seen} main={Config.current().tally.count}\n")
+	return seen as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+```stdout
+service=3 main=3
+```
+
+<!-- test: a-shared-value-of-a-type-holding-an-array-is-read-across-threads -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+An `Array` field is published like any other; the spawned reader walks it with a `for`.
+```maxon
+typealias Scores = Array with Integer
+
+type Board
+	export let scores as Scores
+
+	static function create(top Integer) returns Self
+		let scores = Scores.create(0)
+		scores.push(top)
+		scores.push(top * 2)
+		return Self{scores: scores}
+	end 'create'
+end 'Board'
+
+typealias BoardCell = SharedValue with Board
+
+type Summer
+	let cell as BoardCell
+
+	static function create(cell BoardCell) returns Self
+		return Self{cell: cell}
+	end 'create'
+
+	export function total() returns Integer
+		var sum = 0 as Integer
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for score in self.cell.current().scores 'eachScore'
+			sum = sum + score
+		end 'eachScore'
+		return sum
+	end 'total'
+end 'Summer'
+
+function main() returns ExitCode
+	let cell = BoardCell.create(Board.create(1))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let summer = spawn Summer.create(cell.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let before = try await summer.total() otherwise 0
+	cell.publish(Board.create(4))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let after = try await summer.total() otherwise 0
+	print("before={before} after={after} count={cell.current().scores.count()}\n")
+	return (before * 10 + after) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+42
+```
+```stdout
+before=3 after=12 count=2
+```
+
+<!-- test: a-shared-value-of-a-type-holding-a-map-is-read-across-threads -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+The same for a `Map`: the spawned reader looks a key up in the published value.
+```maxon
+typealias Ranks = Map with (String, Integer)
+
+type Ladder
+	export let ranks as Ranks
+
+	static function create(first Integer) returns Self
+		let ranks = Ranks.create()
+		ranks.upsert("first", value: first)
+		return Self{ranks: ranks}
+	end 'create'
+end 'Ladder'
+
+typealias LadderCell = SharedValue with Ladder
+
+type Lookup
+	let cell as LadderCell
+
+	static function create(cell LadderCell) returns Self
+		return Self{cell: cell}
+	end 'create'
+
+	export function first() returns Integer
+		return try self.cell.current().ranks.get("first") otherwise 0
+	end 'first'
+end 'Lookup'
+
+function main() returns ExitCode
+	let cell = LadderCell.create(Ladder.create(1))
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let lookup = spawn Lookup.create(cell.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let before = try await lookup.first() otherwise 0
+	cell.publish(Ladder.create(6))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let after = try await lookup.first() otherwise 0
+	print("before={before} after={after}\n")
+	return (before * 10 + after) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+16
+```
+```stdout
+before=1 after=6
+```
+
+<!-- test: error.a-value-default-whose-graph-reaches-a-function-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A function value is a closure record that owns what it captures, and no share walk can mark it.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Integer) returns Integer
+
+type Config
+	export let step as Step
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{step: function(n Integer) gives n + 1}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create()
+
+function main() returns ExitCode
+	return Config.current().step(2) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:12:9: `Config` cannot be a registry value or a `SharedValue`: it is a `Config` whose graph reaches a function value, a closure record that owns what it captures and does not cross to another thread — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.a-shared-value-whose-graph-reaches-a-function-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Integer) returns Integer
+
+type Config
+	export let step as Step
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{step: function(n Integer) gives n + 1}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:12:24: `Config` cannot be a registry value or a `SharedValue`: it is a `Config` whose graph reaches a function value, a closure record that owns what it captures and does not cross to another thread — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.publish-of-an-interface-whose-converted-conformer-holds-a-function-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
+
+`stepped` converts a `Stepper` to `Shape`, so a published `Config` may reach a function value. The alias is accepted, because an interface field is judged at the door that shares the value; the `create` that makes the cell is such a door too, so it is refused beside the `publish`.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Tally) returns Tally
+
+type Door
+	var seen as Tally
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function look(n Tally)
+		self.seen = self.seen + n
+	end 'look'
+end 'Door'
+
+interface Shape
+	function area() returns Tally
+end 'Shape'
+
+type Plain implements Shape
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function area() returns Tally
+		return 1
+	end 'area'
+end 'Plain'
+
+type Stepper implements Shape
+	export let step as Step
+
+	static function create(step Step) returns Self
+		return Self{step: step}
+	end 'create'
+
+	function area() returns Tally
+		return self.step(1)
+	end 'area'
+end 'Stepper'
+
+type Config
+	export let shape as Shape
+
+	static function create(shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+end 'Config'
+
+typealias Cell = SharedValue with Config
+
+function stepped() returns Shape
+	// TODO: closures are not supported in minimaxon
+	return Stepper.create(function(n Tally) gives n + 1)
+end 'stepped'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let door = spawn Door.create()
+	door.shutdown()
+	let cell = Cell.create(Config.create(Plain.create()))
+	cell.publish(Config.create(Plain.create()))
+	print("{cell.current().shape.area()} {stepped().area()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:60:25: `Config` cannot be published to a `SharedValue`: its `shape` is a `Shape`, and `Stepper` stands at `Shape` but no share walk can mark it: its `step` is a function value, a closure record that owns what it captures and does not cross to another thread — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:54:9: `Stepper` is converted to `Shape` here
+error E3171: <fragment>:61:15: `Config` cannot be published to a `SharedValue`: its `shape` is a `Shape`, and `Stepper` stands at `Shape` but no share walk can mark it: its `step` is a function value, a closure record that owns what it captures and does not cross to another thread — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:54:9: `Stepper` is converted to `Shape` here
+```
+
+<!-- test: error.a-value-default-holding-an-interface-whose-conformer-holds-a-function-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
+
+The `default` holds a `Plain`, but `stepped` converts a `Stepper` to `Shape`, so the registry value may reach a function value.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Tally) returns Tally
+
+type Door
+	var seen as Tally
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function look(n Tally)
+		self.seen = self.seen + n
+	end 'look'
+end 'Door'
+
+interface Shape
+	function area() returns Tally
+end 'Shape'
+
+type Plain implements Shape
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function area() returns Tally
+		return 1
+	end 'area'
+end 'Plain'
+
+type Stepper implements Shape
+	export let step as Step
+
+	static function create(step Step) returns Self
+		return Self{step: step}
+	end 'create'
+
+	function area() returns Tally
+		return self.step(1)
+	end 'area'
+end 'Stepper'
+
+type Config
+	export let shape as Shape
+
+	static function create(shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(Plain.create())
+
+function stepped() returns Shape
+	// TODO: closures are not supported in minimaxon
+	return Stepper.create(function(n Tally) gives n + 1)
+end 'stepped'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let door = spawn Door.create()
+	door.shutdown()
+	print("{Config.current().shape.area()} {stepped().area()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:51:9: `Config` cannot be a registry value or a `SharedValue`: its `shape` is a `Shape`, and `Stepper` stands at `Shape` but no share walk can mark it: its `step` is a function value, a closure record that owns what it captures and does not cross to another thread — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:54:9: `Stepper` is converted to `Shape` here
+```
+
+<!-- test: error.a-field-store-through-a-shared-value-read -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- positions: moved -->
+**A READ IS A READ-ONLY VIEW.** `around` builds a record of its own around the `Inner` the shared value
+holds, so the field store through `w.inner` would change the value under every other reader; the field is declared `immutable` because the read is.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+type Wrap
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	export var inner as immutable Inner
+
+	static function around(cell ConfigCell) returns Self
+		return Self{inner: cell.current().inner}
+	end 'around'
+end 'Wrap'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	var w = Wrap.around(cell)
+	w.inner.x = 9
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:31:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-field-store-through-a-value-default-read -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+type Wrap
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	export var inner as immutable Inner
+
+	static function around() returns Self
+		return Self{inner: Config.current().inner}
+	end 'around'
+end 'Wrap'
+
+function main() returns ExitCode
+	var w = Wrap.around()
+	w.inner.x = 9
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:30:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-mutating-method-through-a-shared-value-read -->
+<!-- positions: moved -->
+A method that writes its receiver is a write too, on anything reached through the read.
+```maxon
+typealias Items = Array with Integer
+
+type Config
+	export var items as Items
+
+	static function create() returns Self
+		var items = Items.create(0)
+		items.push(1)
+		return Self{items: items}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create())
+	cell.current().items.push(2)
+	return cell.current().items.count() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3207: <fragment>:18:23: 'push' needs a writable receiver; 'items' is immutable
+```
+
+<!-- test: error.a-mutating-method-through-a-value-default-read -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Items = Array with Integer
+
+type Config
+	export var items as Items
+
+	static function create() returns Self
+		var items = Items.create(0)
+		items.push(1)
+		return Self{items: items}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create()
+
+function main() returns ExitCode
+	Config.current().items.push(2)
+	return Config.current().items.count() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3207: <fragment>:17:25: 'push' needs a writable receiver; 'items' is immutable
+```
+
+<!-- test: error.a-shared-value-read-passed-to-a-writing-parameter -->
+<!-- positions: moved -->
+`bump` writes its parameter, so handing it a record reached through the read is refused at the call.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function bump(i Inner)
+	i.x = 9
+end 'bump'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	bump(cell.current().inner)
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3207: <fragment>:26:7: 'bump' writes 'i' (line 21: `i.x = 9`); 'cell' is immutable
+```
+
+<!-- test: error.a-value-default-read-passed-to-a-writing-parameter -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function bump(i Inner)
+	i.x = 9
+end 'bump'
+
+function main() returns ExitCode
+	bump(Config.current().inner)
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3207: <fragment>:25:7: 'bump' writes 'i' (line 21: `i.x = 9`); 'Config' is immutable
+```
+
+<!-- test: error.a-var-bound-to-a-shared-value-read -->
+<!-- positions: moved -->
+The read is immutable data, so binding it to a `var` does not make it writable: the write through the `var` is refused.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	var w = cell.current()
+	w.inner.x = 9
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:23:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-var-bound-to-a-value-default-read -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	var w = Config.current()
+	w.inner.x = 9
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:22:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-var-bound-to-a-field-of-a-shared-value-read -->
+<!-- positions: moved -->
+A field reached through the read is the shared value's own storage too.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	var m = cell.current().inner
+	m.x = 9
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:23:2: cannot write 'x' through 'm', which is immutable
+```
+
+<!-- test: error.a-var-bound-to-a-field-of-a-value-default-read -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	var m = Config.current().inner
+	m.x = 9
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:22:2: cannot write 'x' through 'm', which is immutable
+```
+
+<!-- test: a-var-bound-to-a-clone-of-a-shared-value-read-may-be-written -->
+**THE CONTROL.** A `.clone()` of the read is a value of its own; writing it leaves the published value as it was.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	let w = cell.current().clone()
+	w.inner.x = 9
+	print("copy={w.inner.x} shared={cell.current().inner.x}\n")
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+1
+```
+```stdout
+copy=9 shared=1
+```
+
+<!-- test: a-var-bound-to-a-clone-of-a-value-default-read-may-be-written -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	let w = Config.current().clone()
+	w.inner.x = 9
+	print("copy={w.inner.x} registry={Config.current().inner.x}\n")
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+1
+```
+```stdout
+copy=9 registry=1
+```
+
+<!-- test: error.a-write-through-a-shared-value-read-a-function-returned -->
+<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- positions: moved -->
+The view rides the value through a function that returns it.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+// TODO: return type capability 'immutable' is not supported in minimaxon
+function read(cell ConfigCell) returns immutable Config
+	return cell.current()
+end 'read'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	var w = read(cell)
+	w.inner.x = 9
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:27:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-write-through-a-value-default-read-a-function-returned -->
+<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+// TODO: return type capability 'immutable' is not supported in minimaxon
+function read() returns immutable Config
+	return Config.current()
+end 'read'
+
+function main() returns ExitCode
+	var w = read()
+	w.inner.x = 9
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3197: <fragment>:26:2: cannot write 'x' through 'w.inner', which is immutable
+```
+
+<!-- test: error.a-write-through-a-value-default-read-a-function-passed-on -->
+<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+What the function returned is still the view, and so is anything handed on from it.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+// TODO: return type capability 'immutable' is not supported in minimaxon
+function read() returns immutable Config
+	return Config.current()
+end 'read'
+
+function bump(i Inner)
+	i.x = 9
+end 'bump'
+
+function main() returns ExitCode
+	bump(read().inner)
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3207: <fragment>:29:7: 'bump' writes 'i' (line 25: `i.x = 9`); 'read' is immutable
+```
+
+<!-- test: error.a-shared-value-read-stored-into-a-var-field-is-refused-at-the-store -->
+<!-- positions: moved -->
+A `var` field may be written by any function the record reaches, and the function that writes it cannot
+see where the field's value came from. So storing a record reached through a read into a `var` field is
+refused at the store: `adopt` puts the published `Inner` into `h.inner`, and `poke`, which knows only a
+`Holder`, would write it under every other reader.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+type Holder
+	export var inner as Inner
+
+	static function create() returns Self
+		return Self{inner: Inner.create(0)}
+	end 'create'
+end 'Holder'
+
+function adopt(h Holder, cell ConfigCell)
+	h.inner = cell.current().inner
+end 'adopt'
+
+function poke(h Holder)
+	h.inner.x = 9
+end 'poke'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	var h = Holder.create()
+	adopt(h, cell: cell)
+	poke(h)
+	return cell.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3196: <fragment>:29:12: cannot store an immutable 'Inner' into 'inner', which holds a mutable 'Inner'; declare the field `immutable Inner`
+```
+
+<!-- test: error.a-value-default-read-stored-into-a-var-field-is-refused-at-the-store -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export var inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+type Holder
+	export var inner as Inner
+
+	static function create() returns Self
+		return Self{inner: Inner.create(0)}
+	end 'create'
+end 'Holder'
+
+function adopt(h Holder)
+	h.inner = Config.current().inner
+end 'adopt'
+
+function poke(h Holder)
+	h.inner.x = 9
+end 'poke'
+
+function main() returns ExitCode
+	var h = Holder.create()
+	adopt(h)
+	poke(h)
+	return Config.current().inner.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3196: <fragment>:29:12: cannot store an immutable 'Inner' into 'inner', which holds a mutable 'Inner'; declare the field `immutable Inner`
+```
+
+<!-- test: a-clone-of-a-shared-value-read-stored-into-a-var-field-may-be-written -->
+The same store of a clone: `poke` writes the copy, and the published value keeps its `x`.
+```maxon
+type Inner
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Inner'
+
+type Config
+	export let inner as Inner
+
+	static function create(x Integer) returns Self
+		return Self{inner: Inner.create(x)}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+type Holder
+	export var inner as Inner
+
+	static function create() returns Self
+		return Self{inner: Inner.create(0)}
+	end 'create'
+end 'Holder'
+
+function adopt(h Holder, cell ConfigCell)
+	h.inner = cell.current().inner.clone()
+end 'adopt'
+
+function poke(h Holder)
+	h.inner.x = 9
+end 'poke'
+
+function main() returns ExitCode
+	let cell = ConfigCell.create(Config.create(1))
+	let h = Holder.create()
+	adopt(h, cell: cell)
+	poke(h)
+	print("{cell.current().inner.x} {h.inner.x}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+1 9
+```
+
+<!-- test: error.a-shared-value-holding-an-os-handle-is-refused -->
+An OS handle is closed by its one owner, and a share walk cannot mark it for every thread at once.
+```maxon
+type Config
+	export let client as TcpClient
+
+	static function create(client TcpClient) returns Self
+		return Self{client: client}
+	end 'create'
+end 'Config'
+
+typealias ConfigCell = SharedValue with Config
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:10:24: `Config` cannot be a registry value or a `SharedValue`: it is a `Config` whose graph reaches an OS handle — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.a-value-default-holding-a-promise-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A promise owns a green thread that exactly one owner may reclaim, so it cannot be read by every thread.
+```maxon
+typealias IntPromise = Promise with Integer
+
+function work() returns Integer
+	Scheduler.yield()
+	return 7
+end 'work'
+
+type Config
+	export let pending as IntPromise
+
+	static function create() returns Self
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		return Self{pending: async work()}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create()
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:17:9: `Config` cannot be a registry value or a `SharedValue`: it is a `Config` whose graph reaches a promise, which owns a green thread that exactly one owner may reclaim — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.create-of-an-interface-whose-converted-conformer-holds-an-os-handle -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
+
+The cell is made holding a `Plain`, but `open` converts a `Port` to `Shape`, so a `Config` may reach a listening socket. The alias is accepted: an interface field is judged at the door that shares the value.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Door
+	var seen as Tally
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function look(n Tally)
+		self.seen = self.seen + n
+	end 'look'
+end 'Door'
+
+interface Shape
+	function area() returns Tally
+end 'Shape'
+
+type Plain implements Shape
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function area() returns Tally
+		return 1
+	end 'area'
+end 'Plain'
+
+type Port implements Shape
+	export let listener as TcpListener
+
+	static function create(listener TcpListener) returns Self
+		return Self{listener: listener}
+	end 'create'
+
+	function area() returns Tally
+		return 2
+	end 'area'
+end 'Port'
+
+type Config
+	export let shape as Shape
+
+	static function create(shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+end 'Config'
+
+typealias Cell = SharedValue with Config
+
+function open(listener TcpListener) returns Shape
+	return Port.create(listener)
+end 'open'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let door = spawn Door.create()
+	door.shutdown()
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let cell = Cell.create(Config.create(Plain.create()))
+	print("{cell.current().shape.area()} {open(listener).area()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:60:25: `Config` cannot be published to a `SharedValue`: its `shape` is a `Shape`, and `Port` stands at `Shape` but no share walk can mark it: its `listener` is a `TcpListener`, which holds an OS handle — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:53:9: `Port` is converted to `Shape` here
+```
+
+<!-- test: error.register-of-an-interface-whose-converted-conformer-holds-a-promise -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+wasm32-wasi answers E3104 for the `spawn`, the `async` spawn that makes the promise and `Scheduler.yield` before the registration is judged.
+
+`later` converts a `Pending` to `Shape`, so a registered `Config` may reach a promise. The `default` is a share door too, so it is refused beside the `register`.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+typealias TallyPromise = Promise with Tally
+
+function work() returns Tally
+	Scheduler.yield()
+	return 7
+end 'work'
+
+type Door
+	var seen as Tally
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function look(n Tally)
+		self.seen = self.seen + n
+	end 'look'
+end 'Door'
+
+interface Shape
+	function area() returns Tally
+end 'Shape'
+
+type Plain implements Shape
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function area() returns Tally
+		return 1
+	end 'area'
+end 'Plain'
+
+type Pending implements Shape
+	export let pending as TallyPromise
+
+	static function create(pending TallyPromise) returns Self
+		return Self{pending: pending}
+	end 'create'
+
+	function area() returns Tally
+		return 2
+	end 'area'
+end 'Pending'
+
+type Config
+	export let shape as Shape
+
+	static function create(shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(Plain.create())
+
+function later() returns Shape
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	return Pending.create(async work())
+end 'later'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let door = spawn Door.create()
+	door.shutdown()
+	Config.register(Config.create(Plain.create()))
+	print("{Config.current().shape.area()} {later().area()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:56:9: `Config` cannot be a registry value or a `SharedValue`: its `shape` is a `Shape`, and `Pending` stands at `Shape` but no share walk can mark it: its `pending` is a promise, which owns a green thread that exactly one owner may reclaim — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:59:9: `Pending` is converted to `Shape` here
+error E3171: <fragment>:65:18: `Config` cannot be registered under `Config`: its `shape` is a `Shape`, and `Pending` stands at `Shape` but no share walk can mark it: its `pending` is a promise, which owns a green thread that exactly one owner may reclaim — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Hold that part in a service, or use a separate interface
+note: <fragment>:59:9: `Pending` is converted to `Shape` here
+```
+
+<!-- test: a-registered-immutable-value-that-has-been-viewed-is-shared -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+`Config` has only `let` fields, so nothing can write the record `w` has viewed: publishing `fresh` shares it with every thread, and `w` stays valid.
+```maxon
+type Config
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	var fresh = Config.create(3)
+	fresh = Config.create(4)
+	let w = fresh
+	Config.register(fresh)
+	return (w.n + Config.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+8
+```
+
+<!-- test: error.a-registered-writable-value-that-has-been-viewed -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`Config` has a `var` field, so its record may be written, and `let w = fresh` moves `fresh` into `w`: publishing `fresh` afterwards would hand every thread a record `w` still reaches, so the publish is refused as a use of a moved value.
+```maxon
+type Config
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Config'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default Config = Config.create(1)
+
+function main() returns ExitCode
+	var fresh = Config.create(3)
+	fresh.n = 4
+	let w = fresh
+	Config.register(fresh)
+	return (w.n + Config.current().n) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3102: <fragment>:16:18: use of moved value 'fresh': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: a-shared-value-alias-declared-in-a-generic-type-over-a-concrete-element -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A `SharedValue` alias a generic type's body declares is judged by its own element, here a scalar.
+```maxon
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TallyCell = SharedValue with Tally
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function through(n Tally) returns Tally
+		let cell = TallyCell.create(n)
+		return cell.current()
+	end 'through'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.through(7)}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```exitcode
+0
+```
+```stdout
+7
+```
+
+<!-- test: error.a-shared-value-over-an-unbounded-type-parameter -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A `SharedValue` whose element is a type parameter of the enclosing type is judged against that parameter's
+bound, at the alias: no share walk can be chosen for a `T` nothing bounds.
+```maxon
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-sendable-type-parameter-is-not-built -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
+<!-- positions: moved -->
+With the bound the alias is still refused: a `SharedValue` is built over a concrete type only.
+```maxon
+// TODO: region bound 'sendable' in where clause is not supported in minimaxon
+type Maker uses T where T implements sendable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker`, and a `SharedValue` cannot be built over a type parameter — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Write the alias over a concrete type
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-bounded-isolated -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
+<!-- positions: moved -->
+An `isolated` bound is not the `sendable` one.
+```maxon
+// TODO: region bound 'isolated' in where clause is not supported in minimaxon
+type Maker uses T where T implements isolated
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-method-above-it-builds-one -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The alias is judged where it is declared, whatever the body wrote above it.
+```maxon
+type Maker uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function through() returns T
+		let cell = TCell.create(self.item)
+		return cell.current()
+	end 'through'
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.through()}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:15:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-an-interfaces-type-parameter -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+An interface's type parameter takes no `sendable` bound, so the alias is written over a concrete type.
+```maxon
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Holder uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Cell = SharedValue with Element
+	function only() returns Element
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:3:19: `Element` cannot be a registry value or a `SharedValue`: it is a type parameter of `Holder`, and a `SharedValue` cannot be built over a type parameter — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Write the alias over a concrete type
+```
+
+<!-- test: error.a-shared-value-over-an-interfaces-type-parameter-in-its-extension -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Holder uses Element
+	function only() returns Element
+end 'Holder'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Holder
+	typealias Cell = SharedValue with Element
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:7:19: `Element` cannot be a registry value or a `SharedValue`: it is a type parameter of `Holder`, and a `SharedValue` cannot be built over a type parameter — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Write the alias over a concrete type
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-whose-instantiation-is-unwalkable -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The alias is refused where it is declared, before any instantiation is looked at.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Tally) returns Tally
+
+interface Shape
+	function area() returns Tally
+end 'Shape'
+
+type Stepper implements Shape
+	export let step as Step
+
+	static function create(step Step) returns Self
+		return Self{step: step}
+	end 'create'
+
+	function area() returns Tally
+		return self.step(1)
+	end 'area'
+end 'Stepper'
+
+type Door
+	var seen as Tally
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function look(n Tally)
+		self.seen = self.seen + n
+	end 'look'
+end 'Door'
+
+type Holder
+	export let shape as Shape
+
+	static function create(shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+end 'Holder'
+
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+
+	static function cell(x T) returns Tally
+		let c = TCell.create(x)
+		_ = c
+		return 1
+	end 'cell'
+end 'Maker'
+
+typealias HolderMaker = Maker with Holder
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Door.create()
+	h.shutdown()
+	print("{HolderMaker.cell(Holder.create(Stepper.create(function(n Tally) gives n + 1)))}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:32:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-an-extension-above-it-builds-one -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A use the compiler reads before the declaration builds nothing: the alias's own refusal is the one report.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension Maker
+	function through() returns T
+		let cell = TCell.create(self.item)
+		return cell.current()
+	end 'through'
+end 'Maker'
+
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.through()}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-in-an-extension-of-its-type -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+An extension of a generic type declares the alias over that type's parameter, and the bound is the type's.
+```maxon
+type Bag uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Bag'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Bag
+	typealias TCell = SharedValue with T
+end 'Bag'
+
+typealias TallyBag = Bag with Tally
+
+function main() returns ExitCode
+	let bag = TallyBag.create(1)
+	print("{bag.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Bag` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Bag`
+```
+
+<!-- test: error.a-shared-value-over-a-container-instance -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Cells = SharedValue with Array with Integer
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:3:19: `Array with int` cannot be a registry value or a `SharedValue`: it is neither a record, a `String`, a handle nor a scalar — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.a-shared-value-over-a-container-instance-declared-in-a-generic-type -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The same element is judged the same way where a generic type's body declares the alias.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Cells = SharedValue with Array with Integer
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias IntegerMaker = Maker with Integer
+
+function main() returns ExitCode
+	let maker = IntegerMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:5:20: `Array with int` cannot be a registry value or a `SharedValue`: it is neither a record, a `String`, a handle nor a scalar — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-published-to -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A value typed by the alias builds nothing either, whichever member is asked of it.
+```maxon
+type Maker uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function put(c TCell)
+		c.publish(self.item)
+	end 'put'
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-read -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+type Maker uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function take(c TCell) returns T
+		return c.current()
+	end 'take'
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-nested-in-another-alias -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The element is judged wherever an alias writes the `SharedValue`, here as another alias's argument.
+```maxon
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Cells = Array with SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+
+typealias Tally = int(0 to u64.max)
+```
+```maxoncstderr
+error E3171: <fragment>:3:31: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```
+
+<!-- test: a-shared-value-alias-in-an-interface-extension-over-another-alias-of-it -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+An interface extension's `SharedValue` alias over a concrete element, named through a sibling alias, is
+built on each conformer.
+```maxon
+typealias Count = int(0 to u64.max)
+
+interface Tagged
+	function tag() returns Count
+end 'Tagged'
+
+// TODO: extension blocks are not supported in minimaxon
+export extension Tagged
+	typealias Small = int(0 to 9)
+	typealias SmallCell = SharedValue with Small
+	function cellTag() returns Small
+		let c = SmallCell.create(3 as Small)
+		return c.current()
+	end 'cellTag'
+end 'Tagged'
+
+type Box implements Tagged
+	export var v as Count
+
+	static function create() returns Self
+		return Self{v: 2}
+	end 'create'
+
+	function tag() returns Count
+		return self.v
+	end 'tag'
+end 'Box'
+
+function main() returns ExitCode
+	let b = Box.create()
+	print("{b.cellTag()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-another-file-uses-its-values -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+Another file's use of the alias waits on the declaring file's refusal and reports nothing of its own.
+```maxon
+// --- file: maker.maxon
+type Maker uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TCell = SharedValue with T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Maker'
+
+typealias TallyMaker = Maker with Tally
+
+typealias Tally = int(0 to u64.max)
+
+// --- file: main.maxon
+// TODO: extension blocks are not supported in minimaxon
+extension Maker
+	function put(c TCell)
+		c.publish(self.item)
+	end 'put'
+	function take(c TCell) returns T
+		return c.current()
+	end 'take'
+end 'Maker'
+
+function main() returns ExitCode
+	let maker = TallyMaker.create(1)
+	print("{maker.item}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3171: <fragment>:4:20: `T` cannot be a registry value or a `SharedValue`: it is a type parameter of `Maker` that is not bounded `sendable` — a shared value is read by every thread at once, so a share walk must be able to mark everything it reaches. Declare `where T is sendable` on `Maker`
+```

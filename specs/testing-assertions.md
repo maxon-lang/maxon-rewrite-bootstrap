@@ -1,0 +1,585 @@
+---
+feature: testing-assertions
+status: experimental
+keywords: [Expect, assert, assertion, matcher, testing, TestFailure, equal, close, fail]
+category: infrastructure
+---
+
+# Assertions
+
+## Documentation
+
+`Expect` (`stdlib/Testing.maxon`) is the assertion library a `test` body calls. Every matcher is
+a `static` function that **throws `TestFailure.assertion`** when it does not hold, so a test stops
+at its first bad assertion and the runner sees a thrown error rather than a tally it has to be
+told about.
+
+```text
+test 'adds two numbers'
+	Expect.equal(add(2, 2), expected: 4)
+end 'adds two numbers'
+```
+
+A matcher throws, and a `test` body needs no `try` on it: the body's implied handler propagates the
+`TestFailure` (`specs/test-uncaught-throw.md`). Anywhere else — a helper function a test calls — a
+matcher without `try` is E3057 at compile time, naming it by its source name
+(`'stdlib.Expect.equal'`), so an assertion whose failure nothing observes cannot be written.
+
+### The message is printed, not carried
+
+The error a matcher throws is `TestFailure.assertion` and nothing more. The human-readable report
+is printed to **stderr at the assertion site**, before the throw.
+
+That split is forced by the language and is the right split anyway. A caught error in Maxon is an
+enum you `match`; there is no `e.message()` and no way to attach a payload rendering two values of
+some arbitrary type. At the assertion site both values are still in hand and still fully typed, so
+that is the one place `expected: 4` / `received: 5` can be produced at all.
+
+A failure prints as:
+
+```text
+FAIL main.maxon:12: Expect.equal
+  expected: 4
+  received: 5
+```
+
+The file and line are the **caller's**, supplied by the `__file__` / `__line__` parameter defaults
+(see `source-location-defaults`), so the report names the test author's line and never a line
+inside `Testing.maxon`.
+
+Every matcher also takes an optional `message`, appended as a third line:
+
+```text
+FAIL main.maxon:12: Expect.equal
+  expected: 4
+  received: 5
+  message: two plus two
+```
+
+### Each matcher is one generic function
+
+`equal` and `notEqual` are one generic function each over any `Equatable` type, and `greaterThan`,
+`lessThan`, `atLeast` and `atMost` one each over any `Comparable` type (`specs/generic-functions.md`).
+The type is inferred from the two arguments, so `Expect.equal(parts.count(), expected: 3)` compares
+two `ElementIndex` values and an author's own alias needs no cast.
+
+`String` values are rendered **quoted**, so a trailing space or an empty string is visible in the
+report; every other value is rendered as its interpolation prints it.
+
+### Floats compare with `close`
+
+Two floats that should agree are compared with an explicit tolerance:
+
+```text
+Expect.close(measured, expected: 1.5, within: 0.01)
+```
+
+`close` takes `AssertedReal` values, so a non-float argument is refused at the call.
+
+### The roster
+
+| Matcher | Holds when |
+|---|---|
+| `equal(actual, expected:)` | `actual == expected` — any `Equatable` type |
+| `notEqual(actual, expected:)` | `actual != expected` — any `Equatable` type |
+| `greaterThan(actual, than:)` | `actual > than` — any `Comparable` type |
+| `lessThan(actual, than:)` | `actual < than` — any `Comparable` type |
+| `atLeast(actual, than:)` | `actual >= than` — any `Comparable` type |
+| `atMost(actual, than:)` | `actual <= than` — any `Comparable` type |
+| `close(actual, expected:, within:)` | `abs(actual - expected) <= within` — float |
+| `isTrue(actual)` / `isFalse(actual)` | the `bool` is `true` / `false` |
+| `contains(haystack, needle:)` | `haystack` contains `needle` |
+| `startsWith(haystack, needle:)` / `endsWith(haystack, needle:)` | prefix / suffix |
+| `isEmpty(haystack)` | the `String` has no characters |
+| `fail(message)` | never — the escape hatch |
+
+**NaN fails every ordering matcher and `close`.** NaN satisfies no comparison, so each is written
+as "fail unless the assertion HOLDS" — the negated form would report a NaN as green. A test whose
+subject produced NaN did not meet its bound, and says so.
+
+`fail` is what an unreachable branch calls. It has no pair of values to compare, so its report
+carries only the message.
+
+### Anything else is `isTrue`
+
+`isTrue` takes a `bool`, so any predicate a program can express is assertable, and `message` is
+where the values go:
+
+```text
+Expect.isTrue(a == b, message: "expected {b}, got {a}")
+```
+
+That works for any type that is `Equatable` (for `==`) and `Stringable` (for the interpolation).
+
+## Tests
+
+<!-- test: every-matcher-passes -->
+<!-- skip: float literals are not supported in minimaxon -->
+Every matcher on its holding path: nothing is printed and nothing is thrown.
+```maxon
+// --- file: main.maxon
+function main() returns ExitCode
+	try Expect.equal(5, expected: 5) otherwise ignore
+	try Expect.equal("same", expected: "same") otherwise ignore
+	try Expect.equal(true, expected: true) otherwise ignore
+	try Expect.notEqual(5, expected: 4) otherwise ignore
+	try Expect.notEqual("a", expected: "b") otherwise ignore
+	try Expect.notEqual(true, expected: false) otherwise ignore
+	try Expect.greaterThan(10, than: 3) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.greaterThan(10.5, than: 3.5) otherwise ignore
+	try Expect.lessThan(3, than: 10) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.lessThan(3.5, than: 10.5) otherwise ignore
+	try Expect.atLeast(10, than: 10) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.atLeast(10.5, than: 10.5) otherwise ignore
+	try Expect.atMost(3, than: 3) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.atMost(3.5, than: 3.5) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.close(1.0, expected: 1.25, within: 0.5) otherwise ignore
+	try Expect.isTrue(true) otherwise ignore
+	try Expect.isFalse(false) otherwise ignore
+	try Expect.contains("hello", needle: "ell") otherwise ignore
+	try Expect.startsWith("hello", needle: "he") otherwise ignore
+	try Expect.endsWith("hello", needle: "lo") otherwise ignore
+	try Expect.isEmpty("") otherwise ignore
+	print("all held\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+all held
+```
+
+<!-- test: every-matcher-reports-its-failure -->
+<!-- skip: float literals are not supported in minimaxon -->
+Every matcher on its failing path, in roster order. Its `stderr` block pins the format.
+```maxon
+// --- file: main.maxon
+function main() returns ExitCode
+	try Expect.equal(5, expected: 4) otherwise ignore
+	try Expect.equal("got", expected: "want") otherwise ignore
+	try Expect.equal(true, expected: false) otherwise ignore
+	try Expect.notEqual(7, expected: 7) otherwise ignore
+	try Expect.notEqual("same", expected: "same") otherwise ignore
+	try Expect.notEqual(false, expected: false) otherwise ignore
+	try Expect.greaterThan(3, than: 10) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.greaterThan(3.5, than: 10.5) otherwise ignore
+	try Expect.lessThan(10, than: 3) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.lessThan(10.5, than: 3.5) otherwise ignore
+	try Expect.atLeast(3, than: 10) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.atLeast(3.5, than: 10.5) otherwise ignore
+	try Expect.atMost(10, than: 3) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.atMost(10.5, than: 3.5) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.close(1.0, expected: 5.0, within: 0.5) otherwise ignore
+	try Expect.isTrue(false) otherwise ignore
+	try Expect.isFalse(true) otherwise ignore
+	try Expect.contains("hello", needle: "xyz") otherwise ignore
+	try Expect.startsWith("hello", needle: "xyz") otherwise ignore
+	try Expect.endsWith("hello", needle: "xyz") otherwise ignore
+	try Expect.isEmpty("hello") otherwise ignore
+	try Expect.fail("explicit failure") otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stderr
+FAIL main.maxon:2: Expect.equal
+  expected: 4
+  received: 5
+FAIL main.maxon:3: Expect.equal
+  expected: "want"
+  received: "got"
+FAIL main.maxon:4: Expect.equal
+  expected: false
+  received: true
+FAIL main.maxon:5: Expect.notEqual
+  expected: not 7
+  received: 7
+FAIL main.maxon:6: Expect.notEqual
+  expected: not "same"
+  received: "same"
+FAIL main.maxon:7: Expect.notEqual
+  expected: not false
+  received: false
+FAIL main.maxon:8: Expect.greaterThan
+  expected: > 10
+  received: 3
+FAIL main.maxon:9: Expect.greaterThan
+  expected: > 10.5
+  received: 3.5
+FAIL main.maxon:10: Expect.lessThan
+  expected: < 3
+  received: 10
+FAIL main.maxon:11: Expect.lessThan
+  expected: < 3.5
+  received: 10.5
+FAIL main.maxon:12: Expect.atLeast
+  expected: >= 10
+  received: 3
+FAIL main.maxon:13: Expect.atLeast
+  expected: >= 10.5
+  received: 3.5
+FAIL main.maxon:14: Expect.atMost
+  expected: <= 3
+  received: 10
+FAIL main.maxon:15: Expect.atMost
+  expected: <= 3.5
+  received: 10.5
+FAIL main.maxon:16: Expect.close
+  expected: 5.0 (within 0.5)
+  received: 1.0
+FAIL main.maxon:17: Expect.isTrue
+  expected: true
+  received: false
+FAIL main.maxon:18: Expect.isFalse
+  expected: false
+  received: true
+FAIL main.maxon:19: Expect.contains
+  expected: contains "xyz"
+  received: "hello"
+FAIL main.maxon:20: Expect.startsWith
+  expected: starts with "xyz"
+  received: "hello"
+FAIL main.maxon:21: Expect.endsWith
+  expected: ends with "xyz"
+  received: "hello"
+FAIL main.maxon:22: Expect.isEmpty
+  expected: ""
+  received: "hello"
+FAIL main.maxon:23: Expect.fail
+  message: explicit failure
+```
+
+<!-- test: caller-line-is-the-call-site -->
+The reported location is the **caller's**, never a line inside `stdlib/Testing.maxon`. Two calls
+on adjacent lines report different lines, and a call from another file reports that file.
+```maxon
+// --- file: helper.maxon
+function assertFromHelper() throws TestFailure
+	try Expect.equal(1, expected: 2)
+end 'assertFromHelper'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	try Expect.equal(10, expected: 20) otherwise ignore
+	try Expect.equal(30, expected: 40) otherwise ignore
+	try assertFromHelper() otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stderr
+FAIL main.maxon:2: Expect.equal
+  expected: 20
+  received: 10
+FAIL main.maxon:3: Expect.equal
+  expected: 40
+  received: 30
+FAIL helper.maxon:2: Expect.equal
+  expected: 2
+  received: 1
+```
+
+<!-- test: equal-accepts-each-argument-type -->
+One name, accepting each argument type — including from a method call, which is the shape
+that makes `equalInt`/`equalText` unnecessary. The rendering proves which type was compared: integers
+and bools are bare, `String`s are quoted.
+```maxon
+// --- file: main.maxon
+function main() returns ExitCode
+	let parts = "a,b,c".split(",")
+	let word = try parts.get(1) otherwise ""
+	try Expect.equal(parts.count(), expected: 3) otherwise ignore
+	try Expect.equal(word, expected: "b") otherwise ignore
+	try Expect.equal(parts.count() == 3, expected: true) otherwise ignore
+	try Expect.equal(parts.count(), expected: 99) otherwise ignore
+	try Expect.equal(word, expected: "zzz") otherwise ignore
+	try Expect.equal(parts.count() == 3, expected: false) otherwise ignore
+	print("done\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+done
+```
+```stderr
+FAIL main.maxon:9: Expect.equal
+  expected: 99
+  received: 3
+FAIL main.maxon:10: Expect.equal
+  expected: "zzz"
+  received: "b"
+FAIL main.maxon:11: Expect.equal
+  expected: false
+  received: true
+```
+
+<!-- test: message-is-appended -->
+`message` is optional on every matcher and appends one line; omitting it omits the line.
+```maxon
+// --- file: main.maxon
+function main() returns ExitCode
+	try Expect.equal(5, expected: 4, message: "two plus two") otherwise ignore
+	try Expect.equal(5, expected: 4) otherwise ignore
+	try Expect.isTrue(false, message: "the gate should have opened") otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stderr
+FAIL main.maxon:2: Expect.equal
+  expected: 4
+  received: 5
+  message: two plus two
+FAIL main.maxon:3: Expect.equal
+  expected: 4
+  received: 5
+FAIL main.maxon:4: Expect.isTrue
+  expected: true
+  received: false
+  message: the gate should have opened
+```
+
+<!-- test: the-thrown-error-is-testfailure-assertion -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+The thrown value is `TestFailure.assertion` — the error is an enum to `match`, which is why the
+report is printed rather than carried on it.
+```maxon
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try Expect.equal(1, expected: 2) otherwise (e) 'caught'
+		match e 'kind'
+			assertion then print("caught assertion\n")
+		end 'kind'
+		print("rendered as {e}\n")
+	end 'caught'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught assertion
+rendered as assertion
+```
+```stderr
+FAIL main.maxon:2: Expect.equal
+  expected: 2
+  received: 1
+```
+
+<!-- test: first-failure-stops-the-body -->
+A matcher throws, so statements after a failed assertion do not run. This is what makes a test
+report its first real problem instead of a cascade of consequences.
+```maxon
+// --- file: main.maxon
+function runChecks() throws TestFailure
+	print("before\n")
+	try Expect.equal(1, expected: 2)
+	print("after\n")
+end 'runChecks'
+
+function main() returns ExitCode
+	try runChecks() otherwise ignore
+	print("resumed\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+before
+resumed
+```
+```stderr
+FAIL main.maxon:3: Expect.equal
+  expected: 2
+  received: 1
+```
+
+<!-- test: isTrue-carries-any-equatable-stringable -->
+The escape hatch for a type the roster does not name: `==` supplies the predicate and
+interpolation supplies the rendering, so one line reports both values.
+```maxon
+// --- file: main.maxon
+type Money implements Equatable, Stringable
+	let cents as MoneyAmount
+
+	static function create(cents MoneyAmount) returns Self
+		return Self{cents: cents}
+	end 'create'
+
+	function equals(other Self) returns bool
+		return self.cents == other.cents
+	end 'equals'
+
+	function toString() returns String
+		return "{self.cents}c"
+	end 'toString'
+end 'Money'
+
+typealias MoneyAmount = int(0 to i64.max)
+
+function main() returns ExitCode
+	let a = Money.create(150)
+	let b = Money.create(99)
+	try Expect.isTrue(a == b, message: "expected {b}, got {a}") otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stderr
+FAIL main.maxon:23: Expect.isTrue
+  expected: true
+  received: false
+  message: expected 99c, got 150c
+```
+
+<!-- test: fail-is-the-escape-hatch -->
+`fail` has no pair of values, so its report is the message alone. A void helper is the shape that
+keeps it honest: a `fail` placed after an exhaustive `match` is unreachable code (E3071), and one
+placed before a `return` needs a sentinel value nobody will read.
+```maxon
+// --- file: main.maxon
+typealias Reading = int(i64.min to i64.max)
+
+function requireNonNegative(value Reading) throws TestFailure
+	if value < 0 'negative'
+		try Expect.fail("a negative reading should be impossible: {value}")
+	end 'negative'
+end 'requireNonNegative'
+
+function main() returns ExitCode
+	try requireNonNegative(5) otherwise ignore
+	print("5 accepted\n")
+	try requireNonNegative(-3) otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5 accepted
+```
+```stderr
+FAIL main.maxon:5: Expect.fail
+  message: a negative reading should be impossible: -3
+```
+
+<!-- test: equal-infers-its-type-with-no-cast -->
+<!-- skip: float literals are not supported in minimaxon -->
+`equal` is one generic matcher over any `Equatable` type, so an `ElementIndex`, a plain integer
+expression and an author's own alias all reach it without a cast.
+```maxon
+// --- file: main.maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Word = Array with Integer
+
+function main() returns ExitCode
+	let xs = Word.create(0)
+	xs.push(1)
+	xs.push(2)
+	xs.push(3)
+	let i = 5 as Integer
+	try Expect.equal(xs.count(), expected: 3) otherwise ignore
+	try Expect.equal(2 + 2, expected: 4) otherwise ignore
+	try Expect.equal(i, expected: 5) otherwise ignore
+	// TODO: float literals are not supported in minimaxon
+	try Expect.equal(1.5, expected: 1.5) otherwise ignore
+	print("all held\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+all held
+```
+
+<!-- test: a-failing-equal-on-an-alias-prints-both-values -->
+```maxon
+// --- file: main.maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let i = 5 as Integer
+	try Expect.equal(i, expected: 6) otherwise ignore
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stderr
+FAIL main.maxon:5: Expect.equal
+  expected: 6
+  received: 5
+```
+
+<!-- test: error.forgotten-try -->
+<!-- positions: moved -->
+A matcher is a throwing call, so omitting `try` is a compile error — the property that makes an
+assertion whose failure nothing observes unwritable.
+```maxon
+// --- file: main.maxon
+function check() throws TestFailure
+	Expect.equal(1, expected: 2)
+	try Expect.equal(2, expected: 2)
+end 'check'
+
+function main() returns ExitCode
+	try check() otherwise ignore
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3057: specs/testing-assertions/error.forgotten-try.maxon:4:9: throwing function requires try: 'stdlib.Expect.equal'
+```
+
+<!-- test: error.forgotten-try-names-the-callee-by-its-source-name -->
+<!-- positions: moved -->
+The same refusal on a `String` argument of `Expect.equal` names the callee exactly as an `int`
+argument does. A callee's internal signature key is not something the author wrote.
+```maxon
+// --- file: main.maxon
+function check() throws TestFailure
+	Expect.equal("a", expected: "b")
+	try Expect.equal("b", expected: "b")
+end 'check'
+
+function main() returns ExitCode
+	try check() otherwise ignore
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3057: specs/testing-assertions/error.forgotten-try-names-the-callee-by-its-source-name.maxon:4:9: throwing function requires try: 'stdlib.Expect.equal'
+```

@@ -1,0 +1,843 @@
+---
+feature: lexer-parser-robustness
+status: stable
+keywords: [lexer, parser, robustness, fuzz, truncation]
+category: diagnostics
+---
+
+# Lexer / Parser Robustness
+
+## Documentation
+
+Adversarial-input tests that prove the lexer and parser do not hang, crash, or silently accept malformed input. Each test asserts that the compiler terminates with a captured diagnostic. A regression that turns any of these into a hang, crash, or accidental success will fail the corresponding test.
+
+These tests are not about diagnostic-message quality — they exist purely to detect lex/parse robustness regressions. The expected stderr text is captured verbatim from the live compiler; if the compiler is changed to emit a different (still-correct) diagnostic, the captured text will need to be regenerated.
+
+## Tests
+
+### Truncations: source ends mid-grammar (file-level)
+
+<!-- test: truncated-empty-file -->
+```maxon
+
+```
+```maxoncstderr
+error E3001: No 'main' function found
+```
+
+<!-- test: truncated-after-function-keyword -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+function
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-function-keyword.maxon:6:10: Expected identifier but got 'newline'
+```
+
+<!-- test: truncated-after-function-name -->
+```maxon
+function main
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-function-name.maxon:2:14: Expected '(' but got 'newline'
+```
+
+<!-- test: truncated-mid-param-list -->
+```maxon
+function main(
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-mid-param-list.maxon:3:1: Expected identifier but got 'end of file'
+```
+
+<!-- test: truncated-after-param-name -->
+```maxon
+function main(x
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-param-name.maxon:3:1: Expected 'a type' but got 'end of file'
+```
+
+<!-- test: truncated-after-param-colon -->
+```maxon
+function main(x:
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-param-colon.maxon:2:16: Expected 'a type' but got ':'
+```
+
+<!-- test: truncated-after-close-paren -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+function f()
+```
+```maxoncstderr
+error E2007: specs/lexer-parser-robustness/truncated-after-close-paren.maxon:7:1: Unexpected end of input
+```
+
+<!-- test: truncated-after-returns -->
+```maxon
+function main() returns
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-returns.maxon:2:24: Expected 'a type' but got 'newline'
+```
+
+<!-- test: truncated-after-return-type -->
+```maxon
+function main() returns ExitCode
+```
+```maxoncstderr
+error E2007: specs/lexer-parser-robustness/truncated-after-return-type.maxon:3:1: Unexpected end of input
+```
+
+### Truncations: source ends mid-statement (body-level)
+
+<!-- test: truncated-after-let -->
+```maxon
+function main() returns ExitCode
+	let
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-let.maxon:3:5: Expected identifier but got 'newline'
+```
+
+<!-- test: truncated-after-let-name -->
+```maxon
+function main() returns ExitCode
+	let x
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-let-name.maxon:3:7: Expected '=' but got 'newline'
+```
+
+<!-- test: truncated-after-let-eq -->
+```maxon
+function main() returns ExitCode
+	let x =
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-let-eq.maxon:3:9: Expected expression but got '(empty)'
+```
+
+<!-- test: truncated-after-binary-op -->
+```maxon
+function main() returns ExitCode
+	let x = 1 +
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-binary-op.maxon:3:13: Expected expression but got '(empty)'
+```
+
+<!-- test: truncated-after-dot -->
+```maxon
+function main() returns ExitCode
+	let x = (5).
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-dot.maxon:3:14: Expected identifier but got 'newline'
+```
+
+<!-- test: truncated-after-open-paren -->
+```maxon
+function main() returns ExitCode
+	let x = (
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-open-paren.maxon:4:1: Expected expression but got 'end of file'
+```
+
+<!-- test: truncated-after-arg-comma -->
+```maxon
+function main() returns ExitCode
+	let x = f(1,
+```
+```maxoncstderr
+error E2053: specs/lexer-parser-robustness/truncated-after-arg-comma.maxon:4:1: the second and later arguments must be named ('name: value')
+```
+
+<!-- test: truncated-after-open-bracket -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let x = [
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-open-bracket.maxon:4:1: Expected expression but got 'end of file'
+```
+
+<!-- test: truncated-after-if-keyword -->
+```maxon
+function main() returns ExitCode
+	if
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-if-keyword.maxon:3:4: Expected expression but got '(empty)'
+```
+
+<!-- test: truncated-after-if-cond -->
+```maxon
+function main() returns ExitCode
+	if true
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-if-cond.maxon:3:9: Expected 'character literal' but got 'newline'
+```
+
+<!-- test: truncated-after-if-label -->
+```maxon
+function main() returns ExitCode
+	if true 'p'
+```
+```maxoncstderr
+error E2007: specs/lexer-parser-robustness/truncated-after-if-label.maxon:4:1: Unexpected end of input
+```
+
+<!-- test: truncated-after-while -->
+```maxon
+function main() returns ExitCode
+	while true
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/truncated-after-while.maxon:3:12: Expected 'character literal' but got 'newline'
+```
+
+<!-- test: truncated-after-match -->
+```maxon
+function main() returns ExitCode
+	match 1
+```
+```maxoncstderr
+error E2042: specs/lexer-parser-robustness/truncated-after-match.maxon:3:9: missing block identifier
+```
+
+<!-- test: truncated-after-match-label -->
+```maxon
+function main() returns ExitCode
+	match 1 'm'
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/truncated-after-match-label.maxon:4:1: Expected expression but got 'end of file'
+```
+
+<!-- test: truncated-after-return-keyword -->
+<!-- skip: minimaxon does not parse the converted source: Unexpected end of input -->
+```maxon
+function main() returns ExitCode
+	return
+```
+```maxoncstderr
+error E3013: specs/lexer-parser-robustness/truncated-after-return-keyword.maxon:3:2: missing return value: 'main' declares a return type, so every 'return' must carry a value
+```
+
+### Mid-keyword: keyword classifier corners
+
+<!-- test: mid-keyword-functio -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+functio
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-functio.maxon:6:1: Expected function declaration, got 'functio'
+```
+
+<!-- test: mid-keyword-retur -->
+```maxon
+function main() returns ExitCode
+	retur 0
+end 'main'
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-retur.maxon:3:2: unexpected token: 'retur'
+```
+
+<!-- test: mid-keyword-els -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	var x = 0 as ExitCode
+	if true 'p'
+		x = 1
+	// TODO: character literals are not supported in minimaxon
+	els 'p'
+		x = 2
+	end 'p'
+	return x
+end 'main'
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-els.maxon:6:2: unexpected token: 'els'
+```
+
+<!-- test: mid-keyword-whil -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	whil true 'l'
+		break 'l'
+	end 'l'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-whil.maxon:3:2: unexpected token: 'whil'
+```
+
+<!-- test: mid-keyword-matc -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	matc 1 'm'
+	default gives 0
+	end 'm'
+end 'main'
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-matc.maxon:3:2: unexpected token: 'matc'
+```
+
+<!-- test: mid-keyword-functin-typo -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+functin main()
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/mid-keyword-functin-typo.maxon:6:1: Expected function declaration, got 'functin'
+```
+
+<!-- test: keyword-prefix-ident -->
+```maxon
+function main() returns ExitCode
+	let function2 = 5
+	return function2 - 5
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: keyword-prefix-ident-returns -->
+```maxon
+function main() returns ExitCode
+	let returnsX = 7
+	return returnsX - 7
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: keyword-suffix-ident -->
+```maxon
+function main() returns ExitCode
+	let xreturn = 3
+	return xreturn - 3
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: near-keyword-uppercase -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+Function main()
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/near-keyword-uppercase.maxon:6:1: Expected function declaration, got 'Function'
+```
+
+### Random bytes: small fixed pseudo-random byte blobs
+
+<!-- test: random-printable-garbage-1 -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+// TODO: tuple values and types are not supported in minimaxon
+q1} ; + (= * foo,) bar
+```
+```maxoncstderr
+error E1010: specs/lexer-parser-robustness/random-printable-garbage-1.maxon:2:4: Unexpected character ';'
+```
+
+<!-- test: random-printable-garbage-2 -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '!' -->
+<!-- positions: moved -->
+```maxon
+abc 123 def ! ? xyz
+```
+```maxoncstderr
+error E1010: specs/lexer-parser-robustness/random-printable-garbage-2.maxon:2:13: Unexpected character '?'
+```
+
+<!-- test: random-printable-garbage-3 -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- positions: moved -->
+```maxon
+foo: bar baz ; qux | zap
+```
+```maxoncstderr
+error E1010: specs/lexer-parser-robustness/random-printable-garbage-3.maxon:2:13: Unexpected character ';'
+```
+
+<!-- test: random-operator-soup-1 -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
++ -* / = < > (){} []
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-operator-soup-1.maxon:6:1: Expected function declaration, got '+'
+```
+
+<!-- test: random-operator-soup-2 -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '&' -->
+<!-- positions: moved -->
+```maxon
+== != <= >= & & | | < < > >
+```
+```maxoncstderr
+error E1010: specs/lexer-parser-robustness/random-operator-soup-2.maxon:2:13: Unexpected character '&'
+```
+
+<!-- test: random-operator-soup-3 -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- positions: moved -->
+```maxon
+.....,,,, ; ; ; ;
+```
+```maxoncstderr
+error E1010: specs/lexer-parser-robustness/random-operator-soup-3.maxon:2:10: Unexpected character ';'
+```
+
+<!-- test: random-mixed-delim-1 -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+({[)}](})[){[(])}
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-mixed-delim-1.maxon:6:1: Expected function declaration, got '('
+```
+
+<!-- test: random-mixed-delim-2 -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+(((]]]{{{)))
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-mixed-delim-2.maxon:6:1: Expected function declaration, got '('
+```
+
+<!-- test: random-mixed-delim-3 -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+[} ({)]}{[(
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-mixed-delim-3.maxon:6:1: Expected function declaration, got '['
+```
+
+<!-- test: random-backslash-in-source-1 -->
+<!-- positions: moved -->
+The literal chars `\x80\xFF\xC2` (not actual bytes) interleaved with text. Tests that
+the lexer's identifier scanner stops at the backslash without crashing.
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+foo \ x80 \ xFF \ xC2bar
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-1.maxon:6:1: Expected function declaration, got 'foo'
+```
+
+<!-- test: random-backslash-in-source-2 -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+\ xE9 \ xCA \ xFE \ xBA \ xBE
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-2.maxon:6:1: Expected function declaration, got '\'
+```
+
+<!-- test: random-backslash-in-source-bell -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+foo \ x07bar
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-bell.maxon:6:1: Expected function declaration, got 'foo'
+```
+
+<!-- test: random-backslash-in-source-vtab -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+foo \ x0Bbaz
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-vtab.maxon:6:1: Expected function declaration, got 'foo'
+```
+
+<!-- test: random-backslash-in-source-formfeed -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+foo \ x0Cqux
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-formfeed.maxon:6:1: Expected function declaration, got 'foo'
+```
+
+<!-- test: random-backslash-in-source-null -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+foo \ x00bar
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/random-backslash-in-source-null.maxon:6:1: Expected function declaration, got 'foo'
+```
+
+### Pathological structure: deep / repeated input
+
+<!-- test: deep-parens-open-only -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/deep-parens-open-only.maxon:6:1: Expected function declaration, got '('
+```
+
+<!-- test: deep-parens-balanced-empty -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/deep-parens-balanced-empty.maxon:6:1: Expected function declaration, got '('
+```
+
+<!-- test: deep-braces-open-only -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/deep-braces-open-only.maxon:6:1: Expected function declaration, got '{'
+```
+
+<!-- test: deep-brackets-open-only -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/deep-brackets-open-only.maxon:6:1: Expected function declaration, got '['
+```
+
+<!-- test: deep-mixed-delimiters -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/deep-mixed-delimiters.maxon:6:1: Expected function declaration, got '('
+```
+
+<!-- test: long-binop-chain -->
+```maxon
+function main() returns ExitCode
+	let x = 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0
+	return x
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: long-call-chain -->
+```maxon
+typealias Small = int(0 to 100)
+
+function id(x Small) returns Small
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let x = id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(0))))))))))))))))))))))))))))))))
+	return x
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: long-method-chain-truncated -->
+```maxon
+function main() returns ExitCode
+	let x = (5).a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.q.r.s.t.u.v.w.x.y.z.
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/lexer-parser-robustness/long-method-chain-truncated.maxon:3:14: Unsupported: 'int' has no method named 'a' — a builtin-typed receiver supplies `hash`, `equals`, `compare`, `toString`, `clone`
+```
+
+<!-- test: interpolation-nesting-deep -->
+Deeply nested string-with-interpolation literals — the point is that the
+lexer terminates without hanging or crashing on this depth. Interpolation
+goes directly inside print() so the test isn't sensitive to whether the
+parser allows interpolation outside print().
+```maxon
+function main() returns ExitCode
+	print("{"{"{"{"inner"}"}"}"}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+inner
+```
+
+<!-- test: unmatched-close-paren-many -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/unmatched-close-paren-many.maxon:6:1: Expected function declaration, got ')'
+```
+
+<!-- test: unmatched-close-brace-many -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+```
+```maxoncstderr
+error E2001: specs/lexer-parser-robustness/unmatched-close-brace-many.maxon:6:1: Expected function declaration, got '}'
+```
+
+<!-- test: comment-with-many-asterisks -->
+```maxon
+// ***********************************************************
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: repeated-keyword -->
+<!-- skip: 'function' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// TODO: 'function' is a keyword in minimaxon and cannot be used as a name; rename it
+function function function function
+```
+```maxoncstderr
+error E2010: specs/lexer-parser-robustness/repeated-keyword.maxon:6:19: Expected '(' but got 'function'
+```
+
+### Truncated literals: partial tokens at unusual boundaries
+
+<!-- test: unterminated-string-followed-by-code -->
+<!-- skip: minimaxon does not parse the converted source: unterminated string literal -->
+Unterminated double-quoted string at end of line — lexer rejects with an
+unterminated-string diagnostic.
+```maxon
+function main() returns ExitCode
+	let s = "hello
+	print(s)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1002: specs/lexer-parser-robustness/unterminated-string-followed-by-code.maxon:3:10: Unterminated string literal
+```
+
+<!-- test: unterminated-interp -->
+<!-- skip: minimaxon does not parse the converted source: unterminated interpolation in string literal -->
+Unterminated interpolation — the inner expression's `}` is missing before the
+outer string's closing `"`. Lexer rejects with an unterminated-string
+diagnostic.
+```maxon
+function main() returns ExitCode
+	let s = "{1+2
+	print(s)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1002: specs/lexer-parser-robustness/unterminated-interp.maxon:3:11: Unterminated string literal
+```
+
+<!-- test: unterminated-interp-mid-expr -->
+```maxon
+function main() returns ExitCode
+	print("{1+}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2004: specs/lexer-parser-robustness/unterminated-interp-mid-expr.maxon:3:12: Expected expression but got 'interpolation end'
+```
+
+<!-- test: unterminated-block-comment-with-newlines -->
+<!-- positions: moved -->
+```maxon
+// line1
+// line2
+// line3
+// function main() returns ExitCode
+// return 0
+// end 'main'
+//
+```
+```maxoncstderr
+error E1007: specs/lexer-parser-robustness/unterminated-block-comment-with-newlines.maxon:2:1: Unterminated block comment
+```
+
+<!-- test: bad-hex-escape-string -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
+```maxon
+function main() returns ExitCode
+	let x = "\xZZ"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: specs/lexer-parser-robustness/bad-hex-escape-string.maxon:3:10: Invalid hex escape '\xZZ': expected 2 hex digits in string interpolation
+```
+
+<!-- test: bad-hex-escape-char -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	let x = '\xZZ'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: specs/lexer-parser-robustness/bad-hex-escape-char.maxon:3:10: Invalid hex escape '\xZZ': expected 2 hex digits in character literal
+```
+
+<!-- test: short-unicode-escape -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
+```maxon
+function main() returns ExitCode
+	let x = "\u12"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: specs/lexer-parser-robustness/short-unicode-escape.maxon:3:10: Invalid unicode escape '\u12': expected 4 hex digits in string interpolation
+```
+
+<!-- test: non-hex-unicode-escape -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
+```maxon
+function main() returns ExitCode
+	let x = "\uZZZZ"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: specs/lexer-parser-robustness/non-hex-unicode-escape.maxon:3:10: Invalid unicode escape '\uZZZZ': expected 4 hex digits in string interpolation
+```

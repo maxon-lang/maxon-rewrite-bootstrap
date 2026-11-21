@@ -1,0 +1,2889 @@
+---
+feature: http-server
+status: experimental
+keywords: [http, server, listener, request, response, network]
+category: network
+---
+
+# HttpServer
+
+## Documentation
+
+HTTP/1.1 server for answering requests over TCP connections, on the same green-thread scheduler
+`TcpListener` and `HttpClient` run on.
+
+**Types:**
+- `HttpServer` — a bound listener that hands out one parsed request at a time; `bindTls` serves HTTPS (`specs/http-tls.md`)
+- `HttpExchange` — one accepted connection: the request that arrived and the response owed for it
+- `HttpHandler` — the interface `serve` calls for each exchange
+- `HttpServerLimits` — the caps a server parses under
+- `HttpServerError` — error union for server operations; `tlsFailed(error TlsError)` carries the error of a TLS connection that failed
+- `HttpConnectionSecurity` — what `HttpExchange.security()` reports: `plaintext`, or `tls` with the protocol, cipher suite, ALPN protocol and the client's chain
+
+**Quick usage:**
+
+```text
+type HelloHandler implements HttpHandler
+	let greeting as String
+
+	static function create(greeting String) returns HelloHandler
+		return HelloHandler{greeting: greeting}
+	end 'create'
+
+	function handle(exchange mutable HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: greeting, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		printError("{fault.describe()}\n")
+	end 'faulted'
+end 'HelloHandler'
+
+function main() returns ExitCode
+	var server = try HttpServer.bind("127.0.0.1", port: 8080) otherwise return 1
+	_ = server.serve(HelloHandler.create("hello\n"))
+
+	return 0
+end 'main'
+```
+
+**Answering one request at a time:**
+
+```text
+function serveOne(server HttpServer) returns ExitCode throws HttpServerError
+	var exchange = try server.accept()
+	let request = exchange.request()
+	try exchange.respondWith(StatusCode.ok, body: request.url().path, contentType: "text/plain")
+
+	return 0
+end 'serveOne'
+```
+
+**The HTTP/1.1 subset this server implements:**
+- `Content-Length` bodies only. A request carrying `Transfer-Encoding` is answered `501`
+- Every response carries `Connection: close`, and the connection is closed after it. There is no
+  keep-alive, so one connection is one request
+- No `Expect: 100-continue`. TLS is `HttpServer.bindTls`, which runs each connection's handshake before its request is read
+- The request `url()` is built as `http://<Host><target>` (`https://` on a TLS server), so `path()` and `query()` read the target
+
+**Limits, and the status each one answers with.** `HttpServerLimits.create()` is `maxHeaderBytes`
+16384, `maxBodyBytes` 1048576, `readDeadlineMs` 10000. A protocol error is ANSWERED on the connection
+and then THROWN from `accept()`:
+
+| condition | status | `HttpServerError` |
+|---|---|---|
+| no request line, a header line with no `:`, no `Host`, a target that does not begin with `/`, or a `Host` or `Content-Length` repeated with a different value | 400 | `malformedRequest` |
+| a header block longer than `maxHeaderBytes` | 431 | `headersTooLarge` |
+| `Content-Length` above `maxBodyBytes` | 413 | `bodyTooLarge` |
+| `Transfer-Encoding` present | 501 | `unsupportedTransferEncoding` |
+| nothing readable within `readDeadlineMs` | 408 | `readTimedOut` |
+
+`serve` catches all five, answers them the same way, and goes on accepting. A handler that THROWS
+answers `500` and the loop continues. `close()` makes a later `accept()` throw `listenerClosed`, and `serve` on a
+closed server returns `closed` at once. A server lent to the coroutine that serves is stopped by cancelling that
+coroutine's promise, which wakes a parked `serve` or `accept`; closing it first is a use of a lent value.
+
+**A header line without a colon is malformed on BOTH sides.** The client shares this server's header
+parsing, so `HttpClient` reading a response that carries such a line throws `HttpError.invalidResponse`
+rather than dropping the line.
+
+## Tests
+
+### A GET round trip
+
+The floor every other case stands on: a server green thread bound on a kernel-chosen loopback port, the
+real `HttpClient` as the peer, and the method, path and query the handler read reported back through the
+body.
+
+<!-- test: http-server.get-round-trip -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	let request = exchange.request()
+	let query = try request.url().query() otherwise "none"
+	let described = "{request.method().name} {request.url().path} {query}"
+	try exchange.respondWith(StatusCode.ok, body: described, contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/hello?q=1") otherwise 'cancelled16'
+		peer.cancel()
+		return 2
+	end 'cancelled16'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	let connection = try response.header("connection") otherwise "absent"
+	print("served={served} status={response.statusCode().number()} body={response.body()} connection={connection}\n")
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+served=3 status=200 body=get /hello q=1 connection=close
+```
+```exitcode
+0
+```
+
+### A server on the IPv6 loopback
+
+`HttpServer.bind("::1", port:)` listens on the IPv6 loopback and the real `HttpClient` reaches it by the bracketed
+URL. The `Host` header arrives bracketed, so the handler's `request.url()` carries the bracketed authority:
+`host()` is the bare address and `authorityHost()` keeps the brackets.
+
+<!-- test: http-server.an-ipv6-loopback-server-answers-a-bracketed-url -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	let url = exchange.request().url()
+	let host = try url.host() otherwise "no-host"
+	let authorityHost = try url.authorityHost() otherwise "no-host"
+	let described = "host={host} authorityHost={authorityHost} path={url.path}"
+	try exchange.respondWith(StatusCode.ok, body: described, contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://[::1]:{boundPort}/hello") otherwise (e) 'failed'
+		print("failed {e.name}\n")
+		peer.cancel()
+		return 2
+	end 'failed'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("served={served} status={response.statusCode().number()} body={response.body()}\n")
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("::1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+served=3 status=200 body=host=::1 authorityHost=[::1] path=/hello
+```
+```exitcode
+0
+```
+
+### A POST body arrives whole
+
+⚠ **A BODY LARGER THAN ONE READ IS THE POINT.** A server that answered after its first read would be
+right about every short body and wrong about every real one, so the handler answers the byte COUNT it
+received and the case pins it against the count the client sent.
+
+<!-- test: http-server.post-body-arrives-whole -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+typealias BodyBytes = int(0 to 1000000)
+
+let ChunkText = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123"
+
+let ChunkCount = 320
+
+function bigBody() returns String
+	var body = ""
+	var written = 0 as Count
+	while written < ChunkCount 'fill'
+		body.append(ChunkText)
+		written = written + 1
+	end 'fill'
+	return body
+end 'bigBody'
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	let received = exchange.request().body().byteLength() as BodyBytes
+	try exchange.respondWith(StatusCode.ok, body: "{received}", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let sent = bigBody()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.post("http://127.0.0.1:{boundPort}/upload", body: sent) otherwise 'cancelled31'
+		peer.cancel()
+		return 2
+	end 'cancelled31'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	let agreed = response.body() == "{sent.byteLength()}"
+	print("served={served} status={response.statusCode().number()} agreed={agreed} sent={sent.byteLength()}\n")
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+served=3 status=200 agreed=true sent=21120
+```
+```exitcode
+0
+```
+
+### Request headers are case-insensitive
+
+<!-- test: http-server.request-headers-are-case-insensitive -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	let headers = exchange.request().headers()
+	let lower = try headers.get("x-maxon-tag") otherwise "absent"
+	let upper = try headers.get("X-MAXON-TAG") otherwise "absent"
+	try exchange.respondWith(StatusCode.ok, body: "{lower}/{upper}", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/tagged") otherwise 'cancelled16'
+		peer.cancel()
+		return 2
+	end 'cancelled16'
+	request.setHeader("X-Maxon-Tag", value: "mixed")
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.send(request) otherwise 'cancelled19'
+		peer.cancel()
+		return 3
+	end 'cancelled19'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("served={served} body={response.body()}\n")
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+served=3 body=mixed/mixed
+```
+```exitcode
+0
+```
+
+### A throwing handler answers 500 and the server serves on
+
+⛔ **A SERVER THAT DIED ON A HANDLER'S ERROR WOULD PASS A ONE-REQUEST CASE.** The second request is the
+assertion: the first handler throws, and only a loop that survived it can answer the second.
+
+<!-- test: http-server.a-throwing-handler-answers-500-and-serves-on -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let BoomPath = "/boom"
+
+type PickyHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns PickyHandler
+		return PickyHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		if exchange.request().url().path == BoomPath 'refuses'
+			throw HttpServerError.sendFailed
+		end 'refuses'
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'PickyHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable PickyHandler) returns Served
+	_ = server.serve(handler)
+	return 3
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let handler = PickyHandler.create("second")
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let first = try HttpClient.get("http://127.0.0.1:{port}{BoomPath}") otherwise 'cancelled35'
+		peer.cancel()
+		return 2
+	end 'cancelled35'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let second = try HttpClient.get("http://127.0.0.1:{port}/fine") otherwise 'cancelled36'
+		peer.cancel()
+		return 3
+	end 'cancelled36'
+	peer.cancel()
+	server.close()
+	print("first={first.statusCode().number()} second={second.statusCode().number()} body={second.body()}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+faulted GET /boom failed with sendFailed and was answered 500
+first=500 second=200 body=second
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.a-handler-that-throws-after-responding-is-reported-and-not-answered-twice -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+let LatePath = "/late"
+
+type LateThrowingHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns LateThrowingHandler
+		return LateThrowingHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+		if exchange.request().url().path == LatePath 'thenFails'
+			throw HttpServerError.sendFailed
+		end 'thenFails'
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'LateThrowingHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable LateThrowingHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let handler = LateThrowingHandler.create("answered")
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let first = try HttpClient.get("http://127.0.0.1:{port}{LatePath}") otherwise 'cancelled31'
+		peer.cancel()
+		return 2
+	end 'cancelled31'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let second = try HttpClient.get("http://127.0.0.1:{port}/fine") otherwise 'cancelled32'
+		peer.cancel()
+		return 3
+	end 'cancelled32'
+	peer.cancel()
+	server.close()
+	print("first={first.statusCode().number()} body={first.body()} second={second.statusCode().number()}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+faulted GET /late failed with sendFailed after its answer was sent
+first=200 body=answered second=200
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.a-second-response-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+function answerTwice(server HttpServer) returns String
+	let exchange = try server.accept() otherwise return "accept-failed"
+	try exchange.respondWith(StatusCode.ok, body: "first", contentType: "text/plain") otherwise return "first-failed"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try exchange.respondWith(StatusCode.ok, body: "second", contentType: "text/plain") otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	return "answered-twice"
+end 'answerTwice'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async answerTwice(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise 'cancelled14'
+		peer.cancel()
+		return 2
+	end 'cancelled14'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let second = await peer
+	server.close()
+	print("status={response.statusCode().number()} body={response.body()} second={second}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 body=first second=alreadyResponded
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.an-accept-deadline-ends-serve -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+type EchoPathHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns EchoPathHandler
+		return EchoPathHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: "{label}{exchange.request().url().path}", contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'EchoPathHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable EchoPathHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let handler = EchoPathHandler.create("echo")
+	try server.setAcceptDeadline(300) otherwise return 2
+	let idle = server.serve(handler)
+	try server.setAcceptDeadline(0) otherwise return 3
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/again") otherwise 'cancelled28'
+		peer.cancel()
+		return 4
+	end 'cancelled28'
+	peer.cancel()
+	server.close()
+	print("idle={idle.name} body={response.body()}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+idle=acceptDeadlinePassed body=echo/again
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.repeated-request-headers-are-combined-in-order -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function acceptedHeader(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let accepted = try exchange.request().headers().get("accept") otherwise "absent"
+	try exchange.respondWith(StatusCode.ok, body: accepted, contentType: "text/plain") otherwise return "respond-failed"
+	return accepted
+end 'acceptedHeader'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async acceptedHeader(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled16'
+		peer.cancel()
+		return 2
+	end 'cancelled16'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/html\r\nX-Other: 1\r\nACCEPT: text/plain\r\n\r\n") otherwise 'cancelled17'
+		peer.cancel()
+		return 3
+	end 'cancelled17'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.readSome(ReadBufferBytes) otherwise 'cancelled18'
+		peer.cancel()
+		return 4
+	end 'cancelled18'
+	client.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = await peer
+	server.close()
+	print("accept={seen}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+accept=text/html, text/plain
+```
+```exitcode
+0
+```
+
+### A header block past the cap answers 431
+
+⚠ **THE CLIENT HERE IS A RAW SOCKET, BECAUSE `HttpClient` CANNOT PRODUCE THIS INPUT.** The malformed
+and oversize requests below are all ones a conforming client will not send, so the peer writes the
+bytes itself and reads the status code back out of the status line as text. The status code is the only
+thing pinned; the reason phrase is not, because a phrase is prose and a code is the protocol.
+
+<!-- test: http-server.oversize-headers-answer-431 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+typealias PadCount = int(0 to 1000)
+
+let HeaderCap = 4096
+
+let PadLines = 400
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function oversizeHeaderBlock() returns String
+	var block = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+	var written = 0 as PadCount
+	while written < PadLines 'pad'
+		block.append("X-Pad-{written}: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n")
+		written = written + 1
+	end 'pad'
+	block.append("\r\n")
+	return block
+end 'oversizeHeaderBlock'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.maxHeaderBytes = HeaderCap
+	server.setLimits(limits)
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let status = shout(port, block: oversizeHeaderBlock())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("status={status} served={served}\n")
+	return 0
+end 'main'
+```
+```stdout
+accept threw headersTooLarge
+status=431 served=1
+```
+```exitcode
+0
+```
+
+### A Content-Length past the cap answers 413
+
+The cap is checked against the DECLARED length, before the body is read, so a client that announced two
+megabytes and sent four bytes is still refused.
+
+<!-- test: http-server.oversize-body-answers-413 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let DeclaredBodyBytes = 2000000
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let status = shout(port, block: "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {DeclaredBodyBytes}\r\n\r\nabcd")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("status={status} served={served}\n")
+	return 0
+end 'main'
+```
+```stdout
+accept threw bodyTooLarge
+status=413 served=1
+```
+```exitcode
+0
+```
+
+### A chunked request answers 501
+
+<!-- test: http-server.chunked-answers-501 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let status = shout(port, block: "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("status={status} served={served}\n")
+	return 0
+end 'main'
+```
+```stdout
+accept threw unsupportedTransferEncoding
+status=501 served=1
+```
+```exitcode
+0
+```
+
+### A silent client answers 408 and the server serves on
+
+⛔ **THE SECOND ACCEPT IS THE ASSERTION.** A read deadline that took the LISTENER down with the silent
+connection would answer 408 exactly as this does and serve nobody afterwards, so the case opens a second
+connection and requires a real answer on it. The deadline belongs to the silent connection alone: the server
+lifts it before the second accept, so the second request is not racing a clock of its own.
+
+<!-- test: http-server.a-silent-client-answers-408-and-serves-on -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let SilentReadDeadlineMs = 300
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function saySilence(port NetworkPort) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'saySilence'
+
+function serveTwo(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let refused = try server.accept() otherwise (e) 'timedOut'
+		print("accept threw {e.name}\n")
+		let patient = HttpServerLimits.create()
+		patient.readDeadlineMs = 0
+		server.setLimits(patient)
+		let exchange = try server.accept() otherwise return 1
+		try exchange.respondWith(StatusCode.ok, body: "second", contentType: "text/plain") otherwise return 2
+		return 3
+	end 'timedOut'
+	try refused.respondWith(StatusCode.ok, body: "unexpected", contentType: "text/plain") otherwise return 4
+	return 5
+end 'serveTwo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.readDeadlineMs = SilentReadDeadlineMs
+	server.setLimits(limits)
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveTwo(server)
+	let silent = saySilence(port)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{port}/after") otherwise 'cancelled48'
+		peer.cancel()
+		return 2
+	end 'cancelled48'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("silent={silent} second={response.statusCode().number()} body={response.body()} served={served}\n")
+	return 0
+end 'main'
+```
+```stdout
+accept threw readTimedOut
+silent=408 second=200 body=second served=3
+```
+```exitcode
+0
+```
+
+### A malformed request line answers 400
+
+<!-- test: http-server.a-malformed-request-line-answers-400 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let status = shout(port, block: "GARBAGE\r\n\r\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("status={status} served={served}\n")
+	return 0
+end 'main'
+```
+```stdout
+accept threw malformedRequest
+status=400 served=1
+```
+```exitcode
+0
+```
+
+### A header line without a colon is malformed, on both sides
+
+⭐ **ONE PROGRAM, TWO DIRECTIONS.** The shared header parser is what makes this one change: a request
+carrying such a line is `malformedRequest` and a RESPONSE carrying one is `HttpError.invalidResponse`.
+A case that only asserted the server half would leave the client free to go on dropping the line.
+
+<!-- test: http-server.a-header-line-without-a-colon-is-malformed -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function answerWithABadHeaderLine(listener TcpListener) returns Served
+	let connection = try listener.accept() otherwise return 1
+	_ = try connection.readSome(ReadBufferBytes) otherwise return 2
+	_ = try connection.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nBadHeaderLine\r\n\r\nhi") otherwise return 3
+	connection.close()
+	return 3
+end 'answerWithABadHeaderLine'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let serverPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let serverPeer = async serveOne(server)
+	let status = shout(serverPort, block: "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nBadHeaderLine\r\n\r\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await serverPeer
+	server.close()
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 2
+	let listenerPort = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let clientPeer = async answerWithABadHeaderLine(listener)
+	var clientSaw = "accepted-a-bad-header-line"
+	// TODO: if try is not supported in minimaxon
+	if let response = try HttpClient.get("http://127.0.0.1:{listenerPort}/") 'answered'
+		clientSaw = "status {response.statusCode().number()}"
+	end 'answered' else (e) 'refused'
+		clientSaw = e.name
+	end 'refused'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answered = await clientPeer
+	print("status={status} served={served} clientSaw={clientSaw} answered={answered}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+accept threw malformedRequest
+status=400 served=1 clientSaw=invalidResponse answered=3
+```
+```exitcode
+0
+```
+
+### A head block sent one byte at a time is parsed
+
+The terminator is searched for only in what arrived since the last read, plus the three bytes before it,
+so a `\r\n\r\n` split across reads must still be found. The client sends every character of the head as
+its own `send` (a `\r\n` is one character, so the terminator arrives as two), and yields between them so
+the server's reads come in pieces.
+
+<!-- test: http-server.a-head-block-sent-one-byte-at-a-time-is-parsed -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let ReadBufferBytes = 4096
+
+let TrickledHead = "GET /trickled HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Note: split\r\n\r\n"
+
+function trickle(port NetworkPort) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for b in TrickledHead.toByteArray() 'eachByte'
+		let one = ByteArray.create(0)
+		one.push(b)
+		_ = try client.send(String.from(one)) otherwise return "send-failed"
+		Scheduler.yield()
+	end 'eachByte'
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'trickle'
+
+function serveOne(server HttpServer) returns Served
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		print("accept threw {e.name}\n")
+		return 1
+	end 'refused'
+	let request = exchange.request()
+	let note = try request.headers().get("x-note") otherwise "absent"
+	print("path={request.url().path} note={note}\n")
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	let status = trickle(boundPort)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	server.close()
+	print("status={status} served={served}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+path=/trickled note=split
+status=200 served=3
+```
+```exitcode
+0
+```
+
+### A request the server cannot read one way answers 400, and a head past the cap answers 431
+
+A request with no `Host`, a target that is not a path, and a `Content-Length` spelled twice with two
+values each leave the server no single reading of the request, so each is refused. A `Host` repeated
+with the SAME value has one reading and is served. A head block whose terminator arrives in the same read
+that crosses the cap is still over the cap.
+
+<!-- test: http-server.an-ambiguous-request-answers-400 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let HeadCap = 160
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return "respond-failed"
+	return "served"
+end 'acceptedAs'
+
+function paddedHead() returns String
+	var head = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Pad: "
+	while head.byteLength() <= HeadCap 'pad'
+		head.append("aaaaaaaaaa")
+	end 'pad'
+	head.append("\r\n\r\n")
+	return head
+end 'paddedHead'
+
+function exchangeOver(listening HttpServer) returns ExitCode
+	let port = listening.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = ["GET / HTTP/1.1\r\n\r\n", "GET @127.0.0.1/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\nhi", "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nHost: 127.0.0.1\r\n\r\n", paddedHead()]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(listening)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.maxHeaderBytes = HeadCap
+	server.setLimits(limits)
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=431 accept=headersTooLarge
+```
+```exitcode
+0
+```
+
+### Cancelling the serving promise ends serve
+
+<!-- test: http-server.cancel-ends-serve-and-close-releases-the-port -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+`serve` is ended by cancelling the promise that serves, and `close()` then releases the port: the first request is answered,
+and a request made after the cancel and the close finds nothing listening.
+
+```maxon
+typealias Served = int(0 to 9)
+
+type PlainHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns PlainHandler
+		return PlainHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'PlainHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable PlainHandler) returns Served
+	_ = server.serve(handler)
+	return 3
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let handler = PlainHandler.create("serving")
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/first") otherwise 'cancelled28'
+		peer.cancel()
+		return 2
+	end 'cancelled28'
+	peer.cancel()
+	server.close()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let later = try HttpClient.get("http://127.0.0.1:{boundPort}/second") otherwise (e) 'refused'
+		print("status={response.statusCode().number()} body={response.body()} later={e.name}\n")
+		return 0
+	end 'refused'
+	print("later answered {later.statusCode().number()}\n")
+	return 3
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 body=serving later=connectFailed
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.serve-on-a-closed-server-ends-closed-at-once -->
+<!-- procs: 1 -->
+`close()` before `serve` leaves nothing to accept on, so `serve` returns `closed` without answering anything.
+
+```maxon
+type PlainHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns PlainHandler
+		return PlainHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'PlainHandler'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	server.close()
+	let ended = server.serve(PlainHandler.create("unused"))
+	print("ended={ended.name}\n")
+	return 0
+end 'main'
+```
+```stdout
+ended=closed
+```
+```exitcode
+0
+```
+
+### accept() after close() throws listenerClosed
+
+⛔ **THE ROUND TRIP FIRST IS THE CONTROL.** An `accept` equally happy to refuse a live listener would
+pass the second half of this case and say nothing about `close()`.
+
+<!-- test: http-server.accept-after-close-throws-listener-closed -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	try exchange.respondWith(StatusCode.ok, body: "live", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function acceptAfterClose(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "unexpected", contentType: "text/plain") otherwise return "answered-after-close"
+	return "accepted-after-close"
+end 'acceptAfterClose'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/live") otherwise 'cancelled22'
+		peer.cancel()
+		return 2
+	end 'cancelled22'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	server.close()
+	let refusal = acceptAfterClose(server)
+	print("status={response.statusCode().number()} served={served} refusal={refusal}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 served=3 refusal=listenerClosed
+```
+```exitcode
+0
+```
+
+### A `Host` that is not an authority answers 400
+
+<!-- test: http-server.a-host-that-is-not-an-authority-answers-400 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let url = exchange.request().url()
+	let host = try url.host() otherwise "no-host"
+	let query = try url.query() otherwise "no-query"
+	let seen = "{host} {url.path} {query}"
+	try exchange.respondWith(StatusCode.ok, body: seen, contentType: "text/plain") otherwise return "respond-failed"
+	return "served {seen}"
+end 'acceptedAs'
+
+function requestFor(host String, target String) returns String
+	return "GET {target} HTTP/1.1\r\nHost: {host}\r\n\r\n"
+end 'requestFor'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = [requestFor("x/admin?", target: "/public"), requestFor("x#frag", target: "/public"), requestFor("user@x", target: "/public"), requestFor("a b", target: "/public"), requestFor("", target: "/public"), requestFor("127.0.0.1:99999", target: "/public"), requestFor("127.0.0.1:8x", target: "/public"), requestFor("[::1", target: "/public"), requestFor("[1:2:3:4:5:6:7:8:9]", target: "/public"), requestFor("[1::2::3]", target: "/public"), requestFor("[::1]x", target: "/public"), requestFor("x", target: "/a%2"), requestFor("x", target: "/a#b"), requestFor("x", target: "/a b"), requestFor("x", target: "*"), requestFor("[::1]:8080", target: "/public"), requestFor("[::ffff:127.0.0.1]", target: "/public"), requestFor("[v1.fe80::a+en1]", target: "/public"), requestFor("exa%41mple.com", target: "/public"), requestFor("x:", target: "/p?q=/x?y")]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(server)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=200 accept=served ::1 /public no-query
+status=200 accept=served ::ffff:127.0.0.1 /public no-query
+status=200 accept=served v1.fe80::a+en1 /public no-query
+status=200 accept=served exa%41mple.com /public no-query
+status=200 accept=served x /p q=/x?y
+```
+```exitcode
+0
+```
+
+### A header name is a token, and a folded line is refused
+
+<!-- test: http-server.a-header-name-is-a-token-and-a-folded-line-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let tight = try exchange.request().headers().get("x-tight") otherwise "absent"
+	try exchange.respondWith(StatusCode.ok, body: tight, contentType: "text/plain") otherwise return "respond-failed"
+	return "served x-tight={tight}"
+end 'acceptedAs'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = ["POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding : chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length : 5\r\n\r\nhello", "GET / HTTP/1.1\r\nHost : a\r\nHost: b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Folded: a\r\n b\r\n\r\n", "GET / HTTP/1.1\r\n Host: x\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-B@d: 1\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Nul: a\x00b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Tight:packed\t \r\n\r\n"]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(server)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=200 accept=served x-tight=packed
+```
+```exitcode
+0
+```
+
+### The request line is read to its grammar
+
+<!-- test: http-server.the-request-line-is-read-to-its-grammar -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let request = exchange.request()
+	let seen = "{request.method().name} {request.url().path} [{request.body()}]"
+	try exchange.respondWith(StatusCode.ok, body: seen, contentType: "text/plain") otherwise return "respond-failed"
+	return "served {seen}"
+end 'acceptedAs'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = ["GET /a b HTTP/1.1\r\nHost: x\r\n\r\n", "GET  / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.1 \r\nHost: x\r\n\r\n", "GET / FTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.10\r\nHost: x\r\n\r\n", "G(T / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/2.0\r\nHost: x\r\n\r\n", "get / HTTP/1.1\r\nHost: x\r\n\r\n", "BREW / HTTP/1.1\r\nHost: x\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: -0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: +2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 2 2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999999999999999\r\n\r\nhi", "GET /old HTTP/1.0\r\nHost: x\r\n\r\n", "POST /form HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\nhi"]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(server)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=505 accept=unsupportedVersion
+status=501 accept=unsupportedMethod
+status=501 accept=unsupportedMethod
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=400 accept=malformedRequest
+status=413 accept=bodyTooLarge
+status=200 accept=served get /old []
+status=200 accept=served post /form [hi]
+```
+```exitcode
+0
+```
+
+### A HEAD response carries no body
+
+<!-- test: http-server.a-head-response-carries-no-body -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+typealias Served = int(0 to 9)
+
+let ReadBufferBytes = 4096
+
+function serveOne(server HttpServer) returns Served
+	let exchange = try server.accept() otherwise return 1
+	try exchange.respondWith(StatusCode.ok, body: "hello", contentType: "text/plain") otherwise return 2
+	return 3
+end 'serveOne'
+
+function everythingFrom(client TcpClient) returns String
+	var answer = ""
+	var open = true
+	while open 'untilClosed'
+		// TODO: if try is not supported in minimaxon
+		if let chunk = try client.readSome(ReadBufferBytes) 'more'
+			answer.append(String.from(chunk))
+			open = not chunk.isEmpty()
+		end 'more' else 'closed'
+			open = false
+		end 'closed'
+	end 'untilClosed'
+	return answer
+end 'everythingFrom'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled29'
+		peer.cancel()
+		return 2
+	end 'cancelled29'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("HEAD /h HTTP/1.1\r\nHost: x\r\n\r\n") otherwise 'cancelled30'
+		peer.cancel()
+		return 3
+	end 'cancelled30'
+	let answer = everythingFrom(client)
+	client.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	server.close()
+	let parts = answer.split("\r\n\r\n")
+	let head = try parts.get(0) otherwise "no-head"
+	let body = try parts.get(1) otherwise "no-body"
+	var length = "absent"
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for line in head.split("\r\n") 'eachLine'
+		if line.toLower().startsWith("content-length:") 'theLength'
+			length = line
+		end 'theLength'
+	end 'eachLine'
+	print("served={served} {length} body=[{body}]\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+served=3 Content-Length: 5 body=[]
+```
+```exitcode
+0
+```
+
+### A handler that returns without responding answers 500 and is reported
+
+<!-- test: http-server.a-handler-that-returns-without-responding-answers-500 -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+let SilentPath = "/silent"
+
+type ForgetfulHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns ForgetfulHandler
+		return ForgetfulHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		if exchange.request().url().path == SilentPath 'forgets'
+			return
+		end 'forgets'
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'ForgetfulHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable ForgetfulHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let handler = ForgetfulHandler.create("remembered")
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let first = try HttpClient.get("http://127.0.0.1:{port}{SilentPath}") otherwise 'cancelled31'
+		peer.cancel()
+		return 2
+	end 'cancelled31'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let second = try HttpClient.get("http://127.0.0.1:{port}/fine") otherwise 'cancelled32'
+		peer.cancel()
+		return 3
+	end 'cancelled32'
+	peer.cancel()
+	server.close()
+	print("first={first.statusCode().number()} second={second.statusCode().number()} body={second.body()}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+faulted GET /silent ended without an answer and was answered 500
+first=500 second=200 body=remembered
+```
+```exitcode
+0
+```
+
+### A throw whose 500 cannot be sent is reported as unanswered
+
+<!-- test: http-server.a-throw-whose-500-cannot-be-sent-is-reported-as-unanswered -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: wasm32-wasi -->
+```maxon
+let ResetPath = "/reset"
+
+let RequestReadFlag = "http-throw-after-reset.read"
+
+let PeerResetFlag = "http-throw-after-reset.reset"
+
+let FaultReportedFlag = "http-throw-after-reset.faulted"
+
+let PollIntervalMs = 20
+
+type ResetHandler implements HttpHandler
+	static function create() returns ResetHandler
+		return ResetHandler{}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		raiseFlag(RequestReadFlag)
+		awaitFlag(PeerResetFlag)
+		throw HttpServerError.malformedRequest
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+		raiseFlag(FaultReportedFlag)
+	end 'faulted'
+end 'ResetHandler'
+
+function flagPath(name String) returns FilePath
+	return try FilePath.from(name) otherwise panic("'{name}' is a plain file name")
+end 'flagPath'
+
+function raiseFlag(name String)
+	try File.writeText(flagPath(name), content: name) otherwise panic("could not write the flag '{name}'")
+end 'raiseFlag'
+
+function lowerFlag(name String)
+	if File.exists(flagPath(name)) 'raised'
+		try File.delete(flagPath(name)) otherwise panic("could not delete the flag '{name}'")
+	end 'raised'
+end 'lowerFlag'
+
+function awaitFlag(name String)
+	while not File.exists(flagPath(name)) 'poll'
+		sleep(PollIntervalMs)
+	end 'poll'
+end 'awaitFlag'
+
+function sendThenReset(port NetworkPort) returns bool
+	let argv = StringArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		argv.push("-NoProfile")
+		argv.push("-Command")
+		argv.push("$s = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp); $s.LingerState = New-Object System.Net.Sockets.LingerOption($true, 0); $s.Connect('127.0.0.1', {port}); $null = $s.Send([System.Text.Encoding]::ASCII.GetBytes(\"GET {ResetPath} HTTP/1.1`r`nHost: x`r`n`r`n\")); while (-not (Test-Path '{RequestReadFlag}')) \{ Start-Sleep -Milliseconds {PollIntervalMs} \}; $s.Close()")
+		let helper = Executable.name("powershell")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		argv.push("-MSocket")
+		argv.push("-e")
+		argv.push("socket(my $s, PF_INET, SOCK_STREAM, 0) or die; setsockopt($s, SOL_SOCKET, SO_LINGER, pack(\"ii\", 1, 0)) or die; connect($s, pack_sockaddr_in({port}, inet_aton(\"127.0.0.1\"))) or die; syswrite($s, \"GET {ResetPath} HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n\") or die; select(undef, undef, undef, 0.02) until -e \"{RequestReadFlag}\"; close($s)")
+		let helper = Executable.name("perl")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	let res = try Subprocess.run(helper, arguments: argv) otherwise return false
+	return res.succeeded()
+end 'sendThenReset'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable ResetHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveUntilClosed'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: ResetHandler.create())
+	let reset = sendThenReset(boundPort)
+	raiseFlag(PeerResetFlag)
+	awaitFlag(FaultReportedFlag)
+	peer.cancel()
+	server.close()
+	lowerFlag(RequestReadFlag)
+	lowerFlag(PeerResetFlag)
+	lowerFlag(FaultReportedFlag)
+	print("reset={reset}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	lowerFlag(RequestReadFlag)
+	lowerFlag(PeerResetFlag)
+	lowerFlag(FaultReportedFlag)
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+faulted GET /reset failed with malformedRequest, and the 500 sent in its place could not be sent
+reset=true
+```
+```exitcode
+0
+```
+
+### `serve` answers a protocol fault and serves on
+
+<!-- test: http-server.serve-answers-a-protocol-fault-and-serves-on -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+type PlainHandler implements HttpHandler
+	let label as String
+
+	static function create(label String) returns PlainHandler
+		return PlainHandler{label: label}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: label, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'PlainHandler'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveUntilClosed(server HttpServer, handler immutable PlainHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveUntilClosed'
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveUntilClosed(server, handler: PlainHandler.create("after"))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled31'
+		peer.cancel()
+		return 2
+	end 'cancelled31'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("GARBAGE\r\n\r\n") otherwise 'cancelled32'
+		peer.cancel()
+		return 3
+	end 'cancelled32'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let refusal = try client.readSome(ReadBufferBytes) otherwise 'cancelled33'
+		peer.cancel()
+		return 5
+	end 'cancelled33'
+	let refused = statusCodeOf(String.from(refusal))
+	client.close()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/next") otherwise 'cancelled36'
+		peer.cancel()
+		return 4
+	end 'cancelled36'
+	peer.cancel()
+	server.close()
+	print("refused={refused} next={response.statusCode().number()} body={response.body()}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+refused=400 next=200 body=after
+```
+```exitcode
+0
+```
+
+### A 408 reaches a peer that is still sending
+
+<!-- test: http-server.a-408-reaches-a-peer-that-is-still-sending -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+The peer sends the start of a request and then one byte of an endless header at a time, looking for an answer after
+each, so the head is never completed and the peer's loop ends only on an answer: a 408 it reads is one that reached a
+peer still sending. The connection is open before the server accepts it, so the read deadline counts from a
+connection that is ready to send, not from a dial.
+```maxon
+let ReadDeadlineMs = 500
+
+let TrickleIntervalMs = 100
+
+let ReadBufferBytes = 4096
+
+let HeadStart = "GET /slow HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Pad: "
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return "respond-failed"
+	return "served"
+end 'acceptedAs'
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function trickle(client TcpClient) returns String
+	_ = try client.send(HeadStart) otherwise return "send-failed"
+	while true 'trickling'
+		sleep(TrickleIntervalMs)
+		_ = try client.send("a") otherwise return "send-failed"
+		try client.setReadDeadline(1) otherwise return "deadline-failed"
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let answer = try client.readSome(ReadBufferBytes) otherwise (e) 'notYet'
+			match e 'cause'
+				timedOut then continue
+				failed or
+				closed or
+				secure then return e.name
+			end 'cause'
+		end 'notYet'
+		client.close()
+		return statusCodeOf(String.from(answer))
+	end 'trickling'
+end 'trickle'
+
+function exchangeOver(listening HttpServer) returns ExitCode
+	let client = try TcpClient.connect("127.0.0.1", port: listening.port()) otherwise return 2
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async acceptedAs(listening)
+	let status = trickle(client)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let accepted = await peer
+	listening.close()
+	print("status={status} accept={accepted}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.readDeadlineMs = ReadDeadlineMs
+	server.setLimits(limits)
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=408 accept=readTimedOut
+```
+```exitcode
+0
+```
+
+### A 413 reaches a peer that is still sending its body
+
+<!-- test: http-server.a-413-reaches-a-peer-that-is-still-sending-its-body -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+let DeclaredBodyBytes = 2000000
+
+let SentBodyChunks = 3200
+
+let BodyChunk = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123"
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "served", contentType: "text/plain") otherwise return "respond-failed"
+	return "served"
+end 'acceptedAs'
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function oversizeRequest() returns String
+	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {DeclaredBodyBytes}\r\n\r\n"
+	var written = 0 as Count
+	while written < SentBodyChunks 'fill'
+		block.append(BodyChunk)
+		written = written + 1
+	end 'fill'
+	return block
+end 'oversizeRequest'
+
+function upload(port NetworkPort) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send(oversizeRequest()) otherwise (e) 'sendFailed'
+		return "send {e.name}"
+	end 'sendFailed'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let answer = try client.readSome(ReadBufferBytes) otherwise (e) 'recvFailed'
+		return "recv {e.name}"
+	end 'recvFailed'
+	client.close()
+	return statusCodeOf(String.from(answer))
+end 'upload'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async acceptedAs(server)
+	let status = upload(boundPort)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let accepted = await peer
+	server.close()
+	print("status={status} accept={accepted}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=413 accept=bodyTooLarge
+```
+```exitcode
+0
+```
+
+### A head within the cap is accepted when the body arrives in the same read
+
+<!-- test: http-server.a-head-within-the-cap-arrives-with-a-body-past-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+let HeaderCap = 1024
+
+let BodyBytes = 2048
+
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let received = exchange.request().body().byteLength()
+	try exchange.respondWith(StatusCode.ok, body: "{received}", contentType: "text/plain") otherwise return "respond-failed"
+	return "served body={received}"
+end 'acceptedAs'
+
+function postWithBody() returns String
+	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {BodyBytes}\r\n\r\n"
+	var written = 0 as Count
+	while written < BodyBytes 'fill'
+		block.append("b")
+		written = written + 1
+	end 'fill'
+	return block
+end 'postWithBody'
+
+function exchangeOver(listening HttpServer) returns ExitCode
+	let boundPort = listening.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async acceptedAs(listening)
+	let status = shout(boundPort, block: postWithBody())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let accepted = await peer
+	listening.close()
+	print("status={status} accept={accepted}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.maxHeaderBytes = HeaderCap
+	server.setLimits(limits)
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 accept=served body=2048
+```
+```exitcode
+0
+```
+
+### A peer that never reads is abandoned at the write deadline
+
+⚠ **ON EVERY SOCKET LANE, x64-windows INCLUDED.** The answer is 64 MiB and the peer reads one byte of it, so the
+send cannot finish: a polled lane parks on a send buffer that never drains, and on x64-windows the response is
+one overlapped `WSASend` that does not complete while the peer's window stays shut. Either way the write
+deadline is what ends it, and the handler is told the answer could not be sent.
+
+⚠ **THE PEER'S ONE BYTE IS THE HANDOVER.** It arrives only once the server has accepted the connection, read the
+request and begun the answer, so closing the listener after it cannot beat the accept; `serve` returns once the
+connection it took has finished, which is when the write deadline has ended the send.
+
+<!-- test: http-server.a-peer-that-never-reads-is-abandoned-at-the-write-deadline -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+let WriteDeadlineMs = 500
+
+let AnswerBytes = 67108864
+
+type BigAnswerHandler implements HttpHandler
+	let answer as String
+
+	static function create(answer String) returns BigAnswerHandler
+		return BigAnswerHandler{answer: answer}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: answer, contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'BigAnswerHandler'
+
+function bigAnswer() returns String
+	let body = StringBuilder.create()
+	var written = 0 as Count
+	while written < AnswerBytes 'fill'
+		body.append("0123456789abcdef")
+		written = written + 16
+	end 'fill'
+	return body.build()
+end 'bigAnswer'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function serveOne(server HttpServer, handler immutable BigAnswerHandler) returns HttpServeEnd
+	return server.serve(handler)
+end 'serveOne'
+
+function exchangeOver(listening HttpServer) returns ExitCode
+	let handler = BigAnswerHandler.create(bigAnswer())
+	let boundPort = listening.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(listening, handler: handler)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled39'
+		peer.cancel()
+		return 2
+	end 'cancelled39'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("GET /big HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n") otherwise 'cancelled40'
+		peer.cancel()
+		return 3
+	end 'cancelled40'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.readSome(1) otherwise 'cancelled41'
+		peer.cancel()
+		return 4
+	end 'cancelled41'
+	peer.cancel()
+	listening.close()
+	client.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	let limits = HttpServerLimits.create()
+	limits.writeDeadlineMs = WriteDeadlineMs
+	server.setLimits(limits)
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+faulted GET /big failed with sendFailed after its answer could not be sent
+```
+```exitcode
+0
+```
+
+### Absolute-form and `OPTIONS *`
+
+A server MUST accept an absolute-form target and take the authority from it rather than from `Host`
+(RFC 9112 §3.2.2). `OPTIONS *` asks about the server as a whole, so the server answers it itself and
+hands no exchange to the caller; the asterisk with any other method is malformed.
+
+<!-- test: http-server.absolute-form-and-options-asterisk -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function everythingFrom(client TcpClient) returns String
+	var answer = ""
+	var open = true
+	while open 'untilClosed'
+		// TODO: if try is not supported in minimaxon
+		if let chunk = try client.readSome(ReadBufferBytes) 'more'
+			answer.append(String.from(chunk))
+			open = not chunk.isEmpty()
+		end 'more' else 'closed'
+			open = false
+		end 'closed'
+	end 'untilClosed'
+	return answer
+end 'everythingFrom'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = everythingFrom(client)
+	client.close()
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	let status = try firstLine.split(" ").get(1) otherwise "no-status-code"
+	let allow = answer.contains("allow: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS")
+	return "{status} allow={allow}"
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let url = exchange.request().url()
+	let host = try url.host() otherwise "no-host"
+	let port = try url.port() otherwise 0
+	let query = try url.query() otherwise "no-query"
+	let seen = "{host} {port} {url.path} {query}"
+	try exchange.respondWith(StatusCode.ok, body: seen, contentType: "text/plain") otherwise return "respond-failed"
+	return "served {seen}"
+end 'acceptedAs'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = ["GET http://origin.example:8080/p?q=1 HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET HTTP://Origin.example HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET https://origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://a b/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://user@origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET * HTTP/1.1\r\nHost: x\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: many\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999\r\n\r\n"]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(server)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let optionsPeer = async acceptedAs(server)
+	let options = shout(port, block: "OPTIONS * HTTP/1.1\r\nHost: x\r\n\r\n")
+	let after = shout(port, block: "GET /after HTTP/1.1\r\nHost: x\r\n\r\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let accepted = await optionsPeer
+	print("options={options} then={after} accept={accepted}\n")
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 allow=false accept=served origin.example 8080 /p q=1
+status=200 allow=false accept=served Origin.example 0 / no-query
+status=400 allow=false accept=malformedRequest
+status=400 allow=false accept=malformedRequest
+status=400 allow=false accept=malformedRequest
+status=400 allow=false accept=malformedRequest
+status=400 allow=false accept=malformedRequest
+status=413 allow=false accept=bodyTooLarge
+options=200 allow=true then=200 allow=false accept=served x 0 /after no-query
+```
+```exitcode
+0
+```
+
+### An HTTP/1.0 request needs no `Host`, and a leading empty line is ignored
+
+<!-- test: http-server.http-1-0-needs-no-host-and-a-leading-empty-line-is-ignored -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function statusCodeOf(answer String) returns String
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	return try firstLine.split(" ").get(1) otherwise "no-status-code"
+end 'statusCodeOf'
+
+function shout(port NetworkPort, block String) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send(block) otherwise return "send-failed"
+	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
+	client.close()
+	return statusCodeOf(answer)
+end 'shout'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let url = exchange.request().url()
+	let host = try url.host() otherwise "no-host"
+	let seen = "{host} {url.path}"
+	try exchange.respondWith(StatusCode.ok, body: seen, contentType: "text/plain") otherwise return "respond-failed"
+	return "served {seen}"
+end 'acceptedAs'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let blocks = ["GET /old HTTP/1.0\r\n\r\n", "GET /new HTTP/1.1\r\n\r\n", "\r\nGET /after-one HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\nGET /after-two HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\n\r\n\r\n\r\nGET /after-five HTTP/1.1\r\nHost: x\r\n\r\n"]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for block in blocks 'eachBlock'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async acceptedAs(server)
+		let status = shout(port, block: block)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let accepted = await peer
+		print("status={status} accept={accepted}\n")
+	end 'eachBlock'
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=200 accept=served no-host /old
+status=400 accept=malformedRequest
+status=200 accept=served x /after-one
+status=200 accept=served x /after-two
+status=400 accept=malformedRequest
+```
+```exitcode
+0
+```
+
+### A response is held to what its status and its fields allow
+
+A `204` and a `304` carry no content and no `Content-Length` (RFC 9110 §8.6, §15.4.5), so a body offered
+with one is refused rather than sent. A field name must be a token, and a field value or a reason phrase
+may carry no CR, LF or other control, or one response could be read as two.
+
+<!-- test: http-server.a-response-is-held-to-what-its-status-and-fields-allow -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+function everythingFrom(client TcpClient) returns String
+	var answer = ""
+	var open = true
+	while open 'untilClosed'
+		// TODO: if try is not supported in minimaxon
+		if let chunk = try client.readSome(ReadBufferBytes) 'more'
+			answer.append(String.from(chunk))
+			open = not chunk.isEmpty()
+		end 'more' else 'closed'
+			open = false
+		end 'closed'
+	end 'untilClosed'
+	return answer
+end 'everythingFrom'
+
+function answeredWith(port NetworkPort) returns String
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
+	_ = try client.send("GET / HTTP/1.1\r\nHost: x\r\n\r\n") otherwise return "send-failed"
+	let answer = everythingFrom(client)
+	client.close()
+	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
+	let status = try firstLine.split(" ").get(1) otherwise "no-status-code"
+	let length = answer.toLower().contains("content-length")
+	return "{status} content-length={length} bytes={answer.byteLength()}"
+end 'answeredWith'
+
+function respondedWith(server HttpServer, response HttpResponse) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try exchange.respond(response) otherwise (e) 'unsent'
+		try exchange.respondWith(StatusCode.internalServerError, body: "", contentType: "text/plain") otherwise return "fallback-failed"
+		return "respond threw {e.name}"
+	end 'unsent'
+	return "sent"
+end 'respondedWith'
+
+function withHeader(code StatusCode, name String, value String, body String, reason String) returns HttpResponse
+	let headers = HttpHeaders.create()
+	headers.set(name, value: value)
+	return HttpResponse.create(code, reasonPhrase: reason, responseHeaders: headers, responseBody: body)
+end 'withHeader'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let responses = [withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "", reason: "Not Modified"), withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "stray", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "stray", reason: "Not Modified"), withHeader(StatusCode.ok, name: "x-split", value: "a\r\nSet-Cookie: stolen=1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x bad", value: "1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x-kind", value: "fine", body: "ok", reason: "OK\r\nX-Injected: 1")]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for response in responses 'eachResponse'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let peer = async respondedWith(server, response: response)
+		let seen = answeredWith(port)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let outcome = await peer
+		print("status={seen} {outcome}\n")
+	end 'eachResponse'
+	server.close()
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+status=204 content-length=false bytes=61 sent
+status=304 content-length=false bytes=63 sent
+status=500 content-length=true bytes=102 respond threw invalidResponse
+status=500 content-length=true bytes=102 respond threw invalidResponse
+status=500 content-length=true bytes=102 respond threw invalidResponse
+status=500 content-length=true bytes=102 respond threw invalidResponse
+status=500 content-length=true bytes=102 respond threw invalidResponse
+```
+```exitcode
+0
+```
+
+### Bytes past the request are drained before the close
+
+A connection closed while the peer's bytes are still unread can be RESET, and a reset can destroy the
+answer on its way to the peer. So a server that received more than the one request it serves drains
+before it closes.
+
+<!-- test: http-server.bytes-past-the-request-are-drained-before-the-close -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- procs: 1 -->
+```maxon
+let ReadBufferBytes = 4096
+
+let OverflowBytes = 131072
+
+function everythingFrom(client TcpClient) returns String
+	var answer = ""
+	var open = true
+	while open 'untilClosed'
+		// TODO: if try is not supported in minimaxon
+		if let chunk = try client.readSome(ReadBufferBytes) 'more'
+			answer.append(String.from(chunk))
+			open = not chunk.isEmpty()
+		end 'more' else 'closed'
+			open = false
+		end 'closed'
+	end 'untilClosed'
+	return answer
+end 'everythingFrom'
+
+function acceptedAs(server HttpServer) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let exchange = try server.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	try exchange.respondWith(StatusCode.ok, body: "first answered", contentType: "text/plain") otherwise return "respond-failed"
+	return "served {exchange.request().url().path}"
+end 'acceptedAs'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let boundPort = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async acceptedAs(server)
+	let overflow = StringBuilder.create()
+	for _ in 0 upto OverflowBytes 'fill'
+		overflow.append("x")
+	end 'fill'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled37'
+		peer.cancel()
+		return 2
+	end 'cancelled37'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("POST /first HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello{overflow.build()}") otherwise 'cancelled38'
+		peer.cancel()
+		return 3
+	end 'cancelled38'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let accepted = await peer
+	let answer = everythingFrom(client)
+	client.close()
+	server.close()
+	print("accept={accepted} answered={answer.endsWith("first answered")}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+```
+```stdout
+accept=served /first answered=true
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.a-silent-client-does-not-delay-another-request -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+`serve` reads each connection's request in its own coroutine, so a client that connects and sends nothing holds only its own connection: with no read deadline, so that nothing but the silent client's own `close()` can end its connection, a request made beside it is still answered, and `serve` goes on until its promise is cancelled.
+```maxon
+type AnswerHandler implements HttpHandler
+	static function create() returns AnswerHandler
+		return AnswerHandler{}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		try exchange.respondWith(StatusCode.ok, body: "answered", contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'AnswerHandler'
+
+function serveAnswers(server HttpServer) returns HttpServeEnd
+	return server.serve(AnswerHandler.create())
+end 'serveAnswers'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let limits = HttpServerLimits.create()
+	limits.readDeadlineMs = 0
+	server.setLimits(limits)
+	let port = server.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveAnswers(server)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'cancelled27'
+		peer.cancel()
+		return 2
+	end 'cancelled27'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let response = try HttpClient.get("http://127.0.0.1:{port}/after") otherwise (error) 'failed'
+		print("a request beside a silent client: error {error.name}\n")
+		silent.close()
+		peer.cancel()
+		server.close()
+		return 0
+	end 'failed'
+	print("a request beside a silent client: {response.statusCode().number()} [{response.body()}]\n")
+	silent.close()
+	peer.cancel()
+	server.close()
+	return 0
+end 'exchangeOver'
+```
+```stdout
+a request beside a silent client: 200 [answered]
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.a-handler-that-computes-does-not-delay-another-connection -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 4 -->
+`serve` gives each accepted connection a green thread of its own, so a handler that computes for a long stretch without
+waiting holds only its own connection. The `/spin` handler tells a `Gate` service it has begun and then loops, reading a
+`ReleaseCell`, until `main` publishes it; the `main` polls the gate and starts the `/quick` request only once the
+handler is inside that loop, each request a coroutine of `main`, so the case does not depend on how long anything takes to start. `main` publishes the
+release only after the `/quick` answer is in hand, so the answer is one given while the loop was still running: a
+server that served connections one at a time could not give it, and would never end.
+```maxon
+typealias Turns = int(0 to u64.max)
+
+typealias ReleaseCell = SharedValue with bool
+
+let GatePollMs = 2
+
+type Gate
+	var entered as bool
+
+	static function create() returns Gate
+		return Gate{entered: false}
+	end 'create'
+
+	export function enter()
+		self.entered = true
+	end 'enter'
+
+	export function hasEntered() returns bool
+		return self.entered
+	end 'hasEntered'
+end 'Gate'
+
+type SpinHandler implements HttpHandler
+	let gate as Gate.handle
+	let released as ReleaseCell
+
+	static function create(gate Gate.handle, released ReleaseCell) returns SpinHandler
+		return SpinHandler{gate: gate, released: released}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		if exchange.request().url().path == "/spin" 'spin'
+			try gate.enter() otherwise panic("the gate is open")
+			var turns = 0 as Turns
+			while turns == 0 or not released.current() 'busy'
+				turns = turns + 1
+			end 'busy'
+			print("spun {turns > 0}\n")
+		end 'spin'
+		try exchange.respondWith(StatusCode.ok, body: "done", contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'SpinHandler'
+
+function answered(port NetworkPort, path String) returns bool
+	let response = try HttpClient.get("http://127.0.0.1:{port}{path}") otherwise return false
+	return response.statusCode().number() == StatusCode.ok.number()
+end 'answered'
+
+function serving(server HttpServer, gate Gate.handle, released ReleaseCell) returns HttpServeEnd
+	return server.serve(SpinHandler.create(gate.clone(), released: released.clone()))
+end 'serving'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let gate = spawn Gate.create()
+	let released = ReleaseCell.create(false)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serving(server, gate: gate.clone(), released: released.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let slow = async answered(port, path: "/spin")
+	var inside = false
+	while not inside 'untilInside'
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		inside = try await gate.hasEntered() otherwise panic("the gate is open")
+		if not inside 'nap'
+			sleep(GatePollMs)
+		end 'nap'
+	end 'untilInside'
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let quick = async answered(port, path: "/quick")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let quickAnswered = await quick
+	released.publish(true)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let slowAnswered = await slow
+	print("quick answered beside the loop: {quickAnswered}, spin answered once released: {slowAnswered}\n")
+	peer.cancel()
+	server.close()
+	return 0
+end 'exchangeOver'
+```
+```stdout
+spun true
+quick answered beside the loop: true, spin answered once released: true
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.connections-share-state-through-a-service-the-handler-holds -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 4 -->
+The handler is one read-only value every connection reads at once, so what the connections share is a service it holds
+a handle to. Each connection's thread sends the service a message, and the service counts them one at a time: three
+requests, three counts, whichever threads they ran on.
+```maxon
+type Tally
+	var seen as Count
+
+	static function create() returns Tally
+		return Tally{seen: 0}
+	end 'create'
+
+	export function record() returns Count
+		self.seen = self.seen + 1
+		return self.seen
+	end 'record'
+
+	export function total() returns Count
+		return self.seen
+	end 'total'
+end 'Tally'
+
+type CountingHandler implements HttpHandler
+	let tally as Tally.handle
+
+	static function create(tally Tally.handle) returns CountingHandler
+		return CountingHandler{tally: tally}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		_ = try tally.record() otherwise throw HttpServerError.sendFailed
+		try exchange.respondWith(StatusCode.ok, body: "counted", contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'CountingHandler'
+
+function serving(server HttpServer, tally Tally.handle) returns HttpServeEnd
+	return server.serve(CountingHandler.create(tally.clone()))
+end 'serving'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(server)
+end 'main'
+
+function exchangeOver(server HttpServer) returns ExitCode
+	let port = server.port()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let tally = spawn Tally.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serving(server, tally: tally.clone())
+	for _ in 0 upto 3 'eachRequest'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		_ = try HttpClient.get("http://127.0.0.1:{port}/count") otherwise 'cancelled48'
+			peer.cancel()
+			return 2
+		end 'cancelled48'
+	end 'eachRequest'
+	peer.cancel()
+	server.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let total = try await tally.total() otherwise return 3
+	print("{total}\n")
+	return 0
+end 'exchangeOver'
+```
+```stdout
+3
+```
+```exitcode
+0
+```
+
+<!-- test: http-server.error.a-handler-that-writes-its-own-fields-is-refused -->
+<!-- positions: moved -->
+The handler is read by every connection at once, so a conformer whose method writes its own field cannot be shared:
+`HttpHandler.handle` is read-only, so the conformer is refused at the requirement, and the program is refused again
+where `serve` hands the handler to a connection's thread.
+```maxon
+typealias Served = int(0 to 1000000)
+
+type CountingHandler implements HttpHandler
+	var served as Served
+
+	static function create() returns CountingHandler
+		return CountingHandler{served: 0}
+	end 'create'
+
+	function handle(mutates exchange HttpExchange) throws HttpServerError
+		self.served = self.served + 1
+		try exchange.respondWith(StatusCode.ok, body: "{self.served}", contentType: "text/plain")
+	end 'handle'
+
+	function faulted(fault HttpHandlerFault)
+		print("faulted {fault.describe()}\n")
+	end 'faulted'
+end 'CountingHandler'
+
+function main() returns ExitCode
+	var server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
+	_ = server.serve(freeze(CountingHandler.create()))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3210: <fragment>:11:11: 'CountingHandler.handle' writes its receiver, but 'HttpHandler.handle' does not declare `mutable self`
+error E3207: stdlib/HttpServer.maxon:600:56: 'dispatch' writes 'handler' (it calls 'dispatchExchange', which calls 'handle', which writes its receiver); 'handler' is immutable
+```

@@ -1,0 +1,1106 @@
+---
+feature: sched-syscall-handoff
+status: experimental
+keywords: [scheduler, green-threads, syscall, blocking, handoff, overlapped, sysmon, file-io, subprocess, procs, MAXON_MAX_PROCS]
+category: system
+---
+
+# A blocking syscall must not cost the scheduler a processor
+
+## Documentation
+
+⚖ **A GREEN THREAD THAT ENTERS A BLOCKING SYSCALL TAKES ITS M WITH IT.** The M is the OS thread the
+scheduler runs a P on, so for as long as the call is inside the kernel that P schedules nothing — and a
+program with more concurrent blocking calls than processors runs them **in batches of `MAXON_MAX_PROCS`,
+serially**, however many green threads are ready. The cure has two halves:
+**overlapped IO**, so the call parks the green thread on a completion rather than parking the OS thread on
+the kernel; and **Go-style P handoff plus a sysmon**, so a call that still blocks has its P taken away and
+given to another M rather than idled.
+
+⛔⛔ **THE SUBPROCESS PROGRAM BELOW SHOWS NO SUCH COST, AND A TABLE THAT SHOWS A CLIFF IS A COLD-CACHE
+ARTEFACT.** `a-blocking-subprocess-wait-does-not-stall-a-sibling`, run as a standalone binary with
+`MAXON_MAX_PROCS` set per run, takes the same wall time at one, two, four and sixteen processors when it is
+measured WARM and INTERLEAVED. A first-ever run of a freshly-written binary pays a cold file cache, a cold
+`cmd.exe` image and a cold loader, and a program measured once per count in ascending order reads that cost
+as a curve.
+
+⭐ **THE METHOD IS THE MEASUREMENT.** One warm-up run per cell, DISCARDED; then rounds that each run every
+processor count once, so that drift in the machine's state lands on all four counts equally instead of on
+whichever was measured last; and a second binary interleaved in the same rounds as the CONTROL. **A number
+that does not reproduce under a warm interleaved control with a second binary is wrong, however carefully
+it was taken.**
+
+⚠⚠ **AND A MEDIAN IS THE WRONG STATISTIC TO QUOTE ALONE HERE.** The distribution is BIMODAL: a fast mode and a slow mode several times slower, with roughly
+**one run in four** landing in the slow mode **at every processor count**. It is `cmd.exe` spawn cost, not
+scheduling — the proportion does not move with the count, and it does not move between two different
+compilers either. A sample of one, or of a handful taken in count order, will therefore produce a "curve" of
+any shape you like.
+
+⇒ **EIGHT CHILDREN AT ONE PROCESSOR DO *NOT* COST EIGHT TIMES ONE CHILD, AND THE MECHANISM IS NAMED RATHER
+THAN GUESSED AT — BECAUSE "NO EFFECT HERE" OTHERWISE READS AS "THE EFFECT IS NOT REAL".**
+`__gt_subp_wait_collect` (`SubprocessRuntime.buildSubpWaitCollect`) **IS A POLL LOOP ON THIS WINDOWS LANE AND
+NEVER MAKES AN UNBOUNDED KERNEL CALL.** Each pass asks the child's handle whether it has exited with a
+**ZERO-timeout** `WaitForSingleObject`, peeks each pipe before committing to any read, and — on the one path
+where a pass moved no bytes and the child is still running — sleeps **GREEN**, through
+`__gt_sleep(SubpPollMs)`. That function's own header states it: *"it waits GREEN — a `__gt_sleep` on the
+completion-port lane … — so the whole scheduler runs meanwhile"*.
+
+⇒ **the wait PARKS the green thread and GIVES THE M BACK, so this program does not occupy an M at
+all.** The flat wall time is therefore **the correct answer for a program that does not exhibit the effect**,
+not a failure to observe one — eight of these at one processor are not serialised, which is exactly why
+there is no cliff to find.
+
+⭐⭐ **THE CALL THAT DOES HOLD ITS M IS `stdin`, AND THAT IS WHERE THIS FILE'S SUBJECT ACTUALLY LIVES.**
+`Console.stdin().readLine()` reaches `__con_read_stdin` (`ConsoleRuntime.maxon:38`), which is a plain
+synchronous `osReadFile` on the standard-input handle — **no overlapped read, no peek, no park**. A green
+thread inside it is a green thread whose OS thread is in the kernel until a line arrives, holding the
+processor with it. Three of the cases below that carry `<!-- stdin: after "S: sentinel ran" -->` are ONE program
+under three markers, and its shape is the contract with the harness: the reader prints `R: reading`, pings a
+sentinel, then reads; the harness writes one line once the program's stdout shows the sentinel's line
+`S: sentinel ran`, and closes the pipe. **Only the harness can release a read that is blocked in the kernel**,
+so the order `S: sentinel ran`, then `R: read returned` holds by construction, with no clock in it. A scheduler
+that lets the read keep its processor cannot run the sentinel until the read returns, the line never appears,
+the read never returns, and the runner reports the case TIMED OUT: **a serialised M shows as a hang that a
+retake ends**, never as a wrong order a stopwatch decides.
+
+⚠ **THE CLAIM AT THE HEAD OF THIS FILE STANDS, AND THE `stdin` READING IS WHY THAT IS A STATEMENT RATHER
+THAN A HOPE.** A green thread inside a genuinely blocking kernel call takes its M with it, and the `stdin`
+cases are a live example of it. The subprocess program does not *demonstrate* it, because its wait is green.
+Every call that really does block (the standard-input read above, a synchronous read of a slow device) costs
+its processor for the duration, and `handoffp` is what gives that processor to somebody else. **This file
+commits passing cases and no timing evidence**, which is what the paragraph below says the cases are for.
+
+⛔⛔ **BUT IT IS NOT A DEADLOCK, AND THIS FILE MUST NOT CLAIM THAT IT IS.** A file read and a child's exit
+both complete on their own: the kernel returns, the M comes back, the P picks up the next green thread.
+So a program of *N* independent blocking calls at *P* processors takes ⌈N/P⌉ batches and **finishes** —
+it is slower than it should be and it is never wedged. **Both programs below answer and exit 0 at every
+`MAXON_MAX_PROCS ∈ {1, 2, 4, 16}`.** A shape
+that really does wedge needs a blocking call that only ANOTHER green thread can complete — a pipe whose
+writer is itself a green thread on an occupied M — and that is a different program from either of these.
+
+⇒ **what these two cases assert is COMPLETION AND THE ANSWER, not a timing.** Every reply arrives, the
+sentinel that was sent last still replies, and the aggregate is a fixed number. That is deliberately a
+claim a stopwatch cannot make and a flaky box cannot break: the shape these programs describe is the one
+that can regress into a genuine stall (a completion never delivered, a
+P handed off and never handed back, a sysmon that retakes a P from an M that was about to return), and
+each of those is a **hang** here — which the harness reports as a clean per-test failure at 120 s
+(`SpecTestRunner.maxon:728`), not as a slow pass.
+
+### Targets
+
+Every case but one runs on every lane that provides a green-thread substrate, and therefore on every lane
+that has a processor to hand off. The lanes differ only in WHERE the bracket around a blocking call is
+emitted: x64-windows puts both steps inline inside its import shim, and every other lane calls
+`__sched_enter_syscall` / `__sched_exit_syscall` from the instruction selector's one dispatch door. Neither
+placement is visible from a program, which is why the assertions below are written once and read the same on
+every lane.
+
+`a-blocking-subprocess-wait-does-not-stall-a-sibling` is the exception and carries `x64-windows` alone. That
+is a property of its PROGRAM and not of the rule: it spawns `cmd /c exit 0`, which exists on no other lane.
+A POSIX twin of that program would run everywhere the others do.
+
+### Counting the brackets
+
+`Scheduler.counters().syscalls` answers how many bracketed kernel calls have been entered by a machine
+holding a processor — exactly the calls a retake can take a processor out of. Every bracketing lane steps it
+where the bracket is entered, before the call is announced. It joins the scheduler-state roster beside
+`Scheduler.counters().retakes`, which counts the retakes themselves: a retake count of 0 says the monitor took
+nothing, while a bracket count of 0 says there was nothing it could have taken.
+
+## Tests
+
+<!-- test: more-blocking-file-reads-than-processors-still-finish -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 2 -->
+**EIGHT CONCURRENT FILE ROUND-TRIPS ON TWO PROCESSORS.** Every send is posted before any reply is awaited,
+so all eight reads are outstanding at once and there are four times as many of them as there are Ms to
+carry them. Each service writes its own small file, reads it back and answers the byte count, so the
+aggregate is `8 × 10` and a read that returned nothing subtracts exactly its own ten from it.
+
+⚠ **THE SENTINEL IS SENT LAST AND AWAITED LAST, AND IT IS THE HALF THAT WOULD SEE A LOST P.** It does no
+IO at all — one integer, immediately — so `last=1` says a green thread that needed nothing from the
+kernel still got scheduled after eight that did. A P handed off to a blocking M and never handed back
+takes this reply with it, and the case reads a 120 s timeout rather than a wrong number.
+
+⚠ **THE FILES ARE NAMED PER SERVICE AND DELETED ON EVERY PATH**, including both error paths, because the
+harness runs its cases in parallel out of one working directory.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias ReaderHandleArray = Array with Reader.handle
+
+typealias ReplyPromise = Promise with Integer
+
+typealias ReplyPromiseArray = Array with ReplyPromise
+
+let readerCount = 8
+
+// Ten bytes, so the aggregate is 80 and one lost round-trip is visible as 70 rather than as a rounding.
+let payload = "0123456789"
+
+type Reader
+	var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+
+	export function roundTrip() returns Integer
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let path = FilePath from "syscall_handoff_read_{self.id}.txt"
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		try File.writeText(path, content: payload) otherwise 'w'
+			return 0
+		end 'w'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let text = try File.readText(path) otherwise 'r'
+			try File.delete(path) otherwise ignore
+			return 0
+		end 'r'
+		try File.delete(path) otherwise ignore
+		return text.byteLength()
+	end 'roundTrip'
+end 'Reader'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping() returns Integer
+		return 1
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	let readers = ReaderHandleArray.create(0)
+	var i = 0 as Integer
+	while i < readerCount 'spawnEach'
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		readers.push(spawn Reader.create(i))
+		i = i + 1
+	end 'spawnEach'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let last = spawn Sentinel.create()
+	// Post every read before awaiting any of them — this is what makes eight reads CONCURRENT rather
+	// than eight reads one after another, and it is the whole difference between this program and one
+	// that could never see the subject.
+	let replies = ReplyPromiseArray.create(0)
+	var k = 0 as Integer
+	while k < readerCount 'sendEach'
+		let r = try readers.get(k as ElementIndex) otherwise panic("readers.get OOB at {k} — the loop is bounded by the count the pushes above filled")
+		replies.push(try r.roundTrip() otherwise panic("an open mailbox with room takes the send"))
+		k = k + 1
+	end 'sendEach'
+	let tailReply = try last.ping() otherwise panic("an open mailbox with room takes the send")
+	var aggregate = 0 as Integer
+	var n = 0 as Integer
+	while n < readerCount 'collect'
+		let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n} — the loop is bounded by the count the pushes above filled")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		aggregate = aggregate + (await p)
+		n = n + 1
+	end 'collect'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let tail = await tailReply
+	print("aggregate={aggregate} last={tail}\n")
+	return 0
+end 'main'
+```
+```stdout
+aggregate=80 last=1
+```
+```exitcode
+0
+```
+
+<!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+<!-- procs: 2 -->
+**THE SAME SHAPE ON THE WAIT THAT COSTS THE MOST.** `Subprocess.run` is the surface the timing paragraph at
+the head of this file measures: eight `cmd /c exit 0` children, all eight sends posted before any reply is
+awaited, two processors. Each service answers `1` for a child that exited cleanly, so the aggregate is the
+count and a child whose wait was lost subtracts its own one.
+
+⚠ **A CHILD'S WAIT IS THE LONGEST BLOCKING CALL A SPEC CASE CAN CHEAPLY MAKE — tens of milliseconds against
+a file read's microseconds** — which is why it, and not the file read above, is the program a wall clock was
+ever pointed at. ⛔ **That is a statement about which program is MEASURABLE, not about what the measurement
+found**: warm and interleaved it shows no dependence on the processor count at all, and the paragraph at the
+head of this file carries what was withdrawn and why. The assertion here is, and always was, the ANSWER:
+`cmd /c exit 0` does no IO, writes nothing and depends on nothing, so the eight are interchangeable and
+their sum is fixed however the scheduler interleaves them.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias RunnerHandleArray = Array with Runner.handle
+
+typealias ReplyPromise = Promise with Integer
+
+typealias ReplyPromiseArray = Array with ReplyPromise
+
+let runnerCount = 8
+
+type Runner
+	var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+
+	export function child() returns Integer
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit")
+		argv.push("0")
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let result = try Subprocess.run(exe, arguments: argv) otherwise 'e'
+			return 0
+		end 'e'
+		if result.succeeded() 'ok'
+			return 1
+		end 'ok'
+		return 0
+	end 'child'
+end 'Runner'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping() returns Integer
+		return 1
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	let runners = RunnerHandleArray.create(0)
+	var i = 0 as Integer
+	while i < runnerCount 'spawnEach'
+		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+		runners.push(spawn Runner.create(i))
+		i = i + 1
+	end 'spawnEach'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let last = spawn Sentinel.create()
+	let replies = ReplyPromiseArray.create(0)
+	var k = 0 as Integer
+	while k < runnerCount 'sendEach'
+		let r = try runners.get(k as ElementIndex) otherwise panic("runners.get OOB at {k} — the loop is bounded by the count the pushes above filled")
+		replies.push(try r.child() otherwise panic("an open mailbox with room takes the send"))
+		k = k + 1
+	end 'sendEach'
+	let tailReply = try last.ping() otherwise panic("an open mailbox with room takes the send")
+	var aggregate = 0 as Integer
+	var n = 0 as Integer
+	while n < runnerCount 'collect'
+		let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n} — the loop is bounded by the count the pushes above filled")
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		aggregate = aggregate + (await p)
+		n = n + 1
+	end 'collect'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let tail = await tailReply
+	print("aggregate={aggregate} last={tail}\n")
+	return 0
+end 'main'
+```
+```stdout
+aggregate=8 last=1
+```
+```exitcode
+0
+```
+
+<!-- test: a-blocking-kernel-call-does-not-starve-an-unrelated-green-thread -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: sentinel ran" -->
+⭐⭐ **THIS IS THE CASE THE FILE'S OPENING CLAIM WAS ALWAYS ABOUT, AND IT ASSERTS AN ORDER RATHER THAN A
+CLOCK.** The reader blocks in `Console.stdin().readLine()` — `__con_read_stdin` (`ConsoleRuntime.maxon`),
+a plain synchronous `osReadFile` with **no park and no overlapped read**, which is the one call in reach
+of a spec case that genuinely holds its OS thread in the kernel. The harness's `stdin: after "S: sentinel ran"`
+marker writes one line the moment the program's stdout shows that line and then closes the pipe, so the
+read *completes* and the program exits 0; a program that never prints the line is never fed.
+
+⇒ **The reader prints `R: reading` immediately before it reads.** Between the two it pings the sentinel, so
+ready line → ping → read is ONE causal sequence on one green thread: the sentinel cannot be runnable before
+the ready line has left the process, and it is runnable before the read is entered. That is what makes the
+order deterministic at four processors as well as at one — had `main` dispatched both sends, a spare machine
+could print `S` before the ready line.
+
+⇒ **`S` must print before `R: read returned`, and the harness makes that so by construction**: the read
+cannot return before the line it is fed on has been printed. A green thread with no relationship to a kernel
+call must not wait behind it, and a scheduler that makes it wait never prints the line that releases the read.
+
+⚠ **A SCHEDULER THAT LETS THE READ KEEP ITS PROCESSOR HANGS, AT `MAXON_MAX_PROCS=1`.** The sentinel sits in
+the only processor's ring while the reader holds it inside the kernel; nothing prints `S: sentinel ran`,
+nothing feeds the read, and the runner reports the case TIMED OUT. No clock decides it: the failure is the
+absence of an event, so a slow host cannot turn a pass into a failure.
+
+⭐⭐ **THE BLOCKED CALL HOLDS ITS OWN MACHINE AND ITS OWN STRAND, AND NOTHING ELSE.** No wait runs another
+green thread on the waiter's stack: an await, a mailbox wait or a timer parks its green thread onto its
+machine's scheduler context, and whoever completes the wait readies it through `__gt_ready_locked`. So a
+kernel call that never returns holds its machine and its own strand, and nothing else: that green thread's
+coroutines wait with it, while `main` — an ordinary green thread — parks and resumes on whichever machine
+takes its token.
+
+⇒ **The retake is the whole cure for these cases.** At one processor the sentinel's green thread is already
+sitting in P0's own ring when the reader blocks, so retaking P0 and starting a machine on it runs the
+sentinel directly while the read is still in the kernel.
+
+⚠ **A program holding a green thread that never returns still cannot exit**: the exit drain waits for live
+green threads, and a machine inside a kernel call is a running machine to the deadlock check, so the drain
+waits on it rather than calling it stuck.
+```maxon
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+typealias Integer = int(i64.min to i64.max)
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(sentinel Sentinel.handle) returns Integer
+		print("R: reading\n")
+		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		print("R: read returned\n")
+		let n = line.count()
+		print("done read={n}\n")
+		return n
+	end 'read'
+end 'Reader'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping()
+		print("S: sentinel ran\n")
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = try await reader.read(sentinel) otherwise 0
+	if n == 0 'unread'
+		return 1
+	end 'unread'
+	return 0
+end 'main'
+```
+```stdout
+R: reading
+S: sentinel ran
+R: read returned
+done read=5
+```
+```exitcode
+0
+```
+
+<!-- test: a-spare-processor-already-carries-the-sibling -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 4 -->
+<!-- stdin: after "S: sentinel ran" -->
+⚠ **THIS CASE IS GREEN WITH OR WITHOUT THE HANDOFF, AND IT IS HERE TO SAY WHY THE ONE ABOVE NEEDS
+IT.** Same program, same expected output, one marker different. **At `MAXON_MAX_PROCS=4` it prints `S` then
+`R: read returned`** whether or not a processor is ever retaken, because a second machine picks the sentinel
+up while the first is in the kernel.
+
+⇒ The pair states the defect exactly: **one processor cannot do what four can, and the reason is that a
+processor is being spent on a thread that is asleep in the kernel.** As a gate this half guards the
+path that already works, and it is deliberately not counted as evidence for the cure.
+
+⚠ **FOUR PROCESSORS IS WHERE THE READER'S CAUSAL CHAIN EARNS ITS KEEP.** The ping leaves the reader only
+after `R: reading` has been written, so a spare machine can run the sentinel no earlier than that line;
+dispatched from `main` beside the read, `S: sentinel ran` and the ready line would leave on two machines
+in whichever order those machines woke, and this case would flake on its first line instead of gating its
+third.
+
+⚠ **It pins an ORDER, not a count.** `MAXON_MAX_PROCS` is taken exactly, so the runtime has four
+processors on every host, a one-core machine included.
+```maxon
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+typealias Integer = int(i64.min to i64.max)
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(sentinel Sentinel.handle) returns Integer
+		print("R: reading\n")
+		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		print("R: read returned\n")
+		let n = line.count()
+		print("done read={n}\n")
+		return n
+	end 'read'
+end 'Reader'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping()
+		print("S: sentinel ran\n")
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = try await reader.read(sentinel) otherwise 0
+	if n == 0 'unread'
+		return 1
+	end 'unread'
+	return 0
+end 'main'
+```
+```stdout
+R: reading
+S: sentinel ran
+R: read returned
+done read=5
+```
+```exitcode
+0
+```
+
+<!-- test: sysmon-retakes-a-processor-from-a-blocking-call -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: sentinel ran" -->
+⭐ **THIS CASE PINS THE MECHANISM, BECAUSE THE CASE ABOVE CAN BE GREENED BY THE WRONG CURE.** Routing
+`__con_read_stdin` through the existing overlapped-read road would reorder those two lines without a
+processor ever being retaken — a real improvement, and a **different** mechanism. `Scheduler.counters().retakes`
+sums a per-P counter (the `Scheduler.counters().steals` shape, so no `.data` word) and answers how
+many times a `sysmon` actually took a processor away from a machine stuck in the kernel.
+
+⇒ **`retaken=yes` is the claim that a processor was handed off, not merely that the output came out in a
+better order.** It is a `> 0` test rather than a fixed count deliberately: how many retakes a run needs is
+a scheduling detail, and pinning the number would make the case a hostage to the sysmon polling interval.
+
+⚠ **THE SENTINEL WAITS FOR THE READ, BECAUSE A PREEMPTED READER LETS IT RUN WITHOUT ANY RETAKE.** The monitor
+runs at one processor too: a host that holds the process off a core for 10 ms between the send and the read has
+`__sysmon` preempt the reader there, `__gt_preempt` puts the reader behind the sentinel, and an unconditional
+sentinel prints, the harness feeds the line, and the read returns at once — every line right, `retaken=no`,
+nothing handed off. So `ping` carries `Scheduler.counters().syscalls` as the reader saw it after `R: reading`,
+and the sentinel yields until the count has moved: the reader has entered a bracketed kernel call since the send,
+and the read is the only one there. A yielding sentinel gives the processor back to the reader, which enters the
+read; from then on the sentinel sits in the only processor's ring while the reader holds it inside the kernel, so
+its line appears only after a sysmon took the processor from the blocked machine, and `retaken=yes` names that.
+A processor that is never handed off leaves the sentinel unrun and the case times out.
+```maxon
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+typealias Integer = int(i64.min to i64.max)
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(sentinel Sentinel.handle) returns Integer
+		print("R: reading\n")
+		let entered = Scheduler.counters().syscalls
+		try sentinel.ping(entered) otherwise panic("an open mailbox with room takes the send")
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		print("R: read returned\n")
+		let n = line.count()
+		print("done read={n}\n")
+		return n
+	end 'read'
+end 'Reader'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping(entered SchedulerEventCount)
+		while Scheduler.counters().syscalls <= entered 'readerOutsideTheKernel'
+			Scheduler.yield()
+		end 'readerOutsideTheKernel'
+		print("S: sentinel ran\n")
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = try await reader.read(sentinel) otherwise 0
+	if n == 0 'unread'
+		return 1
+	end 'unread'
+	var mark = "no"
+	if Scheduler.counters().retakes > 0 'retaken'
+		mark = "yes"
+	end 'retaken'
+	print("retaken={mark}\n")
+	return 0
+end 'main'
+```
+```stdout
+R: reading
+S: sentinel ran
+R: read returned
+done read=5
+retaken=yes
+```
+```exitcode
+0
+```
+
+<!-- test: an-async-child-wait-leaves-the-sleeping-coroutine-running -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: wasm32-wasi -->
+Two `async` coroutines share one strand: a streaming child's `wait` in the first and a `sleep` in the second.
+The child ends on its own about two seconds after it starts and the sleep is a tenth of that. The wait parks its
+coroutine rather than holding the machine, so the sleep ends while the child is still running and prints ahead of
+the wait's return. A wait that held the machine would keep the sleeper from starting, because a strand's coroutines
+run on the one machine that holds it and a processor handed off from that machine cannot carry them, so the sleeper
+would print only after the wait returned. The child belongs to the coroutine that waits on it, so nothing but the
+two durations orders the two lines, and they are nearly two seconds apart.
+```maxon
+let napMs = 100
+
+function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
+	let argv = StringArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		argv.push("-n")
+		argv.push("3")
+		argv.push("127.0.0.1")
+		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		argv.push("2")
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+end 'spawnTimedChild'
+
+function exitedOnItsOwn(child StreamingSubprocess) returns bool
+	_ = try child.wait() otherwise return false
+	return true
+end 'exitedOnItsOwn'
+
+function outlast(child StreamingSubprocess) returns bool
+	print("W: waiting\n")
+	let exited = exitedOnItsOwn(child)
+	print("W: wait returned\n")
+	child.release()
+	return exited
+end 'outlast'
+
+function nap() returns bool
+	sleep(napMs)
+	print("S: slept\n")
+	return true
+end 'nap'
+
+function main() returns ExitCode
+	let child = try spawnTimedChild() otherwise return 1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let watcher = async outlast(child)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let napper = async nap()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let slept = await napper
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let exited = await watcher
+	print("slept={slept} exited={exited}\n")
+	return 0
+end 'main'
+```
+```stdout
+W: waiting
+S: slept
+W: wait returned
+slept=true exited=true
+```
+```exitcode
+0
+```
+
+<!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: wasm32-wasi -->
+A streaming child's `wait` parks its green thread until the child exits. The child ends on its own about two
+seconds after it starts, and the sentinel it pinged answers at once, so the sentinel must run while the waiter is
+parked and its line prints ahead of the wait's return. With one processor a wait that held it would leave the
+sentinel unable to run until the child had ended, and its line would print after the wait's return. The child
+belongs to the service that waits on it, so nothing but the child's own duration orders the two lines, and they
+are nearly two seconds apart.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
+	let argv = StringArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		argv.push("-n")
+		argv.push("3")
+		argv.push("127.0.0.1")
+		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		argv.push("2")
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+end 'spawnTimedChild'
+
+function exitedOnItsOwn(child StreamingSubprocess) returns bool
+	_ = try child.wait() otherwise return false
+	return true
+end 'exitedOnItsOwn'
+
+type Waiter
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function outlast(sentinel Sentinel.handle) returns Integer
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let child = try spawnTimedChild() otherwise 'noChild'
+			return 0
+		end 'noChild'
+		print("W: waiting\n")
+		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
+		let exited = exitedOnItsOwn(child)
+		child.release()
+		print("W: wait returned\n")
+		print("done exited={exited}\n")
+		return 1
+	end 'outlast'
+end 'Waiter'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping()
+		print("S: sentinel ran\n")
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let waiter = spawn Waiter.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let finished = try await waiter.outlast(sentinel) otherwise 0
+	if finished == 0 'noChild'
+		return 1
+	end 'noChild'
+	return 0
+end 'main'
+```
+```stdout
+W: waiting
+S: sentinel ran
+W: wait returned
+done exited=true
+```
+```exitcode
+0
+```
+
+<!-- test: a-handed-off-processor-leaves-the-wake-gate-working -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 2 -->
+<!-- stdin: after "S: sentinel ran" -->
+⭐⭐ **A HANDOFF STARTS ITS MACHINE WITHOUT A SPINNING CREDIT, BECAUSE IT RESERVED NONE — Go's
+`startm(pp, false)`.** `wakep` reserves one unit of `__sched_nmspinning` at its gate and hands it to the
+machine it starts; `handoffp` reserves nothing. A `__sched_startm` that handed over or gave back a unit
+the caller never took would leave the count one BELOW the truth, and a count that reads non-zero with
+nobody searching is what every later publish takes for *"somebody is already looking"*: it wakes nobody.
+
+⇒ **The first half forces exactly one handoff.** A spinner that never yields holds one processor, the reader
+blocks in the kernel holding the other, and the sentinel it pinged sits in that processor's ring where only
+a retake can reach it. The spinner publishes that it is running and `main` holds its own processor until it has,
+so the spare processor's machine has certainly taken the spinner before `main` runs the reader; `main` releases
+the spinner only after the read has returned, which the sentinel's own line makes happen. No clock bounds either
+side.
+
+⇒ **The second half publishes work while `main` runs without yielding**, once every machine but `main`'s has
+parked, and watches the probe's reply with the non-blocking peek (`promise-peek.md`): a working gate starts a
+machine on the spare processor, which runs the probe while `main` is still watching; a gate the handoff broke
+wakes nobody, so the probe waits in `main`'s ring and the watch never ends, which the runner reports as TIMED OUT.
+The reply is the witness rather than the idle-processor count, because a machine can take the spare processor,
+run the probe and release it again between two reads of the count. The wait for the machines to park is a poll,
+for `sched-processor.md`'s reason: a sleep would start a machine of its own.
+
+⚠ **ONLY A HANDOFF FOLLOWED BY A STRANDED PROBE IS THE FAULT THIS CASE GATES.** On a single-processor host there
+is no spare processor to start and the case passes without having asked the question.
+```maxon
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias FlagCell = SharedValue with bool
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(sentinel Sentinel.handle) returns Integer
+		print("R: reading\n")
+		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		print("R: read returned\n")
+		let n = line.count()
+		print("done read={n}\n")
+		return n
+	end 'read'
+end 'Reader'
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping()
+		print("S: sentinel ran\n")
+	end 'ping'
+end 'Sentinel'
+
+type Spinner
+	let started as FlagCell
+	let released as FlagCell
+
+	static function create(started FlagCell, released FlagCell) returns Self
+		return Self{started: started, released: released}
+	end 'create'
+
+	export function spin() returns Integer
+		self.started.publish(true)
+		var turns = 0 as Integer
+		while not self.released.current() 'innerSpin'
+			turns = turns + 1
+		end 'innerSpin'
+		return 1
+	end 'spin'
+end 'Spinner'
+
+type Probe
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function answer() returns Integer
+		return 1
+	end 'answer'
+end 'Probe'
+
+function main() returns ExitCode
+	let started = FlagCell.create(false)
+	let released = FlagCell.create(false)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let spinner = spawn Spinner.create(started.clone(), released: released.clone())
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	let spun = try spinner.spin() otherwise panic("an open mailbox with room takes the send")
+	var claimed = false
+	while not claimed 'claim'
+		claimed = started.current()
+	end 'claim'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = try await reader.read(sentinel) otherwise 0
+	released.publish(true)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let s = await spun
+	var retaken = "no"
+	if Scheduler.counters().retakes > 0 'retaken'
+		retaken = "yes"
+	end 'retaken'
+	let everyButMain = (Scheduler.processorCount() as Integer) - 1
+	var settled = false
+	while not settled 'settle'
+		settled = (Scheduler.counters().idleProcessors as Integer) == everyButMain
+	end 'settle'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let probe = spawn Probe.create()
+	let reply = try probe.answer() otherwise panic("an open mailbox with room takes the send")
+	var answered = false
+	while not answered 'watch'
+		answered = reply.isComplete()
+	end 'watch'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let p = await reply
+	print("retaken={retaken} ran={n + s + p}\n")
+	return 0
+end 'main'
+```
+```stdout
+R: reading
+S: sentinel ran
+R: read returned
+done read=5
+retaken=yes ran=7
+```
+```exitcode
+0
+```
+
+<!-- test: a-blocking-kernel-call-on-main-hands-its-processor-off -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: sentinel ran" -->
+**THE SAME READ, MADE BY `main` ITSELF.** `main` is a green thread like any other, so a kernel call it blocks
+in is bracketed like any other, and sysmon hands its one processor to a machine that runs the sentinel while
+the read is still in the kernel. `main` prints its ready line, sends the ping, and reads; the sentinel must
+print before the read returns, which the harness's feed on the sentinel's line makes true by construction. A
+processor that `main`'s read kept would leave the sentinel unrun and the runner would report the case TIMED OUT.
+```maxon
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+typealias Integer = int(i64.min to i64.max)
+
+type Sentinel
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function ping() returns Integer
+		print("S: sentinel ran\n")
+		return 1
+	end 'ping'
+end 'Sentinel'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let sentinel = spawn Sentinel.create()
+	print("M: reading\n")
+	let tailReply = try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
+	let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+	print("M: read returned\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let tail = await tailReply
+	print("done sibling={tail} read={line.count()}\n")
+	return 0
+end 'main'
+```
+```stdout
+M: reading
+S: sentinel ran
+M: read returned
+done sibling=1 read=5
+```
+```exitcode
+0
+```
+
+<!-- test: a-busy-processor-serves-a-machine-regaining-one -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: reader is in the kernel" -->
+`reader` blocks in a `stdin` read, the monitor takes its processor, and the read returns while `main` holds the one
+processor again: `reader`'s machine waits to be handed one. `main` never yields and never idles the processor: each
+turn of its loop sends to two services and awaits both, so every turn schedules a thread from the ring, which the
+monitor reads as a fresh slice, not as one strand holding the processor too long. The wait ends only if the
+scheduler hands the processor to the waiting machine on its own, at a schedule; otherwise the case reads a timeout.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias StageCell = SharedValue with Integer
+
+let reading = 1 as Integer
+
+let answered = 2 as Integer
+
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(stage StageCell) returns Integer
+		stage.publish(reading)
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		stage.publish(answered)
+		return line.count()
+	end 'read'
+end 'Reader'
+
+type Worker
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function work(n Integer) returns Integer
+		return n + 1
+	end 'work'
+end 'Worker'
+
+function scatterGather(first Worker.handle, second Worker.handle) returns Integer
+	let a = try first.work(1) otherwise panic("an open mailbox with room takes the send")
+	let b = try second.work(1) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await a) + (await b)
+end 'scatterGather'
+
+function main() returns ExitCode
+	let stage = StageCell.create(0 as Integer)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let first = spawn Worker.create()
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let second = spawn Worker.create()
+	var total = 0 as Integer
+	while stage.current() < reading 'untilReading'
+		total = total + scatterGather(first, second: second)
+	end 'untilReading'
+	print("S: reader is in the kernel\n")
+	while stage.current() < answered 'untilAnswered'
+		total = total + scatterGather(first, second: second)
+	end 'untilAnswered'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await answer
+	print("answered {n} worked {total > 0}\n")
+	return 0
+end 'main'
+```
+```stdout
+S: reader is in the kernel
+answered 5 worked true
+```
+```exitcode
+0
+```
+
+<!-- test: a-print-enters-a-kernel-bracket -->
+**THE CONTROL FOR EVERY ASSERTION THAT A WINDOW HOLDS NO BRACKET.** A write to standard output is
+`SyscallClass.blocking` on every lane that brackets — its far end may stop reading — so one `print` from `main`,
+a green thread, must move `Scheduler.counters().syscalls`. A zero there would make every `brackets=0` elsewhere a reading
+of a counter nothing steps. It is a `> 0` test because the first print of a process may bring other bracketed
+calls with it.
+```maxon
+function main() returns ExitCode
+	let before = Scheduler.counters().syscalls
+	print("writing\n")
+	let entered = Scheduler.counters().syscalls - before
+	print("entered={entered > 0}\n")
+	return 0
+end 'main'
+```
+```stdout
+writing
+entered=true
+```
+```exitcode
+0
+```

@@ -1,0 +1,106 @@
+---
+feature: cos
+status: stable
+keywords: cos, cosine, trigonometry, math, radians
+category: math-intrinsic
+---
+# cos
+
+## Documentation
+
+Calculate the cosine of an angle (in radians).
+
+**Signature:** `Math.cos(x float) float`
+
+**Parameters:**
+- `x` - The angle in radians
+
+**Returns:** The cosine of the input angle
+
+**Example:**
+
+```maxon
+let x = 0.0
+let y = Math.cos(x)       // 1.0
+
+let pi = 3.14159265
+let z = Math.cos(pi)      // -1.0 (approximately)
+```
+**Notes:**
+- The function works with radians, not degrees
+- To convert degrees to radians: `radians = degrees * (π / 180)`
+- `Math.cos(0.0)` returns exactly `1.0`
+- `Math.cos(π)` returns approximately `-1.0`
+- The cosine function oscillates between -1 and 1
+
+## Tests
+
+<!-- test: cos.basic -->
+<!-- skip: float literals are not supported in minimaxon -->
+Floats print in the **shortest round-trip** representation (⚖ user ruling; `specs/sin.md` sets out
+why). A shortest digit string is only correct for the exact double it came from, so these four are
+verified against the doubles `Math.cos` returns here
+(`4607182418800017408`, `4606079780542709072`, `4603041830072026763`, `-4697588500269686311`). ⚠ Note `cos(1.0)` prints `0.5403023058681397` and **not** the more familiar
+`0.5403023058681398` — those are two DIFFERENT doubles, one ulp apart (`…398` parses to
+`4603041830072026764`), and `…397` is the shortest form of the one this platform's `cos` actually returns.
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x1 = Math.cos(0.0)
+	// TODO: float literals are not supported in minimaxon
+	let x2 = Math.cos(0.5)
+	// TODO: float literals are not supported in minimaxon
+	let x3 = Math.cos(1.0)
+	// TODO: float literals are not supported in minimaxon
+	let x4 = Math.cos(1.5708)
+	print("{x1}\n")
+	print("{x2}\n")
+	print("{x3}\n")
+	print("{x4}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1.0
+0.8775825618903728
+0.5403023058681397
+-0.0000036732051033919804
+```
+
+
+<!-- test: cos.zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let result = Math.cos(0.0)
+	// TODO: float literals are not supported in minimaxon
+	if result == 1.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: cos.with-int-promotion -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	let x = 0 // int
+	let result = Math.cos(x) // x promoted to 0.0
+	// TODO: float literals are not supported in minimaxon
+	if result == 1.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```

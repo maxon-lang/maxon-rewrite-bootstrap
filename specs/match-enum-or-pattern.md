@@ -1,0 +1,414 @@
+---
+feature: match-enum-or-pattern
+status: experimental
+keywords: [match, enum, or, pattern, alternative, dispatch]
+category: control-flow
+---
+
+# Match Enum Or-Patterns
+
+## Documentation
+
+A match arm may list several enum cases separated by `or`; the arm fires when
+the scrutinee equals **any** of the listed alternatives:
+
+```text
+match cls 'm'
+	freshRc0 or
+		selfReturnBorrow or
+		incomingOwner gives true
+	notManaged or
+		callReturnRc1 or
+		borrowed gives false
+end 'm'
+```
+
+Every alternative in the `or`-list must be tested, not just the first. This
+holds for both the expression form (`gives`) and the statement form (`then`),
+and regardless of whether the case ordinals are contiguous.
+
+Every alternative counts, wherever it sits in the chain — toward exhaustiveness
+(no false E2026) and toward overlap detection (an alternative re-covering a case
+a prior arm already covered is E2027, even when it is not the arm's first).
+
+A payload binding introduced by any alternative is in scope for the arm body,
+even when it appears on a non-first alternative (`stay or walk(dir) gives dir`).
+Because a union's cases share one payload offset, the binding observes the
+matched case's payload regardless of which alternative fired.
+
+## Tests
+
+<!-- test: interleaved-classification -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+Every alternative of an enum or-arm must route to the arm body, even when the
+covered ordinals interleave with the other arm's ordinals. This mirrors the
+compiler's own `returnedValueClassIsAcquired` (the arm covers ordinals 1, 3, 4).
+```maxon
+enum OwnershipClass
+	notManaged
+	freshRc0
+	callReturnRc1
+	selfReturnBorrow
+	incomingOwner
+	borrowed
+end 'OwnershipClass'
+
+function classIsAcquired(c OwnershipClass) returns bool
+	return match c 'm'
+		freshRc0 or
+			selfReturnBorrow or
+			incomingOwner gives true
+		notManaged or
+			callReturnRc1 or
+			borrowed gives false
+	end 'm'
+end 'classIsAcquired'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in OwnershipClass.allCases 'e'
+		print("{c.name}={classIsAcquired(c)}\n")
+	end 'e'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+notManaged=false
+freshRc0=true
+callReturnRc1=false
+selfReturnBorrow=true
+incomingOwner=true
+borrowed=false
+```
+
+<!-- test: expr-second-term -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+The second alternative of a three-term or-arm (expression form) fires the arm.
+```maxon
+enum E
+	a
+	b
+	c
+	d
+end 'E'
+
+function pick(v E) returns ExitCode
+	return match v 'm'
+		a or
+			b or
+			c gives 7
+		d gives 9
+	end 'm'
+end 'pick'
+
+function main() returns ExitCode
+	return pick(E.b)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: expr-third-term -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+The third alternative of a three-term or-arm (expression form) fires the arm.
+```maxon
+enum E
+	a
+	b
+	c
+	d
+end 'E'
+
+function pick(v E) returns ExitCode
+	return match v 'm'
+		a or
+			b or
+			c gives 7
+		d gives 9
+	end 'm'
+end 'pick'
+
+function main() returns ExitCode
+	return pick(E.c)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stmt-form-all-terms -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+Statement-form or-arms must test every alternative in both arms.
+```maxon
+enum E
+	a
+	b
+	c
+	d
+	e
+end 'E'
+
+typealias Tag = int(0 to 9)
+
+function classify(v E) returns Tag
+	var r = 0 as Tag
+	match v 'm'
+		a or
+			c or
+			e then r = 1
+		b or
+			d then r = 2
+	end 'm'
+	return r
+end 'classify'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in E.allCases 'e'
+		print("{x.name}={classify(x)}\n")
+	end 'e'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a=1
+b=2
+c=1
+d=2
+e=1
+```
+
+<!-- test: two-term-both-fire -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+Both alternatives of a two-term or-arm fire the arm (contiguous ordinals).
+```maxon
+enum E
+	c0
+	c1
+	c2
+	c3
+end 'E'
+
+function isMid(v E) returns bool
+	return match v 'm'
+		c1 or
+			c2 gives true
+		c0 or
+			c3 gives false
+	end 'm'
+end 'isMid'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in E.allCases 'e'
+		print("{x.name}={isMid(x)}\n")
+	end 'e'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+c0=false
+c1=true
+c2=true
+c3=false
+```
+
+<!-- test: noncontiguous-alternatives -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+An or-arm whose alternatives are not contiguous (`a or c or d`, with `b` handled
+by another arm) covers all of `a`, `c`, `d` — the match is exhaustive with no
+false E2026, and every one of those cases routes to the arm body.
+```maxon
+enum E
+	a
+	b
+	c
+	d
+end 'E'
+
+function classify(v E) returns ExitCode
+	return match v 'm'
+		a or
+			c or
+			d gives 1
+		b gives 2
+	end 'm'
+end 'classify'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in E.allCases 'e'
+		print("{x.name}={classify(x)}\n")
+	end 'e'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a=1
+b=2
+c=1
+d=1
+```
+
+<!-- test: deferred-chain-keeps-every-alternative -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+Order-independent: `c or d or a` covers the same set as `a or c or d`. Here the
+scrutinee's enum is declared AFTER the function, so the exhaustiveness/coverage
+check is deferred to type resolution — the deferred replay must keep every
+alternative of the chain, not just the first.
+```maxon
+function classify(v E) returns ExitCode
+	return match v 'm'
+		c or
+			d or
+			a gives 1
+		b gives 2
+	end 'm'
+end 'classify'
+
+enum E
+	a
+	b
+	c
+	d
+end 'E'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in E.allCases 'e'
+		print("{x.name}={classify(x)}\n")
+	end 'e'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a=1
+b=2
+c=1
+d=1
+```
+
+<!-- test: error.nonfirst-alternative-payload-binding -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+A payload binding declared by a non-first alternative (`stay or walk(dir)`) binds nothing on the
+payload-less alternative's path, so the arm body cannot read it: E3129.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	walk(dir Integer)
+	stay
+end 'M'
+
+function get(m M) returns ExitCode
+	return match m 'x'
+		stay or
+			walk(dir) gives dir as ExitCode
+	end 'x'
+end 'get'
+
+function main() returns ExitCode
+	print("walk={get(M.walk(5))}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3129: <fragment>:12:9: the payload binding 'dir' cannot be honoured: case 'stay' of `union M` binds nothing at payload slot 0, so on that case's path the arm body would read a value no pattern bound. Give 'stay' an arm of its own
+```
+
+<!-- test: error.nonfirst-alternative-overlap -->
+A non-first alternative (`b or c or d`) still participates in overlap detection:
+a later arm re-covering `c` is E2027, reported at the offending arm.
+```maxon
+enum E
+	a
+	b
+	c
+	d
+end 'E'
+
+function classify(v E) returns ExitCode
+	return match v 'm'
+		a gives 1
+		b or
+			c or
+			d gives 2
+		c gives 3
+	end 'm'
+end 'classify'
+
+function main() returns ExitCode
+	return classify(E.a)
+end 'main'
+```
+```maxoncstderr
+error E2027: specs/match-enum-or-pattern/error.nonfirst-alternative-overlap.maxon:15:3: overlapping pattern in match: 'c' is already covered
+```
+
+<!-- test: error.a-payload-less-alternative-cannot-read-a-bound-name -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+```maxon
+typealias Amount = int(i64.min to i64.max)
+
+union Shape
+	wide(first Amount, second Amount)
+	narrow
+end 'Shape'
+
+function readFirst(shape Shape) returns Amount
+	return match shape 'which'
+		wide(first, _) or
+			narrow gives first
+	end 'which'
+end 'readFirst'
+
+function main() returns ExitCode
+	print("{readFirst(Shape.narrow)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3129: <fragment>:11:8: the payload binding 'first' cannot be honoured: case 'narrow' of `union Shape` binds nothing at payload slot 0, so on that case's path the arm body would read a value no pattern bound. Give 'narrow' an arm of its own
+```
+
+<!-- test: error.a-bare-payload-carrying-alternative-cannot-read-a-bound-name -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+```maxon
+typealias Amount = int(i64.min to i64.max)
+
+union Shape
+	wide(first Amount, second Amount)
+	twin(left Amount, right Amount)
+end 'Shape'
+
+function readFirst(shape Shape) returns Amount
+	return match shape 'which'
+		wide(first, _) or
+			twin gives first
+	end 'which'
+end 'readFirst'
+
+function main() returns ExitCode
+	print("{readFirst(Shape.twin(99, right: 5))}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3129: <fragment>:11:8: the payload binding 'first' cannot be honoured: case 'twin' of `union Shape` binds nothing at payload slot 0, so on that case's path the arm body would read a value no pattern bound. Give 'twin' an arm of its own
+```

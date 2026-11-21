@@ -1,0 +1,1838 @@
+---
+feature: stdlib-user-shadows
+status: stable
+keywords: [stdlib, loading, shadowing, type-name, collision, ParseError, Clock, typealias]
+category: system
+---
+
+# A user declaration versus a stdlib module's
+
+## Documentation
+
+The stdlib loader loads every module under `stdlib/` into EVERY compile
+(`stdlib-loading.md`). Those modules declare ordinary English type names — `Clock`, `DurationMs`,
+`ParseError`, `Promise`, `Parsable` — so the question "what happens when a user program declares one of
+them too?" is not hypothetical for any of them.
+
+**THE RULE: a user declaration and a stdlib module's of one TYPE name coexist, and the library's never
+takes part in ambiguity.** The user's file means the user's declaration; a library file never sees an
+author declaration and keeps its own; any OTHER author file that sees that one author declaration means
+it too, and reaches the library's as `stdlib.Name`. Only two visible AUTHOR declarations are ambiguous
+(E3063, listing each as `dir.Name` — `export.Name` at the project root). Coexisting is
+load-bearing rather than cosmetic: `parsable-interface.md`'s cases declare their own `enum ParseError`
+while implementing the stdlib's `interface Parsable`, so a rule that refused the pair would refuse the
+specs that stdlib module exists to unblock. Every case below declares the name and reads it in ONE file,
+whose one visible author declaration is what the bare name means.
+
+A FREE FUNCTION follows a different rule: a user free function outranks a stdlib module's of the same name
+for user code (see the bullet under *What the rule must NOT do*).
+
+### What the rule actually requires
+
+The rule's SHAPE is not what "the user wins" suggests at first reading:
+
+| program | result |
+|---|---|
+| user `enum ParseError { mine }`, matched in `main` | compiles, exit 5 |
+| the same program, ALSO calling `int.fromString("41")` | compiles, exit 42 |
+
+The second row is the whole story. `int.fromString` is rewritten to `stdlib/Builtins.maxon`'s
+`__int_fromString`, whose body throws `ParseError.invalidFormat` — a case the user's `ParseError` does not
+have. Both work at once, so the rule is not resolving one name to one declaration program-wide: **the
+user's declaring file sees the user's declaration and stdlib code keeps its own.** Parse ORDER would give that scoping for
+free — parse all of `stdlib/` first and every reference inside a stdlib body is bound before the user's
+declaration overwrites the registry entry.
+
+### Why the compiler cannot get it the same way — and what it does instead
+
+the compiler's front end is a WHOLE-PROGRAM DECLARATION SWEEP: `queryProgramSignatures` folds every file's
+declarations into one index BEFORE any file is parsed, and the real parse of every file — stdlib and user
+alike — then resolves names against that finished index. There is no "already bound" state for a stdlib
+body to have been parsed into, so reordering the files changes nothing. That is the rewrite's thesis
+working exactly as designed, and it is what makes this rule a SCOPING mechanism in the compiler rather than a
+tie-break.
+
+The obvious rule — "a user declaration displaces a stdlib one" in every declaration registry — gets
+one half right and the other wrong:
+
+- a user `type Clock`, `enum CursorError`, `interface Parsable` or ranged `typealias DurationMs` shadowing
+  a stdlib module's — **compiles and runs, the user's declaration answering**;
+- a user `enum ParseError { Invalid = 1 }` — **`error E3034: stdlib/Builtins.maxon:222:11: unknown enum
+  case: 'invalidFormat'`**, twice, inside a file the author never opened. `Builtins.maxon` REFERENCES the
+  name it declares, so displacing its declaration retargets its own body at the user's enum.
+
+So two declarations of one name have to coexist, and the compiler identifies aggregates by NAME all the way down —
+`structRef(name)`, `aggregateNameFor`, `__destruct_<name>`, `__layout_<name>`, both enum registries, the
+interface registry. Coexisting therefore means one of them is RENAMED.
+
+**THE STDLIB ONE MOVES, into the space `E2051` already reserves.** It is the identical trade
+`ProgramSignatures.reservedIfDeclared` makes for a contested COMPILED name one namespace over, and for the
+identical reason: `__` is a prefix no declaration may take, so the moved name contests nothing and no user
+program can reach it. `stdlib/Clock.maxon`'s `type Clock` becomes `__Clock` — declaration, `Self`, methods
+(`__Clock.nowMs`) and cross-module references alike — and a user program's own `Clock` keeps the bare name.
+It happens ON CONTEST ONLY: a program that shadows nothing renames nothing.
+
+The rename is applied to the stdlib file's IDENTIFIER TOKENS, once, at `Parser.create`. That is the whole
+design rather than an implementation note: a rename that reached the declaration and missed one of the
+derived spellings above would be a SILENT WRONG ANSWER rather than a compile error, so there is deliberately
+no roster of doors to keep complete. It is sound because it is UNIFORM over stdlib source — a name renamed
+at its declaration is renamed at every stdlib use of it — so everything stdlib-internal is unchanged and
+only the cross-file reachability of the bare name moves, which is exactly the rule.
+
+### The one shape the rename cannot cover, and is refused for
+
+A MEMBER of a stdlib type spelled exactly like a contested TYPE name — a field, a method, or an argument
+label — is reachable from USER code, whose tokens are never rewritten. The stdlib declaration `var
+ParseError` would become `__ParseError` while a user's `x.ParseError` stayed bare, and the two sides would
+disagree about one name. Both shapes are token-shaped (an identifier PRECEDED by `.`, or one FOLLOWED by
+`:`), so the contest detects them and refuses the program with **E3112** rather than risking it. Nothing in
+`stdlib/` does this today; the refusal is what makes that a checked fact rather than an assumption.
+
+### ⭐⭐ What the rename must still leave WORKING: the moved declaration's own members
+
+The soundness argument above is about NAMES — *"only the cross-file reachability of the bare name moves"* —
+and a name is not the only thing that crosses that file boundary. A **VALUE** does too. A stdlib module
+whose signature mentions the contested type keeps handing user code values of it: `stdlib/Directory.maxon`'s
+`Directory.currentPath()` returns a `FilePath`, and under a user `type FilePath` that result is a
+`__FilePath`. The value is fine; what needs care is every operation on it whose callee the compiler spells
+out of the value's own TYPE.
+
+**A method call is exactly that.** `p.toString()` is dispatched by joining the receiver's resolved type name
+to the member — `__FilePath.toString` — and a reserved-CALL door that read the `__` as *"the author reached
+for a compiler intrinsic"* would refuse it with **E3004**, about a callee no author wrote and about a function
+the program plainly declares. Those are two different meanings sharing one spelling: the `__` of
+`__mm_alloc` is a PREFIX THE COMPILER RESERVED, and the `__` of `__FilePath` is a NAME THIS COMPILE MINTED.
+
+⚠ **A FIELD read has no such callee, and the difference is what pins the rule.** `info.isDirectory`
+on a `__FileInfo` reads the value's own layout and names nothing — pinned below beside the method case.
+So the hazard is not *"a renamed declaration is broken"*; it is precisely *"a callee the compiler mints
+out of a renamed type"*.
+
+⇒ The exemption keys on the **MINT**, which is the fact the name's shape cannot carry
+(`Parser.requireCalleeIsNotReservedName`, `CalleeMint.resolvedTypeQualifier`). It is deliberately NOT a
+widening of the reserved space: the head must be one THIS COMPILE minted, some file must DECLARE the
+callee, and the head must not be bytes a user file's author typed — which is why
+`error.the-mint-is-not-reachable-from-user-code` below holds. `__Clock.nowMs()` written out in a user
+file is still refused; `c.nowMs()` on a value of the moved declaration is not.
+
+### What the rule must NOT do
+
+- **A collision between two STDLIB declarations stays a collision.** Two stdlib modules declaring one type
+  name is a maintainer's bug in `stdlib/`, not a shadow, and the whole-program duplicate check exists to
+  catch it. It is not pinnable from a fragment — a fragment cannot add a module to `stdlib/` —
+  so it is stated here and enforced by that check.
+- **A collision between two USER declarations stays a collision**, exactly as `type-name-collision.md`
+  pins it. Shadowing is about PROVENANCE, not about tolerating duplicates.
+- ⛔ **A FREE-FUNCTION-name collision is NOT a collision.** A user `function sleep` compiles clean —
+  not an `E3006` naming `stdlib/Sleep.maxon` — and the USER's body is what its own
+  call sites reach, which is the rule above applied to a free function rather than an exception to it.
+  `stdlib-loading.md`'s `a-user-free-function-outranks-the-stdlib-modules` and
+  `a-value-returning-user-free-function-outranks-a-void-stdlib-one` are the pair that RUN it — the second
+  is the negative control. Where a genuine stdlib-path diagnostic does
+  arise it is documented rather than pinned in a `maxoncstderr` block, because the path is machine-dependent — the same
+  reason `stdlib-loading.md`'s collision rule gives.
+- ⚠ **A METHOD is NOT a free function, and the shadow reaches it — deliberately.** A user `Clock.nowMs`
+  requires a user `type Clock`, which IS a shadow, so the stdlib method has already moved to
+  `__Clock.nowMs` by the time the duplicate-function check runs and there is nothing to collide with.
+  A user `type Clock` declaring `static function nowMs()` compiles, and the call resolves to the
+  USER's. That is the rule working, not an exception to it — the whole point is that the user's
+  declaration answers user code — and it is why this bullet is about FREE functions: they have no type to
+  shadow, so nothing moves.
+
+### The kind that needs no rename: a `typealias`, in ANY form
+
+A typealias is resolved per reading file, so a stdlib module's alias and a user's declaration of that
+name never need to share one spelling: the shadow contest does not move an alias, and it does not need
+to — **the reading file settles it instead of a rename.** In the user's declaring file the user's own
+declaration answers; a library file never sees it; and a third author file that sees it and no other
+author declaration of the name means it too, writing `stdlib.Name` for the library's. The two are two
+types even over one range, so a value crosses between them only through a cast. A
+user's own ranged `typealias DurationMs` coexists with `stdlib/Clock.maxon`'s `public` one and answers
+for the user's file, including for its RANGE, which is what `user-ranged-typealias-wins-over-a-listed-module`
+below observes.
+
+⚠ **This holds whatever FORM either declaration takes, and a wrong answer inside `stdlib/` itself is
+what that prevents.** Asking whether the two declarations are the same alias FORM is a proxy for
+"neither can see the other" that fails in two directions:
+
+- **A user NOMINAL declaration against a stdlib module's alias.** Under that proxy `type FullRangeInt`
+  against `stdlib/Builtins.maxon`'s `typealias FullRangeInt` is `E3006` — blamed on the STDLIB line,
+  because stdlib merges last and is therefore the "newcomer" — plus `E3009` at
+  `stdlib/Builtins.maxon`'s `__FloatSignBit`, where the module's own `i64.min as FullRangeInt` resolves to the USER's
+  struct. Both diagnostics name a file the author never opened. The four nominal keywords all reach it,
+  and `enum`/`union` reach only the first: they resolve to `integer` as an alias does, so the module's
+  own uses still type-check.
+- **Two aliases in different FORMS.** Under that proxy a user `typealias DecimalDigit = function(…)`
+  against the stdlib ranged one is `E3061`, though neither file can name the other's declaration either.
+
+**The property that makes a pair legal is that each declaration can be NAMED apart from the other** —
+by its file, its directory, or its layer (`stdlib.Name`) — and the form they are written in is not a proxy
+for it. Two declarations that no spelling tells apart still collide: `type-name-collision.md`'s
+`error.crossfile-type-and-exported-typealias` pins a nameable pair in one directory, and
+`two-user-declarations-still-collide` below pins the same-file one.
+
+## Tests
+
+<!-- test: stdlib-user-shadows.user-ranged-typealias-wins-over-a-listed-module -->
+`stdlib/Clock.maxon` declares `typealias DurationMs = int(0 to u64.max)` and is loaded into this compile.
+A user file declaring its own `DurationMs` over a NARROWER range is legal, and the range in force in that
+file is the USER's: `50` is outside `int(0 to 10)` and is refused against it, where the stdlib module's
+range would have accepted it. The rejection is the observation — a program that merely compiled would not
+say WHICH declaration answered.
+```maxon
+typealias DurationMs = int(0 to 10)
+
+function main() returns ExitCode
+	let d = 50 as DurationMs
+	return d
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:5:13: Value 50 is outside the range of 'DurationMs' (int(0 to 10))
+```
+
+<!-- test: stdlib-user-shadows.user-ranged-typealias-still-usable -->
+The same declaration in force positively: a value INSIDE the user's range compiles and runs, so the
+carve-out is not merely a suppressed diagnostic.
+```maxon
+typealias DurationMs = int(0 to 10)
+
+function main() returns ExitCode
+	let d = 5 as DurationMs
+	return d
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: stdlib-user-shadows.user-enum-shadows-a-listed-module -->
+```maxon
+enum ParseError implements Error
+	Invalid = 1
+end 'ParseError'
+
+function main() returns ExitCode
+	let e = ParseError.Invalid
+	return match e 'which'
+		Invalid gives 5
+	end 'which'
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: stdlib-user-shadows.user-type-shadows-a-listed-module -->
+```maxon
+type Clock
+	export var x as Integer
+
+	static function make() returns Clock
+		return Clock{x: 9}
+	end 'make'
+end 'Clock'
+
+function main() returns ExitCode
+	let c = Clock.make()
+	return c.x as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+9
+```
+
+<!-- test: stdlib-user-shadows.user-union-shadows-a-listed-module -->
+```maxon
+union CursorError
+	mine
+	yours
+end 'CursorError'
+
+function main() returns ExitCode
+	let e = CursorError.mine
+	return match e 'which'
+		mine gives 6
+		yours gives 1
+	end 'which'
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: stdlib-user-shadows.user-method-shadows-a-listed-modules-method -->
+A METHOD moves with its type. `stdlib/Clock.maxon` declares `Clock.nowMs`, and a user `type Clock` that
+declares its own is NOT `E3006` against it: by the time the duplicate-function check runs the stdlib method
+is `__Clock.nowMs`, and the call resolves to the user's. A FREE function has no type to move; a user
+`function sleep` outranks `stdlib/Sleep.maxon`'s by the free-function rule instead (`stdlib-loading.md`).
+```maxon
+type Clock
+	export var x as Integer
+
+	static function nowMs() returns ExitCode
+		return 11
+	end 'nowMs'
+end 'Clock'
+
+function main() returns ExitCode
+	return Clock.nowMs()
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+11
+```
+
+<!-- test: stdlib-user-shadows.a-method-on-a-value-of-the-moved-declaration -->
+⭐ **THE VALUE CROSSES THE FILE BOUNDARY THE NAME DOES NOT.** `Directory.currentPath()` hands user code a
+`FilePath` — a `__FilePath` under this shadow — and `join`/`filename` are ordinary declared methods of that
+moved declaration, so neither is refused as `E3004 … call to undefined function '__FilePath.join': the '__'
+prefix names a compiler intrinsic`, about a callee the author never wrote. `"alpha.txt"` is 9 bytes, and
+the user's own `FilePath` supplies the other 4.
+```maxon
+type FilePath
+	export var tag as Integer
+
+	static function make() returns FilePath
+		return FilePath{tag: 4}
+	end 'make'
+end 'FilePath'
+
+function main() returns ExitCode
+	let child = Directory.currentPath().join("alpha.txt")
+	return (FilePath.make().tag + (child.filename().byteLength() as Integer)) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+13
+```
+
+<!-- test: stdlib-user-shadows.both-declarations-serve-one-member-name-at-once -->
+⭐⭐ **BOTH DIRECTIONS IN ONE PROGRAM, WHICH IS THE ONLY WAY TO OBSERVE THAT NEITHER DISPLACED THE OTHER.**
+`filename()` is declared by the user's `FilePath` AND by the moved corpus one, and each receiver reaches its
+own: the user's answers 7, the corpus's answers `"alpha.txt"`. A rule that resolved one name to one
+declaration program-wide could not produce 16.
+```maxon
+type FilePath
+	export var tag as Integer
+
+	static function make() returns FilePath
+		return FilePath{tag: 2}
+	end 'make'
+
+	function filename() returns ExitCode
+		return 7
+	end 'filename'
+end 'FilePath'
+
+function main() returns ExitCode
+	let mine = FilePath.make()
+	let child = Directory.currentPath().join("alpha.txt")
+	return mine.filename() + (child.filename().byteLength() as ExitCode)
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+16
+```
+
+<!-- test: stdlib-user-shadows.a-field-of-a-value-of-the-moved-declaration -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+⚠ **THE CONTRAST THAT PINS THE RULE.** A FIELD read on a value of the moved declaration reads the
+value's own layout and names nothing, so it has no minted callee for the reserved door to judge — pinned
+here so a cure for the method case that disturbs the value's layout is caught. The cwd
+is a directory, so `isDirectory` adds 1 to the user's own 5.
+```maxon
+type FileInfo
+	export var tag as Integer
+
+	static function make() returns FileInfo
+		return FileInfo{tag: 5}
+	end 'make'
+end 'FileInfo'
+
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let info = try File.info(Directory.currentPath()) otherwise 'missing'
+		return 90
+	end 'missing'
+	return (FileInfo.make().tag + (1 if info.isDirectory else 0)) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+6
+```
+
+<!-- test: stdlib-user-shadows.error.the-mint-is-not-reachable-from-user-code -->
+<!-- positions: moved -->
+⭐ **THE MINTED NAME IS NOT A NAME USER CODE MAY *WRITE* IN A CALL, AND THAT IS THE WHOLE SAFETY ARGUMENT
+FOR MOVING THE STDLIB DECLARATION INTO THE RESERVED SPACE.** `stdlib/Clock.maxon`'s `Clock.nowMs()` becomes
+`__Clock.nowMs()` under this shadow, and the reserved-CALL door has to admit that callee wherever the
+COMPILER put those bytes there — so the exemption is scoped to the head's PROVENANCE rather than to the
+name: a stdlib file (whose identifier tokens the contest rewrote) or a `CalleeMint.resolvedTypeQualifier`
+dispatch (whose head is a resolved type). This program is neither — the author typed `__Clock` — and it
+stays refused. Unscoped, it would COMPILE AND RUN, returning the stdlib monotonic clock, while the
+identical call in a program with no shadow is refused. The diagnostic below is,
+position aside, the very one a program with no shadow gets, which is the point: whether a user may WRITE
+`__Clock.nowMs` must not depend on an unrelated declaration elsewhere in the program.
+⚠ The sibling cases above reach that same function through a VALUE, which is not this — see
+`a-method-on-a-value-of-the-moved-declaration`.
+```maxon
+type Clock
+	export var y as Integer
+end 'Clock'
+
+function main() returns ExitCode
+	return __Clock.nowMs() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3004: <fragment>:7:17: call to undefined function '__Clock.nowMs': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: stdlib-user-shadows.error.a-user-reserved-declaration-beside-a-shadow -->
+<!-- positions: moved -->
+⚠ **A USER `__` DECLARATION IS E2051 WHETHER OR NOT IT COLLIDES WITH A MINT, AND THE DIAGNOSTIC POINTS AT
+THE USER'S OWN LINE.** This case is the TYPE half, and what guards it is that the mint re-probes past every
+name a user declaration already holds — even an ILLEGAL one — so `Clock` moves past this declaration
+instead of landing on it. Without that, the E2051 would be suppressed and the program refused with
+`E3006: stdlib/Clock.maxon:10:13: duplicate definition of '__Clock'` — the mint's own collision, reported
+inside a file the author never opened. The case below is the other half.
+```maxon
+type __Clock
+	export var x as Integer
+end '__Clock'
+
+type Clock
+	export var y as Integer
+
+	static function make() returns Clock
+		return Clock{y: 6}
+	end 'make'
+end 'Clock'
+
+function main() returns ExitCode
+	return Clock.make().y as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E2051: <fragment>:2:6: identifier '__Clock' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: stdlib-user-shadows.error.a-user-reserved-function-beside-a-shadow -->
+<!-- positions: moved -->
+⚠⚠ **AND THE OTHER HALF, WHICH THE RE-PROBE STRUCTURALLY CANNOT COVER: `requireUnreservedName` GUARDS EIGHT
+DECLARATION KINDS AND THE CONTEST KNOWS ONLY TYPE NAMES.** A `function`/`let`/`var`/field/parameter/enum-case
+named `__Clock` is invisible to `userDeclaredTypeNames`, so the mint for a shadowed `Clock` IS `__Clock` and
+the reservation door has to be the one that says no — which it can, because a mint is only ever WRITTEN into
+stdlib tokens, so a `__` name reaching that door from a user file was typed by the author. With the
+door unscoped and the re-probe in place, this program would COMPILE and run, exit 9 — a user declaration
+in the reserved space accepted silently, the exact hole `requireUnreservedName` exists to close.
+```maxon
+type Clock
+	export var y as Integer
+
+	static function make() returns Clock
+		return Clock{y: 6}
+	end 'make'
+end 'Clock'
+
+function __Clock() returns ExitCode
+	return 3
+end '__Clock'
+
+function main() returns ExitCode
+	return (Clock.make().y + __Clock()) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E2051: <fragment>:10:10: identifier '__Clock' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: stdlib-user-shadows.two-user-declarations-still-collide -->
+<!-- positions: moved -->
+```maxon
+type Clock
+	export var x as Integer
+end 'Clock'
+
+enum Clock
+	red
+end 'Clock'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3006: <fragment>:6:6: duplicate definition of 'Clock' — already declared as `type Clock`
+```
+
+<!-- test: stdlib-user-shadows.user-type-coexists-with-a-listed-modules-typealias -->
+`stdlib/Builtins.maxon` declares `public typealias FullRangeInt`, and a user program declaring its own
+`type FullRangeInt` compiles. Two refusals are what it must avoid, both inside a file the author never
+opened: `E3006` blaming the stdlib declaration as the duplicate — stdlib merges after the user's files, so
+the stdlib line is the "newcomer" — and `E3009: Cannot cast from int to struct` at `stdlib/Builtins.maxon`'s
+`__FloatSignBit`, where the module's own `i64.min as FullRangeInt` would resolve to the USER's struct if the
+bare, whole-program struct registry were consulted first.
+
+The two declarations sit in two layers, so neither is a duplicate of the other: the user's file means its
+own `type`, and the library file never sees it. The same program with the type named `UserFullRangeInt`
+compiles and returns 7 — the name is the ONLY difference.
+```maxon
+typealias Value = int(0 to 200)
+
+type FullRangeInt
+	export let value as Value
+
+	static function create(value Value) returns FullRangeInt
+		return Self{value: value}
+	end 'create'
+end 'FullRangeInt'
+
+function main() returns ExitCode
+	let p = FullRangeInt.create(7)
+	return p.value
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stdlib-user-shadows.user-enum-coexists-with-a-listed-modules-typealias -->
+The same pair with an `enum` against `stdlib/Builtins.maxon`'s unmarked `typealias RepeatCount`, and it
+is the half that shows the two refusals are SEPARATE. An enum resolves to `integer` exactly as a ranged
+alias does, so `stdlib/Builtins.maxon`'s own uses of `RepeatCount` type-check and no `E3009` can arise —
+only the duplicate check could refuse it.
+Correct resolution with a registry that treats the pair as duplicates would still refuse this.
+```maxon
+enum RepeatCount
+	first = 1
+	second = 7
+end 'RepeatCount'
+
+function main() returns ExitCode
+	return RepeatCount.second.rawValue
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stdlib-user-shadows.user-union-coexists-with-a-listed-modules-typealias -->
+A `union` against `stdlib/Builtins.maxon`'s `public typealias PadWidth`. Listed for the same reason the
+`enum` case is: the rule is about the KEYWORD-INDEPENDENT namespace, so every declaration kind that
+files a name has to be observed, not inferred from the one that was.
+```maxon
+union PadWidth
+	narrow
+	wide
+end 'PadWidth'
+
+function main() returns ExitCode
+	let p = PadWidth.wide
+	match p 'pick'
+		narrow then return 1
+		wide then return 7
+	end 'pick'
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stdlib-user-shadows.user-interface-coexists-with-a-listed-modules-typealias -->
+An `interface` against a stdlib module that is NOT `Builtins.maxon`: `stdlib/Testing.maxon` declares
+`public typealias Tolerance = float(0.0 to f64.max)`. The rule is a property of provenance and the reading
+file, not of one module, and a case anchored only in `Builtins.maxon` could not tell the two apart.
+```maxon
+interface Tolerance
+	function score() returns ExitCode
+end 'Tolerance'
+
+type Fixed implements Tolerance
+	static function create() returns Fixed
+		return Self{}
+	end 'create'
+
+	function score() returns ExitCode
+		return 7
+	end 'score'
+end 'Fixed'
+
+function main() returns ExitCode
+	let f = Fixed.create()
+	return f.score()
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stdlib-user-shadows.user-function-alias-coexists-with-a-listed-modules-ranged-typealias -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+Two `typealias` declarations of one name in two files, in DIFFERENT forms — a user function alias
+against `stdlib/Builtins.maxon`'s ranged `DecimalDigit`. A same-form test would refuse it with `E3061`,
+again blamed on the stdlib line. Both aliases are unmarked, and an unmarked alias is directory-local
+whatever its form, so the two coexist and each answers for its own file.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias DecimalDigit = function(value ExitCode) returns ExitCode
+
+function apply(f DecimalDigit, v ExitCode) returns ExitCode
+	return f(v)
+end 'apply'
+
+function identity(value ExitCode) returns ExitCode
+	return value
+end 'identity'
+
+function main() returns ExitCode
+	return apply(identity, v: 7)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: stdlib-user-shadows.the-listed-module-keeps-its-own-alias -->
+<!-- skip: float literals are not supported in minimaxon -->
+⭐ **The discriminating case: it is not enough that no diagnostic is raised.** Every case above would
+also pass if `stdlib/Builtins.maxon`'s `FullRangeInt` meant the user's struct and the compiler simply
+did not complain about it. Here the user owns the name AND the program runs stdlib code that depends
+on the module's own meaning of it — `stdlib/Builtins.maxon`'s `let __FloatSignBit = i64.min as
+FullRangeInt` is the sign bit float printing reads, and it is a CONST INITIALIZER, evaluated in every
+compile. A wrong answer inside the module shows up as the negative sign, not as an error.
+```maxon
+typealias Value = int(0 to 200)
+
+type FullRangeInt
+	export let value as Value
+
+	static function create(value Value) returns FullRangeInt
+		return Self{value: value}
+	end 'create'
+end 'FullRangeInt'
+
+function main() returns ExitCode
+	let p = FullRangeInt.create(0)
+	// TODO: float literals are not supported in minimaxon
+	let x = 2.5
+	print("{x}")
+	print("{-x}")
+	return p.value
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2.5-2.5
+```
+
+<!-- test: stdlib-user-shadows.a-user-container-over-the-shadowed-name -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⭐⭐ **The case that witnesses the MEMORY-SAFETY half, and it is the one the case above can only reach by
+accident.** A container's ELEMENT is classified by a tier that has no reading file — `typeIsManaged`, and
+the drop and clone routers behind it — so for a name that is a `type` in one file and a `typealias` in
+another, an element left as the bare name makes them GUESS. **Without the element mint,**
+`stdlib/Builtins.maxon`'s own `typealias FullRangeIntArray = Array with FullRangeInt` has its element read as a
+user program's struct, so printing a float drops an array of INTEGERS through `__destruct_FullRangeInt` —
+**exit 0xC0000005, no diagnostic and no output.**
+
+Here BOTH containers are live at once and each must keep its own element: the user's `ValueBoxes` holds
+`FullRangeInt` STRUCTS that own their boxes, while `print("{x}")` runs the library's big-integer path over its
+own array of `FullRangeInt` LIMBS. The declaring file decides the element, so the two are two instances — and
+a compiler that fused them either faults on the limbs or leaks the boxes.
+```maxon
+typealias Value = int(0 to 200)
+
+type FullRangeInt
+	export let value as Value
+
+	static function create(value Value) returns FullRangeInt
+		return Self{value: value}
+	end 'create'
+end 'FullRangeInt'
+
+typealias ValueBoxes = Array with FullRangeInt
+
+function main() returns ExitCode
+	let boxes = ValueBoxes.create(0)
+	boxes.push(FullRangeInt.create(3))
+	boxes.push(FullRangeInt.create(4))
+	// TODO: float literals are not supported in minimaxon
+	let x = 2.5
+	print("{x}")
+	var total = 0 as Value
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for b in boxes 'each'
+		total = total + b.value
+	end 'each'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+2.5
+```
+
+<!-- test: stdlib-user-shadows.the-format-spec-path-keeps-the-modules-alias -->
+<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
+⭐⭐ **The route the two cases above cannot reach, and it was still wrong when they went green.** Float
+printing enters `stdlib/Builtins.maxon` through `__float_toString`; an INTEGER format spec — `"{n:x}"`,
+`"{n:b}"`, `"{n:o}"`, `"{n:d}"` and their padded forms — enters somewhere else entirely, at
+`__int_toStringFormatted(value FullRangeInt, …)`, whose FIRST PARAMETER is the contested name. Nothing about
+a working float path constrains it: a compiler that resolved `FullRangeInt` correctly for the module's
+arrays and still let its meaning slip in this signature passes every case above and faults here —
+**exit 0xC0000005 with no diagnostic and no output at all**, the plain integer
+argument arriving at a parameter typed as the user's STRUCT.
+
+One case covers all four bases deliberately: they are not four features but one entry point, reached
+through one lowering, so a fix that reached only the base the case happened to name would be a fix that
+was never tested. The user's struct is live in the same program and answers for the exit code, so the
+case also fails if the module's meaning wins in the other direction.
+```maxon
+typealias Value = int(0 to 200)
+
+typealias Bits = int(0 to u64.max)
+
+type FullRangeInt
+	export let value as Value
+
+	static function create(value Value) returns FullRangeInt
+		return Self{value: value}
+	end 'create'
+end 'FullRangeInt'
+
+function main() returns ExitCode
+	let p = FullRangeInt.create(11)
+	let n = 48879 as Bits
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("{n:x}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:X}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:o}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:b}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:06x}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:d}")
+	return p.value
+end 'main'
+```
+```exitcode
+11
+```
+```stdout
+beef|BEEF|137357|1011111011101111|00beef|48879
+```
+
+<!-- test: stdlib-user-shadows.the-format-spec-path-control-under-an-uncontested-name -->
+<!-- skip: string interpolation format specifiers are not supported in minimaxon -->
+The CONTROL for the case above, and the reason its failure can be attributed to the name rather than to
+the format specs. Byte for byte the same program with the type renamed to `UserFullRangeInt`, so nothing in
+`stdlib/Builtins.maxon` is contested — same six spellings, same expected text. A fault in the case above
+that this one does not share is therefore a fault of the SHADOW and not of `"{n:x}"`.
+```maxon
+typealias Value = int(0 to 200)
+
+typealias Bits = int(0 to u64.max)
+
+type UserFullRangeInt
+	export let value as Value
+
+	static function create(value Value) returns UserFullRangeInt
+		return Self{value: value}
+	end 'create'
+end 'UserFullRangeInt'
+
+function main() returns ExitCode
+	let p = UserFullRangeInt.create(11)
+	let n = 48879 as Bits
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("{n:x}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:X}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:o}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:b}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:06x}")
+	// TODO: string interpolation format specifiers are not supported in minimaxon
+	print("|{n:d}")
+	return p.value
+end 'main'
+```
+```exitcode
+11
+```
+```stdout
+beef|BEEF|137357|1011111011101111|00beef|48879
+```
+
+<!-- test: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-export -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+A user EXPORTS `Byte` over `float`; `stdlib/String.maxon`, whose own `Byte` is `int(0 to u8.max)`, still
+compiles and serves `toByteArray`, because a library file never sees an author declaration (105 + 1).
+```maxon
+// --- file: wide/wide.maxon
+// TODO: float typealiases are not supported in minimaxon
+export typealias Byte = float(0.0 to 1.0)
+
+export function half(b Byte) returns Byte
+	// TODO: float literals are not supported in minimaxon
+	return b / 2.0
+end 'half'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let bytes = "hi".toByteArray()
+	// TODO: float literals are not supported in minimaxon
+	let quarter = half(0.5)
+	// TODO: float literals are not supported in minimaxon
+	return ((try bytes.get(1) otherwise 0) + (1 if quarter < 0.5 else 0)) as ExitCode
+end 'main'
+```
+```exitcode
+106
+```
+
+<!-- test: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-type -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A user EXPORTS `type FilePath` in another file; `stdlib/Directory.maxon`'s own `FilePath` still answers its
+return value, and the user's is named through its directory (4 + 9).
+```maxon
+// --- file: lib/path.maxon
+export type FilePath
+	export var tag as ExitCode
+
+	export static function make() returns FilePath
+		return FilePath{tag: 4}
+	end 'make'
+end 'FilePath'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let child = Directory.currentPath().join("alpha.txt")
+	let name = child.filename()
+	return lib.FilePath.make().tag + (name.byteLength() as ExitCode)
+end 'main'
+```
+```exitcode
+13
+```
+
+<!-- test: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A program declares its own `type Array` and an `extension Array` whose nested alias `SortComparator` the library's
+`stdlib/helpers/sort/insertionSort.maxon` also declares. The program sweeps first, so the only `SortComparator` filed
+when `stdlib/Array.maxon` reads the name is the author's, which a library file never sees: the library keeps its own
+and the program compiles and runs.
+```maxon
+// --- file: arr.maxon
+type Array
+	var n as Digit
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+end 'Array'
+
+typealias Digit = int(0 to 9)
+
+// --- file: ext.maxon
+// TODO: extension blocks are not supported in minimaxon
+extension Array
+	// TODO: function typealiases are not supported in minimaxon
+	typealias SortComparator = function(Digit, Digit) returns Ordering
+	function ordered(cmp SortComparator) returns bool
+		return cmp(self.n, self.n) == Ordering.equalTo
+	end 'ordered'
+end 'Array'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	if Array.create().ordered(function(a, b) gives a.compare(b)) 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: stdlib-user-shadows.error.an-unthrown-clause-names-the-library-type-as-written -->
+A diagnostic names a moved library type as the author writes it, `stdlib.ParseError`, never by the
+`__ParseError` the shadow moved it to.
+```maxon
+
+enum ParseError implements Error
+	bad
+end 'ParseError'
+
+function parse() returns ExitCode throws stdlib.ParseError
+	return 0
+end 'parse'
+
+function check() throws ParseError
+	throw ParseError.bad
+end 'check'
+
+function main() returns ExitCode
+	try check() otherwise ignore
+	return try parse() otherwise 1
+end 'main'
+```
+```maxoncstderr
+error E3168: <fragment>:7:10: 'throws stdlib.ParseError' is declared but nothing in the body throws — no 'throw', no bare 'try' and no 'otherwise throw' reaches a caller. Remove the clause
+```
+
+<!-- test: stdlib-user-shadows.error.an-argument-at-the-moved-library-type-is-named-as-written -->
+The same respelling in an argument mismatch: the parameter's type is quoted `stdlib.FileInfo` and the user's
+own `FileInfo` bare. A message keeps an author-written `__Clock` as written — the respelling skips any mint
+the reporting file's own tokens spell, which is why `error.the-mint-is-not-reachable-from-user-code` and
+`error.a-user-reserved-function-beside-a-shadow` quote it.
+```maxon
+
+type FileInfo
+	var size = 0 as Num
+
+	static function make() returns Self
+		return Self{}
+	end 'make'
+end 'FileInfo'
+
+typealias Num = int(0 to 9)
+
+function measure(info stdlib.FileInfo) returns Num
+	return 1
+end 'measure'
+
+function main() returns ExitCode
+	return measure(FileInfo.make())
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:18:9: argument type mismatch for 'info': expected 'stdlib.FileInfo', got 'FileInfo'
+```
+
+<!-- test: stdlib-user-shadows.a-member-typealias-after-a-method-stays-a-member -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The member typealias after a method is the type's `Holder.Range`, and the program's bare `Range` is still the library's.
+```maxon
+typealias Small = int(0 to 50)
+
+type Holder
+	let n as Small
+
+	static function make() returns Holder
+		return Holder{n: 3}
+	end 'make'
+
+	function held() returns Small
+		return self.n
+	end 'held'
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Range = int(0 to 9)
+
+	function widened() returns Range
+		return self.n
+	end 'widened'
+end 'Holder'
+
+function main() returns ExitCode
+	let span = Range.create(1, finish: 4)
+	var total = 0 as ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for v in span 'each'
+		total = total + (v as ExitCode)
+	end 'each'
+	return total + (Holder.make().widened() as ExitCode) + (Holder.make().held() as ExitCode)
+end 'main'
+```
+```exitcode
+16
+```
+
+<!-- test: stdlib-user-shadows.a-moved-library-frame-is-named-as-written-in-a-backtrace -->
+<!-- skip: closures are not supported in minimaxon -->
+A backtrace through a method of a library type the program shadows names the frame as the author would write
+it, `stdlib.Range.map`, on every lane.
+```maxon
+type Range
+	let n as ExitCode
+
+	static function make() returns Range
+		return Range{n: 1}
+	end 'make'
+
+	function value() returns ExitCode
+		return self.n
+	end 'value'
+end 'Range'
+
+typealias Small = int(0 to 100)
+
+function main() returns ExitCode
+	let bound = stdlib.Range.create(1, finish: 4)
+	// TODO: closures are not supported in minimaxon
+	let doubled = bound.map(function(x) gives (x * 1000) as Small)
+	return Range.make().value() + (doubled.count() as ExitCode)
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at stdlib-user-shadows.a-moved-library-frame-is-named-as-written-in-a-backtrace.test:18: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in main$closure_0
+  in stdlib.Range.map
+  in main
+  in mrt_start
+```
+
+<!-- test: stdlib-user-shadows.error.a-type-the-library-keeps-private-is-hidden-bare-and-qualified -->
+`stdlib/FilePath.maxon`'s `ParentComponentRule` carries no `public`, so no author file can name it — bare or
+qualified, one rule for both spellings.
+```maxon
+function bare(r ParentComponentRule) returns ExitCode
+	_ = r
+	return 1
+end 'bare'
+
+function qualified(r stdlib.ParentComponentRule) returns ExitCode
+	_ = r
+	return 2
+end 'qualified'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:2:17: type 'ParentComponentRule' is not exported
+error E3008: <fragment>:7:22: type 'stdlib.ParentComponentRule' is not exported
+```
+
+<!-- test: stdlib-user-shadows.another-files-private-function-leaves-the-library-one-visible -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+A declaration a file cannot see never counts: `a/`'s unmarked `round` answers its own call, and `b/`'s bare `round` is the library's.
+```maxon
+// --- file: a/a.maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+function round(x Real) returns Real
+	return x
+end 'round'
+
+export function runA()
+	print("a {round(2.5)}\n")
+end 'runA'
+
+// --- file: b/b.maxon
+export function runB()
+	// TODO: float literals are not supported in minimaxon
+	let x = 3.7
+	print("b {trunc(round(x))}\n")
+end 'runB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	runA()
+	runB()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a 2.5
+b 4
+```
+
+<!-- test: stdlib-user-shadows.two-files-private-functions-each-shadow-the-library-one-for-their-own-file -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '7' -->
+Each directory's unmarked `round` answers its own file's calls, and the root file, which sees neither, calls the library's.
+```maxon
+// --- file: a/a.maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+function round(x Real) returns Real
+	return x
+end 'round'
+
+export function runA()
+	print("a {round(2.5)}\n")
+end 'runA'
+
+// --- file: b/b.maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+function round(x Real) returns Real
+	// TODO: float literals are not supported in minimaxon
+	return x + 1.0
+end 'round'
+
+export function runB()
+	print("b {round(2.5)}\n")
+end 'runB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	runA()
+	runB()
+	print("main {trunc(round(3.7))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a 2.5
+b 3.5
+main 4
+```
+
+<!-- test: stdlib-user-shadows.a-cast-of-a-library-float-alias-to-the-programs-own-alias-of-that-name-is-not-unneeded -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+`Math.pow` answers the library's `FullRangeFloat`, and this file's `FullRangeFloat` is a different declaration of that name, so the cast between them is a conversion rather than an unneeded cast.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias FullRangeFloat = float(f64.min to f64.max)
+
+function half(x FullRangeFloat) returns FullRangeFloat
+	// TODO: float literals are not supported in minimaxon
+	return x / 2.0
+end 'half'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let cube = Math.pow(2.0, exponent: 3.0) as FullRangeFloat
+	print("{half(cube)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+4.0
+```
+
+<!-- test: stdlib-user-shadows.a-masked-count-cast-to-the-programs-own-count-is-not-unneeded -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A masked `count()` keeps the library's `Count`, and this file's `Count` is a different declaration of that name, so the cast between them is a conversion rather than an unneeded cast.
+```maxon
+typealias Count = int(0 to u64.max)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+	let low = (xs.count() and 7) as Count
+	print("{low}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: stdlib-user-shadows.arithmetic-between-the-librarys-real-and-the-programs-own-real-is-refused -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+`Math.pow` answers the library's `FullRangeFloat` and `mine` is this file's `FullRangeFloat`. They share a spelling and a range but are two declarations, so `+` refuses the pair, quoting the library's as `stdlib.FullRangeFloat`.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias FullRangeFloat = float(f64.min to f64.max)
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let mine = 2.0 as FullRangeFloat
+	// TODO: float literals are not supported in minimaxon
+	let sum = Math.pow(2.0, exponent: 3.0) + mine
+	print("{sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:41: operator '+' requires both operands to be the same type: 'stdlib.FullRangeFloat' and 'FullRangeFloat' are different typealiases — cast one side with 'as'
+```
+
+<!-- test: stdlib-user-shadows.a-librarys-count-and-the-programs-own-count-do-not-mix -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+`count()` answers the library's `Count` and `mine` is this file's `Count`, declared with the same range, so `+` refuses the pair.
+```maxon
+typealias Count = int(0 to u64.max)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [1, 2, 3]
+	let mine = 3 as Count
+	let total = xs.count() + mine
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:25: operator '+' requires both operands to be the same type: 'stdlib.Count' and 'Count' are different typealiases — cast one side with 'as'
+```
+
+<!-- test: stdlib-user-shadows.an-async-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+A program that declares its own `Range` spawns a static of the library's `Range` by writing `stdlib.Range`,
+the same spelling the synchronous call accepts.
+```maxon
+type Range
+	export var y as Count
+end 'Range'
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let bound = await async stdlib.Range.create(1, finish: 4)
+	// TODO: closures are not supported in minimaxon
+	let doubled = bound.map(function(x) gives x * 2)
+	return 0 if doubled.count() > 0 else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: stdlib-user-shadows.a-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A program that declares its own `StringBuilder` spawns the library's `StringBuilder` as a service by writing
+`stdlib.StringBuilder`, the spelling a direct call and an `async` spawn accept.
+```maxon
+type StringBuilder
+	export var y as Count
+end 'StringBuilder'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	_ = spawn stdlib.StringBuilder.create()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: stdlib-user-shadows.a-default-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: top-level default declarations are not supported in minimaxon -->
+A program that declares its own `TextLogHandler` makes the library's `TextLogHandler` the default
+`LogHandler` by writing `stdlib.TextLogHandler`, and the record sent to it is written.
+```maxon
+type TextLogHandler
+	export var y as Count
+end 'TextLogHandler'
+
+// TODO: top-level default declarations are not supported in minimaxon
+default LogHandler = spawn stdlib.TextLogHandler.create(LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false))
+
+function main() returns ExitCode
+	let record = freeze(LogRecord.create(0, level: LogLevel.info.clone(), message: "up", attrs: LogFieldArray.create(0), file: "main.maxon", line: 1))
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let written = try await LogHandler.current().handle(record) otherwise false
+	return 0 if written else 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+level=INFO msg=up
+```
+
+<!-- test: stdlib-user-shadows.error.a-missing-method-on-a-shadowed-library-type-is-named-as-written -->
+A method the library's `Range` does not declare, called on a value of it in a program that shadows
+`Range`, is refused as a missing method of `stdlib.Range`, as it would be of an unshadowed type.
+```maxon
+type Range
+	export var y as Count
+end 'Range'
+
+function main() returns ExitCode
+	let bound = stdlib.Range.create(1, finish: 4)
+	return bound.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4006: <fragment>:8:15: Type 'stdlib.Range' has no method named 'count'
+```
+
+<!-- test: stdlib-user-shadows.error.a-missing-static-on-a-shadowed-library-type-is-named-as-written -->
+A static the library's `Range` does not declare, called through `stdlib.Range` in a program that shadows
+`Range`, is refused as a missing member of `stdlib.Range`.
+```maxon
+type Range
+	export var y as Count
+end 'Range'
+
+function main() returns ExitCode
+	return stdlib.Range.nosuch() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4006: <fragment>:7:22: Type 'stdlib.Range' has no method named 'nosuch'
+```
+
+<!-- test: stdlib-user-shadows.error.a-missing-static-spawned-async-on-a-shadowed-library-type-is-named-as-written -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The same missing static, spawned with `async`, is refused the same way.
+```maxon
+type Range
+	export var y as Count
+end 'Range'
+
+function main() returns ExitCode
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let n = await async stdlib.Range.nosuch()
+	return n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E4006: <fragment>:7:35: Type 'stdlib.Range' has no method named 'nosuch'
+```
+
+<!-- test: stdlib-user-shadows.a-library-file-names-a-library-type-by-its-qualified-name -->
+<!-- skip: closures are not supported in minimaxon -->
+A library file reaches another library type through `stdlib.Range`, the spelling an author file writes, and
+the call resolves to the library's `Range` exactly as the bare name would.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public function overlayProbe() returns Count
+	let bound = stdlib.Range.create(1, finish: 4)
+	// TODO: closures are not supported in minimaxon
+	return bound.map(function(x) gives x * 2).count()
+end 'overlayProbe'
+// --- file: main.maxon
+function main() returns ExitCode
+	return overlayProbe() as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: stdlib-user-shadows.an-author-file-names-a-library-type-by-its-qualified-name -->
+<!-- skip: closures are not supported in minimaxon -->
+With no author declaration of `Range`, `stdlib.Range` in an author file is the library's `Range`, exactly
+as the bare name would be.
+```maxon
+function main() returns ExitCode
+	let bound = stdlib.Range.create(1, finish: 4)
+	// TODO: closures are not supported in minimaxon
+	return bound.map(function(x) gives x * 2).count() as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: stdlib-user-shadows.a-library-file-names-a-shadowed-library-alias-by-its-qualified-name -->
+A library file names the library's `Count` alias as `stdlib.Count` in a signature, and the program's own `Count`
+type leaves that signature the library's: the program's literal argument reaches it and its answer casts back.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+public function overlayCount(n stdlib.Count) returns stdlib.Count
+	return n
+end 'overlayCount'
+// --- file: main.maxon
+type Count
+	let y as ExitCode
+
+	static function make() returns Count
+		return Count{y: 0}
+	end 'make'
+
+	function offset() returns ExitCode
+		return self.y
+	end 'offset'
+end 'Count'
+
+function main() returns ExitCode
+	return (overlayCount(3) as ExitCode) + Count.make().offset()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: stdlib-user-shadows.error.a-result-declared-as-the-librarys-count-does-not-land-in-the-programs-own-count -->
+A function in a file that declares its own `Count` returns `stdlib.Count`. Its result is the library's `Count`,
+so assigning it to a variable of the file's own `Count` needs a cast.
+```maxon
+typealias Count = int(0 to 3)
+
+function sizeOf(words StringArray) returns stdlib.Count
+	return words.count()
+end 'sizeOf'
+
+function main() returns ExitCode
+	let words = "a b c d e f g".split(" ")
+	var mine = 0 as Count
+	mine = sizeOf(words)
+	return mine as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:2: cannot assign a value of type 'stdlib.Count' to variable 'mine', which holds 'Count' — cast the value with 'as Count'
+```
+
+<!-- test: stdlib-user-shadows.a-generic-function-binds-the-librarys-byte-in-a-file-declaring-its-own -->
+A generic function in a file that declares its own `Byte` is called with a byte read from a string. Its type
+parameter binds the library's `Byte`, so the result goes where `stdlib.Byte` is declared, and a call with the
+file's own `Byte` binds that one and keeps a value past the library's range.
+```maxon
+typealias Byte = int(0 to 60000)
+
+function pick(value T) uses T returns T
+	return value
+end 'pick'
+
+function same(left stdlib.Byte, right stdlib.Byte) returns bool
+	return left == right
+end 'same'
+
+function main() returns ExitCode
+	let bytes = "AB".toByteArray()
+	let first = try bytes.get(0) otherwise 0
+	let mine = 50000 as Byte
+	print("{same(pick(first), right: first)} {pick(mine)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true 50000
+```
+
+<!-- test: stdlib-user-shadows.a-field-declared-as-the-librarys-byte-keeps-the-librarys-range -->
+A field declared `stdlib.Byte` in a file whose own `Byte` is wider holds the library's `Byte`: the field of the
+file's own `Byte` takes a value past 255, and a value past 255 stored into the other panics, naming
+`stdlib.Byte`.
+```maxon
+typealias Byte = int(0 to 60000)
+
+typealias Tally = int(0 to 100000)
+
+type Cell
+	export var tiny as stdlib.Byte
+	export var mine as Byte
+
+	static function create(tiny stdlib.Byte, mine Byte) returns Cell
+		return Cell{tiny: tiny, mine: mine}
+	end 'create'
+end 'Cell'
+
+function main() returns ExitCode
+	let bytes = "AB".toByteArray()
+	let first = try bytes.get(0) otherwise 0
+	let cell = Cell.create(first, mine: 9)
+	cell.mine = cell.mine + 300
+	cell.tiny = (cell.tiny as Tally + 130) as stdlib.Byte
+	cell.tiny = cell.tiny + 100
+	return (cell.tiny as Tally + cell.mine as Tally) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at stdlib-user-shadows.a-field-declared-as-the-librarys-byte-keeps-the-librarys-range.test:20: Range check failed: value outside typealias 'stdlib.Byte'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: stdlib-user-shadows.a-library-method-calls-the-librarys-function-past-an-authors-extension-method-of-that-name -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A program extends `String` with a method named `scanIsAscii`, the name of a free function the library's `isAscii` calls bare.
+A library file never sees an author's declaration, so `isAscii` still calls the library's function and answers for each
+string, and the program's own method answers its own value.
+```maxon
+typealias Tally = int(0 to 1000)
+
+// TODO: extension blocks are not supported in minimaxon
+extension String
+	function scanIsAscii() returns Tally
+		return 7
+	end 'scanIsAscii'
+end 'String'
+
+function main() returns ExitCode
+	let plain = "abc"
+	let broken = "a\rb"
+	let accented = "né"
+	print("{plain.isAscii()} {broken.isAscii()} {accented.isAscii()} {plain.scanIsAscii()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true true false 7
+```
+
+<!-- test: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-extension-method-of-the-same-signature -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A program extends `String` with a method named `needleOccursIn` that takes what the library's free function of that
+name takes and answers otherwise. `contains` calls that function bare and keeps the library's answer; the program's
+method answers its own when the program calls it.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension String
+	public function needleOccursIn(haystack String, len BytePos, needle String) returns bool
+		return len > haystack.byteLength() + needle.byteLength()
+	end 'needleOccursIn'
+end 'String'
+
+function main() returns ExitCode
+	let word = "abc"
+	print("{word.contains("b")} {word.contains("z")} {word.needleOccursIn(word, len: 3, needle: "b")}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false false
+```
+
+<!-- test: stdlib-user-shadows.a-library-static-calls-the-librarys-function-past-an-authors-static-extension-method-of-that-name -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A program extends `CivilDate` with a static method named `daysInMonth`, the name of a free function the library's
+`CivilDate.create` calls bare. `create` still asks the library's function, so it accepts February 29 in a leap year
+and refuses it in a common one, and the program's own static answers its own value.
+```maxon
+typealias Tally = int(0 to 1000)
+
+// TODO: extension blocks are not supported in minimaxon
+extension CivilDate
+	static function daysInMonth(year CivilYear, month CivilMonth) returns Tally
+		return 31 if year > 0 and month > 0 else 30
+	end 'daysInMonth'
+end 'CivilDate'
+
+function leapDayOf(year CivilYear) returns String
+	let made = try CivilDate.create(year, month: 2, day: 29) otherwise return "refused"
+	return "day {made.day}"
+end 'leapDayOf'
+
+function main() returns ExitCode
+	let made = try CivilDate.create(2024, month: 1, day: 31) otherwise return 1
+	print("{leapDayOf(2024)}, {leapDayOf(2023)}, {CivilDate.daysInMonth(2023, month: 2)}, {made.month}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+day 29, refused, 31, 1
+```
+
+<!-- test: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-static-extension-method-of-the-same-signature -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A program extends `String` with a static method named `countGraphemes` that takes what the library's free function of
+that name takes and answers otherwise. `count()` calls that function bare and keeps the library's answer; the program's
+static answers its own when the program calls it.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension String
+	public static function countGraphemes(text String) returns GraphemeIndex
+		return 99 if text.isEmpty() else 98
+	end 'countGraphemes'
+end 'String'
+
+function main() returns ExitCode
+	let word = "abc"
+	print("{word.count()} {String.countGraphemes("q")}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 98
+```
+
+<!-- test: stdlib-user-shadows.a-library-extension-reads-the-librarys-alias-past-an-authors-member-alias-of-that-name -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+A program extends `Array` with a member typealias named `ElementIndex`, the name of an alias the library's own `Array`
+extensions spell bare. A library file never sees an author's declaration, so the library's sort keeps indexing with
+the library's `ElementIndex` and sorts an array longer than the program's alias could index.
+```maxon
+typealias Tally = int(0 to 1000)
+
+typealias TallyArray = Array with Tally
+
+// TODO: extension blocks are not supported in minimaxon
+extension Array
+	public typealias ElementIndex = int(0 to 5)
+end 'Array'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let items = TallyArray from [3, 1, 2, 9, 4, 7, 5, 8, 6, 0, 11, 15, 12, 14, 13, 10]
+	items.sort()
+	let first = try items.get(0) otherwise 99
+	let last = try items.get(15) otherwise 99
+	print("{first} {last}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0 15
+```
+
+<!-- test: stdlib-user-shadows.error.a-hash-on-a-library-enum-is-a-member-the-compiler-supplies -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+A program extends the library enum `ParseError` with a `hash` method of its own. The compiler supplies `hash` to every
+payload-free enum, and a layer above the one that declares the enum may not declare a member the compiler supplies to
+it, so the declaration is refused at its name.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension ParseError
+	function hash() returns HashValue
+		return 777
+	end 'hash'
+end 'ParseError'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:3:11: Duplicate method 'hash' in type 'ParseError': the compiler supplies it to 'ParseError', and a layer above the one that declares 'ParseError' may not declare it — rename the method, or wrap 'ParseError' in a type of your own that declares it
+```
+
+<!-- test: stdlib-user-shadows.error.a-mismatched-hash-on-a-library-enum-is-the-same-refusal-not-e3130 -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+The refusal does not depend on the member's signature: a `hash` that returns a `String` is refused for being a member
+the compiler supplies, not for failing the requirement the enum's own layer would be held to.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension ParseError
+	function hash() returns String
+		return "x"
+	end 'hash'
+end 'ParseError'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:3:11: Duplicate method 'hash' in type 'ParseError': the compiler supplies it to 'ParseError', and a layer above the one that declares 'ParseError' may not declare it — rename the method, or wrap 'ParseError' in a type of your own that declares it
+```
+
+<!-- test: stdlib-user-shadows.error.a-clone-on-a-library-struct-is-a-member-the-compiler-supplies -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+The compiler supplies `clone` to every struct, so an extension that makes the library struct `CivilDate` `Cloneable`
+by declaring `clone` is refused at the method's name.
+```maxon
+// TODO: extension blocks are not supported in minimaxon
+extension CivilDate implements Cloneable
+	function clone() returns CivilDate
+		return self
+	end 'clone'
+end 'CivilDate'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:3:11: Duplicate method 'clone' in type 'CivilDate': the compiler supplies it to 'CivilDate', and a layer above the one that declares 'CivilDate' may not declare it — rename the method, or wrap 'CivilDate' in a type of your own that declares it
+```
+
+<!-- test: stdlib-user-shadows.an-enum-the-program-declares-may-declare-its-own-hash -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+The refusal is about a layer above the type's own: an enum the program declares may declare `hash` itself, and its direct
+call and its use as a `Map` key both read that method.
+```maxon
+enum Color
+	red
+	green
+end 'Color'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Color
+	function hash() returns HashValue
+		return 5
+	end 'hash'
+end 'Color'
+
+typealias SeenColors = Map with (Color, HashValue)
+
+function main() returns ExitCode
+	let seen = SeenColors.create()
+	seen.upsert(Color.green, value: 7)
+	let found = try seen.get(Color.green) otherwise 0
+	print("{Color.green.hash()} {found}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5 7
+```
+
+<!-- test: stdlib-user-shadows.an-interface-extension-leaves-a-library-conformer-the-members-the-compiler-supplies -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+An interface extension's member is a default, and a conformer the compiler supplies the member to keeps the compiler's, in
+whatever layer the conformer is declared. The program's `extension Iterable` declares `clone`, which the compiler
+supplies to the library type `ByteView` and to the program's own `Bag`, so the extension is not refused and neither
+conformer takes it, through the direct call or through a generic body that holds the value as an `Iterable`.
+```maxon
+typealias Total = int(0 to 1000)
+
+type Bag implements Iterable with (RangeBound, RangeIterator)
+	let finish as RangeBound
+
+	static function create(finish RangeBound) returns Self
+		return Self{finish: finish}
+	end 'create'
+
+	function createIterator() returns RangeIterator throws IterationError
+		return try RangeIterator.create(1, last: self.finish)
+	end 'createIterator'
+end 'Bag'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Iterable
+	function clone() returns Self
+		print("extension clone\n")
+		return self
+	end 'clone'
+end 'Iterable'
+
+function copyThroughIterable(value T) uses T returns T where T implements Iterable
+	return value.clone()
+end 'copyThroughIterable'
+
+function main() returns ExitCode
+	let view = "abc".bytes()
+	let viewCopy = view.clone()
+	let viewGeneric = copyThroughIterable(view)
+	var viewLength = 0 as Total
+	var genericLength = 0 as Total
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in viewCopy 'bytes'
+		viewLength = viewLength + 1
+	end 'bytes'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in viewGeneric 'genericBytes'
+		genericLength = genericLength + 1
+	end 'genericBytes'
+	let bagCopy = Bag.create(3).clone()
+	var bagSum = 0 as RangeBound
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in bagCopy 'bag'
+		bagSum = bagSum + n
+	end 'bag'
+	print("{viewLength} {genericLength} {bagSum}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3 6
+```
+
+<!-- test: stdlib-user-shadows.error.an-enums-own-mismatched-hash-is-e3130 -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- positions: moved -->
+A layer is held to the requirement for the member of a type it declares itself: an enum the program declares, with a
+`hash` that does not return `HashValue`, is the requirement's own diagnostic rather than the refusal a layer above the
+enum's gets.
+```maxon
+enum Color
+	red
+	green
+end 'Color'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Color
+	function hash() returns String
+		return "x"
+	end 'hash'
+end 'Color'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3130: <fragment>:8:11: `enum Color` conforms to 'Hashable' automatically — an enum without associated values is `Hashable` and `Equatable` with no `implements` clause — and its 'hash' is declared hash() returns String, which does not implement hash() returns HashValue. That member is what a `Map`/`Set` keyed by 'Color' hashes and compares through, so it must implement the requirement; rename it if it means something else
+```

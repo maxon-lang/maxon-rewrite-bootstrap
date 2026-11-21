@@ -1,0 +1,249 @@
+---
+feature: file-info
+status: experimental
+keywords: [file, info, metadata, size, timestamp, modified, created]
+category: stdlib
+---
+
+# File Info
+
+## Documentation
+
+Retrieve metadata about a file using `File.info()`. Returns a `FileInfo` struct containing the file's size, timestamps, and attributes — all obtained with a single OS call.
+
+### FileInfo Type
+
+```text
+type FileInfo
+  export let size as FileSize              // file size in bytes
+  export let modifiedTime as Timestamp     // last modification time (Unix epoch seconds)
+  export let createdTime as Timestamp      // creation time (Unix epoch seconds)
+  export let accessedTime as Timestamp     // last access time (Unix epoch seconds)
+  export let isDirectory as bool           // true if path is a directory
+  export let isReadOnly as bool            // true if file is read-only
+end 'FileInfo'
+```
+
+### File.info
+
+**Signature:** `static function info(path FilePath) returns FileInfo throws FileInfoError`
+
+**Parameters:**
+- `path`: File path to query
+
+**Returns:** A `FileInfo` struct with file metadata
+
+**Throws:** `FileInfoError.notFound` if the file does not exist
+
+**Example:**
+
+```text
+let fi = try File.info(FilePath from "data.txt") otherwise 'e'
+  print("file not found")
+  return 1
+end 'e'
+print("size: {fi.size}, modified: {fi.modifiedTime}")
+```
+
+## Targets
+
+<!-- unsupported-targets: wasm32-wasi -->
+**`file-io.md`'s "Targets — the one statement of the FILESYSTEM gate"**: `File.info` lowers to the
+runtime entry `__mf_stat` and the cases that create their fixture reach `__mf_open_write` too, and
+neither has a wasm32-wasi implementation — `E3104`, raised by
+`SemanticCheck.requireTargetSupportsCallee`, not by the marker. The reason is written down there and
+not repeated here.
+
+## Tests
+
+<!-- test: file-info.basic-size -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let path = FilePath from "test_fi_basic.txt"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try File.writeText(path, content: "ABCDE") otherwise 'w'
+		return 1
+	end 'w'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(path) otherwise 'e'
+		try File.delete(path) otherwise ignore
+		return 2
+	end 'e'
+	try File.delete(path) otherwise ignore
+	if fi.size != 5 'check'
+		print("wrong size: {fi.size}")
+		return 3
+	end 'check'
+	print("size={fi.size}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+size=5
+```
+
+<!-- test: file-info.timestamps -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let path = FilePath from "test_fi_times.txt"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try File.writeText(path, content: "time test") otherwise 'w'
+		return 1
+	end 'w'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(path) otherwise 'e'
+		try File.delete(path) otherwise ignore
+		return 2
+	end 'e'
+	try File.delete(path) otherwise ignore
+	// Timestamps should be reasonable Unix epoch values (after year 2020 = 1577836800)
+	if fi.modifiedTime < 1577836800 'mt'
+		print("modifiedTime too small: {fi.modifiedTime}")
+		return 3
+	end 'mt'
+	if fi.createdTime < 1577836800 'ct'
+		print("createdTime too small: {fi.createdTime}")
+		return 4
+	end 'ct'
+	if fi.accessedTime < 1577836800 'at'
+		print("accessedTime too small: {fi.accessedTime}")
+		return 5
+	end 'at'
+	print("timestamps ok")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+timestamps ok
+```
+
+<!-- test: file-info.not-found -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(FilePath from "nonexistent_fi_xyz.txt") otherwise 'e'
+		print("not found")
+		return 42
+	end 'e'
+	print("unexpected: size={fi.size}")
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+```stdout
+not found
+```
+
+<!-- test: file-info.directory -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let path = FilePath from "test_fi_dir"
+	if not Directory.create(path) 'created'
+		return 1
+	end 'created'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(path) otherwise 'e'
+		try Directory.delete(path) otherwise ignore
+		print("info failed")
+		return 2
+	end 'e'
+	try Directory.delete(path) otherwise return 4
+	if fi.isDirectory == false 'dc'
+		print("expected directory")
+		return 3
+	end 'dc'
+	print("is directory")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+is directory
+```
+
+<!-- test: file-info.read-only -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let path = FilePath from "test_fi_rw.txt"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try File.writeText(path, content: "rw test") otherwise 'w'
+		return 1
+	end 'w'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(path) otherwise 'e'
+		try File.delete(path) otherwise ignore
+		return 2
+	end 'e'
+	try File.delete(path) otherwise ignore
+	// A freshly written file should not be read-only
+	if fi.isReadOnly 'ro'
+		print("unexpected read-only")
+		return 3
+	end 'ro'
+	print("not read-only")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+not read-only
+```
+
+<!-- test: file-info.empty-file -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let path = FilePath from "test_fi_empty.txt"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try File.writeText(path, content: "") otherwise 'w'
+		return 1
+	end 'w'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let fi = try File.info(path) otherwise 'e'
+		try File.delete(path) otherwise ignore
+		return 2
+	end 'e'
+	try File.delete(path) otherwise ignore
+	if fi.size != 0 'check'
+		print("wrong size: {fi.size}")
+		return 3
+	end 'check'
+	print("empty size=0")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+empty size=0
+```

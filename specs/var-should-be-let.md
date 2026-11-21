@@ -1,0 +1,1638 @@
+---
+feature: var-should-be-let
+status: stable
+keywords: [variables, var, let, diagnostics, errors, mutability]
+category: diagnostics
+---
+
+# Var Should Be Let Detection
+
+## Documentation
+
+Maxon requires that `var` declarations are actually mutated. If a variable is declared with `var` but never reassigned, it should be declared with `let` instead.
+
+### Example Error
+
+```maxon
+function main() returns ExitCode
+	var x = 10
+	return x
+end 'main'
+```
+```maxoncstderr
+error E3077: specs/var-should-be-let/docs-example-1.maxon:3:6: variable 'x' is never reassigned; use 'let' instead of 'var'
+```
+
+### A `let` names a record it never rebinds (E3102)
+
+A `let` is only a name that is never reassigned, so the record it names is written like any other: a `var` bound
+from a value read out of the `let`, a parameter the callee writes, a field write and a mutating call such as
+`append` all reach it, and every name reads the same record. `var b = a` and `let b = a` MOVE the record local
+`a` (a later use of `a` is **E3102**); passing `a` to a call does not. A `String` a call hands back is copied when
+it is bound to a `var`. `clone()` gives the writer its own record. The data a module-level `let` holds is
+`immutable`: writing through it is **E3197**.
+
+## Tests
+
+<!-- test: var-never-reassigned -->
+```maxon
+
+function main() returns ExitCode
+	var x = 10 as FullRangeInt
+	return x
+end 'main'
+```
+```maxoncstderr
+error E3077: specs/var-should-be-let/var-never-reassigned.maxon:4:6: variable 'x' is never reassigned; use 'let' instead of 'var'
+```
+
+<!-- test: var-reassigned -->
+```maxon
+
+function main() returns ExitCode
+	var x = 10 as FullRangeInt
+	x = 20
+	return x
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: let-no-error -->
+```maxon
+
+function main() returns ExitCode
+	let x = 10
+	return x
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: var-reassigned-in-if -->
+```maxon
+
+function main() returns ExitCode
+	var x = 0 as FullRangeInt
+	if x == 0 'check'
+		x = 42
+	end 'check'
+	return x
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: multiple-vars-each-reported -->
+```maxon
+
+function main() returns ExitCode
+	var x = 1 as FullRangeInt
+	var y = 2 as FullRangeInt
+	return x + y
+end 'main'
+```
+```maxoncstderr
+error E3077: <fragment>:4:6: variable 'x' is never reassigned; use 'let' instead of 'var'
+error E3077: <fragment>:5:6: variable 'y' is never reassigned; use 'let' instead of 'var'
+```
+
+<!-- test: var-from-immutable-integer-ok -->
+```maxon
+
+function main() returns ExitCode
+	let x = 10 as FullRangeInt
+	var y = x
+	y = 20
+	return y
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: var-from-a-let-struct-moves-the-record -->
+`var b = a` moves the record `a` names into `b`, which writes it.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = a
+	b.x = 99
+	return b.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: a-clone-of-an-immutable-struct-bound-to-a-var-is-writable -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = a.clone()
+	b.x = 99
+	return b.x + a.x
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: var-from-immutable-function -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function double(x Integer) returns Integer
+	return x * 2
+end 'double'
+
+function triple(x Integer) returns Integer
+	return x * 3
+end 'triple'
+
+function main() returns ExitCode
+	let f = double
+	var g = f
+	g = triple
+	return g(10)
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: var-from-a-let-struct-field-writes-the-record-the-field-holds -->
+`var i = o.inner` names the record the `let` `o` holds in its field, and the write through `i` is accepted.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Inner
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var inner as Inner
+
+	static function create(inner Inner) returns Self
+		return Self{inner: inner}
+	end 'create'
+end 'Outer'
+
+function main() returns ExitCode
+	let o = Outer.create(Inner.create(42))
+	let i = o.inner
+	i.value = 99
+	return i.value
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: var-from-immutable-value-field-ok -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(1, y: 2)
+	var x = p.x
+	x = 99
+	return x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: var-from-mutable-ok -->
+```maxon
+
+function main() returns ExitCode
+	var x = 10 as FullRangeInt
+	x = 20
+	var y = x
+	y = 30
+	return y
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: unused-takes-precedence -->
+```maxon
+
+function main() returns ExitCode
+	var x = 10 as FullRangeInt
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/var-should-be-let/unused-takes-precedence.maxon:4:6: unused variable: 'x'
+```
+
+<!-- test: an-unused-let-silences-a-read-var-never-reassigned -->
+A function that reports an unused variable reports no `var` that should be `let`: `x` is read and never
+reassigned, and only `unused` is reported.
+```maxon
+
+function main() returns ExitCode
+	let unused = 1
+	var x = 10 as FullRangeInt
+	return x
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/var-should-be-let/an-unused-let-silences-a-read-var-never-reassigned.maxon:4:6: unused variable: 'unused'
+```
+
+<!-- test: two-unused-vars-are-each-unused-not-should-be-let -->
+```maxon
+
+function main() returns ExitCode
+	var x = 10 as FullRangeInt
+	var y = 20 as FullRangeInt
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/var-should-be-let/two-unused-vars-are-each-unused-not-should-be-let.maxon:4:6: unused variable: 'x'
+error E3012: specs/var-should-be-let/two-unused-vars-are-each-unused-not-should-be-let.maxon:5:6: unused variable: 'y'
+```
+
+<!-- test: returned-alias-of-a-let-string-field -->
+A call's result may be a second reference to an argument's storage. `pass` hands back its borrowed argument,
+and a `String` a name does not own is copied when it is bound to a `var`, so `x` holds a record of its own: the
+append rewrites that copy and `h.path` is unchanged.
+```maxon
+
+type Holder
+	export let path as String
+
+	static function create(path String) returns Self
+		return Self{path: path}
+	end 'create'
+end 'Holder'
+
+function pass(s String) returns String
+	return s
+end 'pass'
+
+function main() returns ExitCode
+	let h = Holder.create("base")
+	var x = pass(h.path)
+	x.append(" more")
+	print("{x} {h.path}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+base more base
+```
+
+<!-- test: returned-alias-of-a-let-struct-is-written-through-the-var -->
+The same door for a struct box: `relay` hands back the record `a` names, and the write through `b` lands in `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = relay(a)
+	b.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: returned-alias-of-a-let-receiver-field -->
+A method that returns one of its receiver's fields hands back the receiver's storage. `FilePath.toString()`
+returns its `path` field, and the `var` made from it holds a copy of its own.
+```maxon
+
+function main() returns ExitCode
+	let fp = try FilePath.from("somedir") otherwise panic("a relative path is valid")
+	var s = fp.toString()
+	s.append(" more")
+	print("{s} {fp.toString()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+somedir more somedir
+```
+
+<!-- test: returned-alias-through-two-calls -->
+What a callee may return includes what ITS callees may return, whichever order they are declared in; the `var`
+holds a copy of the `String` either way.
+```maxon
+
+function main() returns ExitCode
+	let n = 7
+	let a = "lit{n}"
+	var b = relay(a)
+	b.append("x")
+	print("{a} {b}\n")
+	return 0
+end 'main'
+
+function relay(s String) returns String
+	return pass(s)
+end 'relay'
+
+function pass(s String) returns String
+	return s
+end 'pass'
+```
+```exitcode
+0
+```
+```stdout
+lit7 lit7x
+```
+
+<!-- test: returned-alias-through-recursion -->
+A recursive callee may hand back the `String` it was given from any depth, and the `var` holds a copy of it.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function pick(s String, depth Integer) returns String
+	if depth == 0 'bottom'
+		return s
+	end 'bottom'
+	return pick(s, depth: depth - 1)
+end 'pick'
+
+function main() returns ExitCode
+	let n = 7
+	let a = "lit{n}"
+	var b = pick(a, depth: 3)
+	b.append("x")
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+lit7 lit7x
+```
+
+<!-- test: returned-alias-through-an-interface-call -->
+A call through an interface reaches whichever witness the value carries, `Tag.name()` returns its receiver's
+field, and the `var` holds a copy of that `String`.
+```maxon
+
+interface Named
+	function name() returns String
+end 'Named'
+
+type Tag implements Named
+	export let label as String
+
+	static function create(label String) returns Self
+		return Self{label: label}
+	end 'create'
+
+	function name() returns String
+		return self.label
+	end 'name'
+end 'Tag'
+
+function nameOf(n Named) returns String
+	return n.name()
+end 'nameOf'
+
+function main() returns ExitCode
+	let t = Tag.create("tag")
+	var y = nameOf(t)
+	y.append(" more")
+	print("{y} {t.label}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+tag more tag
+```
+
+<!-- test: returned-alias-through-a-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+A closure may return what it captured, and the `var` holds a copy of it: calling the closure again answers the
+original.
+```maxon
+
+function main() returns ExitCode
+	let n = 7
+	let s = "cap{n}"
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives s
+	var x = f()
+	x.append(" more")
+	print("{x} {f()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+cap7 more cap7
+```
+
+<!-- test: returned-alias-bound-by-if-let-over-a-let-source-is-written -->
+<!-- skip: if try is not supported in minimaxon -->
+An `if let` binding made from a `let`'s record names it: `relayT` hands `source` back, `b` is written, and `source` reads the write.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+
+enum PointError implements Error
+	negative
+end 'PointError'
+
+function relayT(p Point) returns Point throws PointError
+	if p.x < 0 'neg'
+		throw PointError.negative
+	end 'neg'
+	return p
+end 'relayT'
+
+function main() returns ExitCode
+	let source = Point.create(1)
+	// TODO: if try is not supported in minimaxon
+	if let a = try relayT(source) 'ok'
+		let b = relay(a)
+		b.x = 99
+		return source.x
+	end 'ok'
+	return 0
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: returned-alias-bound-by-if-let-over-a-fresh-value-is-writable -->
+<!-- skip: if try is not supported in minimaxon -->
+An `if let` binding follows its scrutinee, and a value `make` just built has no other holder, so `b` shares
+`a`'s record with nothing else that is read: the write through `b` is the write `a` reads back.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+
+function make(n Integer) returns Point throws PointError
+	if n < 0 'neg'
+		throw PointError.negative
+	end 'neg'
+	return Point.create(n)
+end 'make'
+
+enum PointError implements Error
+	negative
+end 'PointError'
+
+function main() returns ExitCode
+	// TODO: if try is not supported in minimaxon
+	if let a = try make(1) 'ok'
+		let b = relay(a)
+		b.x = 99
+		return a.x
+	end 'ok'
+	return 0
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: returned-alias-bound-by-if-var-is-written -->
+<!-- skip: if try is not supported in minimaxon -->
+An `if var` binding is a mutable name like any other `var`: `relayT` hands `a` back, and the write through `b` is read through `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+enum PointError implements Error
+	negative
+end 'PointError'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	// TODO: if try is not supported in minimaxon
+	if var b = try relayT(a) 'ok'
+		b.x = 99
+		return a.x
+	end 'ok'
+	return 0
+end 'main'
+
+function relayT(p Point) returns Point throws PointError
+	if p.x < 0 'neg'
+		throw PointError.negative
+	end 'neg'
+	return p
+end 'relayT'
+```
+```exitcode
+99
+```
+
+<!-- test: returned-alias-in-an-unreached-function -->
+The binding is compiled in every function, whether or not anything calls it: the append writes the copy `s`
+holds, and `fp` is read after it.
+```maxon
+
+public function helper() returns ExitCode
+	let fp = try FilePath.from("some/dir") otherwise panic("a relative path is valid")
+	var s = fp.toString()
+	s.append(" more")
+	print("{s} {fp.toString()}\n")
+	return 0
+end 'helper'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: returned-alias-in-an-unreached-function-read-only-is-accepted -->
+The accepted twin of the case above: the same unreached function, reading the string and never writing it.
+```maxon
+
+public function helper() returns ExitCode
+	let fp = try FilePath.from("some/dir") otherwise panic("a relative path is valid")
+	let s = fp.toString()
+	print("{s} {fp.toString()}\n")
+	return 0
+end 'helper'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-string-relayed-by-a-call-is-copied-when-it-is-bound-to-a-var -->
+A `String` a call hands back may be the very record `a` names. Binding it to a `var` copies it, so the append
+reaches the copy and `a` is unchanged.
+```maxon
+function relay(s String) returns String
+	return s
+end 'relay'
+
+function main() returns ExitCode
+	let n = 7
+	let a = "lit{n} long enough to be a real heap string value"
+	var b = relay(a)
+	b.append("x")
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+lit7 long enough to be a real heap string value lit7 long enough to be a real heap string valuex
+```
+
+<!-- test: a-clone-of-a-relayed-string-is-written-freely -->
+The accepted twin: the clone is the caller's own record, so the append reaches nothing `a` holds.
+```maxon
+function relay(s String) returns String
+	return s
+end 'relay'
+
+function main() returns ExitCode
+	let n = 7
+	let a = "lit{n} long enough to be a real heap string value"
+	var b = relay(a).clone()
+	b.append("x")
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+lit7 long enough to be a real heap string value lit7 long enough to be a real heap string valuex
+```
+
+<!-- test: let-record-laundered-through-a-container -->
+A callee that stores its parameter in a container and hands an element back returns that parameter's own record, and `a` is read after the write through the result.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function launder(p Point) returns Point
+	let arr = PointArray.create(0)
+	arr.push(p)
+	return try arr.get(0) otherwise panic("an element was pushed")
+end 'launder'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = launder(a)
+	b.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-laundered-through-a-setter -->
+The same through a declared method that stores its argument in a field and one that reads it back.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box
+	export var item as Point
+
+	static function create(item Point) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function set(p Point)
+		self.item = p
+	end 'set'
+
+	function get() returns Point
+		return self.item
+	end 'get'
+end 'Box'
+
+function launder(p Point) returns Point
+	let box = Box.create(Point.create(0))
+	box.set(p)
+	return box.get()
+end 'launder'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = launder(a)
+	b.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-laundered-through-an-array-literal -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+An array literal stores its elements, so an element read back is the record that went in.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function launder(p Point) returns Point
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [p]
+	return try arr.get(0) otherwise panic("the literal has one element")
+end 'launder'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = launder(a)
+	b.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-of-a-let-global-through-a-call -->
+<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- positions: moved -->
+A `static let` never moves, and its record is image data, so a write through a value derived from it is refused.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	// TODO: static fields (static let) are not supported in minimaxon
+	static let origin = Point{x: 1}
+end 'Point'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+
+function main() returns ExitCode
+	var b = relay(Point.origin)
+	b.x = 99
+	return Point.origin.x
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:17:2: cannot write 'x' through 'b', which is immutable
+```
+
+<!-- test: let-record-alias-of-a-parameter-bound-through-a-call -->
+A `let` that aliases a parameter is still an immutable name, through a call as much as by name. `x` holds a
+copy of the `String` `pass` hands back, so the append reaches the copy and `q` is read unchanged after it.
+```maxon
+
+function pass(s String) returns String
+	return s
+end 'pass'
+
+function tagIt(p String)
+	let q = p
+	var x = pass(q)
+	x.append("!")
+	print("{q}\n")
+end 'tagIt'
+
+function main() returns ExitCode
+	let n = 7
+	var a = "lit{n}"
+	tagIt(a)
+	a.append("?")
+	print("{a}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+lit7
+lit7?
+```
+
+<!-- test: error.let-record-assigned-to-a-var-moves-it -->
+Assignment into a `var` from a `let` moves the record, as a `var` binding does, so the later read of `a` is refused.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	var b = Point.create(0)
+	b = a
+	b.x = 99
+	return a.x
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:18:9: use of moved value 'a': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: let-record-assigned-through-a-call -->
+The assignment door asks of a call's result what the binding door asks: `relay` hands `a` back, and the write through `b` is read through `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	var b = Point.create(0)
+	b = relay(a)
+	b.x = 99
+	return a.x
+end 'main'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-constructed-into-a-var -->
+A constructor stores its argument, so `box.item` shares `a`'s record: the write through `box.item` is read through `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box
+	export var item as Point
+
+	static function create(item Point) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let box = Box.create(a)
+	box.item.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-pushed-into-a-var-container -->
+A push stores `a`'s record in the container, so an element read back out is it: a `var` made from the element writes the record `a` names.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let arr = PointArray.create(0)
+	arr.push(a)
+	let e = try arr.get(0) otherwise panic("an element was pushed")
+	e.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-stored-into-a-var-field -->
+A store into a field of a `var` co-owns `a`'s record, so a write through the field is read through `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box
+	export var item as Point
+
+	static function create(item Point) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let box = Box.create(Point.create(0))
+	box.item = a
+	box.item.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: error.let-record-bound-to-a-var-moves-it -->
+Binding a `var` from a `let` moves the record, so a later read of the `let` is refused.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(1)
+	var q = p
+	q.x = 99
+	return p.x
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: let-record-pushed-and-popped-while-still-read -->
+`a` is read after the push, and popping the record back out gives the `var` the record `a` names: the write through it is read through `a`.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let arr = PointArray.create(0)
+	arr.push(a)
+	let e = try arr.pop() otherwise panic("one element was pushed")
+	e.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: a-let-of-an-element-a-var-of-the-same-element-then-writes-reads-the-write -->
+An element of a `var` container is a record that a `var` read out of the same container writes while `s` reads it: the `let` reads the write.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let arr = PointArray.create(0)
+	arr.push(Point.create(1))
+	let s = try arr.get(0) otherwise panic("an element was pushed")
+	let e = try arr.get(0) otherwise panic("an element was pushed")
+	e.x = 9
+	return s.x
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: a-let-of-a-field-of-a-var-written-through-the-var-reads-the-write -->
+A field of a `var` is a record the write through `box` reaches, and a `let` bound to it reads the write.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Box
+	export var item as Point
+
+	static function create(item Point) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	let box = Box.create(Point.create(1))
+	let p = box.item
+	box.item.x = 99
+	return p.x
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: let-record-written-through-an-interface-call -->
+A method called through an interface writes whichever conformer's record the value holds: `relay` hands `a` back at the interface type, `b.bump()` writes the record, and `a` reads the write.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Bumpable
+	function bump(mutates self)
+end 'Bumpable'
+
+type Point implements Bumpable
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function bump()
+		self.x = self.x + 1
+	end 'bump'
+end 'Point'
+
+function relay(p Bumpable) returns Bumpable
+	return p
+end 'relay'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = relay(a)
+	b.bump()
+	return a.x
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: let-record-written-through-a-function-value -->
+A call through a function value writes an argument wherever a body it may land on writes that parameter: `f(b)` writes the record `a` names.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+function relay(p Point) returns Point
+	return p
+end 'relay'
+
+function bumpIt(p Point)
+	p.x = p.x + 1
+end 'bumpIt'
+
+function main() returns ExitCode
+	let a = Point.create(1)
+	let b = relay(a)
+	let f = bumpIt
+	f(b)
+	return a.x
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: a-let-of-an-element-a-var-already-holds-reads-the-write -->
+The same two names in the other order: `s` names the element `e` already holds and writes.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let arr = PointArray.create(0)
+	arr.push(Point.create(1))
+	let e = try arr.get(0) otherwise panic("an element was pushed")
+	let s = try arr.get(0) otherwise panic("an element was pushed")
+	e.x = 9
+	return s.x
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: sibling-fields-do-not-alias -->
+Two fields of one record are two places: an element read out of `pair.left` is no element of `pair.right`, so
+writing through `dst` changes nothing the `view` `src` reads, and it still reads 3.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+type Pair
+	export var left as PointArray
+	export var right as PointArray
+
+	static function create() returns Self
+		return Self{left: PointArray.create(0), right: PointArray.create(0)}
+	end 'create'
+end 'Pair'
+
+function main() returns ExitCode
+	let pair = Pair.create()
+	pair.left.push(Point.create(3))
+	pair.right.push(Point.create(4))
+	let src = try pair.left.get(0) otherwise panic("an element was pushed")
+	let dst = try pair.right.get(0) otherwise panic("an element was pushed")
+	dst.x = 9
+	return src.x
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: a-read-on-the-other-arm-is-not-after -->
+A `let` read only on the other arm of an `if` is not read after a store on this one: no path runs both, so
+the push is the `let`'s last use on its path and moves the record into the container.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let s = Point.create(1)
+	let arr = PointArray.create(0)
+	if arr.count() == 0 'writes'
+		arr.push(s)
+		let e = try arr.get(0) otherwise panic("an element was pushed")
+		e.x = 9
+		print("wrote {e.x}\n")
+	end 'writes' else 'reads'
+		print("read {s.x}\n")
+	end 'reads'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+wrote 9
+```
+
+<!-- test: one-record-handed-to-two-fields-aliases-them -->
+Two fields are two places only when no record went into both: `pair` was built with `p` in each, so the
+`view` `l` and `pair.right` are one record and the write changes what `l` reads. `p` is written through that
+alias, so `E3077` does not report it.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Pair
+	export var left as Point
+	export var right as Point
+
+	static function create(left Point, right Point) returns Self
+		return Self{left: left, right: right}
+	end 'create'
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Point.create(1)
+	let pair = Pair.create(p, right: p)
+	let l = pair.left
+	pair.right.x = 9
+	return l.x
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: one-record-stored-into-two-fields-aliases-them -->
+The same when the program stores the one record into both fields itself.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+type Pair
+	export var left as Point
+	export var right as Point
+
+	static function create(left Point, right Point) returns Self
+		return Self{left: left, right: right}
+	end 'create'
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Point.create(1)
+	let pair = Pair.create(Point.create(0), right: Point.create(0))
+	pair.left = p
+	pair.right = p
+	let l = pair.left
+	pair.right.x = 9
+	return l.x
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: a-let-a-closure-captured-is-read-when-the-closure-is-called -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure that captures `s` takes ownership of it, so pushing `s` afterwards uses a moved value.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+
+	static function create(x Integer) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Point'
+
+typealias PointArray = Array with Point
+
+function main() returns ExitCode
+	let s = Point.create(1)
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives s.x
+	var arr = PointArray.create(0)
+	arr.push(s)
+	var e = try arr.get(0) otherwise panic("an element was pushed")
+	e.x = 9
+	return f() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:19:11: use of moved value 's': its ownership moved to the closure that captures it
+```
+
+<!-- test: a-var-written-only-through-a-callee-argument-is-needed -->
+A `var` whose record is written only by a callee it hands a field of to a writing parameter is written
+through, so it is not E3077.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+type Bag
+	export var items as IntArray
+
+	static function create() returns Bag
+		return Bag{items: IntArray.create(0)}
+	end 'create'
+end 'Bag'
+
+type Holder
+	export var bag as Bag
+
+	static function create() returns Holder
+		return Holder{bag: Bag.create()}
+	end 'create'
+end 'Holder'
+
+function fill(bag Bag)
+	bag.items.push(1)
+end 'fill'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	fill(holder.bag)
+	return holder.bag.items.count() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: a-let-written-only-through-a-callee-argument-is-written -->
+The same program with `let` writes through the record the `let` names.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+type Bag
+	export var items as IntArray
+
+	static function create() returns Bag
+		return Bag{items: IntArray.create(0)}
+	end 'create'
+end 'Bag'
+
+type Holder
+	export var bag as Bag
+
+	static function create() returns Holder
+		return Holder{bag: Bag.create()}
+	end 'create'
+end 'Holder'
+
+function fill(bag Bag)
+	bag.items.push(1)
+end 'fill'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	fill(holder.bag)
+	return holder.bag.items.count() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: a-var-written-only-through-a-for-element-is-needed -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A `var` collection whose elements a loop hands to a writing parameter is written through, so it is not E3077.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+type Bag
+	export var items as IntArray
+
+	static function create() returns Bag
+		return Bag{items: IntArray.create(0)}
+	end 'create'
+end 'Bag'
+
+typealias BagArray = Array with Bag
+
+function makeBags() returns BagArray
+	let bags = BagArray.create(0)
+	bags.push(Bag.create())
+	bags.push(Bag.create())
+	return bags
+end 'makeBags'
+
+function fill(bag Bag)
+	bag.items.push(1)
+end 'fill'
+
+function main() returns ExitCode
+	let bags = makeBags()
+	var total = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for bag in bags 'eachBag'
+		fill(bag)
+		total = total + bag.items.count()
+	end 'eachBag'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: a-let-written-only-through-a-for-element-is-written -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The same program with `let` iterates the same elements, so the loop's write reaches them.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+type Bag
+	export var items as IntArray
+
+	static function create() returns Bag
+		return Bag{items: IntArray.create(0)}
+	end 'create'
+end 'Bag'
+
+typealias BagArray = Array with Bag
+
+function makeBags() returns BagArray
+	let bags = BagArray.create(0)
+	bags.push(Bag.create())
+	bags.push(Bag.create())
+	return bags
+end 'makeBags'
+
+function fill(bag Bag)
+	bag.items.push(1)
+end 'fill'
+
+function main() returns ExitCode
+	let bags = makeBags()
+	var total = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for bag in bags 'eachBag'
+		fill(bag)
+		total = total + bag.items.count()
+	end 'eachBag'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+2
+```

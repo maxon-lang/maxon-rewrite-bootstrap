@@ -1,0 +1,842 @@
+---
+feature: enums-simple
+status: experimental
+keywords: [enum, enumeration, associated values]
+category: type-system
+---
+
+# Enums
+
+## Documentation
+
+# Enums
+
+Enums define a type with a fixed set of named variants called cases. Maxon enums support simple enums and enums with associated values.
+
+### Simple Enums
+
+The simplest form of enum defines named cases with no additional data:
+
+```maxon
+enum Direction
+	north
+	south
+	east
+	west
+end 'Direction'
+```
+
+Create enum values using dot notation:
+
+```maxon
+let dir = Direction.north
+```
+
+### Enum Methods
+
+Enums can have methods, similar to structs:
+
+```maxon
+enum Direction
+	north
+	south
+	east
+	west
+
+	function opposite() returns Direction
+		match self 'check'
+			north then return Direction.south
+			south then return Direction.north
+			east then return Direction.west
+			west then return Direction.east
+		end 'check'
+	end 'opposite'
+
+	function isVertical() returns bool
+		let result = match self 'check'
+			north gives true
+			south gives true
+			east gives false
+			west gives false
+		end 'check'
+		return result
+	end 'isVertical'
+end 'Direction'
+```
+
+Call methods using instance-dot-method syntax:
+
+```maxon
+let dir = Direction.north
+let opp = dir.opposite()    // Direction.south
+let vert = dir.isVertical() // true
+```
+
+## Tests
+
+<!-- test: simple-enum -->
+```maxon
+enum Direction
+	north
+	south
+	east
+	west
+end 'Direction'
+
+function main() returns ExitCode
+	let dir = Direction.north
+	let result = match dir 'check'
+		north gives 1
+		south gives 0
+		east gives 0
+		west gives 0
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-assignment -->
+```maxon
+enum Color
+	red
+	green
+	blue
+end 'Color'
+
+function main() returns ExitCode
+	var c = Color.red
+	c = Color.blue
+	let result = match c 'check'
+		red gives 0
+		green gives 0
+		blue gives 1
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-not-equal -->
+```maxon
+enum Status
+	pending
+	active
+	done
+end 'Status'
+
+function main() returns ExitCode
+	let s = Status.pending
+	let result = match s 'check'
+		active gives 0
+		pending gives 1
+		done gives 1
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-comparison -->
+```maxon
+enum Status
+	pending
+	active
+	done
+end 'Status'
+
+function main() returns ExitCode
+	let s1 = Status.pending
+	match s1 'check'
+		pending then return 1
+		active then return 0
+		done then return 0
+	end 'check'
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-function-param -->
+```maxon
+enum Status
+	on
+	off
+end 'Status'
+
+function isOn(s Status) returns bool
+	let result = match s 'check'
+		on gives true
+		off gives false
+	end 'check'
+	return result
+end 'isOn'
+
+function main() returns ExitCode
+	let status = Status.on
+	if isOn(status) 'test'
+		return 1
+	end 'test'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-return-type -->
+```maxon
+enum Result
+	success
+	failure
+end 'Result'
+
+function getResult(succeed bool) returns Result
+	if succeed 'check'
+		return Result.success
+	end 'check'
+	return Result.failure
+end 'getResult'
+
+function main() returns ExitCode
+	let r = getResult(true)
+	let result = match r 'handle'
+		success gives 1
+		failure gives 0
+	end 'handle'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: float-backed -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+```maxon
+enum FloatBacked
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	North = 1.1
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	South = 2.2
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	East = 3.3
+end 'FloatBacked'
+
+function main() returns ExitCode
+	let f = FloatBacked.North
+	let result = match f 'check'
+		North gives 1
+		South gives 0
+		East gives 0
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: float-backed-negative -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+```maxon
+enum FloatSigned
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	below = -2.2
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	zero = 0.0
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	above = 1.1
+end 'FloatSigned'
+
+function main() returns ExitCode
+	let f = FloatSigned.below
+	let result = match f 'check'
+		below gives 2
+		zero gives 0
+		above gives 0
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: float-backed-signed-zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+```maxon
+enum SignedZero
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	negz = -0.0
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	posz = 0.0
+end 'SignedZero'
+
+function main() returns ExitCode
+	let x = SignedZero.negz
+	return match x 'check'
+		negz gives 4
+		posz gives 7
+	end 'check'
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: enum-method -->
+```maxon
+enum Direction
+	north
+	south
+
+	function isNorth() returns bool
+		let result = match self 'check'
+			north gives true
+			south gives false
+		end 'check'
+		return result
+	end 'isNorth'
+end 'Direction'
+
+function main() returns ExitCode
+	let d = Direction.north
+	if d.isNorth() 'test'
+		return 1
+	end 'test'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: enum-method-returns-enum -->
+```maxon
+enum Toggle
+	on
+	off
+
+	function flip() returns Toggle
+		let result = match self 'check'
+			on gives Toggle.off
+			off gives Toggle.on
+		end 'check'
+		return result
+	end 'flip'
+end 'Toggle'
+
+function main() returns ExitCode
+	let t = Toggle.on
+	let flipped = t.flip()
+	let result = match flipped 'check'
+		off gives 1
+		on gives 0
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: error.duplicate-case -->
+```maxon
+enum Color
+	red
+	red
+end 'Color'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3030: specs/enums-simple/error.duplicate-case.maxon:4:2: duplicate enum case: 'red'
+```
+
+<!-- test: error.unknown-enum-case -->
+```maxon
+enum Color
+	red
+	blue
+end 'Color'
+
+function main() returns ExitCode
+	let _c = Color.green
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3034: specs/enums-simple/error.unknown-enum-case.maxon:8:11: unknown enum case: 'green'
+```
+
+<!-- test: error.duplicate-raw-value -->
+```maxon
+enum Status
+	ok = 200
+	success = 200
+end 'Status'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3031: specs/enums-simple/error.duplicate-raw-value.maxon:4:2: duplicate raw value: '200'
+```
+
+<!-- test: error.raw-value-type-mismatch -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+enum Status
+	ok = 100
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	fail = 5.0
+end 'Status'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3032: specs/enums-simple/error.raw-value-type-mismatch.maxon:4:2: raw value type mismatch: 'expected int, got float'
+```
+
+<!-- test: keyword-as-case-name -->
+<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+Keywords can be used as enum case names (e.g., `function`, `return`, `end`).
+```maxon
+enum TokenType
+	function
+	return
+	end
+	if
+	else
+	let
+	var
+	identifier
+end 'TokenType'
+
+function main() returns ExitCode
+	let t = TokenType.function
+	let result = match t 'check'
+		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
+		function gives 1
+		return gives 0
+		end gives 0
+		if gives 0
+		else gives 0
+		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
+		let gives 0
+		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
+		var gives 0
+		identifier gives 0
+	end 'check'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: float-backed-arithmetic-between-two-cases -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A float-backed enum's tag IS the f64's IEEE-754 bit pattern, so an ARITHMETIC operand must be decoded
+before the operator runs; adding the two bit patterns as integers would print `-9217742537320562688`.
+The answer is `6.5`, and `Weight.light * 2` `5.0`: an integer operand promotes against the
+DECODED double, not against its encoding.
+```maxon
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	heavy = 4.0
+end 'Weight'
+
+function main() returns ExitCode
+	print("{Weight.light + Weight.heavy} {Weight.light * 2}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+6.5 5.0
+```
+
+<!-- test: float-backed-ordering-two-negative-cases -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+⭐ THE CASE A POSITIVE-ONLY ENUM CANNOT MAKE. IEEE-754 bit patterns of POSITIVE doubles are monotonically
+ordered as integers, so `low < high` passes under both readings and pins neither — which is why
+`enum-full`'s and `enum-match-exhaustive`'s float cases cannot catch an undecoded compare.
+Two NEGATIVE cases invert: `bits(-2.2)` is the LARGER signed i64, so an undecoded compare answers `ge`
+where the correct answer is `lt`.
+```maxon
+enum FloatSigned
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	below = -2.2
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	mid = -1.1
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	above = 1.1
+end 'FloatSigned'
+
+function main() returns ExitCode
+	let f = FloatSigned.below
+	if f < FloatSigned.mid 'lt'
+		print("lt")
+	end 'lt' else 'ge'
+		print("ge")
+	end 'ge'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+lt
+```
+
+<!-- test: float-backed-comparison-against-a-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+An ORDERING comparison against a genuine `float`, both ways round — the shape `specs/constants.md`'s
+`float-comparison` pins — plus an EQUALITY against a float literal, which names no case and so is also a
+question about the number. The enum's `named` tag reads as integral and a comparison is domain-strict,
+so without the decode all three would be `E3005 cannot compare float with int`.
+```maxon
+enum Threshold
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	low = 0.1
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	high = 0.9
+end 'Threshold'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let val = 0.5
+	if val > Threshold.low and val < Threshold.high 'inRange'
+		// TODO: float literals are not supported in minimaxon
+		if Threshold.high == 0.9 'exact'
+			return 1
+		end 'exact'
+	end 'inRange'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: float-backed-equality-is-the-tag-compare -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+⭐ THE ONE COMPARISON THAT DELIBERATELY DOES NOT DECODE, and the negative control on the decode above. `==`
+between two values of ONE enum asks WHICH CASE, so it stays the i64 tag compare `match` dispatch uses —
+`-0.0` and `+0.0` are distinct raw values here (`float-backed-signed-zero`), and a `ucomisd` would report
+them EQUAL while `match` still selected `negz`. One equality, two operators, one answer.
+```maxon
+enum SignedZero
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	negz = -0.0
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	posz = 0.0
+end 'SignedZero'
+
+function main() returns ExitCode
+	let x = SignedZero.negz
+	if x == SignedZero.posz 'floatEquality'
+		return 9
+	end 'floatEquality'
+	return match x 'check'
+		negz gives 4
+		posz gives 7
+	end 'check'
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: float-backed-enum-into-a-float-parameter -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+The one decode site the PARSER cannot own: the conversion is forced by the CALLEE's declared parameter
+type, a whole-program fact a file's parse may not hold, so it is paid in `LowerMaxonToStd.floatWidenedArg`
+instead. An argument WIDENED rather than reinterpreted would print `4612811918334231000.0`.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+end 'Weight'
+
+function takesFloat(f Real) returns Real
+	return f
+end 'takesFloat'
+
+function main() returns ExitCode
+	print("{takesFloat(Weight.light)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2.5
+```
+
+<!-- test: error.float-backed-enum-cast -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+A cast whose SOURCE is an enum has no conversion. As a representational no-op it would hand back the raw
+i64 wearing the target's type, so `Weight.light as Real` would print `4612811918334231000.0`: a silent
+wrong answer where the `as` is supposed to BE the type check.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+end 'Weight'
+
+function main() returns ExitCode
+	let f = Weight.light as Real
+	print("{f}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:9:23: Cannot cast from enum to float
+```
+
+<!-- test: error.int-backed-enum-cast -->
+ONE rule, BOTH backings. An int-backed enum's no-op would return the right NUMBER, so refusing it looks
+like a loss; what that spelling would provide is `.rawValue` under another name.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+enum Code
+	ok = 200
+end 'Code'
+
+function main() returns ExitCode
+	let n = Code.ok as Whole
+	print("{n}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3009: <fragment>:9:18: Cannot cast from enum to int
+```
+
+<!-- test: error.float-backed-enum-shift -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+A shift on a float-backed enum is refused in the SHIFT's own words, because the decode makes the operand
+a float and a double's bits are a sign/exponent/mantissa triple rather than a magnitude.
+```maxon
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+end 'Weight'
+
+function main() returns ExitCode
+	let x = Weight.light shl 1
+	print("{x}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:23: operator 'shl' requires integer operands, but this one is float
+```
+
+<!-- test: float-backed-negation -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+⭐ THE SIXTH READ SITE. A prefix `-` is arithmetic, so it is a question about the NUMBER — but `parseUnary`
+reads the operand's raw tag rather than the number's, and a float-backed enum's `named` tag is not
+`tagIsFloat`, so an undecoded `-Weight.light` would emit an INTEGER negate over the IEEE-754 bits and
+print `-4612811918334230528`. The int-backed arm beside it is the negative control: its `-` must stay
+the integer negate.
+```maxon
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+end 'Weight'
+
+enum Level
+	high = 200
+end 'Level'
+
+function main() returns ExitCode
+	print("{-Weight.light} {-Level.high}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+-2.5 -200
+```
+
+<!-- test: error.float-backed-enum-not -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+`not` is the shift's twin — a bitwise operator with no reading of a sign/exponent/mantissa triple — so it
+is refused in its own words, exactly as `error.float-backed-enum-shift` is. Complementing the encoding would
+print
+`-4612811918334230529`.
+```maxon
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+end 'Weight'
+
+function main() returns ExitCode
+	let x = not Weight.light
+	print("{x}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:10: operator 'not' requires integer operands, but this one is float
+```
+
+<!-- test: float-backed-enum-as-a-parameter-default -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A float-backed enum reaching a parameter DEFAULT is the seam between two rules: a default expression
+consumes the whole token region the capture skipped, and every read of a float-backed enum DECODEs its
+i64 rather than reading it as a magnitude. The default is parsed from a lifted token region rather than
+from a statement, so it reaches the decode by a path no other case here takes. Both spellings are pinned
+together: the default the caller omits and the argument the caller supplies must give the same answer
+for the same case.
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+
+enum Weight
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 2.5
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	heavy = 4.0
+end 'Weight'
+
+// TODO: default parameter values are not supported in minimaxon
+function show(w Weight = Weight.light) returns Real
+	print("{w} ")
+	// TODO: float literals are not supported in minimaxon
+	return w + 0.0
+end 'show'
+
+function main() returns ExitCode
+	let a = show()
+	let b = show(Weight.heavy)
+	print("{a + b}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2.5 4.0 6.5
+```
+
+<!-- test: error.mismatched-enum-end-label -->
+A label written after `end` must repeat the enum's name.
+```maxon
+enum Colour
+	red
+	green
+end 'Color'
+
+function main() returns ExitCode
+	let c = Colour.green
+	if c == Colour.green 'isGreen'
+		return 1
+	end 'isGreen'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2008: <fragment>:5:1: Mismatched end label: expected 'Colour', got 'Color'
+```
+
+<!-- test: error.a-word-after-the-enum-name-is-refused -->
+Nothing but an `implements` clause may follow the enum's name. A raw-value enum's backing type is
+inferred from its raw values, so a word there is not a declaration of it: it is refused, not read as a
+case.
+```maxon
+enum Colour int
+	red
+	green
+end 'Colour'
+
+function main() returns ExitCode
+	let c = Colour.green
+	if c == Colour.green 'isGreen'
+		return 1
+	end 'isGreen'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2001: <fragment>:2:13: unexpected token: 'int'
+```

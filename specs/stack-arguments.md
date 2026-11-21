@@ -1,0 +1,415 @@
+---
+feature: stack-arguments
+status: stable
+keywords: [function, parameters, calling-convention, stack, abi]
+category: functions
+---
+
+# Stack Arguments
+
+## Documentation
+
+A calling convention passes the first few arguments in registers and the rest on the stack. the compiler's
+custom x64 ABI has **six** integer argument registers and **six** float ones, counted independently;
+AAPCS64 has eight of each. An argument past its file's registers is written by the caller into an
+outgoing stack slot and read back by the callee out of the caller's frame.
+
+The rule that decides where an argument goes is stated once, in `abiFileSlotIndex` /
+`abiArgIsOnStack` / `abiStackSlotsBefore`, and BOTH ends of a call consult it. That matters more than
+it looks: a caller and a callee that disagree about one argument do not fail to compile, they compute
+a different answer.
+
+Two properties are specific to the stack half and are what these tests pin:
+
+**The two register files share ONE stack area.** Registers are two independent counters — a float at
+source position 1 following an integer is float-slot 0 — but there is only one outgoing region and
+one 8-byte stride, so an overflowing float takes the next slot after an overflowing integer.
+
+**A stack argument's placement cannot destroy an argument register.** Materializing a stack argument's
+value takes a register the allocator picks, and an argument register that an earlier move already loaded
+is not a *value* — nothing marks it live from that move to the call — so nothing about SSA stops a store
+from silently overwriting one.
+
+⭐⭐ **TWO INDEPENDENT CURES ANSWER THAT, AND EACH ONE ALONE IS SUFFICIENT.** They are
+`emitArgMovesByFloatMask`'s two-phase order (every stack store emitted before every register move, so no
+argument register exists yet while the stores run) and `sweepEstablishedRegisters`'s `establishedAtDef`
+forbid (a value defined while an argument register is pending may not be coloured onto it).
+
+- **Two-phase order removed, forbid intact** — source-order emission. The emitted code
+  CHANGES (`movRegImm32 rax, 0` becomes `rcx, 0` in both `x64-stack-arg-disp32` cases) and every answer in
+  this file and that one stays RIGHT. The forbid catches it.
+- **Forbid removed, two-phase order intact** — the emitted code is BYTE-IDENTICAL, in both files. With the
+  stores first the forbid has nothing to forbid.
+- **BOTH removed** — three cases go red at once: `x64-stack-arg-disp32/seventeenth-param-at-rbp-128` returns **400 instead of 200**,
+  `params-straddling-rbp-128-boundary` 210 instead of 150, and `every-argument-of-a-wide-call-is-distinct`
+  below 272 instead of 253.
+
+⇒ **The property IS pinned, by those three cases**, and no single-mechanism sabotage can show it — which is
+why a case has to be seen red against BOTH cures removed before it can be believed to pin anything here.
+
+⛔ **AN EIGHT-ARGUMENT CLOBBER CASE PINS NOTHING.** The clobber is emitted by the CALLER, so a legal
+version is easy to write (the callee reads all eight parameters behind a guard and returns only the
+third), but **eight arguments do not create enough register pressure for the clobber to be observable at
+all**: such a case stays GREEN with both cures removed. At 22 arguments it goes red, and is then a second
+spelling of `every-argument-of-a-wide-call-is-distinct`.
+
+A managed argument (a `String`, an `Array`) is passed by pointer like any other 8-byte value, so a
+stack slot changes nothing about who owns it: the callee consumes it and drops it exactly as it would
+one arriving in rcx. The tests that pass managed values through stack slots are therefore also leak
+tests — the suite fails a program that ends with a live allocation.
+
+**Targets.** These cases are calling-convention BEHAVIOUR rather than encoding detail, so they run on
+EVERY target, unmarked — nothing here is x64-specific, and the answers below are the convention's, not
+one ABI's.
+
+What DOES differ per target is where the boundary falls, and that is the point rather than an
+inconvenience: the capacity the shared rule is asked against is **six** per file on x64
+(`x64RegisterArgCapacity`) and **eight** on AAPCS64 (`arm64RegisterArgCapacity`, x0–x7 / d0–d7), so the
+seven- and eight-argument cases overflow on x64 and still fit in registers on arm64, while the
+twenty-two-argument one overflows everywhere. `wasm32-wasi`'s parameters are plain locals with no
+register file at all, so it covers the front-end half — the ABI slot count, the diagnostics — and
+nothing about slots. Each target's emitted code shows where ITS boundary falls: the same source,
+the same answer, three different placements.
+
+## Tests
+
+<!-- test: seven-scalar-parameters -->
+The seventh argument is the first one that does not fit the register file.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function sum7(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns Integer
+	return a + b + c + d + e + f + g
+end 'sum7'
+
+function main() returns ExitCode
+	return sum7(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64)
+end 'main'
+```
+```exitcode
+127
+```
+
+<!-- test: eight-scalar-parameters -->
+Two stack slots, so the second one's displacement is exercised as well as the first's.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function sum8(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer, h Integer) returns Integer
+	return a + b + c + d + e + f + g + h
+end 'sum8'
+
+function main() returns ExitCode
+	return sum8(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64, h: 128)
+end 'main'
+```
+```exitcode
+255
+```
+
+<!-- test: a-function-typed-parameter-costs-two-argument-slots -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A `function`-typed parameter carries a hidden environment argument under the uniform closure ABI, so
+six written parameters can already need seven slots. The count the ABI uses is the one that decides
+which arguments go on the stack.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias IntFn = function(x Integer) returns Integer
+
+function twice(x Integer) returns Integer
+	return x * 2
+end 'twice'
+
+function apply(fn IntFn, a Integer, b Integer, c Integer, d Integer, e Integer) returns Integer
+	return fn(a) + b + c + d + e
+end 'apply'
+
+function main() returns ExitCode
+	return apply(twice, a: 10, b: 1, c: 2, d: 4, e: 8)
+end 'main'
+```
+```exitcode
+35
+```
+
+<!-- test: seven-float-parameters -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+The float file overflows on its own counter: seven floats need one stack slot even though no integer
+argument exists.
+```maxon
+function sumf7(a Real, b Real, c Real, d Real, e Real, f Real, g Real) returns Real
+	return a + b + c + d + e + f + g
+end 'sumf7'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let total = sumf7(1.0, b: 2.0, c: 4.0, d: 8.0, e: 16.0, f: 32.0, g: 64.0)
+	// TODO: float literals are not supported in minimaxon
+	if total == 127.0 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```exitcode
+0
+```
+
+<!-- test: int-and-float-overflow-share-one-stack-area -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+Seven integers and seven floats: each file overflows once, and the two overflowing arguments must
+land in DIFFERENT slots of the single merged stack area. If either file indexed the area by its own
+counter, both would claim slot 0 and one would read the other's bits.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function mix(i1 Integer, i2 Integer, i3 Integer, i4 Integer, i5 Integer, i6 Integer, i7 Integer, f1 Real, f2 Real, f3 Real, f4 Real, f5 Real, f6 Real, f7 Real) returns Integer
+	// TODO: float literals are not supported in minimaxon
+	if f1 + f2 + f3 + f4 + f5 + f6 + f7 == 127.0 'floatsOk'
+		return i1 + i2 + i3 + i4 + i5 + i6 + i7
+	end 'floatsOk'
+	return 0
+end 'mix'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	return mix(1, i2: 2, i3: 4, i4: 8, i5: 16, i6: 32, i7: 64, f1: 1.0, f2: 2.0, f3: 4.0, f4: 8.0, f5: 16.0, f6: 32.0, f7: 64.0)
+end 'main'
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```exitcode
+127
+```
+
+<!-- test: a-stack-argument-survives-an-intervening-call -->
+The seventh parameter is read AFTER a call, so its value must outlive a callee that clobbers every
+caller-saved register — it is loaded once at entry and preserved like any other value.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function noise(x Integer) returns Integer
+	return x + 1
+end 'noise'
+
+function tail(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns Integer
+	let churn = noise(noise(noise(a + b + c + d + e + f)))
+	return g + churn
+end 'tail'
+
+function main() returns ExitCode
+	return tail(1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 60)
+end 'main'
+```
+```exitcode
+69
+```
+
+<!-- test: recursion-through-stack-arguments -->
+A recursive callee is its own caller, so the outgoing region it writes and the incoming region it
+reads are two different frames' worth of the same layout.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function countdown(n Integer, b Integer, c Integer, d Integer, e Integer, f Integer, acc Integer) returns Integer
+	if n == 0 'done'
+		return acc
+	end 'done'
+	return countdown(n - 1, b: b, c: c, d: d, e: e, f: f, acc: acc + n)
+end 'countdown'
+
+function main() returns ExitCode
+	return countdown(10, b: 0, c: 0, d: 0, e: 0, f: 0, acc: 0)
+end 'main'
+```
+```exitcode
+55
+```
+
+<!-- test: managed-string-arguments-in-stack-slots -->
+Eight `String`s: two of them travel in stack slots. A managed value is an 8-byte pointer wherever it
+rides, so the callee consumes and drops all eight the same way — the run also fails on a leak. The
+byte lengths are 46 + 2 + 3 + 4 + 5 + 6 + 36 + 25 = 127, so a stack slot read from the wrong place
+changes the answer rather than merely reordering it.
+```maxon
+typealias ByteTotal = int(0 to 100000)
+
+function joinLengths(a String, b String, c String, d String, e String, f String, g String, h String) returns ByteTotal
+	return a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength()
+end 'joinLengths'
+
+function main() returns ExitCode
+	return joinLengths("a string long enough to be heap allocated, one", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "another heap allocated string, seven", h: "hhhhhhhhhhhhhhhhhhhhhhhhh")
+end 'main'
+```
+```exitcode
+127
+```
+
+<!-- test: managed-array-arguments-in-stack-slots -->
+The same for `Array`: the seventh and eighth arguments are heap arrays reached through a stack slot,
+and both are dropped by the callee.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function totalCount(a Integer, b Integer, c Integer, d Integer, e Integer, f IntArray, g IntArray, h IntArray) returns Integer
+	return a + b + c + d + e + (f.count() as Integer) + (g.count() as Integer) + (h.count() as Integer)
+end 'totalCount'
+
+function main() returns ExitCode
+	let first = IntArray.create(0)
+	first.push(1)
+	first.push(2)
+	let second = IntArray.create(0)
+	second.push(3)
+	second.push(4)
+	second.push(5)
+	let third = IntArray.create(0)
+	third.push(6)
+	return totalCount(10, b: 20, c: 30, d: 40, e: 50, f: first, g: second, h: third)
+end 'main'
+```
+```exitcode
+156
+```
+
+<!-- test: argument-slots-are-capped-and-the-cap-is-stated -->
+The remaining ceiling is the width of the per-argument float mask that routes each argument to its
+register file, not a register count — and it is diagnosed rather than silently miscompiled.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function tooWide(p1 Integer, p2 Integer, p3 Integer, p4 Integer, p5 Integer, p6 Integer, p7 Integer, p8 Integer, p9 Integer, p10 Integer, p11 Integer, p12 Integer, p13 Integer, p14 Integer, p15 Integer, p16 Integer, p17 Integer, p18 Integer, p19 Integer, p20 Integer, p21 Integer, p22 Integer, p23 Integer, p24 Integer, p25 Integer, p26 Integer, p27 Integer, p28 Integer, p29 Integer, p30 Integer, p31 Integer, p32 Integer, p33 Integer, p34 Integer, p35 Integer, p36 Integer, p37 Integer, p38 Integer, p39 Integer, p40 Integer, p41 Integer, p42 Integer, p43 Integer, p44 Integer, p45 Integer, p46 Integer, p47 Integer, p48 Integer, p49 Integer, p50 Integer, p51 Integer, p52 Integer, p53 Integer, p54 Integer, p55 Integer, p56 Integer, p57 Integer, p58 Integer, p59 Integer, p60 Integer, p61 Integer, p62 Integer, p63 Integer, p64 Integer, p65 Integer) returns Integer
+	return p1 + p65
+end 'tooWide'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/stack-arguments/argument-slots-are-capped-and-the-cap-is-stated.maxon:4:10: Unsupported: a function with 65 argument slots — more than the 64 a call can carry. A signature's slots are its declared parameters plus the hidden ones the ABI adds (a witness per interface-typed parameter, a layout descriptor for a generic that reads one or calls a function that does, one witness per `where` constraint), and the limit is the width of the per-argument float mask that routes each one to its register file
+```
+
+<!-- test: a-spawn-passes-its-overflow-arguments-on-the-new-threads-stack -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+An `async` call's arguments past the callee's register files are written onto the new green thread's stack
+before its first resume, where the callee's incoming-argument loads find them, exactly as an ordinary call's
+outgoing area would hold them. Seven integers overflow x64's six integer registers by one.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function wide7(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns bool
+	Scheduler.yield()
+	return a + b + c + d + e + f + g == 127
+end 'wide7'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async wide7(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	if await p 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: every-argument-of-a-wide-call-is-distinct -->
+Twenty-two arguments, every one a DIFFERENT value, summed. The `x64-stack-arg-disp32` cases
+pass zeros everywhere but the boundary, so they catch a wrong displacement at one slot; this one
+catches a wrong slot ANYWHERE, because no two arguments can be swapped, duplicated or dropped without
+moving the total.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function sum22(a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer, a14 Integer, a15 Integer, a16 Integer, a17 Integer, a18 Integer, a19 Integer, a20 Integer, a21 Integer, a22 Integer) returns Integer
+	return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22
+end 'sum22'
+
+function main() returns ExitCode
+	return sum22(1, a2: 2, a3: 3, a4: 4, a5: 5, a6: 6, a7: 7, a8: 8, a9: 9, a10: 10, a11: 11, a12: 12, a13: 13, a14: 14, a15: 15, a16: 16, a17: 17, a18: 18, a19: 19, a20: 20, a21: 21, a22: 22)
+end 'main'
+```
+```exitcode
+253
+```
+
+<!-- test: stack-arguments.error.a-free-function-defaulting-its-sixty-fifth-parameter-is-refused -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- process: own -->
+A free function with 66 parameters, the last two defaulted, is past the 64 argument slots a call can carry, so the declaration is refused whatever its defaults are.
+```maxon
+// TODO: default parameter values are not supported in minimaxon
+function wide(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count, p62 Count, p63 Count, p64 Count = 0, p65 Count = 0) returns Count
+	return p0
+end 'wide'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:2:10: Unsupported: a function with 66 argument slots — more than the 64 a call can carry. A signature's slots are its declared parameters plus the hidden ones the ABI adds (a witness per interface-typed parameter, a layout descriptor for a generic that reads one or calls a function that does, one witness per `where` constraint), and the limit is the width of the per-argument float mask that routes each one to its register file
+```
+
+<!-- test: stack-arguments.error.a-method-defaulting-its-sixty-fifth-parameter-is-refused -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- process: own -->
+A method with 66 parameters, the last two defaulted, is past the argument slots a call can carry, so the declaration is refused.
+```maxon
+type Holder
+	var seed as Count
+
+	// TODO: default parameter values are not supported in minimaxon
+	function wide(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count, p62 Count, p63 Count, p64 Count = 0, p65 Count = 0) returns Count
+		return self.seed + p0
+	end 'wide'
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:5:11: Unsupported: a function with 67 argument slots — more than the 64 a call can carry. A signature's slots are its declared parameters plus the hidden ones the ABI adds (a witness per interface-typed parameter, a layout descriptor for a generic that reads one or calls a function that does, one witness per `where` constraint), and the limit is the width of the per-argument float mask that routes each one to its register file
+```
+
+<!-- test: stack-arguments.error.a-static-defaulting-its-sixty-fifth-parameter-is-refused -->
+<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- process: own -->
+A static with 66 parameters, the last two defaulted, is past the argument slots a call can carry, so the declaration is refused.
+```maxon
+type Holder
+	var seed as Count
+
+	// TODO: default parameter values are not supported in minimaxon
+	static function wide(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count, p62 Count, p63 Count, p64 Count = 0, p65 Count = 0) returns Count
+		return p0
+	end 'wide'
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:5:18: Unsupported: a function with 66 argument slots — more than the 64 a call can carry. A signature's slots are its declared parameters plus the hidden ones the ABI adds (a witness per interface-typed parameter, a layout descriptor for a generic that reads one or calls a function that does, one witness per `where` constraint), and the limit is the width of the per-argument float mask that routes each one to its register file
+```

@@ -1,0 +1,3689 @@
+---
+feature: union-managed-payload
+status: experimental
+keywords: [union, enum, payload, String, struct, ownership, move, drop, decref]
+category: ownership
+---
+
+# Union Managed Payloads
+
+## Documentation
+
+A `union`/`enum` case may carry a **managed** associated value — a `String` or a
+`struct`. A union stays a heap box (`8 + maxArity*8`, i64 tag at offset 0,
+payload slot `i` at `8 + i*8`) unless it is a single-record-case word union
+(`specs/union-unboxed.md`); a managed payload slot holds an owned heap
+pointer.
+
+Ownership is static single-owner, exactly as for a `String` or a struct binding:
+
+- **Construct gives the payload slot its OWN reference.** `U.case(s)` leaves the slot holding exactly one reference, and
+  which act supplies it depends on what `s` is: a borrowed String literal is
+  promoted to an owned heap copy; an owned TEMPORARY has no other owner, so the
+  slot ADOPTS its `+1`; and a live owned BINDING is CO-OWNED — the slot increfs
+  and `s` stays readable, releasing its own reference at scope exit. Either way
+  the box owns a droppable payload and releases exactly what it took.
+
+  Two sinks for one value each need a reference of their own;
+  `construct-co-owns-string-source` and `construct-co-owns-struct-source` below
+  pin it. **The MOVE-OUT rules below are a different question** — a `match`
+  binding on an IMMUTABLE solely-owned box moves a payload OUT of it, because it
+  nulls the slot rather than adding an owner.
+- **A match binding on a SOLELY-OWNED IMMUTABLE union is a MOVE-OUT.**
+  `let u = U.case(s)` then `match u { case(x) then … }` loads the managed field
+  into `x` (which becomes an owned binding, dropped at its own scope exit) and
+  clears the box slot. After the match `u` is moved-from (a later read is
+  `E3102`). A discard `_`, an unbound tag-only arm, and a payload-free / scalar
+  arm bind nothing and leave the box owned — `u` is dropped at scope exit.
+  A word union is never emptied: the match holds or retains the payload and
+  still consumes a solely-owned immutable scrutinee (`E3102` on a later read).
+  **Sole ownership is the requirement, not ownership**: a freshly-constructed
+  `let u = U.case(s)` qualifies; a box this frame merely holds *a* reference to
+  does not — see the co-owned bullet below.
+- **A match binding on a `var` union is a RETAIN, and the union survives it.** Its
+  payload slot is a place the arms may still write (`specs/mutable-enums.md`),
+  so the binding is a window onto that slot rather than its new owner: the bind
+  increfs, the slot is left intact, the binding drops its own reference at the
+  arm's exit, and a later `match u` is legal. An arm that MUTATES its payload in
+  place (`text.append(" tail")`) never assigns the binding at all, so a move-out
+  would hand the record to a binding that frees it at the arm's exit and leave the
+  box holding a null the author never emptied. Assigning the binding still writes
+  back into the slot, releasing the payload it displaces.
+- **A match binding on a BORROWED union is a RETAIN.** Where the scrutinee is a
+  parameter or a method receiver, the box's owner is the caller's local and
+  survives the call, so ownership cannot be moved out of it. Assigning the
+  binding requires a `mutable` parameter. The bind emits
+  `__mm_incref` on the loaded payload instead (a binding that cannot be written
+  takes the hold described below in its place): the binding owns that *second*
+  reference and drops it at the arm's own exit, and **the box slot is left
+  intact** so the owner keeps its own reference and may re-read the field, match
+  the union again, or move the payload out itself. The refcount balances at
+  exactly one free, and the borrowed union is **not** consumed by the match — a
+  later read of it is legal, not `E3102`. The retain is unconditional (no escape
+  analysis) for a binding that can be written and for a `typeParameter` or
+  `interfaceRef` payload: the binding's release is structural — its scope exit —
+  so a blanket acquire is blanket-balanced.
+- **A match binding that cannot be written takes a HOLD where it would otherwise
+  retain.** That is a payload field declared `let`, or a scrutinee that is neither
+  a `var` nor a fresh temporary. The hold raises the payload's count only where an
+  op between the bind and the arm's exit may release or displace the box that holds
+  it, and is deleted where none can; the binding's release stays structural. The
+  three `a-read-only-payload-outlives-…` cases below are the displacing ops: a call
+  that replaces the global owning the box, a call that overwrites the union field,
+  and a call whose parameter assignment replaces the slot it was handed. A
+  `typeParameter` or `interfaceRef` payload keeps the retain.
+- **A match binding on a CO-OWNED union takes the SAME RETAIN, and co-ownership is
+  the third state the two bullets above do not cover.** A scrutinee can hold an
+  owned reference while something else holds the same box: `let borrowed = h.ty`
+  (a read out of a mutable field, or an array element bound to a `var`, promoted by
+  `__mm_retain`), a payload retained out of a borrowed union and then matched again,
+  a call's owned result (a `return h.ty` promotes its borrow by incref), a caught
+  error box (the thrower may have retained it), and a consumed parameter (the caller
+  may have increfed a borrow to transfer it). Nulling such a box's slot steals it
+  from an owner that is still reading, so the acquisition asks *"is this frame the
+  box's SOLE owner?"* rather than *"does this value own a reference?"* — and, as with
+  a borrowed scrutinee, a retaining match consumes nothing: a later read is legal.
+  Recovering the move-out for a call result needs a whole-program *"does this
+  function's return launder a borrow"* fact, which the compiler does not compute.
+- **A SOLE box may hold a CO-OWNED payload, so soleness is NOT transitive.** The
+  construct co-owns a borrowed argument by `__mm_incref` rather than moving it in, so
+  `Wrap.held(<a borrowed union>)` yields a box this frame really is the only owner of
+  whose *slot* holds a shared reference. Vacating that slot proves the frame now holds
+  the slot's reference; it proves nothing about the allocation. **So a payload moved
+  out of a sole box is itself CO-OWNED**, and a nested `match` on it retains — one
+  refcount pair per nested move-out, against a stolen slot. The same is true of a
+  container element handed back by a `remove`: the container no longer holds it, but
+  whoever co-owned it into the container still does.
+- **Drop is a tag-conditional STATIC cascade.** When an owned managed-payload
+  union is dropped, its `__destruct_<U>` loads the tag, and for the live case
+  drops each still-present managed field through its own type's destructor (a
+  `String` field via `__str_decref`, a `struct` field via `__mm_decref`), then
+  frees the box. A moved-out slot is null and is skipped, so a payload is freed
+  exactly once whether it was moved out, discarded, or left in place.
+
+- **THE RETAIN IS NOT A CONSERVATISM THAT A SINGLE-USE ARM COULD SKIP.** The argument
+  against `retainBorrowedPayload` is that an arm whose body is one call, taking
+  the payload as one argument, borrows it no longer than an anonymous field read does —
+  and the compiler hands `f(obj.managedField)` to a call with no refcount at all. **It is
+  false**: the callee can release the box between receiving the pointer and reading it,
+  and then the payload is gone. `a-borrowed-payload-outlives-a-callee-that-frees-its-box`
+  below is that program, and its control is the same arm with a callee that frees nothing.
+  ⛔ The elision produces a **silent wrong answer at exit 0**, so neither `exitcode` nor a
+  leak check sees it; the rest of the suite stays green with the incref removed. The
+  unconditional retain is the one a writable binding takes; a read-only binding's hold keeps
+  the incref wherever a callee can release the box, and drops it only where none can.
+
+Passing a managed-payload union across a call boundary as a *return value* is
+outside this spec's cross-call ownership rules; passing one as a **parameter** and
+binding its managed payload out is the retain above.
+
+## Tests
+
+<!-- test: struct-payload-drop-leak-free -->
+An owned union with a struct payload, dropped at scope exit without being matched,
+frees its struct payload through the cascade — no leak (a leak is exit 101).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(5))
+	print("{s}")
+	return 7
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+solid
+
+```
+
+<!-- test: struct-payload-match-consume -->
+Matching an owned struct-payload union binds the struct, reads its field, and
+consumes the union — the struct is freed once (via the binding), the box once.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(5))
+	match s 'check'
+		empty then return 0
+		solid(b) then return b.mass
+	end 'check'
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: string-payload-drop-leak-free -->
+An owned union with a String payload, dropped at scope exit without being matched,
+frees its String through `__str_decref` — no leak.
+```maxon
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function main() returns ExitCode
+	let m = Message.text("hello world this is a long enough string to be heap")
+	print("{m}")
+	return 9
+end 'main'
+```
+```exitcode
+9
+```
+```stdout
+text
+
+```
+
+<!-- test: string-payload-match-consume -->
+Matching an owned String-payload union binds the String, prints it, and consumes
+the union. The String is freed once (via the binding), the box once.
+```maxon
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function main() returns ExitCode
+	let m = Message.text("hi")
+	match m 'check'
+		silent then return 0
+		text(s) then print(s)
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hi
+```
+
+<!-- test: string-payload-interpolated -->
+An interpolated String moved into a union payload, then matched back out and
+printed. The interpolation temporary is owned; the move transfers it into the box.
+```maxon
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function main() returns ExitCode
+	let m = Message.text("v{41}")
+	match m 'check'
+		silent then return 0
+		text(s) then print(s)
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v41
+```
+
+<!-- test: match-borrow-no-managed-binding -->
+A match that binds no managed payload (a tag-only arm) borrows: the union is not
+consumed and is dropped at scope exit, freeing its struct payload once.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(3))
+	let code = match s 'check'
+		empty gives 1
+		solid gives 2
+	end 'check'
+	return code
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: match-borrow-binds-managed-payload -->
+The "IS bound" twin of the case directly above: a match on a BORROWED union (a
+parameter) that DOES bind its managed payload. The payload cannot be moved out — its
+owner is the caller's local — so it is RETAINED (`__mm_incref` at the bind), the
+binding owns that second reference and drops it at the arm's exit, and the box slot is
+left intact. The caller's union is NOT consumed by the call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function massOf(s Shape) returns Integer
+	return match s 'check'
+		empty gives 1
+		solid(b) gives b.mass
+	end 'check'
+end 'massOf'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(3))
+	return massOf(s) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: borrowed-bind-then-the-owner-moves-it-out -->
+⭐ **THE CASE THAT CATCHES A NULLED SLOT.** A retain must NOT clear the slot the payload
+was loaded from, and the sharpest reader of that slot is the OWNER doing its own
+move-out afterwards: `massOf(s)` binds the struct payload out of a borrowed parameter,
+then `match s` in the caller MOVES the same payload out and reads `b.mass`. A nulling
+implementation loads 0 here and dereferences it. It also pins the refcount: the borrow's
+retained reference is dropped at the callee's arm exit, the moved-out binding drops the
+last one at `main`'s scope exit, and the box's cascade skips the (now genuinely) nulled
+slot — one free, no leak.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function massOf(s Shape) returns Integer
+	return match s 'check'
+		empty gives 1
+		solid(b) gives b.mass
+	end 'check'
+end 'massOf'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(3))
+	let borrowed = massOf(s)
+	let owned = match s 'own'
+		empty gives 1
+		solid(b) gives b.mass
+	end 'own'
+	return (borrowed + owned) as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: borrowed-bind-in-an-arm-that-returns -->
+A retained payload binding leaves its arm through a TERMINATED exit (`then return`)
+rather than the live fall-through every case above uses, so it drops through
+`emitScopeDrops` down to the arm's floor instead of through `dropArmScopedOwned` —
+the other half of the arm-exit rule, and the half a `gives` arm cannot reach.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function show(m M) returns Integer
+	match m 'k'
+		silent then return 0
+		text(s) then print(s)
+	end 'k'
+	return 3
+end 'show'
+
+function main() returns ExitCode
+	let m = M.text("a returned-arm payload string, long enough to be a real heap allocation")
+	return show(m) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+a returned-arm payload string, long enough to be a real heap allocation
+```
+
+<!-- test: borrowed-bind-in-an-arm-that-breaks -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The third arm exit: a `break` out of an enclosing loop drops the retained binding
+through the LOOP's floor. An arm is ONE statement, so a `break` cannot also read its
+binding — the arm reads it and falls through to the arm that breaks, which is the same
+exit edge. Nothing but the leak gate can tell the drop happened.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 100)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function show(m M) returns Integer
+	var i = 0 as Round
+	var seen = 0 as Integer
+	while i < 10 'spin'
+		match m 'k'
+			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			silent then break 'spin'
+		end 'k'
+		i = i + 1
+	end 'spin'
+	return 5 if seen > 0 else 0
+end 'show'
+
+function main() returns ExitCode
+	let m = M.text("a broken-arm payload string, long enough to be a real heap allocation")
+	return show(m) as ExitCode
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: borrowed-bind-then-moved-into-another-union -->
+The retained `+1` TRANSFERS: the binding is moved into a second union's payload, so its
+own scope-exit drop is skipped (`movedFrom`) and the new box owns the reference instead.
+The source union still holds its slot and drops the other reference at `main`'s exit —
+two owners, two drops, one free.
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+union Held
+	nothing
+	holds(v String)
+end 'Held'
+
+function rewrap(m M) returns Held
+	return match m 'k'
+		silent gives Held.nothing
+		text(s) gives Held.holds(s)
+	end 'k'
+end 'rewrap'
+
+function main() returns ExitCode
+	let m = M.text("a rewrapped payload string, long enough to be a real heap allocation")
+	let h = rewrap(m)
+	match h 'j'
+		nothing then return 0
+		holds(v) then print(v)
+	end 'j'
+	return 8
+end 'main'
+```
+```exitcode
+8
+```
+```stdout
+a rewrapped payload string, long enough to be a real heap allocation
+```
+
+<!-- test: three-managed-payloads-out-of-one-borrowed-union -->
+Three String payloads bound out of ONE borrowed union in a single arm: three increfs at
+the bind, three drops at the arm's exit, and one of them escapes as the arm's `gives`
+value. A retain emitted once per ARM rather than once per BINDING would leak two.
+```maxon
+union R
+	one(a String)
+	three(a String, b String, c String)
+end 'R'
+
+function first(r R) returns String
+	return match r 's'
+		one(a) gives a
+		three(a, b, c) gives a if b.byteLength() > 0 and c.byteLength() > 0 else ""
+	end 's'
+end 'first'
+
+function main() returns ExitCode
+	let r = R.three("a first payload string long enough to heap", b: "a second payload string long enough to heap", c: "a third payload string long enough to heap")
+	print(first(r))
+	return 6
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+a first payload string long enough to heap
+```
+
+<!-- test: returned-alias-of-a-let-union-payload -->
+The retain is an INCREF, not a copy, so a payload that escapes the borrow is a SECOND
+owner of the SAME record. Binding it to a `var` copies a `String` a name does not own, so the
+`append` reaches the copy and the payload of `m` is unchanged.
+
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns String
+	return match m 'k'
+		silent gives "a fallback literal long enough to be a real heap string"
+		text(s) gives s
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("original payload, long enough to be a real heap allocation")
+	var escaped = grab(m)
+	escaped.append(" MUTATED")
+	print("{grab(m)}|{escaped}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+original payload, long enough to be a real heap allocation|original payload, long enough to be a real heap allocation MUTATED
+```
+
+<!-- test: returned-alias-of-a-let-struct-union-payload-is-written-through -->
+The same escape with a STRUCT payload: the returned `Body` is the very box `slot` holds, and a `let` forbids only
+reassigning `slot`, so the `var` bound to it names that box and the write is seen through the payload.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Slot
+	empty
+	filled(body Body)
+end 'Slot'
+
+function grab(slot Slot) returns Body
+	return match slot 'k'
+		empty gives Body.create(0)
+		filled(b) gives b
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	let slot = Slot.filled(Body.create(5))
+	let escaped = grab(slot)
+	escaped.mass = 99
+	return grab(slot).mass as ExitCode
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: a-clone-of-a-let-union-payload-may-be-written -->
+The accepted twin of the two cases above: a `clone()` of the returned payload is the caller's own record, so the
+`var` made from it may be written and the payload of `m` is untouched.
+
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns String
+	return match m 'k'
+		silent gives "a fallback literal long enough to be a real heap string"
+		text(s) gives s
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("original payload, long enough to be a real heap allocation")
+	var own = grab(m).clone()
+	own.append(" MUTATED")
+	print("{grab(m)}\n{own}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+original payload, long enough to be a real heap allocation
+original payload, long enough to be a real heap allocation MUTATED
+```
+
+<!-- test: a-clone-of-a-let-struct-union-payload-may-be-written -->
+The struct twin: the clone is a private `Body`, written without reaching the payload of `slot`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Slot
+	empty
+	filled(body Body)
+end 'Slot'
+
+function grab(slot Slot) returns Body
+	return match slot 'k'
+		empty gives Body.create(0)
+		filled(b) gives b
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	let slot = Slot.filled(Body.create(5))
+	let own = grab(slot).clone()
+	own.mass = 99
+	print("{grab(slot).mass} {own.mass}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5 99
+```
+
+<!-- test: borrowed-struct-payload-bind-leak-free -->
+⭐ **THE LEAK GATE, struct half.** 300 rounds of binding a STRUCT payload out of a
+borrowed parameter. An unbalanced `incref` leaves the `Body` box's refcount at 300 when
+the union's cascade releases it, so it is never freed and the run exits 101; an
+unbalanced `decref` frees it under the union that still points at it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 1000)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function massOf(s Shape) returns Integer
+	return match s 'check'
+		empty gives 1
+		solid(b) gives b.mass
+	end 'check'
+end 'massOf'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(3))
+	var i = 0 as Round
+	var total = 0 as Integer
+	while i < 300 'spin'
+		total = total + massOf(s)
+		i = i + 1
+	end 'spin'
+	if total != 900 'wrong'
+		return 1
+	end 'wrong'
+	return 7
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: discard-managed-field -->
+A `_` discard of a managed field binds nothing and does not consume: the union is
+dropped at scope exit and the cascade frees the discarded String.
+
+⚠ The discard is PARTIAL (`text(_, tag)`), and it has to be: an all-discard list
+(`text(_)`) is `E3081` — the bare case name is the only spelling of "ignore every
+payload" (`match-payload-discard-bindings.md`), and the bare form is already the case
+directly above. It would also not test THIS: with no binding list there is no discard
+for `declarePayloadBindings` to skip, so the slot that stays in the box for the cascade
+would never be exercised.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Message
+	silent
+	text(body String, code Integer)
+end 'Message'
+
+function main() returns ExitCode
+	let m = Message.text("discard me, i am long enough to be a heap string", code: 4)
+	let code = match m 'check'
+		silent gives 0
+		text(_, tag) gives tag
+	end 'check'
+	return code
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: retained-payload-outlives-its-container -->
+⭐ **THE LIFETIME CASE.** The retained reference outlives the box it came out of: `grab(m)`
+returns the payload, then `m` — the only other owner — dies at `makeAndExtract`'s scope exit and
+its cascade releases the box's reference. The payload must survive on the caller's reference
+alone. Without the retain this is a use-after-free printing freed bytes; with a retain but no
+drop it is exit 101.
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns String
+	return match m 'k'
+		silent gives "a fallback literal long enough to be a real heap string"
+		text(s) gives s
+	end 'k'
+end 'grab'
+
+function makeAndExtract() returns String
+	let m = M.text("the payload that must outlive its own container, heap-long")
+	return grab(m)
+end 'makeAndExtract'
+
+function main() returns ExitCode
+	print(makeAndExtract())
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+the payload that must outlive its own container, heap-long
+```
+
+<!-- test: retained-struct-payload-outlives-its-container -->
+The struct half of the case above, and a sharper detector: the container is gone and then a
+FIELD of the escaped payload is read. A dangling box does not have to crash — it can simply
+answer with whatever the freed memory holds, which is the wrong-answer shape a `print` would
+hide and an exit code will not.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function bodyOf(s Shape) returns Body
+	return match s 'k'
+		empty gives Body.create(0)
+		solid(b) gives b
+	end 'k'
+end 'bodyOf'
+
+function makeAndExtract(mass Integer) returns Body
+	let s = Shape.solid(Body.create(mass))
+	return bodyOf(s)
+end 'makeAndExtract'
+
+function main() returns ExitCode
+	let b = makeAndExtract(37)
+	return b.mass as ExitCode
+end 'main'
+```
+```exitcode
+37
+```
+
+<!-- test: var-container-reassigned-while-a-retained-payload-is-live -->
+The container is a `var` and is REASSIGNED while a payload retained out of it is still live.
+The reassignment drops the OLD box, whose cascade releases its own reference to the first
+payload — the escaped binding holds the other one, so the first string must still read intact
+afterwards, and the second box's payload must be independent of it.
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns String
+	return match m 'k'
+		silent gives "a fallback literal long enough to be a real heap string"
+		text(s) gives s
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	var m = M.text("the FIRST payload string, long enough to be a real heap allocation")
+	let escaped = grab(m)
+	m = M.text("the SECOND payload string, long enough to be a real heap allocation")
+	print(escaped)
+	print(grab(m))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+the FIRST payload string, long enough to be a real heap allocationthe SECOND payload string, long enough to be a real heap allocation
+```
+
+<!-- test: owned-move-out-and-borrowed-retain-in-one-function -->
+Both bind paths in ONE function and one `ownedBindings` list: a locally built union is MOVED
+out of (its slot nulled, the union consumed) and a borrowed parameter is RETAINED from (slot
+intact, not consumed), with the two arms' bindings dropping through the same arm-exit machinery.
+A drop-floor that confused the two would double-free one of them.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function mixed(borrowed M) returns Integer
+	let owned = M.text("a locally built payload string long enough for the heap")
+	let a = match owned 'o'
+		silent gives 0
+		text(s) gives 1 if s.byteLength() > 0 else 0
+	end 'o'
+	let b = match borrowed 'b'
+		silent gives 0
+		text(t) gives 2 if t.byteLength() > 0 else 0
+	end 'b'
+	return a + b
+end 'mixed'
+
+function main() returns ExitCode
+	let m = M.text("the caller's payload string, long enough to be a real heap allocation")
+	return mixed(m) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: discard-on-a-borrowed-union-increfs-nothing -->
+The `_` discard path is unchanged by the retain: a discard binds nothing, so it emits no
+`incref` and leaves its payload in the box for the owner's cascade. Called twice on the same
+borrowed union — an incref with no matching binding to drop it would leak (exit 101), and a
+decref with no incref would free the caller's payload under it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Message
+	silent
+	text(body String, code Integer)
+end 'Message'
+
+function codeOf(m Message) returns Integer
+	return match m 'k'
+		silent gives 0
+		text(_, tag) gives tag
+	end 'k'
+end 'codeOf'
+
+function main() returns ExitCode
+	let m = Message.text("a discarded payload string long enough to be a heap one", code: 4)
+	let a = codeOf(m)
+	let b = codeOf(m)
+	return (a + b) as ExitCode
+end 'main'
+```
+```exitcode
+8
+```
+
+<!-- test: repeated-borrowed-binds-in-a-loop-with-an-early-return -->
+Five binds of the same borrowed payload inside a loop, with an early `return` reachable from
+inside the loop body. Each iteration's retain must be released on the iteration's own exit
+rather than accumulating to the function's end.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 100)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function scan(m M) returns Integer
+	var i = 0 as Round
+	var seen = 0 as Integer
+	while i < 5 'spin'
+		let n = match m 'k'
+			silent gives 0
+			text(s) gives 1 if s.byteLength() > 0 else 0
+		end 'k'
+		if n == 0 'stop'
+			return 0
+		end 'stop'
+		seen = seen + n
+		i = i + 1
+	end 'spin'
+	return seen
+end 'scan'
+
+function main() returns ExitCode
+	let m = M.text("a repeatedly scanned payload string, long enough for the heap")
+	let a = scan(m)
+	print("{a}")
+	return a as ExitCode
+end 'main'
+```
+```exitcode
+5
+```
+```stdout
+5
+```
+
+<!-- test: borrowed-bind-two-levels-deep-then-the-owner-moves-it-out -->
+The container is borrowed by `outer`, bound there, and then handed on to `inner`, which borrows
+and binds it again — two live retains of one payload at different frames — and only afterwards
+does the owner in `main` move it out for itself.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function inner(m M) returns Integer
+	return match m 'k'
+		silent gives 0
+		text(s) gives 3 if s.byteLength() > 0 else 0
+	end 'k'
+end 'inner'
+
+function outer(m M) returns Integer
+	let first = match m 'k'
+		silent gives 0
+		text(s) gives 4 if s.byteLength() > 0 else 0
+	end 'k'
+	return first + inner(m)
+end 'outer'
+
+function main() returns ExitCode
+	let m = M.text("a payload string handed down two borrow levels, heap-long")
+	let a = outer(m)
+	match m 'own'
+		silent then return 0
+		text(s) then print(s)
+	end 'own'
+	return a as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+a payload string handed down two borrow levels, heap-long
+```
+
+<!-- test: retained-give-merged-with-literal-gives -->
+A result phi joining a RETAINED give (`one(a) gives a`) with two freshly built literal gives.
+All three edges must arrive owning their value, or the merged result is freed once too often
+on one path and never on another.
+```maxon
+union M
+	one(a String)
+	two(b String)
+	none
+end 'M'
+
+function pick(m M) returns String
+	return match m 'k'
+		one(a) gives a
+		two gives "a rebuilt literal give long enough to be a heap string"
+		none gives "a third literal give also long enough to be a heap string"
+	end 'k'
+end 'pick'
+
+function main() returns ExitCode
+	let x = M.one("the retained give, long enough to be a real heap allocation")
+	let y = M.two("the discarded payload, long enough to be a real heap allocation")
+	print(pick(x))
+	print(pick(y))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+the retained give, long enough to be a real heap allocationa rebuilt literal give long enough to be a heap string
+```
+
+<!-- test: nested-matches-of-two-borrowed-unions -->
+A borrowed union matched INSIDE an arm of another borrowed union's match: two retains live at
+once, in nested arm scopes, dropped in the right order. Called twice, so a consumed scrutinee
+would show as a use-after-move on the second call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Inner
+	quiet
+	loud(word String)
+end 'Inner'
+
+union Outer
+	blank
+	holds(label String)
+end 'Outer'
+
+function both(o Outer, i Inner) returns Integer
+	return match o 'x'
+		blank gives 0
+		holds(label) gives match i 'y'
+			quiet gives 1
+			loud(word) gives 2 if word.byteLength() > 0 and label.byteLength() > 0 else 0
+		end 'y'
+	end 'x'
+end 'both'
+
+function main() returns ExitCode
+	let o = Outer.holds("the outer label string, long enough to be a heap allocation")
+	let i = Inner.loud("the inner word string, long enough to be a heap allocation")
+	let a = both(o, i: i)
+	let b = both(o, i: i)
+	return (a + b) as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: the-same-borrowed-container-matched-again-inside-its-own-arm -->
+Re-entrancy: the arm body matches the SAME borrowed container a second time while its own
+retain is still live. Legal exactly because a retain does not consume — the inner match sees
+the tag and the slot unchanged.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function depth(m M) returns Integer
+	return match m 'k'
+		silent gives 0
+		text(s) gives match m 'again'
+			silent gives 1
+			text(t) gives 6 if t.byteLength() > 0 and s.byteLength() > 0 else 0
+		end 'again'
+	end 'k'
+end 'depth'
+
+function main() returns ExitCode
+	let m = M.text("a re-entrantly matched payload string, long enough for the heap")
+	return depth(m) as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: borrowed-bind-out-of-a-temporary-container -->
+The caller's container is a TEMPORARY (`peek(M.text(…))`), so it is owned by no binding and
+dies at the statement's end. The callee still borrows it and retains from it, which is the
+ordinary case — the interesting half is that the temporary's own drop must still happen exactly
+once afterwards.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function peek(m M) returns Integer
+	return match m 'k'
+		silent gives 0
+		text(s) gives 11 if s.byteLength() > 0 else 0
+	end 'k'
+end 'peek'
+
+function main() returns ExitCode
+	return peek(M.text("a temporary container's payload, long enough for the heap")) as ExitCode
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: retained-give-routed-through-a-try-channel -->
+<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+The retained payload leaves its function through a `throws` signature and is joined with an
+`otherwise` fallback at the call site — the ok-edge/error-edge phi reconciliation, over a value
+whose `+1` came from a retain rather than from a fresh allocation.
+```maxon
+// TODO: union errors are not supported in minimaxon; an error is an enum
+union Fail implements Error
+	because(why String)
+end 'Fail'
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M, strict bool) returns String throws Fail
+	if strict 'strict'
+		throw Fail.because("strict")
+	end 'strict'
+	return match m 'k'
+		silent gives "a fallback literal long enough to be a real heap string"
+		text(s) gives s
+	end 'k'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("a payload string routed through a try channel, heap-long")
+	let out = try grab(m, strict: false) otherwise "an otherwise literal long enough to be a heap string"
+	print(out)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a payload string routed through a try channel, heap-long
+```
+
+<!-- test: retained-payload-moved-into-a-durable-struct-field -->
+⭐ The hardest lifetime shape in the set: the retained payload is moved into a STRUCT FIELD,
+and the struct outlives both the arm and the union it was bound out of (`m` dies at
+`makeAndWrap`'s exit). The retain's `+1` transfers into the field, the binding's own drop is
+skipped as moved-from, and the union's cascade releases the other reference.
+```maxon
+union M
+	silent
+	text(body String)
+end 'M'
+
+type Holder
+	export var label as String
+
+	static function create(label String) returns Self
+		return Self{label: label}
+	end 'create'
+end 'Holder'
+
+function wrap(m M) returns Holder
+	return match m 'k'
+		silent gives Holder.create("a fallback literal long enough to be a heap string")
+		text(s) gives Holder.create(s)
+	end 'k'
+end 'wrap'
+
+function makeAndWrap() returns Holder
+	let m = M.text("a payload moved into a durable struct field, long enough for the heap")
+	return wrap(m)
+end 'makeAndWrap'
+
+function main() returns ExitCode
+	let h = makeAndWrap()
+	print(h.label)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a payload moved into a durable struct field, long enough for the heap
+```
+
+<!-- test: two-borrowed-unions-a-string-one-and-a-struct-one -->
+Both managed payload classes bound out of borrowed parameters in one call, twice over: a
+`String` payload (dropped through `__str_decref`) and a `struct` payload (dropped through the
+struct's own destructor callee). The retain is emitted the same way for both; only the release
+is tag-routed.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union A
+	none
+	one(s String)
+end 'A'
+
+union B
+	none
+	two(b Body)
+end 'B'
+
+function both(a A, b B) returns Integer
+	let x = match a 'x'
+		none gives 0
+		one(s) gives 5 if s.byteLength() > 0 else 0
+	end 'x'
+	let y = match b 'y'
+		none gives 0
+		two(body) gives body.mass
+	end 'y'
+	return x + y
+end 'both'
+
+function main() returns ExitCode
+	let a = A.one("the first union's payload, long enough to be a heap string")
+	let b = B.two(Body.create(9))
+	let r1 = both(a, b: b)
+	let r2 = both(a, b: b)
+	return (r1 + r2) as ExitCode
+end 'main'
+```
+```exitcode
+28
+```
+
+<!-- test: two-managed-fields-drop -->
+A case with two String fields, dropped at scope exit, frees both.
+```maxon
+
+union Pair
+	none
+	both(a String, b String)
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.both("the first heap string is long", b: "the second heap string is long too")
+	print("{p}")
+	return 6
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+both
+
+```
+
+<!-- test: two-managed-fields-bind-one-discard-one -->
+A two-String case binds one field and discards the other. The bound one is freed
+via its binding; the discarded one is freed by the cascade at scope exit.
+```maxon
+
+union Pair
+	none
+	both(a String, b String)
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.both("bound first string long enough to heap", b: "discarded second string also heap")
+	match p 'check'
+		none then return 0
+		both(a, _) then print(a)
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+bound first string long enough to heap
+```
+
+<!-- test: fallthrough-out-of-a-binding-arm-into-a-payload-free-one -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The POSITIVE control for the three refusals below, and the reason they are narrow: falling
+OUT of a payload-binding arm is fine — the arm's own bindings were established by the case it
+actually matched, and they are dropped on the fallthrough edge like any other live exit. Only
+the arm being fallen INTO may not bind.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a(x String)
+	b
+end 'U'
+
+function main() returns ExitCode
+	let u = U.a("the falling-through payload, long enough to be a heap string")
+	var t = 0 as Code
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(s) then print(s) and fallthrough
+		b then t = 7
+	end 'k'
+	return t as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+the falling-through payload, long enough to be a heap string
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+A value moved in an arm that ends `and fallthrough` is released on the fallen-into arm's own
+dispatch edge, where the move never ran. Here `a`'s body is skipped, so `s` is still live when `b`
+is entered and nothing downstream would ever drop it.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.b 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		b then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-not-dropped-twice -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The control for the case above, entered at `a`: the move does run, `t` owns the string, and the
+taken fallthrough edge reaches the body without passing the dispatch edge's drop.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.a 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		b then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-beside-a-fresh-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+A third arm that is entered FRESH sits beside the fallen-into one, so the match's merge also sees
+`s` moved on one reaching path and live on the other — the drop on the dispatch edge and the drop
+the merge places on the fresh arm's edge have to be right together.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.b 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		b then n = n + 7
+		c then n = n + 1
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-chain-default -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+A `String` scrutinee keeps the per-arm compare chain, where the default's body is the last arm's
+fail target. The drop still goes on the edge alone: the default gets a body block of its own and
+that fail target becomes the edge into it.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match "b" 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		"a" then t = s and fallthrough
+		default then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-into-a-chain-default-is-not-dropped-twice -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+Its control, entered at `"a"`: the move runs and the fallthrough edge enters the default body
+directly, past the fail edge the drop sits on.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match "a" 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		"a" then t = s and fallthrough
+		default then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-planned-default -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The other default shape: an integer scrutinee dispatches through the interval plan, so it is the
+plan's miss edges into the default that are wrapped.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match 2 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		1 then t = s and fallthrough
+		default then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-into-a-planned-default-is-not-dropped-twice -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+Its control, entered at `1`, so the move runs and the fallthrough edge carries it into the default.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match 1 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		1 then t = s and fallthrough
+		default then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-chain-pattern-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The fallen-into arm of a compare chain is a PATTERN arm here rather than the default, so the drop
+goes on that arm's own match edge — the then-edge of the test that selected it.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match "b" 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		"a" then t = s and fallthrough
+		"b" then n = n + 7
+		default then n = n + 1
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-into-a-chain-pattern-arm-is-not-dropped-twice -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+Its control, entered at `"a"`: the fallthrough is taken and the match edge carrying the drop is
+never reached.
+```maxon
+typealias Code = int(0 to 255)
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match "a" 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		"a" then t = s and fallthrough
+		"b" then n = n + 7
+		default then n = n + 1
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-var-moved-in-a-fallthrough-arm-beside-a-fresh-arm-taken-fresh-drops-once -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The third path of the three-arm match: the fresh arm runs alone, `s` was never moved on it, and
+the merge is the one that releases it.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.c 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		b then n = n + 7
+		c then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: two-vars-moved-along-a-fallthrough-chain-are-both-dropped-on-the-last-dispatch-edge -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+Two arms in a row end `and fallthrough`, and the match enters the last of them. A binding stays
+moved once it has been moved, so the state arriving at that arm holds BOTH moves and its one
+dispatch edge owes both drops.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	let u = "a third heap string long enough to be a real allocation".clone()
+	var w = "a fourth heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.c 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		b then w = u and fallthrough
+		c then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: two-vars-moved-along-a-fallthrough-chain-entered-at-the-middle-drop-once-each -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The same chain entered in the middle: that arm's dispatch edge drops what the first arm moved, and
+its own move then travels the taken fallthrough edge into the last arm.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	let u = "a third heap string long enough to be a real allocation".clone()
+	var w = "a fourth heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.b 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		b then w = u and fallthrough
+		c then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: two-vars-moved-along-a-fallthrough-chain-taken-whole-are-not-dropped-twice -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The chain's control: entered at the first arm, every move runs and no dispatch edge is on the path.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let s = "a heap string long enough to be a real allocation".clone()
+	var t = "a second heap string long enough to be a real allocation".clone()
+	let u = "a third heap string long enough to be a real allocation".clone()
+	var w = "a fourth heap string long enough to be a real allocation".clone()
+	var n = 0 as Code
+	match U.a 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a then t = s and fallthrough
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		b then w = u and fallthrough
+		c then n = n + 7
+	end 'k'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.fallthrough-into-a-managed-binding-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **A FALLTHROUGH TARGET MAY NOT BIND A PAYLOAD**, and this is the case that makes it a
+refusal rather than a rule on paper: `a(s) … and fallthrough` reaches `b(t)`'s body while the
+union holds an `a`, so `t` destructures a case the value does not have. **Unrefused it is a
+SIGSEGV (exit 139)** — arm `a` moves its payload out and nulls the slot, and `b(t)` then binds
+the null and prints it.
+
+It is the `or`-pattern rule (`rejectOrPatternBinding`) one construct over: *a payload binding
+is meaningful only where exactly one case matched*, and a fallthrough edge is precisely an
+arrival from a DIFFERENT case. The refusal takes away no program that works.
+```maxon
+union U
+	a(x String)
+	b(y String)
+end 'U'
+
+function main() returns ExitCode
+	let u = U.a("the fallthrough source payload, long enough to be a heap string")
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(s) then print(s) and fallthrough
+		b(t) then print(t)
+	end 'k'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:11:3: Unsupported: `and fallthrough` into the payload-binding arm 'b' of `union U` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body
+```
+
+<!-- test: error.fallthrough-into-a-borrowed-binding-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+<!-- positions: moved -->
+The same refusal on a BORROWED scrutinee, where the payload is retained rather
+than moved so the slot is intact — which makes the failure a silent TYPE CONFUSION instead of
+a crash: `b(n)`'s `Code` binding would read the `String` POINTER arm `a` matched. Unrefused it
+exits 1 (the pointer failing `Code`'s range check).
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a(x String)
+	b(y Code)
+end 'U'
+
+function show(u U) returns Code
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(s) then print(s) and fallthrough
+		b(n) then return n
+	end 'k'
+	return 0
+end 'show'
+
+function main() returns ExitCode
+	let u = U.a("a heap string long enough to be a real allocation")
+	return show(u) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:12:3: Unsupported: `and fallthrough` into the payload-binding arm 'b' of `union U` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body
+```
+
+<!-- test: error.fallthrough-into-a-scalar-binding-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+<!-- positions: moved -->
+The refusal is about the BINDING, not about ownership: a SCALAR payload has no drop, no
+pointer and no crash, and is therefore the worst of the three — a silently wrong number.
+**Unrefused, the program answers 18** (`m` reads `a`'s `9`, so `t = 9 + 9`) where `b`'s payload
+does not exist at all.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a(x Code)
+	b(y Code)
+end 'U'
+
+function main() returns ExitCode
+	let u = U.a(9)
+	var t = 0 as Code
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(n) then t = n and fallthrough
+		b(m) then t = t + m
+	end 'k'
+	return t as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:14:3: Unsupported: `and fallthrough` into the payload-binding arm 'b' of `union U` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body
+```
+
+<!-- test: a-fallthrough-out-of-a-binding-arm-reads-the-scrutinee -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The binding arm falls through into one that reads `m`; the bind retained the payload, so `grab` finds it whole.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns Integer
+	return match m 'g'
+		silent gives 0 as Integer
+		text(s) gives s.byteLength() as Integer
+	end 'g'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("an owned payload string, long enough to be a real heap allocation")
+	var n = 0 as Integer
+	match m 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		text(s) then n = (s.byteLength() as Integer) and fallthrough
+		silent then n = n + grab(m)
+	end 'k'
+	print("n={n}")
+	return 0
+end 'main'
+```
+```stdout
+n=130
+```
+```exitcode
+0
+```
+
+<!-- test: fallthrough-into-a-bare-payload-carrying-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The blast-radius guard for `error.fallthrough-into-a-*-binding-arm`: the refusal is about the
+BINDINGS, not about the case. A payload-carrying case named BARE binds nothing, destructures nothing,
+and is a legal fallthrough target — `b` reads no slot at all, so the edge from `a` carries no
+misinterpretation. Answers 10 (`a`'s 9, plus the 1 the fallen-into arm adds).
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a(x Code)
+	b(y Code)
+end 'U'
+
+function main() returns ExitCode
+	let u = U.a(9)
+	var t = 0 as Code
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(n) then t = n and fallthrough
+		b then t = t + 1
+	end 'k'
+	return t as ExitCode
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: fallthrough-into-an-or-pattern-arm -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The other half of that guard: an `or`-pattern arm can never bind (a payload binding on an `or`-pattern
+is `rejectOrPatternBinding`), so it reaches the fallthrough check with an empty binding list and passes
+it. A check that keyed on "does this arm's case carry a payload?" rather than on the bindings in hand
+would have rejected this one too.
+```maxon
+typealias Code = int(0 to 255)
+
+union U
+	a(x Code)
+	b
+	c
+end 'U'
+
+function main() returns ExitCode
+	let u = U.a(9)
+	var t = 0 as Code
+	match u 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		a(n) then t = n and fallthrough
+		b or
+			c then t = t + 1
+	end 'k'
+	return t as ExitCode
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: two-binding-arms-fall-through -->
+Two arms that each bind a managed payload AND fall through: each arm's binding is dropped on ITS OWN
+exit edge, not accumulated for the continuation (where the other arm's value would be garbage). Both
+paths are leak-free and crash-free.
+```maxon
+
+union U
+	a(x String)
+	b(y String)
+end 'U'
+
+function main() returns ExitCode
+	let u = U.b("the taken arm b string, long enough to be a real heap allocation")
+	match u 'check'
+		a(s) then print(s)
+		b(t) then print(t)
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+the taken arm b string, long enough to be a real heap allocation
+```
+
+<!-- test: var-reassign-after-partial-move -->
+A `var` union survives a binding-match — the bind retains rather than moving out — and a REASSIGNMENT
+between the two matches is the shape this case pins: the old box is dropped at the reassignment, payload
+and all, and the new one at scope exit, both leak-free.
+```maxon
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function main() returns ExitCode
+	var m = Message.text("reassign first payload string long enough to be a real heap allocation")
+	match m 'check'
+		silent then return 0
+		text(s) then print(s)
+	end 'check'
+	m = Message.text("reassign second payload string long enough to be a real heap allocation")
+	match m 'again'
+		silent then return 0
+		text(t) then print(t)
+	end 'again'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+reassign first payload string long enough to be a real heap allocationreassign second payload string long enough to be a real heap allocation
+```
+
+<!-- test: construct-co-owns-string-source -->
+Storing a String binding into a union payload CO-OWNS it: the payload slot takes its own
+reference, `msg` stays live, and its scope-exit drop releases the reference it always held. The record is
+freed exactly once, by whichever of the two owners drops last. A durable store takes a reference rather
+than poisoning `msg`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function build(x Integer) returns String
+	return "v{x}"
+end 'build'
+
+union Message
+	silent
+	text(body String)
+end 'Message'
+
+function main() returns ExitCode
+	let msg = build(1)
+	let m = Message.text(msg)
+	print("{m}")
+	print(msg)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+textv1
+
+```
+
+<!-- test: construct-co-owns-struct-source -->
+The struct spelling of the case above. `Shape.solid(b)` gives the payload slot its own reference to `b`'s
+box; `b` stays readable and drops its own reference at scope exit, so the box is released once by the
+union's destructor and once by `b` — matching the two references taken.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function main() returns ExitCode
+	let b = Body.create(5)
+	let s = Shape.solid(b)
+	print("{s}")
+	return b.mass
+end 'main'
+```
+```exitcode
+5
+```
+```stdout
+solid
+
+```
+
+<!-- test: a-lending-match-leaves-the-union-for-a-second-match -->
+A `match` on a plain union lends it and never consumes it (ruling 45), so a second `match` reads it again.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Body
+	export var mass as Integer
+
+	static function create(mass Integer) returns Self
+		return Self{mass: mass}
+	end 'create'
+end 'Body'
+
+union Shape
+	empty
+	solid(body Body)
+end 'Shape'
+
+function main() returns ExitCode
+	let s = Shape.solid(Body.create(5))
+	let first = match s 'check'
+		empty gives 0
+		solid(b) gives b.mass
+	end 'check'
+	let second = match s 'again'
+		empty gives 0
+		solid(b) gives b.mass
+	end 'again'
+	return first + second
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: a-binding-arm-reads-the-matched-union-again -->
+The arm binds `s` and reads `m` again: where the union is read after the bind, the bind retains the payload instead of emptying the slot, so `grab` finds it whole.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns Integer
+	return match m 'g'
+		silent gives 0 as Integer
+		text(s) gives s.byteLength() as Integer
+	end 'g'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("an owned payload string, long enough to be a real heap allocation")
+	let r = match m 'k'
+		silent gives 0 as Integer
+		text(s) gives grab(m) + (s.byteLength() as Integer)
+	end 'k'
+	print("r={r}")
+	return 0
+end 'main'
+```
+```stdout
+r=130
+```
+```exitcode
+0
+```
+
+<!-- test: a-nested-match-reads-the-union-its-arm-matched -->
+The nested `match m` reads the union the outer arm matched; a lending `match` never empties it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function main() returns ExitCode
+	let m = M.text("an owned payload string, long enough to be a real heap allocation")
+	let r = match m 'k'
+		silent gives 0 as Integer
+		text gives match m 'again'
+			silent gives 1 as Integer
+			text(t) gives t.byteLength() as Integer
+		end 'again'
+	end 'k'
+	print("r={r}")
+	return 0
+end 'main'
+```
+```stdout
+r=65
+```
+```exitcode
+0
+```
+
+<!-- test: the-consumed-scrutinee-stays-live-in-a-sibling-arm -->
+⭐ **THE OVER-REJECTION GUARD for the two refusals above.** The arms of a match are MUTUALLY
+EXCLUSIVE, so an arm that moved the payload out says nothing about the arm that did not run: reading
+`m` in a SIBLING arm is legal and must stay legal. Marking the scrutinee consumed and leaving it
+marked for the rest of the loop would reject this — and would do it ORDER-DEPENDENTLY, since swapping
+the two arms makes the same program compile again. Each fresh arm therefore rewinds the bit
+(`beginFreshArm`), exactly as it rewinds `movedFrom`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns Integer
+	return match m 'g'
+		silent gives 0 as Integer
+		text(s) gives s.byteLength() as Integer
+	end 'g'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("an owned payload string, long enough to be a real heap allocation")
+	let r = match m 'k'
+		text(s) gives s.byteLength() as Integer
+		silent gives grab(m)
+	end 'k'
+	print("r={r}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+r=65
+```
+
+<!-- test: a-union-matched-in-a-nested-arm-is-read-after-the-match -->
+Neither the outer nor the nested `match` consumes `m`, so `grab` reads it after both.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function grab(m M) returns Integer
+	return match m 'g'
+		silent gives 0 as Integer
+		text(s) gives s.byteLength() as Integer
+	end 'g'
+end 'grab'
+
+function main() returns ExitCode
+	let m = M.text("an owned payload string, long enough to be a real heap allocation")
+	let r = match m 'outer'
+		text gives match m 'inner'
+			silent gives 0 as Integer
+			text(t) gives t.byteLength() as Integer
+		end 'inner'
+		silent gives 0 as Integer
+	end 'outer'
+	print("r={r} after={grab(m)}")
+	return 0
+end 'main'
+```
+```stdout
+r=65 after=65
+```
+```exitcode
+0
+```
+
+<!-- test: borrowed-bind-in-an-arm-that-continues -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The fourth arm exit, beside the fall-through, the `return` and the `break` already pinned: a
+`continue` drops the retained binding through the LOOP's floor. 200 rounds, so an unbalanced retain is
+exit 101 rather than a coin flip.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 1000)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function show(m M) returns Integer
+	var i = 0 as Round
+	var n = 0 as Integer
+	var seen = 0 as Integer
+	while i < 200 'spin'
+		i = i + 1
+		match m 'k'
+			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			silent then continue
+		end 'k'
+		n = n + 2
+	end 'spin'
+	return n if seen > 0 else 99
+end 'show'
+
+function main() returns ExitCode
+	let m = M.text("a continued-arm payload string, long enough to be a real heap allocation")
+	print("n={show(m)}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=0
+```
+
+<!-- test: borrowed-bind-in-an-arm-that-throws -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+The ERROR channel exit: the arm binds a payload out of the borrowed parameter and then THROWS, so the
+retained reference is released on the propagate path rather than through any of the four normal exits.
+200 rounds through a `try … otherwise`, so a reference leaked on the throw edge is exit 101.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 1000)
+
+enum Boom implements Error
+	bad
+end 'Boom'
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function show(m M) returns Integer throws Boom
+	var seen = 0 as Integer
+	match m 'k'
+		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+		text(s) then seen = (s.byteLength() as Integer) and fallthrough
+		silent then throw Boom.bad
+	end 'k'
+	return 3 if seen > 0 else 0
+end 'show'
+
+function main() returns ExitCode
+	let m = M.text("a thrown-arm payload string, long enough to be a real heap allocation")
+	var i = 0 as Round
+	var n = 0 as Integer
+	while i < 200 'spin'
+		n = try show(m) otherwise 4
+		i = i + 1
+	end 'spin'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: borrowed-bind-in-an-arm-that-breaks-the-match -->
+<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+A `break` out of the MATCH (not out of a loop) leaves the arm through `MatchContext.breakExits`, whose
+marks are trimmed to the match's owned floor (`moveMarkPrefix`) — the one capture site that is not
+already at its join's height. The retained binding must be dropped on that edge too. 200 rounds.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 1000)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+function show(m M) returns Integer
+	var i = 0 as Round
+	var n = 0 as Integer
+	var seen = 0 as Integer
+	while i < 200 'spin'
+		match m 'k'
+			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
+			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			silent then break
+		end 'k'
+		n = n + 7
+		i = i + 1
+	end 'spin'
+	return n if seen > 0 else 0
+end 'show'
+
+function main() returns ExitCode
+	let m = M.text("a match-break payload string, long enough to be a real heap allocation")
+	print("n={show(m)}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=1400
+```
+
+<!-- test: borrowed-bind-out-of-a-union-held-in-a-struct-field -->
+The scrutinee is neither a local nor a parameter but a struct FIELD read (`h.m`), which owns nothing —
+so it takes the borrowed/retain path exactly as a parameter does, and the field keeps its own
+reference. 200 rounds over the same field: an unbalanced retain leaves the payload's refcount at 200
+when the struct's cascade releases it (exit 101), and a missing retain frees it under the struct.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Round = int(0 to 1000)
+
+union M
+	silent
+	text(body String)
+end 'M'
+
+type Holder
+	export var m as M
+
+	static function create(m M) returns Self
+		return Self{m: m}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(M.text("a field-held payload string, long enough to be a real heap allocation"))
+	var i = 0 as Round
+	var n = 0 as Integer
+	while i < 200 'spin'
+		match h.m 'k'
+			silent then n = n + 1
+			text(s) then n = n + (s.byteLength() as Integer)
+		end 'k'
+		i = i + 1
+	end 'spin'
+	print("n={n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=13800
+```
+
+<!-- test: union-struct-payload-ranged-alias -->
+The `create` parameter is a RANGED-INT-ALIAS, which adds a name to this file's
+interner and shifts its ids relative to the signatures interner's. The union's
+`BoxA` payload type is minted in the signatures interner; classifying it against
+the file interner without re-interning would let the shift misread it as `int` — a
+wrong `E3005` reject at construct, and (once the construct is allowed) a
+misrouted scope-exit drop that leaks the payload. The payload type is
+ADOPTED into the file interner before it is classified (the `fieldTypeOf`/
+`adoptType` door the struct side uses), and the drop callee is chosen
+inside `ProgramSignatures` over its own interner, so id and interner always
+agree.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type BoxA
+	export var label as String
+
+	static function create(x Integer) returns Self
+		return Self{label: "v{x}"}
+	end 'create'
+end 'BoxA'
+
+union UHold
+	holds(inner BoxA)
+end 'UHold'
+
+function main() returns ExitCode
+	let u = UHold.holds(BoxA.create(1))
+	print("{u}")
+	return 4
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+holds
+```
+
+<!-- test: union-struct-payload-ranged-alias-match -->
+The match-bind path shares the construct path's interner hazard: with the
+ranged-int alias present, the bound payload's `BoxA` type (a signatures id)
+classified against the file interner could be misread as a scalar and never
+moved out — a leak. Binding the payload adopts its type first, so the move-out
+and the scope-exit drop agree on what the payload is.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type BoxA
+	export var label as String
+
+	static function create(x Integer) returns Self
+		return Self{label: "v{x}"}
+	end 'create'
+end 'BoxA'
+
+union UHold
+	holds(inner BoxA)
+end 'UHold'
+
+function main() returns ExitCode
+	let u = UHold.holds(BoxA.create(1))
+	match u 'm'
+		holds(inner) then return 6 if inner.label.byteLength() > 0 else 0
+	end 'm'
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: labeled-payload-args-two-scalar-fields -->
+A two-field case constructed with a labelled second argument
+(`pair(7, column: 13)`) follows the call-argument rule — the first argument is
+positional, the second is named — and slots each value against the payload field
+its label names. So `line` carries 7 and `column` carries 13, and the match sums
+them to 20. The construct is layout-parallel, not source-parallel: the label is
+the destination, exactly as a struct literal's field name is.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(7, column: 13)
+	match e 'k'
+		none then return 0
+		pair(line, column) then return (line + column)
+	end 'k'
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: error.payload-second-arg-positional -->
+The payload argument list follows the call-argument rule: the second and later
+arguments must be named. A bare second argument (`pair(7, 13)`) is rejected — the
+same `consumeArgLabel` rule a call obeys.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(7, 13)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2053: <fragment>:10:25: the second and later arguments must be named ('name: value')
+```
+
+<!-- test: error.payload-first-arg-named -->
+The FIRST payload argument must be positional. A labelled first argument
+(`pair(line: 7, column: 13)`) is rejected — a case's payload is ordered by its
+declaration, so the first slot needs no name to find its place.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(line: 7, column: 13)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2052: <fragment>:10:22: the first argument cannot be named because its parameter has no default
+```
+
+<!-- test: error.payload-unknown-label -->
+A named payload argument whose label names no payload field of the case
+(`pair(7, bogus: 9)`) is rejected as an unknown field.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(7, bogus: 9)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3144: <fragment>:10:25: case 'pair' of `union LexErr` has no payload named 'bogus'
+```
+
+<!-- test: error.payload-duplicate-label -->
+Filling the same payload slot twice — here `column` positionally-then-by-name is
+avoided, so a genuine repeat (`pair(7, column: 13, column: 14)`) is rejected as a
+duplicate.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(7, column: 13, column: 14)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3018: <fragment>:10:37: field 'column' of 'LexErr' is initialized twice by this literal
+```
+
+<!-- test: error.payload-missing-arg -->
+Every declared payload slot must be given a value; a union payload has no
+defaults. Omitting `column` (`pair(7)`) is rejected as an uninitialized field.
+```maxon
+typealias Code = int(0 to 100)
+
+union LexErr
+	none
+	pair(line Code, column Code)
+end 'LexErr'
+
+function main() returns ExitCode
+	let e = LexErr.pair(7)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3086: <fragment>:10:17: field 'column' of 'LexErr' is not initialized by this literal, and it has no default value
+```
+
+<!-- test: error.recursive-union-payload-is-still-a-cycle -->
+A union payload may be another payload-bearing (boxed) union — that payload is a
+heap pointer whose box carries its own destructor, so nesting costs no codegen at
+any depth. What a payload may NOT be is a reference back to the type being
+declared: the type graph must be acyclic, and boxing is not an exception to that.
+`union Tree { node(left Tree) }` names itself, so the CYCLE guard refuses it, and
+it refuses it BEFORE the payload path ever classifies the slot — which is what
+keeps a legal nested union from legalizing a recursive one. The body CONSTRUCTS
+the recursive case, so the payload path would genuinely be reached: a pin whose
+body were `Tree.leaf` would earn the same E4014 off the declaration alone and
+prove nothing about the ordering this prose claims.
+```maxon
+union Tree
+	node(left Tree)
+	leaf
+end 'Tree'
+
+function main() returns ExitCode
+	let t = Tree.node(Tree.leaf)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E4014: <fragment>:2:7: type 'Tree' contains a reference cycle (via Tree → node.left: Tree); recursive type references are not allowed
+```
+
+<!-- test: error.wrong-union-in-a-nested-union-payload -->
+A nested boxed-union payload slot admits its OWN union and no other. The check is
+the shared managed door (`requireManagedValueMatches`) over the slot's `named(<union>)`
+IDENTITY, and its second half is what does the work here: a boxed union's value carries
+the `named` tag that every payload-free enum and every ranged-int alias also carries, so
+the tag comparison alone AGREES for any two of them and only the interned NAME separates
+them (`requireSlotAggregateIdentity`). Unchecked, an `Other` box would be stored in an
+`Inner` slot and later released by `Inner`'s destructor. Anchored at the ARGUMENT, not at
+the case name.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Inner
+	empty
+	a(x Integer)
+end 'Inner'
+
+union Other
+	none
+	b(y Integer)
+end 'Other'
+
+union Wrap
+	bare
+	wrap(inner Inner)
+end 'Wrap'
+
+function main() returns ExitCode
+	let w = Wrap.wrap(Other.b(5))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:20:30: type mismatch: 'expected Inner, got Other'
+```
+
+<!-- test: co-owned-container-field-bind-then-the-field-is-read-again -->
+⭐⭐ **CO-OWNERSHIP IS THE THIRD STATE, AND A MOVE-OUT OF A CO-OWNED BOX IS A THEFT.** `let borrowed = h.ty`
+reads a union out of a MUTABLE struct field, and a value read out of a rebindable slot is promoted by
+`__mm_retain` — so `borrowed` carries the owned-heap bit while `h.ty` still points at the SAME box.
+The move-out reads that bit and nulls a slot the struct's field is the other owner of; `tyLen(h.ty)` then
+loads a null payload and dereferences it. Neither union here is nested and neither is a parameter, so this
+is the generic shape: the acquisition question is *"is this frame the box's SOLE owner?"*, which is not
+*"does this value own a reference?"*. A co-owned scrutinee takes the RETAIN path, leaves the slot intact,
+and both reads answer 67.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Ty
+	concrete(name String)
+	stringy
+end 'Ty'
+
+type Holder
+	export var ty as Ty
+
+	static function create(ty Ty) returns Self
+		return Self{ty: ty}
+	end 'create'
+end 'Holder'
+
+function tyLen(ty Ty) returns Integer
+	return match ty 'l'
+		concrete(name) gives name.byteLength() as Integer
+		stringy gives 0
+	end 'l'
+end 'tyLen'
+
+function main() returns ExitCode
+	let h = Holder.create(Ty.concrete("a co-owned payload string, long enough to be a real heap allocation"))
+	let borrowed = h.ty
+	let first = match borrowed 'b'
+		concrete(name) gives name.byteLength() as ExitCode
+		stringy gives 0
+	end 'b'
+	let second = tyLen(h.ty)
+	print("first={first} second={second}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+first=67 second=67
+```
+
+<!-- test: co-owned-nested-payload-bound-inside-a-borrowed-union-s-arm -->
+⭐ **THE SAME RULE ONE LEVEL DOWN, and the route the nested-union payload opens.** `steal(e Expr)` binds
+`ty` out of a BORROWED parameter, so the outer bind is a retain and `ty` is co-owned with the caller's
+box. An INLINE nested `match ty` that read only `ty`'s owned-heap bit would move the String out of a `Ty`
+box the caller still reaches through `e`, so the caller's own re-match would load a nulled slot. The cure is
+the one above and not a nested-union special case: a retained payload is co-owned, so the nested match retains too
+and the refcount balances at one free per allocation (a second free or a leak is exit 101, not a wrong
+number).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Ty
+	concrete(name String)
+	stringy
+end 'Ty'
+
+union Expr
+	direct(ty Ty)
+	unresolved
+end 'Expr'
+
+function steal(e Expr) returns Integer
+	return match e 'i'
+		direct(ty) gives match ty 't'
+			concrete(name) gives name.byteLength() as Integer
+			stringy gives 0
+		end 't'
+		unresolved gives 99
+	end 'i'
+end 'steal'
+
+function main() returns ExitCode
+	let e = Expr.direct(Ty.concrete("a nested payload string, long enough to be a real heap allocation"))
+	let stolen = steal(e)
+	let again = match e 'k'
+		direct(ty) gives match ty 'u'
+			concrete(name) gives name.byteLength() as ExitCode
+			stringy gives 0
+		end 'u'
+		unresolved gives 99
+	end 'k'
+	print("stolen={stolen} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+stolen=65 again=65
+```
+
+<!-- test: the-same-nested-payload-handed-to-a-helper-instead -->
+⭐⭐ **THE CONTROL FOR THE CASE ABOVE, AND THE CONTRAST IS THE DIAGNOSIS.** The identical program with the
+inline nested match replaced by a HELPER CALL: `tyLen(ty)` hands the co-owned `Ty` box to a callee whose
+own parameter is borrowed, so the callee retains and no destructive move-out is reachable. The hazard
+belongs to the ACQUISITION the inline nested match chooses and never to the nesting, the payload kind, or
+the depth — which is why the rule is a property of the scrutinee's ownership and not a rule about nested
+unions. Pinned so that an acquisition change cannot fix one spelling and leave the other.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Ty
+	concrete(name String)
+	stringy
+end 'Ty'
+
+union Expr
+	direct(ty Ty)
+	unresolved
+end 'Expr'
+
+function tyLen(ty Ty) returns Integer
+	return match ty 'l'
+		concrete(name) gives name.byteLength() as Integer
+		stringy gives 0
+	end 'l'
+end 'tyLen'
+
+function steal(e Expr) returns Integer
+	return match e 'i'
+		direct(ty) gives tyLen(ty)
+		unresolved gives 99
+	end 'i'
+end 'steal'
+
+function main() returns ExitCode
+	let e = Expr.direct(Ty.concrete("a nested payload string, long enough to be a real heap allocation"))
+	let stolen = steal(e)
+	let again = match e 'k'
+		direct(ty) gives tyLen(ty) as ExitCode
+		unresolved gives 99
+	end 'k'
+	print("stolen={stolen} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+stolen=65 again=65
+```
+
+<!-- test: co-owned-array-element-bind-then-the-element-is-read-again -->
+⭐ **THE CONTAINER ROUTE, AND IT TURNS ON THE BINDING'S MUTABILITY RATHER THAN ON THE CONTAINER.** An array
+element read is a BORROW the array keeps (`emitContainerElementAccessor(owned: false)`), so `let e = …get(0)`
+is not owned and matches by retain — which is why the `let` spelling of this program is safe. A `var`
+binding promotes its borrowed initializer by `__mm_retain` at the declaration, and THAT reference is co-owned
+with the array's slot: a move-out would null a payload slot `arr.get(0)` reads again. One `var` keyword apart,
+only one of the two could fault, which is what makes the rule a fact about the ACQUISITION and not about
+containers.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias TyArray = Array with Ty
+
+union Ty
+	concrete(name String)
+	stringy
+end 'Ty'
+
+function tyLen(ty Ty) returns Integer
+	return match ty 'l'
+		concrete(name) gives name.byteLength() as Integer
+		stringy gives 0
+	end 'l'
+end 'tyLen'
+
+function main() returns ExitCode
+	let arr = TyArray.create(0)
+	arr.push(Ty.concrete("an array element payload, long enough to be a real heap allocation"))
+	let borrowed = try arr.get(0) otherwise panic("get failed")
+	let first = match borrowed 'b'
+		concrete(name) gives name.byteLength() as ExitCode
+		stringy gives 0
+	end 'b'
+	let second = tyLen(try arr.get(0) otherwise panic("get failed"))
+	print("first={first} second={second}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+first=66 second=66
+```
+
+<!-- test: a-thrown-field-of-a-co-owned-container-is-retained-not-moved-out -->
+⭐ **THE SAME QUESTION IN THE THROW CHANNEL.** A `throw c.e` out of a container the frame merely CO-OWNS
+(`let c = g.inner`, a read out of a mutable field the promotion retained) that nulled the field slot would
+leave `g.inner.e` pointing at a hole, and the caller's `whyLen(g.inner.e)` would dereference it.
+`moveOutThrownField` gates on sole ownership exactly as the match's move-out does, and a co-owned
+container takes `retainBorrowedAggregate` — the box is increfed, the caught reference is consumed by the handler,
+the container drops its own, and the refcount balances at one free (a second free or a leak would be exit 101
+rather than a wrong number).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Err
+	bad(why String)
+end 'Err'
+
+type Inner
+	export var e as Err
+
+	static function create(e Err) returns Self
+		return Self{e: e}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var inner as Inner
+
+	static function create(inner Inner) returns Self
+		return Self{inner: inner}
+	end 'create'
+end 'Outer'
+
+function boom(g Outer) returns Integer throws Err
+	let c = g.inner
+	throw c.e
+end 'boom'
+
+function whyLen(e Err) returns Integer
+	return match e 'l'
+		bad(why) gives why.byteLength() as Integer
+	end 'l'
+end 'whyLen'
+
+function main() returns ExitCode
+	let g = Outer.create(Inner.create(Err.bad("a thrown field payload, long enough to be a real heap allocation")))
+	let first = try boom(g) otherwise 7
+	let second = whyLen(g.inner.e)
+	print("first={first} second={second}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+first=7 second=64
+```
+
+<!-- test: a-returned-co-owned-union-is-not-moved-out-of -->
+⭐⭐ **A CALL'S OWNED RESULT IS A CO-OWNER, BECAUSE A `return` PROMOTES A BORROW BY INCREF.** `getTy`'s body is
+`return h.ty`, which `emitOwnedValueReturn` promotes through `__mm_retain` — so the caller's `t` and the
+receiver's field are two owners of one box, and nothing in `getTy`'s signature says so. Matching `t` and moving
+its payload out therefore stole `h.ty`'s slot. Telling a fresh-box return from a co-owning one is a
+whole-program fact the compiler does not compute, so a call result retains; the cost is one refcount pair and the
+answer is right on both reads.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Ty
+	concrete(name String)
+	stringy
+end 'Ty'
+
+type Holder
+	export var ty as Ty
+
+	static function create(ty Ty) returns Self
+		return Self{ty: ty}
+	end 'create'
+end 'Holder'
+
+function getTy(h Holder) returns Ty
+	return h.ty
+end 'getTy'
+
+function tyLen(ty Ty) returns Integer
+	return match ty 'l'
+		concrete(name) gives name.byteLength() as Integer
+		stringy gives 0
+	end 'l'
+end 'tyLen'
+
+function main() returns ExitCode
+	let h = Holder.create(Ty.concrete("a returned co-owned payload, long enough for the heap"))
+	let t = getTy(h)
+	let first = match t 'b'
+		concrete(name) gives name.byteLength() as ExitCode
+		stringy gives 0
+	end 'b'
+	let second = tyLen(h.ty)
+	print("first={first} second={second}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+first=53 second=53
+```
+
+<!-- test: a-caught-retained-error-box-is-not-moved-out-of -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+⭐ **AND ACROSS THE ERROR CHANNEL, where the transfer the thrower chose is invisible to the catcher.** `throw
+h.e` out of a BORROWED container retains (`retainBorrowedAggregate`), so the box reaching the handler is
+co-owned with `h.e` — but the flag register carries only a pointer, and the catching frame has no way to ask
+which of the two transfers produced it. So a caught box is a co-owner and `match e` in the handler retains its
+payload; claiming otherwise nulled a slot `whyLen(h.e)` read one line later.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Err
+	bad(why String)
+end 'Err'
+
+type Holder
+	export var e as Err
+
+	static function create(e Err) returns Self
+		return Self{e: e}
+	end 'create'
+end 'Holder'
+
+function boom(h Holder) returns Integer throws Err
+	throw h.e
+end 'boom'
+
+function whyLen(e Err) returns Integer
+	return match e 'l'
+		bad(why) gives why.byteLength() as Integer
+	end 'l'
+end 'whyLen'
+
+function main() returns ExitCode
+	let h = Holder.create(Err.bad("a caught retained payload, long enough for the heap"))
+	var first = 0 as Integer
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try boom(h) otherwise (e) 'caught'
+		first = match e 'm'
+			bad(why) gives why.byteLength() as Integer
+		end 'm'
+	end 'caught'
+	let second = whyLen(h.e)
+	print("first={first} second={second}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+first=51 second=51
+```
+
+<!-- test: a-co-owned-payload-moved-out-of-a-sole-box-is-still-co-owned -->
+⛔⛔ **A SOLE BOX MAY HOLD A CO-OWNED PAYLOAD, AND THE MOVE-OUT MUST NOT LAUNDER THE ONE FACT INTO THE
+OTHER.** `Wrap.held(inner)` over a BORROWED `inner` does not move the box in — `moveManagedValueInto`'s
+borrowed arm co-owns it by `__mm_incref` — so `w` is genuinely the frame's alone while the `Inner` box in its
+slot has two owners. Nulling `w`'s slot proves the frame now holds *that slot's* reference; it proves nothing
+about the allocation, so stamping the moved-out payload SOLE re-arms exactly the destructive write this file
+exists to disarm, one level down: the INLINE nested `match i` then nulls the CALLER's `Inner` slot and the
+caller's own re-match dereferences the hole. A moved-out payload is therefore CO-OWNED — the box's soleness is
+a fact about the box and is not inherited by what the box points at.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Inner
+	text(body String)
+end 'Inner'
+
+union Wrap
+	held(i Inner)
+end 'Wrap'
+
+function probe(inner Inner) returns Integer
+	let w = Wrap.held(inner)
+	return match w 'o'
+		held(i) gives match i 'n'
+			text(body) gives body.byteLength() as Integer
+		end 'n'
+	end 'o'
+end 'probe'
+
+function main() returns ExitCode
+	let inner = Inner.text("a co-owned payload inside a sole box, long enough for the heap")
+	let n = probe(inner)
+	let again = match inner 'k'
+		text(body) gives body.byteLength() as ExitCode
+	end 'k'
+	print("n={n} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=62 again=62
+```
+
+<!-- test: a-co-owned-payload-out-of-a-sole-box-through-a-helper -->
+⭐ **CONTROL ONE FOR THE CASE ABOVE.** The identical program with the inline nested match replaced by a HELPER
+CALL: the callee's parameter is borrowed, so it retains and never reaches the destructive
+write. Pinned so an acquisition change cannot fix one spelling and leave the other — the same pairing
+`the-same-nested-payload-handed-to-a-helper-instead` makes for the outer level.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Inner
+	text(body String)
+end 'Inner'
+
+union Wrap
+	held(i Inner)
+end 'Wrap'
+
+function innerLen(i Inner) returns Integer
+	return match i 'n'
+		text(body) gives body.byteLength() as Integer
+	end 'n'
+end 'innerLen'
+
+function probe(inner Inner) returns Integer
+	let w = Wrap.held(inner)
+	return match w 'o'
+		held(i) gives innerLen(i)
+	end 'o'
+end 'probe'
+
+function main() returns ExitCode
+	let inner = Inner.text("a co-owned payload inside a sole box, long enough for the heap")
+	let n = probe(inner)
+	let again = match inner 'k'
+		text(body) gives body.byteLength() as ExitCode
+	end 'k'
+	print("n={n} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=62 again=62
+```
+
+<!-- test: a-freshly-built-payload-in-a-sole-box-is-genuinely-sole -->
+⭐⭐ **CONTROL TWO, AND IT IS THE ONE THAT ISOLATES THE DISCRIMINATOR TO MOVE-IN VS CO-OWN-IN.** The same
+sole box and the same inline nested match, but the payload is CONSTRUCTED at the construct site — so it is
+moved in, the frame really is the allocation's only owner, and the program is correct with or without this
+rule. Its answer therefore attributes the fault above to the co-own-in and to nothing about
+nesting, depth, or the inline spelling. It also pins the cost of the cure: this shape gains a refcount pair
+it does not need, which is the price of a box's soleness not being transitive.
+
+⛔ **READ THE NAME AS A CLAIM ABOUT THE PROGRAM, NEVER ABOUT THE EMITTED CODE.** The payload here *is*
+genuinely the allocation's only reference — that is why the case is named so — but the compiler deliberately
+**does not CLAIM `sole` for it**, because proving it would need a per-box "every payload was moved in" bit
+and that would be a third ownership state (see `OwnedHeapExclusivity`). So the `__mm_incref`
+in this case's emitted code is CORRECT AND OWED, not a missed optimization. A future reader who takes the title as a
+codegen claim and removes the retain re-arms the destructive write two cases above — the same inference,
+arriving through a test name instead of through a comment.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Inner
+	text(body String)
+end 'Inner'
+
+union Wrap
+	held(i Inner)
+end 'Wrap'
+
+function probe() returns Integer
+	let w = Wrap.held(Inner.text("a freshly built payload inside a sole box, heap-long"))
+	return match w 'o'
+		held(i) gives match i 'n'
+			text(body) gives body.byteLength() as Integer
+		end 'n'
+	end 'o'
+end 'probe'
+
+function main() returns ExitCode
+	print("n={probe()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=52
+```
+
+<!-- test: a-list-element-removed-from-its-container-may-still-be-co-owned -->
+⛔ **REMOVING AN ELEMENT PROVES THE CONTAINER NO LONGER HOLDS IT — NOT THAT NOBODY DOES.** `list.append(ty)`
+over a BORROWED `ty` co-owns the box through the same `moveManagedValueInto` arm the construct above takes, so
+`removeFirst()` hands back a reference the CALLER still shares. A compiler-emitted element accessor that
+stamped that result SOLE would have the match null the caller's `Ty` slot. The removal is not the question
+the move-out asks.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias TyList = List with Ty
+
+union Ty
+	concrete(name String)
+end 'Ty'
+
+function steal(ty Ty) returns Integer
+	let list = TyList.create()
+	list.append(ty)
+	let got = try list.removeFirst() otherwise panic("removeFirst failed")
+	return match got 'm'
+		concrete(name) gives name.byteLength() as Integer
+	end 'm'
+end 'steal'
+
+function main() returns ExitCode
+	let ty = Ty.concrete("a list element payload co-owned by its caller, heap-long")
+	let n = steal(ty)
+	let again = match ty 'k'
+		concrete(name) gives name.byteLength() as ExitCode
+	end 'k'
+	print("n={n} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=56 again=56
+```
+
+<!-- test: the-array-spelling-of-a-removed-element-was-never-wrong -->
+⭐⭐ **THE CONTROL THAT NAMES THE DOOR.** `Array.remove` is a CORPUS member, so its result arrives
+through `enrolOwnedCallTemp` — the user-call door, which is co-owned because a `return` may launder a borrow.
+`List.removeFirst` is COMPILER-EMITTED and goes through `emitContainerElementAccessor`'s `owned` arm, which
+must not claim sole either. Two spellings of one operation are what locate the hazard at the door and not at
+removal; both answer the same way.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias TyArray = Array with Ty
+
+union Ty
+	concrete(name String)
+end 'Ty'
+
+function steal(ty Ty) returns Integer
+	let arr = TyArray.create(0)
+	arr.push(ty)
+	let got = try arr.remove(0) otherwise panic("remove failed")
+	return match got 'm'
+		concrete(name) gives name.byteLength() as Integer
+	end 'm'
+end 'steal'
+
+function main() returns ExitCode
+	let ty = Ty.concrete("a list element payload co-owned by its caller, heap-long")
+	let n = steal(ty)
+	let again = match ty 'k'
+		concrete(name) gives name.byteLength() as ExitCode
+	end 'k'
+	print("n={n} again={again}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+n=56 again=56
+```
+
+<!-- test: a-borrowed-payload-outlives-a-callee-that-frees-its-box -->
+⭐⭐ **THE RETAIN IS LOAD-BEARING, AND THIS IS THE PROGRAM THAT SAYS SO.** `retainBorrowedPayload`'s
+`__mm_incref` is unconditional for the writable binding this `var` scrutinee gives the arm, and the
+question is whether an arm that consumes its payload ONCE —
+as the single argument of the arm's one call — could skip it. **It cannot.** The arm here is
+`filled(s) gives cell.replaceThenMeasure(s)`: one call, one use, nothing else in the arm. The callee reassigns
+`self.slot`, which releases the box `s` was borrowed out of and drives the payload's refcount to zero; the
+`refill` allocation then reuses the freed record through the slab free list and the read comes back garbage.
+The binding's SECOND reference is the whole of what carries it across that call's overwrite of the
+`slot` field.
+⛔ **BOTH WAYS.** With the incref: `measured=62055`. With `retainBorrowedPayload` made a no-op, the same
+source through the same compiler prints `measured=1085102592571149903` **and still exits 0** — a silent wrong
+answer, neither a crash nor a leak, so an `exitcode` pin alone would not catch it. The rest of the suite
+stays green under that elision; this is the case that does not.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Slot
+	filled(s String)
+	empty(n Integer)
+end 'Slot'
+
+type Cell
+	export var slot as Slot
+
+	static function create(slot Slot) returns Self
+		return Self{slot: slot}
+	end 'create'
+
+	// Frees the box its argument was borrowed out of, BEFORE reading the argument. The
+	// `refill` allocation is what makes the freed record's reuse observable rather than benign.
+	function replaceThenMeasure(borrowed String) returns Integer
+		self.slot = Slot.empty(7)
+		let refill = "a fresh allocation of its own, reusing the freed record"
+		return (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer
+	end 'replaceThenMeasure'
+end 'Cell'
+
+function main() returns ExitCode
+	let cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
+	let measured = match cell.slot 'm'
+		filled(s) gives cell.replaceThenMeasure(s)
+		empty(n) gives n
+	end 'm'
+	print("measured={measured}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+measured=62055
+```
+
+<!-- test: the-same-arm-with-a-callee-that-frees-nothing -->
+⭐ **THE CONTROL FOR THE CASE ABOVE, AND THE CONTRAST IS THE DIAGNOSIS.** The identical program with the
+field reassignment taken out of the callee prints the same number with the retain and without it, so the
+discriminator is the callee's release of the box — not the arm's shape, not the payload's kind, and not the
+fact that a call is what consumes it. Pinned so that a future elision cannot be justified by *"the binding is
+used once, as an argument"*: that sentence is true of both programs and only one of them survives it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Slot
+	filled(s String)
+	empty(n Integer)
+end 'Slot'
+
+type Cell
+	export var slot as Slot
+
+	static function create(slot Slot) returns Self
+		return Self{slot: slot}
+	end 'create'
+
+	function measureOnly(borrowed String) returns Integer
+		let refill = "a fresh allocation of its own, reusing the freed record"
+		return (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer
+	end 'measureOnly'
+end 'Cell'
+
+function main() returns ExitCode
+	let cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
+	let measured = match cell.slot 'm'
+		filled(s) gives cell.measureOnly(s)
+		empty(n) gives n
+	end 'm'
+	print("measured={measured}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+measured=62055
+```
+
+<!-- test: a-float-payload-is-constructed-and-matched -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '5' -->
+A `float` payload is built, carried in the union's box and bound back out by a match, like any other scalar.
+```maxon
+union Reading
+	celsius(value FullRangeFloat)
+	missing
+end 'Reading'
+
+function describe(r Reading) returns String
+	return match r 'which'
+		celsius(value) gives "celsius {value}"
+		missing gives "missing"
+	end 'which'
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe(Reading.celsius(21.5))}\n")
+	print("{describe(Reading.missing)}\n")
+	print("{describe(Reading.celsius(-3.25))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+celsius 21.5
+missing
+celsius -3.25
+```
+
+<!-- test: a-float-payload-crosses-a-mailbox -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+A union with a `float` payload is a message argument like any other; one service prints in FIFO order.
+```maxon
+union Reading
+	celsius(value FullRangeFloat)
+	missing
+end 'Reading'
+
+type Thermometer
+	var shown as Integer
+
+	static function create() returns Self
+		return Self{shown: 0}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	export function show(r isolated Reading)
+		self.shown = self.shown + 1
+		match r 'which'
+			celsius(value) then print("{self.shown}: celsius {value}\n")
+			missing then print("{self.shown}: missing\n")
+		end 'which'
+	end 'show'
+end 'Thermometer'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let t = spawn Thermometer.create()
+	// TODO: float literals are not supported in minimaxon
+	try t.show(Reading.celsius(21.5)) otherwise panic("send show")
+	try t.show(Reading.missing) otherwise panic("send show")
+	// TODO: float literals are not supported in minimaxon
+	try t.show(Reading.celsius(-3.25)) otherwise panic("send show")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+1: celsius 21.5
+2: missing
+3: celsius -3.25
+```
+
+<!-- test: a-float-payload-beside-other-payloads -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '325' -->
+A case carrying a `String` and a `float` binds both fields; the managed field is released with the box.
+```maxon
+union Sample
+	labelled(label String, value FullRangeFloat)
+	count(n Integer)
+end 'Sample'
+
+function describe(s Sample) returns String
+	return match s 'which'
+		labelled(label, value) gives "{label}={value}"
+		count(n) gives "count={n}"
+	end 'which'
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe(Sample.labelled("pressure, a label long enough to be a heap string", value: 101.325))}\n")
+	print("{describe(Sample.count(4))}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+pressure, a label long enough to be a heap string=101.325
+count=4
+```
+
+<!-- test: an-int-argument-widens-into-a-float-payload -->
+An integer literal at a `float` payload widens to the float, in a function body and in a top-level `let`'s
+initializer alike.
+```maxon
+union Reading
+	celsius(value FullRangeFloat)
+	missing
+end 'Reading'
+
+let atStart = Reading.celsius(3)
+
+function describe(r Reading) returns String
+	return match r 'which'
+		celsius(value) gives "celsius {value}"
+		missing gives "missing"
+	end 'which'
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe(Reading.celsius(21))}\n")
+	print("{describe(atStart)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+celsius 21.0
+celsius 3.0
+```
+
+<!-- test: a-float-payload-union-is-read-back-through-from-name -->
+<!-- skip: float literals are not supported in minimaxon -->
+`fromName` with a literal case name takes the payload as its extra argument, a `float` one included.
+```maxon
+union Reading
+	celsius(value FullRangeFloat)
+	missing
+end 'Reading'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let r = try Reading.fromName("celsius", 21.5) otherwise Reading.missing
+	match r 'which'
+		celsius(value) then print("celsius {value}\n")
+		missing then print("missing\n")
+	end 'which'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+celsius 21.5
+```
+
+<!-- test: a-read-only-payload-outlives-the-replacement-of-its-owner -->
+A payload bound out of a union that no name can write, here a `let` field, is still borrowed from the box that holds
+it, and the box from the record that holds that. `measure` binds `s` and makes one call with it; the call
+replaces the `Holder` a `Shelf` holds, which frees the box and drives the payload's count to zero, and the
+allocations in `reuse` take the freed record before the read. The payload is built at run time, because a literal is an
+immortal record no release can free. The hold the binding takes is lowered to the reference that carries it across
+the call that replaces the holder, as it does across the call that overwrites a union field in
+`a-read-only-payload-outlives-the-overwrite-of-the-union-field-that-holds-it`, so the answer is `68063` and not the
+bytes the freed record became.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union Slot
+	filled(s String)
+	empty(n Integer)
+end 'Slot'
+
+type Holder
+	export let slot as Slot
+
+	static function create(slot Slot) returns Self
+		return Self{slot: slot}
+	end 'create'
+end 'Holder'
+
+type Shelf
+	export var holder as Holder
+
+	static function create(holder Holder) returns Self
+		return Self{holder: holder}
+	end 'create'
+end 'Shelf'
+
+function measure(shelf Shelf) returns Integer
+	return match shelf.holder.slot 'm'
+		filled(s) gives replaceThenMeasure(s, shelf: shelf)
+		empty(n) gives n
+	end 'm'
+end 'measure'
+
+function text(n Integer) returns String
+	return "payload {n} built at runtime, long enough to be a real heap allocation"
+end 'text'
+
+function reuse(borrowed String) returns Integer
+	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
+	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+end 'reuse'
+
+function replaceThenMeasure(borrowed String, shelf Shelf) returns Integer
+	shelf.holder = Holder.create(Slot.empty(7))
+	return reuse(borrowed)
+end 'replaceThenMeasure'
+
+function main() returns ExitCode
+	let shelf = Shelf.create(Holder.create(Slot.filled(text(5))))
+	let measured = measure(shelf)
+	print("measured={measured}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+measured=68063
+```
+
+<!-- test: a-read-only-payload-outlives-the-overwrite-of-the-union-field-that-holds-it -->
+A `match` on a `var` union field binds a payload nothing can write through, so the binding is borrowed from the box
+the field holds. `measure` binds `s` and makes one call; the call assigns the field, which frees the old box and
+drives the payload's count to zero. `reuse` then reads the payload's length and allocates, so the answer is `68063`
+and not the poisoned bytes the freed record became.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union LSlot
+	lfilled(s String)
+	lempty(n Integer)
+end 'LSlot'
+
+type VarHolder
+	export var slot as LSlot
+
+	static function create(slot LSlot) returns Self
+		return Self{slot: slot}
+	end 'create'
+
+	function measure() returns Integer
+		return match slot 'm'
+			lfilled(s) gives resetThenLen(self, s: s)
+			lempty(n) gives n
+		end 'm'
+	end 'measure'
+end 'VarHolder'
+
+function text(n Integer) returns String
+	return "payload {n} built at runtime, long enough to be a real heap allocation"
+end 'text'
+
+function reuse(borrowed String) returns Integer
+	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
+	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+end 'reuse'
+
+function resetThenLen(h VarHolder, s String) returns Integer
+	h.slot = LSlot.lempty(1)
+	return reuse(s)
+end 'resetThenLen'
+
+function main() returns ExitCode
+	let vh = VarHolder.create(LSlot.lfilled(text(5)))
+	let d = vh.measure()
+	print("d={d}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+d=68063
+```
+
+<!-- test: a-read-only-payload-outlives-a-reassignment-through-a-by-reference-parameter -->
+A `mutable` parameter is handed the caller's storage, not a value, so the callee's store replaces whatever slot the
+argument names. `wipeThenLen` passes `h.slot` to `wipe`, which assigns it, while the arm of the `match` on
+that same field still holds `s`. The binding is counted across the call, so `reuse` reads the payload it bound and the
+answer is `68063`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+union LSlot
+	lfilled(s String)
+	lempty(n Integer)
+end 'LSlot'
+
+type VarHolder
+	export var slot as LSlot
+
+	static function create(slot LSlot) returns Self
+		return Self{slot: slot}
+	end 'create'
+
+	function measure() returns Integer
+		return match slot 'm'
+			lfilled(s) gives wipeThenLen(self, s: s)
+			lempty(n) gives n
+		end 'm'
+	end 'measure'
+end 'VarHolder'
+
+function text(n Integer) returns String
+	return "payload {n} built at runtime, long enough to be a real heap allocation"
+end 'text'
+
+function reuse(borrowed String) returns Integer
+	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
+	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+end 'reuse'
+
+function wipe(mutates u LSlot)
+	u = LSlot.lempty(1)
+end 'wipe'
+
+function wipeThenLen(h VarHolder, s String) returns Integer
+	wipe(h.slot)
+	return reuse(s)
+end 'wipeThenLen'
+
+function main() returns ExitCode
+	let vh = VarHolder.create(LSlot.lfilled(text(5)))
+	let d = vh.measure()
+	print("d={d}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+d=68063
+```

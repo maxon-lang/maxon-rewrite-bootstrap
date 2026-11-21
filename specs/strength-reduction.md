@@ -1,0 +1,748 @@
+---
+feature: strength-reduction
+status: experimental
+keywords: [optimizer, codegen, division, remainder, magic-number, shift, idiv]
+category: codegen
+---
+# Division by a constant, without a divide
+
+## Documentation
+
+`strengthReduceDivision` is the Std→Std pass that replaces `x / K` and `x mod K`, for a compile-time
+constant `K`, with a multiply-and-shift sequence computing the same answer. An x64 `idiv` is 20–40
+cycles and is not pipelined; the sequence is one `imul` and three or four single-cycle ALU ops, or —
+for an unsigned power of two — a single `shr` or `and`.
+
+### ⭐⭐ EVERY CASE HERE IS A DIFFERENTIAL TEST, AND THE ORACLE IS THE HARDWARE `idiv`
+
+A table of expected quotients would be a second transcription of the same arithmetic, and a wrong
+magic number would then have to be wrong in a way the table's author happened to anticipate. So each
+case computes the answer **twice**: once by dividing by the LITERAL, which the pass reduces, and once
+by dividing by a **runtime value of the same magnitude**, which it cannot see through and therefore
+leaves as a real `idiv`. The two must agree.
+
+The reference divisor's ranged type (`int(2 to …)`, `int(… to -2)`) is what keeps that reference a
+*bare* divide: `Parser.emitDivOrMod` proves such a divisor non-zero and emits no guard, no throw and
+no `try` — so the comparison is against the instruction itself and against nothing this pass wrote.
+
+⚠ **The reference must be a real CALL, not an inlined body.** A reference small enough for
+`inlineLeaves` to splice with its literal argument would have its divisor folded to a constant and be
+reduced too — and the case would then compare a reduction against itself and pass however wrong both
+were. The reference functions below carry a ranged-parameter guard, which keeps them out of the
+budget; the emitted code (`--emit-ir`) shows `callDirect` at every reference site and `idivReg` inside
+every reference body, which is where that is visible rather than assumed.
+
+### The dividends are the edges — and the edges are TWO different sets
+
+`i64.min` and `i64.max` (the two ends), `0`, `±1`, `±2`, `±7`, `±10^9+7` and `-2^62` catch every
+error in the emitted SEQUENCE. Truncation toward zero is what they are about: an arithmetic shift
+rounds toward NEGATIVE INFINITY, so `-7 / 2` is `-3` for the language and `-4` for a bare `sar`, and
+every negative dividend the divisor does not divide exactly is off by one without the bias
+correction.
+
+⛔⛔ **THEY CATCH NOTHING IN THE DERIVATION.** With the
+`anc` in `deriveSignedMagic` halved — or replaced by `i64.max` — every one of those cases stays
+GREEN. A fixed-point reciprocal that is a little too coarse is right for almost every dividend and
+wrong only near `anc`, the largest positive `n` that is `-1` modulo the divisor, which is exactly the
+value the derivation's exit condition is stated in terms of. So there is a SECOND case below whose
+dividends are `anc` and its neighbours, COMPUTED per divisor from a runtime `mod` the compiler cannot
+fold. Without it this spec would test the sequence and take the constants on trust.
+
+### The divisors it REFUSES, each for a correctness reason
+
+`StdOp.div`/`mod` carry `isPure: false` because `idiv` FAULTS, and reducing one deletes that fault.
+That is sound only where the fault provably cannot happen:
+
+- **`0`** — the fault IS the answer. `x / 0` written in source is E3103 at compile time.
+- **`1`, and a signed `-1`** — an algebraic identity rather than a strength reduction, and `x / -1`
+  must keep faulting at `i64.min`, which `specs/division.md` pins as deliberate.
+
+Every other divisor is reduced. A signed `i64.min` is a power of two and takes the shift. An unsigned
+divisor at or above `2^63` takes `(x & ~(x - K)) shrLogical 63` for its quotient, because the quotient
+of such a division is `0` or `1`; the derivation reads the divisor as the unsigned value it is, so
+`18446744073709551600` is never mistaken for `-16`.
+
+### What the emitted code looks like
+
+The emitted code (`--emit-ir`) shows it, and nothing in the suite pins it. `x / 8` is `sar 63` / `shr 61` / `lea` / `sar 3`; `x /u 8` is
+one `shr`; `x modu 8` is one `and`; `x / 10` is `mov rax, 7378697629483820647` / `imulHighReg` /
+`sar 2` / `shr 63` / `lea`, and `x / 15` carries one more `lea` for the negative-multiplier fixup.
+
+A `mod` is derived from its own quotient (`x - (x / |K|) * |K|`), so the two can never disagree about
+a sign or an edge — and where a program computes BOTH by a power of two, the quotient chain is emitted
+ONCE because CSE merges them. ⚠ **That merge does NOT happen for a magic divisor**, and the reason is
+CSE's own: there is no constant interning, so two sites mint two `const` ops for one 64-bit
+multiplier and no expression comparison can call the two `mulHighSigned`s equal.
+
+## Tests
+
+<!-- test: a-constant-divisor-gives-the-same-answer-as-a-runtime-one -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+THE GATE. Twelve edge dividends against eleven divisors, chosen so that every arm of both sequences
+is taken by at least one of them: powers of two; magic multipliers whose 64-bit value is POSITIVE
+(`7`, `10`, `1000`, `28` — the last is what `graphemeBreakProperty` divides by); two whose value has
+its TOP BIT SET and which therefore need the dividend added back (`15` and `100` — without that
+correction the `imul` reads the multiplier as `M - 2^64` and every answer is wrong); a divisor whose
+post-shift is ZERO so no shift op is emitted at all (`3`, reached here through `-3`); and two negative
+divisors, which negate the quotient and leave the remainder alone.
+```maxon
+typealias Word = int(i64.min to i64.max)
+
+typealias WordArray = Array with Word
+
+typealias PosDivisor = int(2 to 1000000)
+
+typealias NegDivisor = int(-1000000 to -2)
+
+function refDiv(n Word, d PosDivisor) returns Word
+	return try (n / (d as Word)) otherwise panic("d is never zero")
+end 'refDiv'
+
+function refMod(n Word, d PosDivisor) returns Word
+	return try (n mod (d as Word)) otherwise panic("d is never zero")
+end 'refMod'
+
+function refDivNeg(n Word, d NegDivisor) returns Word
+	return try (n / (d as Word)) otherwise panic("d is never zero")
+end 'refDivNeg'
+
+function refModNeg(n Word, d NegDivisor) returns Word
+	return try (n mod (d as Word)) otherwise panic("d is never zero")
+end 'refModNeg'
+
+function edgeDividends() returns WordArray
+	let ns = WordArray.create(0)
+	ns.push(0)
+	ns.push(1)
+	ns.push(-1)
+	ns.push(2)
+	ns.push(-2)
+	ns.push(7)
+	ns.push(-7)
+	ns.push(i64.max)
+	ns.push(i64.min)
+	ns.push(-4611686018427387904)
+	ns.push(1000000007)
+	ns.push(-1000000007)
+	return ns
+end 'edgeDividends'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in edgeDividends() 'each'
+		if n / 2 != refDiv(n, d: 2) 'divTwo'
+			return 1
+		end 'divTwo'
+		if n mod 2 != refMod(n, d: 2) 'modTwo'
+			return 2
+		end 'modTwo'
+		if n / 8 != refDiv(n, d: 8) 'divEight'
+			return 3
+		end 'divEight'
+		if n mod 8 != refMod(n, d: 8) 'modEight'
+			return 4
+		end 'modEight'
+		if n / 10 != refDiv(n, d: 10) 'divTen'
+			return 5
+		end 'divTen'
+		if n mod 10 != refMod(n, d: 10) 'modTen'
+			return 6
+		end 'modTen'
+		if n / 7 != refDiv(n, d: 7) 'divSeven'
+			return 7
+		end 'divSeven'
+		if n mod 28 != refMod(n, d: 28) 'modTwentyEight'
+			return 8
+		end 'modTwentyEight'
+		if n / 1000 != refDiv(n, d: 1000) 'divThousand'
+			return 9
+		end 'divThousand'
+		// `15` and `100` are the two whose magic has its top bit set — the `+ dividend` fixup arm.
+		if n / 15 != refDiv(n, d: 15) 'divFifteen'
+			return 10
+		end 'divFifteen'
+		if n mod 15 != refMod(n, d: 15) 'modFifteen'
+			return 11
+		end 'modFifteen'
+		if n / 100 != refDiv(n, d: 100) 'divHundred'
+			return 12
+		end 'divHundred'
+		// `-3` reaches magnitude 3, whose post-shift is 0 — the arm that emits no shift at all.
+		if n / -3 != refDivNeg(n, d: -3) 'divMinusThree'
+			return 13
+		end 'divMinusThree'
+		if n mod -3 != refModNeg(n, d: -3) 'modMinusThree'
+			return 14
+		end 'modMinusThree'
+		if n / -15 != refDivNeg(n, d: -15) 'divMinusFifteen'
+			return 15
+		end 'divMinusFifteen'
+		if n / -8 != refDivNeg(n, d: -8) 'divMinusEight'
+			return 16
+		end 'divMinusEight'
+		if n mod -8 != refModNeg(n, d: -8) 'modMinusEight'
+			return 17
+		end 'modMinusEight'
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: the-hardest-dividend-for-a-divisor-is-the-one-the-derivation-is-ABOUT -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⛔⛔ **THE GATE ABOVE CANNOT SEE A MIS-DERIVED MAGIC; THIS CASE CAN.** HALVE `deriveSignedMagic`'s
+`anc` and every other case in this file stays GREEN, all passing on a reciprocal that is provably too
+coarse. The reason is
+exact: a fixed-point reciprocal that is slightly wrong is still right for almost every dividend, and
+wrong only near the value the derivation is stated in terms of — **`anc`, the largest positive `n`
+that is `-1` modulo the divisor.** A dividend list that does not contain it tests the EMITTED SEQUENCE
+and takes the CONSTANT it carries on trust.
+
+⚠ **AND THE OTHER DIRECTION IS NOT A BUG, WHICH IS WHY THE SABOTAGE HAS TO BE THE HALVING ONE.**
+Setting `anc` to `i64.max` — too LARGE — leaves every case green, and that is correct rather than
+missed: the refinement then runs longer and stops at a LATER `p`, whose multiplier is still exact (the
+loop finds the SMALLEST such `p`, not the only one), or it trips the `q1` bound and the site simply
+declines. Only a too-SMALL `anc` exits early, and only an early exit is a wrong answer.
+
+`anc` is different for every divisor, so it is COMPUTED here from the runtime divisor rather than
+tabulated — which keeps this file free of magic numbers and makes the arithmetic the hardware's again.
+With it, halving `anc` turns this case RED with exit 5.
+```maxon
+typealias Word = int(i64.min to i64.max)
+
+typealias WordArray = Array with Word
+
+typealias PosDivisor = int(2 to 1000000)
+
+function refDiv(n Word, d PosDivisor) returns Word
+	return try (n / (d as Word)) otherwise panic("d is never zero")
+end 'refDiv'
+
+function refMod(n Word, d PosDivisor) returns Word
+	return try (n mod (d as Word)) otherwise panic("d is never zero")
+end 'refMod'
+
+// The largest positive `n` with `n mod d == d - 1`. Both divisions here read a RUNTIME divisor, so
+// neither is reduced and neither can be folded — the value is the hardware's answer, not the pass's.
+function hardestDividend(d PosDivisor) returns Word
+	return i64.max - (try ((refMod(i64.max, d: d) + 1) mod (d as Word)) otherwise panic("d is never zero"))
+end 'hardestDividend'
+
+function neighbourhood(d PosDivisor) returns WordArray
+	let anc = hardestDividend(d)
+	let ns = WordArray.create(0)
+	ns.push(anc)
+	ns.push(anc - 1)
+	ns.push(anc + 1)
+	ns.push(-anc)
+	ns.push(-anc - 1)
+	ns.push(-anc + 1)
+	return ns
+end 'neighbourhood'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(3) 'three'
+		if n / 3 != refDiv(n, d: 3) 'divThree'
+			return 1
+		end 'divThree'
+		if n mod 3 != refMod(n, d: 3) 'modThree'
+			return 2
+		end 'modThree'
+	end 'three'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(7) 'seven'
+		if n / 7 != refDiv(n, d: 7) 'divSeven'
+			return 3
+		end 'divSeven'
+		if n mod 7 != refMod(n, d: 7) 'modSeven'
+			return 4
+		end 'modSeven'
+	end 'seven'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(10) 'ten'
+		if n / 10 != refDiv(n, d: 10) 'divTen'
+			return 5
+		end 'divTen'
+		if n mod 10 != refMod(n, d: 10) 'modTen'
+			return 6
+		end 'modTen'
+	end 'ten'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(15) 'fifteen'
+		if n / 15 != refDiv(n, d: 15) 'divFifteen'
+			return 7
+		end 'divFifteen'
+		if n mod 15 != refMod(n, d: 15) 'modFifteen'
+			return 8
+		end 'modFifteen'
+	end 'fifteen'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(28) 'twentyEight'
+		if n / 28 != refDiv(n, d: 28) 'divTwentyEight'
+			return 9
+		end 'divTwentyEight'
+		if n mod 28 != refMod(n, d: 28) 'modTwentyEight'
+			return 10
+		end 'modTwentyEight'
+	end 'twentyEight'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(100) 'hundred'
+		if n / 100 != refDiv(n, d: 100) 'divHundred'
+			return 11
+		end 'divHundred'
+		if n mod 100 != refMod(n, d: 100) 'modHundred'
+			return 12
+		end 'modHundred'
+	end 'hundred'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in neighbourhood(1000) 'thousand'
+		if n / 1000 != refDiv(n, d: 1000) 'divThousand'
+			return 13
+		end 'divThousand'
+		if n mod 1000 != refMod(n, d: 1000) 'modThousand'
+			return 14
+		end 'modThousand'
+	end 'thousand'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-signed-power-of-two-truncates-toward-zero -->
+⭐ **THE ONE CASE A BARE SHIFT FAILS, ISOLATED.** `sar` rounds toward negative infinity and `/`
+truncates toward zero, so every negative dividend the divisor does not divide exactly is off by one
+without the sign bias. Removing that bias from `emitPowerOfTwoQuotient` turns this case RED with a
+wrong answer while the gate above stays green for its non-negative dividends — the four values here
+are chosen so no other case has to carry the argument.
+```maxon
+typealias Word = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	if -7 / 2 != -3 'minusSevenHalved'
+		return 1
+	end 'minusSevenHalved'
+	if -1 / 2 != 0 'minusOneHalved'
+		return 2
+	end 'minusOneHalved'
+	if -9 / 8 != -1 'minusNineEighthed'
+		return 3
+	end 'minusNineEighthed'
+	if -7 mod 2 != -1 'remainderTakesTheDividendSign'
+		return 4
+	end 'remainderTakesTheDividendSign'
+	let n = i64.min as Word
+	if n / 2 != -4611686018427387904 'minHalved'
+		return 5
+	end 'minHalved'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-unsigned-power-of-two-reads-the-whole-bit-pattern -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⭐ The unsigned path has no sign correction at all — `x /u 2^k` is one `shr` and `x modu 2^k` is one
+`and` — and its whole risk is the OTHER direction: a dividend above `i64.max` has its top bit set, so
+answering it with the SIGNED sequence would give a negative quotient. The three dividends past
+`i64.max` are built by wrapping arithmetic, because an integer literal is signed 64-bit and cannot
+name them. `10` is included to check that a magic divisor on this path divides right over the same
+dividends.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Unsigned = bits(64)
+
+typealias UnsignedArray = Array with Unsigned
+
+typealias UPosDivisor = int(2 to 1000000)
+
+function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUDiv'
+
+function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUMod'
+
+function main() returns ExitCode
+	let ns = UnsignedArray.create(0)
+	ns.push(0)
+	ns.push(1)
+	ns.push(31)
+	ns.push(9223372036854775807)
+	let top = (9223372036854775807 as Unsigned) + 1
+	ns.push(top)
+	ns.push(top + 9223372036854775807)
+	ns.push(top + 3122306832379791762)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in ns 'each'
+		if u / 2 != refUDiv(u, d: 2) 'divTwo'
+			return 1
+		end 'divTwo'
+		if u mod 2 != refUMod(u, d: 2) 'modTwo'
+			return 2
+		end 'modTwo'
+		if u / 32 != refUDiv(u, d: 32) 'divThirtyTwo'
+			return 3
+		end 'divThirtyTwo'
+		if u mod 32 != refUMod(u, d: 32) 'modThirtyTwo'
+			return 4
+		end 'modThirtyTwo'
+		if u / 10 != refUDiv(u, d: 10) 'divTenMatches'
+			return 5
+		end 'divTenMatches'
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-unsigned-divisor-above-the-signed-range-keeps-its-answer -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+`huge` is `2^64 - 16`. Read as a signed word it is `-16`, whose magnitude is a power of two a
+reduction would answer with `shrLogical 4`; the right answer is `0`, because the dividend is smaller
+than the divisor. Both operands' declared types are `int(0 to u64.max)`, so the division is UNSIGNED,
+and the divisor is folded, so it reaches the classifier as a constant and takes the large-divisor
+quotient. A reduction that read it as `-16` would answer `576460752303423550`.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Unsigned = bits(64)
+
+typealias UPosDivisor = int(2 to u64.max)
+
+function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUDiv'
+
+function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUMod'
+
+function main() returns ExitCode
+	let huge = (9223372036854775807 as Unsigned) + (9223372036854775793 as Unsigned)
+	let a = (9223372036854775807 as Unsigned) + 1000
+	if a / huge != refUDiv(a, d: huge as UPosDivisor) 'quotient'
+		return 1
+	end 'quotient'
+	if a mod huge != refUMod(a, d: huge as UPosDivisor) 'remainder'
+		return 2
+	end 'remainder'
+	if a / huge != 0 'quotientIsZero'
+		return 3
+	end 'quotientIsZero'
+	if a mod huge != a 'remainderIsTheDividend'
+		return 4
+	end 'remainderIsTheDividend'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: the-refused-divisors-keep-their-answers -->
+The divisors the pass declines keep their answers, and so does `i64.min`, which it reduces to a shift.
+`i64.min mod -1` is `0` — the parser's own overflow guard is what makes it so, and a reduction that
+took `-1` would have had to reproduce it. `x / 1` and `x mod 1` are identities the pass deliberately
+does not spell, and `x / i64.min` is `0` for every dividend but one.
+```maxon
+typealias Word = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let lo = i64.min as Word
+	if lo mod -1 != 0 'minModMinusOne'
+		return 1
+	end 'minModMinusOne'
+	if lo / 1 != lo 'divByOne'
+		return 2
+	end 'divByOne'
+	if lo mod 1 != 0 'modByOne'
+		return 3
+	end 'modByOne'
+	if lo / i64.min != 1 'minDividedByItself'
+		return 4
+	end 'minDividedByItself'
+	if 7 / i64.min != 0 'smallDividedByMin'
+		return 5
+	end 'smallDividedByMin'
+	if 7 mod i64.min != 7 'smallModMin'
+		return 6
+	end 'smallModMin'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-reduced-division-still-meets-its-range-check -->
+CONTROL. The rewrite replaces the `div` op but keeps its RESULT VALUE ID, which is what the guard
+`insertRangeChecks` had already emitted names. Give the reduced quotient back a value its ranged
+typealias excludes and that guard must still fire, at the same line and out of the same frame — a
+rewrite that minted a fresh result id instead would leave the guard reading a value nothing writes.
+The dividend is a loop counter: it carries no typealias, so the quotient reaches `Small` with no cast
+and the guard that fires is the callee's own.
+```maxon
+typealias Small = int(0 to 10)
+
+function narrow(x Small) returns Small
+	return x
+end 'narrow'
+
+function main() returns ExitCode
+	var last = 0 as Small
+	for i in 1000 to 1000 'once'
+		last = narrow(i / 3)
+	end 'once'
+	return last as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-reduced-division-still-meets-its-range-check.test:4: Range check failed: value outside typealias 'Small'
+Stack trace:
+  in narrow
+  in main
+  in mrt_start
+```
+
+<!-- test: an-unsigned-magic-divisor-agrees-with-the-hardware-divide -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⭐⭐ **THE UNSIGNED GATE, AND ITS ORACLE IS THE HARDWARE `div` JUST AS THE SIGNED ONE'S IS `idiv`.** Every
+comparison here computes the answer twice: once by dividing by the LITERAL, and once through a reference
+function whose divisor is a RUNTIME value of the same magnitude. The reference's divisor carries a ranged
+type (`int(2 to …)`), which proves it non-zero, so `Parser.emitDivOrMod` emits a bare divide with no guard
+and no throw — the comparison is against the instruction and against nothing this pass wrote. The reference
+also carries a ranged-parameter guard, which keeps it outside `inlineLeaves`' budget: a spliced reference
+would have its divisor folded to the literal and be reduced too, and the case would then compare a
+reduction against itself.
+
+**The dividends are the unsigned edges, and three of them are past `i64.max`.** An integer literal is
+signed 64-bit and cannot name them, so they are built by wrapping arithmetic from `top` — the first value
+with bit 63 set. Those are the dividends that separate an unsigned derivation from the signed one: a
+64-bit reciprocal that is only right for a dividend the top bit of which is clear answers `0`, `1`, `31`
+and `i64.max` perfectly and is wrong for every value above.
+
+**The divisors exercise the two arms the derivation has, and neither of them pre-shifts the dividend.**
+Shape (i) is a `mulHighUnsigned` by the derived multiplier and ONE logical shift right by
+`floor(log2 d)`: `3`, `10`, `641`, `10000000` and `4294967295` take it. Shape (ii) is for a divisor whose
+reciprocal does not fit in 64 bits, and it recovers the 65th bit with the add-indicator fixup
+`((n - q0) shrLogical 1) + q0` before that same logical shift: `7`, `14` and `100` take it, and `7` is the
+FIRST divisor in the list that does — a list that stopped at `3` would test the fixup not at all.
+`10000000` and `4294967295` are large enough that the reciprocal's high word is what carries the answer,
+and `4294967295` is `2^32 - 1`, the divisor whose reciprocal most nearly needs a 65th bit without
+taking one. Both `/` and
+`mod` are asked of each, because a `mod` is derived from its own quotient and a fixup that is wrong only in
+the subtraction would otherwise go unseen. Each comparison returns its own exit code, so a failure names
+the divisor and the operator it failed on rather than merely reporting a mismatch.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Unsigned = bits(64)
+
+typealias UnsignedArray = Array with Unsigned
+
+typealias UPosDivisor = int(2 to 4294967295)
+
+function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUDiv'
+
+function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUMod'
+
+function edgeDividends() returns UnsignedArray
+	let ns = UnsignedArray.create(0)
+	ns.push(0)
+	ns.push(1)
+	ns.push(31)
+	ns.push(9223372036854775807)
+	let top = (9223372036854775807 as Unsigned) + 1
+	ns.push(top)
+	ns.push(top + 9223372036854775807)
+	ns.push(top + 3122306832379791762)
+	return ns
+end 'edgeDividends'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in edgeDividends() 'each'
+		if u / 3 != refUDiv(u, d: 3) 'divThree'
+			return 1
+		end 'divThree'
+		if u mod 3 != refUMod(u, d: 3) 'modThree'
+			return 2
+		end 'modThree'
+		if u / 7 != refUDiv(u, d: 7) 'divSeven'
+			return 3
+		end 'divSeven'
+		if u mod 7 != refUMod(u, d: 7) 'modSeven'
+			return 4
+		end 'modSeven'
+		if u / 10 != refUDiv(u, d: 10) 'divTen'
+			return 5
+		end 'divTen'
+		if u mod 10 != refUMod(u, d: 10) 'modTen'
+			return 6
+		end 'modTen'
+		if u / 14 != refUDiv(u, d: 14) 'divFourteen'
+			return 7
+		end 'divFourteen'
+		if u mod 14 != refUMod(u, d: 14) 'modFourteen'
+			return 8
+		end 'modFourteen'
+		if u / 100 != refUDiv(u, d: 100) 'divHundred'
+			return 9
+		end 'divHundred'
+		if u mod 100 != refUMod(u, d: 100) 'modHundred'
+			return 10
+		end 'modHundred'
+		if u / 641 != refUDiv(u, d: 641) 'divSixFortyOne'
+			return 11
+		end 'divSixFortyOne'
+		if u mod 641 != refUMod(u, d: 641) 'modSixFortyOne'
+			return 12
+		end 'modSixFortyOne'
+		if u / 10000000 != refUDiv(u, d: 10000000) 'divTenMillion'
+			return 13
+		end 'divTenMillion'
+		if u mod 10000000 != refUMod(u, d: 10000000) 'modTenMillion'
+			return 14
+		end 'modTenMillion'
+		if u / 4294967295 != refUDiv(u, d: 4294967295) 'divFourGig'
+			return 15
+		end 'divFourGig'
+		if u mod 4294967295 != refUMod(u, d: 4294967295) 'modFourGig'
+			return 16
+		end 'modFourGig'
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: the-hardest-unsigned-dividend-for-a-divisor -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+⛔⛔ **THE UNSIGNED ANALOGUE OF `anc`, AND IT EXISTS FOR THE SAME REASON.** The gate above tests
+the EMITTED SEQUENCE and takes the CONSTANT that sequence carries on trust. A fixed-point reciprocal that
+is slightly too coarse is still right for almost every dividend in a 64-bit space — it is wrong only in a
+narrow band around the value the derivation's exit condition is stated in terms of, and a dividend list
+assembled from round numbers and range ends will miss that band every time. So this case computes that
+value per divisor and probes its immediate neighbourhood.
+
+**For the unsigned derivation that value is `nc`, the largest `n < 2^64` with `n mod d == d - 1`** — the
+dividend that comes closest to the next multiple of `d` without reaching it, and therefore the one where a
+reciprocal that rounds a shade low first fails to carry.
+
+⚠ **IT IS DERIVED HERE, NOT TABULATED.** `nc` is `u64.max - ((u64.max mod d + 1) mod d)`, and both `mod`s
+in `hardestDividend` read a RUNTIME divisor, so neither is reduced and neither can be folded: the value
+this case probes is the hardware's arithmetic, not a restatement of the pass's. Writing the five constants
+out instead would make this file a second transcription of the derivation it is supposed to check.
+
+⚠ **`nc + 1` is probed only when there is room for it.** When `u64.max mod d` is itself `d - 1`, `nc` IS
+`u64.max` and `nc + 1` wraps to `0` — which is a legal dividend but not a neighbour, and would quietly
+replace the probe with one the gate above already makes. The guard is an equality against `u64.max` rather
+than an ordering, so it says exactly that and nothing about how patterns compare.
+```maxon
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Unsigned = bits(64)
+
+typealias UnsignedArray = Array with Unsigned
+
+typealias UPosDivisor = int(2 to 4294967295)
+
+function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUDiv'
+
+function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
+	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+end 'refUMod'
+
+// The largest `n` below 2^64 with `n mod d == d - 1`, from two runtime-divisor `mod`s the pass cannot
+// see through and the folder cannot evaluate.
+function hardestDividend(d UPosDivisor) returns Unsigned
+	let umax = u64.max as Unsigned
+	return umax - (try ((refUMod(umax, d: d) + 1) mod (d as Unsigned)) otherwise panic("d is never zero"))
+end 'hardestDividend'
+
+function neighbourhood(d UPosDivisor) returns UnsignedArray
+	let umax = u64.max as Unsigned
+	let nc = hardestDividend(d)
+	let ns = UnsignedArray.create(0)
+	ns.push(nc)
+	ns.push(nc - 1)
+	if nc != umax 'roomAbove'
+		ns.push(nc + 1)
+	end 'roomAbove'
+	return ns
+end 'neighbourhood'
+
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in neighbourhood(3) 'three'
+		if u / 3 != refUDiv(u, d: 3) 'divThree'
+			return 1
+		end 'divThree'
+		if u mod 3 != refUMod(u, d: 3) 'modThree'
+			return 2
+		end 'modThree'
+	end 'three'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in neighbourhood(7) 'seven'
+		if u / 7 != refUDiv(u, d: 7) 'divSeven'
+			return 3
+		end 'divSeven'
+		if u mod 7 != refUMod(u, d: 7) 'modSeven'
+			return 4
+		end 'modSeven'
+	end 'seven'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in neighbourhood(10) 'ten'
+		if u / 10 != refUDiv(u, d: 10) 'divTen'
+			return 5
+		end 'divTen'
+		if u mod 10 != refUMod(u, d: 10) 'modTen'
+			return 6
+		end 'modTen'
+	end 'ten'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in neighbourhood(641) 'sixFortyOne'
+		if u / 641 != refUDiv(u, d: 641) 'divSixFortyOne'
+			return 7
+		end 'divSixFortyOne'
+		if u mod 641 != refUMod(u, d: 641) 'modSixFortyOne'
+			return 8
+		end 'modSixFortyOne'
+	end 'sixFortyOne'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in neighbourhood(10000000) 'tenMillion'
+		if u / 10000000 != refUDiv(u, d: 10000000) 'divTenMillion'
+			return 9
+		end 'divTenMillion'
+		if u mod 10000000 != refUMod(u, d: 10000000) 'modTenMillion'
+			return 10
+		end 'modTenMillion'
+	end 'tenMillion'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```

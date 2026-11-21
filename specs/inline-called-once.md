@@ -1,0 +1,1144 @@
+---
+feature: inline-called-once
+status: experimental
+keywords: [optimizer, inliner, called-once, codegen, panic, runtime, backtrace, symtable]
+category: codegen
+---
+# Inlining Functions Called Exactly Once
+
+## Documentation
+
+The inliner's second admission rule: a function with **exactly one direct site (`call` or `tryCall`) in the whole
+program** is spliced into its caller **regardless of size** — loops, stores, panics, `/` and `mod`, and
+calls inside its body are all admitted. The leaf rule (`specs/inline-leaves.md`) buys a copy per site
+because the copy is tiny; this rule buys ONE copy because the call it removes was the function's only
+reason to exist as a frame, and the body moves rather than multiplies.
+
+A called-once function is refused when:
+
+- it is **recursive**, or has any other call site (a self-call is a second site);
+- its exits leave through a **different return convention** than its site reads (a `ret` read by a
+  `tryCall`, an `errorReturn` read by a `call`, or both kinds of exit in one body);
+- it takes a **`mutable`** (by-reference) parameter;
+- it carries the **green-thread stack guard** — it runs user code on its caller's stack;
+- the splice would exceed the caller's **register-pressure budget**.
+
+### WHY THE STACK TRACE DOES NOT MOVE
+
+A panic or a hardware fault inside an inlined body prints exactly the frames the call would have
+printed: `in <callee>` then `in <caller>`, and a nested inlining prints every level. Three pieces
+carry that:
+
+- **every IR block carries its inline site** — the callee it was copied out of, and the site that
+  copy is nested under, so a block copied through two splices still names both;
+- **the backend emits inline range records into the `__inlframes` table behind `__symtable`** — for
+  each spliced body, the address ranges its blocks occupy and the callee's name; a nested body's blocks
+  carry the inner site, so the ranges stay disjoint and nesting lives in each site's parent;
+- **the x64 and arm64 frame printers walk the records innermost-first** — for a return address inside
+  a range they print the innermost callee's line, then each enclosing callee, then the frame's own
+  function, so the trace reads as if the call still existed.
+
+Panic blocks are therefore **copied with their inline site** rather than redirected: the leaf
+inliner's slow-arm re-run is gone, and a leaf with a store and a panic is inlined whole.
+
+**The Target IR is the evidence of the spliced shape.** A case's `--emit-ir` output shows whether its
+`main` holds a `callDirect` to the callee or the callee's blocks; the exit codes below are the same either
+way, which is what makes them a control on the answer and not on the shape.
+
+**`wasm32-wasi` keeps the same positions in its own frame stack.** A wasm panic prints the frames each function
+recorded on entry (`StdToWasm.appendPanicRuntime`); a function holding a spliced body also records, before
+every call and every panic, which inline site that instruction sits in, and the walk prints the site's chain
+ahead of the function's own name. The stderr cases here therefore print the same trace on every target, with
+the splice made on every target.
+
+## Tests
+
+<!-- test: a-called-once-function-with-a-loop-stores-and-panics-is-spliced -->
+⭐ **THE SHAPE CASE.** `flipOnce` is `fannkuch`'s flip step — a copy loop, then a prefix reverse, both
+full of stores and `otherwise panic` arms — and `main` calls it ONCE, from inside a loop. Every rule
+the leaf inliner has refuses it (calls, size, stores beside panics); the called-once rule splices it.
+The emitted code shows the splice; the exit code is the same as with the pass off.
+
+Each round writes `round` into slot 0, so the reversed prefix is `0 to round` and the answer is the
+first two elements after the flip: 1+1, 2+1, 3+2, 4+3.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function flipOnce(current IntArray, temp IntArray, n Integer) returns Integer
+	for i in 0 upto n 'copy'
+		let element = try current.get(i as ElementIndex) otherwise panic("flipOnce: i < n = current.count()")
+		try temp.set(i as ElementIndex, value: element) otherwise panic("flipOnce: i < n = temp.count()")
+	end 'copy'
+	let firstValue = try temp.get(0) otherwise panic("flipOnce: n >= 1")
+	var low = 0 as Integer
+	var high = firstValue
+	while low < high 'reverse'
+		let atLow = try temp.get(low as ElementIndex) otherwise panic("flipOnce: low < high <= firstValue < n")
+		let atHigh = try temp.get(high as ElementIndex) otherwise panic("flipOnce: high <= firstValue < n")
+		try temp.set(low as ElementIndex, value: atHigh) otherwise panic("flipOnce: low < n")
+		try temp.set(high as ElementIndex, value: atLow) otherwise panic("flipOnce: high < n")
+		low = low + 1
+		high = high - 1
+	end 'reverse'
+	let first = try temp.get(0) otherwise panic("flipOnce: n >= 1")
+	let second = try temp.get(1) otherwise panic("flipOnce: n >= 2")
+	return first + second
+end 'flipOnce'
+
+function main() returns ExitCode
+	let n = 5
+	let current = IntArray.create(0)
+	current.resize(n)
+	let temp = IntArray.create(0)
+	temp.resize(n)
+	for i in 0 upto n 'fill'
+		try current.set(i as ElementIndex, value: i) otherwise panic("main: i < n = current.count()")
+	end 'fill'
+	var total = 0 as Integer
+	for round in 1 to 4 'rounds'
+		try current.set(0, value: round) otherwise panic("main: n >= 1")
+		total = total + flipOnce(current, temp: temp, n: n)
+	end 'rounds'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+17
+```
+
+<!-- test: a-chain-of-called-once-functions-is-spliced-through -->
+`main` calls `outer` once and `outer` calls `inner` once. Both bodies loop and store, so both are
+admitted, and the call-free `inner` blocks end up two levels deep inside `main`. `outer` fills
+1..4, `inner` sums them (10) and doubles them in place, and `outer` adds the doubled last (8).
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function inner(a IntArray, n Integer) returns Integer
+	var sum = 0 as Integer
+	for i in 0 upto n 'each'
+		let v = try a.get(i as ElementIndex) otherwise panic("inner: i < n = a.count()")
+		try a.set(i as ElementIndex, value: v * 2) otherwise panic("inner: i < n = a.count()")
+		sum = sum + v
+	end 'each'
+	return sum
+end 'inner'
+
+function outer(a IntArray, n Integer) returns Integer
+	for i in 0 upto n 'fill'
+		try a.set(i as ElementIndex, value: i + 1) otherwise panic("outer: i < n = a.count()")
+	end 'fill'
+	let before = inner(a, n: n)
+	let last = try a.get((n - 1) as ElementIndex) otherwise panic("outer: n >= 1")
+	return before + last
+end 'outer'
+
+function main() returns ExitCode
+	let n = 4
+	let a = IntArray.create(0)
+	a.resize(n)
+	return outer(a, n: n) as ExitCode
+end 'main'
+```
+```exitcode
+18
+```
+
+<!-- test: a-panic-inside-a-spliced-body-names-the-callee -->
+⭐ **THE TRACE GATE.** The same flip step as the shape case, but `temp` is one slot shorter than `n`,
+so the `set` in the copy loop's LAST iteration takes its `otherwise panic` arm — inside a loop body
+that the splice places in `main`'s frame. The panic block carries its inline site, the range record names
+`flipOnce`, and the printer reads `in flipOnce / in main` off a frame that belongs to `main`. This
+stderr is byte-identical to what the same program prints with the call left standing.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function flipOnce(current IntArray, temp IntArray, n Integer) returns Integer
+	for i in 0 upto n 'copy'
+		let element = try current.get(i as ElementIndex) otherwise panic("flipOnce: current is shorter than n")
+		try temp.set(i as ElementIndex, value: element) otherwise panic("flipOnce: temp is shorter than n")
+	end 'copy'
+	let firstValue = try temp.get(0) otherwise panic("flipOnce: n >= 1")
+	var low = 0 as Integer
+	var high = firstValue
+	while low < high 'reverse'
+		let atLow = try temp.get(low as ElementIndex) otherwise panic("flipOnce: low < high <= firstValue < n")
+		let atHigh = try temp.get(high as ElementIndex) otherwise panic("flipOnce: high <= firstValue < n")
+		try temp.set(low as ElementIndex, value: atHigh) otherwise panic("flipOnce: low < n")
+		try temp.set(high as ElementIndex, value: atLow) otherwise panic("flipOnce: high < n")
+		low = low + 1
+		high = high - 1
+	end 'reverse'
+	return try temp.get(0) otherwise panic("flipOnce: n >= 1")
+end 'flipOnce'
+
+function main() returns ExitCode
+	let n = 5
+	let current = IntArray.create(0)
+	current.resize(n)
+	let temp = IntArray.create(0)
+	temp.resize(n - 1)
+	for i in 0 upto n 'fill'
+		try current.set(i as ElementIndex, value: i) otherwise panic("main: i < n = current.count()")
+	end 'fill'
+	var total = 0 as Integer
+	for round in 1 to 2 'rounds'
+		try current.set(0, value: round) otherwise panic("main: n >= 1")
+		total = total + flipOnce(current, temp: temp, n: n)
+	end 'rounds'
+	return total as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-panic-inside-a-spliced-body-names-the-callee.test:8: flipOnce: temp is shorter than n
+Stack trace:
+  in flipOnce
+  in main
+  in mrt_start
+```
+
+<!-- test: a-panic-in-the-innermost-of-a-chain-names-every-level -->
+`main` → `outer` → `inner`, each called once, so `inner`'s blocks are spliced through two levels, and
+the panic fires in `inner`'s loop. Its block's inline site names `inner` nested under `outer`'s site,
+so the range records nest and the printer walks them innermost-first: three lines for one frame.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function inner(a IntArray, n Integer) returns Integer
+	var sum = 0 as Integer
+	for i in 0 upto n 'each'
+		let v = try a.get(i as ElementIndex) otherwise panic("inner: a is shorter than n")
+		try a.set(i as ElementIndex, value: v * 2) otherwise panic("inner: a is shorter than n")
+		sum = sum + v
+	end 'each'
+	return sum
+end 'inner'
+
+function outer(a IntArray, n Integer) returns Integer
+	for i in 0 upto a.count() 'fill'
+		try a.set(i as ElementIndex, value: (i + 1) as Integer) otherwise panic("outer: i < a.count()")
+	end 'fill'
+	let before = inner(a, n: n)
+	let last = try a.get(a.count() - 1) otherwise panic("outer: a is not empty")
+	return before + last
+end 'outer'
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	a.resize(3)
+	return outer(a, n: 4) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-panic-in-the-innermost-of-a-chain-names-every-level.test:9: inner: a is shorter than n
+Stack trace:
+  in inner
+  in outer
+  in main
+  in mrt_start
+```
+
+<!-- test: a-panic-in-a-loop-the-unswitcher-versioned-names-the-callee -->
+A `for` over an index range doing `get` + `set` on one `Array with Integer` is the shape
+`unswitchInvariantGuards` versions into a fast copy (the bound proven inside the array) and a slow
+copy (the guards kept). The panic fires from the SLOW copy's blocks — the versioned loop is copied
+into `main` twice over, and every copy carries the callee's inline site, so the trace still names
+`scale`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function scale(a IntArray, n Integer, factor Integer) returns Integer
+	var total = 0 as Integer
+	for i in 0 upto n 'each'
+		let v = try a.get(i as ElementIndex) otherwise panic("scale: a is shorter than n")
+		try a.set(i as ElementIndex, value: v * factor) otherwise panic("scale: a is shorter than n")
+		total = total + v * factor
+	end 'each'
+	return total
+end 'scale'
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	a.resize(3)
+	for i in 0 upto 3 'fill'
+		try a.set(i as ElementIndex, value: i + 1) otherwise panic("main: i < 3 = a.count()")
+	end 'fill'
+	return scale(a, n: 5, factor: 3) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-panic-in-a-loop-the-unswitcher-versioned-names-the-callee.test:9: scale: a is shorter than n
+Stack trace:
+  in scale
+  in main
+  in mrt_start
+```
+
+<!-- test: a-range-check-inside-a-spliced-body-names-the-callee -->
+⭐ **A RANGE GUARD IS A PANIC BLOCK THE COMPILER WROTE, AND THE SPLICE MUST TAG IT TOO.** `divide` has a store loop
+so it is no leaf and is called exactly once, so it is spliced. Its `returns NonZero` guard fires on a value built
+by honest arithmetic: `a - a` wears `NonZero` without proving it, and is zero. The guard's block
+sits in `main`'s code, and the range record covering it is what names `divide`.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias NonZero = int(1 to i64.max)
+
+function divide(scratch IntArray, a NonZero) returns NonZero
+	for i in 0 upto scratch.count() 'fill'
+		try scratch.set(i, value: i as Integer) otherwise panic("divide: i < scratch.count()")
+	end 'fill'
+	return a - a
+end 'divide'
+
+function main() returns ExitCode
+	let scratch = IntArray.create(0)
+	scratch.resize(4)
+	return divide(scratch, a: 7) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-range-check-inside-a-spliced-body-names-the-callee.test:11: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in divide
+  in main
+  in mrt_start
+```
+
+<!-- test: a-hardware-fault-inside-a-spliced-body-names-the-callee -->
+<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+<!-- unsupported-targets: arm64-macos, arm64-linux -->
+⭐ **A FAULT HAS NO PANIC BLOCK TO TAG — ONLY AN ADDRESS.** `specs/safety.md`'s
+`integer-overflow-fault-from-int-min-over-minus-one`, with the dividing function given a store loop
+so it is no leaf and called exactly once, so it is spliced. `i64.min / -1` reaches a bare `idiv` that the
+splice places in `main`'s code and raises `#DE`; the fault handler has nothing but the faulting address, and
+the range record covering it is what names `divide`.
+
+The arm64 lanes and wasm32-wasi are excluded because their divide does not raise a fault the handler
+converts.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
+typealias NegativeOne = int(-1 to -1) implements Integer
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function divide(scratch IntArray, d NegativeOne, dividend Integer) returns Integer
+	for i in 0 upto scratch.count() 'fill'
+		try scratch.set(i, value: i as Integer) otherwise panic("divide: i < scratch.count()")
+	end 'fill'
+	return dividend / d
+end 'divide'
+
+function main() returns ExitCode
+	let dividend = ident(i64.min)
+	let scratch = IntArray.create(0)
+	scratch.resize(4)
+	let d = ident(-1)
+	return divide(scratch, d: d as NegativeOne, dividend: dividend) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: integer overflow
+Stack trace:
+  in divide
+  in main
+  in mrt_start
+```
+
+<!-- test: a-function-with-two-call-sites-stays-a-call -->
+⛔ **THE SHAPE CONTROL.** `fill` is well past the leaf inliner's 24 ops and has TWO sites, so neither
+rule admits it and the emitted code keeps both `callDirect`s. Same source shape as the spliced cases with
+one call added, which is what makes the two cases' emitted code a matched pair.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function fill(a IntArray, n Integer, base Integer) returns Integer
+	var total = 0 as Integer
+	for i in 0 upto n 'each'
+		let v = base + i * i
+		try a.set(i as ElementIndex, value: v) otherwise panic("fill: i < n = a.count()")
+		total = total + v
+	end 'each'
+	return total
+end 'fill'
+
+function main() returns ExitCode
+	let n = 4
+	let a = IntArray.create(0)
+	a.resize(n)
+	let first = fill(a, n: n, base: 1)
+	let second = fill(a, n: n, base: 2)
+	let last = try a.get(n - 1) otherwise panic("main: n >= 1")
+	return (first + second + last) as ExitCode
+end 'main'
+```
+```exitcode
+51
+```
+
+<!-- test: a-recursive-called-once-function-stays-a-call -->
+`main` calls `depth` once, but `depth` calls itself, so it has two sites and stays a call — into
+`main` and into itself. The trace is the ordinary one: a frame per level of the recursion.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function depth(n Integer) returns Integer
+	if n == 1 'bottom'
+		panic("depth: reached the bottom")
+	end 'bottom'
+	return depth(n - 1) + 1
+end 'depth'
+
+function main() returns ExitCode
+	return depth(3) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-recursive-called-once-function-stays-a-call.test:6: depth: reached the bottom
+Stack trace:
+  in depth
+  in depth
+  in depth
+  in main
+  in mrt_start
+```
+
+<!-- test: a-throwing-called-once-function-is-spliced -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A throwing body leaves through `errorReturn` and its one site is a `tryCall`; the splice carries the
+result and the error flag to the continuation. The loop and its stores are there so the size rule is not
+what admits it, and the second call, on a short array, proves the thrown case still reaches the caller's
+`otherwise` with its identity.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+enum FillError implements Error
+	tooShort
+	negativeCount
+end 'FillError'
+
+function fillChecked(a IntArray, n Integer) returns Integer throws FillError
+	if n < 0 'negative'
+		throw FillError.negativeCount
+	end 'negative'
+	if (a.count() as Integer) < n 'short'
+		throw FillError.tooShort
+	end 'short'
+	var total = 0 as Integer
+	for i in 0 upto n 'each'
+		try a.set(i as ElementIndex, value: i * 3) otherwise panic("fillChecked: i < n <= a.count()")
+		total = total + i * 3
+	end 'each'
+	return total
+end 'fillChecked'
+
+function report(a IntArray, n Integer) returns Integer
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let total = try fillChecked(a, n: n) otherwise (e) 'refused'
+		match e 'which'
+			tooShort then return 1000
+			negativeCount then return 2000
+		end 'which'
+	end 'refused'
+	return total
+end 'report'
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	a.resize(5)
+	let total = report(a, n: 5)
+	if report(a, n: 9) != 1000 'shortWrong'
+		return 1
+	end 'shortWrong'
+	if report(a, n: -1) != 2000 'negativeWrong'
+		return 2
+	end 'negativeWrong'
+	let last = try a.get(4) otherwise panic("main: a.count() = 5")
+	return (total + last) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-by-reference-parameter-refuses-the-splice -->
+`bumpAll` reassigns `bumps`, so the parameter is passed as the address of the caller's cell and the
+caller reads the new value back after the call. The splice is refused and the answer is the
+by-reference one: the returned 14 plus `main`'s own `bumps`, which is 14 too.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function bumpAll(a IntArray, n Integer, mutates bumps Integer) returns Integer
+	for i in 0 upto n 'each'
+		let v = try a.get(i as ElementIndex) otherwise panic("bumpAll: i < n = a.count()")
+		try a.set(i as ElementIndex, value: v + 1) otherwise panic("bumpAll: i < n = a.count()")
+		bumps = bumps + 1
+	end 'each'
+	return bumps
+end 'bumpAll'
+
+function main() returns ExitCode
+	let n = 4
+	let a = IntArray.create(0)
+	a.resize(n)
+	var bumps = 10 as Integer
+	let returned = bumpAll(a, n: n, bumps: bumps)
+	return (returned + bumps) as ExitCode
+end 'main'
+```
+```exitcode
+28
+```
+
+<!-- test: two-returns-from-inside-a-loop-join-at-the-continuation -->
+`firstIndexOf` returns from INSIDE its loop on a hit and falls through to `return n` otherwise, so the
+continuation has two incoming edges from two different loop exits, each carrying its own value. The
+one site sits in a loop of its own and takes both paths: 9 is at index 2, 100 is nowhere (4).
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function firstIndexOf(a IntArray, n Integer, needle Integer) returns Integer
+	for i in 0 upto n 'scan'
+		let v = try a.get(i as ElementIndex) otherwise panic("firstIndexOf: i < n = a.count()")
+		if v == needle 'hit'
+			return i
+		end 'hit'
+	end 'scan'
+	return n
+end 'firstIndexOf'
+
+function main() returns ExitCode
+	let n = 4
+	let a = IntArray.create(0)
+	a.resize(n)
+	for i in 0 upto n 'fill'
+		try a.set(i as ElementIndex, value: 5 + 2 * i) otherwise panic("main: i < n = a.count()")
+	end 'fill'
+	var total = 0 as Integer
+	for round in 0 to 1 'rounds'
+		let needle = 9 if round == 0 else 100
+		total = total + firstIndexOf(a, n: n, needle: needle)
+	end 'rounds'
+	return (total + 36) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-void-called-once-function-with-stores -->
+A void callee writes the caller's array and returns nothing, so its continuation takes no block arg
+and its `retVoid` becomes a bare branch. The caller reads what it wrote: 16 + 9.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function fillSquares(a IntArray, n Integer)
+	for i in 0 upto n 'each'
+		try a.set(i as ElementIndex, value: i * i) otherwise panic("fillSquares: i < n = a.count()")
+	end 'each'
+end 'fillSquares'
+
+function main() returns ExitCode
+	let n = 5
+	let a = IntArray.create(0)
+	a.resize(n)
+	fillSquares(a, n: n)
+	let fourth = try a.get(4) otherwise panic("main: n = 5")
+	let third = try a.get(3) otherwise panic("main: n = 5")
+	return (fourth + third) as ExitCode
+end 'main'
+```
+```exitcode
+25
+```
+
+<!-- test: a-splice-keeps-a-deep-trace-under-the-frame-cap -->
+⭐ **THE SPLICE IS VISIBLE IN THE TRACE ON EVERY LANE, THROUGH THE FRAME CAP.** `innermost` is a leaf with a panic, `middle`
+and `outer` are called once, so all three are spliced into `descend`, which recursion keeps a call 97 frames deep.
+The trace prints 99 physical frames and every line of them. Were the three left standing as calls, 102 physical
+frames would pass `MaxBacktraceFrames` and the walk would print `...additional frames elided...` where `in main`
+and `in mrt_start` stand. The inline lines ride their frame and do not count against the cap.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function innermost(n Integer) returns Integer
+	if n > 0 'deep'
+		panic("innermost: reached with a positive n")
+	end 'deep'
+	return n
+end 'innermost'
+
+function middle(n Integer) returns Integer
+	return innermost(n) + 1
+end 'middle'
+
+function outer(n Integer) returns Integer
+	return middle(n) + 1
+end 'outer'
+
+function descend(depth Integer, n Integer) returns Integer
+	if depth == 0 'bottom'
+		return outer(n)
+	end 'bottom'
+	return descend(depth - 1, n: n) + 1
+end 'descend'
+
+function main() returns ExitCode
+	return descend(96, n: 1) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at a-splice-keeps-a-deep-trace-under-the-frame-cap.test:6: innermost: reached with a positive n
+Stack trace:
+  in innermost
+  in middle
+  in outer
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in main
+  in mrt_start
+```
+
+<!-- test: a-call-out-of-a-spliced-body-names-the-callee-under-it -->
+A call made from INSIDE a spliced body: `spliced` is called once and spliced into `main`, and the `check` it calls
+(two sites, and a `print`, so no splice) panics. Its frame is printed above a `main` frame whose position is the
+splice, so `in spliced` stands between them exactly as it would with the call left standing.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function check(n Integer) returns Integer
+	print("check {n}\n")
+	if n > 2 'big'
+		panic("check: n is past two")
+	end 'big'
+	return n
+end 'check'
+
+function spliced(n Integer) returns Integer
+	let checked = check(n)
+	return checked + 1
+end 'spliced'
+
+function main() returns ExitCode
+	let first = check(1)
+	return spliced(first + 2) as ExitCode
+end 'main'
+```
+```stdout
+check 1
+check 3
+```
+```exitcode
+1
+```
+```stderr
+panic at a-call-out-of-a-spliced-body-names-the-callee-under-it.test:8: check: n is past two
+Stack trace:
+  in check
+  in spliced
+  in main
+  in mrt_start
+```
+
+<!-- test: a-call-from-the-callers-own-text-after-a-splice-names-only-the-caller -->
+The same two functions, with the panic reached from `main`'s OWN text after the spliced body has run a call of its
+own. The trace names `main` alone: the position the spliced call left behind is not the one the later call is
+made from.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function check(n Integer) returns Integer
+	print("check {n}\n")
+	if n > 2 'big'
+		panic("check: n is past two")
+	end 'big'
+	return n
+end 'check'
+
+function spliced(n Integer) returns Integer
+	let checked = check(n)
+	return checked + 1
+end 'spliced'
+
+function main() returns ExitCode
+	let first = spliced(1)
+	return check(first + 2) as ExitCode
+end 'main'
+```
+```stdout
+check 1
+check 4
+```
+```exitcode
+1
+```
+```stderr
+panic at a-call-from-the-callers-own-text-after-a-splice-names-only-the-caller.test:8: check: n is past two
+Stack trace:
+  in check
+  in main
+  in mrt_start
+```
+
+<!-- test: a-long-chain-of-called-once-functions-with-ranged-parameters-is-spliced-through -->
+Twenty-four called-once functions in a line, each taking a ranged `total` and `step`, looping, branching once and returning through the next. Every call site is the only one its callee has, so the whole chain folds into `main`; the program still adds up the same way it does as calls.
+
+```maxon
+typealias Count = int(0 to 1000000)
+
+typealias Step = int(1 to 7)
+
+function link0(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link1(carried, step: step) + 1
+end 'link0'
+
+function link1(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link2(carried, step: step) + 1
+end 'link1'
+
+function link2(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link3(carried, step: step) + 1
+end 'link2'
+
+function link3(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link4(carried, step: step) + 1
+end 'link3'
+
+function link4(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link5(carried, step: step) + 1
+end 'link4'
+
+function link5(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link6(carried, step: step) + 1
+end 'link5'
+
+function link6(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link7(carried, step: step) + 1
+end 'link6'
+
+function link7(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link8(carried, step: step) + 1
+end 'link7'
+
+function link8(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link9(carried, step: step) + 1
+end 'link8'
+
+function link9(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link10(carried, step: step) + 1
+end 'link9'
+
+function link10(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link11(carried, step: step) + 1
+end 'link10'
+
+function link11(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link12(carried, step: step) + 1
+end 'link11'
+
+function link12(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link13(carried, step: step) + 1
+end 'link12'
+
+function link13(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link14(carried, step: step) + 1
+end 'link13'
+
+function link14(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link15(carried, step: step) + 1
+end 'link14'
+
+function link15(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link16(carried, step: step) + 1
+end 'link15'
+
+function link16(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link17(carried, step: step) + 1
+end 'link16'
+
+function link17(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link18(carried, step: step) + 1
+end 'link17'
+
+function link18(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link19(carried, step: step) + 1
+end 'link18'
+
+function link19(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link20(carried, step: step) + 1
+end 'link19'
+
+function link20(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link21(carried, step: step) + 1
+end 'link20'
+
+function link21(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 1 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link22(carried, step: step) + 1
+end 'link21'
+
+function link22(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 2 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	var carried = running
+	if (running and 1) == 0 'even'
+		carried = running + 2
+	end 'even'
+	return link23(carried, step: step) + 1
+end 'link22'
+
+function link23(total Count, step Step) returns Count
+	var running = total
+	for _ in 0 upto 3 'rounds'
+		running = running + (step as Count)
+	end 'rounds'
+	return running
+end 'link23'
+
+function main() returns ExitCode
+	print("{link0(3, step: 5)}\n")
+	return 0
+end 'main'
+```
+```stdout
+298
+```
+```exitcode
+0
+```

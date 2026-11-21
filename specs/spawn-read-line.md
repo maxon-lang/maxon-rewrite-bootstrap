@@ -1,0 +1,378 @@
+---
+feature: spawn-read-line
+status: experimental
+keywords: [spawnReadLine, async, await, green-threads, scheduler, iocp, overlapped, pipe, subprocess, stdio, yield, concurrency]
+category: concurrency
+---
+
+# spawnReadLine — the overlapped-read substrate
+
+## Documentation
+
+`spawnReadLine(cmd)` spawns the child named by the command String with its **stdout redirected to a
+fresh pipe**, issues a **yielding** read of that pipe (an overlapped `ReadFile` on x64-windows), and returns
+the number of bytes read once the read completes. The read is the call's whole interest in the child, so it
+**ends the child's whole process tree** (the processes the child started included) and reaps the child
+before it returns: a child that prints its line and keeps running does not hold the call, and nothing the
+call started is left running. It is the risky core of async-subprocess-stdio: the read PARKS the green
+thread and is resumed — by the scheduler's own **poller**, which is what the completion is delivered to —
+when the read finishes, so the M is free to run other green threads while the read is in flight.
+
+```text
+function main() returns ExitCode
+	let n = spawnReadLine("cmd /c echo hello")
+	return n as ExitCode
+end 'main'
+```
+
+`spawnReadLine` is a **temporary probe surface** for the substrate, not the full async-subprocess-stdio API
+and its stdlib. It requires exactly one `String` argument (the command line; a non-String
+is refused) and returns an `int` (the byte count), so its result is usable in value position. It is
+served on every lane that provides the `subprocess` facility (`TargetFacilities.targetProvidesFacility`):
+x64-windows, x64-linux, arm64-macos and arm64-linux.
+
+Mechanically, on x64-windows: an overlapped named pipe joins the scheduler's ONE poller, which there is a
+completion port. The read gets a poll source of its own — the source is the OPERATION rather than the handle, because a
+completion key is fixed per handle and two reads may be in flight on one pipe — and the green thread parks on
+it exactly as a socket reader parks on a descriptor. Whichever machine drains the poller recovers the reading
+thread from the packet's `lpOverlapped`, stores the transfer and the status onto it, and readies it through
+`__np_pd_wake`, under `__sched_lock`. A readiness that arrives before the thread has published itself is
+recorded on the poll descriptor and taken by the wait without parking at all, which is what closes the
+lost-wakeup race.
+
+**Targets — the green-thread substrate gate; see `async-scheduler.md`'s *Targets* section for the one
+statement of it.** Reading a line from a spawned child parks the calling green thread,
+which wasm32-wasi does not lower.
+
+### ⭐ The POSIX lanes
+
+On x64-linux, arm64-macos and arm64-linux the command line reaches the child through `/bin/sh -c`, and a
+read completes in its caller (`GtRuntime.IoCompletionShape`): the pipe's read end is non-blocking, a read
+that cannot be served answers `EAGAIN`, and the green thread parks on the descriptor's poll record and
+re-issues the read when it is readable. The Windows cases spawn `cmd`, so each POSIX-expressible one has a
+`posix-…` sibling, following `process-background-priority.md`'s pattern.
+
+⛔ **`interleave-with-sleep` AND `drop-in-flight` HAVE NO SIBLING, AND BOTH ARE ABOUT A READ THAT IS
+IN FLIGHT.** On a POSIX lane no read is outstanding across a park, so there is no overlapped operation to
+cancel. That the read yields to a sleeper there is pinned by `posix-a-parked-line-read-yields-to-a-sleeper`.
+
+## Tests
+
+<!-- test: spawn-read-line.top-level -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`main` reads a child's stdout. The read parks `main` until the poller readies it, then `main`
+resumes and returns the byte count. `cmd /c echo hello` writes `hello\r\n` = 7 bytes.
+```maxon
+function main() returns ExitCode
+	let n = spawnReadLine("cmd /c echo hello")
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: spawn-read-line.posix-top-level -->
+<!-- unsupported-targets: x64-windows -->
+`top-level`'s subject on the POSIX lane. `main` reads a child's stdout through the one-shot probe and returns
+the byte count; `echo hello` writes `hello\n` = SIX bytes, an LF where `cmd /c echo` writes CRLF.
+
+⚠ **THE READ COMPLETES IN ITS CALLER HERE RATHER THAN AS A PACKET.** No read is ever in flight across a park
+on this lane — `GtRuntime.IoCompletionShape` is why — so what this case pins is that the probe reads the
+child's bytes and answers the count, not the per-operation poll source its Windows sibling additionally
+exercises. The command
+line reaches the child through `/bin/sh -c`, exactly as `__Builtins.runProcess`'s does.
+```maxon
+function main() returns ExitCode
+	let n = spawnReadLine("echo hello")
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: spawn-read-line.the-child-has-exited-when-the-probe-returns -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The child writes its line and would keep running for two seconds more. The probe returns the byte count
+with that child's tree ended, so the case ends with no process of its own left running, which the harness
+checks at the case's end.
+```maxon
+function main() returns ExitCode
+	let n = spawnReadLine("cmd /c echo hello& ping -n 3 127.0.0.1 >nul")
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: spawn-read-line.posix-the-child-has-exited-when-the-probe-returns -->
+<!-- unsupported-targets: x64-windows -->
+`the-child-has-exited-when-the-probe-returns`'s subject on the POSIX lane: the shell writes `hello\n`, six
+bytes, and the `sleep` it forks would keep the child's tree running for a second more.
+```maxon
+function main() returns ExitCode
+	let n = spawnReadLine("echo hello; sleep 1")
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: spawn-read-line.a-child-that-keeps-running-after-its-line-does-not-hold-the-probe -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The child writes its line and then runs for a minute. The probe returns the byte count as soon as the line
+is read, having ended the child's tree (`cmd` and the `ping` it started), so the call takes a fraction of
+the minute and the harness finds nothing of the case's left running. Thirty seconds is the bound: half the
+child's life, so a probe that waits for the child to exit overshoots it.
+```maxon
+function main() returns ExitCode
+	let started = Clock.nowMs()
+	let n = spawnReadLine("cmd /c echo hello& ping -n 60 127.0.0.1 >nul")
+	if Clock.elapsedMs(started) >= 30000 'waitedForTheChild'
+		return 1
+	end 'waitedForTheChild'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: spawn-read-line.posix-a-child-that-keeps-running-after-its-line-does-not-hold-the-probe -->
+<!-- unsupported-targets: x64-windows -->
+`a-child-that-keeps-running-after-its-line-does-not-hold-the-probe`'s subject on the POSIX lane: the shell
+writes `hello\n`, six bytes, and the `sleep` it forks would keep running for a minute. The
+kill reaches the group the child leads, including a `sleep` the shell was still forking when the read ended.
+```maxon
+function main() returns ExitCode
+	let started = Clock.nowMs()
+	let n = spawnReadLine("echo hello; sleep 60")
+	if Clock.elapsedMs(started) >= 30000 'waitedForTheChild'
+		return 1
+	end 'waitedForTheChild'
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: spawn-read-line.spawned-reader -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The read runs inside an `async` coroutine rather than in `main`, so the poller readies a member
+that is not its strand's owner: `__gt_ready_locked` appends it to the back of `main`'s strand queue under
+that strand's own lock and — `main` being parked on its await, so no machine holds the strand — publishes the
+strand's token, and the machine that pops it switches back into the reader. `top-level` takes the owner's
+arm of the same door; this case takes the coroutine's.
+```maxon
+function reader() returns Integer
+	return spawnReadLine("cmd /c echo hello")
+end 'reader'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = async reader()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await r
+	return n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```
+
+<!-- test: spawn-read-line.posix-spawned-reader -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-windows -->
+The read runs inside an `async` coroutine rather than in `main`, so its result travels back through the
+promise rather than through a plain return. `main` awaits it and returns the byte count.
+
+⚠ When the read parks, the resume reaches the coroutine as it does on Windows — whichever machine drains
+the poller readies it through `__gt_subp_yield_read`'s descriptor wait — but the bytes are read by the
+reading green thread itself when it re-issues the read (`GtRuntime.IoCompletionShape`). What this case adds
+over `posix-top-level` is the coroutine path: a reader that is not its strand's owner, whose result travels
+back through the promise. It is worth its own case for the reason `async-subprocess.posix-multi-concurrent` is: a probe
+that only ever ran in `main` would not notice a reader that answered correctly there and clobbered a
+coroutine's frame.
+```maxon
+function reader() returns Integer
+	return spawnReadLine("echo hello")
+end 'reader'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = async reader()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await r
+	return n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+6
+```
+
+<!-- test: spawn-read-line.posix-a-parked-line-read-yields-to-a-sleeper -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-windows -->
+<!-- procs: 1 -->
+⭐ **THE READ YIELDS ON THIS LANE TOO.** A slow child, which writes its line only once the sleeper has created a
+flag file, and a 50 ms sleeper run at ONE processor. The pipe's read end is non-blocking and carries a poll
+descriptor, so the reader PARKS and the sleeper's timer fires while the line is still unwritten. Each records its
+completion order into a global (`order = order * 10 + tag`), so `21` says the sleeper (tag 2) finished first. A
+read that holds the only machine inside a blocking `read(2)` never lets the sleeper run, so the child never sees
+the flag and the runner reports the case TIMED OUT; no elapsed time is compared to a threshold, so a slow host
+cannot reorder the two. That is the `12` that
+`async-subprocess.posix-interleave-with-sleep`'s own prose records for the streaming reader on this lane, turned
+into a hang for the surface that must not have it. The exit code IS the assertion.
+
+⚠ **THE ORDER IS THE ONLY THING THIS SURFACE CAN PIN, BECAUSE `spawnReadLine` SPAWNS AND READS IN ONE
+CALL.** A retake witness would say where the thread went rather than only that something else ran, but
+there is nowhere to open a bracket around the read alone here, and a bracket around the whole program
+counts the SPAWN: `osProcessSpawn` is `SyscallClass.blocking`, and `__sched_retake` spares a bracketed call
+only while `(nmspinning + npidle) > 0`. At ONE processor the machine inside `clone`+`execve` holds the only
+P, so that term is zero and the retake always fires — exactly one retake per spawn, and that
+retake is CORRECT: it is what lets the sleeper run at all while a child is being spawned.
+`streaming-subprocess.posix-a-parked-line-read-needs-no-rescue` is the case that pins the retake property,
+because its two-call surface (`subpSpawn` then `subpReadLine`) CAN bracket the read by itself.
+```maxon
+let flagName = "spawn-read-line-interleave.flag"
+
+function flagPath() returns FilePath
+	return try FilePath.from(flagName) otherwise panic("flagName is a valid path")
+end 'flagPath'
+
+function clearFlag()
+	if File.exists(flagPath()) 'present'
+		try File.delete(flagPath()) otherwise panic("the flag file cannot be deleted")
+	end 'present'
+end 'clearFlag'
+
+function record(order OrderCell, digit Integer)
+	while true 'retry'
+		let seen = order.current()
+		if order.publish(seen * 10 + digit, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'record'
+
+function slow(order OrderCell) returns Integer
+	_ = spawnReadLine("while [ ! -f {flagName} ]; do sleep 0.05; done; echo hello")
+	record(order, digit: 1)
+	return 1
+end 'slow'
+
+function fast(order OrderCell) returns Integer
+	sleep(50)
+	record(order, digit: 2)
+	try File.writeText(flagPath(), content: "go") otherwise panic("the flag file cannot be written")
+	return 2
+end 'fast'
+
+function main() returns ExitCode
+	clearFlag()
+	let order = OrderCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async slow(order.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async fast(order.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p2
+	clearFlag()
+	return order.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias OrderCell = SharedValue with Integer
+```
+```exitcode
+21
+```
+
+<!-- test: spawn-read-line.interleave-with-sleep -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A concurrent `async sleep(50)` runs while the read is in flight, PROVING the read yields: if the read blocked
+the single M, the sleeper could not run. Both a parked timer and an in-flight overlapped read are pending at
+once, so the netpoll blocks on the wake event bounded by the timer delta. The read (7 bytes) plus the
+sleeper's `1` sum to 8.
+```maxon
+function reader() returns Integer
+	return spawnReadLine("cmd /c echo hello")
+end 'reader'
+
+function napper() returns Integer
+	sleep(50)
+	return 1
+end 'napper'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let s = async napper()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = async reader()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let a = await s
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await r
+	return (n + a) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+8
+```
+
+<!-- test: spawn-read-line.drop-in-flight -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+An `async` reader promise is DROPPED (un-awaited) while its overlapped read may still be in flight — the
+KERNEL still holds the reader's OVERLAPPED, which is embedded in its green thread. Dropping it must NOT free
+that thread out from under the kernel. The drop therefore leaves the park standing and cancels the read
+(`CancelIoEx`): the cancellation's own packet readies the thread, which answers a failed read, unwinds its
+frame, closes its handle and frees its buffer. Five in-flight drops, then one clean read (7 bytes) — a
+recurrence of the bug crashes with 0xC0000005 instead of returning 7.
+```maxon
+function reader() returns Integer
+	return spawnReadLine("cmd /c echo hello")
+end 'reader'
+
+function dropInFlight() returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async reader()
+	sleep(1)
+	p.cancel()
+	return 0
+end 'dropInFlight'
+
+function main() returns ExitCode
+	var i = 0 as Integer
+	while i < 5 'loop'
+		_ = dropInFlight()
+		i = i + 1
+	end 'loop'
+	let n = spawnReadLine("cmd /c echo hello")
+	return n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```

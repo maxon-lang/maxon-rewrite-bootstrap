@@ -1,0 +1,487 @@
+---
+feature: scheduler-yield
+status: stable
+keywords: [runtime, yield, green-threads, scheduler, concurrency, async, cooperative]
+category: concurrency
+---
+
+# `Scheduler.yield()` — the cooperative yield
+
+## Documentation
+
+`Scheduler.yield()` hands the CPU to the next runnable green thread and returns when the caller's turn comes
+round again. It is the explicit form of the thing `async`/`await` and `sleep` do implicitly: a point at which
+the calling green thread stops occupying the scheduler so that other work can progress.
+
+```text
+function main() returns ExitCode
+	Scheduler.yield()
+	return 0
+end 'main'
+```
+
+It takes no arguments, returns nothing, and never throws. `Scheduler` is a namespace rather than a value — it
+has no fields and is never constructed, so every member is `static`.
+
+### What it promises
+
+The next runnable green thread takes over, and the caller resumes exactly where it left off once its turn
+comes round again — **behind** everything that was already runnable, never ahead of it. A yield that returned
+the caller to the front of the queue would be no yield at all: it would hand the processor straight back to
+the thread that just gave it up. **If nothing else is runnable it returns promptly and the caller simply
+continues** — a yield never blocks waiting for work to appear.
+
+`main` is an ordinary green thread, so a yield taken there takes the same road as one taken anywhere else —
+which is why `Scheduler.yield()` needs no separate spelling for it.
+
+That makes `Scheduler.yield()` the right primitive for a wait loop that has something to re-check:
+
+```text
+while not ready 'spin'
+	Scheduler.yield()
+end 'spin'
+```
+
+Such a loop is a busy wait that **makes progress**: each yield lets other green threads run and lets the
+runtime notice work that has become due, so whatever the loop is waiting for can actually happen. It is not a
+substitute for `await` or `sleep`, which are the *blocking* waits and which cost no CPU while they wait.
+
+That holds on one processor when the awaited answer is a service's, and the service is a machine back from a
+kernel call whose processor the monitor took: it waits to be handed a processor, and a yield — or a preemption,
+for a wait that never yields — hands it the one the waiting strand holds.
+
+### It is not `sleep(0)`
+
+`sleep(ms)` parks the calling green thread on a timer and resumes it once the deadline passes, so even
+`sleep(0)` occupies a timer entry for the round trip. `Scheduler.yield()` occupies none: it only re-queues the
+caller instead. A program may therefore yield as often as it likes without competing for the
+timer store, which matters precisely when many green threads are yielding at once.
+
+### It is safe outside any async context
+
+Calling it from a program that has never spawned anything is well defined: the scheduler is up before `main`
+runs, `main` is its only green thread, and a yield with nothing else runnable comes straight back. It goes
+behind nothing on the global queue and pays the wake any global put does (Go's `goschedImpl`), so above one
+processor that wake may start an idle machine and `main` may resume on another OS thread. This is what lets
+library code yield without first asking whether its caller happens to be concurrent.
+
+### It counts as yielding
+
+A function that calls `Scheduler.yield()` **yields**, so `async` over it is accepted. `async` requires a
+callee that can actually give up the scheduler — a function that only computes is refused with **E3073**
+(see `async-await.md`'s `error.no-yield`, which pins that message). `Scheduler.yield()` satisfies that check on
+the same footing as `sleep`, which is likewise a scheduler park rather than an I/O wait.
+
+**Targets — the green-thread substrate gate; see `async-scheduler.md`'s *Targets* section for the one
+statement of it.** `Scheduler.yield()` lowers to `__gt_resched`, the scheduler's yield park, so it
+serves the lanes that have a green-thread substrate and is refused with **E3104** on the ones that do not.
+
+## Tests
+
+<!-- test: scheduler-yield.sibling-runs -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+The discriminating case: a yield really does hand the processor to a SIBLING that would not otherwise run
+first. `spinner` is created FIRST, so it is the member of `main`'s strand that runs first once `main` parks on
+its await; it yields a thousand times and then reports whether `setter` ever ran. `setter` sets the flag as its
+first act, so the only question the exit code answers is whether `spinner`'s yields let it in. `3` (`1` seen +
+`2` acknowledged) means they did; `2` means a thousand yields went by and the sibling never got a turn.
+
+**Creation order is what makes it a test rather than a coincidence.** A strand runs its members in the order
+they were readied, so a spinner created AFTER the setter would find the flag already set whether or not its
+yields did anything, and the case would pass with the yield removed. Checked the only way this claim can be:
+with `__gt_resched` made to return at once, this case reads `2`.
+
+Both spawned functions yield, which is also required rather than decorative: `async` demands a callee that
+can give up the scheduler, so a `setter` without one would be refused by E3073 — the very rule this document
+states above.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias FlagCell = SharedValue with Integer
+
+function setter(flag FlagCell) returns Integer
+	flag.publish(1 as Integer)
+	Scheduler.yield()
+	return 2
+end 'setter'
+
+function spinner(flag FlagCell) returns Integer
+	for _ in 0 upto 1000 'spin'
+		Scheduler.yield()
+	end 'spin'
+	return flag.current()
+end 'spinner'
+
+function main() returns ExitCode
+	let flag = FlagCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async spinner(flag.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async setter(flag.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let ack = await p2
+	return (seen + ack) as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: scheduler-yield.nothing-runnable -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+Yielding with nobody to yield to PROCEEDS rather than blocking. The coroutine is the only runnable member of
+`main`'s strand — `main` is parked on its await — so each of its yields finds nothing else to run and comes
+straight back; the thread runs to completion and its value is awaited normally.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function lonely() returns Integer
+	var i = 0 as Integer
+	while i < 100 'l'
+		Scheduler.yield()
+		i = i + 1
+	end 'l'
+	return 7
+end 'lonely'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async lonely()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: scheduler-yield.spin-wait-from-main -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+**A spin-wait on the MAIN thread makes progress.** `main` is a green thread like any other, so a yield taken
+there puts it behind its strand's runnable members exactly as a yield from a coroutine does, and `worker`
+gets its turn. This is the case that makes `while not ready { Scheduler.yield() }` usable
+from `main`, and the exit code distinguishes the two outcomes exactly: `8` means the worker ran during the
+spin, `7` means a thousand yields went by without it running once.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias ProgressCell = SharedValue with Integer
+
+function worker(progressed ProgressCell) returns Integer
+	progressed.publish(1 as Integer)
+	Scheduler.yield()
+	return 7
+end 'worker'
+
+function main() returns ExitCode
+	let progressed = ProgressCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async worker(progressed.clone())
+	for _ in 0 upto 1000 'spin'
+		Scheduler.yield()
+	end 'spin'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (progressed.current() + await p) as ExitCode
+end 'main'
+```
+```exitcode
+8
+```
+
+<!-- test: scheduler-yield.outside-async-context -->
+A yield from a program that never spawned anything is INERT — not a crash, and not a hang. This is the case
+library code depends on: it may yield without knowing whether its caller is concurrent.
+```maxon
+function main() returns ExitCode
+	Scheduler.yield()
+	Scheduler.yield()
+	Scheduler.yield()
+	return 3
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: scheduler-yield.satisfies-async -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+`Scheduler.yield()` is a yield point, so `async` over a function whose only concession to the scheduler is a
+yield is ACCEPTED — where the same function without it would be refused with E3073 (`async-await.md`'s
+`error.no-yield` pins that refusal). The value still comes back through `await` unchanged.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function computeThenYield(n Integer) returns Integer
+	let squared = n * n
+	Scheduler.yield()
+	return squared
+end 'computeThenYield'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async computeThenYield(6)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p as ExitCode
+end 'main'
+```
+```exitcode
+36
+```
+
+<!-- test: scheduler-yield.managed-across-yield -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+A managed value held ACROSS a yield survives it and is released exactly once. The green thread suspends and
+resumes in the middle of the String's lifetime, so a yield that lost or double-counted the frame's ownership
+would show up here as a wrong answer or as a leak (exit 101).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function held() returns Integer
+	let label = "green"
+	var i = 0 as Integer
+	while i < 50 'l'
+		Scheduler.yield()
+		i = i + 1
+	end 'l'
+	return label.count()
+end 'held'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async held()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await p
+	let echo = "green"
+	Scheduler.yield()
+	return (n + (echo.count() as Integer)) as ExitCode
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: scheduler-yield.spin-wait-hands-its-processor-to-a-machine-regaining-one -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: reader is in the kernel" -->
+**A SPIN-WAIT THAT YIELDS GIVES ITS PROCESSOR TO A MACHINE WAITING TO REGAIN ONE.** At one processor `reader`
+enters a blocking `stdin` read, the monitor takes its processor and a second machine runs `main`. `main` prints
+`S: reader is in the kernel` only once `reader` has published that it is about to read, and the harness feeds the
+line only after that print, so the read cannot return before `main` is running on the taken processor. When it
+does return, `reader`'s machine holds a green thread and no processor: it waits to be handed one, and the only
+processor belongs to `main`, which spins on `Scheduler.yield()` until `reader` has answered.
+
+⇒ **A yield that came straight back to the same processor would starve `reader` for ever**, because `main` never
+parks and the answer it waits for is `reader`'s to publish: the case would read a timeout, never a wrong number.
+`Scheduler.yield()` therefore hands the processor over, and `main`'s next turn comes round after `reader` has
+published `answered`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias StageCell = SharedValue with Integer
+
+let reading = 1 as Integer
+
+let answered = 2 as Integer
+
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(stage StageCell) returns Integer
+		stage.publish(reading)
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		stage.publish(answered)
+		return line.count()
+	end 'read'
+end 'Reader'
+
+function main() returns ExitCode
+	let stage = StageCell.create(0 as Integer)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
+	while stage.current() < reading 'untilReading'
+		Scheduler.yield()
+	end 'untilReading'
+	print("S: reader is in the kernel\n")
+	while stage.current() < answered 'untilAnswered'
+		Scheduler.yield()
+	end 'untilAnswered'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await answer
+	print("answered {n}\n")
+	return 0
+end 'main'
+```
+```stdout
+S: reader is in the kernel
+answered 5
+```
+```exitcode
+0
+```
+
+<!-- test: scheduler-yield.spin-wait-with-a-sibling-hands-its-processor-over -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: reader is in the kernel" -->
+The previous case with a sibling in the spinner's strand: `main` and the coroutine it starts both spin on
+`Scheduler.yield()`, so each yield finds a runnable sibling and would keep the processor within the strand
+for as long as the pair keeps yielding. A machine waiting to regain a processor takes it at the next yield all
+the same, and `reader` answers.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias StageCell = SharedValue with Integer
+
+let reading = 1 as Integer
+
+let answered = 2 as Integer
+
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(stage StageCell) returns Integer
+		stage.publish(reading)
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		stage.publish(answered)
+		return line.count()
+	end 'read'
+end 'Reader'
+
+function spinner(stage StageCell) returns Integer
+	while stage.current() < answered 'spin'
+		Scheduler.yield()
+	end 'spin'
+	return stage.current()
+end 'spinner'
+
+function main() returns ExitCode
+	let stage = StageCell.create(0 as Integer)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let sibling = async spinner(stage.clone())
+	while stage.current() < reading 'untilReading'
+		Scheduler.yield()
+	end 'untilReading'
+	print("S: reader is in the kernel\n")
+	while stage.current() < answered 'untilAnswered'
+		Scheduler.yield()
+	end 'untilAnswered'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let seen = await sibling
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await answer
+	print("answered {n} seen {seen}\n")
+	return 0
+end 'main'
+```
+```stdout
+S: reader is in the kernel
+answered 5 seen 2
+```
+```exitcode
+0
+```
+
+<!-- test: scheduler-yield.a-preempted-spin-hands-its-processor-to-a-machine-regaining-one -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+<!-- stdin: after "S: reader is in the kernel" -->
+The same shape with no yield in the wait at all: `main` busy-waits on the cell, and the monitor's preemption is what
+takes its processor, so it is a preemption that has to hand the processor to the machine regaining one.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias StageCell = SharedValue with Integer
+
+let reading = 1 as Integer
+
+let answered = 2 as Integer
+
+function textOf(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives ""
+	end 'read'
+end 'textOf'
+
+type Reader
+	var id as Integer
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+
+	export function read(stage StageCell) returns Integer
+		stage.publish(reading)
+		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		stage.publish(answered)
+		return line.count()
+	end 'read'
+end 'Reader'
+
+function busyUntil(stage StageCell, target Integer) returns Integer
+	var polls = 0 as Integer
+	while stage.current() < target 'busy'
+		polls = polls + 1
+	end 'busy'
+	return polls
+end 'busyUntil'
+
+function main() returns ExitCode
+	let stage = StageCell.create(0 as Integer)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn Reader.create()
+	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
+	_ = busyUntil(stage, target: reading)
+	print("S: reader is in the kernel\n")
+	_ = busyUntil(stage, target: answered)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let n = await answer
+	print("answered {n}\n")
+	return 0
+end 'main'
+```
+```stdout
+S: reader is in the kernel
+answered 5
+```
+```exitcode
+0
+```

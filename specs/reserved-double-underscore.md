@@ -1,0 +1,814 @@
+---
+feature: reserved-double-underscore
+status: stable
+keywords: [parse-error, reserved-identifier, naming, compiler-internals]
+category: diagnostics
+---
+
+# Reserved Double-Underscore Identifiers
+
+## Documentation
+
+Identifiers starting with two underscores (`__`) are reserved for compiler-internal
+symbols — runtime intrinsics (`__gt_spawn`, `__chkstk`), built-in types
+(`__ManagedMemory`, `__Builtins`), synthetic destructor names (`__destruct_String`),
+and parser-generated temporaries (`__discard_*`, `__try_result_*`).
+
+The files that DECLARE the reserved space — `stdlib/Builtins.maxon`,
+`stdlib/Testing.maxon` and the `runtime/` tier — may write these names; no other
+file may **declare** one, **call** one (E3004) or **name** one as a function value
+(E3155). Any binding site that introduces a
+fresh `__`-prefixed name — function, type, typealias, field, parameter, local
+variable, enum case, match binding — is a compile-time error.
+
+The check fires at the parser, before any later stage runs, so the error message
+points at the offending name's source location.
+
+### Error Example
+
+```maxon
+function main() returns ExitCode
+	let __value = 5
+	return __value
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/docs-example-1.maxon:3:6: identifier '__value' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+### Why This Matters
+
+Without the check, user code could collide with runtime symbols (`__gt_spawn`)
+or shadow builtin types (`__ManagedMemory`), producing confusing link-time
+failures or silently breaking memory management invariants. Reserving the prefix
+makes the boundary between user identifiers and compiler internals explicit.
+
+## Tests
+
+<!-- test: let-declaration -->
+```maxon
+function main() returns ExitCode
+	let __foo = 5
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/let-declaration.maxon:3:6: identifier '__foo' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: var-declaration -->
+```maxon
+function main() returns ExitCode
+	var __counter = 0
+	__counter = __counter + 1
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/var-declaration.maxon:3:6: identifier '__counter' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: function-declaration -->
+```maxon
+function __helper() returns ExitCode
+	return 0
+end '__helper'
+
+function main() returns ExitCode
+	return __helper()
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/function-declaration.maxon:2:10: identifier '__helper' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: function-parameter -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function id(__x Integer) returns Integer
+	return __x
+end 'id'
+
+function main() returns ExitCode
+	_ = id(0)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/function-parameter.maxon:4:13: identifier '__x' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: type-declaration -->
+<!-- positions: moved -->
+```maxon
+type __Hidden
+	export var x as Integer
+end '__Hidden'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/type-declaration.maxon:2:6: identifier '__Hidden' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: type-field -->
+<!-- positions: moved -->
+```maxon
+type Point
+	export var __x as Integer
+	export var y as Integer
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/type-field.maxon:3:13: identifier '__x' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: typealias-declaration -->
+```maxon
+typealias __Score = int(0 to 100)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/typealias-declaration.maxon:2:11: identifier '__Score' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: enum-case -->
+```maxon
+enum Color
+	red
+	__green
+	blue
+end 'Color'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/enum-case.maxon:4:2: identifier '__green' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: closure-parameter -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function apply(f Integer, n Integer) returns Integer
+	return f + n
+end 'apply'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let f = function(__n Integer) gives __n + 1
+	_ = f(0)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/closure-parameter.maxon:9:19: identifier '__n' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: enum-name -->
+A `__`-prefixed enum/union NAME is rejected just as every other declaration is, though the older spec
+covered only the enum CASE. The compiler guards it at `parseEnumDeclaration`'s name consume, the site distinct
+from `readEnumCaseInto` (which covers cases).
+```maxon
+enum __Color
+	red
+	green
+end '__Color'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/enum-name.maxon:2:6: identifier '__Color' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: union-name -->
+The same guard covers a `union` name — `parseEnumDeclaration` handles both via `isUnion`, so ONE
+`requireUnreservedName` call reserves both.
+```maxon
+union __Shape
+	circle
+	square
+end '__Shape'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: specs/reserved-double-underscore/union-name.maxon:2:7: identifier '__Shape' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: user-file-named-builtins-is-not-exempt -->
+`stdlib/Builtins.maxon` is the ONE file whose declarations may carry the reserved prefix — it DECLARES
+the reserved space (the error enums a builtin throws, the parse helpers `int.fromString` rewrites to)
+rather than merely using it, and the compiler exempts it at `requireUnreservedName`.
+
+This is the NEGATIVE CONTROL on that exemption, and it is the half that matters: the exemption is keyed
+on the FILE'S IDENTITY (`<stdlibDir>/Builtins.maxon`, both sides resolved), not on its basename. Keyed on
+the basename, any program could opt out of the reservation for a whole file by naming it `Builtins.maxon`
+— and every guarantee that leans on "no user `__` name can be declared" would leak through it.
+
+⚠ The POSITIVE direction is pinnable because the stdlib loader LISTS that module. A test compiles a
+throwaway project, so it can never CONTAIN the checkout's own `stdlib/Builtins.maxon` — but it does not
+have to: that module is loaded into every compile, and a fragment can
+simply NAME one of the `__`-prefixed types it declares. `reserved-space-module-declarations-reach-a-user-program`
+below is that pin, and it deliberately names `__ManagedListError` — a type the compiler synthesizes
+nowhere, so nothing but the module's own declaration can be answering.
+
+⚠⚠ **A STANDING INSTRUCTION, NOT A FOOTNOTE.**
+Every reader that reads *"`__`-prefixed"* as *"the compiler emitted this"* is wrong for a name this
+module declares, and such a reader can be reachably wrong where only wasm can see it:
+
+```
+# append `export function __probeSub(a int, b int) returns int` + a `main` doing
+# `let f = __probeSub` / `return f(50, 8) as ExitCode` to stdlib/Builtins.maxon, then:
+maxon build stdlib/Builtins.maxon --output=out --target=wasm32-wasi
+vendor/wasmtime/wasmtime run -S cli-exit-with-code=y out.wasm
+```
+
+`wasm trap: indirect call type mismatch`, exit **3** — against **42** for the identical program with the
+`__` dropped from the name — is what a `lowerFunctionRef` that takes the target's BARE address instead of
+its `__fnref_` env-thunk answers, because an `(a, b) -> R` function is then called through the uniform
+`(a, b, env) -> R` signature. **x64 answers 42 either way**: the extra `env` word lands in an argument
+register the callee never reads, so the wrong-shaped call returns the right number. ⇒ **When you touch this exemption, sweep every reader of
+`isCompilerInternalCallee` and run the sweep's result on `--target=wasm32-wasi`, which is the only local
+target that type-checks an indirect call.** The readers share ONE predicate
+(`MmRuntime.isSignaturelessCompilerCallee`), so an edit cannot move one reader's answer without moving all
+of them.
+
+⚠ **THAT TRANSCRIPT HAS NO CASE.** The `// --- stdlib-overlay:` fixture at the end of this file can stage
+exactly that program — a `__`-named function taken as a VALUE — and `--target=wasm32-wasi` is where a wrong
+answer shows; the fixture is what a case would be written with.
+
+**A COLLISION IS THE HAZARD THE PREFIX EXEMPTION MAKES POSSIBLE RATHER THAN MERELY MISREADS.** A name this
+module declares may be a name the compiler *itself emits* — and then the program holds two functions of one
+name, which no linker and no name index can resolve. Reachable only through the real module:
+
+```
+# append `export function __print_string(value String)` (empty body) + a `main` that CALLS it
+# to stdlib/Builtins.maxon, then:
+maxon build stdlib/Builtins.maxon --output=out
+```
+
+⇒ **THE CASE** is `error.stdlib-overlay-write-stdout-collides-at-the-std-tier` — the same door through the
+same gate, with a symbol the compiler emits — and its twin `stdlib-overlay-write-stdout-alone-is-legal` is
+the half of the rule stated in the paragraph below. The `// --- stdlib-overlay:` fixture at the end of this
+file is what makes them RE-RUNNABLE rather than merely reproducible. (An empty body does not compile on its
+own — an unused parameter is E3012 — so the case gives `value` a use; the collision is on the NAME and does
+not care.)
+
+Unrefused, the collision is `panic at DeadFunctionElimination.maxon:108: indexFunctionsByName: two functions
+are named '__print_string'` — no file, no line, and **both of the causes the message names are false here**
+(it is not E3006 at merge, which only ever compares two *parsed* declarations, and no installer runs twice).
+Refused: `error E4015: stdlib\Builtins.maxon:337:17: declaration of '__print_string' collides with a symbol the
+compiler EMITS into this program …`.
+
+⚠ **WHAT CREATES THE PAIR DEPENDS ON THE RUNTIME, so "just don't call it" is not the rule it looks like.**
+For a USAGE-GATED symbol the CALL is what installs the compiler's own copy, so the declaration alone is
+clean (`stdlib-overlay-write-stdout-alone-is-legal`, below). A program whose globals are all image data installs no `__module_init` / `__maxon_global_cleanup`, so a
+declaration of either is the rooted-name door the next paragraph pins. ⇒ **Do NOT cure this by gating the call or steering it to the surviving definition** — that trades
+a loud refusal for a silent miscompile, since `print("x")` would then bind to the author's declaration
+instead of the runtime's, which is the one that knows the String record's layout. The refusal is at the
+DUPLICATE, and it is total (no binary is written either way). ⇒ **And the panic stays, behind a
+DISCRIMINATOR**: only a pair with MIXED provenance (one parsed, one synthesized) is a user error; a pair
+that is both-synthesized or both-parsed is a compiler bug and panics, naming its own cause. Keep that
+split if you touch `FunctionNameIndex.refuseDuplicateFunctionName` — a fix that made every duplicate a user
+diagnostic would hide an installer that ran twice, and would pass any test written only against the collision.
+
+**THE SAME RULE THROUGH A DOOR WITH NO PAIR TO COUNT.** The collision refusal notices
+TWO functions of one name, so it is blind to a declaration of a name the compiler owns but does not EMIT
+into this particular program — and `DeadFunctionElimination.seedRoots` roots four such names
+(`__module_init`, `__maxon_global_cleanup`, `__mm_leak_check`, `__gt_enqueue`) into *every* program's
+reachability set. Pinned by
+`error.stdlib-overlay-mm-leak-check-takes-a-rooted-name`:
+
+```
+# append `export function __mm_leak_check()` (empty body) to stdlib/Builtins.maxon, then compile
+# ANY program that carries no heap, e.g. `function main() returns ExitCode / return 0 / end 'main'`:
+maxon build main.maxon
+```
+
+Unrefused, it is `panic at DeadFunctionElimination.maxon:109: requireUnreachableStdlibStayedDead:
+'__mm_leak_check' is in StdlibFacts.unreachable …` — no file, no line, and the message offers two causes of
+which only one is the compiler's fault; `__module_init` and `__gt_enqueue` answer identically. Refused:
+`error E4015: stdlib\Builtins.maxon:337:17: declaration of '__mm_leak_check' takes a name the compiler
+owns …`, positioned at the declaration.
+
+⚠ **REFUSED WHETHER OR NOT THE COMPILER EMITS ITS OWN COPY HERE, AND THAT IS THE RULING RATHER THAN AN
+IMPLEMENTATION ACCIDENT.** Simply not rooting a parsed hit would COMPILE — the declaration is dead code and
+would be pruned — but then `__module_init` would be legal in a program that installs no runtime under that name and E4015 in
+one that does: the legality of a NAME decided by which runtime floor some other program happens
+to carry. ⇒ **The rule is about the name.** Both detections raise the one code (E4015,
+`IrDeclarationTakesCompilerOwnedName`), because a second number for one rule is the same disease one level
+up. ⇒ **And `main` carries the OPPOSITE premise at the same root set** — it must be the author's — so the two
+kinds of root deliberately do not share a door; kind 3 (`.rdata` slots) checks neither, because a witness
+slot legitimately names a PARSED `Type.method`.
+```maxon
+// --- file: Builtins.maxon
+export enum __ParseError implements Error
+	invalidFormat
+end '__ParseError'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: <fragment>:3:13: identifier '__ParseError' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+<!-- test: user-file-cannot-call-a-reserved-name -->
+**THE CALL SIDE OF THE SAME EXEMPTION.** Beside the DECLARATION door, the CALL door is open for exactly
+the file that declares the name, so `stdlib/Builtins.maxon` can both declare `__int_fromString` and call
+it — and this is the pin that the call door is open no wider.
+
+`__int_fromString` is a name the real `stdlib/Builtins.maxon` genuinely DOES declare, which is what makes
+this case distinct from `builtins-clock.unknown-internal-callee`'s `__whatever`: the refusal here is not
+"no such name anywhere" but "not a name YOUR file may write". The reserved-prefix wording is deliberate
+and stays — it tells the author the prefix is the problem, rather than giving a source-written `__` call
+the same generic *"Undefined function"* any typo gets.
+
+⚠ It also narrows the paragraph above: a `__` name may be REFERENCED from exactly one file, not
+from user code generally. `String`/`Array`/`Map` are synthesized builtins here rather than stdlib sources,
+so no other file has a reason to reach for one.
+```maxon
+function main() returns ExitCode
+	return __int_fromString("42") as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:3:9: call to undefined function '__int_fromString': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: user-file-cannot-name-a-reserved-entry-as-a-value -->
+⛔⛔ **THE VALUE DOOR, THE CALL DOOR'S OTHER HALF.** `requireCalleeIsNotReservedName` refuses a reserved
+CALLEE and `requireFunctionValueNameIsNotReserved` refuses the same name in VALUE position, so the tier's
+protection is a property of the NAME and not of how an entry is reached. This case is what holds the two
+doors to one rule: without it the name resolves to the tier's declaration, links, and reaches the entry
+through a synthesized `__fnref_` thunk when the value is called.
+
+⚠ The subject is a `runtime/` entry rather than a `stdlib/Builtins.maxon` name because a tier entry is
+the case that LINKS, and the value is CALLED so that nothing about the case turns on an unused binding:
+unrefused, this program compiles, links and exits 0, reaching the checkpoint through the thunk. A case
+that only BOUND the name would rest on E3012 to fail, which is a different rule and would go green the
+day that one moved.
+
+⚠ The refusal is E3155 rather than the call door's E3004 because there is no call here and E3004's
+subject is one; the registry entry argues it. What makes the two one rule is the classifier they share
+(`MmRuntime.reservedCalleeReasonOf`), which supplies both sentences' second half.
+```maxon
+function main() returns ExitCode
+	let f = __parallel_boundary
+	f()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3155: <fragment>:3:10: reference to undefined function '__parallel_boundary': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: user-file-named-builtins-cannot-name-a-reserved-entry-as-a-value -->
+**THE NEGATIVE CONTROL ON THE VALUE DOOR'S EXEMPTION** — the program above, one file name over. The
+exemption `Parser.requireFunctionValueNameIsNotReserved` reads is the CALL door's
+(`fileMayUseReservedNames`), which is keyed on PROVENANCE and never on a spelling: for a file claiming to
+be `Builtins.maxon` that is the IDENTITY test (`<stdlibDir>/Builtins.maxon`, both sides resolved), of
+which the basename is only a prefilter. Both doors are pinned on both sides, because a rule
+pinned on one side is a rule that can lapse on the other.
+```maxon
+// --- file: Builtins.maxon
+function main() returns ExitCode
+	let f = __parallel_boundary
+	f()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3155: <fragment>:4:10: reference to undefined function '__parallel_boundary': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: user-file-cannot-name-the-fault-probe-as-a-value -->
+**THE TIER ENTRY THAT WEARS NO PREFIX, IN VALUE POSITION.** `maxon_force_segfault` is reserved by NAME
+rather than by shape — its spelling is the frame a backtrace prints, which `specs/safety.md` asserts —
+so it is the arm of `MmRuntime.reservedCalleeReasonOf` a prefix test cannot reach, and it carries its
+own sentence. Unrefused this program does not merely link: it RUNS, reaching the probe through the
+`__fnref_` thunk and faulting, which is the compiler's own fault injector with a user program's finger
+on it.
+```maxon
+function main() returns ExitCode
+	let f = maxon_force_segfault
+	f()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3155: <fragment>:3:10: reference to undefined function 'maxon_force_segfault': that name is the compiler's own fault-probe entry point, which no program reaches by naming the symbol
+```
+
+<!-- test: error.function-backed-enum-case-cannot-name-a-reserved-entry -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+**THE SECOND POSITION A NAME BECOMES A FUNCTION VALUE, AND IT IS A DECLARATION RATHER THAN AN
+EXPRESSION.** A function-backed enum case IS a function reference written in a declaration, so
+`Parser.checkFunctionBackedCase` asks the same gate `let f = doubleFn` asks — which is why the value
+door is cured at `requireNameIsUsableAsFunctionValue` and not at the expression site. Refused at the
+CASE, whether or not any program ever reads the enum: `.rawValue` would otherwise hand a caller the
+tier entry's address.
+```maxon
+enum Boundary
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	checkpoint = __parallel_boundary
+end 'Boundary'
+
+function main() returns ExitCode
+	let f = Boundary.checkpoint.rawValue
+	f()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3155: <fragment>:3:2: reference to undefined function '__parallel_boundary': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: a-reserved-space-file-may-name-its-own-entry-as-a-value -->
+⭐ **THE POSITIVE CONTROL ON THE VALUE DOOR'S EXEMPTION — the branch the three refusals above never
+reach.** `Parser.requireFunctionValueNameIsNotReserved` admits a reserved name in value position on
+`fileMayUseReservedNames() and declaresCallee`, and this is the only program that exercises it: the
+compiler's OWN function addresses (`__destruct_<T>`, `__str_decref`) are minted at `emitCodeAddress`
+and emit their op directly, so they pass no door at all. Without this case the admit branch could be
+deleted or inverted and every case in this file would stay green while `stdlib/Builtins.maxon` lost the
+right to name what it declares.
+
+⚠ The overlay declares the entry AND names it, because the exemption is the DECLARING file's — a user
+file spelling the same name is the negative control two cases up. The 42 is routed through the function
+VALUE, so a run that admitted the name and then mis-lowered the reference cannot pass either.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export typealias OverlayHalf = int(0 to 100)
+
+export function __overlayDouble(n OverlayHalf) returns OverlayHalf
+	return n * 2
+end '__overlayDouble'
+
+export function overlayApplyDouble(n OverlayHalf) returns OverlayHalf
+	let f = __overlayDouble
+	return f(n)
+end 'overlayApplyDouble'
+// --- file: main.maxon
+function main() returns ExitCode
+	return overlayApplyDouble(21) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-reserved-space-files-top-level-constant-may-name-its-own-entry-as-a-value -->
+The same exemption for a top-level constant: its initializer is parsed with the declaring file's own
+privileges, so `Builtins.maxon` may name its own entry there too.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export typealias OverlayTriple = int(0 to 100)
+
+export function __overlayTriple(n OverlayTriple) returns OverlayTriple
+	return n * 3
+end '__overlayTriple'
+
+let overlayTripleFunction = __overlayTriple
+
+export function overlayApplyTriple(n OverlayTriple) returns OverlayTriple
+	return overlayTripleFunction(n)
+end 'overlayApplyTriple'
+// --- file: main.maxon
+function main() returns ExitCode
+	return overlayApplyTriple(14) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: user-file-named-builtins-cannot-call-a-reserved-name -->
+**THE NEGATIVE CONTROL ON THE CALL-SIDE EXEMPTION, and it is the half that matters** — the exact mirror of
+`user-file-named-builtins-is-not-exempt` one door over. The exemption is keyed on the FILE'S IDENTITY
+(`<stdlibDir>/Builtins.maxon`, both sides resolved), and the BASENAME test in front of that compare is a
+prefilter, never the answer. Keyed on the basename, any program could reach every compiler internal —
+`__mm_free`, `__gt_spawn` — by naming one of its own files `Builtins.maxon`.
+
+Both sides of one rule are therefore pinned the same way, because a rule pinned on one side is a rule that
+can lapse on the other.
+```maxon
+// --- file: Builtins.maxon
+function main() returns ExitCode
+	return __int_fromString("42") as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:4:9: call to undefined function '__int_fromString': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: user-file-named-builtins-cannot-call-a-runtime-entry-point -->
+**THE SHAPE WITH NO DIAGNOSTIC WAITING BEHIND IT.** The two cases above name a stdlib helper, so a widened
+door lands them on `resolveCallFixups`' *"call to unknown function"* — a panic, but a loud one. `__mm_free`
+is worse in the one way that matters: it is a symbol the emitted runtime really HAS, and naming it is
+itself what pulls the heap runtime into the image (`MmRuntime.isRuntimeCallee`). So a widened door does not
+fail to link here — it links, and frees address 0.
+
+Nothing declares a runtime entry point (they are built at the Std tier, after the merge that fills
+`funcSignatures`), which is why the exemption is "a name some file DECLARES" and not merely "this file may
+write `__`": the second reading would hand this module every entry point in the runtime, unvalidated and
+un-arity-checked. See `Parser.requireCalleeIsNotReservedName`.
+```maxon
+// --- file: Builtins.maxon
+function main() returns ExitCode
+	__mm_free(0)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:4:2: call to undefined function '__mm_free': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: user-file-named-builtins-cannot-async-call-a-reserved-name -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+**THE SECOND DOOR.** There are exactly two source call doors — `Parser.emitCall` and
+`Parser.emitAsyncCall` — and `async __name(…)` reaches the second one from ordinary user source
+(`builtins-clock.unknown-internal-callee-async` is the plain-user-file half of it). The exemption is
+plumbed into the one decision function both doors call, so the file test must hold at both; pinned at only
+one, a spawn would be the way around it.
+```maxon
+// --- file: Builtins.maxon
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async __int_fromString("42")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:4:16: call to undefined function '__int_fromString': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+<!-- test: reserved-space-module-declarations-reach-a-user-program -->
+**THE POSITIVE CONTROL ON THE DECLARATION-SIDE EXEMPTION, and it is the half every negative case
+above assumes.** The four cases before this one prove the exemption is not WIDER than one file. None of
+them proves it is not EMPTY: a compiler that refused `stdlib/Builtins.maxon`'s own declarations too would
+pass every one of them.
+
+The fragment cannot contain the checkout's `Builtins.maxon`, and does not need to: the stdlib loader
+lists that module, so it is loaded into this compile like any other stdlib source, and its `__`-prefixed declarations are therefore in scope here.
+
+⚠ **IT NAMES `__ManagedListError` ON PURPOSE.** Its `__Managed{Memory,File,Directory}Error` siblings would
+prove less. `__ManagedListError` is declared only by `stdlib/Builtins.maxon:144`, and no line of the compiler
+mentions it — so a `match` that names its four cases exhaustively can be answered by nothing else. The
+`nodeNotInList` arm is third, which is also a reading of the declaration's ORDER and not merely its
+membership.
+```maxon
+function rank(e __ManagedListError) returns ExitCode
+	return match e 'which'
+		empty gives 1
+		endOfList gives 2
+		nodeNotInList gives 3
+		nodeAlreadyInList gives 4
+	end 'which'
+end 'rank'
+
+function main() returns ExitCode
+	return rank(__ManagedListError.nodeNotInList)
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: reserved-space-functions-reach-a-user-program-through-their-primitive-static-spelling -->
+**THE POSITIVE CONTROL ON THE *CALL*-SIDE RULE, AND IT IS THE HALF THE FOUR REFUSALS ABOVE LEAVE
+UNSTATED.** `user-file-cannot-call-a-reserved-name` pins that `__int_fromString("42")` is refused from
+ordinary source. On its own that reads as *"the reserved free functions are unreachable"*, and they are
+not: `stdlib/Builtins.maxon` marks three of them `public` (`__float_bitsFromText`,
+`__float_textFromBits`, `__int_fromString`) precisely so that a program CAN reach them — through the
+PRIMITIVE-STATIC spelling, which is the surface, where `__` is the mangling.
+
+⇒ **The rule is about the NAME the author wrote, not about the function.** `float.textFromBits(bits)`
+mints exactly the callee `__float_textFromBits` that the reserved spelling would have named
+(`Parser.primitiveStaticCallee`), meets `requireCalleeIsNotReservedName`'s `primitiveStatic` mint
+exemption, and links to the same body. Two spellings, one function, opposite verdicts — because one of
+them is bytes the author typed into the reserved space and the other is not.
+
+⚠ **THE COMPILER ITSELF IS A CALLER, WHICH IS WHY THIS IS PINNED RATHER THAN MERELY TRUE.**
+`Compiler/NumberParsing.scalarConstantText` renders the f64 bounds of a ranged float alias into an E3005
+sentence — and, through the same one renderer, a `data {}` slot's initial value and the `__fconst_<value>`
+label of a float island — while `Compiler/Parser.floatLiteralBits` decodes every float literal. All of
+them through this surface. The compiler compiling its own source is an ordinary program calling ordinary stdlib
+functions, and it gets no exemption from this file's rule; it spells the surface instead.
+
+⚠ The rendered digits are not `float.toString`'s — `100` and not `100.0`,
+and `-0` keeping its sign. `stdlib/Builtins.maxon`'s FLOAT TEXT band states why the two spellings are
+deliberately different, and `ranged-typealias.md` pins the same digits as they reach an E3005 message.
+```maxon
+typealias FBits = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	print("{float.textFromBits(4636737291354636288 as FBits)} {float.textFromBits(4614253070214989087 as FBits)} {float.textFromBits(-9223372036854775808 as FBits)}")
+	match float.bitsFromText("3.14") 'decoded'
+		bits(value) then return 7 if value == 4614253070214989087 else 1
+		overflow then return 2
+		malformed then return 3
+	end 'decoded'
+end 'main'
+```
+```stdout
+100 3.14 -0
+```
+```exitcode
+7
+```
+
+<!-- test: error.the-reserved-spelling-of-a-primitive-static-stays-shut -->
+**THE NEGATIVE HALF OF THE CASE ABOVE, on the SAME function.** Reaching `__float_textFromBits` by the
+name `stdlib/Builtins.maxon` wrote is the author reaching into the reserved space, and it is refused —
+so the positive control cannot be read as "the door opened". It is `user-file-cannot-call-a-reserved-name`
+one function over, stated here because this is the pair that makes the mint exemption's shape legible.
+```maxon
+typealias FBits = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	print("{__float_textFromBits(4636737291354636288 as FBits)}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: <fragment>:5:10: call to undefined function '__float_textFromBits': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+```
+
+### The `// --- stdlib-overlay:` fixture — the four E4015 doors
+
+⭐⭐ **WITHOUT THIS FIXTURE NOTHING IN THE SUITE CAN REACH THESE DOORS, AND A CHECK THAT CANNOT FAIL IS
+NOT A CHECK.** Every route to E4015 through
+`FunctionNameIndex` or through `DeadFunctionElimination.seedRoots` needs a DECLARATION carrying the
+reserved prefix, and exactly one file may write one — `<stdlibDir>/Builtins.maxon`, by IDENTITY. A spec
+fragment is a throwaway file in a scratch directory, so it can never BE that file, and the negative
+controls above are what prove it cannot fake it.
+
+⇒ the harness stages a private stdlib for the case that asks for one. A
+`// --- stdlib-overlay: <path under stdlib/>` section names a stdlib file; the runner copies the compiler
+under test and the whole of ITS `stdlib/` into a directory of the case's own, writes the section's text at
+the TOP of the named copy, and compiles with the copied binary — which locates `stdlib/` by walking up
+from its own path (`StdlibSource.locateStdlibDir`), so the copy is the one it loads. The checkout's
+`stdlib/` is never written to, and no two cases can see each other's overlay.
+
+⚠ **THE SECTION IS PLACED AT THE TOP OF THE FILE, AND THAT IS A POSITION CONTRACT, NOT AN IMPLEMENTATION
+DETAIL.** A diagnostic in the overlay must name a line the READER can find, and the only line number that
+does not move when `stdlib/Builtins.maxon` gains or loses a line is one counted from the file's start. So
+the overlay's own line 1 is the copy's line 1, and it normalizes to the merged fragment exactly as a
+`// --- file:` section does. The compiler sweeps every file's declarations before parsing any of them, so nothing
+about a stdlib module depends on where in the file a declaration sits.
+
+<!-- test: stdlib-overlay-declaration-reaches-the-user-program -->
+
+⭐ **THE POSITIVE CONTROL ON THE FIXTURE ITSELF, and every case below is worthless without it.** A runner
+that staged the overlay and then compiled with the ORIGINAL binary — or that dropped the section on the
+floor — would leave the three refusals below
+passing for a reason that has nothing to do with an overlay: an unknown type refuses a program too. This
+case can only be answered by the overlay actually being the `Builtins.maxon` this compile loaded, and it
+answers 42 rather than merely compiling.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export enum __OverlayProbe
+	first
+	second
+end '__OverlayProbe'
+// --- file: main.maxon
+function rank(e __OverlayProbe) returns ExitCode
+	return match e 'which'
+		first gives 1
+		second gives 42
+	end 'which'
+end 'rank'
+
+function main() returns ExitCode
+	return rank(__OverlayProbe.second)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.stdlib-overlay-write-stdout-collides-at-the-std-tier -->
+
+⭐ **THE STD-TIER `FunctionNameIndex` DOOR — the only one no earlier
+index can reach.** `__write_stdout` is USAGE-GATED: the compiler installs its own copy because the program
+calls `print` (whose corpus body's only floor is `__Builtins.writeStdout`), and that installer runs after
+the whole Maxon tier, so the pair first exists at `DeadFunctionElimination`'s index.
+
+⚠ **THE EXEMPLAR MUST BE A SYMBOL THE COMPILER EMITS.** A case naming a symbol nothing emits would pin
+nothing while still passing — which is the failure mode this whole file is about. `__write_stdout` is
+emitted at this tier through this gate. (An empty body does not compile on its own — an unused parameter is
+E3012 — so the case gives `value` a use.)
+
+⚠⚠ **THE DECLARATION MUST CARRY THE SIGNATURE THE COMPILER'S OWN EMITTED CALL PASSES, and getting that
+wrong moves the answer to a DIFFERENT DOOR.** A declaration exists, so `SemanticCheck` stops skipping the
+parser-emitted `__write_stdout` call inside `stdlib/Print.maxon` and type-checks it; a signature that does
+not match is `E3005` at `stdlib/Print.maxon:10` and never reaches the tier this case is about.
+
+⇒ **SO THIS CASE ALSO PINS THE BYTE-VIEW FOLD, from the one angle a spec can see it.** The emitted call
+passes the `String` ITSELF, because `foldByteViewIntoStreamWrite` rewrites `__str_bytes_view`'s call into
+the write rather than letting the view be built — so `(value String)` is what type-checks here. Without
+the fold the argument would be the view; a buffer signature on this declaration is
+`E3005 … expected 'ByteArray', got 'String'`. Undo the fold and this case fails.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export typealias WrittenByteCount = int(0 to u64.max)
+
+export function __write_stdout(value String) returns WrittenByteCount
+	return value.byteLength()
+end '__write_stdout'
+// --- file: main.maxon
+function main() returns ExitCode
+	print("hi")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:5:17: declaration of '__write_stdout' collides with a symbol the compiler EMITS into this program, and a program cannot hold two functions of one name. The compiler's own definition is the one its emitted code is bound to — the entry stub's calls, the runtime's own call sites, and every call it lowers to that name — so the declaration is the side that must move: rename it
+```
+
+<!-- test: stdlib-overlay-write-stdout-alone-is-legal -->
+
+⭐ **THE OTHER HALF OF THE USAGE GATE, and it is what makes the case above a statement about the PAIR
+rather than about the prefix.** The same `__write_stdout` declaration, in a program that never prints: no
+installer runs, there is no second `__write_stdout`, the declaration is unreachable and is pruned. A rule
+that refused the NAME would refuse this too — and that is exactly the rule applied to the four ROOTED names, which is
+why the next case's message is a different sentence about a different thing.
+
+⚠ It is also the pin that `stdlib/Print.maxon` being LISTED does not widen the runtime floor:
+the corpus module is loaded into this program like every other, and `__write_stdout` is not installed,
+because `scanRuntimeUsage` skips a stdlib body no path from `main` reaches (`LibraryFacts.unreachable`).
+
+⚠ The exit code is routed through a SECOND declaration in the same overlay, and that is deliberate: a
+program returning a bare `42` would compile with the overlay dropped on the floor, so the case would go on
+passing for a compiler that had never staged one. What a case asserts has to be unavailable to a run that
+skipped the mechanism.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export typealias WrittenByteCount = int(0 to u64.max)
+
+export function __write_stdout(value String) returns WrittenByteCount
+	return value.byteLength()
+end '__write_stdout'
+
+export enum __UnprintedProbe
+	answer
+end '__UnprintedProbe'
+// --- file: main.maxon
+function main() returns ExitCode
+	return match __UnprintedProbe.answer 'which'
+		answer gives 42
+	end 'which'
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.stdlib-overlay-mm-leak-check-takes-a-rooted-name -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+
+⭐ **THE ROOTED-NAME DOOR — the same rule where there is NO PAIR TO COUNT.** `__mm_leak_check` is one of the four
+names `DeadFunctionElimination.seedRoots` roots into EVERY program's reachability set, so a heap-free
+program that installs no memory runtime still roots it — at the declaration, whose body the earlier passes
+were told was unreachable and never lowered. Refused for the NAME, and the message says so: the legality
+of a name must not turn on which runtime floor some other program happens to carry.
+```maxon
+// --- stdlib-overlay: Builtins.maxon
+export function __mm_leak_check()
+end '__mm_leak_check'
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E4015: <fragment>:3:17: declaration of '__mm_leak_check' takes a name the compiler owns: it roots that name into every program's reachability set, for a function it emits itself. This program installs no runtime under it, so the declaration is what the root would keep — with an EMPTY body, since the passes that lower bodies were told the name was unreachable. Rename the declaration
+```

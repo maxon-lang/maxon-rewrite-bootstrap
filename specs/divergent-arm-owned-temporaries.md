@@ -1,0 +1,138 @@
+---
+feature: divergent-arm-owned-temporaries
+status: experimental
+keywords: [match, panic, throws, divergent, ownership, temporary, borrow, scope-lifetime]
+category: memory-management
+---
+
+# A Diverging Arm Settles Its OWNED TEMPORARIES Like Any Other Arm
+
+## Documentation
+
+A diverging arm — `panic("…")` or `throws E.case` in place of a value — still *evaluates an expression* on
+its way out, and that expression can build heap the arm becomes responsible for. The shape that does it is
+a **member borrow off a temporary**:
+
+```text
+default throws E.p(Box.make().name)
+```
+
+`Box.make()` yields an owned box; `.name` borrows a field out of it. `dispatchMethodOnBase` calls
+`giveTemporaryScopeLifetime`, which moves that box out of `pendingTempDrops` and into `ownedBindings` so
+the borrow cannot outlive it — and `emitHandoffExitDrops` then **restores** `ownedBindings`, so the record
+survives the arm. Something has to drain it, against a floor taken before the arm was parsed.
+
+**Every position that admits a diverging terminal form owes that bracket**, and they are the positions
+`divergentHandlerOpensAt` rosters:
+
+| position | how it settles |
+|---|---|
+| a block-form `try`'s divergent `otherwise` | `dropArmScopedOwned(ownedFloor, …)` |
+| a match EXPRESSION arm (`red throws E.case`) | `finishArmExit(…, ownedFloor: armOwnedFloor, …)` |
+| a match `default` (`default throws E.case`) | `finishArmExit(…, ownedFloor: defaultOwnedFloor, …)` |
+
+With no floor to drain to, the move marks and the owned-binding stack fall out of lockstep and the
+compiler **panics** — `reconcileMovesAtMerge: a reaching edge's mark holds 0 entries but 1 owned bindings
+are in scope` — on a well-formed program (the answer is the `gives=5` / `throws=9` these cases pin). The
+floors are taken **once, above the fork**, so the plain `default` and the diverging one reach one exit
+obligation rather than two that can drift apart.
+
+⚠ **The two cases below are a matched pair and must stay one.** The first pins the `default` position;
+the second is the control that proves the expression-arm position is independently correct. A change that
+made both pass for one reason would lose that.
+
+⚠ **Both pin `exitcode` as well as `stdout`.** A leaked box exits **101**, and a case that pins only
+stdout never checks the exit code — so the leak this whole spec is about would pass silently.
+
+## Tests
+
+<!-- test: default-throws-settles-a-borrowed-temporary -->
+<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
+<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+The `default` position, both ways through the match: `pick(1)` takes the `gives` arm and `pick(2)` takes the diverging
+`default`, whose thrown value borrows a field out of a temporary box. Without the `default`'s floor this
+program does not compile at all — the parser panics at `reconcileMovesAtMerge`.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export let name as String
+
+	static function make() returns Box
+		return Box{name: "boxed-name-long-enough-to-heap-allocate"}
+	end 'make'
+end 'Box'
+
+// TODO: union errors are not supported in minimaxon; an error is an enum
+union E implements Error
+	p(s String)
+end 'E'
+
+function pick(n Small) returns Small throws E
+	let r = match n 'k'
+		1 gives 5
+		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
+		default throws E.p(Box.make().name)
+	end 'k'
+	return r
+end 'pick'
+
+function main() returns ExitCode
+	let hit = try pick(1) otherwise 9
+	print("gives={hit}")
+	let thrown = try pick(2) otherwise 9
+	print("throws={thrown}")
+	return 0
+end 'main'
+```
+```stdout
+gives=5throws=9
+```
+```exitcode
+0
+```
+
+<!-- test: expression-arm-throws-settles-a-borrowed-temporary -->
+<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+The control: the same borrowed temporary on a diverging PATTERN arm of a match expression rather than on
+the `default`. This position brackets the arm through `finishArmExit` and was already correct — it
+answered identically on a binary where the `default` case still panicked, which is what proves the two
+positions are settled independently rather than by one shared accident.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export let name as String
+
+	static function make() returns Box
+		return Box{name: "boxed-name-long-enough-to-heap-allocate"}
+	end 'make'
+end 'Box'
+
+// TODO: union errors are not supported in minimaxon; an error is an enum
+union E implements Error
+	p(s String)
+end 'E'
+
+function pick(n Small) returns Small throws E
+	let r = match n 'k'
+		1 then throw E.p(Box.make().name)
+		default gives 5
+	end 'k'
+	return r
+end 'pick'
+
+function main() returns ExitCode
+	let thrown = try pick(1) otherwise 9
+	print("throws={thrown}")
+	let hit = try pick(2) otherwise 9
+	print("gives={hit}")
+	return 0
+end 'main'
+```
+```stdout
+throws=9gives=5
+```
+```exitcode
+0
+```

@@ -1,0 +1,1612 @@
+---
+feature: async-subprocess
+status: stable
+keywords: [subprocess, process, spawn, async, await, runProcess, green-threads, scheduler, netpoll, yield, concurrency, throws, try]
+category: concurrency
+---
+
+# Subprocess — spawn a child and yield while it runs
+
+## Documentation
+
+`__Builtins.runProcess(cmd)` spawns a Windows child process for the command line `cmd`, suspends the **current green
+thread** while the child runs, and returns the child's integer exit code once it finishes. It is a **yielding**
+wait: the thread parks on the child, hands control back to the scheduler, and RESUMES with its exit code once the
+child has exited — so other green threads run while a child is pending.
+
+Like every `__Builtins` member it is library-tier: only a source file under `stdlib/` or `runtime/` may call
+it, and a call from anywhere else is E3185. The cases below that call it therefore compile in the library tier
+(`<!-- tier: stdlib -->`); a program outside the library tiers runs a child through `stdlib/Subprocess.maxon`.
+
+⭐ **IT IS SPELLED `__Builtins.runProcess`, AND THE BARE NAME `runProcess` IS AN ORDINARY NAME.** The entry lives in the
+reserved `__Builtins.` space, which `E2051` bars every declaration from, so no user name can contest it, and a
+program declaring its own `runProcess` reaches that declaration with its own arity — as
+`maxon-bin/Testing/SpecTestRunner.maxon`'s own four-parameter `runProcess` does.
+`the-bare-name-is-an-ordinary-declaration` below pins it.
+
+⚠ **UNLIKE `sleep`, IT IS NOT STDLIB SOURCE, AND THAT IS WHY ITS TARGET ANSWER DIFFERS.** `sleep`'s entry is
+`stdlib/Sleep.maxon`, where the target gate is reachability-AWARE, so a program that never names `sleep`
+compiles for wasm (`async-sleep.unnamed-sleep-compiles-on-wasm`). There is no stdlib declaration for this one:
+`stdlib/Subprocess.maxon`'s `Subprocess.run` is a different mechanism (a poll-and-`__gt_sleep` drain over
+`__Builtins.subprocess*`). `__Builtins.runProcess` therefore emits `__gt_process_run` in the program's own code, where the
+gate is reachability-BLIND — pinned by `rejected-on-wasm-when-unreached` below.
+
+`__Builtins.runProcess` is a **throwing** builtin: a spawn failure THROWS rather than aborting, so it
+must be called under `try`, exactly as a throwing array accessor is. It rides the same dual-register error ABI
+(`errorReturn`) an ordinary throwing call uses — the exit code in R8, the error flag in R10 — so
+`try __Builtins.runProcess(cmd) otherwise <handler>` catches the spawn failure, and a program can recover from
+it instead of dying. The error is `RunProcessError` (`stdlib/Subprocess.maxon`), whose cases are
+`spawnFailed` and `statusLost` (another process took the child's exit status), so an `otherwise (e)` handler
+can `match` on it.
+
+```text
+function runChild() returns int
+	return try __Builtins.runProcess("cmd /c exit 3") otherwise 99
+end 'runChild'
+
+function main() returns ExitCode
+	let p = async runChild()
+	let code = await p
+	return code as ExitCode
+end 'main'
+```
+
+When no machine has anything to run and a child is parked, the idle machine blocks in the POLLER, and the
+child's exit arrives there as an event of its own — never a poll period and never a busy-spin. A parked child is
+a SOURCE on the poller exactly as a socket is: a `pidfd` on Linux, a kqueue carrying the child's exit on macOS,
+a registered wait posting a packet on Windows. The same wait ends at every due timer, so a thread that is merely
+sleeping still wakes on time while another thread's child is still running.
+
+`__Builtins.runProcess` works from `main` and from an `async` coroutine alike. Its argument is a
+`String` command line — borrowed, not consumed; a `float`/`int`/`bool` is refused at compile time. Its result is
+an integer (the exit code), so — unlike `sleep` — it may be used in value position (under `try`).
+
+If the command names no runnable executable (`CreateProcessW` fails outright), it throws its
+**spawn-failure** error rather than parking on a non-existent child — a deterministic error the caller
+catches, never a hang. How many children may be parked at once is the poller's property and carries no
+ceiling of its own: `sixty-five-concurrent-children-all-complete` holds sixty-five waits open together, one
+past what a single `WaitForMultipleObjects` array could ever have held.
+
+**Targets — the green-thread substrate gate; see `async-scheduler.md`'s *Targets* section for the one
+statement of it.** A parked child is a source on the scheduler's poller, so these cases need the substrate.
+⚠ The two `error.` cases are front-end refusals (`E3005`, `E3057`), are target-neutral, and carry NO
+marker.
+
+### ⭐ arm64-macOS RUNS `__Builtins.runProcess`, AND ITS WAIT REALLY DOES YIELD THERE
+
+`TargetFacilities` answers `subprocess gives true` for arm64-macOS, so this builtin compiles and runs
+on that lane. The cases above cannot be widened — every one of them spawns `cmd /c …` — so the
+subjects this lane can express carry `posix-…` siblings marked `arm64-macos`, following
+`process-background-priority.md`'s pattern. The command LINE reaches `/bin/sh -c` there, which is
+what "run this command line" means under POSIX and the same interpreter `system()` names, so
+`"exit 3"` is the whole program where the Windows sibling writes `cmd /c exit 3`.
+
+⛔ **ONE SUBJECT HAS NO SIBLING, FOR A REASON IN THE PLATFORM RATHER THAN IN THE PORT.**
+`spawn-failure-caught` and `spawn-failure-recover-continue` turn on `CreateProcessW` REFUSING a
+command that names no runnable executable; under the shell shape the spawn of `/bin/sh` always
+succeeds and a missing command is the SHELL's exit **127**, so no command line on this lane can
+reach the spawn-failure throw those cases exist to catch (a bad name answers 127, not the
+`otherwise` handler). That subject would need a different program asserting a different fact, not a
+marker.
+
+## Tests
+
+<!-- test: async-subprocess.exit-code -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A spawned green thread runs a child that exits 3; the thread parks on the child (yielding), resumes once the child
+exits, and returns the exit code, which becomes the program's exit code. The spawn succeeds, so the
+`otherwise` fallback is never taken.
+```maxon
+function runChild() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 3") otherwise 99
+end 'runChild'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async runChild()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let code = await p
+	return code as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+
+<!-- test: async-subprocess.posix-exit-code -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`exit-code`'s subject on the POSIX lane, and the case that proves `__Builtins.runProcess` runs a child here
+at all: a spawned green thread runs a child that exits 3, parks on it, resumes once it exits, and returns
+the exit code, which becomes the program's exit code. The spawn succeeds, so the `otherwise` fallback is
+never taken.
+
+⚠ **THE COMMAND LINE GOES THROUGH `/bin/sh -c`, AND THAT IS THE CORRECT READING OF THIS SURFACE RATHER THAN
+A SHORTCUT.** `__Builtins.runProcess` takes a whole command LINE a user wrote, and on a lane whose spawn
+primitive takes a vector, "run this command line" MEANS handing it to the interpreter `system()` names —
+which is why `"exit 3"` is a complete program here where the Windows sibling writes `cmd /c exit 3`. The
+ARGV-taking intrinsics in `subprocess-builtins.md` reach no shell at all, and
+`posix-argv-reaches-the-child-verbatim` there is what holds that half apart from this one.
+```maxon
+function runChild() returns Integer
+	return try __Builtins.runProcess("exit 3") otherwise 99
+end 'runChild'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async runChild()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let code = await p
+	return code as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+3
+```
+
+<!-- test: async-subprocess.sequence -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+Two children run in sequence (spawn, await, spawn, await) with distinct exit codes; each thread's exit code is
+read back independently and combined, proving no cross-talk between the two parked-then-resumed threads.
+```maxon
+function childA() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 4") otherwise 99
+end 'childA'
+
+function childB() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 5") otherwise 99
+end 'childB'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let pa = async childA()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let a = await pa
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let pb = async childB()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let b = await pb
+	return (a * 10 + b) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+45
+```
+
+<!-- test: async-subprocess.multi-concurrent -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+Three children are spawned BEFORE any await, so all three park on their processes SIMULTANEOUSLY — the poller
+holds THREE child sources at once and its readiness walk wakes each waiter separately (the path `sequence`,
+`spawn-loop` and `interleave` never reach, each parking ≤1 child at a time). Each exit code is read back into
+its own digit, so `123` proves all three resumed independently with the right handle-to-thread mapping and no
+cross-talk.
+```maxon
+function c1() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 1") otherwise 99
+end 'c1'
+
+function c2() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 2") otherwise 99
+end 'c2'
+
+function c3() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 3") otherwise 99
+end 'c3'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async c1()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async c2()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async c3()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = await p2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = await p3
+	return (r1 * 100 + r2 * 10 + r3) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+123
+```
+
+<!-- test: async-subprocess.posix-a-child-that-has-already-exited -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐⭐ **A CHILD CAN FINISH BEFORE ITS PARENT FINISHES ARMING, AND THAT IS AN ANSWER RATHER THAN A REFUSAL.**
+Between the spawn and the registration the kernel may run the child to completion, and a source for a task
+that is gone cannot be opened: `pidfd_open` answers `ESRCH` for a reaped pid and an `EVFILT_PROC`
+registration answers it for a task that has exited. The exit STATUS is still there to read, so the wait is
+already over and the runtime takes the status — it does not abort.
+
+⛔⛔ **IT IS A RACE, WHICH IS WHY THE LOOP IS FIFTY.** `exit 7` through
+`/bin/sh` is about as short-lived as a child gets, so each lap is a fresh chance to lose it; a machine that
+loses it once fails the whole case. A loaded machine loses it far more often than an idle one, and a lost
+race that aborts answers `RuntimeAbort.netpollFailed` (103) — a shape no other case can see, because every
+other subprocess case spawns a child that outlives its own registration.
+
+⚠ **THE COUNT IS THE ASSERTION, NOT THE EXIT CODE.** Each lap that answers 7 steps `done`, so `50` says
+every child was spawned, waited for and reaped with the right status; an abort answers 103 and a lap that
+silently lost its child answers less.
+```maxon
+function once() returns Integer
+	return try __Builtins.runProcess("exit 7") otherwise 99
+end 'once'
+
+function main() returns ExitCode
+	var done = 0 as Integer
+	for _ in 0 upto 50 'spawns'
+		if once() == 7 'reaped'
+			done = done + 1
+		end 'reaped'
+	end 'spawns'
+	return done as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+50
+```
+
+<!-- test: async-subprocess.posix-multi-concurrent -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐ **THE CONCURRENCY CASE — SEVERAL CHILDREN THROUGH THE NETPOLL AT ONCE.** Three children are spawned
+BEFORE any await, so all three park on their processes SIMULTANEOUSLY and the poller holds three child
+sources at once — the path `posix-exit-code` and `posix-interleave-with-sleep` never reach, each parking one
+child at a time. Each exit code is read back into its own digit, so `123` proves all three resumed
+independently with the right child-to-thread mapping and no cross-talk; two children swapped, or one thread
+resumed with another's status, gives a different three-digit number rather than a near miss.
+
+⚠ On this lane each child's exit reaches the poller through a source the kernel mints for it — a `pidfd` on
+Linux, a kqueue carrying `NOTE_EXIT` on macOS — where the Windows lane's arrives as a completion packet. How
+many may be parked together is the poller's property on either, and
+`posix-sixty-five-concurrent-children-all-complete` is where that is asserted rather than here.
+```maxon
+function c1() returns Integer
+	return try __Builtins.runProcess("exit 1") otherwise 99
+end 'c1'
+
+function c2() returns Integer
+	return try __Builtins.runProcess("exit 2") otherwise 99
+end 'c2'
+
+function c3() returns Integer
+	return try __Builtins.runProcess("exit 3") otherwise 99
+end 'c3'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async c1()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async c2()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async c3()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = await p2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = await p3
+	return (r1 * 100 + r2 * 10 + r3) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+123
+```
+
+<!-- test: async-subprocess.posix-children-exiting-in-reverse-order-each-resume-with-their-own-status -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐ **THREE CHILDREN WHOSE EXITS ARRIVE IN THE OPPOSITE ORDER FROM THEIR SPAWNS.** The first child outlives the
+second, which outlives the third, so the exits reach the poller as 3, 2, 1 while the awaits ask for 1, 2, 3. Two
+facts are asserted at once. Each task resumes with the status of ITS child (`r1 r2 r3` read back as 1, 2, 3), so
+an exit delivered to the wrong parked task is a different number rather than a near miss. And the resumption
+order is the exit order (`order` steps in base 4 as each task finishes, so the quick child's 3, then the middle
+child's 2, then the slow child's 1 read `57`), so a wake that waited for the oldest child instead of the one
+that exited gives a different number too.
+```maxon
+function record(order OrderCell, digit Integer)
+	while true 'retry'
+		let seen = order.current()
+		if order.publish(seen * 4 + digit, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'record'
+
+function slow(order OrderCell) returns Integer
+	let code = try __Builtins.runProcess("sleep 0.9; exit 1") otherwise 99
+	record(order, digit: 1)
+	return code
+end 'slow'
+
+function middle(order OrderCell) returns Integer
+	let code = try __Builtins.runProcess("sleep 0.5; exit 2") otherwise 99
+	record(order, digit: 2)
+	return code
+end 'middle'
+
+function quick(order OrderCell) returns Integer
+	let code = try __Builtins.runProcess("exit 3") otherwise 99
+	record(order, digit: 3)
+	return code
+end 'quick'
+
+function main() returns ExitCode
+	let order = OrderCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async slow(order.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async middle(order.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async quick(order.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = await p2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = await p3
+	if r1 != 1 or r2 != 2 or r3 != 3 'statuses'
+		return 99
+	end 'statuses'
+	return order.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias OrderCell = SharedValue with Integer
+```
+```exitcode
+57
+```
+
+<!-- test: async-subprocess.posix-short-children-that-exit-before-their-waiter-parks -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐ **MANY SHORT CHILDREN IN FLIGHT AT ONCE, SO SOME EXIT BEFORE THEIR OWN WAITER HAS PARKED.** Six tasks each run
+eight children one after another, every child `exit {code}` through `/bin/sh`, which is as short-lived as a
+child gets. While one task is arming its child's wait, the children of the other five are exiting, so a
+child routinely finishes before the task that spawned it has parked, and its exit has to be found by looking
+rather than by an event that already came and went. The awaits run last-to-first so the promises complete in
+an order unrelated to the awaits.
+
+⚠ **THE SUM IS THE ASSERTION.** Task `n` returns eight times `n`, so `168` says all forty-eight children were
+spawned, waited for and reaped with their own status: a lost wake hangs the case, a status delivered to the
+wrong task or a child counted twice changes the sum.
+```maxon
+function child(code Integer) returns Integer
+	return try __Builtins.runProcess("exit {code}") otherwise 99
+end 'child'
+
+function lap(code Integer) returns Integer
+	var total = 0 as Integer
+	for _ in 0 upto 8 'laps'
+		total = total + child(code)
+	end 'laps'
+	return total
+end 'lap'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async lap(1)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async lap(2)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async lap(3)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p4 = async lap(4)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p5 = async lap(5)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p6 = async lap(6)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r6 = await p6
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r5 = await p5
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r4 = await p4
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = await p3
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = await p2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = await p1
+	return (r1 + r2 + r3 + r4 + r5 + r6) as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+168
+```
+
+<!-- test: async-subprocess.interleave-with-sleep -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A slow child and a short (50 ms) sleeper run concurrently. The child exits only once the sleeper has created a
+flag file, which it does after its timer fires, so the sleeper's timer fires WHILE the child is still running and
+the sleeper resumes FIRST — proving the process wait YIELDS (it is bounded by the earliest timer, not a blocking
+wait on the child). Each records its completion order into a global (`order = order * 10 + tag`), so `21` proves
+the sleeper (tag 2) completed before the child thread (tag 1). A wait that blocked the single thread on the child
+would never let the sleeper run, so the child would never see the flag and the runner would report the case TIMED
+OUT; no elapsed time is compared to a threshold, so a slow host cannot reorder the two.
+```maxon
+let flagName = "async-subprocess-interleave.flag"
+
+function flagPath() returns FilePath
+	return try FilePath.from(flagName) otherwise panic("flagName is a valid path")
+end 'flagPath'
+
+function clearFlag()
+	if File.exists(flagPath()) 'present'
+		try File.delete(flagPath()) otherwise panic("the flag file cannot be deleted")
+	end 'present'
+end 'clearFlag'
+
+function record(order OrderCell, digit Integer)
+	while true 'retry'
+		let seen = order.current()
+		if order.publish(seen * 10 + digit, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'record'
+
+function slow(order OrderCell) returns Integer
+	_ = try __Builtins.runProcess("cmd /c for /l %i in (1,1,100000) do @if exist {flagName} (exit 0) else (ping -n 2 127.0.0.1 >nul)") otherwise 99
+	record(order, digit: 1)
+	return 1
+end 'slow'
+
+function fast(order OrderCell) returns Integer
+	sleep(50)
+	record(order, digit: 2)
+	try File.writeText(flagPath(), content: "go") otherwise panic("the flag file cannot be written")
+	return 2
+end 'fast'
+
+function main() returns ExitCode
+	clearFlag()
+	let order = OrderCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async slow(order.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async fast(order.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p2
+	clearFlag()
+	return order.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias OrderCell = SharedValue with Integer
+```
+```exitcode
+21
+```
+
+<!-- test: async-subprocess.posix-interleave-with-sleep -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐ **THE CASE THAT PROVES THE PROCESS WAIT YIELDS ON THIS LANE.** A slow child and a short 50 ms sleeper run
+concurrently. The child exits only once the sleeper has created a flag file, which it does after its timer
+fires, so the sleeper's timer fires WHILE the child is still running and the sleeper resumes FIRST — the wait is
+bounded by the earliest timer rather than blocking the single M on the child. Each records its completion order
+into a global (`order = order * 10 + tag`), so `21` proves the sleeper (tag 2) completed before the child thread
+(tag 1); a wait that blocked would never let the sleeper run, and the runner would report the case TIMED OUT. No
+elapsed time is compared to a threshold, so a slow host cannot reorder the two.
+
+⭐ It is worth having here rather than being taken on trust from Windows, because the very same measurement
+on the STREAMING reader answers `12` on this lane: the process wait parks and a pipe read does not
+(`streaming-subprocess.posix-echo-read` records that split, and `TargetFacilities`'s MAC8 row is where it
+comes from). So on arm64-macOS this case and its streaming counterpart genuinely disagree, and only a
+measurement can say which way each falls.
+```maxon
+let flagName = "async-subprocess-interleave.flag"
+
+function flagPath() returns FilePath
+	return try FilePath.from(flagName) otherwise panic("flagName is a valid path")
+end 'flagPath'
+
+function clearFlag()
+	if File.exists(flagPath()) 'present'
+		try File.delete(flagPath()) otherwise panic("the flag file cannot be deleted")
+	end 'present'
+end 'clearFlag'
+
+function record(order OrderCell, digit Integer)
+	while true 'retry'
+		let seen = order.current()
+		if order.publish(seen * 10 + digit, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'record'
+
+function slow(order OrderCell) returns Integer
+	_ = try __Builtins.runProcess("while [ ! -f {flagName} ]; do sleep 0.05; done") otherwise 99
+	record(order, digit: 1)
+	return 1
+end 'slow'
+
+function fast(order OrderCell) returns Integer
+	sleep(50)
+	record(order, digit: 2)
+	try File.writeText(flagPath(), content: "go") otherwise panic("the flag file cannot be written")
+	return 2
+end 'fast'
+
+function main() returns ExitCode
+	clearFlag()
+	let order = OrderCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async slow(order.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async fast(order.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p1
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p2
+	clearFlag()
+	return order.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias OrderCell = SharedValue with Integer
+```
+```exitcode
+21
+```
+
+<!-- test: async-subprocess.a-parked-child-costs-no-poll -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+<!-- procs: 1 -->
+⭐ **A SECOND OF PARKED CHILD COSTS THE POLLER ONE WAIT, NOT A THOUSAND.** A child is a SOURCE on the
+network poller, exactly as a socket is: the green thread awaiting it is suspended there, and the poller's
+wait ends when the child's exit lands rather than at a poll period of the poller's own. Two facts say it.
+`quiet=` bounds how many times a parked machine's wait returned across the second the child runs — a
+poller that caps its wait so it can re-poll every parked child returns about a thousand times in that
+second, so the bound is a small constant and anything near it is the cap still there. `onpoller=` says the
+park was on the POLLER at all: a child parked on a store nothing blocks on steps that counter zero times,
+however promptly it is reaped.
+
+⚠ **THE SECOND IS THE CHILD'S AND NOT A RACE.** The child exits only once a flag file exists, and `release`
+creates it a full second after the netpoll count has moved past the mark `main` took before the spawn, so the
+child is parked on the poller for at least that second however slow the host is. The wait for the count has no
+bound: a child wait that never parks on the poller leaves `release` waiting and the runner reports the case TIMED
+OUT. `release` waits by yielding and not by sleeping, because a sleep in that window is a timer wake of its own
+inside the span `quiet=` counts. The span ends at the instant `release` reads `parkWakes`, just before it writes
+the flag: the write and the child's exit are kernel work of their own, and what `quiet=` bounds is the second
+the child was parked.
+
+⚠ **NEITHER FACT STANDS ALONE.** A quiet second is satisfied by a machine that simply blocked on the
+child and polled nothing; a poller park is satisfied by a poller that parks and then wakes on a period
+anyway. Together they say the wait is ON the poller AND is not bounded by a period of its own.
+
+⚠ **`quietWakes` IS THE BOUND THIS CASE ASSERTS, NOT A NUMBER READ OFF A CONTROL.** It is chosen the way
+`netpoll-idle.an-idle-sleep-wakes-no-machine` chooses its own: small enough that a per-millisecond poll
+cannot fit under it by two orders of magnitude, loose enough to cover the handful of wakes the spawn, the
+exit and the await themselves cost.
+```maxon
+// The whole second the child runs. A poller that blocks until the child's exit lands returns a handful of
+// times; one that caps its wait to re-poll every parked child returns about a thousand.
+let quietWakes = 8
+
+// A child wait is a park on the poller — at least the one this program makes.
+let pollerParks = 1
+
+let flagName = "async-subprocess-parked-child.flag"
+
+let childRunsMs = 1000
+
+function flagPath() returns FilePath
+	return try FilePath.from(flagName) otherwise panic("flagName is a valid path")
+end 'flagPath'
+
+function clearFlag()
+	if File.exists(flagPath()) 'present'
+		try File.delete(flagPath()) otherwise panic("the flag file cannot be deleted")
+	end 'present'
+end 'clearFlag'
+
+function slow() returns Integer
+	return try __Builtins.runProcess("cmd /c for /l %i in (1,1,100000) do @if exist {flagName} (exit 0) else (ping -n 2 127.0.0.1 >nul)") otherwise 99
+end 'slow'
+
+function release(parkedFrom SchedulerEventCount) returns SchedulerEventCount
+	while Scheduler.counters().netpollBlocks < parkedFrom 'untilChildParked'
+		Scheduler.yield()
+	end 'untilChildParked'
+	sleep(childRunsMs)
+	let wakesAtRelease = Scheduler.counters().parkWakes
+	try File.writeText(flagPath(), content: "go") otherwise panic("the flag file cannot be written")
+	return wakesAtRelease
+end 'release'
+
+function main() returns ExitCode
+	clearFlag()
+	sleep(1)
+	let beforeWakes = Scheduler.counters().parkWakes
+	let beforeParks = Scheduler.counters().netpollBlocks
+	let parkedFrom = beforeParks + 1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async slow()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = async release(parkedFrom)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let wakesAtRelease = await r
+	let wakes = wakesAtRelease - beforeWakes
+	let parks = Scheduler.counters().netpollBlocks - beforeParks
+	clearFlag()
+	print("quiet={wakes <= quietWakes} onpoller={parks >= pollerParks}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+quiet=true onpoller=true
+```
+```exitcode
+0
+```
+
+<!-- test: async-subprocess.posix-a-parked-child-costs-no-poll -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+<!-- procs: 1 -->
+`a-parked-child-costs-no-poll`'s subject on the POSIX lane, where the child joins the poller as a source of
+its own rather than as a handle in a wait array. The same two facts: the second the child runs costs the
+poller a handful of wait returns rather than one per millisecond, and the awaiting green thread is counted
+as suspended ON the poller. The second is the child's and not a race, for the reason that case gives: the
+child exits only once a flag file exists, and `release` creates it a full second after the netpoll count has
+moved past the mark `main` took before the spawn.
+
+⚠ **THE EXIT CODE IS FIXED AT 0 ON PURPOSE.** What a child answers is `posix-exit-code`'s subject; this
+case is about where its waiter sat, so the two printed facts carry the whole claim and the exit code
+carries none of it.
+```maxon
+// The whole second the child runs. A poller that blocks until the child's exit lands returns a handful of
+// times; one that caps its wait to re-poll every parked child returns about a thousand.
+let quietWakes = 8
+
+// A child wait is a park on the poller — at least the one this program makes.
+let pollerParks = 1
+
+let flagName = "async-subprocess-parked-child.flag"
+
+let childRunsMs = 1000
+
+function flagPath() returns FilePath
+	return try FilePath.from(flagName) otherwise panic("flagName is a valid path")
+end 'flagPath'
+
+function clearFlag()
+	if File.exists(flagPath()) 'present'
+		try File.delete(flagPath()) otherwise panic("the flag file cannot be deleted")
+	end 'present'
+end 'clearFlag'
+
+function slow() returns Integer
+	return try __Builtins.runProcess("while [ ! -f {flagName} ]; do sleep 0.05; done") otherwise 99
+end 'slow'
+
+function release(parkedFrom SchedulerEventCount) returns SchedulerEventCount
+	while Scheduler.counters().netpollBlocks < parkedFrom 'untilChildParked'
+		Scheduler.yield()
+	end 'untilChildParked'
+	sleep(childRunsMs)
+	let wakesAtRelease = Scheduler.counters().parkWakes
+	try File.writeText(flagPath(), content: "go") otherwise panic("the flag file cannot be written")
+	return wakesAtRelease
+end 'release'
+
+function main() returns ExitCode
+	clearFlag()
+	sleep(1)
+	let beforeWakes = Scheduler.counters().parkWakes
+	let beforeParks = Scheduler.counters().netpollBlocks
+	let parkedFrom = beforeParks + 1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async slow()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = async release(parkedFrom)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let wakesAtRelease = await r
+	let wakes = wakesAtRelease - beforeWakes
+	let parks = Scheduler.counters().netpollBlocks - beforeParks
+	clearFlag()
+	print("quiet={wakes <= quietWakes} onpoller={parks >= pollerParks}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+quiet=true onpoller=true
+```
+```exitcode
+0
+```
+
+<!-- test: async-subprocess.spawn-loop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+Robustness: twenty-five spawned threads each run a child that exits 1, awaited in turn. Each parks on its child
+(waiting, NOT completed — its stack must NOT be recycled while parked) then resumes and completes (stack recycled
+onto the free-list). The sum proves all twenty-five ran to completion with no crash, no use-after-free, and no leak.
+```maxon
+function child() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 1") otherwise 99
+end 'child'
+
+function main() returns ExitCode
+	var i = 0 as Integer
+	var sum = 0 as Integer
+	while i < 25 'l'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let p = async child()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let r = await p
+		sum = sum + r
+		i = i + 1
+	end 'l'
+	return sum as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+25
+```
+
+<!-- test: async-subprocess.scratch-reuse-loop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+Fifty children each exit 1, awaited in turn, summing to 50. The value is that `__gt_process_run`'s OS scratch —
+STARTUPINFOW, PROCESS_INFORMATION, the mutable cmdline copy and the exit-code slot — is REUSED across all fifty
+calls: the three fixed buffers are one-time `__gt_init` allocations and the cmdline copy is a
+grow-on-demand global that allocates once for a constant command length, so the loop stays bounded rather than
+bump-leaking ~150 bytes per call. Reuse is only correct because PROCESS_INFORMATION's `hProcess` is re-zeroed
+before each spawn (the failure sentinel) and the exit-code slot is re-zeroed before each `GetExitCodeProcess`
+(a clean i64 read); the green-thread live-count gate stays clean, so a clean exit proves the reuse leaked nothing.
+```maxon
+function child() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 1") otherwise 99
+end 'child'
+
+function main() returns ExitCode
+	var i = 0 as Integer
+	var sum = 0 as Integer
+	while i < 50 'l'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let p = async child()
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let r = await p
+		sum = sum + r
+		i = i + 1
+	end 'l'
+	return sum as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+50
+```
+
+<!-- test: async-subprocess.spawn-failure-caught -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A command that names no runnable executable makes `CreateProcessW` fail outright, leaving a null child handle. The
+runtime THROWS its spawn-failure error rather than aborting the process — so the direct
+`try __Builtins.runProcess(bad) otherwise 42` in `main` catches it and returns the fallback 42. The program
+runs to a normal return, proving the spawn failure is recoverable, not fatal.
+```maxon
+function main() returns ExitCode
+	let code = try __Builtins.runProcess("nonexistentprogram_xyz_12345") otherwise 42
+	return code as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: async-subprocess.spawn-failure-binds-its-case -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The spawn failure is `RunProcessError.spawnFailed`, so an `otherwise (e)` handler can `match` on it.
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __Builtins.runProcess("nonexistentprogram_xyz_24680") otherwise (e) 'handler'
+		match e 'check'
+			spawnFailed then return 42
+			statusLost then return 1
+		end 'check'
+	end 'handler'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: async-subprocess.spawn-failure-recover-continue -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+Recovery leaves the scheduler CONSISTENT: after a caught `spawnFailed` (a command that cannot start), a SECOND
+A VALID command still spawns, parks and returns its exit code. `bad` catches the spawn failure and
+falls back to 0; `good` runs `cmd /c exit 9` normally. `0 + 9 = 9` proves the caught error did not leave the process
+store, the netpoller or the current GT in a broken state.
+```maxon
+function main() returns ExitCode
+	let bad = try __Builtins.runProcess("nonexistentprogram_xyz_67890") otherwise 0
+	let good = try __Builtins.runProcess("cmd /c exit 9") otherwise 0
+	return (bad + good) as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: async-subprocess.sixty-five-concurrent-children-all-complete -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+⭐ **SIXTY-FIVE CHILDREN PARKED AT ONCE, AND NOTHING IS FULL.** How many children a program may wait on
+concurrently is a property of the POLLER, which carries as many registered sources as the process has
+handles — not of a fixed-size store with a ceiling of its own. Sixty-five is one past the sixty-four a
+`WaitForMultipleObjects` array can hold, so a store reappearing anywhere on this path shows up as the
+sixty-fifth child failing rather than as a slower run. Each child is started as a live promise before any
+await (a discarded promise is drop-cancelled, so each needs its own binding) and every one that exits 0
+steps `done`, so `65` is the only answer all sixty-five completing produces — one child lost gives a
+different number rather than a near miss.
+
+⚠ **EVERY CHILD MUST OUTLIVE THE BURST OF SIXTY-FIVE SPAWNS, AND THAT IS WHY IT SLEEPS.** A spawn is a
+kernel call, and while one runs the scheduler may hand the processor to another machine, whose idle poll
+reaps every child that has already exited. A child that exited at once would be gone before the
+sixty-fifth parks: the program would never hold sixty-five waits open together, would pass without
+exercising the property at all, and would say nothing about the ceiling it exists to deny. A two-second
+child is still running when the last spawn returns, however the spawns interleave with that machine.
+```maxon
+function tally(done DoneCell)
+	while true 'retry'
+		let seen = done.current()
+		if done.publish(seen + 1, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'tally'
+
+function child(done DoneCell) returns Integer
+	let code = try __Builtins.runProcess("cmd /c ping -n 3 127.0.0.1 >nul") otherwise 99
+	if code == 0 'completed'
+		tally(done)
+	end 'completed'
+	return code
+end 'child'
+
+function main() returns ExitCode
+	let done = DoneCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p00 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p01 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p02 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p03 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p04 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p05 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p06 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p07 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p08 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p09 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p10 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p11 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p12 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p13 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p14 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p15 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p16 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p17 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p18 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p19 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p20 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p21 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p22 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p23 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p24 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p25 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p26 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p27 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p28 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p29 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p30 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p31 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p32 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p33 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p34 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p35 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p36 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p37 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p38 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p39 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p40 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p41 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p42 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p43 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p44 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p45 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p46 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p47 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p48 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p49 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p50 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p51 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p52 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p53 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p54 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p55 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p56 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p57 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p58 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p59 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p60 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p61 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p62 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p63 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p64 = async child(done.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p00
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p01
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p02
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p03
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p04
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p05
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p06
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p07
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p08
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p09
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p10
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p11
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p12
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p13
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p14
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p15
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p16
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p17
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p18
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p19
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p20
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p21
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p22
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p23
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p24
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p25
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p26
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p27
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p28
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p29
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p30
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p31
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p32
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p33
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p34
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p35
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p36
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p37
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p38
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p39
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p40
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p41
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p42
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p43
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p44
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p45
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p46
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p47
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p48
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p49
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p50
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p51
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p52
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p53
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p54
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p55
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p56
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p57
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p58
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p59
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p60
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p61
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p62
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p63
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p64
+	return done.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias DoneCell = SharedValue with Integer
+```
+```exitcode
+65
+```
+
+<!-- test: async-subprocess.posix-sixty-five-concurrent-children-all-complete -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`sixty-five-concurrent-children-all-complete`'s subject on the POSIX lanes: sixty-five children parked
+together, each a source on the poller rather than a slot in a store, and `65` only if every one of them
+completed. `sleep 2` outlives the burst of spawns for the same reason as the Windows sibling's two-second
+child — a child that exited at once would be reaped by another machine's idle poll before the sixty-fifth
+parked, and the program would never hold sixty-five waits open at the same time.
+```maxon
+function tally(done DoneCell)
+	while true 'retry'
+		let seen = done.current()
+		if done.publish(seen + 1, replacing: seen) 'landed'
+			break
+		end 'landed'
+	end 'retry'
+end 'tally'
+
+function child(done DoneCell) returns Integer
+	let code = try __Builtins.runProcess("sleep 2") otherwise 99
+	if code == 0 'completed'
+		tally(done)
+	end 'completed'
+	return code
+end 'child'
+
+function main() returns ExitCode
+	let done = DoneCell.create(0 as Integer)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p00 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p01 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p02 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p03 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p04 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p05 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p06 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p07 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p08 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p09 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p10 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p11 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p12 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p13 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p14 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p15 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p16 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p17 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p18 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p19 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p20 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p21 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p22 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p23 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p24 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p25 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p26 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p27 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p28 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p29 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p30 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p31 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p32 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p33 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p34 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p35 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p36 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p37 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p38 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p39 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p40 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p41 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p42 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p43 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p44 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p45 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p46 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p47 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p48 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p49 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p50 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p51 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p52 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p53 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p54 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p55 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p56 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p57 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p58 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p59 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p60 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p61 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p62 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p63 = async child(done.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p64 = async child(done.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p00
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p01
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p02
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p03
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p04
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p05
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p06
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p07
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p08
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p09
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p10
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p11
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p12
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p13
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p14
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p15
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p16
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p17
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p18
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p19
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p20
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p21
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p22
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p23
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p24
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p25
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p26
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p27
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p28
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p29
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p30
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p31
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p32
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p33
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p34
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p35
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p36
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p37
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p38
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p39
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p40
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p41
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p42
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p43
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p44
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p45
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p46
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p47
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p48
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p49
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p50
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p51
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p52
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p53
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p54
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p55
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p56
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p57
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p58
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p59
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p60
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p61
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p62
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p63
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	_ = await p64
+	return done.current() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias DoneCell = SharedValue with Integer
+```
+```exitcode
+65
+```
+
+<!-- test: async-subprocess.error.non-string-arg-rejected -->
+<!-- tier: stdlib -->
+`__Builtins.runProcess` requires a `String` command line; a non-String argument is refused at compile time.
+```maxon
+function main() returns ExitCode
+	__Builtins.runProcess(42)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:13: '__Builtins.runProcess' requires an argument of type String, but its argument is int
+```
+
+<!-- test: async-subprocess.error.bare-call-requires-try -->
+<!-- tier: stdlib -->
+`__Builtins.runProcess` is a throwing builtin, so a bare call that drops its error flag is refused
+(E3057) — the exact mirror of the throwing-array-accessor rule. A bare call would read only the exit code (R8)
+and silently drop the spawn-failure flag (R10), so the compiler forces a `try`.
+```maxon
+function main() returns ExitCode
+	let code = __Builtins.runProcess("cmd /c exit 1")
+	return code as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3057: <fragment>:3:24: throwing subprocess call requires try: wrap `__Builtins.runProcess(…)` as `try __Builtins.runProcess(…) otherwise …` — a bare call drops the spawn-failure error
+```
+
+<!-- test: async-subprocess.error.rejected-on-wasm -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+The other half: it spawns a Windows child through `__gt_process_run`, so a program that reaches it
+on any other target is refused at the call's own span with **E3104**. ⚠ Outside that gate the same program
+dies as a BACKEND PANIC three tiers down rather than as a diagnostic, which is what the gate buys.
+```maxon
+function main() returns ExitCode
+	let code = try __Builtins.runProcess("cmd /c exit 1") otherwise return 9
+	return code as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:28: this construct lowers to the runtime entry '__gt_process_run', which has no wasm32-wasi implementation
+```
+
+<!-- test: async-subprocess.rejected-on-wasm-when-unreached -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+**An unreached call is refused too, and that is the half worth pinning.** `spawner` is never called,
+yet its intrinsic is refused: `__Builtins.runProcess` emits `__gt_process_run` in the program's own source — a library-tier case's files included, because a project rooted under `stdlib/` keeps its own files as the program's rather than recording them as library source (`StdlibLoader.setAsideTheUsersOwnLibraryFiles`), where
+`SemanticCheck.requireTargetSupportsCallee` is reachability-BLIND — it visits every function, and
+dead-function elimination runs two tiers later. `async-sleep.unnamed-sleep-compiles-on-wasm` shows the
+opposite outcome for an entry written in stdlib source, where the gate is reachability-AWARE; this entry has
+no stdlib declaration (see the *Documentation* section), so it keeps the property, exactly as
+`builtins-clock.thread-cpu-ticks-rejected-on-wasm-when-unreached` does for `__Builtins.threadCpuTicks`.
+```maxon
+public function spawner() returns Integer
+	return try __Builtins.runProcess("cmd /c exit 1") otherwise 9
+end 'spawner'
+
+function main() returns ExitCode
+	return 4
+end 'main'
+
+public typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3104: <fragment>:3:24: this construct lowers to the runtime entry '__gt_process_run', which has no wasm32-wasi implementation
+```
+
+<!-- test: async-subprocess.the-bare-name-is-an-ordinary-declaration -->
+**THE BARE NAME IS THE PROGRAM'S OWN.** `runProcess` is not claimed by the parser, so a program may declare
+one and it is REACHED — with its own arity, its own `name:` labels and its own return type, none of which the
+one-argument builtin could express. A parser that claimed the name would report
+`E3036: 'runProcess' takes exactly 1 argument, but 3 were given` against the call while the declaration sat
+there unreachable and undiagnosed — the shape `maxon-bin/Testing/SpecTestRunner.maxon`'s own
+four-parameter `runProcess` would hit. Target-neutral: nothing here reaches a runtime entry.
+The three arguments carry 1, 2 and 4 so their SUM names exactly which of them arrived: a dropped or
+transposed label changes the total to a different, distinguishable number rather than to another 7.
+```maxon
+function runProcess(exe Integer, argv Integer, workingDirectory Integer) returns Integer
+	return exe + argv + workingDirectory
+end 'runProcess'
+
+function main() returns ExitCode
+	let n = runProcess(1, argv: 2, workingDirectory: 4)
+	return n as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+7
+```

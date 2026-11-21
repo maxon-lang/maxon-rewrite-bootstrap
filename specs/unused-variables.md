@@ -1,0 +1,513 @@
+---
+feature: unused-variables
+status: stable
+keywords: [variables, unused, diagnostics, errors]
+category: diagnostics
+---
+
+# Unused Variable Detection
+
+## Documentation
+
+Maxon requires all local variables to be used. Declaring a variable with `var` or `let` and never referencing it causes a compilation error. Every unused variable of a function is reported, in source order.
+
+### Example Error
+
+```maxon
+function main() returns ExitCode
+	var x = 42  // Error: 'x' is unused
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/docs-example-1.maxon:3:6: unused variable: 'x'
+```
+
+### Discarding Return Values
+
+Use `_ =` to discard a function's return value:
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function sideEffect() returns Integer
+	print("hello\n")
+	return 42
+end 'sideEffect'
+
+function main() returns ExitCode
+	_ = sideEffect()  // OK: underscore discards return value
+	return 0
+end 'main'
+```
+
+## Tests
+
+<!-- test: unused-var -->
+```maxon
+
+function main() returns ExitCode
+	var x = 42 as FullRangeInt
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-var.maxon:4:6: unused variable: 'x'
+```
+
+<!-- test: unused-let -->
+```maxon
+
+function main() returns ExitCode
+	let x = 42
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-let.maxon:4:6: unused variable: 'x'
+```
+
+<!-- test: used-var -->
+```maxon
+
+function main() returns ExitCode
+	let x = 42
+	return x
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: used-let -->
+```maxon
+
+function main() returns ExitCode
+	let x = 10
+	return x
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: underscore-discard -->
+```maxon
+
+function main() returns ExitCode
+	_ = 42
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3067: specs/unused-variables/underscore-discard.maxon:4:2: expected a function call
+```
+
+<!-- test: used-in-nested-scope -->
+```maxon
+
+function main() returns ExitCode
+	let x = 42
+	if x > 0 'check'
+		return x
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: tuple-destructuring-unused -->
+<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+typealias Small = int(0 to 100)
+
+// TODO: tuple return types are not supported in minimaxon
+function makePair() returns (Small, Small)
+	// TODO: tuple values and types are not supported in minimaxon
+	return (10, 20)
+end 'makePair'
+
+function main() returns ExitCode
+	// TODO: tuple destructuring declarations are not supported in minimaxon
+	let (a, b) = makePair()
+	return a
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/tuple-destructuring-unused.maxon:10:10: unused variable: 'b'
+```
+
+<!-- test: multiple-unused-each-reported -->
+```maxon
+
+function main() returns ExitCode
+	let x = 1
+	let y = 2
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/multiple-unused-each-reported.maxon:4:6: unused variable: 'x'
+error E3012: specs/unused-variables/multiple-unused-each-reported.maxon:5:6: unused variable: 'y'
+```
+
+<!-- test: every-unused-kind-in-one-function-is-reported -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+An unused parameter, body `let`, body `var`, loop variable, caught `(e)` and match-arm payload binder in one
+function are each reported, in source order.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+enum MyError implements Error
+	failed
+end 'MyError'
+
+union Container
+	empty
+	value(n Integer)
+end 'Container'
+
+function mayFail() returns Integer throws MyError
+	throw MyError.failed
+end 'mayFail'
+
+function tally(limit Integer) returns Integer
+	let spare = 7
+	var idle = 0 as Integer
+	var count = 0 as Integer
+	for i in 0 upto 3 'loop'
+		count = count + 1
+	end 'loop'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try mayFail() otherwise (e) 'handler'
+		count = count + 10
+	end 'handler'
+	let c = Container.value(42)
+	match c 'check'
+		empty then count = count + 100
+		value(n) then count = count + 1000
+	end 'check'
+	return count
+end 'tally'
+
+function main() returns ExitCode
+	return tally(3)
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:18:16: unused variable: 'limit'
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:19:6: unused variable: 'spare'
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:20:6: unused variable: 'idle'
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:22:6: unused variable: 'i'
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:25:27: unused variable: 'e'
+error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reported.maxon:31:9: unused variable: 'n'
+```
+
+<!-- test: two-functions-each-report-their-own-unused-locals -->
+```maxon
+
+function first() returns ExitCode
+	let a = 1
+	let b = 2
+	return 0
+end 'first'
+
+function second() returns ExitCode
+	let c = 3
+	let d = 4
+	return first()
+end 'second'
+
+function main() returns ExitCode
+	return second()
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-locals.maxon:4:6: unused variable: 'a'
+error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-locals.maxon:5:6: unused variable: 'b'
+error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-locals.maxon:10:6: unused variable: 'c'
+error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-locals.maxon:11:6: unused variable: 'd'
+```
+
+<!-- test: unused-for-in-variable -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	var count = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in arr 'loop'
+		count = count + 1
+	end 'loop'
+	return count
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-for-in-variable.maxon:6:6: unused variable: 's'
+```
+
+<!-- test: used-for-in-variable -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [10, 20, 30]
+	var total = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for s in arr 'loop'
+		total = total + s
+	end 'loop'
+	return total
+end 'main'
+```
+```exitcode
+60
+```
+
+<!-- test: discard-for-in-variable -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	var count = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in arr 'loop'
+		count = count + 1
+	end 'loop'
+	return count
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: unused-for-range-variable -->
+```maxon
+
+function main() returns ExitCode
+	var count = 0 as FullRangeInt
+	for i in 0 upto 3 'loop'
+		count = count + 1
+	end 'loop'
+	return count
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-for-range-variable.maxon:5:6: unused variable: 'i'
+```
+
+<!-- test: unused-match-binding -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+union Container
+	empty
+	value(n Integer)
+end 'Container'
+
+function main() returns ExitCode
+	let c = Container.value(42)
+	match c 'check'
+		empty then return 1
+		value(n) then return 0
+	end 'check'
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-match-binding.maxon:14:9: unused variable: 'n'
+```
+
+<!-- test: used-match-binding -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+union Container
+	empty
+	value(n Integer)
+end 'Container'
+
+function main() returns ExitCode
+	let c = Container.value(42)
+	match c 'check'
+		empty then return 1
+		value(n) then return n
+	end 'check'
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: discard-match-binding -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+union Container
+	empty
+	value(n Integer)
+end 'Container'
+
+function main() returns ExitCode
+	let c = Container.value(42)
+	match c 'check'
+		empty then return 1
+		value then return 0
+	end 'check'
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: unused-closure-param -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(n Integer) gives 42, x: 10)
+	return result
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-closure-param.maxon:11:30: unused variable: 'n'
+```
+
+<!-- test: used-closure-param -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(n Integer) gives n + 1, x: 10)
+	return result
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: discard-closure-param -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(_ Integer) gives 42, x: 10)
+	return result
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: unused-otherwise-binding -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+The `(e)` binding on `try expr otherwise (e) 'h' ... end 'h'` is a local variable.
+Declaring it without referencing it inside the handler body is a compile error.
+```maxon
+
+typealias Score = int(0 to 100)
+
+enum MyError implements Error
+	failed
+end 'MyError'
+
+function mayFail() returns Score throws MyError
+	throw MyError.failed
+end 'mayFail'
+
+function main() returns ExitCode
+	var x = 0 as Score
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try mayFail() otherwise (e) 'handler'
+		x = 42
+	end 'handler'
+	return x
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/unused-variables/unused-otherwise-binding.maxon:15:27: unused variable: 'e'
+```
+
+<!-- test: used-otherwise-binding -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+A `try expr otherwise (e) 'h' ... end 'h'` handler that matches on the binding is allowed.
+```maxon
+
+typealias Score = int(0 to 100)
+
+enum MyError implements Error
+	failed
+end 'MyError'
+
+function mayFail() returns Score throws MyError
+	throw MyError.failed
+end 'mayFail'
+
+function main() returns ExitCode
+	var x = 0 as Score
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try mayFail() otherwise (e) 'handler'
+		match e 'kind'
+			failed then x = 42
+		end 'kind'
+	end 'handler'
+	return x
+end 'main'
+```
+```exitcode
+42
+```

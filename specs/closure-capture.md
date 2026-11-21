@@ -1,0 +1,6039 @@
+---
+feature: closure-capture
+status: experimental
+keywords: [closure, capture, environment, gives]
+category: functions
+---
+# Closure Variable Capture
+
+## Documentation
+
+Closures can capture variables from their enclosing scope. When a closure references a variable that is not one of its parameters, the closure captures it when the closure is created:
+
+- **A managed local MOVES into the closure.** The closure owns it from then on, and a read of the local
+  after the literal is a use after move (E3102).
+- **A scalar is COPIED.** The closure keeps the value it saw; its writes do not reach the outer binding,
+  and the outer binding stays readable and writable.
+- **A parameter, `self`, a field or a borrower is RETAINED.** The closure holds a counted reference of its
+  own, and the function keeps reading it.
+- **A captured promise moves**, like any other managed local.
+
+```text
+let offset = 10
+let f = function(x int) gives x + offset
+```
+
+Nested closures capture through their enclosing closure, and a value held at an interface type is captured
+with its witness. Passing a captured name to a `mutable` parameter inside a closure is E3159.
+
+A function value is one word: the address of a reference-counted closure record holding its code and its
+captures. A plain function is an immortal static record. The closure owns its environment, so it may be
+returned, stored in a global, a field, a container or a union payload, and passed to `async`, where the
+coroutine holds it until it ends. Copies share: `var g = f` and `f.clone()` take another reference to the same record.
+
+A closure stored into something it captures would form a reference cycle no drop can release, so a
+whole-program check refuses it (E3183). The check follows what the compiler can see; aliasing that only
+exists at run time is beyond it.
+
+This is especially useful with higher-order functions like `map`:
+
+```text
+let multiplier = 3
+let results = numbers.map(function(x) gives x * multiplier)
+```
+
+Use `_` as a parameter name to ignore the parameter:
+
+```text
+let values = items.map(function(_) gives defaultValue)
+```
+
+## Tests
+
+<!-- test: closure-capture.basic -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let offset = 7
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(n Integer) gives n + offset, x: 10)
+	return result
+end 'main'
+```
+```exitcode
+17
+```
+
+<!-- test: closure-capture.ignore-param -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let value = 42
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(_ Integer) gives value, x: 99)
+	return result
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.struct-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+type Level
+	export var rawValue as Integer
+
+	static function create(rawValue Integer) returns Self
+		return Self{rawValue: rawValue}
+	end 'create'
+end 'Level'
+
+function main() returns ExitCode
+	let level = Level.create(5)
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(_ Integer) gives level.rawValue, x: 0)
+	return result
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: closure-capture.map-with-capture -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Level
+	export var rawValue as Integer
+
+	static function create(rawValue Integer) returns Self
+		return Self{rawValue: rawValue}
+	end 'create'
+end 'Level'
+
+function main() returns ExitCode
+	let level = Level.create(5)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let result = arr.map(function(_ Integer) gives level.rawValue)
+	return result.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: closure-capture.multiple-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let a = 10
+	let b = 20
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(x Integer) gives x + a + b, x: 5)
+	return result
+end 'main'
+```
+```exitcode
+35
+```
+
+<!-- test: closure-capture.no-capture-regression -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns Integer
+
+function apply(f FnTypeAlias1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(n Integer) gives n * 3, x: 10)
+	return result
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: closure-capture.capture-string -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias FnTypeAlias1 = function(Integer) returns String
+
+function apply(f FnTypeAlias1, x Integer) returns String
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let prefix = "hello"
+	// TODO: closures are not supported in minimaxon
+	let result = apply(function(_ Integer) gives prefix, x: 0)
+	print(result)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hello
+```
+
+
+<!-- test: closure-capture.interface-method-with-captured-field -->
+<!-- skip: closures are not supported in minimaxon -->
+A closure declared inside an interface-conforming method body that captures
+a `let`-bound copy of a self-field. The method `Box.greet()` is the
+interface-witness target for `Greeter.greet`, so the call ABI carries the
+boxed self pointer; the inner closure's record holds the captured local
+`myv` (a copy of `self.v`), and the call hands that record to the closure as
+its environment argument, so the closure's call-arg setup references only
+values the backend defined. Compiling at all confirms the regalloc allocates
+a live range for the environment argument's setup.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet() returns Integer
+end 'Greeter'
+
+type Box implements Greeter
+	var v as Integer
+
+	static function make(v Integer) returns Self
+		return Self{v: v}
+	end 'make'
+
+	function greet() returns Integer
+		let myv = v
+		// TODO: closures are not supported in minimaxon
+		let adder = function(x Integer) gives x + myv
+		return adder(10)
+	end 'greet'
+end 'Box'
+
+function main() returns ExitCode
+	let m = Box.make(5)
+	return m.greet()
+end 'main'
+```
+```exitcode
+15
+```
+
+<!-- test: closure-capture.block-local-function-arg -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A `let` declared inside a `while`-loop body — a NESTED block scope — captured
+into a closure whose body passes it as an argument to `earliest`. The block frame is popped
+once the loop finishes parsing, removing the local from the enclosing
+function's `Scope`. The capture's type is recorded with its slot when the
+closure body names it, while the loop's scope is still open, so building the
+closure record resolves the concrete `LiveRange` type without looking the name
+up in that pruned scope, so the call binds. Returns `7 + 10`.
+```maxon
+typealias ValId = int(0 to u64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias IntThunk = function() returns ExitCode
+
+typealias LRArray = Array with LiveRange
+
+type LiveRange
+	export var valueId as ValId
+
+	static function create(v ValId) returns LiveRange
+		return Self{valueId: v}
+	end 'create'
+end 'LiveRange'
+
+type SlotRange
+	export var off as ValId
+
+	static function create(o ValId) returns SlotRange
+		return Self{off: o}
+	end 'create'
+end 'SlotRange'
+
+function earliest(r LiveRange) returns ExitCode
+	return r.valueId
+end 'earliest'
+
+function earliestSlot(r SlotRange) returns ExitCode
+	return r.off
+end 'earliestSlot'
+
+function callThunk(t IntThunk) returns ExitCode
+	return t()
+end 'callThunk'
+
+function allocate(ranges LRArray) returns ExitCode
+	var total = 0 as ExitCode
+	var oi = 0 as Count
+	while oi < ranges.count() 'assign'
+		let range = try ranges.get(oi) otherwise panic("oob")
+		// TODO: closures are not supported in minimaxon
+		total = total + callThunk(function() gives earliest(range))
+		oi = oi + 1
+	end 'assign'
+	return total
+end 'allocate'
+
+function main() returns ExitCode
+	let arr = LRArray.create(0)
+	arr.push(LiveRange.create(7))
+	arr.push(LiveRange.create(10))
+	return allocate(arr) + earliestSlot(SlotRange.create(0))
+end 'main'
+```
+```exitcode
+17
+```
+
+<!-- test: closure-capture.block-local-method-receiver -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A `let` declared inside an `if`-block body — a nested block scope — captured
+into a closure whose body calls a METHOD on it (`b.doubled()`).
+The parser's dot-call path captures an outer receiver before its
+qualified-static-call fallback (which would treat `b` as a type name and record
+no capture), so the capture is recorded although the outer scope has been
+popped. Returns `doubled(9) = 18`.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias IntThunk = function() returns ExitCode
+
+type Box
+	export var n as ExitCode
+
+	static function create(n ExitCode) returns Box
+		return Self{n: n}
+	end 'create'
+
+	function doubled() returns ExitCode
+		return self.n + self.n
+	end 'doubled'
+end 'Box'
+
+function callThunk(t IntThunk) returns ExitCode
+	return t()
+end 'callThunk'
+
+function run(seed ExitCode) returns ExitCode
+	if seed > 0 'pos'
+		let b = Box.create(seed)
+		// TODO: closures are not supported in minimaxon
+		return callThunk(function() gives b.doubled())
+	end 'pos'
+	return 0
+end 'run'
+
+function main() returns ExitCode
+	return run(9)
+end 'main'
+```
+```exitcode
+18
+```
+
+### Closure body that is a bare string literal
+
+<!-- test: closure-capture.string-literal-body -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Msg = function(Integer) returns String
+
+typealias Integer = int(i64.min to i64.max)
+
+function apply(f Msg, x Integer) returns String
+	return f(x)
+end 'apply'
+
+// The closure body is a bare string literal — not a capture. The literal comes
+// back as a deferred `stringConst` (no backing op), so the lifted closure's
+// `ret` referenced an unbound value until the body materializes it. The closure
+// captures nothing; it just returns "hi".
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let s = apply(function(_ Integer) gives "hi", x: 0)
+	return s.byteLength()
+end 'main'
+```
+```exitcode
+2
+```
+
+### A closure literal is an expression, not a declaration
+
+`function` opens a DECLARATION only in the three-token shape `function <name> (`. A closure literal
+spells the same keyword and declares nothing: it has no name, no `end`, and opens no block of its
+own. That distinction is load-bearing outside the parser proper, in the whole-file **declaration
+sweep** that runs before any file is parsed: the sweep counts a declaration's block open so it can
+tell a type's FIELD (`export var x as Integer` at the type's top level) from a method's local
+binding one level down, and every `type` / `enum` / `interface` / top-level `let`-`var` it records
+is gated on that counter reading zero.
+
+A closure literal counted as a declaration leaves the counter permanently one too deep, and every
+depth-0 gate after it silently stops firing — so the declarations BELOW the closure are never
+recorded at all. What the compiler then does is never "compile it anyway": the drift guards that
+exist for exactly this mismatch (`requireConstructible`, `ProgramSignatures.recordedDeclFor`) fire
+as an internal PANIC on a program that is completely correct. Inside a type body the overshoot is
+worse than absent — it runs past the type's own `end` and reads the NEXT declaration's members into
+THIS type's layout, so a field of one type is reported missing from another, and the swallowed
+type's factory is registered under the swallowing type's name, which types its callers' results
+from the wrong signature.
+
+None of the cases below is a diagnostics test. Each is a correct program that must simply compile
+and run.
+
+<!-- test: closure-capture.type-declared-after-a-closure-in-a-free-function -->
+<!-- skip: closures are not supported in minimaxon -->
+A closure literal in a FREE function's body, with a `type` declared after it. The sweep must leave
+its block depth at zero across the closure, or `type Box` is never recorded and `Self{…}` panics.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function bumped(n Integer) returns Integer
+	// TODO: closures are not supported in minimaxon
+	let step = function(k Integer) gives k + 1
+	return step(n)
+end 'bumped'
+
+type Box
+	export var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	let b = Box.create(40)
+	return b.v + bumped(1)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.type-declared-after-a-closure-bearing-type -->
+<!-- skip: closures are not supported in minimaxon -->
+The same overshoot one level in: the closure sits in a METHOD body, so the sweep runs past `type
+Counter`'s `end` and consumes `type Box` as though it were more of `Counter`.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Counter
+	export var n as Integer
+
+	static function bumped(n Integer) returns Integer
+		// TODO: closures are not supported in minimaxon
+		let step = function(k Integer) gives k + 1
+		return step(n)
+	end 'bumped'
+end 'Counter'
+
+type Box
+	export var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	let b = Box.create(40)
+	return b.v + Counter.bumped(1)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.field-declared-after-a-closure-bearing-method -->
+<!-- skip: closures are not supported in minimaxon -->
+A field declared BELOW a method that contains a closure literal. The overshoot puts the field one
+level too deep for the sweep's depth-0 field gate, so it is dropped from the layout and every use of
+it is refused as "no field named …" — a wrong answer about a field that is right there.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Pair
+	export var first as Integer
+
+	static function make(seed Integer) returns Self
+		// TODO: closures are not supported in minimaxon
+		let step = function(k Integer) gives k + 1
+		return Self{first: step(seed), second: 2}
+	end 'make'
+	export var second as Integer
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.make(39)
+	return p.first * p.second
+end 'main'
+```
+```exitcode
+80
+```
+
+<!-- test: closure-capture.top-level-binding-after-a-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+A top-level `let` and `var` declared after a closure literal. Both are recorded only at depth zero,
+so both go missing — and `dispatchTopLevel` then meets a binding the sweep never saw.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function bumped(n Integer) returns Integer
+	// TODO: closures are not supported in minimaxon
+	let step = function(k Integer) gives k + 1
+	return step(n)
+end 'bumped'
+
+let Base = 20
+
+let offset = 22
+
+function main() returns ExitCode
+	return Base + offset + bumped(-1)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.enum-declared-after-a-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+An `enum` declared after a closure literal — the third depth-0 gate, and the one whose failure is a
+parse-level diagnostic (an unrecorded `Color.green` is read as a ranged-alias bound) rather than a
+panic.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+function bumped(n Integer) returns Integer
+	// TODO: closures are not supported in minimaxon
+	let step = function(k Integer) gives k + 1
+	return step(n)
+end 'bumped'
+
+enum Color
+	red
+	green
+end 'Color'
+
+function shade(c Color) returns Integer
+	return match c 'innerShade'
+		red gives 1
+		green gives 41
+	end 'innerShade'
+end 'shade'
+
+function main() returns ExitCode
+	return shade(Color.green) + bumped(0)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.bare-self-field-captured -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure body naming a field of the enclosing type by its BARE name is a capture of `self`: it CAPTURES
+THE RECEIVER and reads the field through it. **The answer is 4.**
+
+⭐ **A self-field alias holds NO SSA value** (`VarInfo.createSelfField` leaves `boundValue` 0), and **0 is
+the enclosing method's receiver** — so capturing the alias as an ordinary enclosing local would store the
+receiver's BOX in the env slot and hand it back as the field: **25**, the box pointer's low byte, with no
+diagnostic anywhere. The capture machinery keys on `baseBindingName`, under which the receiver — bound as
+`__self`, which **no token spells** — is an ordinary capture. `closure-self.md` requires exactly this shape
+to compile and gives the bare-name form its own case.
+
+**This case fails if the env slot ever hands back the receiver's box** — that reads as **25**, not as a
+missing diagnostic. Its sibling in `closure-self.md` cannot replace it, because that spec must spell its
+fields through a ranged alias and this one deliberately uses bare `int`.
+```maxon
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Fn1 = function(int) returns Integer
+
+function apply(f Fn1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+type Counter
+	export var n as Integer
+
+	static function create() returns Counter
+		return Self{n: 3}
+	end 'create'
+
+	function via() returns Integer
+		// TODO: closures are not supported in minimaxon
+		return apply(function(k Integer) gives k + n, x: 1)
+	end 'via'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create()
+	return c.via() as ExitCode
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+4
+```
+
+<!-- test: closure-capture.captured-ranged-alias-binding -->
+<!-- skip: bits(...) typealiases are not supported in minimaxon -->
+<!-- skip: closures are not supported in minimaxon -->
+A capture whose declared type is a ranged typealias — where what the slot is ACCESSED as and what the
+value IS are not the same type. The env slot's `storeIndirect`/`loadIndirect` pair carries a WIDTH, so
+the op's type must be the concrete primitive the alias stands for: a `named` type reaches lowering
+unresolved, because nothing after the parser rewrites an op's type. The value the read mints keeps the
+DECLARED type instead, and `high shr 62` is the witness — `Word`'s low bound is 0, so the shift
+zero-fills and yields 3. Minted at the storage type it would be a bare `int`, sign-fill, and yield
+0 - 1.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: bits(...) typealiases are not supported in minimaxon
+typealias Word = bits(64)
+
+function usesClosure(bump Integer, high Word) returns Integer
+	// TODO: closures are not supported in minimaxon
+	let op = function(n Integer) gives n + bump + ((high shr 62) as Integer)
+	return op(1)
+end 'usesClosure'
+
+function main() returns ExitCode
+	return usesClosure(38, high: 0xC000000000000000) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.capture-exitcode-from-alias-call -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The result of an INDIRECT call whose function alias returns `ExitCode`, captured into a closure. This
+is the storage half of the width claim `first-class-function.alias-returns-exitcode` pins: once the
+alias's return is genuinely `MaxonType.exitCode`, the call's SSA result is `exitCode`-tagged, and an
+`exitCode` lowers to `StdType.u32` — for which `accessWidthFor` has no memory-access form and panics on
+every backend. An env slot is `EnvSlotBytes` wide by construction, so a scalar capture owns a whole
+machine word regardless of its declared width; `wordSlotStorageType` is the one door the store and the
+read both ask, and it gives an `exitCode` capture that word. Zero-extension is unambiguous because the
+value is unsigned — the same reason `accessWidthFor` already admits `u8`. Returns `9`.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias IntThunk = function() returns ExitCode
+
+function nine() returns ExitCode
+	return 9
+end 'nine'
+
+function useIt(t IntThunk) returns ExitCode
+	let v = t()
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives v
+	return f()
+end 'useIt'
+
+function main() returns ExitCode
+	return useIt(nine)
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: closure-capture.capture-exitcode-from-interface-method -->
+<!-- skip: closures are not supported in minimaxon -->
+The twin of the case above through the other producing door, and the reason the width is decided at the
+env slot rather than at either door. `Parser.interfaceReturnMaxonType` mints `exitCode`-tagged call
+results, so an interface method declared `returns ExitCode` whose result is captured reaches the same
+`accessWidthFor` sink as a function alias. Two entrances, one sink: the sink covers both, and a rule at
+either door would leave the other reachable. Returns `9`.
+```maxon
+typealias Integer = int(0 to u64.max)
+
+interface Coded
+	function code() returns ExitCode
+end 'Coded'
+
+type Box implements Coded
+	let n as Integer
+
+	function code() returns ExitCode
+		return n
+	end 'code'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type Wrap uses T where T implements Coded
+	let item as T
+
+	function run() returns ExitCode
+		let v = self.item.code()
+		// TODO: closures are not supported in minimaxon
+		let f = function() gives v
+		return f()
+	end 'run'
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Wrap'
+
+typealias BoxWrap = Wrap with Box
+
+function main() returns ExitCode
+	let w = BoxWrap.create(Box.create(9))
+	return w.run()
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: closure-capture.capture-exitcode-wide-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+⚠ **A WINDOWS-LANE READING.** `return 100000` is E3005 on every other target — `ExitCode`
+is `int(0 to 255)` there — so those lanes cannot express this program, which is what the
+`unsupported-targets:` line says. It cannot be re-pinned on wasm through any other type, and the reason it cannot (plus
+the array-element route that looks like a substitute and measurably is not) is stated once, in
+`exit-code-range.md`'s *"What the narrowing costs the other lanes"*. ⚠ This one's subject is the ENV SLOT
+rather than the widen, and it is unreachable for a second, independent reason worth stating on its own:
+`wordSlotStorageType` is a one-tag rule — it widens `exitCode` and passes every other declared type to
+`fieldStorageType`, which hands a `named` alias its 8-byte underlying. So `exitCode` is the only tag that
+ever arrives at this door narrow, and a user alias substituted here would ride a machine word before the
+rule ran. The sabotage this case describes would have nothing to truncate.
+
+The WIDTH half of the two cases above, and the reason they are not enough on their own. Both of them
+carry the value `9`, which fits in a single byte — so they pass unchanged even if `wordSlotStorageType`
+hands the slot a 1-byte `boolean` instead of the machine word, on every target, clobbering nothing.
+They pin THAT the capture works, not the width it works at. This one carries `100000` through the same
+env slot and subtracts `99991` back down to an exit code, so the assertion is load-bearing without
+needing `print` (which is Beyond on wasm): truncate the slot to a byte and the captured value becomes
+`100000 & 0xFF = 160`, which does not come back to `9`. **The DIFFERENCE is the point.** With the slot
+forced to one byte this case fails on its VALUE, which is behaviour and needs nothing but the exit code.
+⚠ `100000` is deliberately above the byte range and below 2^31, which keeps this case pinning ONE fact.
+An `ExitCode` above 2^31 reading back unsigned on every target (`3000000009` prints identically on wasm and
+x64) is a separate fact; pinning the width at that boundary would tie this assertion to it as well, so a
+case that failed would not say which of the two had regressed.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias IntThunk = function() returns ExitCode
+
+function big() returns ExitCode
+	return 100000
+end 'big'
+
+function useIt(t IntThunk) returns ExitCode
+	let v = t()
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives v
+	return f() - 99991
+end 'useIt'
+
+function main() returns ExitCode
+	return useIt(big)
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: closure-body-restores-the-enclosing-functions-parse-context -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A closure body restores every column of the enclosing function's parse context
+
+⛔⛔ **`parseClosureExpression` MUST RESTORE EVERY PER-FUNCTION COLUMN IT RESETS.**
+The closure body gets its own `IrFunction` with its own dense SSA numbering, so the parser saves the
+enclosing function's context, resets it, parses the body and restores it. The reset list and the
+save/restore list are written out separately and NOTHING makes them agree. A column reset and not put back
+is a compiler PANIC — not a diagnostic, a crash — on programs anyone writes. The two this case reaches,
+from inside a `for … in` body:
+
+  • **`declaringWitnessParamBase`/`declaringWitnessParamCount`** — where a `where`-constrained generic method's
+    witness parameters sit. Zeroed by a closure, the first witness dispatch AFTER it would panic in
+    `witnessParamValueId`. The same two statements in the OTHER order compile regardless, which hides it.
+  • **`charLiteralOps`** — pinned by `char-literal-to-int/char-literal-coerces-across-a-closure-body`, whose
+    second half is a SILENT WRONG ANSWER rather than a panic.
+
+This case is the shared one: one program that reaches both, so a future column added to the reset list
+and forgotten in the restore list has somewhere to fail.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Fn1 = function(Integer) returns Integer
+
+function apply(f Fn1, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+interface Named
+	function label() returns Integer
+end 'Named'
+
+type W implements Named
+	export var n as Integer
+
+	function label() returns Integer
+		return self.n
+	end 'label'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'W'
+
+type Holder uses T where T implements Named
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Integer
+		// TODO: closures are not supported in minimaxon
+		let viaClosure = apply(function(n Integer) gives n + 1, x: 0)
+		return self.item.label() + viaClosure
+	end 'go'
+end 'Holder'
+
+typealias WH = Holder with W
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	a.push(1)
+	a.push(2)
+	var total = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for x in a 'loop'
+		// TODO: closures are not supported in minimaxon
+		total = total + x + apply(function(n Integer) gives n + 1, x: 0)
+	end 'loop'
+	let h = WH.create(W.create(38))
+	print("total={total} go={h.go()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+total=5 go=39
+```
+
+### A captured GENERIC INSTANCE — a base is a struct box OR an instance, in a closure too
+
+⛔⛔ **`capturedStructBase` ASKS `tagCarriesStructLayoutHere`, EXACTLY AS ITS TWO SIBLINGS DO, SO A
+CAPTURED GENERIC INSTANCE IS A MEMBER BASE.** `requireStructBase` for a local base and `structLayoutOfField`
+for a chain hop ask the same predicate, because a struct box OR a generic INSTANCE (`Sizer with bool`) can
+be a method/field base. A hand-rolled `!= structRef` test at this door would exclude every generic
+instance.
+
+⚠ **A REFUSAL OF AN INSTANCE HERE WOULD CONTRADICT ITSELF.** `typeTagName(genericInstance)` prints
+`"struct"`, so the message would read *"the captured 'b', which is declared 'struct' and not a struct
+type"*.
+
+<!-- test: closure-capture.a-bare-var-field-in-a-closure-is-written-like-self-dot-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A bare field name inside a closure is `self.field`: the closure writes the `var` field `held` through the call exactly as the spelled-out `self.held` does, and both are accepted.
+
+```maxon
+typealias NameArray = Array with String
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Action = function() returns bool mutates captures
+
+type Held
+	export var names as NameArray
+
+	static function create() returns Self
+		return Self{names: NameArray.create(0)}
+	end 'create'
+
+	function hold(key String) returns bool
+		self.names.push(key)
+		return true
+	end 'hold'
+end 'Held'
+
+function perform(action Action) returns bool
+	return action()
+end 'perform'
+
+type Registry
+	export var held as Held
+
+	static function create() returns Self
+		return Self{held: Held.create()}
+	end 'create'
+
+	function viaBare(key String) returns bool
+		// TODO: closures are not supported in minimaxon
+		return perform(function() gives held.hold(key))
+	end 'viaBare'
+
+	function viaSelf(key String) returns bool
+		// TODO: closures are not supported in minimaxon
+		return perform(function() gives self.held.hold(key))
+	end 'viaSelf'
+end 'Registry'
+
+function main() returns ExitCode
+	let registry = Registry.create()
+	_ = registry.viaBare("a")
+	_ = registry.viaSelf("b")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-bare-let-field-in-a-closure-is-written-like-self-dot-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The same bare spelling over a `let` field: the field is only never reassigned, so the closure writes the record it holds through the call, as it does over a `var` field.
+
+```maxon
+typealias NameArray = Array with String
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Action = function() returns bool mutates captures
+
+type Held
+	export var names as NameArray
+
+	static function create() returns Self
+		return Self{names: NameArray.create(0)}
+	end 'create'
+
+	function hold(key String) returns bool
+		self.names.push(key)
+		return true
+	end 'hold'
+end 'Held'
+
+function perform(action Action) returns bool
+	return action()
+end 'perform'
+
+type Registry
+	export let held as Held
+
+	static function create() returns Self
+		return Self{held: Held.create()}
+	end 'create'
+
+	function hold(key String) returns bool
+		// TODO: closures are not supported in minimaxon
+		return perform(function() gives held.hold(key))
+	end 'hold'
+end 'Registry'
+
+function main() returns ExitCode
+	let registry = Registry.create()
+	_ = registry.hold("a")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-self-let-field-in-a-closure-is-written -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The spelled-out twin of the case above, accepted identically.
+
+```maxon
+typealias NameArray = Array with String
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Action = function() returns bool mutates captures
+
+type Held
+	export var names as NameArray
+
+	static function create() returns Self
+		return Self{names: NameArray.create(0)}
+	end 'create'
+
+	function hold(key String) returns bool
+		self.names.push(key)
+		return true
+	end 'hold'
+end 'Held'
+
+function perform(action Action) returns bool
+	return action()
+end 'perform'
+
+type Registry
+	export let held as Held
+
+	static function create() returns Self
+		return Self{held: Held.create()}
+	end 'create'
+
+	function hold(key String) returns bool
+		// TODO: closures are not supported in minimaxon
+		return perform(function() gives self.held.hold(key))
+	end 'hold'
+end 'Registry'
+
+function main() returns ExitCode
+	let registry = Registry.create()
+	_ = registry.hold("a")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.captured-generic-instance-method-and-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+Both members a base can carry, off one captured instance: a METHOD call and a FIELD read.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias LazyMessage = function() returns String
+
+type Box uses T
+	export let v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function get() returns T
+		return self.v
+	end 'get'
+end 'Box'
+
+typealias IntBox = Box with Integer
+
+function lazy(make LazyMessage)
+	print("{make()}")
+end 'lazy'
+
+function run(b IntBox)
+	// TODO: closures are not supported in minimaxon
+	lazy(function() gives "v={b.get()} field={b.v}")
+end 'run'
+
+function main() returns ExitCode
+	run(IntBox.create(7))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+v=7 field=7
+```
+
+<!-- test: closure-capture.captured-plain-struct-still-works -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The CONTROL. A captured plain struct takes the same door as a generic instance — the gate admits both
+of the predicate's tags, and a gate that lost the plain struct would be a worse defect than the one it
+cures.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias LazyMessage = function() returns String
+
+type Plain
+	export let n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function doubled() returns Integer
+		return self.n * 2
+	end 'doubled'
+end 'Plain'
+
+function lazy(make LazyMessage)
+	print("{make()}")
+end 'lazy'
+
+function run(p Plain)
+	// TODO: closures are not supported in minimaxon
+	lazy(function() gives "d={p.doubled()} field={p.n}")
+end 'run'
+
+function main() returns ExitCode
+	run(Plain.create(21))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+d=42 field=21
+```
+
+<!-- test: error.a-captured-scalar-still-has-no-members -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+⚠ **EVERYTHING ELSE IS REFUSED.** `tagCarriesStructLayoutHere` admits a struct and an instance and nothing
+more, so a captured `int` is refused — and the message is accurate for it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias LazyMessage = function() returns String
+
+function lazy(make LazyMessage)
+	print("{make()}")
+end 'lazy'
+
+function run(n Integer)
+	// TODO: closures are not supported in minimaxon
+	lazy(function() gives "n={n.doubled()}")
+end 'run'
+
+function main() returns ExitCode
+	run(21)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/closure-capture/error.a-captured-scalar-still-has-no-members.maxon:10:28: Unsupported: a field access or method call on the captured 'n', which is declared 'int' and not a struct type (only a struct has fields and methods)
+```
+
+<!-- test: closure-capture.a-closure-in-a-generic-body-is-returned -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A closure written in a shared generic body carries the enclosing instance's descriptor in its environment, and can be returned.
+```maxon
+type Cell uses T
+	export var v as T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	typealias Echo = function(T) returns T
+
+	static function make(v T) returns Self
+		return Self{v: v}
+	end 'make'
+
+	function echo() returns Echo
+		// TODO: closures are not supported in minimaxon
+		return function(x T) gives x
+	end 'echo'
+end 'Cell'
+
+typealias StrCell = Cell with String
+
+function main() returns ExitCode
+	let c = StrCell.make("returned")
+	let e = c.echo()
+	print("{e(c.v)}\n")
+	return 0
+end 'main'
+```
+```stdout
+returned
+```
+
+
+### A closure owns its environment
+
+A capturing closure's value is one word, the address of a refcounted record holding its code and what it
+captured. The record holds a reference of its own to every managed capture and releases it when the last
+holder of the closure drops it, so a closure may be returned, stored, copied and handed to `async`.
+
+<!-- test: closure-capture.the-environment-releases-a-captured-string -->
+<!-- skip: closures are not supported in minimaxon -->
+The record's destructor releases the captured String when the closure is dropped.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let name = "a name padded long enough to heap allocate {7}"
+	// TODO: closures are not supported in minimaxon
+	let greet = function(times Integer) gives "{name} x{times}"
+	print("{greet(2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+a name padded long enough to heap allocate 7 x2
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.one-closure-in-two-fields-an-array-and-a-union -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+One closure copied into two fields, an Array and a union payload: every holder takes a reference of its own
+and drops it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+typealias OpArray = Array with Op
+
+type Pair
+	export var first as Op
+	export var second as Op
+
+	static function create(first Op, second Op) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+union Held
+	one(op Op)
+	nothing
+end 'Held'
+
+function main() returns ExitCode
+	let label = "a label padded long enough to heap allocate {3}"
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives n + (label.byteLength() as Integer)
+	let p = Pair.create(f, second: f)
+	let ops = OpArray.create(0)
+	ops.push(f)
+	let h = Held.one(f)
+	var total = p.first(1) + p.second(2)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for op in ops 'each'
+		total = total + op(3)
+	end 'each'
+	match h 'held'
+		one(op) then total = total + op(4)
+		nothing then total = total + 0
+	end 'held'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```stdout
+190
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-returned-closure-runs-after-its-frame-died -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The closure outlives the frame whose record it captured.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Reader = function() returns Integer
+
+type Counter
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Counter'
+
+function makeReader(start Integer) returns Reader
+	let c = Counter.create(start)
+	// TODO: closures are not supported in minimaxon
+	return function() gives c.n * 2
+end 'makeReader'
+
+function main() returns ExitCode
+	let r = makeReader(21)
+	return r() as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.a-closure-passed-to-async -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The coroutine owns the closure it was handed and runs it after the block that built it has ended.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Measure = function() returns Integer
+
+typealias Pending = Promise with Integer
+
+function later(m Measure) returns Integer
+	Scheduler.yield()
+	return m()
+end 'later'
+
+function spawnIt() returns Pending
+	let text = "a text padded long enough to heap allocate {1}"
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	// TODO: closures are not supported in minimaxon
+	return async later(function() gives text.byteLength() as Integer)
+end 'spawnIt'
+
+function main() returns ExitCode
+	let p = spawnIt()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await p) as ExitCode
+end 'main'
+```
+```exitcode
+44
+```
+
+<!-- test: closure-capture.a-var-from-an-immutable-closure-takes-a-reference -->
+<!-- skip: closures are not supported in minimaxon -->
+`var g = f` takes a reference of its own, so `f` stays readable and `g` may be rebound.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {2}"
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives n + (word.byteLength() as Integer)
+	var g = f
+	let first = g(1)
+	// TODO: closures are not supported in minimaxon
+	g = function(n Integer) gives n * 2
+	return (first + f(0) + g(1)) as ExitCode
+end 'main'
+```
+```exitcode
+91
+```
+
+<!-- test: closure-capture.assigning-an-immutable-closure-to-a-var-takes-a-reference -->
+<!-- skip: closures are not supported in minimaxon -->
+`g = f` is a copy that shares the closure, as `var g = f` is, so `f` stays readable after the assignment.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {2}"
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives n + (word.byteLength() as Integer)
+	// TODO: closures are not supported in minimaxon
+	var g = function(n Integer) gives n * 2
+	g = f
+	let first = g(1)
+	// TODO: closures are not supported in minimaxon
+	g = function(n Integer) gives n * 3
+	return (first + f(0) + g(1)) as ExitCode
+end 'main'
+```
+```exitcode
+92
+```
+
+<!-- test: closure-capture.a-closure-assigned-to-a-var-on-each-trip-of-a-loop-stays-readable -->
+<!-- skip: closures are not supported in minimaxon -->
+Each trip assigns the one `writer` to `f`, which shares it, so the next trip reads `writer` again.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {2}"
+	// TODO: closures are not supported in minimaxon
+	let quiet = function(n Integer) gives n
+	// TODO: closures are not supported in minimaxon
+	let writer = function(n Integer) gives n + (word.byteLength() as Integer)
+	var f = quiet
+	var total = 0 as Integer
+	for _ in 0 upto 3 'each'
+		total = total + f(1)
+		f = writer
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```stdout
+91
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-var-bound-and-reassigned-from-an-immutable-closure-in-a-loop -->
+<!-- skip: closures are not supported in minimaxon -->
+`var f = writer` and `f = writer` both share the closure, so a loop may bind and assign it on every trip.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {2}"
+	// TODO: closures are not supported in minimaxon
+	let writer = function(n Integer) gives n + (word.byteLength() as Integer)
+	var total = 0 as Integer
+	for _ in 0 upto 3 'each'
+		var f = writer
+		total = total + f(1)
+		f = writer
+		total = total + f(2)
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```stdout
+273
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.clone-shares-the-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+`f.clone()` is a second reference to the same closure.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {3}"
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives n + (word.byteLength() as Integer)
+	let g = f.clone()
+	return (f(1) + g(2)) as ExitCode
+end 'main'
+```
+```exitcode
+91
+```
+
+<!-- test: closure-capture.a-closure-as-a-generic-element -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure stored at a type parameter is retained and released through the instance's descriptor.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+type Box uses T
+	export var item as T
+
+	static function make(item T) returns Self
+		return Self{item: item}
+	end 'make'
+end 'Box'
+
+typealias OpBox = Box with Op
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {4}"
+	// TODO: closures are not supported in minimaxon
+	let b = OpBox.make(function(n Integer) gives n + (word.byteLength() as Integer))
+	let op = b.item
+	return op(2) as ExitCode
+end 'main'
+```
+```exitcode
+46
+```
+
+<!-- test: closure-capture.a-closure-in-a-union-payload-is-dropped -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A union box holding a capturing closure releases it when the box is dropped, unmatched.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+union Held
+	one(op Op)
+	nothing
+end 'Held'
+
+function hold(n Integer) returns Held
+	let word = "a word padded long enough to heap allocate {5}"
+	// TODO: closures are not supported in minimaxon
+	return Held.one(function(k Integer) gives k + n + (word.byteLength() as Integer))
+end 'hold'
+
+function main() returns ExitCode
+	let h = hold(1)
+	print("held {h.name}\n")
+	return 0
+end 'main'
+```
+```stdout
+held one
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-captured-local-is-moved-into-the-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A capture moves an owned local into the closure, so a read of it after the literal is a use after move.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives word.byteLength() as Integer
+	print("{word}\n")
+	return f() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:7:10: use of moved value 'word': its ownership moved to the closure that captures it
+```
+
+<!-- test: closure-capture.error.a-closure-in-a-loop-cannot-capture-an-outer-local -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The first trip moves the outer local into its closure, so the second trip's capture reads a moved value.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	var thunks = Thunks.create(0)
+	for i in 0 upto 2 'each'
+		// TODO: closures are not supported in minimaxon
+		thunks.push(function() gives word.byteLength() as Integer)
+	end 'each'
+	return thunks.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:11:32: use of moved value 'word': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: closure-capture.error.a-capture-beside-a-consuming-argument -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A call that consumes `word` and a closure in the same argument list that captures it would both own the one
+record, so the consumed argument is a use after move.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Held
+	export let text as String
+	export let size as Integer
+
+	static function create(text String, measure Thunk) returns Self
+		return Self{text: text, size: measure()}
+	end 'create'
+end 'Held'
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	// TODO: closures are not supported in minimaxon
+	let held = Held.create(word, measure: function() gives word.byteLength() as Integer)
+	return held.size as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:16:25: use of moved value 'word': its ownership moved to the closure that captures it
+```
+
+<!-- test: closure-capture.a-capture-beside-a-borrowing-argument -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A call that only borrows `word` may take, in the same argument list, a closure that captures it: the closure
+owns the record for as long as the call runs.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function sum(text String, measure Thunk) returns Integer
+	return (text.byteLength() as Integer) + measure()
+end 'sum'
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	print("{sum(word, measure: function() gives word.byteLength() as Integer)}\n")
+	return 0
+end 'main'
+```
+```stdout
+88
+```
+
+<!-- test: closure-capture.a-captured-parameter-stays-readable -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A captured parameter takes a reference of its own, so the parameter is still the function's to read and the
+caller's argument outlives the closure that was returned.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function measurer(text String) returns Thunk
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives text.byteLength() as Integer
+	print("{text} {f()}\n")
+	return f
+end 'measurer'
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	let f = measurer(word)
+	print("{word} {f()}\n")
+	return 0
+end 'main'
+```
+```stdout
+a word padded long enough to heap allocate 1 44
+a word padded long enough to heap allocate 1 44
+```
+
+<!-- test: closure-capture.a-captured-self-is-shared-with-the-receiver -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure that reads `self` holds a reference to the receiver's record, not a copy of it: a write through the
+receiver after the closure was built is what the closure reads.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function reader() returns Thunk
+		// TODO: closures are not supported in minimaxon
+		return function() gives self.n
+	end 'reader'
+end 'Counter'
+
+function main() returns ExitCode
+	let counter = Counter.create(3)
+	let read = counter.reader()
+	counter.n = 5
+	print("{read()} {counter.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+5 5
+```
+
+<!-- test: closure-capture.a-capture-two-frames-out -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+An inner closure that names a binding of the function two frames out captures it through the closure between
+them: the middle closure takes it from the function, and the inner one takes a reference from the middle one's
+environment.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Integer) returns Integer
+
+function apply(f Step, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let base = 10
+	let word = "abcd"
+	// TODO: closures are not supported in minimaxon
+	let outer = function(k Integer) gives apply(function(n Integer) gives n + k + base + (word.byteLength() as Integer), x: 1)
+	return outer(100) as ExitCode
+end 'main'
+```
+```exitcode
+115
+```
+
+<!-- test: closure-capture.a-captured-scalar-is-a-copy -->
+<!-- skip: closures are not supported in minimaxon -->
+A captured scalar is copied into the environment: the binding stays readable and writable after the literal,
+and the closure keeps the value it saw.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var count = 1 as Integer
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives n + count
+	count = count + 1
+	print("{f(10)} {count}\n")
+	return 0
+end 'main'
+```
+```stdout
+11 2
+```
+
+<!-- test: closure-capture.a-captured-interface-value-keeps-its-witness -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A value held at an interface type is two words, and the environment captures both: the closure dispatches
+through the witness it was handed, and its drop releases the value through that witness.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	let side as Integer
+	let label as String
+
+	function area() returns Integer
+		return self.side * self.side + (self.label.byteLength() as Integer)
+	end 'area'
+
+	static function create(side Integer) returns Self
+		return Self{side: side, label: "a label padded long enough to heap allocate {side}"}
+	end 'create'
+end 'Square'
+
+function measurer(shape Shape) returns Thunk
+	// TODO: closures are not supported in minimaxon
+	return function() gives shape.area()
+end 'measurer'
+
+function makeShape(side Integer) returns Shape
+	return Square.create(side)
+end 'makeShape'
+
+function main() returns ExitCode
+	let local = makeShape(2)
+	// TODO: closures are not supported in minimaxon
+	let fromLocal = function() gives local.area() + 1
+	let fromParam = measurer(Square.create(3))
+	print("{fromLocal()} {fromParam()}\n")
+	return 0
+end 'main'
+```
+```stdout
+50 54
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-captured-enum-value-calls-its-method -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A captured enum value answers its own methods inside the closure, captured from a parameter or from a local.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+enum Family
+	alpha
+	beta
+
+	function prefix() returns String
+		return match self 'family'
+			alpha gives "a-"
+			beta gives "b-"
+		end 'family'
+	end 'prefix'
+end 'Family'
+
+function describe(family Family) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives "{family.prefix()}param"
+end 'describe'
+
+function main() returns ExitCode
+	let local = Family.alpha
+	// TODO: closures are not supported in minimaxon
+	let fromLocal = function() gives "{local.prefix()}local"
+	let fromParam = describe(Family.beta)
+	print("{fromLocal()} {fromParam()}\n")
+	return 0
+end 'main'
+```
+```stdout
+a-local b-param
+```
+
+<!-- test: closure-capture.a-captured-enum-value-answers-its-raw-value -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A captured enum value with a raw type answers its `rawValue` inside the closure.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+enum Token
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	pass = "PASS"
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	fail = "FAIL"
+end 'Token'
+
+function spell(token Token) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives token.rawValue
+end 'spell'
+
+function main() returns ExitCode
+	print("{spell(Token.fail)()}\n")
+	return 0
+end 'main'
+```
+```stdout
+FAIL
+```
+
+<!-- test: closure-capture.a-captured-enum-value-answers-its-name-ordinal-and-record -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+A captured enum value answers `name`, `ordinal` and a struct-backed record's fields inside the closure.
+```maxon
+typealias Latency = int(0 to 50)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+type OpMeta
+	export let latency as Latency
+	export let isMemory as bool
+end 'OpMeta'
+
+enum Instruction
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	add = OpMeta{latency: 1, isMemory: false}
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	load = OpMeta{latency: 4, isMemory: true}
+end 'Instruction'
+
+function describe(op Instruction) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives "{op.name} {op.ordinal} {op.rawValue.latency} {op.rawValue.isMemory}"
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe(Instruction.load)()}\n")
+	return 0
+end 'main'
+```
+```stdout
+load 1 4 true
+```
+
+<!-- test: closure-capture.a-captured-union-value-calls-its-method -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A captured union value answers its own methods inside the closure, and the closure releases the payload.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+union Shape
+	circle(label String)
+	square(side String)
+
+	function describe() returns String
+		return match self 'shape'
+			circle(label) gives "circle {label}"
+			square(side) gives "square {side}"
+		end 'shape'
+	end 'describe'
+end 'Shape'
+
+function describer(shape Shape) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives shape.describe()
+end 'describer'
+
+function main() returns ExitCode
+	let fromParam = describer(Shape.circle("a label padded long enough to heap allocate"))
+	let local = Shape.square("another label padded long enough to heap allocate")
+	// TODO: closures are not supported in minimaxon
+	let fromLocal = function() gives local.describe()
+	print("{fromParam()}\n{fromLocal()}\n")
+	return 0
+end 'main'
+```
+```stdout
+circle a label padded long enough to heap allocate
+square another label padded long enough to heap allocate
+```
+
+<!-- test: closure-capture.a-captured-var-enum-and-a-capture-of-a-capture-call-methods -->
+<!-- skip: closures are not supported in minimaxon -->
+An enum captured from a `var`, and one a nested closure captures through its parent, answer their members.
+```maxon
+enum Family
+	alpha
+	beta
+
+	function prefix() returns String
+		return match self 'family'
+			alpha gives "a-"
+			beta gives "b-"
+		end 'family'
+	end 'prefix'
+end 'Family'
+
+function main() returns ExitCode
+	var current = Family.alpha
+	current = Family.beta
+	// TODO: closures are not supported in minimaxon
+	let fromVar = function() gives current.prefix()
+	// TODO: closures are not supported in minimaxon
+	let outer = function() gives function() gives "{current.prefix()}{current.name}"
+	let inner = outer()
+	print("{fromVar()} {inner()}\n")
+	return 0
+end 'main'
+```
+```stdout
+b- b-beta
+```
+
+<!-- test: closure-capture.a-captured-enum-value-answers-its-granted-equals -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+enum Family
+	alpha
+	beta
+end 'Family'
+
+function compare(left Family, right Family) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives "{left.equals(left)} {left.equals(right)}"
+end 'compare'
+
+function main() returns ExitCode
+	print("{compare(Family.alpha, right: Family.beta)()}\n")
+	return 0
+end 'main'
+```
+```stdout
+true false
+```
+
+<!-- test: closure-capture.a-captured-union-answers-its-payload-on-every-call -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A captured union's method hands back its managed payload each time the closure runs, and nothing leaks.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+union Shape
+	circle(label String)
+	square(side String)
+
+	function text() returns String
+		return match self 'shape'
+			circle(label) gives label
+			square(side) gives side
+		end 'shape'
+	end 'text'
+end 'Shape'
+
+function reader(shape Shape) returns Message
+	// TODO: closures are not supported in minimaxon
+	return function() gives shape.text()
+end 'reader'
+
+function main() returns ExitCode
+	let read = reader(Shape.circle("a label padded long enough to heap allocate"))
+	print("{read()}\n{read()}\n")
+	return 0
+end 'main'
+```
+```stdout
+a label padded long enough to heap allocate
+a label padded long enough to heap allocate
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-captured-enum-self-answers-its-members -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+enum Family
+	alpha
+	beta
+
+	function prefix() returns String
+		return match self 'family'
+			alpha gives "a-"
+			beta gives "b-"
+		end 'family'
+	end 'prefix'
+
+	function now() returns String
+		return "{self.name} {self.prefix()}"
+	end 'now'
+
+	function later() returns Message
+		// TODO: closures are not supported in minimaxon
+		return function() gives "{self.name} {self.prefix()}"
+	end 'later'
+end 'Family'
+
+function main() returns ExitCode
+	print("{Family.beta.now()}\n{Family.beta.later()()}\n")
+	return 0
+end 'main'
+```
+```stdout
+beta b-
+beta b-
+```
+
+<!-- test: closure-capture.a-captured-self-answers-its-record-and-a-union-self-its-name -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+`self` in a struct-backed enum's method answers its record's fields, and `self` in a union's method answers
+`name` and `ordinal`, directly and captured.
+```maxon
+typealias Latency = int(0 to 50)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+type OpMeta
+	export let latency as Latency
+end 'OpMeta'
+
+enum Instruction
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	add = OpMeta{latency: 1}
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	load = OpMeta{latency: 4}
+
+	function cost() returns String
+		return "{self.name} {self.rawValue.latency}"
+	end 'cost'
+
+	function later() returns Message
+		// TODO: closures are not supported in minimaxon
+		return function() gives "{self.ordinal} {self.rawValue.latency}"
+	end 'later'
+end 'Instruction'
+
+union Outcome
+	pass
+	fail(reason String)
+
+	function label() returns String
+		return "{self.name} {self.ordinal}"
+	end 'label'
+
+	function later() returns Message
+		// TODO: closures are not supported in minimaxon
+		return function() gives self.name
+	end 'later'
+end 'Outcome'
+
+function main() returns ExitCode
+	print("{Instruction.load.cost()} {Instruction.load.later()()}\n")
+	let failed = Outcome.fail("a reason padded long enough to heap allocate")
+	print("{failed.label()} {failed.later()()}\n")
+	return 0
+end 'main'
+```
+```stdout
+load 4 1 4
+fail 1 fail
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.self-in-a-struct-backed-union-reads-its-backing-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+`self` in a struct-backed union's method reads a backing field by its short name, as a binding does, directly
+and captured.
+```maxon
+typealias Latency = int(0 to 50)
+
+typealias Slot = int(0 to 255)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+type OpMeta
+	export let latency as Latency
+end 'OpMeta'
+
+union Instruction
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	add(dest Slot) = OpMeta{latency: 1}
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	load(dest Slot) = OpMeta{latency: 4}
+
+	function cost() returns Latency
+		return self.latency
+	end 'cost'
+
+	function later() returns Message
+		// TODO: closures are not supported in minimaxon
+		return function() gives "{self.latency} {self.rawValue.latency}"
+	end 'later'
+end 'Instruction'
+
+function main() returns ExitCode
+	let op = Instruction.load(7)
+	print("{op.cost()} {op.later()()}\n")
+	return 0
+end 'main'
+```
+```stdout
+4 4 4
+```
+
+<!-- test: closure-capture.error.self-in-a-struct-backed-union-still-reads-no-payload -->
+<!-- skip: explicit raw values on union cases are not supported in minimaxon -->
+<!-- positions: moved -->
+A payload name stays unreadable through `self`, backing or not.
+```maxon
+typealias Latency = int(0 to 50)
+
+typealias Slot = int(0 to 255)
+
+type OpMeta
+	export let latency as Latency
+end 'OpMeta'
+
+union Instruction
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	add(dest Slot) = OpMeta{latency: 1}
+	// TODO: explicit raw values on union cases are not supported in minimaxon
+	load(dest Slot) = OpMeta{latency: 4}
+
+	function target() returns Slot
+		return self.dest
+	end 'target'
+end 'Instruction'
+
+function main() returns ExitCode
+	return Instruction.load(7).target() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:14:10: Unsupported: a field access through `self` in a method of `enum`/`union` `Instruction` — an enum/union declares no fields; a case's PAYLOAD is bound by a pattern (`match self 'k' … fail(reason) then …`), never read through the receiver
+```
+
+<!-- test: closure-capture.a-bare-union-field-answers-its-name-and-ordinal -->
+```maxon
+union Outcome
+	pass
+	fail(reason String)
+end 'Outcome'
+
+type Holder
+	export let outcome as Outcome
+
+	static function create(outcome Outcome) returns Self
+		return Self{outcome: outcome}
+	end 'create'
+
+	function label() returns String
+		return "{outcome.name} {outcome.ordinal}"
+	end 'label'
+end 'Holder'
+
+function main() returns ExitCode
+	let h = Holder.create(Outcome.fail("a reason padded long enough to heap allocate"))
+	print("{h.label()}\n")
+	return 0
+end 'main'
+```
+```stdout
+fail 1
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-bare-struct-backed-enum-field-reads-its-record -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+```maxon
+typealias Latency = int(0 to 50)
+
+type OpMeta
+	export let latency as Latency
+end 'OpMeta'
+
+enum Instruction
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	add = OpMeta{latency: 1}
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	load = OpMeta{latency: 4}
+end 'Instruction'
+
+type Holder
+	export let kind as Instruction
+
+	static function create(kind Instruction) returns Self
+		return Self{kind: kind}
+	end 'create'
+
+	function cost() returns String
+		return "{kind.latency} {kind.rawValue.latency}"
+	end 'cost'
+end 'Holder'
+
+function main() returns ExitCode
+	print("{Holder.create(Instruction.load).cost()}\n")
+	return 0
+end 'main'
+```
+```stdout
+4 4
+```
+
+<!-- test: closure-capture.a-bare-enum-field-answers-its-members-directly-and-captured -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A bare enum field answers its accessors and methods the same way read directly in a method and captured by
+a closure inside one.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Message = function() returns String
+
+enum Family
+	alpha
+	beta
+
+	function prefix() returns String
+		return match self 'family'
+			alpha gives "a-"
+			beta gives "b-"
+		end 'family'
+	end 'prefix'
+end 'Family'
+
+type Holder
+	export let kind as Family
+
+	static function create(kind Family) returns Self
+		return Self{kind: kind}
+	end 'create'
+
+	function direct() returns String
+		return "{kind.name} {kind.ordinal} {kind.prefix()}"
+	end 'direct'
+
+	function later() returns Message
+		// TODO: closures are not supported in minimaxon
+		return function() gives "{kind.name} {kind.ordinal} {kind.prefix()}"
+	end 'later'
+end 'Holder'
+
+function main() returns ExitCode
+	let holder = Holder.create(Family.alpha)
+	print("{holder.direct()}\n{holder.later()()}\n")
+	return 0
+end 'main'
+```
+```stdout
+alpha 0 a-
+alpha 0 a-
+```
+
+<!-- test: closure-capture.a-cell-resident-var-hands-its-occupant-to-the-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+A `var` handed to a parameter its callee reassigns lives in a cell, and a capture takes what the cell holds.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function fill(mutates dest String, n Integer)
+	dest = "filled {n} padded out long enough to heap allocate"
+end 'fill'
+
+function main() returns ExitCode
+	var word = "hello padded out long enough to heap allocate {1}"
+	fill(word, n: 2)
+	// TODO: closures are not supported in minimaxon
+	let peek = function() gives word.byteLength() as Integer
+	print("{peek()}\n")
+	return 0
+end 'main'
+```
+```stdout
+48
+```
+
+<!-- test: closure-capture.a-cell-resident-scalar-is-copied -->
+<!-- skip: closures are not supported in minimaxon -->
+A cell-resident scalar is copied into the environment like any other scalar, so the cell stays the frame's.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function bump(mutates dest Integer)
+	dest = dest + 1
+end 'bump'
+
+function main() returns ExitCode
+	var n = 1 as Integer
+	bump(n)
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives n
+	n = 7
+	print("{f()} {n}\n")
+	return 0
+end 'main'
+```
+```stdout
+2 7
+```
+
+### A closure called out of a slot it can rewrite
+
+<!-- test: closure-capture.a-field-closure-that-replaces-itself-keeps-its-captures-while-it-runs -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The call holds a reference to the closure it reads out of a field for as long as it runs, so a body that
+replaces the field's closure still reads its own captures.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(mutable Holder) returns Integer
+
+type Holder
+	export var step as Step
+
+	static function create(step Step) returns Self
+		return Self{step: step}
+	end 'create'
+
+	export function swap()
+		// TODO: closures are not supported in minimaxon
+		self.step = function(_ mutable Holder) gives 0
+	end 'swap'
+end 'Holder'
+
+function swapThenMeasure(h Holder, text String) returns Integer
+	h.swap()
+	return text.byteLength() as Integer
+end 'swapThenMeasure'
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	// TODO: closures are not supported in minimaxon
+	let h = Holder.create(function(other mutable Holder) gives swapThenMeasure(other, text: word))
+	print("{h.step(h)} {h.step(h)}\n")
+	return 0
+end 'main'
+```
+```stdout
+44 0
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-field-closure-replaced-by-its-own-argument-runs-as-read -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The call holds the closure it reads out of a field before it evaluates its arguments, so an argument that replaces the field's closure does not free the one being called.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Step = function(Integer) returns Integer
+
+type Holder
+	export var step as Step
+
+	static function create(step Step) returns Self
+		return Self{step: step}
+	end 'create'
+
+	function swap(by Integer) returns Integer
+		// TODO: closures are not supported in minimaxon
+		self.step = function(n Integer) gives n + by
+		return 1
+	end 'swap'
+end 'Holder'
+
+function main() returns ExitCode
+	let word = "a word padded long enough to heap allocate {1}"
+	// TODO: closures are not supported in minimaxon
+	let h = Holder.create(function(n Integer) gives n + (word.byteLength() as Integer))
+	print("{h.step(h.swap(100))} {h.step(2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+45 102
+```
+```exitcode
+0
+```
+
+### A closure record releases its captures however it is dropped
+
+<!-- test: closure-capture.a-closure-overwritten-in-an-array-releases-its-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+`set` destroys the closure it overwrites through the element's own drop.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+typealias OpArray = Array with Op
+
+function main() returns ExitCode
+	let label = "a label padded long enough to heap allocate {3}"
+	let ops = OpArray.create(0)
+	// TODO: closures are not supported in minimaxon
+	ops.push(function(n Integer) gives n + (label.byteLength() as Integer))
+	// TODO: closures are not supported in minimaxon
+	try ops.set(0, value: function(n Integer) gives n * 2) otherwise panic("one element")
+	let op = try ops.get(0) otherwise panic("one element")
+	print("{op(4)}\n")
+	return 0
+end 'main'
+```
+```stdout
+8
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-closure-held-as-a-map-value-releases-its-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A map that holds a capturing closure as a value releases it with the map.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+typealias OpMap = Map with (Integer, Op)
+
+function main() returns ExitCode
+	let label = "a label padded long enough to heap allocate {3}"
+	let ops = OpMap.create()
+	// TODO: closures are not supported in minimaxon
+	ops.upsert(1, value: function(n Integer) gives n + (label.byteLength() as Integer))
+	print("{ops.count()}\n")
+	return 0
+end 'main'
+```
+```stdout
+1
+```
+```exitcode
+0
+```
+
+### Module-level function values
+
+<!-- test: closure-capture.module-level-function-values -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A module-level `let` and `var` hold function values: a plain function, and a capturing closure the `var` is
+rebound to and releases at exit.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+function twice(n Integer) returns Integer
+	return n * 2
+end 'twice'
+
+function adder(text String) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(n Integer) gives n + (text.byteLength() as Integer)
+end 'adder'
+
+let doubler = twice
+
+function install(text String) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(n Integer) gives n * (text.byteLength() as Integer)
+end 'install'
+
+function main() returns ExitCode
+	var current = adder("a text padded long enough to heap allocate 2")
+	print("{doubler(3)} {current(4)}\n")
+	current = install("a text padded long enough to heap allocate {1}")
+	print("{current(1)}\n")
+	current = doubler
+	print("{current(5)} {doubler(6)}\n")
+	return 0
+end 'main'
+```
+```stdout
+6 48
+44
+10 12
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-module-let-function-value-its-function-calls-back -->
+A module-level `let` bound to a function names the function without running it, so the function may call back through the `let`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function countdown(n Integer) returns Integer
+	if n == 0 'done'
+		return 0
+	end 'done'
+	return step(n - 1) + 1
+end 'countdown'
+
+let step = countdown
+
+function main() returns ExitCode
+	print("{step(5)}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+```
+```exitcode
+0
+```
+
+### A capture beside the call it is an argument of
+
+<!-- test: closure-capture.error.a-capture-of-the-receiver-of-the-call -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The capture moves the receiver into the closure before `push` writes it, so the push is a use after move.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+function main() returns ExitCode
+	var thunks = Thunks.create(0)
+	// TODO: closures are not supported in minimaxon
+	thunks.push(function() gives thunks.count() as Integer)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:8:2: use of moved value 'thunks': its ownership moved to the closure that captures it
+```
+
+### A self field handed by reference inside a closure
+
+<!-- test: closure-capture.error.a-self-field-handed-by-reference-inside-a-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A bare self-field name inside a closure is a capture like any other, so a by-reference parameter cannot be
+handed its storage.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function setIt(mutates dest Integer) returns Integer
+	dest = 99
+	return dest
+end 'setIt'
+
+type Counter
+	export var n as Integer
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+
+	function setter() returns Thunk
+		// TODO: closures are not supported in minimaxon
+		return function() gives setIt(n)
+	end 'setter'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	let f = c.setter()
+	print("{f()} {c.n}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2013: <fragment>:18:27: cannot pass 'n' to a function that writes parameter 'dest' (in the closure at <fragment>:18:10): the closure holds its own copy of 'n', so a write through 'dest' cannot reach the original; pass a clone()
+```
+
+<!-- test: closure-capture.error.a-captured-value-handed-to-a-conformer-that-writes-it-is-refused -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure that calls through an interface hands the position its conformer writes the closure's own copy of `start`,
+so the write cannot reach the original and the call is refused.
+```maxon
+typealias Wide = int(0 to 100)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Wide
+
+interface Bumper
+	function bump(mutates n Wide) returns Wide
+end 'Bumper'
+
+type Doubler implements Bumper
+	export let seed as Wide
+
+	static function create(seed Wide) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function bump(mutates n Wide) returns Wide
+		n = 50
+		return n
+	end 'bump'
+end 'Doubler'
+
+function make(b Bumper, start Wide) returns Thunk
+	// TODO: closures are not supported in minimaxon
+	return function() gives b.bump(start)
+end 'make'
+
+function main() returns ExitCode
+	let t = make(Doubler.create(1), start: 3)
+	return t() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2013: <fragment>:23:28: cannot pass 'start' to a function that writes argument 1 (in the closure at <fragment>:23:9): the closure holds its own copy of 'start', so a write through it cannot reach the original; pass a clone()
+```
+
+### A captured Promise
+
+<!-- test: closure-capture.a-captured-promise-moves-into-the-closure -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A capture moves the promise into the closure, so the green thread stays alive for as long as the closure does
+and runs at the next yield, after the frame that spawned it has ended. `main`'s two yields let `setFlag` run
+to completion on the strand, so the closure's `isComplete()` read answers through a promise that is still
+alive.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias FlagCell = SharedValue with Integer
+
+function setFlag(flag FlagCell) returns Integer
+	flag.publish(1 as Integer)
+	Scheduler.yield()
+	return 1
+end 'setFlag'
+
+function finished(p IntPromise) returns Integer
+	return 1 if p.isComplete() else 0
+end 'finished'
+
+function later(flag FlagCell) returns Thunk
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async setFlag(flag.clone())
+	// TODO: closures are not supported in minimaxon
+	return function() gives finished(p)
+end 'later'
+
+function main() returns ExitCode
+	let flag = FlagCell.create(0 as Integer)
+	let f = later(flag.clone())
+	Scheduler.yield()
+	Scheduler.yield()
+	print("{flag.current()} {f()}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 1
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-captured-promise-is-released-with-the-closure -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure that never runs releases the promise it captured when it is dropped.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function plain() returns Integer
+	Scheduler.yield()
+	return 7
+end 'plain'
+
+function alive(p IntPromise) returns Integer
+	return 1 if p.isComplete() else 0
+end 'alive'
+
+function never() returns Thunk
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	// TODO: closures are not supported in minimaxon
+	return function() gives alive(p)
+end 'never'
+
+function main() returns ExitCode
+	_ = never()
+	print("built\n")
+	return 0
+end 'main'
+```
+```stdout
+built
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-captured-promise-is-not-awaited-inside-the-closure -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The closure owns the promise and may run more than once, so its body cannot give it away.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function plain() returns Integer
+	Scheduler.yield()
+	return 7
+end 'plain'
+
+function later() returns Thunk
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	// TODO: closures are not supported in minimaxon
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return function() gives await p
+end 'later'
+
+function main() returns ExitCode
+	let f = later()
+	return f() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:12:26: a promise cannot be borrowed through 'await': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. This one is a closure's capture: the closure owns it for as long as the closure lives, and its body may run any number of times, so no run of it may give the promise away. Await it in the function that spawned it, or hand the closure what it needs as a parameter
+```
+
+<!-- test: closure-capture.error.a-captured-promise-read-after-the-literal -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+The capture consumed the promise, so awaiting it in the frame afterwards is a use after move.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+function plain() returns Integer
+	Scheduler.yield()
+	return 7
+end 'plain'
+
+function alive(p IntPromise) returns Integer
+	return 1 if p.isComplete() else 0
+end 'alive'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives alive(p)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (f() + (await p)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:17:23: use of moved value 'p': its ownership moved to the closure that captures it
+```
+
+### A captured function value
+
+<!-- test: closure-capture.a-captured-function-value-stays-callable -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A plain function value and a closure that captures nothing are shared by every holder, so capturing one
+leaves it callable.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(Integer) returns Integer
+
+function twice(n Integer) returns Integer
+	return n * 2
+end 'twice'
+
+function apply(f Op, x Integer) returns Integer
+	return f(x)
+end 'apply'
+
+function main() returns ExitCode
+	let cmp = twice
+	// TODO: closures are not supported in minimaxon
+	let triple = function(n Integer) gives n * 3
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives apply(cmp, x: n) + apply(triple, x: n)
+	print("{f(1)} {cmp(2)} {triple(2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+5 4 6
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-captured-function-value-is-called-by-name -->
+<!-- skip: closures are not supported in minimaxon -->
+A captured function value is called by its name inside the closure, as it would be outside one.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function twice(n Integer) returns Integer
+	return n * 2
+end 'twice'
+
+function main() returns ExitCode
+	let cmp = twice
+	let word = "a word padded long enough to heap allocate {1}"
+	// TODO: closures are not supported in minimaxon
+	let measure = function(n Integer) gives n + (word.byteLength() as Integer)
+	// TODO: closures are not supported in minimaxon
+	let f = function(n Integer) gives cmp(n) + measure(n)
+	print("{f(1)} {cmp(2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+47 4
+```
+```exitcode
+0
+```
+
+### A closure stored into what it captures
+
+A closure holds a counted reference to every record it captures, so storing it into one of those records'
+graphs makes a cycle no drop can release. The store is refused.
+
+<!-- test: closure-capture.error.a-closure-stored-into-a-field-of-self-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: 1, read: function() gives 0}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.read = function() gives self.n
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:14:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-stored-into-a-field-of-a-parameter-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: 1, read: function() gives 0}
+	end 'create'
+end 'Counter'
+
+function arm(h Counter)
+	// TODO: closures are not supported in minimaxon
+	h.read = function() gives h.n
+end 'arm'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	arm(c)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:15:11: this closure captures 'h' and is stored into a record 'h' holds, so 'h' would hold the closure and the closure would hold 'h', and neither would ever be released. Store it somewhere 'h' does not reach, or capture what the closure needs instead of 'h' itself
+```
+
+<!-- test: closure-capture.error.a-closure-bound-first-then-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: 1, read: function() gives 0}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		let c = function() gives self.n
+		self.read = c
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:15:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-pushed-into-an-array-field-of-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		return Self{n: 1, reads: Thunks.create(0)}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.reads.push(function() gives self.n)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:15:19: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-set-into-an-array-field-of-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		var reads = Thunks.create(0)
+		// TODO: closures are not supported in minimaxon
+		reads.push(function() gives 0)
+		return Self{n: 1, reads: reads}
+	end 'create'
+end 'Counter'
+
+function arm(h Counter)
+	// TODO: closures are not supported in minimaxon
+	try h.reads.set(0, value: function() gives h.n) otherwise panic("one element")
+end 'arm'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	arm(c)
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:18:28: this closure captures 'h' and is stored into a record 'h' holds, so 'h' would hold the closure and the closure would hold 'h', and neither would ever be released. Store it somewhere 'h' does not reach, or capture what the closure needs instead of 'h' itself
+```
+
+<!-- test: closure-capture.error.a-closure-in-a-union-payload-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+union Armed
+	ready(read Thunk)
+	idle
+end 'Armed'
+
+type Counter
+	export var n as Integer
+	export var armed as Armed
+
+	static function create() returns Self
+		return Self{n: 1, armed: Armed.idle}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.armed = Armed.ready(function() gives self.n)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	print("{c.armed.name}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:19:16: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.a-closure-stored-into-a-record-it-does-not-capture -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure that captures one record may be stored into another.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create(n Integer) returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: n, read: function() gives 0}
+	end 'create'
+
+	function lend(other Counter)
+		// TODO: closures are not supported in minimaxon
+		other.read = function() gives self.n
+	end 'lend'
+end 'Counter'
+
+function main() returns ExitCode
+	let source = Counter.create(7)
+	let target = Counter.create(1)
+	source.lend(target)
+	return target.read() as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: closure-capture.error.a-closure-in-a-struct-literal-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure inside a struct literal is held by the record the literal builds.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var w as Wrapper
+
+	static function create() returns Self
+		return Self{n: 1, w: Wrapper.idle()}
+	end 'create'
+end 'Counter'
+
+type Wrapper
+	export var read as Thunk
+
+	static function idle() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{read: function() gives 0}
+	end 'idle'
+
+	static function arm(c Counter)
+		// TODO: closures are not supported in minimaxon
+		c.w = Self{read: function() gives c.n}
+	end 'arm'
+end 'Wrapper'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	Wrapper.arm(c)
+	return c.w.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:22:9: this value holds a closure that captures 'c' and is stored into a record 'c' holds, so 'c' would hold the closure and the closure would hold 'c', and neither would ever be released. Store it somewhere 'c' does not reach, or capture what the closure needs instead of 'c' itself
+```
+
+<!-- test: closure-capture.error.a-closure-in-a-tuple-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- positions: moved -->
+A tuple holds its closure as a record field does.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	// TODO: tuple values and types are not supported in minimaxon
+	export var pair as (Thunk, Integer)
+
+	static function create() returns Self
+		// TODO: tuple values and types are not supported in minimaxon
+		return Self{n: 1, pair: (idle, 0)}
+	end 'create'
+
+	export function arm()
+		// TODO: tuple values and types are not supported in minimaxon
+		// TODO: closures are not supported in minimaxon
+		self.pair = (function() gives self.n, 1)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	// TODO: tuple element access is not supported in minimaxon
+	return c.pair.1 as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:18:15: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-in-an-array-literal-stored-into-what-it-captures -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+An array literal holds each element it is built from.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		return Self{n: 1, reads: Thunks.create(0)}
+	end 'create'
+
+	export function arm()
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		// TODO: closures are not supported in minimaxon
+		self.reads = [function() gives self.n]
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:15:16: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-local-array-holding-the-closure-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A container filled first and stored afterwards holds what was pushed into it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		return Self{n: 1, reads: Thunks.create(0)}
+	end 'create'
+
+	export function arm()
+		var fresh = Thunks.create(0)
+		// TODO: closures are not supported in minimaxon
+		fresh.push(function() gives self.n)
+		self.reads = fresh
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:17:16: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-chosen-by-a-ternary-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A merge of two closures may be either of them.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function arm(live bool)
+		// TODO: closures are not supported in minimaxon
+		let chosen = (function() gives self.n) if live else idle
+		self.read = chosen
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm(true)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-assigned-in-an-if-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function arm(live bool)
+		var chosen = idle
+		if live 'arming'
+			// TODO: closures are not supported in minimaxon
+			chosen = function() gives self.n
+		end 'arming'
+		self.read = chosen
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm(true)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:24:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-chosen-by-a-match-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+enum Mode
+	quiet
+	live
+end 'Mode'
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function arm(mode Mode)
+		let chosen = match mode 'mode'
+			quiet gives idle
+			// TODO: closures are not supported in minimaxon
+			live gives function() gives self.n
+		end 'mode'
+		self.read = chosen
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm(Mode.live)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:28:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-assigned-in-a-loop-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function arm(rounds Integer)
+		var chosen = idle
+		for i in 0 upto rounds 'eachRound'
+			// TODO: closures are not supported in minimaxon
+			chosen = function() gives self.n + i
+		end 'eachRound'
+		self.read = chosen
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm(2)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:24:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-clone-of-the-closure-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A clone of a closure shares its record.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		let reader = function() gives self.n
+		self.read = reader.clone()
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-returned-by-a-call-stored-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A callee that hands back its argument hands back the closure.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+function identity(f Thunk) returns Thunk
+	return f
+end 'identity'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.read = identity(function() gives self.n)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:22:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-a-callee-builds-stored-into-the-var-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The closure is built by a callee that captures its argument, so this function never names a capture — the
+refusal names the record by the `var` the store is written through.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: 1, read: function() gives 0}
+	end 'create'
+end 'Counter'
+
+function reader(h Counter) returns Thunk
+	// TODO: closures are not supported in minimaxon
+	return function() gives h.n
+end 'reader'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.read = reader(c)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:20:11: this closure captures 'c' and is stored into a record 'c' holds, so 'c' would hold the closure and the closure would hold 'c', and neither would ever be released. Store it somewhere 'c' does not reach, or capture what the closure needs instead of 'c' itself
+```
+
+<!-- test: closure-capture.error.a-closure-capturing-a-closure-stored-into-what-the-inner-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure holds everything the closures it captures hold.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		let inner = function() gives self.n
+		// TODO: closures are not supported in minimaxon
+		self.read = function() gives inner() + 1
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-handed-to-a-method-that-stores-it-into-its-receiver -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A callee that stores its argument into its receiver stores the closure there.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function setRead(f Thunk)
+		self.read = f
+	end 'setRead'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.setRead(function() gives self.n)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:22:16: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-handed-to-a-method-of-the-parameter-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function install(f Thunk)
+		self.read = f
+	end 'install'
+end 'Counter'
+
+function arm(h Counter)
+	// TODO: closures are not supported in minimaxon
+	h.install(function() gives h.n)
+end 'arm'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	arm(c)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:23:12: this closure captures 'h' and is stored into a record 'h' holds, so 'h' would hold the closure and the closure would hold 'h', and neither would ever be released. Store it somewhere 'h' does not reach, or capture what the closure needs instead of 'h' itself
+```
+
+<!-- test: closure-capture.error.a-closure-a-closure-body-stores-into-what-it-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The rule holds inside a closure body, for a record it captured.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+
+	function install(f Thunk) returns Integer
+		self.read = f
+		return 1
+	end 'install'
+
+	function arm() returns Integer
+		// TODO: closures are not supported in minimaxon
+		let later = function() gives self.install(function() gives self.n)
+		return later()
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	let armed = c.arm()
+	return (c.read() + armed) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:23:45: this closure captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-capturing-a-borrowed-field-stored-into-that-field -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A captured borrow of a field is held too: storing the closure into the record the borrow names closes a cycle no drop can release, and the cycle check refuses the store.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Inner
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Inner'
+
+type Counter
+	export var inner as Inner
+
+	static function create() returns Self
+		return Self{inner: Inner.create()}
+	end 'create'
+
+	export function arm()
+		let held = self.inner
+		// TODO: closures are not supported in minimaxon
+		self.inner.read = function() gives held.n
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.inner.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:27:21: this closure captures 'held' and is stored into a record 'held' holds, so 'held' would hold the closure and the closure would hold 'held', and neither would ever be released. Store it somewhere 'held' does not reach, or capture what the closure needs instead of 'held' itself
+```
+
+<!-- test: closure-capture.a-closure-capturing-a-copy-stored-into-the-record-it-was-copied-from -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure that captures a copy of a field holds no reference to the record, so storing it there is legal.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var label as String
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 7, label: "a label padded long enough to heap allocate {1}", read: idle}
+	end 'create'
+
+	export function arm()
+		let count = self.n
+		let copy = self.label.clone()
+		// TODO: closures are not supported in minimaxon
+		self.read = function() gives count + (copy.byteLength() as Integer) - (copy.byteLength() as Integer)
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create()
+	c.arm()
+	print("{c.read()}\n")
+	return 0
+end 'main'
+```
+```stdout
+7
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-closure-capturing-one-field-stored-into-a-sibling-record -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure capturing one record's borrowed field may be stored into a sibling record: neither reaches the other.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Inner
+	export var n as Integer
+	export var read as Thunk
+
+	static function create(n Integer) returns Self
+		return Self{n: n, read: idle}
+	end 'create'
+end 'Inner'
+
+type Counter
+	export var left as Inner
+	export var right as Inner
+
+	static function create() returns Self
+		return Self{left: Inner.create(3), right: Inner.create(4)}
+	end 'create'
+
+	export function arm()
+		let borrowed = self.left
+		// TODO: closures are not supported in minimaxon
+		self.right.read = function() gives borrowed.n
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create()
+	c.arm()
+	print("{c.right.read()}\n")
+	return 0
+end 'main'
+```
+```stdout
+3
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-closure-stored-into-a-fresh-record-another-fresh-record-holds -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+Two records built in one function close a cycle as two handed in would: the closure captures the record that holds the one it is stored into.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Holder
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Holder'
+
+type Box
+	export var n as Integer
+	export var held as Holder
+
+	static function create() returns Self
+		return Self{n: 2, held: Holder.create()}
+	end 'create'
+
+	function attach(h Holder)
+		self.held = h
+	end 'attach'
+end 'Box'
+
+function main() returns ExitCode
+	var a = Holder.create()
+	var b = Box.create()
+	b.attach(a)
+	// TODO: closures are not supported in minimaxon
+	a.read = function() gives b.n
+	return a.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:35:11: this closure captures 'b' and is stored into a record 'b' holds, so 'b' would hold the closure and the closure would hold 'b', and neither would ever be released. Store it somewhere 'b' does not reach, or capture what the closure needs instead of 'b' itself
+```
+
+<!-- test: closure-capture.error.an-array-of-closures-appended-into-what-they-capture -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+Appending an array of function values shares its closures with the receiver.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		return Self{n: 1, reads: Thunks.create(0)}
+	end 'create'
+end 'Counter'
+
+function arm(h Counter)
+	var fresh = Thunks.create(0)
+	// TODO: closures are not supported in minimaxon
+	fresh.push(function() gives h.n)
+	h.reads.append(fresh)
+end 'arm'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	arm(c)
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:18:10: this value holds a closure that captures 'h' and is stored into a record 'h' holds, so 'h' would hold the closure and the closure would hold 'h', and neither would ever be released. Store it somewhere 'h' does not reach, or capture what the closure needs instead of 'h' itself
+```
+
+<!-- test: closure-capture.error.a-callee-stores-a-closure-capturing-one-argument-into-the-other-handed-one-record -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+A callee that stores a closure capturing one parameter into another closes a cycle when both arguments are one record.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+function wire(target Counter, source Counter)
+	// TODO: closures are not supported in minimaxon
+	target.read = function() gives source.n
+end 'wire'
+
+function rewire(c Counter)
+	wire(c, source: c)
+end 'rewire'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	rewire(c)
+	return c.read() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:23:10: this value holds a closure that captures 'c' and is stored into a record 'c' holds, so 'c' would hold the closure and the closure would hold 'c', and neither would ever be released. Store it somewhere 'c' does not reach, or capture what the closure needs instead of 'c' itself
+```
+
+<!-- test: closure-capture.a-closure-capturing-a-replaced-field-stored-into-its-replacement -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A field read before it is overwritten names the record it held then, so a closure capturing that record may be stored into the record that replaced it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Button
+	export var n as Integer
+	export var onClick as Thunk
+
+	static function create(n Integer) returns Self
+		return Self{n: n, onClick: idle}
+	end 'create'
+end 'Button'
+
+type Panel
+	export var left as Button
+
+	static function create() returns Self
+		return Self{left: Button.create(1)}
+	end 'create'
+
+	export function rewire()
+		let old = self.left
+		self.left = Button.create(2)
+		// TODO: closures are not supported in minimaxon
+		self.left.onClick = function() gives old.n
+	end 'rewire'
+end 'Panel'
+
+function main() returns ExitCode
+	let p = Panel.create()
+	p.rewire()
+	print("{p.left.onClick()} {p.left.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 2
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-closure-capturing-one-field-of-a-fresh-record-stored-into-its-sibling -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+Each field of a record built in the function holds what was stored into it, so a closure capturing one field may be stored into its sibling.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Inner
+	export var n as Integer
+	export var read as Thunk
+
+	static function create(n Integer) returns Self
+		return Self{n: n, read: idle}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var n as Integer
+	export var read as Thunk
+
+	static function create(n Integer) returns Self
+		return Self{n: n, read: idle}
+	end 'create'
+end 'Outer'
+
+type Pair
+	export var left as Inner
+	export var right as Outer
+
+	static function build() returns Self
+		let pair = Self{left: Inner.create(3), right: Outer.create(4)}
+		let borrowed = pair.left
+		// TODO: closures are not supported in minimaxon
+		pair.right.read = function() gives borrowed.n
+		return pair
+	end 'build'
+end 'Pair'
+
+function main() returns ExitCode
+	let pair = Pair.build()
+	print("{pair.right.read()}\n")
+	return 0
+end 'main'
+```
+```stdout
+3
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-call-through-a-function-value-lands-only-on-bodies-of-its-arity -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A call through a function value lands only on a body taking exactly its arguments, so a function of another arity that stores a closure is not consulted.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create(n Integer) returns Self
+		return Self{n: n, read: idle}
+	end 'create'
+end 'Counter'
+
+function wire(target Counter, source Counter)
+	// TODO: closures are not supported in minimaxon
+	target.read = function() gives source.n
+end 'wire'
+
+function readTwice(c Counter) returns Integer
+	// TODO: closures are not supported in minimaxon
+	let reader = function(t Counter) gives t.n + c.n
+	return reader(c)
+end 'readTwice'
+
+function main() returns ExitCode
+	let wiring = wire
+	let a = Counter.create(1)
+	let b = Counter.create(2)
+	wiring(a, b)
+	print("{a.read()} {readTwice(b)}\n")
+	return 0
+end 'main'
+```
+```stdout
+2 4
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-closure-stored-into-the-local-it-captured -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+Capturing a local moves it into the closure, so storing the closure into that local's record afterwards uses a moved value.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+function main() returns ExitCode
+	var h = Counter.create()
+	// TODO: closures are not supported in minimaxon
+	h.read = function() gives h.n
+	return h.n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:20:2: use of moved value 'h': its ownership moved to the closure that captures it
+```
+
+<!-- test: closure-capture.a-closure-writing-a-captured-parameter-writes-the-functions-parameter -->
+<!-- skip: closures are not supported in minimaxon -->
+A parameter a closure captures is the caller's record, retained: a write through it in the closure's body is a write of the parameter, so the `let` handed to `bump` is written.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+function zero(b Box) returns Count
+	b.n = 0
+	return 0
+end 'zero'
+
+function bump(b Box) returns Count
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives zero(b)
+	return f()
+end 'bump'
+
+function main() returns ExitCode
+	let a = Box.create(2)
+	let r = bump(a)
+	print("{a.n}{r}\n")
+	return 0
+end 'main'
+```
+```stdout
+00
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-captured-parameter-written-through-a-closure-handed-to-a-callee-or-nested-in-another -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The write happens wherever the closure is called, so a closure handed to a callee that calls it, and a closure written inside another closure, write the captured parameter alike.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Count mutates captures
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+function zero(b Box) returns Count
+	b.n = 0
+	return 0
+end 'zero'
+
+function apply(g Thunk) returns Count
+	return g()
+end 'apply'
+
+function bump(b Box) returns Count
+	// TODO: closures are not supported in minimaxon
+	return apply(function() gives zero(b))
+end 'bump'
+
+function bumpNested(b Box) returns Count
+	// TODO: closures are not supported in minimaxon
+	let outer = function() gives apply(function() gives zero(b))
+	return outer()
+end 'bumpNested'
+
+function main() returns ExitCode
+	let a = Box.create(2)
+	let c = Box.create(3)
+	let r = bump(a)
+	let s = bumpNested(c)
+	print("{a.n}{r}{c.n}{s}\n")
+	return 0
+end 'main'
+```
+```stdout
+0000
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-closure-only-reading-a-captured-parameter-leaves-it-unwritten -->
+<!-- skip: closures are not supported in minimaxon -->
+```maxon
+typealias Count = int(0 to 1000)
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function read() returns Count
+		return n
+	end 'read'
+end 'Box'
+
+function peek(b Box) returns Count
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives b.read()
+	return f()
+end 'peek'
+
+function main() returns ExitCode
+	let a = Box.create(2)
+	print("{peek(a)}\n")
+	return 0
+end 'main'
+```
+```stdout
+2
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-closure-writing-within-a-captured-parameter-writes-a-frozen-record -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure that writes the record a captured parameter's field holds writes the graph the parameter denotes, which a frozen record is refused by.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+type Inner
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var inner as Inner
+
+	static function create(n Count) returns Self
+		return Self{inner: Inner.create(n)}
+	end 'create'
+end 'Outer'
+
+function zero(i Inner) returns Count
+	i.n = 0
+	return 0
+end 'zero'
+
+function bump(o Outer) returns Count
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives zero(o.inner)
+	return f()
+end 'bump'
+
+function main() returns ExitCode
+	let g = freeze(Outer.create(2))
+	let r = bump(g)
+	print("{g.inner.n}{r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:32:15: 'bump' writes 'o' (line 26: `let f = function() gives zero(o.inner)`); 'g' is immutable
+```
+
+<!-- test: closure-capture.error.a-captured-parameter-written-within-by-a-closure-handed-to-a-callee-writes-a-frozen-record -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The closure is handed to a callee that calls it; the write is the same wherever the closure runs.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+type Inner
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export var inner as Inner
+
+	static function create(n Count) returns Self
+		return Self{inner: Inner.create(n)}
+	end 'create'
+end 'Outer'
+
+function zero(i Inner) returns Count
+	i.n = 0
+	return 0
+end 'zero'
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Count mutates captures
+
+function apply(g Thunk) returns Count
+	return g()
+end 'apply'
+
+function bump(o Outer) returns Count
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives zero(o.inner)
+	return apply(f)
+end 'bump'
+
+function main() returns ExitCode
+	let g = freeze(Outer.create(2))
+	let r = bump(g)
+	print("{g.inner.n}{r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:38:15: 'bump' writes 'o' (line 32: `let f = function() gives zero(o.inner)`); 'g' is immutable
+```
+
+<!-- test: closure-capture.a-closure-writing-within-a-captured-parameter-writes-a-local-let -->
+<!-- skip: closures are not supported in minimaxon -->
+A closure that writes inside the record a captured `let` holds writes it, as the same write in the body does.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+type Inner
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Inner'
+
+type Outer
+	export let inner as Inner
+
+	static function create(n Count) returns Self
+		return Self{inner: Inner.create(n)}
+	end 'create'
+end 'Outer'
+
+function zero(i Inner) returns Count
+	i.n = 0
+	return 0
+end 'zero'
+
+function bump(o Outer) returns Count
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives zero(o.inner)
+	return f()
+end 'bump'
+
+function main() returns ExitCode
+	let a = Outer.create(2)
+	let r = bump(a)
+	print("{a.inner.n}{r}\n")
+	return 0
+end 'main'
+```
+```stdout
+00
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.an-escaping-closure-that-writes-a-captured-parameter-keeps-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+`arm` returns a closure that captures `b` and writes it, so the parameter outlives the call; handing `arm` a `let` is accepted, and `main` reads the write.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Bump = function() returns Count mutates captures
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+function zero(b Box) returns Count
+	b.n = 9
+	return 0
+end 'zero'
+
+function arm(b Box) returns Bump
+	// TODO: closures are not supported in minimaxon
+	return function() gives zero(b)
+end 'arm'
+
+function main() returns ExitCode
+	let b = Box.create(1)
+	let f = arm(b)
+	_ = f()
+	print("{b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+9
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.an-escaping-closure-that-only-reads-a-captured-parameter-keeps-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The closure stored in the slot outlives `arm`, so it keeps every record it captures, though its body only reads `b`; handing it the `let` is accepted.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Read = function() returns Count
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type Slot
+	export var show as Read
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{show: function() gives 0}
+	end 'create'
+end 'Slot'
+
+function arm(b Box, mutates slot Slot)
+	// TODO: closures are not supported in minimaxon
+	slot.show = function() gives b.n
+end 'arm'
+
+function main() returns ExitCode
+	let slot = Slot.create()
+	let b = Box.create(1)
+	arm(b, slot: slot)
+	print("{slot.show()} {b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 1
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-let-captured-by-an-escaping-closure-that-returns-it-is-accepted -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The closure stored in the slot hands back the record it captured, so `main` writes it through `x`; the escaping closure keeps `b`, and handing it the `let` is accepted.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Get = function() returns Box
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type Slot
+	export var get as Get
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{get: function() gives Box.create(0)}
+	end 'create'
+end 'Slot'
+
+function arm(b Box, mutates slot Slot)
+	// TODO: closures are not supported in minimaxon
+	slot.get = function() gives b
+end 'arm'
+
+function main() returns ExitCode
+	let slot = Slot.create()
+	let b = Box.create(1)
+	arm(b, slot: slot)
+	let x = slot.get()
+	x.n = 5
+	print("{b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-let-captured-by-an-escaping-closure-read-through-another-function-is-accepted -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The same closure called from `fetch`, so nothing in `main`'s body links `x` to `b`; handing it the `let` is accepted.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Get = function() returns Box
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type Slot
+	export var get as Get
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{get: function() gives Box.create(0)}
+	end 'create'
+end 'Slot'
+
+function arm(b Box, mutates slot Slot)
+	// TODO: closures are not supported in minimaxon
+	slot.get = function() gives b
+end 'arm'
+
+function fetch(slot Slot) returns Box
+	return slot.get()
+end 'fetch'
+
+function main() returns ExitCode
+	let slot = Slot.create()
+	let b = Box.create(1)
+	arm(b, slot: slot)
+	let x = fetch(slot)
+	x.n = 5
+	print("{b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-parameter-kept-through-a-recursive-callee-beside-a-closure-is-accepted -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+`arm` captures `b` in an escaping closure and also hands it to `helper`, which pushes it into an array; each keeps it, and the two functions calling each other changes nothing.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+typealias Boxes = Array with Box
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Read = function() returns Count
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+type Slot
+	export var show as Read
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{show: function() gives 0}
+	end 'create'
+end 'Slot'
+
+function arm(b Box, depth Count, mutates slot Slot, mutates kept Boxes)
+	// TODO: closures are not supported in minimaxon
+	slot.show = function() gives b.n
+	if depth > 0 'deeper'
+		helper(b, depth: 0, slot: slot, kept: kept)
+	end 'deeper'
+end 'arm'
+
+function helper(b Box, depth Count, mutates slot Slot, mutates kept Boxes)
+	kept.push(b)
+	arm(b, depth: depth, slot: slot, kept: kept)
+end 'helper'
+
+function main() returns ExitCode
+	let kept = Boxes.create(0)
+	let slot = Slot.create()
+	let b = Box.create(1)
+	arm(b, depth: 1, slot: slot, kept: kept)
+	let k = try kept.get(0) otherwise return 1
+	k.n = 5
+	print("{b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-closure-in-a-returned-array-literal-runs-after-its-frame-died -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure written as an element of a returned array literal keeps the record it captured.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Reader = function() returns Integer
+
+typealias Readers = Array with Reader
+
+type Counter
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Counter'
+
+function makeReaders(start Integer) returns Readers
+	let c = Counter.create(start)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: closures are not supported in minimaxon
+	return [function() gives 1, function() gives c.n * 2, function() gives 3]
+end 'makeReaders'
+
+function main() returns ExitCode
+	let readers = makeReaders(21)
+	let r = try readers.get(1) otherwise return 1
+	return r() as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: closure-capture.a-writing-closure-in-a-returned-array-literal-takes-a-let-argument -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The returned literal carries a closure that writes `b`; handing `arm` the `let` is accepted.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Bump = function() returns Count mutates captures
+
+typealias Bumps = Array with Bump
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+function zero(b Box) returns Count
+	b.n = 9
+	return 0
+end 'zero'
+
+function arm(b Box) returns Bumps
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: closures are not supported in minimaxon
+	return [function() gives zero(b)]
+end 'arm'
+
+function main() returns ExitCode
+	let b = Box.create(1)
+	let fs = arm(b)
+	print("{fs.count()} {b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 1
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.a-reading-closure-in-a-returned-array-literal-takes-a-let-argument -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A closure in the returned literal keeps `b` as a closure returned bare does, whether it reads or writes it; handing `arm` the `let` is accepted.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Read = function() returns Count
+
+typealias Reads = Array with Read
+
+type Box
+	export var n as Count
+
+	static function create(n Count) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Box'
+
+function arm(b Box) returns Reads
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: closures are not supported in minimaxon
+	return [function() gives b.n]
+end 'arm'
+
+function main() returns ExitCode
+	let b = Box.create(1)
+	let fs = arm(b)
+	print("{fs.count()} {b.n}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 1
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-nested-array-literal-of-closures-pushed-into-what-they-capture -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The inner literal is an element of an array `self` holds, so the closure in it would be held by the record it captures.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+typealias Groups = Array with Thunks
+
+type Counter
+	export var n as Integer
+	export var groups as Groups
+
+	static function create() returns Self
+		return Self{n: 1, groups: Groups.create(0)}
+	end 'create'
+
+	export function arm()
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		// TODO: closures are not supported in minimaxon
+		self.groups.push([function() gives self.n])
+	end 'arm'
+end 'Counter'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	return c.groups.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:16:20: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-returned-array-literal-of-closures-stored-into-what-they-capture -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The literal a callee returns holds a closure over `h`, and storing it into `h` closes the cycle.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Thunks = Array with Thunk
+
+type Counter
+	export var n as Integer
+	export var reads as Thunks
+
+	static function create() returns Self
+		return Self{n: 1, reads: Thunks.create(0)}
+	end 'create'
+end 'Counter'
+
+function reading(h Counter) returns Thunks
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: closures are not supported in minimaxon
+	return [function() gives h.n]
+end 'reading'
+
+function arm(h Counter)
+	h.reads = reading(h)
+end 'arm'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	arm(c)
+	return c.reads.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:20:12: this value holds a closure that captures 'h' and is stored into a record 'h' holds, so 'h' would hold the closure and the closure would hold 'h', and neither would ever be released. Store it somewhere 'h' does not reach, or capture what the closure needs instead of 'h' itself
+```
+
+<!-- test: closure-capture.error.a-closure-cycle-is-found-after-a-refused-function-body-first-named-a-closure-free-type -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The type `Plain`, which holds no closure, is first named inside the function body that is refused, and `Wrap`, which holds one, is the next type the file names. The closure reference cycle through `Wrap` is still found.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function refused()
+	var s = Slot.create()
+	s.plain = Plain.create()
+	let x: int = 0
+	s.plain = Plain.create()
+end 'refused'
+
+type Wrap
+	export var read as Thunk
+
+	static function create(read Thunk) returns Self
+		return Self{read: read}
+	end 'create'
+end 'Wrap'
+
+type Counter
+	export var n as Integer
+	export var wrap as Wrap
+
+	static function create() returns Self
+		// TODO: closures are not supported in minimaxon
+		return Self{n: 1, wrap: Wrap.create(function() gives 0)}
+	end 'create'
+
+	export function arm()
+		// TODO: closures are not supported in minimaxon
+		self.wrap = Wrap.create(function() gives self.n)
+	end 'arm'
+end 'Counter'
+
+type Plain
+	export var n as Integer
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Plain'
+
+type Slot
+	export var plain as Plain
+
+	static function create() returns Self
+		return Self{plain: Plain.create()}
+	end 'create'
+end 'Slot'
+
+function main() returns ExitCode
+	var c = Counter.create()
+	c.arm()
+	refused()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2010: <fragment>:8:7: Expected '=' but got ':'
+error E3183: <fragment>:29:15: this value holds a closure that captures 'self' and is stored into a record 'self' holds, so 'self' would hold the closure and the closure would hold 'self', and neither would ever be released. Store it somewhere 'self' does not reach, or capture what the closure needs instead of 'self' itself
+```
+
+<!-- test: closure-capture.error.a-closure-cycle-is-found-after-a-refused-function-body-first-built-a-closure-free-instance -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The same with generic instances: `Box with Plain`, which holds no closure, is first built inside the function body that is refused, and `Box with Wrap`, which holds one, is the next instance the file builds. The closure reference cycle through `Box with Wrap` is still found.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+type Box uses T
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+type Plain
+	export var n as Integer
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+end 'Plain'
+
+type Pocket uses T
+	export var item as T
+	export var size as Integer
+
+	static function create(item T) returns Self
+		return Self{item: item, size: 1}
+	end 'create'
+
+	function reader() returns Thunk
+		// TODO: closures are not supported in minimaxon
+		return function() gives self.size
+	end 'reader'
+end 'Pocket'
+
+type Wrap
+	export var read as Thunk
+
+	static function create(read Thunk) returns Self
+		return Self{read: read}
+	end 'create'
+end 'Wrap'
+
+function refused()
+	var pocket = Pocket.create(Box.create(Plain.create()))
+	pocket.item = Box.create(Plain.create())
+	let x: int = 0
+	pocket.item = Box.create(Plain.create())
+end 'refused'
+
+function cycle()
+	// TODO: closures are not supported in minimaxon
+	var pocket = Pocket.create(Box.create(Wrap.create(function() gives 0)))
+	pocket.item = Box.create(Wrap.create(pocket.reader()))
+end 'cycle'
+
+function main() returns ExitCode
+	refused()
+	cycle()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2010: <fragment>:45:7: Expected '=' but got ':'
+error E3183: <fragment>:51:16: this value holds a closure that captures 'pocket' and is stored into a record 'pocket' holds, so 'pocket' would hold the closure and the closure would hold 'pocket', and neither would ever be released. Store it somewhere 'pocket' does not reach, or capture what the closure needs instead of 'pocket' itself
+```
+
+### A call through a local closure value is judged against the closure it names
+
+Two capturing closures of one shape, `writer` and `reader`, are both bound with `let`. A call through a local `let` closure value is judged against the one closure the value names, so `reader(box)` is accepted over a frozen `box` although the sibling `writer` writes its parameter, and `writer(box)` is refused. A value that was reassigned, or that a branch or a loop merged, may name any closure of its shape, so a call through it is judged against all of them.
+
+<!-- test: closure-capture.a-call-through-a-local-closure-is-judged-against-the-closure-it-names -->
+<!-- skip: closures are not supported in minimaxon -->
+`reader` only reads `box`, so `reader(box)` is accepted with the `let` `box`. `writer` writes through its parameter and is called on a `var`.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = Box.create(1)
+	let scratch = Box.create(5)
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let writer = function(b Box) gives bump(b, step: step)
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	let w = writer(scratch)
+	let r = reader(box)
+	print("{w} {r}\n")
+	return 0
+end 'main'
+```
+```stdout
+7 3
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-call-through-a-local-closure-that-writes-its-parameter-refuses-a-frozen-argument -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+`writer` writes through its parameter, so handing it the frozen `box` is refused at the call.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = freeze(Box.create(1))
+	var scratch = Box.create(5)
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let writer = function(b Box) gives bump(b, step: step)
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	let r = reader(scratch)
+	let w = writer(box)
+	print("{w} {r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:24:16: the closure at <fragment>:21:15 writes 'b' (it calls 'bump', which writes 'b'); 'box' is immutable
+```
+
+<!-- test: closure-capture.a-call-through-a-local-closure-that-only-reads-takes-a-frozen-argument-beside-a-writer -->
+<!-- skip: closures are not supported in minimaxon -->
+`reader(box)` reaches only `reader`, which reads its parameter, so the frozen `box` is accepted though a closure of the same shape beside it writes its own parameter.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = freeze(Box.create(1))
+	let scratch = Box.create(5)
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let writer = function(b Box) gives bump(b, step: step)
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	let r = reader(box)
+	let w = writer(scratch)
+	print("{w} {r}\n")
+	return 0
+end 'main'
+```
+```stdout
+7 3
+```
+```exitcode
+0
+```
+
+<!-- test: closure-capture.error.a-call-through-a-reassigned-closure-value-is-judged-against-every-closure-of-its-shape -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+`f` names `reader` or `writer` depending on the branch, so the call through it is judged against both.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = freeze(Box.create(1))
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let writer = function(b Box) gives bump(b, step: step)
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	var f = reader
+	if step > 1 'swap'
+		f = writer
+	end 'swap'
+	let r = f(box)
+	print("{r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:26:11: the closure at <fragment>:20:15 writes 'b' (it calls 'bump', which writes 'b'); 'box' is immutable
+```
+
+<!-- test: closure-capture.error.a-call-through-a-loop-carried-closure-value-is-judged-against-every-closure-of-its-shape -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+The loop assigns a writing closure to `f`, so the call at the top of the next trip may reach it.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = freeze(Box.create(1))
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	var f = reader
+	var total = 0 as Tally
+	for _ in 0 upto 3 'loop'
+		total = total + f(box)
+		// TODO: closures are not supported in minimaxon
+		f = function(b Box) gives bump(b, step: step)
+	end 'loop'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:24:20: the closure at <fragment>:25:7 writes 'b' (it calls 'bump', which writes 'b'); 'box' is immutable
+```
+
+<!-- test: closure-capture.error.a-call-through-a-merged-closure-value-is-judged-against-the-whole-shape-even-when-only-readers-reach-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+Every closure `f` is assigned in the loop only reads, but the value is merged across the loop's back edge, so it is judged against the whole shape, including the `writer` that is called elsewhere.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
+	return b.weight
+end 'bump'
+
+function main() returns ExitCode
+	let box = freeze(Box.create(1))
+	var scratch = Box.create(5)
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let writer = function(b Box) gives bump(b, step: step)
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	var f = reader
+	var total = writer(scratch)
+	for _ in 0 upto 3 'loop'
+		total = total + f(box)
+		// TODO: closures are not supported in minimaxon
+		f = function(b Box) gives b.weight + step + 1
+	end 'loop'
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:26:20: the closure at <fragment>:21:15 writes 'b' (it calls 'bump', which writes 'b'); 'box' is immutable
+```
+
+### A refused kept argument names the closure that keeps it
+
+A closure that hands its parameter to a `Holder` keeps it in an `immutable` field. A call that lands on such a closure and hands it a mutable value is refused, and the message names the closure the call reaches that keeps the argument, in the lifted closure's own name: the first closure in source order that keeps it when several do. A closure that only reads the argument is not named.
+
+<!-- test: closure-capture.error.a-refused-kept-argument-of-a-local-closure-call-names-that-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- positions: moved -->
+`reader(v)` reaches only `reader`, which keeps nothing. `keeper(v)` reaches only `keeper`, the second closure literal of `main`, which keeps `b` in an `immutable` field of a `Holder`, so only it is refused and the refusal names it.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+type Holder
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	let held as immutable Box
+
+	static function create(held Box) returns Self
+		return Self{held: held}
+	end 'create'
+
+	function peek() returns Tally
+		return self.held.weight
+	end 'peek'
+end 'Holder'
+
+function main() returns ExitCode
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	// TODO: closures are not supported in minimaxon
+	let keeper = function(b Box) gives Holder.create(b).peek() + step
+	var v = Box.create(1)
+	let r = reader(v)
+	let k = keeper(v)
+	v.weight = r + k
+	print("{v.weight}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:30:16: the closure at <fragment>:27:15 needs 'b' frozen (it calls 'create', which needs 'held' frozen); 'v' is mutable. Freeze it first
+```
+
+<!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-closure-that-keeps-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- positions: moved -->
+`f` names `reader` or `keeper`. Only `keeper` keeps `b`, so the refusal names `keeper`, the second closure literal, though `reader` is the first member of the shape.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+type Holder
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	let held as immutable Box
+
+	static function create(held Box) returns Self
+		return Self{held: held}
+	end 'create'
+
+	function peek() returns Tally
+		return self.held.weight
+	end 'peek'
+end 'Holder'
+
+function main() returns ExitCode
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	// TODO: closures are not supported in minimaxon
+	let keeper = function(b Box) gives Holder.create(b).peek() + step
+	var f = reader
+	if step > 1 'swap'
+		f = keeper
+	end 'swap'
+	var v = Box.create(1)
+	let k = f(v)
+	v.weight = k
+	print("{v.weight}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:33:11: the closure at <fragment>:27:15 needs 'b' frozen (it calls 'create', which needs 'held' frozen); 'v' is mutable. Freeze it first
+```
+
+<!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-first-closure-that-keeps-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- positions: moved -->
+`f` names `reader`, `keeperA` or `keeperB`. Both keepers keep `b`, and the refusal names the first of them in source order.
+```maxon
+typealias Tally = int(0 to 1000000)
+
+type Box
+	export var weight as Tally
+
+	static function create(weight Tally) returns Self
+		return Self{weight: weight}
+	end 'create'
+end 'Box'
+
+type Holder
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	let held as immutable Box
+
+	static function create(held Box) returns Self
+		return Self{held: held}
+	end 'create'
+
+	function peek() returns Tally
+		return self.held.weight
+	end 'peek'
+end 'Holder'
+
+function main() returns ExitCode
+	let step = 2 as Tally
+	// TODO: closures are not supported in minimaxon
+	let reader = function(b Box) gives b.weight + step
+	// TODO: closures are not supported in minimaxon
+	let keeperA = function(b Box) gives Holder.create(b).peek() + step
+	// TODO: closures are not supported in minimaxon
+	let keeperB = function(b Box) gives Holder.create(b).peek() + step + 1
+	var f = reader
+	if step > 1 'first'
+		f = keeperA
+	end 'first'
+	if step > 2 'second'
+		f = keeperB
+	end 'second'
+	var v = Box.create(1)
+	let k = f(v)
+	v.weight = k
+	print("{v.weight}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:39:11: the closure at <fragment>:27:16 needs 'b' frozen (it calls 'create', which needs 'held' frozen); 'v' is mutable. Freeze it first
+```
+
+### A closure that writes state a module-level `let` holds
+
+Two closures of one shape reach one call through a parameter. One of them also pushes onto a module-level `let` array, which is refused for the write, and the cycle the other closure closes through the parameter is reported once, at the call.
+
+<!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-beside-a-plain-closure-of-its-shape -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+`storePlain` and `storeAndStash` share the shape `Wire`; `storeAndStash` also pushes onto the module-level `Hub` array. The cycle both close when `drive` hands them one record twice is found at the call in `drive`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Tally = int(0 to 1000000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Wire = function(mutable Counter, mutable Counter) returns Tally
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Hub = [0 as Integer]
+
+function storePlain(mutates t Counter, mutates p Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	t.read = function() gives p.n
+	return 0
+end 'storePlain'
+
+function storeAndStash(mutates t Counter, mutates p Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	t.read = function() gives p.n
+	Hub.push(1)
+	return 0
+end 'storeAndStash'
+
+function drive(f Wire, mutates c Counter) returns Tally
+	return f(c, c)
+end 'drive'
+
+function main() returns ExitCode
+	var x = Counter.create()
+	var total = drive(storePlain, c: x)
+	total = total + drive(storeAndStash, c: x)
+	return (total and 7) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:29:6: 'push' needs a writable receiver; 'Hub' is immutable
+error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and is stored into a record 'c' holds, so 'c' would hold the closure and the closure would hold 'c', and neither would ever be released. Store it somewhere 'c' does not reach, or capture what the closure needs instead of 'c' itself
+```
+
+<!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-before-a-plain-closure-of-its-shape -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The same two closures called in the other order.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Tally = int(0 to 1000000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Wire = function(mutable Counter, mutable Counter) returns Tally
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let Hub = [0 as Integer]
+
+function storePlain(mutates t Counter, mutates p Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	t.read = function() gives p.n
+	return 0
+end 'storePlain'
+
+function storeAndStash(mutates t Counter, mutates p Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	t.read = function() gives p.n
+	Hub.push(1)
+	return 0
+end 'storeAndStash'
+
+function drive(f Wire, mutates c Counter) returns Tally
+	return f(c, c)
+end 'drive'
+
+function main() returns ExitCode
+	var x = Counter.create()
+	var total = drive(storeAndStash, c: x)
+	total = total + drive(storePlain, c: x)
+	return (total and 7) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:29:6: 'push' needs a writable receiver; 'Hub' is immutable
+error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and is stored into a record 'c' holds, so 'c' would hold the closure and the closure would hold 'c', and neither would ever be released. Store it somewhere 'c' does not reach, or capture what the closure needs instead of 'c' itself
+```
+
+### A store that meets two records names the first one declared
+
+A closure that captures two parameters and is stored into a record either of them may be closes a cycle through both. The refusal names the parameter declared first, not the one the closure mentions first.
+
+<!-- test: closure-capture.error.a-store-meeting-two-records-names-the-parameter-declared-first -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+`target` is `first` or `second`, and the closure captures `second` before `first`. The store is refused once, naming `first`, the parameter declared first. The call in `main` is refused for each argument.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+function wire(first Counter, second Counter, flag bool)
+	var target = second if flag else first
+	// TODO: closures are not supported in minimaxon
+	target.read = function() gives second.n + first.n
+end 'wire'
+
+function main() returns ExitCode
+	var x = Counter.create()
+	var y = Counter.create()
+	wire(x, second: y, flag: x.n > 0)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:20:16: this closure captures 'first' and is stored into a record 'first' holds, so 'first' would hold the closure and the closure would hold 'first', and neither would ever be released. Store it somewhere 'first' does not reach, or capture what the closure needs instead of 'first' itself
+error E3183: <fragment>:26:7: this value holds a closure that captures 'y' and is stored into a record 'y' holds, so 'y' would hold the closure and the closure would hold 'y', and neither would ever be released. Store it somewhere 'y' does not reach, or capture what the closure needs instead of 'y' itself
+error E3183: <fragment>:26:10: this value holds a closure that captures 'x' and is stored into a record 'x' holds, so 'x' would hold the closure and the closure would hold 'x', and neither would ever be released. Store it somewhere 'x' does not reach, or capture what the closure needs instead of 'x' itself
+```
+
+### Closures that call through their own shape settle the same whatever order they are declared in
+
+`make0` and `make1` each return a closure of shape `Op` that captures `next`, an `Op`, and calls it with the arguments permuted. Each of those closures is both a body a call through an `Op` may land on and a caller of that same set, so what one stores reaches the others one permutation at a time. The summaries settle to the same fixed point whichever of `make0` and `make1` is declared first: each closure's refusal names the same record, and only the lines move.
+
+<!-- test: closure-capture.error.closures-calling-through-their-own-shape-settle-the-same-with-make0-declared-first -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+`make0` is declared first.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Tally = int(0 to 1000000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(mutable Counter, mutable Counter, mutable Counter) returns Tally
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+function base(mutates t Counter, mutates p Counter, mutates q Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	q.read = function() gives t.n
+	return 0
+end 'base'
+
+function make0(next Op) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(t mutable Counter, p mutable Counter, q mutable Counter) gives next(q, t, q)
+end 'make0'
+
+function make1(next Op) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(t mutable Counter, p mutable Counter, q mutable Counter) gives next(p, q, t)
+end 'make1'
+
+function drive(f Op, mutates a Counter, mutates b Counter) returns Tally
+	return f(a, b, b)
+end 'drive'
+
+function main() returns ExitCode
+	var x = Counter.create()
+	var y = Counter.create()
+	var total = 0 as Tally
+	let o0 = make1(base)
+	let o1 = make0(o0)
+	total = total + drive(o1, a: x, b: y)
+	return (total and 7) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:26:85: this value holds a closure that captures 'q' and is stored into a record 'q' holds, so 'q' would hold the closure and the closure would hold 'q', and neither would ever be released. Store it somewhere 'q' does not reach, or capture what the closure needs instead of 'q' itself
+error E3183: <fragment>:30:85: this value holds a closure that captures 'p' and is stored into a record 'p' holds, so 'p' would hold the closure and the closure would hold 'p', and neither would ever be released. Store it somewhere 'p' does not reach, or capture what the closure needs instead of 'p' itself
+error E3183: <fragment>:34:10: this value holds a closure that captures 'a' and is stored into a record 'a' holds, so 'a' would hold the closure and the closure would hold 'a', and neither would ever be released. Store it somewhere 'a' does not reach, or capture what the closure needs instead of 'a' itself
+error E3183: <fragment>:43:28: this value holds a closure that captures 'y' and is stored into a record 'y' holds, so 'y' would hold the closure and the closure would hold 'y', and neither would ever be released. Store it somewhere 'y' does not reach, or capture what the closure needs instead of 'y' itself
+error E3183: <fragment>:43:34: this value holds a closure that captures 'x' and is stored into a record 'x' holds, so 'x' would hold the closure and the closure would hold 'x', and neither would ever be released. Store it somewhere 'x' does not reach, or capture what the closure needs instead of 'x' itself
+```
+
+<!-- test: closure-capture.error.closures-calling-through-their-own-shape-settle-the-same-with-make1-declared-first -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+`make1` is declared first.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Integer
+
+typealias Tally = int(0 to 1000000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Op = function(mutable Counter, mutable Counter, mutable Counter) returns Tally
+
+function idle() returns Integer
+	return 0
+end 'idle'
+
+type Counter
+	export var n as Integer
+	export var read as Thunk
+
+	static function create() returns Self
+		return Self{n: 1, read: idle}
+	end 'create'
+end 'Counter'
+
+function base(mutates t Counter, mutates p Counter, mutates q Counter) returns Tally
+	// TODO: closures are not supported in minimaxon
+	q.read = function() gives t.n
+	return 0
+end 'base'
+
+function make1(next Op) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(t mutable Counter, p mutable Counter, q mutable Counter) gives next(p, q, t)
+end 'make1'
+
+function make0(next Op) returns Op
+	// TODO: closures are not supported in minimaxon
+	return function(t mutable Counter, p mutable Counter, q mutable Counter) gives next(q, t, q)
+end 'make0'
+
+function drive(f Op, mutates a Counter, mutates b Counter) returns Tally
+	return f(a, b, b)
+end 'drive'
+
+function main() returns ExitCode
+	var x = Counter.create()
+	var y = Counter.create()
+	var total = 0 as Tally
+	let o0 = make1(base)
+	let o1 = make0(o0)
+	total = total + drive(o1, a: x, b: y)
+	return (total and 7) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3183: <fragment>:26:85: this value holds a closure that captures 'p' and is stored into a record 'p' holds, so 'p' would hold the closure and the closure would hold 'p', and neither would ever be released. Store it somewhere 'p' does not reach, or capture what the closure needs instead of 'p' itself
+error E3183: <fragment>:30:85: this value holds a closure that captures 'q' and is stored into a record 'q' holds, so 'q' would hold the closure and the closure would hold 'q', and neither would ever be released. Store it somewhere 'q' does not reach, or capture what the closure needs instead of 'q' itself
+error E3183: <fragment>:34:10: this value holds a closure that captures 'a' and is stored into a record 'a' holds, so 'a' would hold the closure and the closure would hold 'a', and neither would ever be released. Store it somewhere 'a' does not reach, or capture what the closure needs instead of 'a' itself
+error E3183: <fragment>:43:28: this value holds a closure that captures 'y' and is stored into a record 'y' holds, so 'y' would hold the closure and the closure would hold 'y', and neither would ever be released. Store it somewhere 'y' does not reach, or capture what the closure needs instead of 'y' itself
+error E3183: <fragment>:43:34: this value holds a closure that captures 'x' and is stored into a record 'x' holds, so 'x' would hold the closure and the closure would hold 'x', and neither would ever be released. Store it somewhere 'x' does not reach, or capture what the closure needs instead of 'x' itself
+```
+
+### A closure held in a local `let` is copied into a `var` and shares its state
+
+`var g = b` and `g = b` hold the one closure `b` names, whatever the type of `b` says about its captures.
+
+<!-- test: closure-capture.a-mutates-captures-closure-held-in-a-local-let-is-copied-into-a-var -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+typealias Tally = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Bump = function() returns Tally mutates captures
+
+type Total
+	var n as Tally
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	function bump() returns Tally
+		self.n = self.n + 1
+		return self.n
+	end 'bump'
+end 'Total'
+
+function make() returns Bump
+	let total = Total.create()
+	// TODO: closures are not supported in minimaxon
+	return function() gives total.bump()
+end 'make'
+
+function main() returns ExitCode
+	let b = make()
+	var g = b
+	g = make()
+	let first = g()
+	let second = b()
+	print("{first} {second}\n")
+	var h = make()
+	h = b
+	print("{h()}\n")
+	return 0
+end 'main'
+```
+```stdout
+1 1
+2
+```
+```exitcode
+0
+```
+
+<!-- test: a-closure-cast-to-another-function-alias-outlives-its-var-being-reassigned -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Callback = function() returns Small
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Other = function() returns Small
+
+function make(label String) returns Callback
+	// TODO: closures are not supported in minimaxon
+	return function() gives label.count() as Small
+end 'make'
+
+function main() returns ExitCode
+	var f = make("abc")
+	let g = f as Other
+	f = make("abcdefgh")
+	let n = 5
+	print("{n}\n")
+	print("{g()} {f()}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+3 8
+```

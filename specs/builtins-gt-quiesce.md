@@ -1,0 +1,498 @@
+---
+feature: builtins-gt-quiesce
+status: experimental
+keywords: [__Builtins, gtQuiesce, scheduler, green-threads, services, drain]
+category: system
+---
+
+# `__Builtins.gtQuiesce()`
+
+## Documentation
+
+`__Builtins.gtQuiesce()` parks the calling green thread until nothing else can run, and answers how many green
+threads still own a slot in the scheduler's live count. It takes no arguments and answers an `int`.
+
+Every `__Builtins` member is library-tier: only a source file under `stdlib/` or `runtime/` may call one,
+and a call from anywhere else is E3185. The cases below call the intrinsics themselves, so they compile in
+the library tier (`<!-- tier: stdlib -->`). A program calls `Scheduler.quiesce()`, which answers a
+`GreenThreadCount`.
+
+It is not the exit drain. It releases no registry slot, runs no global cleanup and stops no worker, so the
+program carries on afterwards exactly as it was.
+
+The wait ends at the moment every machine is idle with nothing pending, and the answer is the live count then:
+`0` when every other green thread has finished, and otherwise the count that is left, which a program that asks
+is told where one that does not is a scheduler deadlock. A machine waiting for its pinned thread's next turn
+counts as idle. A coroutine still unwinding after its promise was dropped, and a green thread inside a kernel
+call, keep the wait open until they are done. A coroutine whose promise has been dropped answers at once,
+without waiting, with the live count at that moment, at least `0`.
+
+## Targets
+
+wasm32-wasi has no green threads, so a program naming it is refused at the call (E3104).
+
+## Tests
+
+<!-- test: builtins-gt-quiesce.waits-for-a-service-that-was-shut-down -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+The service prints from its own green thread after `main` has asked for the shutdown, and the print precedes the
+line that follows the wait.
+```maxon
+typealias Count = int(0 to 1000)
+
+type Greeter
+	var greeted as Count
+
+	static function create() returns Self
+		return Self{greeted: 0}
+	end 'create'
+
+	export function greet(times Count)
+		self.greeted = self.greeted + times
+		sleep(20)
+		print("greeted {self.greeted}\n")
+	end 'greet'
+end 'Greeter'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let greeter = spawn Greeter.create()
+	try greeter.greet(2) otherwise panic("an open mailbox with room takes the send")
+	greeter.shutdown()
+	let outstanding = __Builtins.gtQuiesce()
+	print("quiesced {outstanding}\n")
+	return 0
+end 'main'
+```
+```stdout
+greeted 2
+quiesced 0
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.with-nothing-outstanding-answers-zero-at-once -->
+<!-- tier: stdlib -->
+```maxon
+function main() returns ExitCode
+	let outstanding = __Builtins.gtQuiesce()
+	print("outstanding {outstanding}\n")
+	return 0
+end 'main'
+```
+```stdout
+outstanding 0
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.a-service-with-nothing-queued-strands-no-thread -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+A service with nothing queued owns no green thread: its runner ended after the one message it was sent and nothing is
+parked waiting for another. The wait answers `0` at once, with the service still alive, and a second wait after the
+shutdown finds none.
+```maxon
+typealias Count = int(0 to 1000)
+
+type Greeter
+	var greeted as Count
+
+	static function create() returns Self
+		return Self{greeted: 0}
+	end 'create'
+
+	export function greet(times Count)
+		self.greeted = self.greeted + times
+		print("greeted {self.greeted}\n")
+	end 'greet'
+end 'Greeter'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let greeter = spawn Greeter.create()
+	try greeter.greet(1) otherwise panic("an open mailbox with room takes the send")
+	let stranded = __Builtins.gtQuiesce()
+	print("stranded {stranded}\n")
+	greeter.shutdown()
+	let outstanding = __Builtins.gtQuiesce()
+	print("outstanding {outstanding}\n")
+	return 0
+end 'main'
+```
+```stdout
+greeted 1
+stranded 0
+outstanding 0
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.a-second-waiter-aborts -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+A coroutine of `main` waits for every green thread while `main` waits too. One waiter at a time is all the
+scheduler holds, so whichever arrives second ends the program with runtime abort 123. A service message cannot be
+the first waiter: it holds its own service while it parks, so the compiler refuses it (E3221).
+```maxon
+function wait()
+	let outstanding = __Builtins.gtQuiesce()
+	print("the coroutine saw {outstanding}\n")
+end 'wait'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let waiter = async wait()
+	let outstanding = __Builtins.gtQuiesce()
+	print("main saw {outstanding}\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	await waiter
+	return 0
+end 'main'
+```
+```stderr
+fatal error: runtime abort 123 (schedulerQuiesceWaiterTaken)
+```
+```exitcode
+123
+```
+
+<!-- test: builtins-gt-quiesce.races-coroutine-completion-across-many-rounds -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- procs: 4 -->
+⭐⭐ **A WAIT THAT REGISTERS WHILE THE LAST GREEN THREADS' COROUTINES ARE STILL COMPLETING.** Each round spawns
+three services, sends each one `work` and then `linger`, and then shuts it down. Both messages run three
+coroutines on the worker's strand, two that yield and one that sleeps for 1 ms, and sum their answers.
+`main` awaits the three `work` replies and then waits at once. So at four processors the `linger`
+coroutines complete and the workers exit on other machines while `main` is registering as the waiter or
+already parked. The machine that goes idle last claims the waiter word and readies `main` with the live count,
+whichever order the registration and the last exit come in. A count read while another machine still runs
+answers one that is not zero, and a lost wake hangs the round. A `linger` that lost a coroutine prints its
+round.
+
+The replies are awaited before the wait because a reply nobody has awaited holds its slot in the live count,
+and the wait would answer the count of unawaited replies.
+
+✅ **IT IS A CONTROL: ANY SOUND WAKE PROTOCOL PASSES IT, AND IT HOLDS THIS ONE TO ITS ANSWERS.** The waker
+claims the waiter word by a compare-and-swap, and the registration's own compare-and-swap on the same word
+decides between the two.
+`races-coroutine-completion-at-one-processor` is its twin at one processor, where the registration and the
+last exit never overlap.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias ReplyPromise = Promise with Integer
+
+typealias ReplyPromiseArray = Array with ReplyPromise
+
+let rounds = 100
+
+let workersPerRound = 3
+
+function yieldingPart(v Integer) returns Integer
+	Scheduler.yield()
+	return v
+end 'yieldingPart'
+
+function sleepingPart(v Integer) returns Integer
+	sleep(1)
+	return v
+end 'sleepingPart'
+
+function coroutineSum(v Integer) returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let a = async yieldingPart(v)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let b = async sleepingPart(v)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let c = async yieldingPart(1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await a) + (await b) + (await c)
+end 'coroutineSum'
+
+type Worker
+	var answered as Integer
+
+	static function create() returns Self
+		return Self{answered: 0}
+	end 'create'
+
+	export function work(v Integer) returns Integer
+		self.answered = self.answered + 1
+		return coroutineSum(v)
+	end 'work'
+
+	export function linger(v Integer)
+		if coroutineSum(v) != 2 * v + 1 'lostACoroutine'
+			print("round {v} lost a coroutine\n")
+		end 'lostACoroutine'
+	end 'linger'
+end 'Worker'
+
+function main() returns ExitCode
+	var outstanding = 0 as Integer
+	var sum = 0 as Integer
+	for r in 0 upto rounds 'eachRound'
+		let replies = ReplyPromiseArray.create(0)
+		for _ in 0 upto workersPerRound 'spawnEach'
+			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+			let worker = spawn Worker.create()
+			replies.push(try worker.work(r) otherwise panic("an open mailbox with room takes the send"))
+			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
+			worker.shutdown()
+		end 'spawnEach'
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for p in replies 'collect'
+			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+			sum = sum + (await p)
+		end 'collect'
+		outstanding = outstanding + (__Builtins.gtQuiesce() as Integer)
+	end 'eachRound'
+	print("outstanding={outstanding} sum={sum}\n")
+	return 0
+end 'main'
+```
+```stdout
+outstanding=0 sum=30000
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.races-coroutine-completion-at-one-processor -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- procs: 1 -->
+**THE ONE-PROCESSOR TWIN OF `races-coroutine-completion-across-many-rounds`.** With one processor nothing
+runs beside `main`, so the wait's registration and the last worker's exit never overlap. Each round registers
+and is readied when the one machine goes idle. That order must give the same answers as the racing ones. Like its twin, it is a control.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias ReplyPromise = Promise with Integer
+
+typealias ReplyPromiseArray = Array with ReplyPromise
+
+let rounds = 100
+
+let workersPerRound = 3
+
+function yieldingPart(v Integer) returns Integer
+	Scheduler.yield()
+	return v
+end 'yieldingPart'
+
+function sleepingPart(v Integer) returns Integer
+	sleep(1)
+	return v
+end 'sleepingPart'
+
+function coroutineSum(v Integer) returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let a = async yieldingPart(v)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let b = async sleepingPart(v)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let c = async yieldingPart(1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await a) + (await b) + (await c)
+end 'coroutineSum'
+
+type Worker
+	var answered as Integer
+
+	static function create() returns Self
+		return Self{answered: 0}
+	end 'create'
+
+	export function work(v Integer) returns Integer
+		self.answered = self.answered + 1
+		return coroutineSum(v)
+	end 'work'
+
+	export function linger(v Integer)
+		if coroutineSum(v) != 2 * v + 1 'lostACoroutine'
+			print("round {v} lost a coroutine\n")
+		end 'lostACoroutine'
+	end 'linger'
+end 'Worker'
+
+function main() returns ExitCode
+	var outstanding = 0 as Integer
+	var sum = 0 as Integer
+	for r in 0 upto rounds 'eachRound'
+		let replies = ReplyPromiseArray.create(0)
+		for _ in 0 upto workersPerRound 'spawnEach'
+			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+			let worker = spawn Worker.create()
+			replies.push(try worker.work(r) otherwise panic("an open mailbox with room takes the send"))
+			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
+			worker.shutdown()
+		end 'spawnEach'
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for p in replies 'collect'
+			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+			sum = sum + (await p)
+		end 'collect'
+		outstanding = outstanding + (__Builtins.gtQuiesce() as Integer)
+	end 'eachRound'
+	print("outstanding={outstanding} sum={sum}\n")
+	return 0
+end 'main'
+```
+```stdout
+outstanding=0 sum=30000
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.a-dropped-coroutine-parked-in-the-wait-is-not-the-waiter-afterwards -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+A coroutine that calls `Scheduler.quiesce()` parks as the scheduler's one waiter while `main` awaits a sibling. `main` then
+returns with the quiescing coroutine un-awaited, so scope exit drops its promise while it is parked in the wait. The
+drop must withdraw the waiter registration before the coroutine can be reclaimed: the deadlock check claims that
+registration when every machine goes idle, and one naming a reclaimed thread would be readied as though it were
+parked.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function quiescer() returns Integer
+	return Scheduler.quiesce() as Integer
+end 'quiescer'
+
+function fast() returns Integer
+	Scheduler.yield()
+	return 42
+end 'fast'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let waiter = async quiescer()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let sibling = async fast()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await sibling
+	let finished = 1 if waiter.isComplete() else 0
+	waiter.cancel()
+	return (answer + finished) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: builtins-gt-quiesce.waits-for-a-renounced-coroutine-to-finish-unwinding -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+The wait answers at the moment every machine is idle, so a coroutine whose promise was dropped holds it open until
+it has run out. `sleeper` is parked on a timer without end (`ForeverMs`) when `startAndDrop` returns and scope exit drops its promise, so only the drop can end its sleep. The
+drop gives up the promise's slot in the live count and readies the sleeper with its sleep ended early, so the count
+is already zero when `main` waits. The wait still parks `main`, the sleeper prints its line as it finishes, and only
+then does the wait answer `0`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function sleeper() returns Integer
+	sleep(ForeverMs)
+	print("the sleeper finished\n")
+	return 1
+end 'sleeper'
+
+function fast() returns Integer
+	Scheduler.yield()
+	return 42
+end 'fast'
+
+function startAndDrop() returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let s = async sleeper()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let q = async fast()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await q
+	let finished = 1 if s.isComplete() else 0
+	s.cancel()
+	return answer + finished
+end 'startAndDrop'
+
+function main() returns ExitCode
+	let answer = startAndDrop()
+	print("answered {answer}\n")
+	let outstanding = Scheduler.quiesce()
+	print("quiesced {outstanding}\n")
+	print("after the wait\n")
+	return 0
+end 'main'
+```
+```stdout
+answered 42
+the sleeper finished
+quiesced 0
+after the wait
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-gt-quiesce.answers-while-a-pinned-thread-waits-for-its-machine -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+`main` pins itself to its machine, so while it is parked in the wait that machine blocks for `main`'s next turn and
+joins no idle list. The wait still answers when every other machine is idle, as a machine waiting for its pinned
+thread counts as idle: the service's runner ended after the one message it was sent, so no green thread is left,
+and a second wait after the shutdown finds none either.
+```maxon
+typealias Count = int(0 to 1000)
+
+type Greeter
+	var greeted as Count
+
+	static function create() returns Self
+		return Self{greeted: 0}
+	end 'create'
+
+	export function greet(times Count)
+		self.greeted = self.greeted + times
+		print("greeted {self.greeted}\n")
+	end 'greet'
+end 'Greeter'
+
+function main() returns ExitCode
+	if not Scheduler.pinToMachine() 'refused'
+		print("refused\n")
+		return 1
+	end 'refused'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let greeter = spawn Greeter.create()
+	try greeter.greet(1) otherwise panic("an open mailbox with room takes the send")
+	let stranded = Scheduler.quiesce()
+	print("stranded {stranded}\n")
+	greeter.shutdown()
+	let outstanding = Scheduler.quiesce()
+	print("outstanding {outstanding}\n")
+	Scheduler.unpinFromMachine()
+	return 0
+end 'main'
+```
+```stdout
+greeted 1
+stranded 0
+outstanding 0
+```
+```exitcode
+0
+```

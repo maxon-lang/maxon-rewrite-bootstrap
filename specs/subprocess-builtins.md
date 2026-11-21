@@ -1,0 +1,3252 @@
+---
+feature: subprocess-builtins
+status: experimental
+keywords: [subprocess, __Builtins, intrinsics, spawn, collect, stdout, stderr, stdin, timeout, detach, PATH, PATHEXT, pipe, handle-table, green-threads]
+category: system
+---
+
+# The `__Builtins.subprocess*` intrinsics — `stdlib/Subprocess.maxon`'s whole floor
+
+## Documentation
+
+`stdlib/Subprocess.maxon` is the child-process surface — `Subprocess.run(...)`,
+`Configuration.run()`, `runDetached()` and `StreamingSubprocess` — and every one of its leaves
+bottoms out in a compiler intrinsic. `Parser.BuiltinsSubprocessSpawnName` lists them all; they fall into
+three families. They are library-tier: only a source file under `stdlib/` or `runtime/` may call one, so
+the cases below that call one directly compile in the library tier (`<!-- tier: stdlib -->`), and the cases
+that drive the public surface compile as an ordinary program.
+
+| Family | Intrinsics |
+|---|---|
+| the ATTACHED run | `subprocessSpawn` / `subprocessDetach` (fifteen arguments), `subprocessGetPid`, `subprocessQueueStdin`, `subprocessWaitCollect`, `subprocessResultStatusKind` / `StatusCode` / `Stdout` / `Stderr` / `DurationMs` / `Release`, `subprocessReleaseHandle` |
+| the STREAMING child | `subprocessSpawnStreaming`, `subprocessWriteStdinAll` / `subprocessWriteStdinBytes`, `subprocessReadAvailable`, `subprocessStdoutState` / `subprocessStderrState`, `subprocessCloseStdin`, `subprocessWaitExit`, and `subprocessPollExit`, which asks rather than commits |
+| the helpers | `subprocessResolveOnPath`, `subprocessLastErrorMessage`, and `managedIsNull` (a `__ManagedMemory` predicate whose only corpus caller is the executable lookup) |
+
+`subprocessKill` and `subprocessSendSignal` are deliberately NOT surfaced, because no corpus file calls
+either.
+
+### The fifteen-argument spawn contract
+
+`subprocessSpawn(argv_mm, argc, cwd_cstr, env_mm, envInherit, stdinKind, stdinData_cstr,
+stdoutKind, stdoutData_cstr, stdoutLimit, stderrKind, stderrData_cstr, stderrLimit, flags, stdinLength)`.
+
+- **argv** is a NUL-SEPARATED BLOB of `argc` tokens — the shape `stdlib/Subprocess.maxon`'s
+  `buildArgvBlob` packs — joined into a Windows command line by the runtime. A token is quoted iff
+  it is empty or holds a space, a tab or a `"`; inside a quoted token a `"` is written `\"`.
+- **cwd** is a `cstring`; the EMPTY one means "inherit", which is
+  `stdlib/Subprocess.maxon`'s own sentinel.
+- **env / envInherit**: `envInherit = 1` (`EnvSource.parent`) hands the child this process's own
+  environment and the `env` slot beside it is not read; `envInherit = 0` (`EnvSource.block`) makes
+  `env` the child's WHOLE environment — a NUL-separated `NAME=VALUE` block ended by one more NUL,
+  which `a-caller-built-environment-is-the-childs-whole-environment` pins by having the child expand
+  a name that exists only in the block it was given. `stdlib/Subprocess.maxon` assembles the block
+  from this process's own entries with the caller's overrides applied, so `Environment.custom` and
+  `inheritUpdating` are both servable.
+- **stdinKind** is `StdinKind`'s raw value: `0` none (the NUL device), `1` inherit, `2` bytes (the
+  `stdinLength` bytes at `stdinData`, NUL bytes included, are pushed into a pipe while the child runs
+  and the caller's memory is borrowed, not copied), `3` file.
+- **stdoutKind** / **stderrKind** are `OutputKind`'s: `0` discard (NUL), `1` inherit, `2` collect
+  (a pipe the runtime drains), `3` file. A `collect` limit of 0 means uncapped.
+- **flags** is `SpawnFlag`'s bitfield: bit 0 hide window, bit 1 new process group, bit 2 detach.
+
+`subprocessDetach` takes the identical fifteen and differs only in the detach bit its caller has
+already set; the runtime answers the child's PID instead of a handle and releases the slot.
+
+### Collecting BOTH streams is the whole difficulty
+
+A child that fills the 64 KiB stderr pipe blocks for ever if the parent is committed to a read on
+stdout, and the compiler's yielding read parks the calling green thread on the GT's own single OVERLAPPED —
+so it cannot hold two reads in flight. `subprocessWaitCollect` therefore ASKS each pipe whether it
+has bytes (`PeekNamedPipe`) before committing to read it, pushes any queued stdin payload between
+drains, and sleeps GREEN for a millisecond only when a pass moved nothing and the child is still
+running. The same structure is what lets a DEADLINE be honoured at all: a committed blocking read
+cannot observe one.
+
+### The result struct is OWNED and must be released
+
+`subprocessWaitCollect` answers a pointer to a heap struct holding the status kind, the status code,
+the duration and the two captured buffers. All three allocations are `__mm_alloc`'d, so
+`subprocessResultRelease` genuinely gives them back AND the leak gate counts them: a program that
+forgets the release exits **101**. The two buffer readers each answer a FRESH owned
+`__ManagedMemory`, so a caller may read either stream twice.
+
+### A bogus handle is a FAILURE, never a panic — and so is a bogus result pointer
+
+Every entry that takes a handle validates it — non-negative, the table exists, the slot it packs is live,
+and the slot's generation is the one the handle packs — and answers `-1`
+(`-2` for `subprocessWaitExit`'s timeout, EOF for a reader, nothing for a void entry) otherwise. The
+six `subprocessResult*` readers validate their struct POINTER the same way and answer `0` / an empty
+buffer / nothing.
+
+⛔⛔ **A GUARD APPLIED PER SITE, BY HAND, MISSES DOORS.** Unguarded,
+`__Builtins.subprocessReleaseHandle(-1)` is an ACCESS VIOLATION (0xC0000005) in a program that compiles
+clean, and the bare-name `subpRelease(-1)` with it: a slot address of `table + handle * SubpSlotBytes`
+names the `SubpSlotBytes` BEFORE the table for `-1` — inside the slab — and a garbage `inUse` read as
+live has the release close three garbage words as HANDLEs and zero memory it does not own. The six
+result readers are the same hazard one door over; each guards with its own `nullValue`.
+
+⭐ **SO THE RULE IS STRUCTURAL, AND THE CASES BELOW COVER EVERY DOOR.**
+The guard sits at the ENTRY POINT, never at a wrapper, so both families — the
+`__Builtins.subprocess*` intrinsics and the seven bare-name `subp*` streaming builtins — reach it
+without either having anything to remember. `emitSubpSlotOf` is the one door from a caller's handle
+to a slot address — it decodes the slot index out of the packed handle, so the address it yields is
+inside the table for any integer, and the guard is what refuses the sign, the dead slot and the
+mismatched generation — and every function that calls it must open with `emitSubpRequireHandle`; that
+roster is a `grep`, not a list somebody maintains. A handle is `generation * 64 + slotIndex`
+(`streaming-subprocess.md`), so the literals below decode too: `3` is slot 3 at generation 0, which no
+live slot ever holds; `64` is slot 0 at generation 1 and `9999` slot 15 at generation 156, both refused
+here because no spawn ever allocated the table. `handle-guards` and `handle-guards-streaming` below
+exercise all of it.
+
+### `subprocessResolveOnPath` never answers NULL
+
+`stdlib/Subprocess.maxon`'s `resolveByName` tests for a NULL with `managedIsNull` and then returns
+the BARE NAME. This producer cannot answer one: the result is an OWNED `__ManagedMemory`, so its
+binding is dropped at scope
+exit through `__mm_decref`, which dereferences the record header — a NULL would fault. Making
+`__mm_decref` null-tolerant would put a test on every drop in every program to serve one corpus
+line, so this producer answers the bare name itself, which is exactly the String that corpus line
+returns on its miss branch. **The observable behaviour is identical**; only which of
+`resolveByName`'s two branches runs differs.
+
+### `subprocessLastErrorMessage()` answers the OS error NUMBER
+
+A fixed English sentence tells a caller which code path failed and nothing about why. The number
+tells them why — `2` is "the executable is not there", `5` is "access denied" — and there is neither
+an `.rdata` producer reachable from a runtime builder nor a message-formatting import, so the choice
+is between a fixed string and the OS's own code. A code of `0` means nothing has failed and answers the
+empty message.
+
+⚠ **THE NUMBER IS IN Win32's VOCABULARY ON EVERY LANE.** Windows answers `GetLastError()`; each POSIX
+lane answers `mrt_host_last_error`, which translates the errno into the same codes (`ENOENT` → 2,
+`ENOTDIR` → 3, `EACCES`/`EPERM` → 5, anything else → `ERROR_GEN_FAILURE` 31 — the table is
+`Targets/Shared/PosixRuntime`'s). So `2` means the same thing wherever the program runs, and the
+prefix is `os error` rather than `win32 error` because a caller sees one spelling on every lane.
+
+### Targets — the Win32 substrate gate
+
+`CreateProcessW` and three overlapped named pipes are a WINDOWS shape, and WASI has no
+process-spawn primitive at all. Every one of these intrinsics lowers into the `__gt_subp_` band, which
+`TargetFacilities.calleeHostFacility` maps onto `HostFacility.subprocess`, so a lane that does not provide
+one refuses the call with **E3104** at its own span. ⚠ Outside that gate such a program dies as a BACKEND
+PANIC three tiers down instead. The two `rejected-on-*` cases below are what hold it shut.
+
+### ⭐ arm64-macOS HAS THE FACILITY, SO THE CASES COME IN PAIRS — AND WIDENING IS NOT AN OPTION
+
+`TargetFacilities.targetProvidesFacility` answers `subprocess gives true` for arm64-macOS
+(`posix_spawnp` under `POSIX_SPAWN_CLOEXEC_DEFAULT`, anonymous pipes, `poll`, `waitpid`), so the
+E3104 above does not fire there and every intrinsic in this file RUNS on that lane. What cannot
+be shared is the PROGRAMS: every case above spawns `cmd /c …`, which exists on no POSIX box, so
+widening their markers would test a missing executable rather than this surface.
+
+⇒ **Each subject that this lane can express carries a SECOND case, named `posix-…`, marked
+`arm64-macos`, running an ordinary POSIX command.** That is `process-background-priority.md`'s
+pattern, for `process-background-priority.md`'s reason: the SUBJECT is shared and the PROGRAM cannot
+be. The pairs deliberately do not agree on their numbers — `/bin/echo` ends a line with a bare LF
+where `cmd /c echo` writes CRLF, so a six is the same answer as the sibling's seven.
+
+⚠ **AND THE TWO LANES DIVIDE ON ONE PROPERTY OF THIS SURFACE, NOT MERELY ON SPELLING.** The
+fifteen-argument spawn takes an argv BLOB, and this lane's primitive takes an argv VECTOR — so the
+Win32 quoting rule at the top of this section has NOTHING to do on arm64-macOS, where nothing is
+ever re-split and therefore nothing needs escaping. `argv-quoting` asserts that a token holding a
+space becomes ONE quoted argument; `posix-argv-reaches-the-child-verbatim` asserts the same subject
+from the other side — that `$HOME`, `a b` and `a*b` reach the child unexpanded, unsplit and
+unglobbed. Neither program could carry the other's claim.
+
+## Tests
+
+<!-- test: subprocess-builtins.collect-echo -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The whole attached path end to end: build an argv blob, spawn `cmd /c echo hello` with both output
+streams collected, wait, and read the result struct back. The child's stdout is `hello\r\n` — SEVEN
+bytes — which is what `stdlib/Subprocess.maxon`'s own
+`Subprocess.run(Executable.name("cmd"), arguments: ["/c", "echo", "hello"])` answers for the same
+command (`outLen=7`). Both the exit code and the printed line are pinned, so a run that
+collected nothing cannot pass on its exit code alone.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "echo")
+	appendToken(argv, token: "hello")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 4, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let err = String.init(__Builtins.subprocessResultStderr(r))
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	let n = out.byteLength()
+	let expected = "hello"
+	let matches = out.startsWith(expected)
+	print("kind={kind} code={code} outLen={n} errLen={err.byteLength()} matches={matches}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+kind=0 code=0 outLen=7 errLen=0 matches=true
+
+```
+
+<!-- test: subprocess-builtins.posix-collect-echo -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`collect-echo`'s subject on the POSIX lane, and the case that proves the whole attached path runs here at
+all: build an argv blob, spawn `/bin/echo hello` with both streams collected, wait, and read the result
+struct back. ⚠ **The byte count is SIX, not the Windows sibling's seven, and that is the line terminator
+rather than a different capture** — `/bin/echo` ends its line with a bare LF where `cmd /c echo` writes
+CRLF. Nothing about that is convertible, which is why this is a sibling and not a widened marker.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/echo")
+	appendToken(argv, token: "hello")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 2, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let err = String.init(__Builtins.subprocessResultStderr(r))
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	let n = out.byteLength()
+	let expected = "hello"
+	let matches = out.startsWith(expected)
+	print("kind={kind} code={code} outLen={n} errLen={err.byteLength()} matches={matches}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return n as ExitCode
+end 'main'
+```
+```exitcode
+6
+```
+```stdout
+kind=0 code=0 outLen=6 errLen=0 matches=true
+
+```
+
+<!-- test: subprocess-builtins.posix-a-reported-exit-is-reaped-rather-than-polled -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐⭐ **A CHILD'S EXIT REACHES THE POLLER ONCE, SO THE COLLECT MUST REAP ON IT RATHER THAN ASK AGAIN.** The
+collect's idle pass parks on the child's poll source, and that source reports the exit exactly once. XNU can
+deliver `NOTE_EXIT` before `waitpid(WNOHANG)` is able to reap the child, so a drain that consumed the report and
+then re-asked the host with a non-blocking poll would hear "running", go idle, and park again on a source with
+nothing left to say — for ever, with the child a zombie. The wait answers which of its members fired, and a
+child whose exit was reported goes straight to the blocking reap.
+
+⚠ **THE CHILD ON arm64-macOS IS `/usr/bin/git --version`, BECAUSE THE WINDOW IS A PROPERTY OF THE CHILD.**
+For this child (an Xcode tool reached through its `/usr/bin` shim) `NOTE_EXIT` can arrive ahead of the
+reap; for `/bin/echo`, `/bin/sh`, a plain C program or a Maxon green-thread program it does not, so a loop
+of the simple children would pass on the defect. The host needs the Command Line Tools: without them the shim prints an install prompt and
+exits non-zero, and the case reads `collected=0` for a reason that is not this one.
+On the defect this program never finishes on arm64-macOS — the harness kills it at its 120 s deadline with a
+`git` zombie beneath it. The other POSIX lanes report a child's exit only once it is reapable, so they have no
+such child; there any child serves, and the case holds that the same road collects every one of them.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+typealias Laps = int(0 to 200)
+
+let laps = 200 as Laps
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+// One attached run, collected: whether the child exited 0 having written a line.
+function collectOne() returns bool
+	let argv = ByteArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Macos)
+	appendToken(argv, token: "/usr/bin/git")
+	appendToken(argv, token: "--version")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	appendToken(argv, token: "/bin/echo")
+	appendToken(argv, token: "hello")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 2, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let exitedZero = __Builtins.subprocessResultStatusKind(r) == 0 and __Builtins.subprocessResultStatusCode(r) == 0
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return exitedZero and out.byteLength() > 0
+end 'collectOne'
+
+function main() returns ExitCode
+	var collected = 0 as Laps
+	for _ in 0 upto laps 'collect'
+		if collectOne() 'answered'
+			collected = collected + 1
+		end 'answered'
+	end 'collect'
+	print("laps={laps} collected={collected}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+laps=200 collected=200
+```
+
+<!-- test: subprocess-builtins.posix-argv-reaches-the-child-verbatim -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⭐ **THE CASE THAT PROVES THERE IS NO SHELL ON THE ARGV PATH — `argv-quoting`'s subject, inverted.** The
+Windows sibling asserts that a token holding a space is QUOTED into one command line; this lane must
+assert the opposite property, because `posix_spawnp` takes a vector and quotes nothing. Three tokens are
+chosen so that each failure mode is a DIFFERENT wrong answer: `$HOME` would be EXPANDED, `a b` would be
+SPLIT, and `a*b` would be GLOBBED, by any implementation that joined the blob into a line and handed it to
+`/bin/sh -c`. The child prints one bracketed field per argument, so a split shows up as an extra field
+rather than as text that happens to read the same — `[$HOME][a b][a*b]` and `[$HOME][a][b][a*b]` differ,
+where `echo`'s space-joined output for the two would not.
+
+⚠ It is `/bin/sh` that runs, but the tokens under test are POSITIONAL PARAMETERS rather than script text:
+the shell never sees them as source, so an expansion here could only have come from the spawn.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "printf '[%s]' \"$@\"")
+	appendToken(argv, token: "sh")
+	appendToken(argv, token: "$HOME")
+	appendToken(argv, token: "a b")
+	appendToken(argv, token: "a*b")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 7, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let expected = "[$HOME][a b][a*b]"
+	print("verbatim={out == expected} len={out.byteLength()} kind={__Builtins.subprocessResultStatusKind(r)}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+verbatim=true len=17 kind=0
+
+```
+
+<!-- test: subprocess-builtins.handle-guards -->
+<!-- tier: stdlib -->
+**EVERY** `__Builtins.subprocess*` entry that takes a handle, answering a failure for one that was
+never spawned — a negative handle, one whose packed generation (`3` is generation 0) no live slot ever
+holds, and live-looking ones (`64`, `9999`) in a table no spawn allocated. ⚠ A guessed handle that
+happens to equal a live one is the live one; the guard names a child, it does not authenticate the
+caller. All ten: the two VOID entries and the reader, once on each stream, are here precisely because they are the
+ones that fault unguarded, and reaching the final `print` at all is
+what proves they returned.
+```maxon
+function main() returns ExitCode
+	let empty = ""
+	let getPid = __Builtins.subprocessGetPid(-1)
+	let waitCollect = __Builtins.subprocessWaitCollect(-1, 0)
+	let waitExit = __Builtins.subprocessWaitExit(9999, 0)
+	let writeAll = __Builtins.subprocessWriteStdinAll(3, empty.cstr())
+	let writeBytes = __Builtins.subprocessWriteStdinBytes(-1, empty.cstr(), 0)
+	let queue = __Builtins.subprocessQueueStdin(64, empty.cstr(), 0)
+	print("getPid={getPid} waitCollect={waitCollect} waitExit={waitExit} writeAll={writeAll} writeBytes={writeBytes} queue={queue}\n")
+	let outLine = String.init(__Builtins.subprocessReadAvailable(-1, StdioStream.stdout.rawValue, 64))
+	let errLine = String.init(__Builtins.subprocessReadAvailable(64, StdioStream.stderr.rawValue, 64))
+	__Builtins.subprocessCloseStdin(-1)
+	__Builtins.subprocessReleaseHandle(-1)
+	print("readOut={outLine.byteLength()} readErr={errLine.byteLength()} voidsReturned=true\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+getPid=-1 waitCollect=-1 waitExit=-1 writeAll=-1 writeBytes=-1 queue=-1
+readOut=0 readErr=0 voidsReturned=true
+
+```
+
+<!-- test: subprocess-builtins.result-pointer-guards -->
+<!-- tier: stdlib -->
+The six `subprocessResult*` readers take the struct POINTER `subprocessWaitCollect` answers, and that
+answer is `-1` on failure. `stdlib/Subprocess.maxon` tests for it before reading — but a caller need
+not, and unguarded, one line is an ACCESS VIOLATION. Each reader guards with its own `nullValue`; these are
+those answers.
+```maxon
+function main() returns ExitCode
+	let kind = __Builtins.subprocessResultStatusKind(-1)
+	let code = __Builtins.subprocessResultStatusCode(-1)
+	let duration = __Builtins.subprocessResultDurationMs(0)
+	let out = String.init(__Builtins.subprocessResultStdout(-1))
+	let err = String.init(__Builtins.subprocessResultStderr(0))
+	__Builtins.subprocessResultRelease(-1)
+	print("kind={kind} code={code} duration={duration} out={out.byteLength()} err={err.byteLength()} releaseReturned=true\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 duration=0 out=0 err=0 releaseReturned=true
+
+```
+
+<!-- test: subprocess-builtins.handle-guards-streaming -->
+The OTHER family through the same entries. The seven bare-name `subp*` builtins are a separate
+surface (`streaming-subprocess.md`) that lowers to the very `__gt_subp_*` functions the intrinsics
+above lower to — which is exactly why the guard belongs at the ENTRY POINT and not at a wrapper:
+unguarded, `subpRelease(-1)` faults for the same reason `__Builtins.subprocessReleaseHandle(-1)` does,
+and one guard answers both. A wrapper-level guard would leave this case red.
+```maxon
+function main() returns ExitCode
+	let line = subpReadLine(-1)
+	let errLine = subpReadErrLine(9999)
+	let wrote = subpWriteLine(-1, line: "ignored")
+	let code = subpWait(-1)
+	subpCloseStdin(-1)
+	subpRelease(-1)
+	print("read={line.byteLength()} readErr={errLine.byteLength()} write={wrote} wait={code} voidsReturned=true\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+read=0 readErr=0 write=-1 wait=-1 voidsReturned=true
+
+```
+
+<!-- test: subprocess-builtins.file-stdio-that-cannot-open-fails-the-spawn -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`InputSource.file(path)` and `OutputDestination.file(path)` are public corpus surface, and
+`CreateFileW` can fail. ⚠ **An unchecked open makes the spawn SUCCEED:** `INVALID_HANDLE_VALUE`
+goes into the STARTUPINFO, `CreateProcessW` does not object, and the spawn answers handle `0` with an
+EMPTY `lastErrorMessage()` for a child whose stdin is a dead handle. The open is checked, and the reason a caller reads is `CreateFileW`'s own — `3` is
+ERROR_PATH_NOT_FOUND — rather than whatever `CreateProcessW` would have said about it afterwards.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "echo hi")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let missing = "Z:/no/such/dir/nope.txt"
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 3, missing.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let reason = String.init(__Builtins.subprocessLastErrorMessage())
+	let expected = "os error 3"
+	print("spawn={h} reason={reason == expected}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+spawn=-1 reason=true
+
+```
+
+<!-- test: subprocess-builtins.stdin-bytes-and-stderr -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`StdinKind.bytes` queues a payload the collect loop pushes into the child's stdin between drains,
+and closes the pipe once it is spent — so `more` echoes it back and exits rather than blocking for
+ever. `cmd`'s `1>&2` redirection puts a second line on STDERR, which proves the two streams are
+drained INDEPENDENTLY rather than one after the other.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "more & echo oops 1>&2")
+	let empty = ""
+	let payload = "fed-in\r\n"
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 2, payload.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, payload.byteLength())
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let err = String.init(__Builtins.subprocessResultStderr(r))
+	let fed = "fed-in"
+	let oops = "oops"
+	print("outHasPayload={out.startsWith(fed)} errHasOops={err.startsWith(oops)} kind={__Builtins.subprocessResultStatusKind(r)}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+outHasPayload=true errHasOops=true kind=0
+
+```
+
+<!-- test: subprocess-builtins.posix-stdin-bytes -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`stdin-bytes-and-stderr`'s stdin half on this lane. `StdinKind.bytes` queues a payload the collect loop
+pushes into the child between drains and closes the pipe once it is spent — so `/bin/cat` echoes it back
+and EXITS rather than blocking on a pipe nobody ever closes. A runtime that queued the payload and never
+wrote it, or wrote it and never closed, hangs here instead of failing, which is what the pinned exit code
+turns into a finite red.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/cat")
+	let empty = ""
+	let payload = "fed-in\n"
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 1, empty.cstr(), env, 1, 2, payload.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, payload.byteLength())
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let echoed = out == payload
+	print("kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} echoed={echoed} outLen={out.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 echoed=true outLen=7
+
+```
+
+<!-- test: subprocess-builtins.stdin-bytes-holding-a-nul-are-delivered-whole -->
+<!-- skip: 'merge' region expressions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: wasm32-wasi -->
+`StdinKind.bytes` takes the payload's length from `stdinLength`, so a zero byte is one of its bytes and
+not the end of it: the child, this case's own executable, reads its stdin to the end and prints the count
+and the value of every byte it received. A runtime that measured the payload as a `cstring` would deliver
+the one byte before the NUL.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function readAllStdin() returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let read = try Console.stdin().readToEnd() otherwise (e) 'unread'
+		return "read threw {e.name}"
+	end 'unread'
+	// TODO: 'merge' region expressions are not supported in minimaxon
+	let received = merge read
+	var line = "{received.count()} bytes ["
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (iter, value) in received.withIterator() 'each'
+		if iter.index() > 0 'separator'
+			line = "{line} "
+		end 'separator'
+		line = "{line}{value}"
+	end 'each'
+	return "{line}]"
+end 'readAllStdin'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		print(readAllStdin())
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: exe.path)
+	appendToken(argv, token: "child")
+	let empty = ""
+	let payload = "a\0b"
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 2, empty.cstr(), env, 1, 2, payload.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, payload.byteLength())
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	print("kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} out={out}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 out=3 bytes [97 0 98]
+
+```
+
+<!-- test: subprocess-builtins.posix-stdout-and-stderr-are-separate -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`stdin-bytes-and-stderr`'s other half: the two pipes are drained INDEPENDENTLY, not one after the other.
+The child writes four bytes to stdout and three to stderr with no trailing newline on either, so each
+buffer's exact contents are pinned and a runtime that concatenated the two — or that dropped one — cannot
+pass on a length alone. `printf` rather than `echo` for the same reason the Windows sibling reaches for
+`set /p`: it appends no terminator of its own.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "printf sout; printf err 1>&2")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let err = String.init(__Builtins.subprocessResultStderr(r))
+	let expectedOut = "sout"
+	let expectedErr = "err"
+	print("out={out == expectedOut} err={err == expectedErr} outLen={out.byteLength()} errLen={err.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+out=true err=true outLen=4 errLen=3
+
+```
+
+<!-- test: subprocess-builtins.posix-exit-code-is-propagated -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+The child's own exit status reaches `subprocessResultStatusCode` unchanged. ⚠ **On this lane that is a
+`waitpid` status word rather than `GetExitCodeProcess`'s plain integer**, so the runtime has to decode it —
+a body that handed the raw status back would answer `1792` (`7 << 8`) for this child, and one that lost the
+decode entirely would answer 0 while still reporting `exited`. The status KIND is pinned beside the code so
+that a `0` cannot pass as "exited cleanly" when the child in fact exited 7.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "exit 7")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	print("kind={kind} code={code}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return code as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+kind=0 code=7
+
+```
+
+<!-- test: subprocess-builtins.timeout-kills-the-child -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A non-zero `timeoutMs` argument is a KILL-AFTER deadline, which is what `stdlib/Subprocess.maxon`'s
+`WaitDeadline.within` hands the runtime. The child would run for many seconds; the deadline fires,
+`TerminateJobObject` ends the job the spawn put it in, and the result's status kind is `timedOut` (`2`). A
+wait that ignored the deadline would take twenty seconds and answer `0`. What the kill reaches BEYOND the
+direct child is `timeout-kills-the-whole-tree`'s subject, not this case's.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "ping -n 20 127.0.0.1 > nul")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	print("kind={kind}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return kind as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+kind=2
+
+```
+
+<!-- test: subprocess-builtins.posix-timeout-kills-the-child -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`timeout-kills-the-child` on this lane. `/bin/sleep 5` would run for five seconds; the 300 ms deadline
+fires, the child is killed, and the result's status kind is `timedOut` (`2`). The DURATION is asserted
+beside the kind because the kind alone cannot tell a deadline that fired from one that was ignored and then
+mislabelled: a wait that ran the child to completion would report five seconds. ⚠ The signal is a POSIX
+`kill(-pgid, SIGKILL)` reaching the child's whole process group, whose Windows twin is `TerminateJobObject`,
+and a runtime that signalled but never reaped would report `timedOut` while leaving a zombie — which the
+leak gate does not see, but a subsequent `waitpid` in the same process would.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sleep")
+	appendToken(argv, token: "5")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 2, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let durationMs = __Builtins.subprocessResultDurationMs(r)
+	let childRuntimeMs = 5000
+	print("kind={kind} killedEarly={durationMs < childRuntimeMs}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return kind as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+kind=2 killedEarly=true
+
+```
+
+<!-- test: subprocess-builtins.timeout-kills-the-whole-tree -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+**A DEADLINE KILLS THE CHILD'S DESCENDANTS, NOT ONLY THE CHILD.** `timeout-kills-the-child` proves the
+direct child is ended and can say nothing about what the child had already started.
+
+⚠ **THE MARKER IS WRITTEN BY THE GRANDCHILD AND NOT BY THE CHILD, WHICH IS WHY THE SHELL IS NESTED.** A
+single `cmd /c "ping … & echo x > marker"` runs the `echo` in the DIRECT child, so ending that child alone
+already stops the write and the case would pass against a compiler that orphans every descendant. The inner
+`cmd` is a process of its own: the sleep and the write are both its work, and it survives a kill aimed only
+at its parent. It writes the marker only AFTER a sleep that outlasts the deadline many times over, so a
+marker on disk is proof a descendant outlived the kill — and this program waits longer than that sleep
+before it looks, so an absent marker cannot be one that was merely early.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let markerName = "subp-tree-kill-windows.marker"
+	let marker = try FilePath.from(markerName) otherwise panic("the marker name is a valid relative path")
+	if File.exists(marker) 'stale'
+		try File.delete(marker) otherwise panic("a marker left by an earlier run must not decide this case")
+	end 'stale'
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "ping -n 4 127.0.0.1 > nul & echo x > {markerName}")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 5, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	let pastTheDescendantsSleepMs = 6000
+	sleep(pastTheDescendantsSleepMs)
+	print("kind={kind} descendantSurvived={File.exists(marker)}")
+	return kind as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+kind=2 descendantSurvived=false
+
+```
+
+<!-- test: subprocess-builtins.posix-timeout-kills-the-whole-tree -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`timeout-kills-the-whole-tree` on this lane, and the shell is nested here for that case's reason: the inner
+`/bin/sh` is a GRANDCHILD of this program and both the sleep and the write are its work, so a kill that
+signalled only the direct child would leave it running and it would go on to write the marker. The runtime
+puts every child it spawns in a process group of its own and signals the GROUP, so the whole tree goes down
+together.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let markerName = "subp-tree-kill-posix.marker"
+	let marker = try FilePath.from(markerName) otherwise panic("the marker name is a valid relative path")
+	if File.exists(marker) 'stale'
+		try File.delete(marker) otherwise panic("a marker left by an earlier run must not decide this case")
+	end 'stale'
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "/bin/sh -c 'sleep 3; echo x > {markerName}'")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	let pastTheDescendantsSleepMs = 6000
+	sleep(pastTheDescendantsSleepMs)
+	print("kind={kind} descendantSurvived={File.exists(marker)}")
+	return kind as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+kind=2 descendantSurvived=false
+
+```
+
+<!-- test: subprocess-builtins.a-child-that-exited-before-the-deadline-keeps-its-own-code -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+**A DEADLINE KILL REPORTS THE KILL'S CODE ONLY FOR A CHILD THE KILL ENDED.** The direct child exits at once
+with `3`, but the grandchild it started in the background holds the stdout pipe, so the collect cannot finish
+until the deadline kills the tree. The kill reaches only the grandchild: the child had already exited, and
+`TerminateJobObject` leaves an exited process's code alone. The status kind is `timedOut` (`2`) because the
+deadline fired, and the code is the child's own `3`. The program waits for the child's exit before it collects,
+so the deadline can only fire on a child that has already exited: a deadline that fired while `cmd` was still
+starting would kill it with the kill's code and say nothing about the property.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "start /b ping -n 5 127.0.0.1 & exit 3")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	_ = __Builtins.subprocessWaitExit(h, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	print("kind={kind} code={code}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=2 code=3
+
+```
+
+<!-- test: subprocess-builtins.posix-a-child-that-exited-before-the-deadline-keeps-its-own-code -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`a-child-that-exited-before-the-deadline-keeps-its-own-code` on this lane. The shell exits with `3` and the
+`sleep` it left in the background holds the stdout pipe, so the collect cannot finish before the deadline. The
+program waits for the shell's exit before it collects, so the deadline can only fire on a child that has
+already exited: a deadline that fired while the shell was still starting would end it with `SIGKILL` and say
+nothing about the property. The kill's code is reported only for a child whose wait status says `SIGKILL`
+ended it, and this one says it exited with `3`.
+
+The deadline still ends the `sleep`. The shell was reaped before the deadline fired, and the `sleep` left its
+tree by parent when the shell exited, so the kill reaches it through the shell's process group: a group
+outlives its leader, and the kernel hands out no group's id while a member of the group lives, so signalling
+the group of a reaped leader cannot reach another process. The shell prints the `sleep`'s id before it exits,
+and after the deadline the program gives the `sleep` two seconds to be gone. The `sleep` outlasts that by far,
+so only a kill can end it in time.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function memberPid(out String) returns Pid
+	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
+	return parsed as Pid
+end 'memberPid'
+
+function memberEndsWithinGrace(pid Pid) returns bool
+	let graceMs = 2000
+	let pollMs = 50
+	var waited = 0 as DurationMs
+	while waited < graceMs 'poll'
+		if not Process.isAlive(pid) 'gone'
+			return true
+		end 'gone'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return not Process.isAlive(pid)
+end 'memberEndsWithinGrace'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "sleep 30 & echo $!; exit 3")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	_ = __Builtins.subprocessWaitExit(h, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	let member = memberPid(String.init(__Builtins.subprocessResultStdout(r)))
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	print("kind={kind} code={code} memberEnded={memberEndsWithinGrace(member)}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=2 code=3 memberEnded=true
+
+```
+
+<!-- test: subprocess-builtins.posix-a-zombie-group-leader-keeps-its-own-code-when-the-deadline-kills-its-group -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, wasm32-wasi -->
+**A DEADLINE KILL OF A GROUP WHOSE LEADER HAS EXITED UNREAPED REPORTS THE LEADER'S OWN CODE.** The shell exits
+with `3` and the `sleep` it left in the background holds the stdout pipe, so the collect cannot finish before
+the deadline. The program asks `/bin/ps -o stat= -p <pid>` until the shell's state starts with `Z`, which
+observes the exit without reaping it on Linux and macOS alike, and only then collects; a shell that never
+shows as a zombie within ten seconds stops the program with a panic naming it. The kill's code is reported only for a child whose wait status says
+`SIGKILL` ended it, and this one says it exited with `3`.
+
+The deadline also ends the `sleep`, through the shell's process group, whether the shell is still a zombie
+when it fires or already reaped: a group outlives its leader, and the kernel hands out no group's id while a
+member of the group lives. The shell prints the `sleep`'s id before it exits, and after the deadline the
+program gives the `sleep` two seconds to be gone, which only a kill can do.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function isZombie(pid Pid) returns bool
+	let ps = Executable.path(try FilePath.from("/bin/ps") otherwise panic("/bin/ps is a valid path"))
+	let argv = StringArray.create(0)
+	argv.push("-o")
+	argv.push("stat=")
+	argv.push("-p")
+	argv.push("{pid}")
+	let result = try Subprocess.run(ps, arguments: argv) otherwise panic("/bin/ps could not run")
+	return result.stdout.trim().startsWith("Z")
+end 'isZombie'
+
+function awaitZombie(pid Pid)
+	let deadlineMs = 10000
+	let started = Clock.nowMs()
+	while not isZombie(pid) 'untilExited'
+		if Clock.nowMs() - started > deadlineMs 'late'
+			panic("the shell {pid} never showed as a zombie within {deadlineMs} ms")
+		end 'late'
+	end 'untilExited'
+end 'awaitZombie'
+
+function memberPid(out String) returns Pid
+	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
+	return parsed as Pid
+end 'memberPid'
+
+function memberEndsWithinGrace(pid Pid) returns bool
+	let graceMs = 2000
+	let pollMs = 50
+	var waited = 0 as DurationMs
+	while waited < graceMs 'poll'
+		if not Process.isAlive(pid) 'gone'
+			return true
+		end 'gone'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return not Process.isAlive(pid)
+end 'memberEndsWithinGrace'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "sleep 30 & echo $!; exit 3")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	awaitZombie(__Builtins.subprocessGetPid(h) as Pid)
+	let r = __Builtins.subprocessWaitCollect(h, 300)
+	let kind = __Builtins.subprocessResultStatusKind(r)
+	let code = __Builtins.subprocessResultStatusCode(r)
+	let member = memberPid(String.init(__Builtins.subprocessResultStdout(r)))
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	print("kind={kind} code={code} memberEnded={memberEndsWithinGrace(member)}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=2 code=3 memberEnded=true
+
+```
+
+<!-- test: subprocess-builtins.a-release-under-a-parked-collect-is-a-named-stop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: wasm32-wasi -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**RELEASING A HANDLE WHILE ANOTHER GREEN THREAD IS PARKED COLLECTING IT IS A PROGRAM ERROR, AND IT STOPS WITH A
+NAMED ABORT.** `__gt_subp_wait_collect` reads its slot's pipe ends and child source into a poller group before
+the group wait takes the scheduler lock, and `subpRelease` on another thread in that gap closes those pipes —
+bumping each poll record's generation — and zeroes the slot; if a descriptor is reissued meanwhile, a mark
+made against the record's CURRENT life would land in the NEXT owner's record, and a collect that went on
+would read a slot that holds no child (handles of 0 into the exit read). Neither has a defined answer, so
+the collect names the stop instead:
+every pass re-checks that its slot still holds the child it began with, and a group member carries the
+generation its collect began in and is refused by `__np_pd_wait_any` once its record's life has moved —
+`RuntimeAbort.subpCollectSlotReleased`, exit **117**, the same shape as two readers on one socket
+(`netpoll-socket.two-readers-on-one-socket-is-a-named-stop`, exit 107).
+
+⚠ **THE INTERLEAVING IS EXACT AT ONE PROCESSOR WITHOUT PREEMPTION.** The collector shares `main`'s strand and
+runs only when `main` parks, so the handover is a reading: `collector` publishes `parkedFrom` in the statement
+before its collect, the collect reaches its group wait on a live slot and parks on the poller, and `main` yields
+until the netpoll count has reached that mark and only then releases the slot from under it, then awaits a
+promise the abort ends before it is settled. The wait has no bound, so a collector that never parks is a TIMEOUT
+and no sleep has to outlast the host. The Windows collect waits by sleeping a millisecond between passes rather
+than on the poller, so it counts no park: there the mark is the collector's entry, and because the collector
+gives the processor up only by parking in that sleep or by finishing, and the child cannot finish, `main`'s
+resumption is the collector parked. The child holds its stdin open and reads it, and nothing ever writes to
+it, so no pass of the collect can finish before the release however slow the host is — a child that had already
+exited would be reaped, and the release would find no parked collector. `main` prints nothing: a print after
+the release would never run, and one before it would only pin the order the markers already fix.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+// Long enough that the release lands while the collect is parked, well inside the collect's own deadline.
+let collectDeadlineMs = 10000
+
+let holdStdin = 4
+
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedInCollect(parkedFrom ParkMark) returns bool
+	let mark = parkedFrom.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	return true
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	return Scheduler.counters().netpollBlocks >= mark
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+end 'parkedInCollect'
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function collector(h FullRangeInt, parkedFrom ParkMark) returns ExitCode
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	let r = __Builtins.subprocessWaitCollect(h, collectDeadlineMs)
+	__Builtins.subprocessResultRelease(r)
+	return 0
+end 'collector'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "set /p released=")
+	let argc = 3
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	appendToken(argv, token: "/bin/cat")
+	let argc = 1
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, argc, empty.cstr(), env, 1, holdStdin, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let collecting = async collector(h, parkedFrom: parkedFrom.clone())
+	while not parkedInCollect(parkedFrom) 'untilParkedInCollect'
+		Scheduler.yield()
+	end 'untilParkedInCollect'
+	// The collector is parked in the group wait on this slot's pipes and child, so this release is the refusal.
+	__Builtins.subprocessReleaseHandle(h)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let unreachable = await collecting
+	return unreachable
+end 'main'
+```
+```exitcode
+117
+```
+```stderr
+fatal error: runtime abort 117 (subpCollectSlotReleased)
+```
+
+<!-- test: subprocess-builtins.a-second-collect-on-a-held-slot-is-a-named-stop -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: wasm32-wasi -->
+<!-- procs: 1 -->
+<!-- preempt: off -->
+**A SECOND COLLECT ON A SLOT ONE COLLECT ALREADY HOLDS IS THE SAME PROGRAM ERROR, AND THE SAME STOP.** A collect
+takes its slot's interlock word (`SubpSlotCollector`) at entry and gives it back at every exit, and the release
+takes the same word for good; a collect that finds the word taken — by a collect still parked on the slot, or
+by a release — stops at `RuntimeAbort.subpCollectSlotReleased`, exit **117**, before it reads a handle or
+marks a pipe word. Without the interlock the second collect reaches the group wait and marks the pipe words
+the first already holds, which is the socket band's double wait (exit 107) reported for a different fault.
+
+The interleaving is the previous case's: at one processor without preemption the first collector runs only
+when `main` parks, so `main` yields until the netpoll count has reached the mark the first collector published
+before its collect, which is the slot handed over and the collector parked in the wait (on Windows, which waits
+by sleeping a millisecond between passes and counts no park, the mark is the collector's entry and `main`'s
+resumption is the collector parked, as in the previous case); the second collector runs when `main` awaits it,
+finds the word taken and stops. The child holds its stdin open and reads it, and
+nothing ever writes to it, so neither collect can finish first however slow the host is. `main` prints nothing.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+// Long enough that the second collect lands while the first is parked, well inside the collect's own deadline.
+let collectDeadlineMs = 10000
+
+let holdStdin = 4
+
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedInCollect(parkedFrom ParkMark) returns bool
+	let mark = parkedFrom.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	return true
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	return Scheduler.counters().netpollBlocks >= mark
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+end 'parkedInCollect'
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function collector(h FullRangeInt, parkedFrom ParkMark) returns ExitCode
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	let r = __Builtins.subprocessWaitCollect(h, collectDeadlineMs)
+	__Builtins.subprocessResultRelease(r)
+	return 0
+end 'collector'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "set /p released=")
+	let argc = 3
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+	appendToken(argv, token: "/bin/cat")
+	let argc = 1
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, argc, empty.cstr(), env, 1, holdStdin, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let first = async collector(h, parkedFrom: parkedFrom.clone())
+	while not parkedInCollect(parkedFrom) 'untilParkedInCollect'
+		Scheduler.yield()
+	end 'untilParkedInCollect'
+	// The first collector holds the slot and is parked in its group wait, so this second collect is the refusal.
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let second = async collector(h, parkedFrom: parkedFrom.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let unreachableSecond = await second
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let unreachableFirst = await first
+	return unreachableSecond + unreachableFirst
+end 'main'
+```
+```exitcode
+117
+```
+```stderr
+fatal error: runtime abort 117 (subpCollectSlotReleased)
+```
+
+<!-- test: subprocess-builtins.detach-answers-a-pid -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The detach bit (bit 2 of `flags`) makes the runtime answer the child's OS process id rather than a
+table handle, and release the slot — so the parent holds no handle to a child it will never wait
+for. The pid is machine-specific, so the property asserted is that it is a real one.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+typealias PidArray = Array with Pid
+
+let endsWithinMs = 30000
+
+let pollMs = 50
+
+function allEnded(pids PidArray) returns bool
+	var waited = 0 as DurationMs
+	while waited < endsWithinMs 'poll'
+		var alive = 0 as Count
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for pid in pids 'eachPid'
+			if Process.isAlive(pid) 'stillThere'
+				alive = alive + 1
+			end 'stillThere'
+		end 'eachPid'
+		if alive == 0 'none'
+			return true
+		end 'none'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return false
+end 'allEnded'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "exit")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let pid = __Builtins.subprocessDetach(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 4, 0)
+	print("positive={pid > 0}")
+	let pids = PidArray.create(0)
+	if pid > 0 'started'
+		pids.push(pid as Pid)
+	end 'started'
+	if not allEnded(pids) 'lingers'
+		return 4
+	end 'lingers'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+positive=true
+
+```
+
+<!-- test: subprocess-builtins.posix-detach-answers-a-pid -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`detach-answers-a-pid` on this lane: the detach bit (bit 2 of `flags`) makes the runtime answer the child's
+OS process id rather than a table handle, and release the slot — so the parent holds no handle to a child it
+will never wait for. The pid is machine-specific, so the property asserted is that it is a real one. ⚠ On
+this lane a detached child is a `posix_spawnp` pid the parent will never `waitpid`, which is why the slot
+must be released HERE rather than left live: a handle nobody can wait on is a leak the table would carry to
+program exit.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+typealias PidArray = Array with Pid
+
+let endsWithinMs = 30000
+
+let pollMs = 50
+
+function allEnded(pids PidArray) returns bool
+	var waited = 0 as DurationMs
+	while waited < endsWithinMs 'poll'
+		var alive = 0 as Count
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for pid in pids 'eachPid'
+			if Process.isAlive(pid) 'stillThere'
+				alive = alive + 1
+			end 'stillThere'
+		end 'eachPid'
+		if alive == 0 'none'
+			return true
+		end 'none'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return false
+end 'allEnded'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/usr/bin/true")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let pid = __Builtins.subprocessDetach(argv, 1, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 4, 0)
+	print("positive={pid > 0}")
+	let pids = PidArray.create(0)
+	if pid > 0 'started'
+		pids.push(pid as Pid)
+	end 'started'
+	if not allEnded(pids) 'lingers'
+		return 4
+	end 'lingers'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+positive=true
+
+```
+
+<!-- test: subprocess-builtins.a-detach-gives-its-slot-back -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`detach-answers-a-pid` asserts the pid; this asserts the OTHER half of its sentence, that the detach
+RELEASES the slot. The table holds 64 slots and a spawn with none free answers `-1`, so 65 detaches in
+a row each answering a real pid is the release working every time; a detach that kept its slot would
+run the table out on the 65th. The spawn core releases through the guarded `__gt_subp_release`, so it
+must hand that entry the PACKED handle the way a caller would — a bare slot index decodes to generation
+0, which the guard refuses as dead, and the slot stays live forever.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+typealias PidArray = Array with Pid
+
+let endsWithinMs = 30000
+
+let pollMs = 50
+
+function allEnded(pids PidArray) returns bool
+	var waited = 0 as DurationMs
+	while waited < endsWithinMs 'poll'
+		var alive = 0 as Count
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for pid in pids 'eachPid'
+			if Process.isAlive(pid) 'stillThere'
+				alive = alive + 1
+			end 'stillThere'
+		end 'eachPid'
+		if alive == 0 'none'
+			return true
+		end 'none'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return false
+end 'allEnded'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "exit")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	var spawned = 0 as Count
+	var firstFailure = -1 as FullRangeInt
+	let pids = PidArray.create(0)
+	for i in 0 upto 65 'detachLoop'
+		let pid = __Builtins.subprocessDetach(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 4, 0)
+		if pid > 0 'counted'
+			spawned = spawned + 1
+			pids.push(pid as Pid)
+		end 'counted' else 'failed'
+			if firstFailure < 0 'firstOnly'
+				firstFailure = i
+			end 'firstOnly'
+		end 'failed'
+	end 'detachLoop'
+	print("spawned={spawned} firstFailure={firstFailure}\n")
+	if not allEnded(pids) 'lingers'
+		return 4
+	end 'lingers'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+spawned=65 firstFailure=-1
+
+```
+
+<!-- test: subprocess-builtins.posix-a-detach-gives-its-slot-back -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`a-detach-gives-its-slot-back` on this lane: 65 detaches of `/usr/bin/true` into a 64-slot table each
+answer a real pid, which is only possible if every detach released its slot.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+typealias PidArray = Array with Pid
+
+let endsWithinMs = 30000
+
+let pollMs = 50
+
+function allEnded(pids PidArray) returns bool
+	var waited = 0 as DurationMs
+	while waited < endsWithinMs 'poll'
+		var alive = 0 as Count
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for pid in pids 'eachPid'
+			if Process.isAlive(pid) 'stillThere'
+				alive = alive + 1
+			end 'stillThere'
+		end 'eachPid'
+		if alive == 0 'none'
+			return true
+		end 'none'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return false
+end 'allEnded'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/usr/bin/true")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	var spawned = 0 as Count
+	var firstFailure = -1 as FullRangeInt
+	let pids = PidArray.create(0)
+	for i in 0 upto 65 'detachLoop'
+		let pid = __Builtins.subprocessDetach(argv, 1, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 4, 0)
+		if pid > 0 'counted'
+			spawned = spawned + 1
+			pids.push(pid as Pid)
+		end 'counted' else 'failed'
+			if firstFailure < 0 'firstOnly'
+				firstFailure = i
+			end 'firstOnly'
+		end 'failed'
+	end 'detachLoop'
+	print("spawned={spawned} firstFailure={firstFailure}\n")
+	if not allEnded(pids) 'lingers'
+		return 4
+	end 'lingers'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+spawned=65 firstFailure=-1
+
+```
+
+<!-- test: subprocess-builtins.posix-a-detached-child-gets-a-new-session -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+⛔⛔ **THE TWO POSIX DETACH CASES ABOVE ASSERT THE PID AND THE SLOT, AND NEITHER ASSERTS WHAT DETACHING IS
+FOR.** A detached child must be in a SESSION OF ITS OWN, so the terminal hangup that ends the parent never
+reaches it — that is the whole of what `DETACHED_PROCESS` buys and what `setsid()`/`POSIX_SPAWN_SETSID`
+deliver.
+A child that merely led a process group of its own would answer a real pid and release its slot exactly as
+those two cases demand, and would still die with the parent's terminal.
+
+⚠ **THE SESSION IS READ FROM INSIDE THE CHILD, BECAUSE NO BUILTIN EXPOSES IT.** The detached shell asks
+`getsid` for its own session id and for its PARENT's — which is this program, since the spawn is one
+`clone` or `posix_spawn` deep and nothing double-forks — and writes the verdict to a file named for this case
+alone, the suite's cwd being shared by twelve workers. A second, ORDINARY child reads that file
+back: an ordinary child inherits the parent's session, so the same route that would be the wrong
+answer here is what makes the file readable at all.
+
+⛔ **THE SESSION IS ASKED OF `getsid` AND NOT OF `ps`, AND THE DIFFERENCE IS THE WHOLE CASE.** macOS
+reports `sess` as a session POINTER that reads `0` for every process and knows no `sid` keyword at all,
+so a `ps` spelling compares `0` against `0` on that lane and calls a child that changed nothing a new
+session. It would fail an arm64-macos child that IS correct and pass a Linux one that is not.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+typealias PidArray = Array with Pid
+
+let endsWithinMs = 30000
+
+let pollMs = 50
+
+function allEnded(pids PidArray) returns bool
+	var waited = 0 as DurationMs
+	while waited < endsWithinMs 'poll'
+		var alive = 0 as Count
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for pid in pids 'eachPid'
+			if Process.isAlive(pid) 'stillThere'
+				alive = alive + 1
+			end 'stillThere'
+		end 'eachPid'
+		if alive == 0 'none'
+			return true
+		end 'none'
+		sleep(pollMs)
+		waited = waited + pollMs
+	end 'poll'
+	return false
+end 'allEnded'
+
+function main() returns ExitCode
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let cleanup = ByteArray.create(0)
+	appendToken(cleanup, token: "/bin/sh")
+	appendToken(cleanup, token: "-c")
+	appendToken(cleanup, token: "rm -f posix-detach-session-probe.txt")
+	let cleanupHandle = __Builtins.subprocessSpawn(cleanup, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let cleanupResult = __Builtins.subprocessWaitCollect(cleanupHandle, 0)
+	__Builtins.subprocessResultRelease(cleanupResult)
+	__Builtins.subprocessReleaseHandle(cleanupHandle)
+	let probe = ByteArray.create(0)
+	appendToken(probe, token: "/bin/sh")
+	appendToken(probe, token: "-c")
+	appendToken(probe, token: "mine=$(python3 -c 'import os;print(os.getsid(0))'); theirs=$(python3 -c 'import os,sys;print(os.getsid(int(sys.argv[1])))' $PPID); if [ x$mine != x ] && [ x$mine != x$theirs ]; then echo differs; else echo same; fi > posix-detach-session-probe.txt")
+	let pid = __Builtins.subprocessDetach(probe, 3, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 4, 0)
+	let reader = ByteArray.create(0)
+	appendToken(reader, token: "/bin/sh")
+	appendToken(reader, token: "-c")
+	appendToken(reader, token: "i=0; while [ $i -lt 100 ]; do if [ -s posix-detach-session-probe.txt ]; then cat posix-detach-session-probe.txt; rm -f posix-detach-session-probe.txt; exit 0; fi; sleep 0.1; i=$((i+1)); done; echo timeout")
+	let readerHandle = __Builtins.subprocessSpawn(reader, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let readerResult = __Builtins.subprocessWaitCollect(readerHandle, 0)
+	let verdict = String.init(__Builtins.subprocessResultStdout(readerResult))
+	let newSession = verdict.startsWith("differs")
+	print("detached={pid > 0} newSession={newSession}\n")
+	__Builtins.subprocessResultRelease(readerResult)
+	__Builtins.subprocessReleaseHandle(readerHandle)
+	let pids = PidArray.create(0)
+	if pid > 0 'started'
+		pids.push(pid as Pid)
+	end 'started'
+	if not allEnded(pids) 'lingers'
+		return 4
+	end 'lingers'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+detached=true newSession=true
+
+```
+
+<!-- test: subprocess-builtins.inherited-and-discarded-output -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`OutputKind.inherit` hands the child the PARENT's own standard handle, so its text lands in this
+program's stdout with nothing collected; `OutputKind.discard` opens the NUL device, so the second
+child's text goes nowhere at all. ⚠ An inherited handle belongs to the OS, and a spawn that closed
+it after `CreateProcessW` — as it must close a pipe end or a file it opened — would close the
+PARENT's stdout and the tail of the line below would never appear.
+
+⚠ The children use `set /p` rather than `echo` for one reason: `echo` ends its line with a Windows
+CRLF, and a spec's expected-stdout block cannot carry a bare CR. `set /p` writes its prompt with no
+terminator at all, so what lands between the parent's two prints is exactly the child's bytes.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function runEcho(word String, outKind Integer) returns Integer
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: word)
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), outKind, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let collected = String.init(__Builtins.subprocessResultStdout(r)).byteLength()
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return collected
+end 'runEcho'
+
+function main() returns ExitCode
+	print("[")
+	let inherited = runEcho("<nul set /p=visible", outKind: 1)
+	let discarded = runEcho("<nul set /p=invisible", outKind: 0)
+	print("] inheritCollected={inherited} discardCollected={discarded}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+[visible] inheritCollected=0 discardCollected=0
+
+```
+
+<!-- test: subprocess-builtins.posix-inherited-and-discarded-output -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+`inherited-and-discarded-output` on this lane. `OutputKind.inherit` hands the child the PARENT's own
+descriptor, so its text lands in this program's stdout with nothing collected; `OutputKind.discard` opens
+`/dev/null`, so the second child's text goes nowhere at all. ⚠ An inherited descriptor belongs to the
+PARENT, and a spawn that closed it after `posix_spawnp` — as it must close a pipe end or a file it opened —
+would close this program's own stdout and the tail of the line below would never appear. That is a sharper
+trap here than on Windows: `POSIX_SPAWN_CLOEXEC_DEFAULT` means every descriptor is closed in the child
+unless a file action names it, so the inherit path is a deliberate `dup2` rather than the absence of one.
+
+⚠ `/bin/echo -n` rather than `echo`, for the same reason the Windows sibling reaches for `set /p`: a
+trailing newline between the parent's two prints cannot be written into an expected-stdout block as part of
+one line.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function runEcho(word String, outKind Integer) returns Integer
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/echo")
+	appendToken(argv, token: "-n")
+	appendToken(argv, token: word)
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), outKind, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let collected = String.init(__Builtins.subprocessResultStdout(r)).byteLength()
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return collected
+end 'runEcho'
+
+function main() returns ExitCode
+	print("[")
+	let inherited = runEcho("visible", outKind: 1)
+	let discarded = runEcho("invisible", outKind: 0)
+	print("] inheritCollected={inherited} discardCollected={discarded}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+[visible] inheritCollected=0 discardCollected=0
+
+```
+
+<!-- test: subprocess-builtins.argv-quoting -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A token holding a SPACE is quoted, so it reaches the child as ONE argument rather than two. `echo`
+prints its arguments back with the quotes removed, which is what makes the round trip observable:
+without the quoting the command line would be `cmd /c echo one two` and the child would still print
+`one two`, so the discriminating case is a token whose *quoting* is what keeps the trailing text out
+of `cmd`'s own parsing — an embedded `"` in the same token, which is written `\"`.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "echo")
+	appendToken(argv, token: "a b")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 4, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let quoted = "\"a b\""
+	print("echoed={out.startsWith(quoted)} len={out.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+echoed=true len=7
+
+```
+
+<!-- test: subprocess-builtins.large-collect-grows-the-buffer -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+An UNCAPPED collect of far more than one buffer's worth: 200 lines of 40 characters, which `cmd`
+terminates with CRLF, is exactly 8400 bytes. The collect buffer starts at 4096 and doubles past what
+each pass needs, freeing the buffer it outgrew — so this is the case that exercises the growth and
+the free rather than the single-chunk happy path, and the pinned exit code is what would catch a
+double free or a leaked old buffer (either exits **101**).
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "for /L %i in (1,1,200) do @echo 0123456789012345678901234567890123456789")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	print("kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} outLen={out.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 outLen=8400
+
+```
+
+<!-- test: subprocess-builtins.posix-large-collect-grows-both-buffers -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+An UNCAPPED collect of far more than one buffer's worth, on BOTH pipes at once: 1200 lines of 49
+characters plus a LF on each stream is exactly 60000 bytes each, 117 KiB together. Each collect buffer
+starts at 4096 and doubles past what a pass needs, freeing the buffer it outgrew — so this is the case that
+exercises the growth and the free rather than the single-chunk happy path, and the pinned exit code is what
+would catch a double free or a leaked old buffer (either exits **101**).
+
+⭐ **DRIVING BOTH PIPES AT ONCE IS THE POINT, AND IT IS SHARPER HERE THAN ON WINDOWS.** A 64 KiB pipe fills
+long before 60000 bytes have been read out of it, so a runtime that committed to draining stdout before
+looking at stderr would leave the child blocked on a full stderr pipe for ever and this case would HANG
+rather than fail. It passes only because `osPipePeek` asks each stream whether it has bytes before any read
+is committed — the property `subprocessWaitCollect`'s structure exists for, and the one this lane cannot
+fall back on a netpoll to supply.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "i=0; while [ $i -lt 1200 ]; do echo 0123456789012345678901234567890123456789012345678; echo 0123456789012345678901234567890123456789012345678 1>&2; i=$((i+1)); done")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let err = String.init(__Builtins.subprocessResultStderr(r))
+	print("kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} outLen={out.byteLength()} errLen={err.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 outLen=60000 errLen=60000
+
+```
+
+<!-- test: subprocess-builtins.capture-limit -->
+<!-- tier: stdlib -->
+A non-zero `stdoutLimit` caps what is KEPT, never what is read: a runtime that stopped reading at
+the ceiling would leave the child blocked on a full pipe for ever. The child writes far more than
+the ceiling and still exits cleanly, and the capture stops at the ceiling.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "for /L %i in (1,1,200) do @echo 0123456789012345678901234567890123456789")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 64, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	print("kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} capped={out.byteLength() <= 64}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+kind=0 code=0 capped=true
+
+```
+
+<!-- test: subprocess-builtins.streaming-over-argv -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`subprocessSpawnStreaming` takes the same argv blob and wires all three streams to pipes, which is
+what "streaming" MEANS — there are no stdio triples to pass because the caller drives all three. It
+does take the environment pair the attached contract carries, and a `1` there is `EnvSource.parent`,
+under which the block beside it is never read.
+`writeStdinAll` writes exactly the bytes it is given (the surface appends its own newline), the
+`subprocessReadAvailable` reader answers a `__ManagedMemory` rather than the `String` the bare-name
+`subpReadLine` builtin answers, and `waitExit` honours a deadline the streaming `subpWait` cannot. `cmd /c
+more` echoes `ping` CRLF-terminated and then a blank line, so the reads until an empty answer gather eight
+bytes.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "more")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 3, empty.cstr(), 0, envBlock, 1)
+	let payload = "ping\n"
+	let wrote = __Builtins.subprocessWriteStdinAll(h, payload.cstr())
+	__Builtins.subprocessCloseStdin(h)
+	var output = ""
+	while true 'draining'
+		let chunk = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 1024))
+		if chunk.byteLength() == 0 'ended'
+			break
+		end 'ended'
+		output.append(chunk)
+	end 'draining'
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	let expected = "ping"
+	print("wrote={wrote} echoed={output.startsWith(expected)} outLen={output.byteLength()} code={code}")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+wrote=0 echoed=true outLen=8 code=0
+
+```
+
+<!-- test: read-available-answers-at-most-most-and-keeps-the-rest-for-the-next-read -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`subprocessReadAvailable(handle, stream, most)` answers AT MOST `most` bytes, and the bytes buffered past
+them stay buffered for the next read. The child echoes `abcdefghij` — one line — and the two four-byte reads
+answer `abcd` then `efgh`, stopping mid-line: a read that handed over everything buffered would answer the
+whole line, and one that dropped what it did not hand over would answer something other than `efgh` second.
+
+⚠ **SHORT ONLY AT EOF.** `cmd /c more` echoes the line CRLF-terminated and then a blank line, so the
+child produces `abcdefghij\r\n\r\n` — 14 bytes. The reads of 100 that follow gather the 6 that remain after
+the two four-byte reads, and the read after them answers 0, from the latched end of the stream.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "more")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 3, empty.cstr(), 0, envBlock, 1)
+	let payload = "abcdefghij\n"
+	let wrote = __Builtins.subprocessWriteStdinAll(h, payload.cstr())
+	__Builtins.subprocessCloseStdin(h)
+	let first = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 4))
+	let second = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 4))
+	var restLen = 0 as Count
+	while true 'draining'
+		let chunk = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+		if chunk.byteLength() == 0 'ended'
+			break
+		end 'ended'
+		restLen = restLen + chunk.byteLength()
+	end 'draining'
+	let afterEof = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 4))
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	print("wrote={wrote} first={first} second={second} restLen={restLen} eofLen={afterEof.byteLength()} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+wrote=0 first=abcd second=efgh restLen=6 eofLen=0 code=0
+```
+```exitcode
+0
+```
+
+<!-- test: read-available-answers-what-is-buffered-without-waiting-for-more -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`subprocessReadAvailable(handle, stream, most)` answers the bytes already buffered for that stream, up to `most`, and parks only while none are. The child re-spawned from this program writes `first`, sleeps two seconds and writes `second`, so a read of 100 that waited for its count, or for the end of the stream, would answer both lines at once; answering the first line's six bytes alone is what tells the two apart. The second read parks until the second line arrives, and at the end of the stream each stream's read answers no bytes.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		print("first\n")
+		sleep(2000)
+		print("second\n")
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "{exe}")
+	appendToken(argv, token: "emit")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 2, empty.cstr(), 0, envBlock, 1)
+	__Builtins.subprocessCloseStdin(h)
+	let first = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let second = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let atEnd = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let errAtEnd = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stderr.rawValue, 100))
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	print("first={first.trim()} firstLen={first.byteLength()} second={second.trim()} secondLen={second.byteLength()} endLen={atEnd.byteLength()} stderrLen={errAtEnd.byteLength()} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+first=first firstLen=6 second=second secondLen=7 endLen=0 stderrLen=0 code=0
+```
+```exitcode
+0
+```
+
+
+<!-- test: read-available-with-a-most-of-zero-or-less-answers-empty-without-parking -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A `most` of 0 or less answers no bytes at once, and leaves the stream exactly as it was. Both reads are made
+before the child has been sent anything, and `cmd /c more` writes nothing until it reads its input, so a read
+that parked for bytes would park for good and the runner would report the case TIMED OUT. `state=open` says
+neither read latched the end of the stream, and `still=abcd` that neither consumed anything: the first real
+read after them gets the first four bytes the child writes.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "more")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 3, empty.cstr(), 0, envBlock, 1)
+	let negative = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, -1))
+	let zero = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 0))
+	let state = __Builtins.subprocessStdoutState(h)
+	let payload = "abcdefghij\n"
+	let wrote = __Builtins.subprocessWriteStdinAll(h, payload.cstr())
+	__Builtins.subprocessCloseStdin(h)
+	let still = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 4))
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	print("negLen={negative.byteLength()} zeroLen={zero.byteLength()} state={state.name} wrote={wrote} still={still} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+negLen=0 zeroLen=0 state=open wrote=0 still=abcd code=0
+```
+```exitcode
+0
+```
+
+<!-- test: read-available-of-a-stream-other-than-stdout-or-stderr-answers-empty -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The `stream` argument is `StdioStream`'s raw value, `0` for stdout and `1` for stderr; any other value answers
+no bytes and reads neither stream. The child re-spawned from this program writes `first` and exits; the reads
+of stream `2` and `-1` answer nothing, and the stdout read after them still gets the whole line.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		print("first\n")
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "{exe}")
+	appendToken(argv, token: "emit")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 2, empty.cstr(), 0, envBlock, 1)
+	__Builtins.subprocessCloseStdin(h)
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	let past = String.init(__Builtins.subprocessReadAvailable(h, 2, 100))
+	let below = String.init(__Builtins.subprocessReadAvailable(h, -1, 100))
+	let out = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	print("pastLen={past.byteLength()} belowLen={below.byteLength()} out={out.trim()} outLen={out.byteLength()} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+pastLen=0 belowLen=0 out=first outLen=6 code=0
+```
+```exitcode
+0
+```
+
+<!-- test: read-available-of-a-released-handle-answers-empty -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A handle `subprocessReleaseHandle` has given back answers no bytes, even though the child wrote a line nothing
+read before the release: the handle guard refuses the released slot, so the read reaches neither the freed pipe
+nor the bytes that were left in it, and the stream's state answers `noSuchChild`.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		print("first\n")
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "{exe}")
+	appendToken(argv, token: "emit")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 2, empty.cstr(), 0, envBlock, 1)
+	__Builtins.subprocessCloseStdin(h)
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	__Builtins.subprocessReleaseHandle(h)
+	let out = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let err = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stderr.rawValue, 100))
+	let state = __Builtins.subprocessStdoutState(h)
+	print("code={code} outLen={out.byteLength()} errLen={err.byteLength()} state={state.name}\n")
+	return 0
+end 'main'
+```
+```stdout
+code=0 outLen=0 errLen=0 state=noSuchChild
+```
+```exitcode
+0
+```
+
+<!-- test: read-available-reads-stderr-apart-from-stdout -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+A `stream` of `1` reads the child's stderr. The child re-spawned from this program writes `oops` on stderr and
+`fine` on stdout; each read answers its own stream's line, and each stream's next read answers no bytes, so
+neither line reached the other stream.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		printError("oops\n")
+		print("fine\n")
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "{exe}")
+	appendToken(argv, token: "emit")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 2, empty.cstr(), 0, envBlock, 1)
+	__Builtins.subprocessCloseStdin(h)
+	let err = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stderr.rawValue, 100))
+	let out = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let errAtEnd = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stderr.rawValue, 100))
+	let outAtEnd = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	print("err={err.trim()} out={out.trim()} errEndLen={errAtEnd.byteLength()} outEndLen={outAtEnd.byteLength()} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+err=oops out=fine errEndLen=0 outEndLen=0 code=0
+```
+```exitcode
+0
+```
+
+<!-- test: a-subprocess-read-recovers-as-isolated -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`subprocessReadAvailable` answers a buffer it allocated for this read alone, so `ByteArray.init` over it is a fresh
+region and is returned as `isolated` without a copy. The child re-spawned from this program writes `fine`, and the
+array the read gave answers its bytes.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function readOut(h FullRangeInt) returns isolated ByteArray
+	return ByteArray.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+end 'readOut'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'childMode'
+		print("fine\n")
+		return 0
+	end 'childMode'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "{exe}")
+	appendToken(argv, token: "emit")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 2, empty.cstr(), 0, envBlock, 1)
+	__Builtins.subprocessCloseStdin(h)
+	let out = readOut(h)
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	let f = try out.get(0) otherwise return 3
+	let i = try out.get(1) otherwise return 4
+	let n = try out.get(2) otherwise return 5
+	let e = try out.get(3) otherwise return 6
+	print("{f} {i} {n} {e} code={code}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```stdout
+102 105 110 101 code=0
+```
+```exitcode
+0
+```
+
+<!-- test: subprocess-builtins.streaming-stream-state-follows-the-reader -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+`subprocessStdoutState(handle)` / `subprocessStderrState(handle)` answer `__SubprocessStreamState` — the
+per-stream fact a reader's bytes cannot carry. `subprocessReadAvailable` answers no bytes for a clean end of
+stream AND for every refusal (a handle naming no live child, a `most` of 0 or less, a failed OS read), so the
+bytes alone cannot say which; the state can. It is an ENUM, not a number: `.name` below is what an `int` could
+not answer, and it is the one place the four outcomes are spelled.
+
+⭐ **THE STATE FOLLOWS THE READER, NOT THE CHILD.** `before` is `open` even though the child has already
+been handed EOF on its stdin and may have exited: nothing latches until a READ sees the 0-byte answer.
+`after` is `atEof` because the last read of the drain ran into it. A released slot and an invented handle both
+answer `noSuchChild`, from the handle guard rather than from any slot.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "more")
+	let empty = ""
+	let envBlock = ByteArray.create(0)
+	envBlock.push(0)
+	let h = __Builtins.subprocessSpawnStreaming(argv, 3, empty.cstr(), 0, envBlock, 1)
+	let payload = "abc\n"
+	let wrote = __Builtins.subprocessWriteStdinAll(h, payload.cstr())
+	__Builtins.subprocessCloseStdin(h)
+	let before = __Builtins.subprocessStdoutState(h)
+	let errBefore = __Builtins.subprocessStderrState(h)
+	var outLen = 0 as Count
+	while true 'draining'
+		let chunk = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
+		if chunk.byteLength() == 0 'ended'
+			break
+		end 'ended'
+		outLen = outLen + chunk.byteLength()
+	end 'draining'
+	let after = __Builtins.subprocessStdoutState(h)
+	let errLine = String.init(__Builtins.subprocessReadAvailable(h, StdioStream.stderr.rawValue, 64))
+	let errAfter = __Builtins.subprocessStderrState(h)
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	__Builtins.subprocessReleaseHandle(h)
+	let released = __Builtins.subprocessStdoutState(h)
+	let invented = __Builtins.subprocessStderrState(-1)
+	print("wrote={wrote} before={before.name} errBefore={errBefore.name} outLen={outLen} after={after.name} errLen={errLine.byteLength()} errAfter={errAfter.name} code={code} released={released.name} invented={invented.name}\n")
+	return 0
+end 'main'
+```
+```stdout
+wrote=0 before=open errBefore=open outLen=7 after=atEof errLen=0 errAfter=atEof code=0 released=noSuchChild invented=noSuchChild
+```
+```exitcode
+0
+```
+
+<!-- test: subprocess-builtins.streaming-read-after-release-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+The stdlib half of the case above. A `ChildOutputReader` tells the end of the stream from a refusal: a short
+`readBytes` at the end returns what remained, a `readLine` at the end answers `LineOrEnd.ended`, and nothing
+else ends a read. After `release()` the reader `takeStderr()` handed out before it throws `StreamError.closed`,
+because the stream's state is `noSuchChild`, and a take, `writeStdinLine` and `wait` throw
+`SubprocessError.ioFailed`, which the stdlib refuses itself before the runtime is asked (the handle is a raw
+pointer, so the runtime could not refuse it safely). `closeStdin` and `release` are NOT held to that rule:
+they are idempotent, and a released child already satisfies their postcondition, so they answer as no-ops
+rather than throwing — and neither reaches the freed handle.
+```maxon
+function shown(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text
+		ended gives "ended"
+	end 'read'
+end 'shown'
+
+function readLineAfterRelease(reader ChildOutputReader) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let read = try reader.readLine() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	return "answered {shown(read)}"
+end 'readLineAfterRelease'
+
+function takeAfterRelease(child StreamingSubprocess) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try child.takeStdout() otherwise (e) 'refused'
+		return e.displayReason()
+	end 'refused'
+	return "took a reader"
+end 'takeAfterRelease'
+
+function writeAfterRelease(child StreamingSubprocess) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try child.writeStdinLine("late") otherwise (e) 'refused'
+		return e.displayReason()
+	end 'refused'
+	return "wrote"
+end 'writeAfterRelease'
+
+function waitAfterRelease(child StreamingSubprocess) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let code = try child.wait() otherwise (e) 'refused'
+		return e.displayReason()
+	end 'refused'
+	return "answered {code}"
+end 'waitAfterRelease'
+
+function main() returns ExitCode
+	let argv = StringArray.create(0)
+	argv.push("/c")
+	argv.push("more")
+	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: argv) otherwise return 3
+	let out = try child.takeStdout() otherwise return 4
+	let err = try child.takeStderr() otherwise return 5
+	try child.writeStdinLine("abc") otherwise return 6
+	child.closeStdin()
+	let line = shown(try out.readLine() otherwise return 7)
+	let tail = try out.readBytes(100) otherwise return 8
+	let atEnd = shown(try out.readLine() otherwise return 9)
+	let code = try child.wait() otherwise return 10
+	child.release()
+	print("line={line} tailLen={tail.count()} atEnd={atEnd} code={code}\n")
+	print("errLine: {readLineAfterRelease(err)}\n")
+	print("take: {takeAfterRelease(child)}\n")
+	print("write: {writeAfterRelease(child)}\n")
+	print("wait: {waitAfterRelease(child)}\n")
+	child.closeStdin()
+	print("closeStdin: returned\n")
+	return 0
+end 'main'
+```
+```stdout
+line=abc tailLen=2 atEnd=ended code=0
+errLine: closed
+take: I/O failed: used after release()
+write: I/O failed: used after release()
+wait: I/O failed: used after release()
+closeStdin: returned
+```
+```exitcode
+0
+```
+
+<!-- test: subprocess-builtins.resolve-on-path -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+The `PATH` + `PATHEXT` walk. `cmd` is on the PATH of every Windows host and has no extension as
+written, so a resolver that only tried the name verbatim would miss it and one that only tried the
+PATH directories without the extension list would too. The answer is machine-specific, so the
+properties asserted are that it is absolute, that it ends in the name, and that it is longer than
+what was handed in. A name nothing can resolve comes back UNCHANGED rather than as NULL — see
+*`subprocessResolveOnPath` never answers NULL* above — which is what `managedIsNull` then reports as "not null".
+```maxon
+function main() returns ExitCode
+	let name = "cmd"
+	let resolved = String.init(__Builtins.subprocessResolveOnPath(name.cstr()))
+	let missing = "definitely-not-a-real-executable-xyz"
+	let unresolved = __Builtins.subprocessResolveOnPath(missing.cstr())
+	let unresolvedIsNull = __Builtins.managedIsNull(unresolved)
+	let unresolvedText = String.init(unresolved)
+	let colon = ":"
+	print("grew={resolved.byteLength() > 3} absolute={resolved.contains(colon)} missIsNull={unresolvedIsNull} missEchoed={unresolvedText == missing}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+grew=true absolute=true missIsNull=0 missEchoed=true
+
+```
+
+<!-- test: subprocess-builtins.last-error-is-empty-when-clean -->
+<!-- tier: stdlib -->
+`subprocessLastErrorMessage()` answers the EMPTY buffer while nothing has failed, and the OS
+error NUMBER once something has — here a spawn of an executable that does not exist, which
+`CreateProcessW` refuses with `ERROR_FILE_NOT_FOUND` (2) and a POSIX spawn with `ENOENT`, which
+`mrt_host_last_error` translates to the same 2.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let clean = String.init(__Builtins.subprocessLastErrorMessage())
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "definitely-not-a-real-executable-xyz.exe")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 1, empty.cstr(), env, 1, 0, empty.cstr(), 0, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let failed = String.init(__Builtins.subprocessLastErrorMessage())
+	let expected = "os error 2"
+	print("cleanLen={clean.byteLength()} spawn={h} message={failed == expected}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+cleanLen=0 spawn=-1 message=true
+
+```
+
+<!-- test: subprocess-builtins.a-caller-built-environment-is-the-childs-whole-environment -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
+⭐⭐ **`envInherit = 0` HANDS THE CHILD THE CALLER'S OWN BLOCK.** The stdlib assembles a block from
+this process's own entries (`__Builtins.osEnvironmentEntry`) with the caller's overrides applied for
+`Environment.custom` and `Environment.inheritUpdating`, and this is the contract underneath it.
+
+⚠ **THE ASSERTION IS THE CHILD'S OWN READING, NOT THE SPAWN'S RETURN.** A spawn that merely SUCCEEDS
+would be satisfied by a runtime that accepted the block and then passed NULL — a silent wrong answer —
+so the child expands a name that exists ONLY
+in the block it was given and echoes it back.
+
+The block is the platform's own shape: NUL-terminated `NAME=VALUE` entries back to back, then one more
+NUL. `appendToken` writes the first NUL of each entry, and the lone `push(0)` after the last one ends
+the block.
+
+⚠ `cmd` still resolves although the child's environment carries no `PATH`: `CreateProcessW` searches
+with the CALLING process's PATH, not the one it is about to hand over.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "echo")
+	appendToken(argv, token: "%MAXON_ENV_PROBE%")
+	let env = ByteArray.create(0)
+	appendToken(env, token: "MAXON_ENV_PROBE=seen")
+	env.push(0)
+	let empty = ""
+	let h = __Builtins.subprocessSpawn(argv, 4, empty.cstr(), env, 0, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	print("spawned={h >= 0} echoed={out.startsWith("seen")} len={out.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+spawned=true echoed=true len=6
+
+```
+<!-- test: subprocess-builtins.posix-a-caller-built-environment-is-the-childs-whole-environment -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows -->
+The Windows twin's subject on the POSIX lane. ⚠ **It is a sibling rather than a widened marker for
+`posix-collect-echo`'s reason: the CHILD is platform-specific.** `cmd /c echo %VAR%` has no meaning
+here, so the probe is `/bin/sh -c`, whose `echo` is a shell builtin and therefore needs no `PATH` in
+the environment it is handed.
+
+⭐ **BOTH HALVES OF "WHOLE ENVIRONMENT" ARE ASSERTED, AND THE SECOND IS THE ONE A PASSING SPAWN CAN
+STILL GET WRONG.** The child echoes `$HOME` beside the probe: the probe proves the caller's block
+REACHED it, and the EMPTY `$HOME` proves the parent's own environment did not — a runtime that
+accepted the block and then passed the parent's vector would satisfy the first and fail the second,
+which is exactly the silent wrong answer the contract exists to prevent.
+
+⛔ **`$PATH` CANNOT BE THAT WITNESS AND `$HOME` CAN, WHICH IS A FACT ABOUT `sh` RATHER THAN ABOUT THE
+SPAWN.** POSIX has a shell SYNTHESIZE a default `PATH` when the environment it is handed carries
+none, so an inherited and a caller-built environment both leave `$PATH` non-empty — 60
+bytes on macOS and 77 on Linux, a witness that is neither empty nor even the same on two lanes.
+`$HOME` is set in every real parent environment and is synthesized by nothing.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "echo probe=$MAXON_ENV_PROBE home=$HOME")
+	let env = ByteArray.create(0)
+	appendToken(env, token: "MAXON_ENV_PROBE=seen")
+	env.push(0)
+	let empty = ""
+	let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 0, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	print("spawned={h >= 0} echoed={out.startsWith("probe=seen home=")} len={out.byteLength()}")
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+spawned=true echoed=true len=17
+
+```
+
+<!-- test: subprocess-builtins.rejected-on-wasm -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+The subprocess substrate is gated on `HostFacility.subprocess`, which every native lane provides
+and wasm does not. On a target that does not, the call is refused at its source span
+with `E3104`, naming the runtime entry that has no lowering there — never a panic from inside the
+wasm backend.
+
+⚠ **THE GATE IS THE FACILITY TABLE, NOT A LIST OF LANES.** A lowering left out on the strength of a
+lane list is an isel panic in any program that reaches it — a `--target=arm64-macos` program touching
+`Subprocess`, even with the DEFAULT `Environment.inherit`, builds the environment reader and needs the
+environment-block ops lowered on that lane.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 0, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	return h as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:9:21: this construct lowers to the runtime entry '__gt_subp_attached_spawn', which has no wasm32-wasi implementation
+```
+
+<!-- test: subprocess-builtins.streaming-rejected-off-its-substrate -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+The bare-name streaming builtin is gated by the same band and names its own entry. ⚠ Outside that gate it
+dies on such a target as a BACKEND PANIC rather than as a diagnostic.
+
+⚠ **THE LANE IS `wasm32-wasi`, AND IT IS THE ONLY ONE THAT CAN CARRY THIS RULE.** Every native lane has
+a child-process substrate — arm64-macOS (`posix_spawnp`, a file-actions builder, anonymous pipes, `waitpid`
+behind a handle object), arm64-Linux (which has no `posix_spawn` syscall: `clone(SIGCHLD)`, `dup3`,
+`execve`, and a close-on-exec status pipe reporting a failed exec back to the parent) and x64-Linux on the
+same POSIX shape — so all of them COMPILE AND RUN it. A WASI component has no process-spawn primitive at
+all, so its refusal is PERMANENT — a difference in KIND carried by
+`SemanticCheck.targetCanHostSubprocess`'s E3074, not by this case, which pins only that the band is gated
+and names its own entry.
+
+⇒ **THE NAME DOES NOT CARRY A TARGET, AND THAT IS DELIBERATE.** A target in the name would be a third
+copy beside the `unsupported-targets:` marker and the `maxoncstderr` text, forcing a rename at every re-point. The
+marker and the text are the pair the runner checks against each other; a name is the copy nothing
+verifies.
+
+⚠ **IT IS NOT A DUPLICATE OF `subprocess-builtins.rejected-on-wasm`, AND THE ENTRY NAME SEPARATES THEM.**
+That case calls the raw fifteen-argument `__Builtins.subprocessSpawn` and names
+`__gt_subp_attached_spawn`; this one calls the BARE-NAME `subpSpawn` and names `__gt_subp_spawn`. Two
+doors, two entries, two gates — compiled for `wasm32-wasi`, this program emits exactly the
+diagnostic below.
+
+```maxon
+function main() returns ExitCode
+	let h = subpSpawn("cmd /c echo hi")
+	return h as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:10: this construct lowers to the runtime entry '__gt_subp_spawn', which has no wasm32-wasi implementation
+```
+
+<!-- test: subprocess-builtins.the-stdlib-api-compiles-on-arm64 -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-linux, wasm32-wasi -->
+⛔⛔ **A `Subprocess` PROGRAM CROSS-COMPILED TO arm64-macOS.** `--target=arm64-macos` on a
+`Configuration.create` + `runConfiguration` with the DEFAULT `Environment.inherit` must compile and run.
+`TargetFacilities` answers `subprocess gives true` for arm64-macOS, so the whole `__gt_subp_` family is
+built there, and dead code elimination cannot drop what the stdlib's spawn path calls — including
+`__env_entry`, which reads the inherited environment — so the environment-block ops must lower on
+this lane.
+
+⭐ **WHY IT NEEDS A CASE OF ITS OWN.** The `posix-*` cases above drive
+`__Builtins.subprocessSpawn` DIRECTLY, so none of them reaches `stdlib/Subprocess.maxon`'s
+`spawnEnvironmentFor` — and `spawnEnvironmentFor` is what keeps the environment reader alive, for
+`Environment.inherit` as much as for the other two arms. This is the case on this lane that goes
+through the stdlib's own API. ⚠ `maxon-bin/Testing/SpecTestRunner.maxon` calls `runConfiguration`, so the compiler
+binary itself is inside this blast radius.
+
+⚠ **THE ANSWER IS THE CHILD'S, NOT THE COMPILE'S**, so this is a run case rather than a compile-only
+one: `/bin/sh -c 'printf ok'` is echoed back through a collected stdout. On a host that cannot execute
+arm64-macOS the harness reports it COMPILED but NOT RUN, which is still the whole of what a lowering
+panic would make impossible.
+```maxon
+function main() returns ExitCode
+	let config = Configuration.create(Executable.name("/bin/sh"))
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	config.arguments = ["-c", "printf ok"]
+	config.workingDirectory = WorkingDirectory.inherit
+	let r = try Subprocess.runConfiguration(config) otherwise return 2
+	print("exit={r.exitCode()} out={r.stdout}\n")
+	return 0
+end 'main'
+```
+```stdout
+exit=0 out=ok
+```
+```exitcode
+0
+```
+
+<!-- test: subprocess-builtins.the-stdlib-api-runs-on-windows -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+The host-lane twin of `the-stdlib-api-compiles-on-arm64`, and the reason both exist: the arm64 case
+pins the cross-compile, and this one is the same door with its ANSWER checked on a lane this box can
+execute. Between them the stdlib's `Configuration` + `runConfiguration` path — which nothing else in
+`specs` exercises — is covered on both lanes the `subprocess` facility serves.
+```maxon
+function main() returns ExitCode
+	let config = Configuration.create(Executable.name("cmd"))
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	config.arguments = ["/c", "echo ok"]
+	config.workingDirectory = WorkingDirectory.inherit
+	let r = try Subprocess.runConfiguration(config) otherwise return 2
+	print("exit={r.exitCode()} out={r.stdout.trim()}\n")
+	return 0
+end 'main'
+```
+```stdout
+exit=0 out=ok
+```
+```exitcode
+0
+```
+
+<!-- test: subprocess-builtins.posix-a-released-handle-cannot-release-the-spawn-that-reuses-its-slot -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, wasm32-wasi -->
+A released handle stays dead while a new spawn is still being set up in the slot it named. The first spawn
+makes a FIFO, is collected and released, so the second spawn takes the same slot. The second spawn reads its
+child's stdin from that FIFO, and opening a FIFO for reading waits until something opens it for writing, so the
+second spawn, made in a service, holds the slot mid-setup for as long as this program likes. While it waits,
+the first spawn's handle is released again, which must do nothing; then the FIFO is written and the second
+child, `/bin/cat`, echoes what arrived. Windows has no file whose open waits for a writer, so it would need a
+different way to hold a spawn between claiming its slot and launching its child.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+let setupHoldMs = 500
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+type FifoReader
+	var summary as String
+
+	static function create() returns Self
+		return Self{summary: ""}
+	end 'create'
+
+	export function catFrom(fifo String)
+		let argv = ByteArray.create(0)
+		appendToken(argv, token: "/bin/cat")
+		let empty = ""
+		let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+		let h = __Builtins.subprocessSpawn(argv, 1, empty.cstr(), env, 1, 3, fifo.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+		let r = __Builtins.subprocessWaitCollect(h, 0)
+		let out = String.init(__Builtins.subprocessResultStdout(r))
+		self.summary = "kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} out={out}"
+		__Builtins.subprocessResultRelease(r)
+		__Builtins.subprocessReleaseHandle(h)
+	end 'catFrom'
+
+	export function answer() returns String
+		return self.summary.clone()
+	end 'answer'
+end 'FifoReader'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "d=$(mktemp -d) && mkfifo \"$d/f\" && printf %s \"$d\"")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let first = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let made = __Builtins.subprocessWaitCollect(first, 0)
+	let dir = String.init(__Builtins.subprocessResultStdout(made))
+	__Builtins.subprocessResultRelease(made)
+	__Builtins.subprocessReleaseHandle(first)
+	let fifo = "{dir}/f"
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn FifoReader.create()
+	try reader.catFrom("{dir}/f") otherwise return 9
+	sleep(setupHoldMs)
+	__Builtins.subprocessReleaseHandle(first)
+	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: "through the fifo") otherwise return 3
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await reader.answer() otherwise return 8
+	print("second: {answer}\n")
+	try File.delete(try FilePath.from(fifo) otherwise return 4) otherwise return 5
+	try Directory.delete(try FilePath.from(dir) otherwise return 6) otherwise return 7
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+second: kind=0 code=0 out=through the fifo
+```
+
+<!-- test: subprocess-builtins.posix-a-file-open-in-the-parent-is-not-inherited-by-the-child -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
+A descriptor the parent holds open when it spawns is not the child's. Here the parent writes 1 MiB into the FIFO
+the child reads as its stdin; that is more than a pipe buffers, so the parent's write end is still open when the
+reader's spawn runs. The child drains the payload and counts the descriptors it holds on that FIFO: only its
+stdin. A child that inherited the parent's write end would hold a writer on its own stdin, and a reader that
+waits for end of file there, such as `cat`, would wait forever.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+let payloadBytes = 1048576
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+type FifoReader
+	var summary as String
+
+	static function create() returns Self
+		return Self{summary: ""}
+	end 'create'
+
+	export function countFrom(fifo String)
+		let argv = ByteArray.create(0)
+		appendToken(argv, token: "/bin/sh")
+		appendToken(argv, token: "-c")
+		appendToken(argv, token: "head -c {payloadBytes} >/dev/null; t=$(readlink /proc/$$/fd/0); n=0; for f in /proc/$$/fd/*; do if [ \"$(readlink \"$f\")\" = \"$t\" ]; then n=$((n+1)); fi; done; echo $n")
+		let empty = ""
+		let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+		let h = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 3, fifo.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+		let r = __Builtins.subprocessWaitCollect(h, 0)
+		let out = String.init(__Builtins.subprocessResultStdout(r))
+		self.summary = "kind={__Builtins.subprocessResultStatusKind(r)} code={__Builtins.subprocessResultStatusCode(r)} fds={out.trim()}"
+		__Builtins.subprocessResultRelease(r)
+		__Builtins.subprocessReleaseHandle(h)
+	end 'countFrom'
+
+	export function answer() returns String
+		return self.summary.clone()
+	end 'answer'
+end 'FifoReader'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "/bin/sh")
+	appendToken(argv, token: "-c")
+	appendToken(argv, token: "d=$(mktemp -d) && mkfifo \"$d/f\" && printf %s \"$d\"")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let first = __Builtins.subprocessSpawn(argv, 3, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 0, empty.cstr(), 0, 0, 0)
+	let made = __Builtins.subprocessWaitCollect(first, 0)
+	let dir = String.init(__Builtins.subprocessResultStdout(made))
+	__Builtins.subprocessResultRelease(made)
+	__Builtins.subprocessReleaseHandle(first)
+	let fifo = "{dir}/f"
+	let payload = StringBuilder.create()
+	for _ in 0 upto payloadBytes 'fill'
+		payload.append("x")
+	end 'fill'
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let reader = spawn FifoReader.create()
+	try reader.countFrom("{dir}/f") otherwise return 9
+	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: payload.build()) otherwise return 3
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = try await reader.answer() otherwise return 8
+	print("child: {answer}\n")
+	try File.delete(try FilePath.from(fifo) otherwise return 4) otherwise return 5
+	try Directory.delete(try FilePath.from(dir) otherwise return 6) otherwise return 7
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+child: kind=0 code=0 fds=1
+```

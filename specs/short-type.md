@@ -1,0 +1,166 @@
+---
+feature: short-type
+status: active
+keywords: [short, 16-bit, u16, i16, storage]
+category: types
+---
+
+# Short (16-bit) Storage
+
+## Documentation
+
+Ranged integer types whose range fits in 16 bits automatically use 2-byte storage in arrays and global variables. All arithmetic is still performed at 32-bit width.
+
+This happens automatically via the ranged typealias system:
+
+```maxon
+typealias Pixel = int(0 to 65535)     // stored as u16 (2 bytes)
+typealias Offset = int(-32768 to 32767)  // stored as i16 (2 bytes)
+```
+
+Values in 16-bit storage are zero-extended (unsigned) or sign-extended (signed) to 32-bit registers when loaded.
+
+## Tests
+
+### U16 Array Basic
+
+<!-- test: short-type.u16-array-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias U16 = int(0 to 65535)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [100 as U16, 200 as U16, 300 as U16]
+	let a = try arr.get(0) otherwise 0
+	let b = try arr.get(1) otherwise 0
+	let c = try arr.get(2) otherwise 0
+	// 100 + 200 + 300 = 600 (printed, not returned: 600 > the valid
+	// ExitCode range of 0..125 on the wasm target)
+	print("{a + b + c}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+600
+```
+
+### U16 Array Max Value
+
+<!-- test: short-type.u16-array-max -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias U16 = int(0 to 65535)
+
+typealias Result = int(0 to u32.max)
+
+function sumWide(a U16, b U16) returns Result
+	return a + b
+end 'sumWide'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [65535 as U16, 0 as U16, 1 as U16]
+	let a = try arr.get(0) otherwise 0
+	let b = try arr.get(2) otherwise 0
+	// 65535 + 1 = 65536 (printed, not returned: 65536 > the valid
+	// ExitCode range of 0..125 on the wasm target)
+	print("{sumWide(a, b: b)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+65536
+```
+
+### I16 Array Basic
+
+<!-- test: short-type.i16-array-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias I16 = int(-32768 to 32767)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [100 as I16, -50 as I16, 200 as I16]
+	let a = try arr.get(0) otherwise 0
+	let c = try arr.get(2) otherwise 0
+	// 100 + 200 = 300 (printed, not returned: 300 > the valid ExitCode
+	// range of 0..125 on the wasm target)
+	print("{a + c}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+300
+```
+
+### U16 Arithmetic Uses 32-bit Ops
+
+<!-- test: short-type.u16-arithmetic-32bit -->
+```maxon
+typealias U16 = int(0 to 65535)
+
+function main() returns ExitCode
+	let a = 1000 as U16
+	let b = 500 as U16
+	// 1000 - 500 = 500 (printed, not returned: 500 > the valid ExitCode
+	// range of 0..125 on the wasm target)
+	print("{a - b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+500
+```
+
+### U16 By-Reference Write
+
+<!-- test: short-type.u16-by-reference-write -->
+```maxon
+typealias U16 = int(0 to 65535)
+
+function store(mutates counter U16)
+	counter = 99 as U16
+end 'store'
+
+function main() returns ExitCode
+	var counter = 0 as U16
+	store(counter)
+	return counter
+end 'main'
+```
+```exitcode
+99
+```
+
+### U16 Array Set
+
+<!-- test: short-type.u16-array-set -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias U16 = int(0 to 65535)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [0 as U16, 0 as U16, 0 as U16].clone()
+	try arr.set(1, value: 42) otherwise panic("test invariant: set OOB")
+	let v = try arr.get(1) otherwise 0
+	return v
+end 'main'
+```
+```exitcode
+42
+```

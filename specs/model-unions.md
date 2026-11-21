@@ -1,0 +1,17130 @@
+---
+feature: model-unions
+status: experimental
+keywords: [model, capmodel, region, capability]
+category: semantics
+---
+
+# Unions and matches
+
+## Documentation
+
+These cases are programs of the capmodel executable model, translated to Maxon by
+`scripts/model-specs/generate.py` (`docs/SPECS.md`, "Model-derived specs") and pinned to the model's verdict on
+unions, payload bindings and `match`. A program the model accepts runs and exits 0; one it refuses fails to compile, with the diagnostic
+the compiler gives. A case is written only where the compiler and the model agree, so the suite fails
+the day the compiler stops agreeing with a verdict the model pinned. The rule set is `core-m3w-fa25`.
+
+## Tests
+
+<!-- test: model-finding-ae-arm-outer-write-nonlinear-ctl -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `arm-outer-write-nonlinear-ctl` of redteamAE/p10.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Sh
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	held(r isolated Bk)
+end 'Sh'
+
+type Bk
+	var code as Num
+
+	static function create(code Num) returns Self
+		return Self{code: code}
+	end 'create'
+end 'Bk'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let b = Bx.create(0)
+	let u = Sh.held(Bk.create(1))
+	match u 'x1'
+		none then break
+		held then b.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-frozen-union-iso-arm-write -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `frozen-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Cnt
+	var k as Num
+
+	static function create(k Num) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Cnt'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(0)) as isolated Ub
+	let f = freeze(u)
+	let c = Cnt.create(0)
+	match f 'x1'
+		u0 then break
+		u1 then c.k = 3
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-param-union-iso-arm-write -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `param-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Cnt
+	var k as Num
+
+	static function create(k Num) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Cnt'
+
+function f(u Ub, c Cnt)
+	match u 'x1'
+		u0 then break
+		u1 then c.k = 3
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(0))
+	let c = Cnt.create(0)
+	f(u, c: c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-imm-param-union-iso-arm-write -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `imm-param-union-iso-arm-write` of redteamAE/p18.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Cnt
+	var k as Num
+
+	static function create(k Num) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Cnt'
+
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+function f(u immutable Ub, c Cnt)
+	match u 'x1'
+		u0 then break
+		u1 then c.k = 3
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(0)) as isolated Ub
+	let fz = freeze(u)
+	let c = Cnt.create(0)
+	f(fz, c: c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-frozen-union-no-iso-ctl -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `frozen-union-no-iso-ctl` of redteamAE/p18.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	u1(b Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Cnt
+	var k as Num
+
+	static function create(k Num) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Cnt'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(0)) as isolated Ub
+	let f = freeze(u)
+	let c = Cnt.create(0)
+	match f 'x1'
+		u0 then break
+		u1 then c.k = 3
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-frozen-union-iso-pass-to-fn-writes -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `frozen-union-iso-pass-to-fn-writes` of redteamAE/p19.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Cnt
+	var k as Num
+
+	static function create(k Num) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Cnt'
+
+function touch(b Bx, c Cnt)
+	_ = b
+	c.k = 3
+end 'touch'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(0)) as isolated Ub
+	let f = freeze(u)
+	let c = Cnt.create(0)
+	match f 'x1'
+		u0 then break
+		u1(b) then touch(b, c: c)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-finding-ae-varpayload-nonlinear-iso-param -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `varpayload-nonlinear-iso-param` of redteamAE/p8.txt, in capmodel `reggio/REPORTRTAE.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Sh
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	held(r isolated Bk)
+end 'Sh'
+
+type Bk
+	var code as Num
+
+	static function create(code Num) returns Self
+		return Self{code: code}
+	end 'create'
+end 'Bk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function giveH(r isolated Bk) returns Sh
+	return Sh.held(r)
+end 'giveH'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function useI(r isolated Bk)
+	_ = r.code
+end 'useI'
+
+function main() returns ExitCode
+	let v = giveH(Bk.create(3))
+	match v 'x1'
+		none then break
+		held(q) then useI(q)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:29:21: 'q' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-af-n20-two-sequential -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n20-two-sequential` of redteamAF.hand_af17, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let ub = Ub.u1(Bx.create(0))
+	match ub 'x1'
+		u0 then break
+		u1 then break
+	end 'x1'
+	match ub 'x2'
+		u0 then break
+		u1 then break
+	end 'x2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-af-a7-match-then-call-same-union -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a7-match-then-call-same-union` of redteamAF.hand_af18, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function touch()
+		self.n = 1
+	end 'touch'
+end 'Bx'
+
+function peek(u Ub)
+	match u 'x1'
+		u0 then break
+		u1 then break
+	end 'x1'
+end 'peek'
+
+function main() returns ExitCode
+	let ub = Ub.u1(Bx.create(1))
+	match ub 'x1'
+		u0 then break
+		u1 then peek(ub)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-af-a9-method-call-inside-arm -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a9-method-call-inside-arm` of redteamAF.hand_af18, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Vb
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Vb'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function touch()
+		self.n = 1
+	end 'touch'
+end 'Bx'
+
+function main() returns ExitCode
+	let ub = Vb.u1(Bx.create(1))
+	match ub 'x1'
+		u0 then break
+		u1(b) then b.touch()
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-af-a11-record-field-nested-call -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a11-record-field-nested-call` of redteamAF.hand_af18, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function touch()
+		self.n = 1
+	end 'touch'
+end 'Bx'
+
+type Ho
+	var u as Ub
+	var n as Num
+
+	static function create(u Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ho'
+
+function peek(uV Ub)
+	match uV 'x1'
+		u0 then break
+		u1 then break
+	end 'x1'
+end 'peek'
+
+function main() returns ExitCode
+	let h = Ho.create(Ub.u1(Bx.create(1)), n: 0)
+	match h.u 'x1'
+		u0 then break
+		u1 then peek(h.u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-af-a15-isolated-var-match-then-peek -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a15-isolated-var-match-then-peek` of redteamAF.hand_af18, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function touch()
+		self.n = 1
+	end 'touch'
+end 'Bx'
+
+function peek(u Ub)
+	match u 'x1'
+		u0 then break
+		u1 then break
+	end 'x1'
+end 'peek'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let ub = Ub.u1(Bx.create(1)) as isolated Ub
+	match ub 'x1'
+		u0 then break
+		u1 then peek(ub)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:16: use of moved value 'ub': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-af-s5-binder-lent-named-like-outer -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s5-binder-lent-named-like-outer` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let b = Bx.create(9) as isolated Bx
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+	takeB(b)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ag-m3-copy-use-after-arm -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m3-copy-use-after-arm` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(u UT)
+	match u 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	eatUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ag-m4-copy-use-after-arm-peek -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m4-copy-use-after-arm-peek` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function peekUT(u UT) returns Num
+	match u 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ag-m8-copy-into-array -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m8-copy-into-array` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function peekUT(u UT) returns Num
+	match u 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let keep = UTArray.create(0)
+	match u 'x1'
+		none then break
+		have then keep.push(u)
+	end 'x1'
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ag-m11-copy-return-from-fn -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m11-copy-return-from-fn` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(u UT)
+	match u 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function f(u UT) returns UT
+	match u 'x1'
+		none then return u
+		have then return u
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let r = f(u)
+	eatUT(r)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ag-f2-control-copy -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-control-copy` of redteamAG.hand_ag16, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ag-r20-refill-assign-as-lent-arm -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r20-refill-assign-as-lent-arm` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Vc
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Vc'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var a = Vc.u1(Bx.create(0))
+	match a 'x1'
+		u0 then break
+		u1 then a = Vc.u0
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ag-b14-nested-alias-moved-away-inside -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b14-nested-alias-moved-away-inside` of redteamAG.hand_ag5, in capmodel `reggio/REPORTRTAG.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function eatUb(p Ub)
+	match p 'x1'
+		u0 then break
+		u1 then break
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	let ub = Ub.u1(Bx.create(0))
+	let ua = ub
+	match ub 'x1'
+		u0 then break
+		u1 then eatUb(ua)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-push-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-push-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let sink = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then sink.push(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-cond-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-cond-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = (u if lg(1) != 0 else UT.have(Tk.create(2)))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-condb-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-condb-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = (UT.have(Tk.create(2)) if lg(1) != 0 else u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	let w = UT.have(Tk.create(2))
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then u = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-slot-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-slot-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-var-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-var-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	_ = UTArray.create(0)
+	_ = UT.have(Tk.create(2))
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then _ = h
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function eatHn(x Hn)
+	_ = x.k
+end 'eatHn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then eatHn(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-push-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-push-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	let sink = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then sink.push(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-cond-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-cond-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then _ = (h if lg(1) != 0 else Hn.create(UT.none, k: 1))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-condb-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-condb-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then _ = (Hn.create(UT.none, k: 1) if lg(1) != 0 else h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	let w = Hn.create(UT.none, k: 1)
+	var h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then h = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-slot-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-rec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then _ = h.u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:33:17: cannot bind '_' to a unique value read out of a field or an element: the field or element goes on owning it, and a unique value has one name; read what is needed through the field without binding it, or move it out with `pop` or `remove`
+```
+
+<!-- test: model-hand-ah-f2-rec-slot-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-slot-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-slot-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-slot-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then eatUT(h.u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-rec-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-rec-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HnArray = Array with Hn
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hn
+	var u as UT
+	var k as Num
+
+	static function create(u UT, k Num) returns Self
+		return Self{u: u, k: k}
+	end 'create'
+end 'Hn'
+
+function main() returns ExitCode
+	_ = HnArray.create(0)
+	_ = Hn.create(UT.none, k: 1)
+	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	match h.u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then _ = h
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function eatHd(x Hd)
+	match x.u 'x1'
+		none then break
+		have(t) then t.n = 3
+	end 'x1'
+end 'eatHd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then eatHd(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-push-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-push-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	let sink = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then sink.push(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-cond-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-cond-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then _ = (h if lg(1) != 0 else Hd.create(UT.none))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-condb-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-condb-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then _ = (Hd.create(UT.none) if lg(1) != 0 else h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	let w = Hd.create(UT.none)
+	var h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then h = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-slot-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-urec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then _ = h.u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:32:17: cannot bind '_' to a unique value read out of a field or an element: the field or element goes on owning it, and a unique value has one name; read what is needed through the field without binding it, or move it out with `pop` or `remove`
+```
+
+<!-- test: model-hand-ah-f2-urec-slot-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-slot-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-slot-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-slot-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then eatUT(h.u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-urec-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-urec-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HdArray = Array with Hd
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	_ = HdArray.create(0)
+	_ = Hd.create(UT.none)
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then _ = hV
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function eatHx(x Hx)
+	_ = x
+	_ = 1 as Num
+end 'eatHx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then eatHx(hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-push-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-push-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	let sink = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then sink.push(hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-cond-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-cond-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then _ = (hV if lg(1) != 0 else Hx.create(UT.none, h: Hd.create(UT.none)))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-condb-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-condb-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then _ = (Hx.create(UT.none, h: Hd.create(UT.none)) if lg(1) != 0 else hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	let w = Hx.create(UT.none, h: Hd.create(UT.none))
+	var hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then hV = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-slot-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then _ = hV.h.u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:41:17: cannot bind '_' to a unique value read out of a field or an element: the field or element goes on owning it, and a unique value has one name; read what is needed through the field without binding it, or move it out with `pop` or `remove`
+```
+
+<!-- test: model-hand-ah-f2-nest-slot-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-slot-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then hV.h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-slot-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-slot-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then eatUT(hV.h.u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.h.u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then _ = hV
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function eatHx(x Hx)
+	_ = x
+	_ = 1 as Num
+end 'eatHx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then eatHx(hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-push-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-push-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	let sink = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then sink.push(hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-cond-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-cond-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then _ = (hV if lg(1) != 0 else Hx.create(UT.none, h: Hd.create(UT.none)))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-condb-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-condb-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then _ = (Hx.create(UT.none, h: Hd.create(UT.none)) if lg(1) != 0 else hV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	let w = Hx.create(UT.none, h: Hd.create(UT.none))
+	var hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then hV = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-slot-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest2-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then _ = hV.u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:41:17: cannot bind '_' to a unique value read out of a field or an element: the field or element goes on owning it, and a unique value has one name; read what is needed through the field without binding it, or move it out with `pop` or `remove`
+```
+
+<!-- test: model-hand-ah-f2-nest2-slot-assign-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-slot-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then hV.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-slot-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-slot-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then eatUT(hV.u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-nest2-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-nest2-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias HxArray = Array with Hx
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+type Hx is noncopyable
+	var u as UT
+	var h as Hd
+
+	static function create(u UT, h Hd) returns Self
+		return Self{u: u, h: h}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	_ = HxArray.create(0)
+	_ = Hx.create(UT.none, h: Hd.create(UT.none))
+	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	match hV.u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-param-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-param-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-fparam-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-fparam-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(UT.have(Tk.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-param-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-param-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-fparam-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-fparam-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(UT.have(Tk.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-param-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-param-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-fparam-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-fparam-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(UT.have(Tk.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-param-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-param-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-fparam-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-fparam-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(UT.have(Tk.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-param-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-param-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-fparam-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-fparam-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f(u UT)
+	match u 'x1'
+		none then break
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(UT.have(Tk.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-consself-self-call-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have then eatHs(self)
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function eatHs(x Hs)
+	_ = x
+	_ = 1 as Num
+end 'eatHs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:39:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-consself-self-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have then _ = self
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-consself-self-slot-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-slot-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have then _ = self.u
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-consself-self-nothing-rd -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have(t) then _ = t.n
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-consself-self-nothing-wr -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have(t) then t.n = 5
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-consself-self-nothing-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hs is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+
+	function go(consumes self)
+		match self.u 'x1'
+			none then break
+			have then break
+		end 'x1'
+	end 'go'
+end 'Hs'
+
+function main() returns ExitCode
+	let h = Hs.create(UT.have(Tk.create(1)))
+	h.go()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3224: <fragment>:24:11: `consuming self` belongs to a method of a `type` that declares a finalizer, and no method of 'Hs' contains `destruct self`
+error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ah-f2-for-copy-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f2-for-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then _ = a
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:24:22: use of moved value 'a': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-ah-f2-for-call-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatArr(x UTArray)
+	_ = x
+	_ = 1 as Num
+end 'eatArr'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then eatArr(a)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-for-assign-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f2-for-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then a = UTArray.create(0)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:24:14: 'a' roots what 'f1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-ah-f2-for-copy-elem-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-for-copy-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then _ = e
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:24:18: cannot bind '_' to a unique value read out of a field or an element: the field or element goes on owning it, and a unique value has one name; read what is needed through the field without binding it, or move it out with `pop` or `remove`
+```
+
+<!-- test: model-hand-ah-f2-for-move-elem-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-move-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then eatUT(e)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-for-nothing-rd -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have(t) then _ = t.n
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-for-nothing-wr -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have(t) then t.n = 5
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-f2-for-nothing-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then break
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-fs-peek-no -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fs-peek-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UTArray = Array with UT
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function peekArr(x UTArray) returns Num
+	_ = x
+	return 1
+end 'peekArr'
+
+function main() returns ExitCode
+	let a = UTArray.create(0)
+	a.push(UT.have(Tk.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			none then break
+			have then _ = peekArr(a)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `idc-copy-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:26:21: use of moved value 'u': its ownership moved to the parameter 'x' of 'id', which keeps it
+```
+
+<!-- test: model-hand-ah-cond3-copy-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `cond3-copy-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:26:21: cannot move or copy the unique value matched by '(u if lg(1) != 0 else w)' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-ah-alias-before-copy-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-copy-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.none
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-call-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `idc-call-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have then break
+	end 'x1'
+end 'eatUT'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:33:19: use of moved value 'u': its ownership moved to the parameter 'x' of 'id', which keeps it
+```
+
+<!-- test: model-hand-ah-cond3-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cond3-call-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have then break
+	end 'x1'
+end 'eatUT'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-alias-before-call-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-call-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function eatUT(x UT)
+	match x 'x1'
+		none then break
+		have then break
+	end 'x1'
+end 'eatUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.none
+	match u 'x1'
+		none then break
+		have then eatUT(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-copy-w-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `idc-copy-w-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have then _ = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-cond3-copy-w-no -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `cond3-copy-w-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have then _ = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:26:21: cannot move or copy the unique value matched by '(u if lg(1) != 0 else w)' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-ah-alias-before-copy-w-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-copy-w-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.none
+	match u 'x1'
+		none then break
+		have then _ = w
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `idc-nothing-rd` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-cond3-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cond3-nothing-rd` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-alias-before-nothing-rd -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-nothing-rd` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.none
+	match u 'x1'
+		none then break
+		have(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `idc-nothing-wr` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-cond3-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cond3-nothing-wr` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-alias-before-nothing-wr -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-nothing-wr` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.none
+	match u 'x1'
+		none then break
+		have(t) then t.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-idc-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `idc-nothing-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function id(x UT) returns UT
+	return x
+end 'id'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.have(Tk.create(2))
+	match id(u) 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-cond3-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cond3-nothing-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let w = UT.have(Tk.create(2))
+	match (u if lg(1) != 0 else w) 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ah-alias-before-nothing-no -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `alias-before-nothing-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = UT.none
+	match u 'x1'
+		none then break
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-a1-lend-with-payload -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a1-lend-with-payload` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function bothT(x UT, y Tk)
+	y.n = 5
+	match x 'x1'
+		none then break
+		have(z) then _ = z.n
+	end 'x1'
+end 'bothT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(t) then bothT(u, y: t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-a2-lend-with-payload-ro -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a2-lend-with-payload-ro` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function bothR(x UT, y Tk)
+	match x 'x1'
+		none then break
+		have(z) then _ = z.n
+	end 'x1'
+	_ = y.n
+end 'bothR'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(t) then bothR(u, y: t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-a6-lend-result-returned -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a6-lend-result-returned` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function f() returns UT
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then return idUT(u)
+	end 'x1'
+	return UT.none
+end 'f'
+
+function main() returns ExitCode
+	_ = f()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-a11-lend-result-in-new -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a11-lend-result-in-new` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	match uV 'x1'
+		none then break
+		have then _ = Hd.create(idUT(uV))
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-a14-lend-result-after-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a14-lend-result-after-reassign` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	var c = UT.none
+	match u 'x1'
+		none then break
+		have then c = idUT(u)
+	end 'x1'
+	match c 'x2'
+		none then break
+		have(z) then z.n = 3
+	end 'x2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-b12-two-recv -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `b12-two-recv` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT5
+	none
+	have(t Tk)
+
+	function cmp(o UT5) returns Num
+		_ = o
+		return 1
+	end 'cmp'
+end 'UT5'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT5.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u.cmp(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:25:27: 'u' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ai-b14-lend-and-cond -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `b14-lend-and-cond` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function lend2(x UT, y UT)
+	_ = x
+	_ = y
+	_ = 1 as Num
+end 'lend2'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then lend2(u, y: (u if lg(1) != 0 else UT.none))
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:31:26: 'u' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ai-d2-root-writer-fn-nouse -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d2-root-writer-fn-nouse` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function clearHd(x Hd)
+	x.u = UT.none
+end 'clearHd'
+
+function main() returns ExitCode
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then clearHd(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-d7-root-writer-payload-pass -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3102, E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d7-root-writer-payload-pass` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function clearHdT(x Hd, y Tk)
+	x.u = UT.none
+	_ = y.n
+end 'clearHdT'
+
+function main() returns ExitCode
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have(t) then clearHdT(h, y: t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:16: cannot lend 'h' to parameter 'x' of 'clearHdT', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'h' in a statement that names no binding of the arm
+error E3207: <fragment>:34:25: 'clearHdT' needs a writable parameter 'x' at line 26; 'h' is read-only while 'x1' is open
+```
+
+<!-- test: model-hand-ai-e8-lend-then-return-var -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `e8-lend-then-return-var` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function readUT(x UT)
+	_ = x
+	_ = 1 as Num
+end 'readUT'
+
+function f() returns UT
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then readUT(u)
+	end 'x1'
+	return u
+end 'f'
+
+function main() returns ExitCode
+	_ = f()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-i2-for-plain-array-match -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `i2-for-plain-array-match` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UbArray = Array with Ub
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	let a = UbArray.create(0)
+	a.push(Ub.u1(Bx.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in a 'f1'
+		match e 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:28:21: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-ai-l1-loop-break-refill -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l1-loop-break-refill` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		if lg(1) != 0 'i3'
+			break
+		end 'i3'
+		u = Ub.u1(Bx.create(2))
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-l2-loop-break-after-refill-read-after -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l2-loop-break-after-refill-read-after` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		u = Ub.u1(Bx.create(2))
+		if lg(1) != 0 'i3'
+			break
+		end 'i3'
+		i = lg(0)
+	end 'w1'
+	match u 'x4'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x4'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-l3-loop-continue-before-refill -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l3-loop-continue-before-refill` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		i = lg(0)
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		if lg(1) != 0 'i3'
+			continue
+		end 'i3'
+		u = Ub.u1(Bx.create(2))
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:9: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-ai-l4-loop-refill-conditional -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l4-loop-refill-conditional` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		if lg(1) != 0 'i3'
+			u = Ub.u1(Bx.create(2))
+		end 'i3'
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:29:9: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-ai-l5-loop-arm-refill -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l5-loop-arm-refill` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then break
+			u1(o) then u = Ub.u1(o)
+		end 'x2'
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:25:9: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-ai-l6-loop-arm-refill-both -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l6-loop-arm-refill-both` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then u = Ub.u0
+			u1(o) then u = Ub.u1(o)
+		end 'x2'
+		i = lg(0)
+	end 'w1'
+	match u 'x3'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x3'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-l7-loop-while-cond-matches -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l7-loop-while-cond-matches` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function cnt(u isolated Ub) returns Num
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'cnt'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	var i = 2 as Num
+	while cnt(u) != 0 'w1'
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:36:12: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-ai-l8-two-lap-nested-loops -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l8-two-lap-nested-loops` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	var i = 2 as Num
+	while i != 0 'w1'
+		// TODO: region capability 'isolated' is not supported in minimaxon
+		var u = Ub.u1(Bx.create(5)) as isolated Ub
+		var j = 2 as Num
+		while j != 0 'w2'
+			match u 'x3'
+				u0 then break
+				u1(o) then takeB(o)
+			end 'x3'
+			u = Ub.u1(Bx.create(2))
+			j = lg(0)
+		end 'w2'
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-i1-both-arms-of-if -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `i1-both-arms-of-if` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	if lg(1) != 0 'i1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+	end 'i1' else 'e3'
+		match u 'x4'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x4'
+	end 'e3'
+	eatUb(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:45:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ai-i2-both-arms-of-if-var-refill-one -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `i2-both-arms-of-if-var-refill-one` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	if lg(1) != 0 'i1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		u = Ub.u0
+	end 'i1' else 'e3'
+		match u 'x4'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x4'
+	end 'e3'
+	match u 'x5'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x5'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:39:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-ai-i3-match-in-cond-of-if -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `i3-match-in-cond-of-if` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function cnt(u isolated Ub) returns Num
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 1
+end 'cnt'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	if cnt(u) != 0 'i1'
+		eatUb(u)
+	end 'i1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:39:9: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-aj-union-discard -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `union-discard` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Kp
+	var k as Tk
+
+	static function create(k Tk) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Kp'
+
+function f(t Tk, h Kp)
+	_ = h
+	let u = t
+	_ = UT.have(u)
+end 'f'
+
+function main() returns ExitCode
+	let h = Kp.create(Tk.create(0))
+	let t = Tk.create(1)
+	f(t, h: h)
+	_ = t.n
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:35:10: use of moved value 't': its ownership moved to the parameter 't' of 'f', which keeps it
+```
+
+<!-- test: model-hand-aj-union-literal-stored -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `union-literal-stored` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function f(t Tk, h Hd)
+	let uV = t
+	h.u = UT.have(uV)
+end 'f'
+
+function main() returns ExitCode
+	let h = Hd.create(UT.none)
+	let t = Tk.create(1)
+	f(t, h: h)
+	_ = t.n
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:10: use of moved value 't': its ownership moved to the parameter 't' of 'f', which keeps it
+```
+
+<!-- test: model-hand-aj-ovo-arm-lend -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ovo-arm-lend` of redteamAJ.hand_aj5, in capmodel `reggio/REPORTRTAJ.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function sc()
+	var b = Bx.create(1)
+	let u = Ub.u1(Bx.create(2))
+	match u 'x1'
+		u0 then break
+		u1 then b = Bx.create(3)
+	end 'x1'
+	b.n = 2
+end 'sc'
+
+function main() returns ExitCode
+	sc()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-al-ca-union-cond -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ca-union-cond` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	let q = Tq.create(1, b: Bx.create(2))
+	_ = UQ.have((q if 1 != 0 else q))
+	q.n = 6
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:29:2: use of moved value 'q': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-al-w-swap-r-while-r-lent -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-swap-r-while-r-lent` of redteamAL/hand_al4.txt, in capmodel `reggio/REPORTRTAL.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TrArray = Array with Tr
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tr is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tr'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+	var r as Tr
+	var xs as TrArray
+
+	static function create(n Num, b Bx, r Tr, xs TrArray) returns Self
+		return Self{n: n, b: b, r: r, xs: xs}
+	end 'create'
+end 'Tq'
+
+function rdR(rV Tr) returns Num
+	return rV.n
+end 'rdR'
+
+function both(rV Tr, x UQ)
+	_ = x
+	_ = rdR(rV)
+end 'both'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2), r: Tr.create(3), xs: TrArray.create(0)))
+	match u 'x1'
+		none then break
+		have(t) then both(t.r, x: u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:50:29: 'u' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-al-w-swap-r-arg-order -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-swap-r-arg-order` of redteamAL/hand_al4.txt, in capmodel `reggio/REPORTRTAL.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TrArray = Array with Tr
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tr is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tr'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+	var r as Tr
+	var xs as TrArray
+
+	static function create(n Num, b Bx, r Tr, xs TrArray) returns Self
+		return Self{n: n, b: b, r: r, xs: xs}
+	end 'create'
+end 'Tq'
+
+function both(x UQ, rV Tr)
+	_ = x
+	rV.n = 4
+end 'both'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2), r: Tr.create(3), xs: TrArray.create(0)))
+	match u 'x1'
+		none then break
+		have(t) then both(u, rV: t.r)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:46:21: 'u' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-an-c1-cond-field-reassign -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c1-cond-field-reassign` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:31:13: cannot write 'u' through 'h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-an-c1-cond-field-move -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c1-cond-field-move` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then _ = h
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:31:21: cannot move or copy the unique value matched by '(h if 1 != 0 else g).u' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-an-c1-cond-field-byref -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c1-cond-field-byref` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function clearHd2(x Ht)
+	x.u = UT.none
+end 'clearHd2'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then clearHd2(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:35:22: 'clearHd2' needs a writable parameter 'x' at line 27; 'h' is read-only while 'x1' is open
+```
+
+<!-- test: model-hand-an-c1-cond-nested-local -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `c1-cond-nested-local` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.none
+	var w = UT.none
+	match (u if 1 != 0 else (v if lg(2) != 0 else w)) 'x1'
+		none then break
+		have then w = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:27:13: 'w' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-an-c1-cond-call-arg -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c1-cond-call-arg` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	let v = UT.none
+	match idUT((u if 1 != 0 else v)) 'x1'
+		none then break
+		have then u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-an-c1-cond-iso-field -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c1-cond-iso-field` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+union En
+	a
+	b
+end 'En'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hi is noncopyable
+	var u as Ub
+	var e as En
+	var n as Num
+
+	static function create(u Ub, e En, n Num) returns Self
+		return Self{u: u, e: e, n: n}
+	end 'create'
+end 'Hi'
+
+function main() returns ExitCode
+	let h = Hi.create(Ub.u1(Bx.create(1)), e: En.a, n: 0)
+	let g = Hi.create(Ub.u0, e: En.a, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		u0 then break
+		u1 then h.u = Ub.u0
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:37:11: cannot write 'u' through 'h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-an-f1-for-elems-nb-move-root -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-for-elems-nb-move-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TkArray = Array with Tk
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+union En
+	a
+	b
+end 'En'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hq is noncopyable
+	var u as UT
+	var e as En
+	var xs as TkArray
+	var n as Num
+
+	static function create(u UT, e En, xs TkArray, n Num) returns Self
+		return Self{u: u, e: e, xs: xs, n: n}
+	end 'create'
+end 'Hq'
+
+function eatHq(h Hq)
+	_ = h.n
+end 'eatHq'
+
+function main() returns ExitCode
+	let h = Hq.create(UT.none, e: En.b, xs: TkArray.create(0), n: 0)
+	h.xs.push(Tk.create(1))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for eV in h.xs 'f1'
+		match h.u 'x2'
+			none then eatHq(h)
+			have then break
+		end 'x2'
+		eV.n = 2
+	end 'f1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-an-f1-for-elems-nb-byref-root -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-for-elems-nb-byref-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TkArray = Array with Tk
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+union En
+	a
+	b
+end 'En'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hq is noncopyable
+	var u as UT
+	var e as En
+	var xs as TkArray
+	var n as Num
+
+	static function create(u UT, e En, xs TkArray, n Num) returns Self
+		return Self{u: u, e: e, xs: xs, n: n}
+	end 'create'
+end 'Hq'
+
+function clrXs(h Hq)
+	h.xs = TkArray.create(0)
+end 'clrXs'
+
+function main() returns ExitCode
+	let h = Hq.create(UT.none, e: En.b, xs: TkArray.create(0), n: 0)
+	h.xs.push(Tk.create(1))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for eV in h.xs 'f1'
+		match h.u 'x2'
+			none then clrXs(h)
+			have then break
+		end 'x2'
+		eV.n = 2
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:43:20: 'clrXs' needs a writable parameter 'h' at line 35; 'h' is read-only while 'f1' is open
+```
+
+<!-- test: model-hand-an-f1-for-local-arr-nb -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-for-local-arr-nb` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TkArray = Array with Tk
+
+union En
+	a
+	b
+end 'En'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var xs = TkArray.create(0)
+	xs.push(Tk.create(1))
+	let e2 = En.b
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in xs 'f1'
+		match e2 'x2'
+			a then break
+			b then xs = TkArray.create(0)
+		end 'x2'
+		e.n = 2
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:25:11: 'xs' roots what 'f1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-an-m1-move-unique-loop -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-move-unique-loop` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	var it = 2 as Num
+	while it != 0 'w1'
+		match u 'x2'
+			none then break
+			have then _ = u
+		end 'x2'
+		it = 0
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:21:9: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-an-m1-nb-arm-wild-then-bind -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m1-nb-arm-wild-then-bind` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then u = UT.have(Tk.create(3))
+		have(t) then t.n = 1
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-an-n2-nb-iso-root-to-isoparam -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n2-nb-iso-root-to-isoparam` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeUbI(u isolated Ub)
+	eatUb(u)
+end 'takeUbI'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1 then takeUbI(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:32:19: cannot hand 'u' to an `isolated` position: 'u' is matched by the arm this call is in, which lends it to its bindings; move it before or after the `match`
+```
+
+<!-- test: model-hand-an-p1-call-plain-merge-keep -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-call-plain-merge-keep` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+type Wq2
+	var p as Pb
+
+	static function create(p Pb) returns Self
+		return Self{p: p}
+	end 'create'
+end 'Wq2'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUP() returns isolated UP
+	return UP.have(Pb.create(1))
+end 'mkUP'
+
+function main() returns ExitCode
+	let wo = Wq2.create(Pb.create(0))
+	match mkUP() 'x1'
+		none then break
+		have(t) then wo.p = t
+	end 'x1'
+	wo.p.n = 2
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-an-p1-cond-plain-payload-keep-other-sent -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `p1-cond-plain-payload-keep-other-sent` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+type Wq2
+	var p as Pb
+
+	static function create(p Pb) returns Self
+		return Self{p: p}
+	end 'create'
+end 'Wq2'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUP() returns isolated UP
+	return UP.have(Pb.create(1))
+end 'mkUP'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeUPI(x isolated UP)
+	_ = x
+	_ = 1 as Num
+end 'takeUPI'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let pV = mkUP() as isolated UP
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let q = mkUP() as isolated UP
+	let wo = Wq2.create(Pb.create(0))
+	match (pV if lg(1) != 0 else q) 'x1'
+		none then break
+		have(t) then wo.p = t
+	end 'x1'
+	takeUPI(q)
+	wo.p.n = 2
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:46:10: use of moved value 'q': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-an-p1-method-iso-result -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-method-iso-result` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Mk
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	// TODO: return type capability 'isolated' is not supported in minimaxon
+	function mk() returns isolated Ub
+		return Ub.u1(Bx.create(self.n))
+	end 'mk'
+end 'Mk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	let m = Mk.create(1)
+	match m.mk() 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-n3-for-cond-elem-match-cond-binding-two -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n3-for-cond-elem-match-cond-binding-two` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TkArray = Array with Tk
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hb is noncopyable
+	var xs as TkArray
+	var u as UT
+
+	static function create(xs TkArray, u UT) returns Self
+		return Self{xs: xs, u: u}
+	end 'create'
+end 'Hb'
+
+function two(a Tk, b Tk)
+	a.n = 3
+	b.n = 4
+end 'two'
+
+function main() returns ExitCode
+	let h = Hb.create(TkArray.create(0), u: UT.have(Tk.create(5)))
+	let g = Hb.create(TkArray.create(0), u: UT.none)
+	h.xs.push(Tk.create(1))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in (h if 1 != 0 else g).xs 'f1'
+		match (h if 1 != 0 else g).u 'x2'
+			none then break
+			have(t) then two(e, b: t)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:39:24: 'two' needs a writable parameter 'b' at line 29; 't' is read-only while 'f1' is open
+```
+
+<!-- test: model-hand-ao-n4-match-cond-binding-plus-holder-call -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3102, E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n4-match-cond-binding-plus-holder-call` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function two(a Tk, b Ht)
+	b.u = UT.none
+	a.n = 4
+end 'two'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have(t) then two(t, b: h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:36:16: cannot lend 'h' to parameter 'b' of 'two', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'h' in a statement that names no binding of the arm
+error E3207: <fragment>:36:23: 'two' needs a writable parameter 'b' at line 27; 'h' is read-only while 'x1' is open
+```
+
+<!-- test: model-hand-ao-n5-match-cond-binding-plus-cond-holder-call -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n5-match-cond-binding-plus-cond-holder-call` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function two(a Tk, b Ht)
+	b.u = UT.none
+	a.n = 4
+end 'two'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have(t) then two(t, b: (h if 1 != 0 else g))
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:36:23: 'two' needs a writable parameter 'b' at line 27; '(h if 1 != 0 else g)' is read-only while 'x1' is open
+```
+
+<!-- test: model-hand-ao-p1-pin-match-cond-path-nb-plain-field-write -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p1-pin-match-cond-path-nb-plain-field-write` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:31:13: cannot write 'n' through 'h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-ao-p1b-pin-match-path-nb-plain-field-write-control -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1b-pin-match-path-nb-plain-field-write-control` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	_ = Ht.create(UT.none, n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-p1i-pin-match-cond-path-nb-plain-field-write-iso-union -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p1i-pin-match-cond-path-nb-plain-field-write-iso-union` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hi is noncopyable
+	var u as Ub
+	var n as Num
+
+	static function create(u Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hi'
+
+function main() returns ExitCode
+	let h = Hi.create(Ub.u1(Bx.create(1)), n: 0)
+	let g = Hi.create(Ub.u0, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		u0 then break
+		u1 then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:31:11: cannot write 'n' through 'h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-ao-p1ib-pin-match-path-nb-plain-field-write-iso-union-control -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1ib-pin-match-path-nb-plain-field-write-iso-union-control` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hi is noncopyable
+	var u as Ub
+	var n as Num
+
+	static function create(u Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hi'
+
+function main() returns ExitCode
+	let h = Hi.create(Ub.u1(Bx.create(1)), n: 0)
+	_ = Hi.create(Ub.u0, n: 0)
+	match h.u 'x1'
+		u0 then break
+		u1 then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-p1p-pin-match-cond-path-nb-plain-field-write-plain-union -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1p-pin-match-cond-path-nb-plain-field-write-plain-union` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(1), n: 0)
+	let g = Hp.create(UP.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-p1pb-pin-match-cond-path-bind-plain-field-write-plain-union -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1pb-pin-match-cond-path-bind-plain-field-write-plain-union` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(1), n: 0)
+	let g = Hp.create(UP.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have(x) then h.n = x
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-p1pc-pin-match-bare-cond-plain-union-nb-write-outer -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1pc-pin-match-bare-cond-plain-union-nb-write-outer` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+function main() returns ExitCode
+	var a = UP.have(1)
+	let b = UP.none
+	match (a if 1 != 0 else b) 'x1'
+		none then break
+		have then a = UP.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:14:13: 'a' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-ao-p2-pin-nested-cond-deep-path-nb -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p2-pin-nested-cond-deep-path-nb` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hr is noncopyable
+	var v as UT
+	var n as Num
+
+	static function create(v UT, n Num) returns Self
+		return Self{v: v, n: n}
+	end 'create'
+end 'Hr'
+
+type Hu is noncopyable
+	var u as Hr
+	var n as Num
+
+	static function create(u Hr, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hu'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let h = Hu.create(Hr.create(UT.have(Tk.create(1)), n: 0), n: 0)
+	let g = Hu.create(Hr.create(UT.none, n: 0), n: 0)
+	let k = Hu.create(Hr.create(UT.have(Tk.create(2)), n: 0), n: 0)
+	match ((h if lg(1) != 0 else g) if lg(0) != 0 else k).u.v 'x1'
+		none then break
+		have then k.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:45:13: cannot write 'n' through 'k', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-ao-p2c-pin-nested-cond-deep-path-nb-control -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2c-pin-nested-cond-deep-path-nb-control` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hr is noncopyable
+	var v as UT
+	var n as Num
+
+	static function create(v UT, n Num) returns Self
+		return Self{v: v, n: n}
+	end 'create'
+end 'Hr'
+
+type Hu is noncopyable
+	var u as Hr
+	var n as Num
+
+	static function create(u Hr, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hu'
+
+function main() returns ExitCode
+	let k = Hu.create(Hr.create(UT.have(Tk.create(2)), n: 0), n: 0)
+	match k.u.v 'x1'
+		none then break
+		have then k.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q1-nb-cond-arm-read-field -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q1-nb-cond-arm-read-field` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	var z = 0 as Num
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then z = h.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q1b-nb-bare-arm-read-field -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q1b-nb-bare-arm-read-field` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	var z = 0 as Num
+	match h.u 'x1'
+		none then break
+		have then z = h.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q2-nb-cond-arm-reader-call -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q2-nb-cond-arm-reader-call` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function rd(h Ht) returns Num
+	return h.n
+end 'rd'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	var z = 0 as Num
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then z = rd(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q2b-nb-bare-arm-reader-call -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q2b-nb-bare-arm-reader-call` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function rd(h Ht) returns Num
+	return h.n
+end 'rd'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	var z = 0 as Num
+	match h.u 'x1'
+		none then break
+		have then z = rd(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q5-nb-cond-arm-stmt-open-iso-local -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q5-nb-cond-arm-stmt-open-iso-local` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let o = Bx.create(1) as isolated Bx
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then o.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ao-q5b-nb-bare-arm-stmt-open-iso-local -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q5b-nb-bare-arm-stmt-open-iso-local` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let o = Bx.create(1) as isolated Bx
+	match h.u 'x1'
+		none then break
+		have then o.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ap-a1-param-idcall-iso -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102, E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-param-idcall-iso` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUT(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'isoUT'
+
+function fwdIso(x UT)
+	let y = idUT(x)
+	isoUT(y)
+end 'fwdIso'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	fwdIso(u)
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:35:8: 'y' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; the call hands back read-only data, so pass a copy
+error E3102: <fragment>:41:17: use of moved value 'u': its ownership moved to the parameter 'x' of 'fwdIso', which keeps it
+```
+
+<!-- test: model-hand-ap-g1-recursive-plain-iso -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200, E4014. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `g1-recursive-plain-iso` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union NUB
+	nil
+	cons(c NdB)
+end 'NUB'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type NdB is noncopyable
+	var next as NUB
+	var b as Bx
+
+	static function create(next NUB, b Bx) returns Self
+		return Self{next: next, b: b}
+	end 'create'
+end 'NdB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoNdB(x isolated NdB)
+	_ = x
+	_ = 1 as Num
+end 'isoNdB'
+
+function peekNdB(x NdB)
+	_ = x
+	_ = 1 as Num
+end 'peekNdB'
+
+function main() returns ExitCode
+	let l = NdB.create(NUB.nil, b: Bx.create(1))
+	peekNdB(l)
+	isoNdB(l)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E4014: <fragment>:4:7: type 'NUB' contains a reference cycle (via NUB → cons.c: NdB → next: NUB); recursive type references are not allowed
+error E3200: <fragment>:39:9: 'l' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-ap-m1-cond-same-keep -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-same-keep` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function stash(x UT, h Hd)
+	h.u = x
+end 'stash'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	stash((uV if lg(1) != 0 else uV), h: h)
+	_ = peekUT(uV)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:44:17: use of moved value 'uV': its ownership moved to the parameter 'x' of 'stash', which keeps it
+```
+
+<!-- test: model-hand-ap-m1-cond-moves-both-keep -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-moves-both-keep` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function stash(x UT, h Hd)
+	h.u = x
+end 'stash'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	let h = Hd.create(UT.none)
+	stash((uV if lg(1) != 0 else v), h: h)
+	_ = peekUT(v)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:45:17: use of moved value 'v': its ownership moved to the parameter 'x' of 'stash', which keeps it
+```
+
+<!-- test: model-hand-ap-m1-cond-lend-leaf-iso -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m1-cond-lend-leaf-iso` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUT(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'isoUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = (idUT(u) if lg(0) != 0 else u)
+	isoUT(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:33:8: 'c' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-ap-m1-cond-lend-both-iso -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-lend-both-iso` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUT(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'isoUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = (idUT(u) if lg(1) != 0 else idUT(u))
+	isoUT(c)
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:41:17: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: model-hand-ap-k1-cond-arg-beside-var -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function bothUT(x UT, y UT, h Hd)
+	h.u = x
+	_ = peekUT(y)
+end 'bothUT'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	bothUT((uV if lg(1) != 0 else uV), y: uV, h: h)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:44:40: 'uV' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ap-k1-plain-arg-beside-var -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-plain-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function bothUT(x UT, y UT, h Hd)
+	h.u = x
+	_ = peekUT(y)
+end 'bothUT'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	bothUT(uV, y: uV, h: h)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:40:16: 'uV' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ap-k1-cond-arg-keep-twice -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-keep-twice` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function keep2(x UT, y UT, h Hd, g Hd)
+	h.u = x
+	g.u = y
+end 'keep2'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	let g = Hd.create(UT.none)
+	keep2((uV if lg(1) != 0 else uV), y: uV, h: h, g: g)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:38:39: 'uV' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ap-k1-cond-two-args-same -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-two-args-same` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function keep2(x UT, y UT, h Hd, g Hd)
+	h.u = x
+	g.u = y
+end 'keep2'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	let g = Hd.create(UT.none)
+	keep2((uV if lg(1) != 0 else uV), y: (uV if lg(0) != 0 else uV), h: h, g: g)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:38:62: 'uV' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-ap-k1-cond-then-var-keep -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-then-var-keep` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function stash(x UT, h Hd)
+	h.u = x
+end 'stash'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let h = Hd.create(UT.none)
+	let g = Hd.create(UT.none)
+	stash((uV if lg(1) != 0 else uV), h: h)
+	stash(uV, h: g)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:38:8: use of moved value 'uV': its ownership moved to the parameter 'x' of 'stash', which keeps it
+```
+
+<!-- test: model-hand-ar-z-implicit-store-main -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `z-implicit-store-main` of redteamAR.hand_ar0, in capmodel `reggio/REPORTRTAR.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let g = Hd.create(UT.none) as isolated Hd
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let x = UT.have(Tk.create(1)) as isolated UT
+	g.u = x
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3196: <fragment>:28:8: cannot store an isolated 'UT' into 'u', which holds a mutable 'UT'; `merge` it first
+```
+
+<!-- test: model-hand-ar-l7-cond-iso-merge -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l7-cond-iso-merge` of redteamAR.hand_ar3, in capmodel `reggio/REPORTRTAR.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function iso2(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'iso2'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let i = UT.have(Tk.create(1)) as isolated UT
+	iso2((i if lg(1) != 0 else i))
+	_ = 1 as Num
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa14-l-two-args -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l-two-args` of redteamFA14.hand_fa14e, in capmodel `reggio/REPORTFA14.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lend2(x UT, y UT)
+	_ = x
+	_ = y
+	_ = 1 as Num
+end 'lend2'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then lend2(u, y: u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:27:25: 'u' is passed at two arguments of this call, and a unique value has one name; pass it once
+```
+
+<!-- test: model-hand-fa14-m-return -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-return` of redteamFA14.hand_fa14e, in capmodel `reggio/REPORTFA14.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function f() returns UT
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then return u
+	end 'x1'
+	return UT.none
+end 'f'
+
+function main() returns ExitCode
+	_ = f()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa14-m-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-reassign` of redteamFA14.hand_fa14e, in capmodel `reggio/REPORTFA14.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa14-m-cond -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-cond` of redteamFA14.hand_fa14e, in capmodel `reggio/REPORTFA14.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = (u if lg(1) != 0 else u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d1-mx-example -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d1-mx-example` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Mq
+	q0(x Bx)
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	q1(y isolated Bx)
+end 'Mq'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let rb = Bx.create(5) as isolated Bx
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Mq.q1(rb) as isolated Mq
+	match u 'x1'
+		q0(xa) then _ = xa.n
+		q1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d2-ub-takeb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d2-ub-takeB` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d3-pc-plain -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d3-pc-plain` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Pc
+	u0
+	u1(b Bx)
+end 'Pc'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Pc.u1(Bx.create(1)) as isolated Pc
+	match u 'x1'
+		u0 then break
+		u1(b) then b.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d4-unique -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d4-unique` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = UT.have(Tk.create(1)) as isolated UT
+	match u 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d5-iso-unique -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d5-iso-unique` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ui
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(t isolated Tk)
+end 'Ui'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeT(t isolated Tk)
+	_ = t.n
+end 'takeT'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ui.have(Tk.create(1)) as isolated Ui
+	match u 'x1'
+		none then break
+		have(t) then takeT(t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d6-var-payload -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d6-var-payload` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Vc
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Vc'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Vc.u1(Bx.create(1)) as isolated Vc
+	match u 'x1'
+		u0 then break
+		u1(b) then takeB(b)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d7-isolated-param -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d7-isolated-param` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function f(u isolated Ub)
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(Ub.u1(Bx.create(5)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-d11-call-result -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d11-call-result` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function giveUb(b isolated Bx) returns isolated Ub
+	return Ub.u1(b)
+end 'giveUb'
+
+function main() returns ExitCode
+	let u = giveUb(Bx.create(2))
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-e1-match-twice -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e1-match-twice` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	match u 'x2'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x2'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:27:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-e2-bind-after -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e2-bind-after` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	_ = u
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:27:10: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-e3-call-after -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e3-call-after` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	eatUb(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-e4-take-twice -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e4-take-twice` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeTwo(a isolated Bx, b isolated Bx)
+	_ = b
+	_ = a.n
+end 'takeTwo'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeTwo(o, b: o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:26:25: use of moved value 'o': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-e9-param-twice -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e9-param-twice` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function f(u isolated Ub)
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	match u 'x2'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x2'
+end 'f'
+
+function main() returns ExitCode
+	f(Ub.u1(Bx.create(5)))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:26:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-e13-pc-later -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e13-pc-later` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Pc
+	u0
+	u1(b Bx)
+end 'Pc'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function eatPc(u Pc)
+	match u 'x1'
+		u0 then break
+		u1(b) then b.n = 1
+	end 'x1'
+end 'eatPc'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Pc.u1(Bx.create(1)) as isolated Pc
+	match u 'x1'
+		u0 then break
+		u1(b) then b.n = 2
+	end 'x1'
+	eatPc(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-l2-slot -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l2-slot` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wm
+	var keep as Bx
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var item as isolated Bx
+	var u as Ub
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(keep Bx, item isolated Bx, u Ub) returns Self
+		return Self{keep: keep, item: item, u: u}
+	end 'create'
+end 'Wm'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let h = Wm.create(Bx.create(0), item: Bx.create(1), u: Ub.u0) as isolated Wm
+	match h.u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:35:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa15-l3-plain-var -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l3-plain-var` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:25:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa15-l4-plain-param -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l4-plain-param` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function f(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	f(Ub.u1(Bx.create(5)))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:24:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa15-l5-plain-var-reads -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l5-plain-var-reads` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1(o) then _ = o.n
+	end 'x1'
+	match u 'x2'
+		u0 then break
+		u1(o) then _ = o.n
+	end 'x2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-l6-lend-ok -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l6-lend-ok` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then _ = o.n
+	end 'x1'
+	eatUb(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-l7-cond-subject -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l7-cond-subject` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let w = Ub.u1(Bx.create(6)) as isolated Ub
+	match (u if lg(1) != 0 else w) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-r38-lend-isolated -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r38-lend-isolated` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then break
+		u1 then eatUb(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:28:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-r38-lend-method -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r38-lend-method` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UM
+	none
+	have(t Tk)
+
+	function has() returns Num
+		return 1
+	end 'has'
+end 'UM'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = UM.have(Tk.create(1)) as isolated UM
+	match u 'x1'
+		none then break
+		have then _ = u.has()
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:24:21: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-n-loop-outer-no-refill -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-loop-outer-no-refill` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	var i = 2 as Num
+	while i != 0 'w1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		i = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:29:9: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-fa15-n-cond-subject -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-cond-subject` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let w = Ub.u1(Bx.create(2)) as isolated Ub
+	match (u if lg(1) != 0 else w) 'x1'
+		u0 then break
+		u1(o) then _ = o.n
+	end 'x1'
+	match u 'x2'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x2'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-n-if-then-read -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-if-then-read` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	if lg(1) != 0 'i1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+	end 'i1'
+	eatUb(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:40:8: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-n-if-both-refill -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-if-both-refill` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(1)) as isolated Ub
+	if lg(1) != 0 'i1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+		u = Ub.u0
+	end 'i1' else 'e3'
+		u = Ub.u0
+	end 'e3'
+	match u 'x4'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x4'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-c1-refill-with-payload -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c1-refill-with-payload` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	match u 'x1'
+		u0 then u = Ub.u0
+		u1(o) then u = Ub.u1(o)
+	end 'x1'
+	match u 'x2'
+		u0 then break
+		u1(p) then takeB(p)
+	end 'x2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-c5-method-param -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c5-method-param` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Mt
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	function eat(u isolated Ub)
+		match u 'x1'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x1'
+	end 'eat'
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	function eatTwice(u isolated Ub)
+		match u 'x1'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x1'
+		_ = 1 as Num
+	end 'eatTwice'
+end 'Mt'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	let m = Mt.create(0)
+	m.eat(Ub.u1(Bx.create(1)))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-c13-slot-union-lent -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `c13-slot-union-lent` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wm
+	var keep as Bx
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var item as isolated Bx
+	var u as Ub
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(keep Bx, item isolated Bx, u Ub) returns Self
+		return Self{keep: keep, item: item, u: u}
+	end 'create'
+end 'Wm'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let h = Wm.create(Bx.create(0), item: Bx.create(1), u: Ub.u1(Bx.create(2))) as isolated Wm
+	match h.u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:35:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa15-c15-for-element -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `c15-for-element` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias UbArray = Array with Ub
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function main() returns ExitCode
+	let us = UbArray.create(0)
+	us.push(Ub.u1(Bx.create(1)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for u in us 'f1'
+		match u 'x2'
+			u0 then break
+			u1(o) then takeB(o)
+		end 'x2'
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:28:21: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa15-c25-ret-payload -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c25-ret-payload` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function pull(u isolated Ub) returns isolated Bx
+	match u 'x1'
+		u0 then return Bx.create(0)
+		u1(o) then return o
+	end 'x1'
+	return Bx.create(1)
+end 'pull'
+
+function main() returns ExitCode
+	let b = pull(Ub.u1(Bx.create(1)))
+	takeB(b)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa15-c26-ret-var -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c26-ret-var` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function pull(u isolated Ub) returns isolated Ub
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return u
+end 'pull'
+
+function main() returns ExitCode
+	_ = pull(Ub.u1(Bx.create(1)))
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:26:9: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-c27-param-then-caller-read -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c27-param-then-caller-read` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function f(u isolated Ub)
+	match u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	f(u)
+	f(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:31:4: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa15-c31-isolated-from-plain-union -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c31-isolated-from-plain-union` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Pc
+	u0
+	u1(b Bx)
+end 'Pc'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let p = Pc.u1(Bx.create(5))
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let u = p as isolated Pc
+	match u 'x1'
+		u0 then break
+		u1(o) then o.n = 1
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa17-r-literal -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-literal` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Kp
+	var k as Tk
+
+	static function create(k Tk) returns Self
+		return Self{k: k}
+	end 'create'
+end 'Kp'
+
+function readUT(x UT)
+	_ = x
+	_ = 1 as Num
+end 'readUT'
+
+function f(t Tk, h Kp)
+	_ = h
+	let u = t
+	let x = UT.have(u)
+	readUT(x)
+end 'f'
+
+function main() returns ExitCode
+	let h = Kp.create(Tk.create(0))
+	let t = Tk.create(1)
+	f(t, h: h)
+	_ = t.n
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:41:10: use of moved value 't': its ownership moved to the parameter 't' of 'f', which keeps it
+```
+
+<!-- test: model-hand-fa17-w-beside-binding -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-beside-binding` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function wrUT2(x UT, k Num)
+	match x 'x1'
+		none then break
+		have(z) then z.n = k
+	end 'x1'
+end 'wrUT2'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(z) then wrUT2(u, k: z.n)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:28:16: cannot lend 'u' to parameter 'x' of 'wrUT2', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa17-w-beside-binding-lent -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-beside-binding-lent` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function wrUTt(x UT, y Tk)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 5
+	end 'x1'
+	_ = y.n
+end 'wrUTt'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have(z) then wrUTt(u, y: z)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:29:16: cannot lend 'u' to parameter 'x' of 'wrUTt', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa17-w-slot-then-clear -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-slot-then-clear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+union UW
+	none
+	have(t Tw)
+end 'UW'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Tw is noncopyable
+	var n as Num
+	var inner as UT
+
+	static function create(n Num, inner UT) returns Self
+		return Self{n: n, inner: inner}
+	end 'create'
+end 'Tw'
+
+function clrW(x UW) returns Num
+	match x 'x1'
+		none then break
+		have(t) then t.inner = UT.none
+	end 'x1'
+	return 1
+end 'clrW'
+
+function rd2(a UT, k Num)
+	_ = k
+	match a 'x1'
+		none then break
+		have(q) then _ = q.n
+	end 'x1'
+end 'rd2'
+
+function main() returns ExitCode
+	let u = UW.have(Tw.create(1, inner: UT.have(Tk.create(2))))
+	match u 'x1'
+		none then break
+		have(z) then rd2(z.inner, k: clrW(u))
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:51:32: cannot lend 'u' to parameter 'x' of 'clrW', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa17-w-clear-then-slot -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-clear-then-slot` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+union UW
+	none
+	have(t Tw)
+end 'UW'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Tw is noncopyable
+	var n as Num
+	var inner as UT
+
+	static function create(n Num, inner UT) returns Self
+		return Self{n: n, inner: inner}
+	end 'create'
+end 'Tw'
+
+function clrW(x UW) returns Num
+	match x 'x1'
+		none then break
+		have(t) then t.inner = UT.none
+	end 'x1'
+	return 1
+end 'clrW'
+
+function rd3(k Num, a UT)
+	_ = k
+	match a 'x1'
+		none then break
+		have(q) then _ = q.n
+	end 'x1'
+end 'rd3'
+
+function main() returns ExitCode
+	let u = UW.have(Tw.create(1, inner: UT.have(Tk.create(2))))
+	match u 'x1'
+		none then break
+		have(z) then rd3(clrW(u), a: z.inner)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:51:20: cannot lend 'u' to parameter 'x' of 'clrW', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa17-w-bind-then-clear -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-bind-then-clear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+union UW
+	none
+	have(t Tw)
+end 'UW'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Tw is noncopyable
+	var n as Num
+	var inner as UT
+
+	static function create(n Num, inner UT) returns Self
+		return Self{n: n, inner: inner}
+	end 'create'
+end 'Tw'
+
+function clrW(x UW) returns Num
+	match x 'x1'
+		none then break
+		have(t) then t.inner = UT.none
+	end 'x1'
+	return 1
+end 'clrW'
+
+function rdTw(a Tw, k Num)
+	_ = k
+	match a.inner 'x1'
+		none then break
+		have(q) then _ = q.n
+	end 'x1'
+end 'rdTw'
+
+function main() returns ExitCode
+	let u = UW.have(Tw.create(1, inner: UT.have(Tk.create(2))))
+	match u 'x1'
+		none then break
+		have(z) then rdTw(z, k: clrW(u))
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:51:27: cannot lend 'u' to parameter 'x' of 'clrW', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa17-w-result-alias -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-result-alias` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function idU(x UT) returns UT
+	return x
+end 'idU'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = idU(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa17-w-iso-payload -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-iso-payload` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ui
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(t isolated Tk)
+end 'Ui'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function wrUi2(x Ui)
+	match x 'x1'
+		none then break
+		have then _ = 1 as Num
+	end 'x1'
+end 'wrUi2'
+
+function main() returns ExitCode
+	let u = Ui.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then wrUi2(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa17-o-match-window -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-match-window` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var o = Bx.create(1)
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then o = Bx.create(2)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa18-m8-root-writer-replaces-nested-under-binding-view -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m8-root-writer-replaces-nested-under-binding-view` of redteamFA18.hand_fa18, in capmodel `reggio/REPORTFA18.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UJ
+	none
+	have(j Tj)
+end 'UJ'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Tj is noncopyable
+	var n as Num
+	var t as Tk
+
+	static function create(n Num, t Tk) returns Self
+		return Self{n: n, t: t}
+	end 'create'
+end 'Tj'
+
+function rd(tV Tk, z Num) returns Num
+	_ = z
+	return tV.n
+end 'rd'
+
+function repJ(u UJ) returns Num
+	match u 'x1'
+		none then break
+		have(j) then j.t = Tk.create(9)
+	end 'x1'
+	return 1
+end 'repJ'
+
+function both(u UJ, j Tj)
+	_ = rd(j.t, z: repJ(u))
+end 'both'
+
+function main() returns ExitCode
+	let u = UJ.have(Tj.create(1, t: Tk.create(1)))
+	match u 'x1'
+		none then break
+		have(j) then both(u, j: j)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:47:16: cannot lend 'u' to parameter 'u' of 'both', which writes through it, in a call that also names a binding of the arm: the binding views the matched value, and a unique value has one name; write through 'u' in a statement that names no binding of the arm
+```
+
+<!-- test: model-hand-fa19-x-arm-stored-then-holder-isolated -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-stored-then-holder-isolated` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Ko
+	var keep as Bx
+	var n as Num
+
+	static function create(keep Bx, n Num) returns Self
+		return Self{keep: keep, n: n}
+	end 'create'
+end 'Ko'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeIsoU(x isolated UQ)
+	match x 'x1'
+		none then break
+		have(t) then t.b.n = 9
+	end 'x1'
+end 'takeIsoU'
+
+function main() returns ExitCode
+	let o = Ko.create(Bx.create(0), n: 0)
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have(t) then o.keep = t.b
+	end 'x1'
+	takeIsoU(u)
+	o.keep.n = 7
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:49:11: 'u' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-fa19-x-arm-callee-local-holder-isolated -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-callee-local-holder-isolated` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Ko
+	var keep as Bx
+	var n as Num
+
+	static function create(keep Bx, n Num) returns Self
+		return Self{keep: keep, n: n}
+	end 'create'
+end 'Ko'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeIsoU(x isolated UQ)
+	match x 'x1'
+		none then break
+		have(t) then t.b.n = 9
+	end 'x1'
+end 'takeIsoU'
+
+function stash(o Ko) returns UQ
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have(t) then o.keep = t.b
+	end 'x1'
+	return u
+end 'stash'
+
+function main() returns ExitCode
+	let o = Ko.create(Bx.create(0), n: 0)
+	takeIsoU(stash(o))
+	o.keep.n = 7
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:53:11: 'stash(o)' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-fa19-k-isoarm-outer-write -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-isoarm-outer-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let o = Bx.create(1)
+	let ub = Ub.u1(Bx.create(1))
+	match ub 'x1'
+		u0 then break
+		u1 then o.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa19-k-mixed-arm -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-mixed-arm` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UMx
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	both(t Tq, i isolated Bx)
+end 'UMx'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	let o = Bx.create(1)
+	let u = UMx.both(Tq.create(1, b: Bx.create(2)), i: Bx.create(3))
+	match u 'x1'
+		none then break
+		both then o.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa20-p5-for-root-writer -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `p5-for-root-writer` of redteamFA20.hand_fa20, in capmodel `reggio/REPORTFA20.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TqArray = Array with Tq
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+
+	function mkK() returns Ko
+		return Ko.create(self.b, n: 1)
+	end 'mkK'
+
+	function part() returns Bx
+		return self.b
+	end 'part'
+end 'Tq'
+
+type Ko
+	var keep as Bx
+	var n as Num
+
+	static function create(keep Bx, n Num) returns Self
+		return Self{keep: keep, n: n}
+	end 'create'
+end 'Ko'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hq is noncopyable
+	var u as UT
+	var xs as TqArray
+	var n as Num
+
+	static function create(u UT, xs TqArray, n Num) returns Self
+		return Self{u: u, xs: xs, n: n}
+	end 'create'
+
+	function clr()
+		self.u = UT.none
+	end 'clr'
+end 'Hq'
+
+function wrH(h Hq)
+	h.n = 5
+end 'wrH'
+
+function main() returns ExitCode
+	let h = Hq.create(UT.none, xs: TqArray.create(0), n: 0)
+	h.xs.push(Tq.create(1, b: Bx.create(2)))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for t in h.xs 'f1'
+		wrH(h)
+		t.n = 3
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:74:7: 'wrH' needs a writable parameter 'h' at line 67; 'h' is read-only while 'f1' is open
+```
+
+<!-- test: model-hand-fa22-nb-none-local-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-local-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	var u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then u = UQ.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-local-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-local-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	var u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have then u = UQ.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-local-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-local-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	var u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then u = UQ.none
+		have then u = UQ.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-local-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-local-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then wrQ(u)
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-local-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-local-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have then wrQ(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-local-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-local-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then wrQ(u)
+		have then wrQ(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-param-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-param-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function f(u UQ)
+	match u 'x1'
+		none then wrQ(u)
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-param-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-param-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function f(u UQ)
+	match u 'x1'
+		none then break
+		have then wrQ(u)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-param-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-param-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function wrQ(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrQ'
+
+function f(u UQ)
+	match u 'x1'
+		none then wrQ(u)
+		have then wrQ(u)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	f(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then h.n = 5
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then h.n = 5
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then h.u = UQ.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.u = UQ.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then h.u = UQ.none
+		have then h.u = UQ.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then setH(h)
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then break
+		have then setH(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then setH(h)
+		have then setH(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-field-reader-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-field-reader-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function wrH(h Hq)
+	match h.u 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then wrH(h)
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-field-reader-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-field-reader-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function wrH(h Hq)
+	match h.u 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then break
+		have then wrH(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-field-reader-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-field-reader-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function wrH(h Hq)
+	match h.u 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'wrH'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	match h.u 'x1'
+		none then wrH(h)
+		have then wrH(h)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-param-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-param-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then h.n = 5
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-param-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-param-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-param-field-direct -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-param-field-direct` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then h.n = 5
+		have then h.n = 5
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-param-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-param-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then h.u = UQ.none
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-param-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-param-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then break
+		have then h.u = UQ.none
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-param-field-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-param-field-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then h.u = UQ.none
+		have then h.u = UQ.none
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-none-param-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-none-param-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then setH(h)
+		have then break
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-have-param-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-have-param-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then break
+		have then setH(h)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-nb-both-param-field-callee -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `nb-both-param-field-callee` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+type Hq is noncopyable
+	var u as UQ
+	var n as Num
+
+	static function create(u UQ, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hq'
+
+function setH(h Hq)
+	h.n = 7
+end 'setH'
+
+function f(h Hq)
+	match h.u 'x1'
+		none then setH(h)
+		have then setH(h)
+	end 'x1'
+end 'f'
+
+function main() returns ExitCode
+	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	f(h)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-iso-arm-outer-write-binding -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-iso-arm-outer-write-binding` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UI
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(b isolated Bx)
+end 'UI'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let o = Bx.create(1)
+	let u = UI.have(Bx.create(1))
+	match u 'x1'
+		none then break
+		have then o.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-iso-arm-holder-write-binding -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-iso-arm-holder-write-binding` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UI
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(b isolated Bx)
+end 'UI'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hi is noncopyable
+	var u as UI
+	var n as Num
+
+	static function create(u UI, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hi'
+
+function main() returns ExitCode
+	let h = Hi.create(UI.have(Bx.create(1)), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-iso-arm-reassign-nonbinding -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-iso-arm-reassign-nonbinding` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UI
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(b isolated Bx)
+end 'UI'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = UI.have(Bx.create(1))
+	match u 'x1'
+		none then break
+		have then u = UI.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-iso-arm-none-reassign -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-iso-arm-none-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UI
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(b isolated Bx)
+end 'UI'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = UI.have(Bx.create(1))
+	match u 'x1'
+		none then u = UI.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-plain-union-nonbinding-reassign -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-plain-union-nonbinding-reassign` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(p Pp)
+end 'UP'
+
+type Pp
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pp'
+
+function main() returns ExitCode
+	var u = UP.have(Pp.create(1))
+	match u 'x1'
+		none then break
+		have then u = UP.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-k-iso-arm-none-outer-write -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-iso-arm-none-outer-write` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UI
+	none
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	have(b isolated Bx)
+end 'UI'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let o = Bx.create(1)
+	let u = UI.have(Bx.create(1))
+	match u 'x1'
+		none then o.n = 5
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-n-after-arm -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-after-arm` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	var u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have(t) then t.n = 2
+	end 'x1'
+	u = UQ.none
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-n-nonbinding-then-binding-sibling -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-nonbinding-then-binding-sibling` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	var u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then u = UQ.none
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-n-nonbinding-moves-root -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-nonbinding-moves-root` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function clr(x UQ)
+	match x 'x1'
+		none then break
+		have(z) then z.n = 0
+	end 'x1'
+end 'clr'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have then clr(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-n-nonbinding-copies-root -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-nonbinding-copies-root` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa22-n-nonbinding-copies-root-then-reads -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-nonbinding-copies-root-then-reads` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tq)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tq is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tq'
+
+function main() returns ExitCode
+	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	_ = u
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:10: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-reassign-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	var u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then break
+		have then u = UP.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-reassign-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-reassign-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	var u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then u = UP.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-reassign-sibling -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-reassign-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	var u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then u = UP.none
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-cond-reassign-nb -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-plain-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	var u = UP.have(Pb.create(1))
+	let v = UP.none
+	match (u if 1 != 0 else v) 'x1'
+		none then break
+		have then u = UP.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:22:13: 'u' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-fa23-p1-plain-field-reassign-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-field-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(Pb.create(1)), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.u = UP.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	let u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-move-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-move-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	let u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then _ = u
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-local-move-sibling -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-local-move-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	let u = UP.have(Pb.create(1))
+	match u 'x1'
+		none then _ = u
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-cond-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	let u = UP.have(Pb.create(1))
+	let v = UP.none
+	match (u if 1 != 0 else v) 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-plain-field-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-field-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(Pb.create(1)), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-reassign-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1 then u = Ub.u0
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-reassign-nbnone -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-reassign-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then u = Ub.u0
+		u1 then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-reassign-sibling -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-reassign-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then u = Ub.u0
+		u1(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-cond-reassign-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-iso-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	var u = Ub.u1(Bx.create(1))
+	let v = Ub.u0
+	match (u if 1 != 0 else v) 'x1'
+		u0 then break
+		u1 then u = Ub.u0
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:22:11: 'u' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-fa23-p1-iso-field-reassign-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-field-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hb2 is noncopyable
+	var u as Ub
+	var n as Num
+
+	static function create(u Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hb2'
+
+function main() returns ExitCode
+	let h = Hb2.create(Ub.u1(Bx.create(1)), n: 0)
+	match h.u 'x1'
+		u0 then break
+		u1 then h.u = Ub.u0
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-move-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then break
+		u1 then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-move-nbnone -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-move-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then _ = u
+		u1 then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-local-move-sibling -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-local-move-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	match u 'x1'
+		u0 then _ = u
+		u1(t) then _ = t.n
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-cond-move-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function main() returns ExitCode
+	let u = Ub.u1(Bx.create(1))
+	let v = Ub.u0
+	match (u if 1 != 0 else v) 'x1'
+		u0 then break
+		u1 then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-iso-field-move-nb -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-field-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Hb2 is noncopyable
+	var u as Ub
+	var n as Num
+
+	static function create(u Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hb2'
+
+function main() returns ExitCode
+	let h = Hb2.create(Ub.u1(Bx.create(1)), n: 0)
+	match h.u 'x1'
+		u0 then break
+		u1 then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-local-reassign-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-local-reassign-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then u = UT.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-local-reassign-sibling -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-local-reassign-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then u = UT.none
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-cond-reassign-nb -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-unique-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	let v = UT.none
+	match (u if 1 != 0 else v) 'x1'
+		none then break
+		have then u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:22:13: 'u' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-fa23-p1-unique-field-reassign-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-field-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-local-move-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-local-move-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then _ = u
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-local-move-sibling -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-local-move-sibling` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then _ = u
+		have(t) then t.n = 2
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-unique-cond-move-nb -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `p1-unique-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.none
+	match (u if 1 != 0 else v) 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:22:21: cannot move or copy the unique value matched by '(u if 1 != 0 else v)' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-fa23-p1-unique-field-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-unique-field-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	match h.u 'x1'
+		none then break
+		have then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-local-reassign-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-local-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	var u = En.b
+	match u 'x1'
+		a then break
+		b then u = En.a
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-local-reassign-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-local-reassign-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	var u = En.b
+	match u 'x1'
+		a then u = En.a
+		b then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-cond-reassign-nb -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-none-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	var u = En.b
+	let v = En.a
+	match (u if 1 != 0 else v) 'x1'
+		a then break
+		b then u = En.a
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:12:10: 'u' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-fa23-p1-none-field-reassign-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-field-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union En
+	a
+	b
+end 'En'
+
+type He is noncopyable
+	var u as En
+	var n as Num
+
+	static function create(u En, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'He'
+
+function main() returns ExitCode
+	let h = He.create(En.b, n: 0)
+	match h.u 'x1'
+		a then break
+		b then h.u = En.a
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-local-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-local-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	let u = En.b
+	match u 'x1'
+		a then break
+		b then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-local-move-nbnone -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-local-move-nbnone` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	let u = En.b
+	match u 'x1'
+		a then _ = u
+		b then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-cond-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+union En
+	a
+	b
+end 'En'
+
+function main() returns ExitCode
+	let u = En.b
+	let v = En.a
+	match (u if 1 != 0 else v) 'x1'
+		a then break
+		b then _ = u
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-none-field-move-nb -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-field-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union En
+	a
+	b
+end 'En'
+
+type He is noncopyable
+	var u as En
+	var n as Num
+
+	static function create(u En, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'He'
+
+function main() returns ExitCode
+	let h = He.create(En.b, n: 0)
+	match h.u 'x1'
+		a then break
+		b then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p1-move-then-read -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `p1-move-then-read` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then _ = u
+	end 'x1'
+	_ = u
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:23:10: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa23-p1-in-for -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p1-in-for` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias TkArray = Array with Tk
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+type Hx is noncopyable
+	var u as UP
+	var xs as TkArray
+
+	static function create(u UP, xs TkArray) returns Self
+		return Self{u: u, xs: xs}
+	end 'create'
+end 'Hx'
+
+function main() returns ExitCode
+	let h = Hx.create(UP.none, xs: TkArray.create(0))
+	h.xs.push(Tk.create(1))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in h.xs 'f1'
+		match h.u 'x2'
+			none then h.xs = TkArray.create(0)
+			have then h.xs = TkArray.create(0)
+		end 'x2'
+		e.n = 2
+	end 'f1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:40:14: cannot write 'xs' through 'h', which is read-only while 'f1' drains it
+```
+
+<!-- test: model-hand-fa23-p2-call -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	match mkUb() 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-call-plain-payload -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call-plain-payload` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUP() returns isolated UP
+	return UP.have(Pb.create(1))
+end 'mkUP'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takePI(p isolated Pb)
+	_ = p.n
+end 'takePI'
+
+function main() returns ExitCode
+	match mkUP() 'x1'
+		none then break
+		have(t) then takePI(t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-call-unique-payload -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call-unique-payload` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeT(t isolated Tk)
+	_ = t.n
+end 'takeT'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUT() returns isolated UT
+	return UT.have(Tk.create(1))
+end 'mkUT'
+
+function main() returns ExitCode
+	match mkUT() 'x1'
+		none then break
+		have(t) then takeT(t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-swap-field -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-swap-field` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wu
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated Ub
+	var n as Num
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Wu'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	let w = Wu.create(mkUb(), n: 0)
+	// TODO: character literals are not supported in minimaxon
+	match exchange(w.u, value: Ub.u0 'x1')
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	w.n = 2
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-cond-vars -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-cond-vars` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let p = mkUb() as isolated Ub
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let q = mkUb() as isolated Ub
+	match (p if 1 != 0 else q) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-cond-var-call -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-cond-var-call` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let p = mkUb() as isolated Ub
+	match (p if lg(1) != 0 else mkUb()) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-cond-moves-then -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `p2-cond-moves-then` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeUbI(u isolated Ub)
+	eatUb(u)
+end 'takeUbI'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let p = mkUb() as isolated Ub
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let q = mkUb() as isolated Ub
+	match (p if 1 != 0 else q) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	takeUbI(q)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:43:10: use of moved value 'q': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa23-p2-cond-moves-in-arm -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `p2-cond-moves-in-arm` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+function eatUb(u Ub)
+	match u 'x1'
+		u0 then break
+		u1(b) then _ = b.n
+	end 'x1'
+end 'eatUb'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeUbI(u isolated Ub)
+	eatUb(u)
+end 'takeUbI'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let p = mkUb() as isolated Ub
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let q = mkUb() as isolated Ub
+	match (p if 1 != 0 else q) 'x1'
+		u0 then takeUbI(p)
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:40:19: use of moved value 'p': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa23-p2-cond-slot-arm -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-ISOREAD`; the compiler refuses it with E3198. Model program `p2-cond-slot-arm` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wu
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated Ub
+	var n as Num
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Wu'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	let w = Wu.create(mkUb(), n: 0)
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let p = mkUb() as isolated Ub
+	match (p if 1 != 0 else w.u) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:39:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa23-p2-call-read-subject-again -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call-read-subject-again` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	match mkUb() 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	match mkUb() 'x2'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x2'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-slot-lends -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `p2-slot-lends` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wu
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated Ub
+	var n as Num
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Wu'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	let w = Wu.create(mkUb(), n: 0)
+	match w.u 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3198: <fragment>:38:20: 'o' is isolated and cannot be read outside a block; open it with `modify`, or take it out with `swap`
+```
+
+<!-- test: model-hand-fa23-p2-slot-lends-read -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-slot-lends-read` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wu
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated Ub
+	var n as Num
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated Ub, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Wu'
+
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function mkUb() returns isolated Ub
+	return Ub.u1(Bx.create(1))
+end 'mkUb'
+
+function main() returns ExitCode
+	let w = Wu.create(mkUb(), n: 0)
+	match w.u 'x1'
+		u0 then break
+		u1(o) then _ = o.n
+	end 'x1'
+	w.n = 1
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-fresh-plain-lends -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p2-fresh-plain-lends` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takePI(p isolated Pb)
+	_ = p.n
+end 'takePI'
+
+function main() returns ExitCode
+	match UP.have(Pb.create(1)) 'x1'
+		none then break
+		have(t) then takePI(t)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:24:23: 't' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-fa23-p2-fresh-plain-read -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-fresh-plain-read` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(t Pb)
+end 'UP'
+
+type Pb
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Pb'
+
+function main() returns ExitCode
+	match UP.have(Pb.create(1)) 'x1'
+		none then break
+		have(t) then t.n = 3
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa23-p2-call-in-modify-of-arg -->
+<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call-in-modify-of-arg` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union Ub
+	u0
+	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
+	u1(b isolated Bx)
+end 'Ub'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function takeB(b isolated Bx)
+	_ = b.n
+end 'takeB'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+// TODO: return type capability 'isolated' is not supported in minimaxon
+function wrapB(b isolated Bx) returns isolated Ub
+	return Ub.u1(b)
+end 'wrapB'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let bx = Bx.create(0) as isolated Bx
+	match wrapB(bx) 'x1'
+		u0 then break
+		u1(o) then takeB(o)
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa24-a5-match-cond-path-plain-nb-write -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a5-match-cond-path-plain-nb-write` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(1), n: 0)
+	let g = Hp.create(UP.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then h.n = 4
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa24-a6-match-cond-path-binding-read -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a6-match-cond-path-binding-read` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have(t) then t.n = 3
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa24-c2-match-cond-path-nb-else-arm-local -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c2-match-cond-path-nb-else-arm-local` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if lg(0) != 0 else g).u 'x1'
+		none then g.u = UT.none
+		have then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:34:13: cannot write 'u' through 'g', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-fa24-c3-match-cond-path-nb-nested-cond -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c3-match-cond-path-nb-nested-cond` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	let k = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else (g if 1 != 0 else k)).u 'x1'
+		none then break
+		have then k.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:32:13: cannot write 'u' through 'k', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-fa24-c4-match-cond-path-nb-deep -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c4-match-cond-path-nb-deep` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+type Hw is noncopyable
+	var h as Ht
+
+	static function create(h Ht) returns Self
+		return Self{h: h}
+	end 'create'
+end 'Hw'
+
+function main() returns ExitCode
+	let hV = Hw.create(Ht.create(UT.have(Tk.create(1)), n: 0))
+	let g = Hw.create(Ht.create(UT.none, n: 0))
+	match (hV if 1 != 0 else g).h.u 'x1'
+		none then break
+		have then hV.h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:39:13: cannot write 'u' through 'hV.h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-fa24-c5-match-cond-path-nb-byref -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c5-match-cond-path-nb-byref` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function clr(x Ht)
+	x.u = UT.none
+end 'clr'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then clr(g)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:35:17: 'clr' needs a writable parameter 'x' at line 27; 'g' is read-only while 'x1' is open
+```
+
+<!-- test: model-hand-fa24-c6-match-cond-path-nb-move -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c6-match-cond-path-nb-move` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Ht is noncopyable
+	var u as UT
+	var n as Num
+
+	static function create(u UT, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Ht'
+
+function main() returns ExitCode
+	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	let g = Ht.create(UT.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then _ = g
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:31:21: cannot move or copy the unique value matched by '(h if 1 != 0 else g).u' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-fa24-d1-match-cond-path-plain-union-nb-reassign-root -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `d1-match-cond-path-plain-union-nb-reassign-root` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	var h = Hp.create(UP.have(1), n: 0)
+	let g = Hp.create(UP.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then h = Hp.create(UP.none, n: 0)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3203: <fragment>:23:13: 'h' roots what 'x1' lends or iterates and cannot be reassigned or passed by reference inside it
+```
+
+<!-- test: model-hand-fa24-d2-match-cond-path-plain-union-nb-move-root -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d2-match-cond-path-plain-union-nb-move-root` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UP
+	none
+	have(n Num)
+end 'UP'
+
+type Hp is noncopyable
+	var u as UP
+	var n as Num
+
+	static function create(u UP, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hp'
+
+function main() returns ExitCode
+	let h = Hp.create(UP.have(1), n: 0)
+	let g = Hp.create(UP.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		have then _ = h
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:23:21: cannot move or copy the unique value matched by '(h if 1 != 0 else g).u' inside the arm that lends it: the arm's bindings view it, and a unique value has one name; move or copy it before or after the `match`
+```
+
+<!-- test: model-hand-fa24-d3-match-cond-path-mixed-union-plain-arm-field-write -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `d3-match-cond-path-mixed-union-plain-arm-field-write` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UM
+	none
+	pl(n Num)
+	uq(t Tk)
+end 'UM'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hm is noncopyable
+	var u as UM
+	var n as Num
+
+	static function create(u UM, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hm'
+
+function main() returns ExitCode
+	let h = Hm.create(UM.pl(1), n: 0)
+	let g = Hm.create(UM.none, n: 0)
+	match (h if 1 != 0 else g).u 'x1'
+		none then break
+		pl then h.n = 5
+		uq then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:32:11: cannot write 'n' through 'h', which is read-only while 'x1' lends a unique value out of it
+```
+
+<!-- test: model-hand-fa24-d3b-match-path-mixed-union-bare-unique-binding-arm-field-write -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d3b-match-path-mixed-union-bare-unique-binding-arm-field-write` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UM
+	none
+	pl(n Num)
+	uq(t Tk)
+end 'UM'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hm is noncopyable
+	var u as UM
+	var n as Num
+
+	static function create(u UM, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hm'
+
+function main() returns ExitCode
+	let h = Hm.create(UM.pl(1), n: 0)
+	match h.u 'x1'
+		none then break
+		pl then break
+		uq then h.n = 5
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa24-d3c-match-path-mixed-union-bare-plain-arm-field-write-control -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d3c-match-path-mixed-union-bare-plain-arm-field-write-control` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UM
+	none
+	pl(n Num)
+	uq(t Tk)
+end 'UM'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hm is noncopyable
+	var u as UM
+	var n as Num
+
+	static function create(u UM, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hm'
+
+function main() returns ExitCode
+	let h = Hm.create(UM.pl(1), n: 0)
+	match h.u 'x1'
+		none then break
+		pl then h.n = 5
+		uq then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa24-d3d-match-path-mixed-union-bare-plain-binding-arm-field-write-control -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d3d-match-path-mixed-union-bare-plain-binding-arm-field-write-control` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UM
+	none
+	pl(n Num)
+	uq(t Tk)
+end 'UM'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hm is noncopyable
+	var u as UM
+	var n as Num
+
+	static function create(u UM, n Num) returns Self
+		return Self{u: u, n: n}
+	end 'create'
+end 'Hm'
+
+function main() returns ExitCode
+	let h = Hm.create(UM.pl(1), n: 0)
+	match h.u 'x1'
+		none then break
+		pl(x) then h.n = x
+		uq then break
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-o-uq-r0-isoparam -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-uq-r0-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUT(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'isoUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	isoUT(u)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-o-uq-r0-isodecl -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-uq-r0-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	_ = u as isolated UT
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-o-uq-r0-slotnew -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-uq-r0-slotnew` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Wi
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated UT
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Wi'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	_ = Wi.create(uV)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-o-uq-r0-slotset -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-uq-r0-slotset` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Wi
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated UT
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Wi'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	let w = Wi.create(UT.none)
+	w.u = uV
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-o-uq-r0-merge -->
+<!-- skip: 'merge' region expressions are not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-uq-r0-merge` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	// TODO: 'merge' region expressions are not supported in minimaxon
+	_ = merge u
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-c-plain-part-isoparam -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tp)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tp is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tp'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUQ(x isolated UQ)
+	_ = x
+	_ = 1 as Num
+end 'isoUQ'
+
+function peekUQ(x UQ)
+	_ = x
+	_ = 1 as Num
+end 'peekUQ'
+
+function main() returns ExitCode
+	let u = UQ.have(Tp.create(1, b: Bx.create(2)))
+	peekUQ(u)
+	peekUQ(u)
+	isoUQ(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:40:8: 'u' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; pass a copy
+```
+
+<!-- test: model-hand-fa25-c-plain-part-isodecl -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UQ
+	none
+	have(t Tp)
+end 'UQ'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Tp is noncopyable
+	var n as Num
+	var b as Bx
+
+	static function create(n Num, b Bx) returns Self
+		return Self{n: n, b: b}
+	end 'create'
+end 'Tp'
+
+function peekUQ(x UQ)
+	_ = x
+	_ = 1 as Num
+end 'peekUQ'
+
+function main() returns ExitCode
+	let u = UQ.have(Tp.create(1, b: Bx.create(2)))
+	peekUQ(u)
+	peekUQ(u)
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	_ = u as isolated UQ
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:35:10: 'u as isolated UQ' is not isolated: only a clean call, a `swap` or an `isolated` local goes where an isolated value is wanted; initialize it with a fresh value, a clean call, a `swap` or an `isolated` local, or pass a copy
+```
+
+<!-- test: model-hand-fa25-c-arm-binding-isoparam -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-binding-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoUT(x isolated UT)
+	_ = x
+	_ = 1 as Num
+end 'isoUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		have then isoUT(u)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:26:19: cannot hand 'u' to an `isolated` position: 'u' is matched by the arm this call is in, which lends it to its bindings; move it before or after the `match`
+```
+
+<!-- test: model-hand-fa25-c-arm-nobind-isodecl -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		// TODO: region capability 'isolated' is not supported in minimaxon
+		have then _ = u as isolated UT
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:21:21: cannot hand 'u as isolated UT' to an `isolated` position: 'u as isolated UT' is matched by the arm this call is in, which lends it to its bindings; move it before or after the `match`
+```
+
+<!-- test: model-hand-fa25-c-arm-nobind-merge -->
+<!-- skip: 'merge' region expressions are not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-arm-nobind-merge` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	match u 'x1'
+		none then break
+		// TODO: 'merge' region expressions are not supported in minimaxon
+		have then _ = merge u
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3200: <fragment>:21:21: 'u' is not an isolated value; `merge` moves an isolated region into the current one
+```
+
+<!-- test: model-hand-fa25-c-arm-nobind-slot -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-slot` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Wi
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	var u as isolated UT
+
+	// TODO: parameter capability 'isolated' is not supported in minimaxon
+	static function create(u isolated UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Wi'
+
+function main() returns ExitCode
+	let uV = UT.have(Tk.create(1))
+	match uV 'x1'
+		none then break
+		have then _ = Wi.create(uV)
+	end 'x1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3214: <fragment>:29:31: cannot hand 'uV' to an `isolated` position: 'uV' is matched by the arm this call is in, which lends it to its bindings; move it before or after the `match`
+```
+
+<!-- test: model-hand-fa25-a-cond-same-bound -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-same-bound` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = (u if lg(1) != 0 else u)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-same-then-read -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-same-then-read` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = (u if lg(1) != 0 else u)
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:31:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-nested -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-nested` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = ((u if lg(0) != 0 else u) if lg(1) != 0 else u)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-nested-two-vars -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-nested-two-vars` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	let c = ((u if lg(0) != 0 else v) if lg(1) != 0 else u)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-two-vars-moves-both -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-two-vars-moves-both` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	_ = (u if lg(1) != 0 else v)
+	_ = peekUT(v)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:17: use of moved value 'v': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-two-vars-moves-first -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-two-vars-moves-first` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	_ = (u if lg(1) != 0 else v)
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-two-vars-nested-moves -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-two-vars-nested-moves` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	let w = UT.have(Tk.create(3))
+	_ = (u if lg(1) != 0 else (v if lg(0) != 0 else w))
+	_ = peekUT(w)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:33:17: use of moved value 'w': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-arm-moves-arm-reads -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-arm-moves-arm-reads` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoRet(x isolated UT) returns Num
+	_ = x
+	return 1
+end 'isoRet'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = (isoRet(u) if lg(1) != 0 else peekUT(u))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-arm-moves-then-read -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-arm-moves-then-read` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoRet(x isolated UT) returns Num
+	_ = x
+	return 1
+end 'isoRet'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = (isoRet(u) if lg(1) != 0 else peekUT(u))
+	_ = peekUT(u)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:36:17: use of moved value 'u': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-both-arms-move-by-call -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-both-arms-move-by-call` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function isoRet(x isolated UT) returns Num
+	_ = x
+	return 1
+end 'isoRet'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	_ = (isoRet(u) if lg(1) != 0 else isoRet(u))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-in-loop -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-in-loop` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	var u = UT.have(Tk.create(1))
+	var k = 2 as Num
+	while k != 0 'w1'
+		let c = (u if lg(1) != 0 else u)
+		_ = peekUT(c)
+		u = UT.have(Tk.create(2))
+		k = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-a-cond-in-loop-no-refill -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-in-loop-no-refill` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	var k = 2 as Num
+	while k != 0 'w1'
+		let c = (u if lg(1) != 0 else u)
+		_ = peekUT(c)
+		k = lg(0)
+	end 'w1'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:12: use of moved value 'u': it was moved in an earlier iteration of this loop
+```
+
+<!-- test: model-hand-fa25-a-cond-two-vars-picks-second -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-two-vars-picks-second` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	_ = (u if lg(0) != 0 else v)
+	_ = peekUT(v)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:17: use of moved value 'v': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-nested-picks-last -->
+<!-- positions: moved -->
+The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-nested-picks-last` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	let w = UT.have(Tk.create(3))
+	_ = (u if lg(0) != 0 else (v if lg(0) != 0 else w))
+	_ = peekUT(w)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:33:17: use of moved value 'w': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: model-hand-fa25-a-cond-two-vars-picks-second-ok -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-cond-two-vars-picks-second-ok` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let v = UT.have(Tk.create(2))
+	let c = (u if lg(0) != 0 else v)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-fa25-p-swap-reassign-root -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-swap-reassign-root` of redteamFA25.hand_fa25b, in capmodel `reggio/REPORTFA25.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+type Hd is noncopyable
+	var u as UT
+
+	static function create(u UT) returns Self
+		return Self{u: u}
+	end 'create'
+end 'Hd'
+
+function main() returns ExitCode
+	let h = Hd.create(UT.have(Tk.create(1)))
+	match h.u 'x1'
+		none then break
+		have then h.u = UT.none
+	end 'x1'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```

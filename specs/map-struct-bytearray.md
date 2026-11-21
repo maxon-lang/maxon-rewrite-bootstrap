@@ -1,0 +1,171 @@
+---
+feature: map-struct-bytearray
+status: stable
+keywords: [map, struct, bytearray, nested]
+category: collections
+---
+# Map Struct ByteArray
+
+## Documentation
+
+Storing and retrieving structs that contain ByteArray (Array with Byte) fields from a Map.
+
+## Tests
+
+<!-- test: map-struct-with-bytearray-field -->
+Map.get returns struct with ByteArray field intact.
+```maxon
+typealias SmallInt = int(0 to u8.max)
+
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+type Entry
+	export var data as ByteArray
+	export var tag as SmallInt
+
+	static function create(data ByteArray, tag SmallInt) returns Self
+		return Self{data: data, tag: tag}
+	end 'create'
+end 'Entry'
+
+typealias EntryMap = Map with (String, Entry)
+
+function main() returns ExitCode
+	let m = EntryMap.create()
+	let arr = ByteArray.create(0)
+	arr.push(10)
+	arr.push(20)
+	arr.push(30)
+	let e = Entry.create(arr, tag: 42)
+	try m.insert("hello", value: e) otherwise ignore
+	let got = try m.get("hello") otherwise Entry.create(ByteArray.create(0), tag: 0)
+	print("{got.data.count()}\n")
+	print("{got.tag}\n")
+	let b = try got.data.get(1) otherwise 0
+	print("{b}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+42
+20
+```
+
+<!-- test: struct-field-access-in-untaken-if-branch -->
+Accessing a struct field inside an untaken if branch must not corrupt function parameters.
+Uses a struct with a Map field handed in as a parameter (same pattern as QueryDatabase).
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+typealias Count = int(0 to u64.max)
+
+type Entry
+	export var data as ByteArray
+	export var tag as Count
+end 'Entry'
+
+typealias EntryMap = Map with (String, Entry)
+
+typealias StringArray = Array with String
+
+type Database
+	export var sourceFiles as EntryMap
+	export var sourcePaths as StringArray
+
+	static function create(sourceFiles EntryMap, sourcePaths StringArray) returns Self
+		return Self{sourceFiles: sourceFiles, sourcePaths: sourcePaths}
+	end 'create'
+end 'Database'
+
+function storeAndCheck(db Database, key String, data ByteArray)
+	if db.sourceFiles.contains(key) 'exists'
+		let existingCount = db.sourceFiles.count()
+		print("existing: {existingCount}\n")
+	end 'exists' else 'newFile'
+		print("new\n")
+	end 'newFile'
+	print("{data.count()}\n")
+end 'storeAndCheck'
+
+function main() returns ExitCode
+	let arr = ByteArray.create(0)
+	arr.push(1)
+	arr.push(2)
+	arr.push(3)
+	let db = Database.create(EntryMap.create(), sourcePaths: StringArray.create(0))
+	storeAndCheck(db, key: "hello", data: arr)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+new
+3
+```
+
+<!-- test: multi-file-struct-param-after-global-branch -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+Multi-file version: accessing struct fields inside an untaken if branch must not corrupt function parameters across file boundaries. The exported aliases use names that don't clash with stdlib (which itself exports `ByteArray` from `stdlib/File.maxon`) — bare cross-file references to a name with multiple visible declarations would otherwise raise E3063.
+```maxon
+// --- file: api/0-Types.maxon
+export typealias EntryBytes = Array with Byte
+
+public typealias EntryCount = int(0 to u64.max)
+
+public type Entry
+	export var data as EntryBytes
+	export var tag as EntryCount
+end 'Entry'
+
+export typealias EntryMap = Map with (String, Entry)
+
+export typealias EntryPaths = Array with String
+
+export type Database
+	export var sourceFiles as EntryMap
+	export var sourcePaths as EntryPaths
+
+	export static function create(sourceFiles EntryMap, sourcePaths EntryPaths) returns Self
+		return Self{sourceFiles: sourceFiles, sourcePaths: sourcePaths}
+	end 'create'
+end 'Database'
+
+// --- file: app/1-Logic.maxon
+export function storeAndCheck(db Database, key String, data EntryBytes)
+	if db.sourceFiles.contains(key) 'exists'
+		let existingCount = db.sourceFiles.count()
+		print("existing: {existingCount}\n")
+	end 'exists' else 'newFile'
+		print("new\n")
+	end 'newFile'
+	print("{data.count()}\n")
+end 'storeAndCheck'
+
+// --- file: bin/main.maxon
+function main() returns ExitCode
+	let arr = EntryBytes.create(0)
+	arr.push(1)
+	arr.push(2)
+	arr.push(3)
+	let db = Database.create(EntryMap.create(), sourcePaths: EntryPaths.create(0))
+	storeAndCheck(db, key: "hello", data: arr)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+new
+3
+```

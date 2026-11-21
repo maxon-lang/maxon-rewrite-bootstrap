@@ -1,0 +1,660 @@
+---
+feature: character-set
+status: experimental
+keywords: [character-set, set, trim, unicode, general-category, ownership]
+category: types
+---
+
+# CharacterSet and Character-keyed Sets — the shapes the trim and Unicode specs do not reach
+
+## Documentation
+
+`specs/string-trim.md`, `specs/unicode-category.md` and `specs/unicode-escape.md` are the acceptance
+test for `CharacterSet`. This file is **not** a second copy of them: every case below exists because
+**breaking the guard it covers turns ZERO or ONE of those tests red**, which is a coverage hole rather than
+a passing grade.
+
+Each case names the sabotage it catches.
+
+⚠ **THE TWO UCD SABOTAGES ARE PERFORMED IN THE ONE IMPLEMENTATION OF THE LOOKUP,**
+`stdlib/helpers/string/unicodeCategory.maxon:53-75`, reached through the two raw table loads
+(`__ucd_bmp_at`/`__ucd_supp_at`). Their red counts below were not taken at that site.
+
+| Sabotage | Reds in those three specs alone | With this file | Covered by |
+|---|---|---|---|
+| `__str_trim`'s all-matched arm reopened to the byte length | 2 — both `trim()` | 4 | `trim-start-all-match`, `trim-end-all-match` |
+| a `Set` key argument NOT adopting the set's key type | **0** | 2 | `character-key-insert-contains`, `character-key-remove` |
+| `Character` withdrawn from the `Set` key-type gate | **0** | 3 | `character-set-create` (+ the two above) |
+| the supplementary-plane binary search removed | **0** | 2 | `supplementary-plane-category`, `supplementary-plane-trim` |
+| a bare-local member set not CO-OWNED when `from` consumes it | **0** | 2 | `member-set-co-owned-by-from`, `one-member-set-fills-two-character-sets` |
+| `availableUnicodeEscapeText`'s UNTRUNCATED window (`available = whole`) | **0** | 1 | `malformed-escape-full-window` |
+| the `Cn` fall-out for a codepoint in NO supplementary range reading any other category | **0** | 1 | `supplementary-plane-table-bounds` |
+| `CharSet`/`CharacterSet` withdrawn from `isCompilerOwnedTypeName` | **0** | 2 | `charset-alias-is-compiler-owned`, `characterset-name-is-compiler-owned` |
+
+Two sabotages those three specs already cover well, recorded so the next reader does not re-run them:
+a member set never enrolled as an owned temporary is **31** red, and explicit membership never winning
+over the category mask is **3** red (`trim-tabs-and-newlines`, `trim-mixed-whitespace`,
+`unicode-category/custom-set-unchanged` — exactly the seeds no category bit covers).
+
+## Tests
+
+<!-- test: trim-start-all-match -->
+### trimStart on a string that is entirely trimmable
+`string-trim/trim-all-whitespace` pins `trim()` on an all-whitespace string, and nothing pins the
+one-ended forms — but the all-matched path CANNOT consult the end flags (with
+`keptStart`/`keptEnd` collapsed to 0, an untrimmed END would reopen the range to the whole string), so
+that arm is exactly what these two pin.
+```maxon
+function main() returns ExitCode
+	let s = "   "
+	let r = s.trimStart()
+	print("[{r}]")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[]
+```
+
+<!-- test: trim-end-all-match -->
+### trimEnd on a string that is entirely trimmable
+```maxon
+function main() returns ExitCode
+	let s = "\t\n\r"
+	let r = s.trimEnd()
+	print("[{r}]")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[]
+```
+
+<!-- test: character-set-create -->
+### A Character-keyed Set is constructible
+`CharSet` is the builtin alias for `Set with Character` — `stdlib/CharacterSet.maxon`'s
+`typealias CharSet = Set with Character`. A member set reached only through `CharSet from [...]` never
+consults the key-type gate at all.
+```maxon
+function main() returns ExitCode
+	let cs = CharSet.create()
+	print("{cs.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0
+```
+
+<!-- test: character-key-insert-contains -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A single-byte character literal is a Character key, not an int
+the compiler types a character literal by its byte WIDTH, so `'x'` is an `int` unless the position expects a
+`Character`. Every `insert`/`contains`/`remove` on a `Set with Character` therefore has to make the
+literal adopt the key type, and this is the case that exercises that door.
+```maxon
+function main() returns ExitCode
+	let cs = CharSet.create()
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('x')
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('é')
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('中')
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('x')
+	print("{cs.count()}\n")
+	print("{cs.contains('x')}\n")
+	print("{cs.contains('é')}\n")
+	print("{cs.contains('y')}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+true
+true
+false
+```
+
+<!-- test: character-key-remove -->
+<!-- skip: character literals are not supported in minimaxon -->
+### Removing a Character key drops it exactly once
+```maxon
+function main() returns ExitCode
+	let cs = CharSet.create()
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('a')
+	// TODO: character literals are not supported in minimaxon
+	cs.insert('🎉')
+	print("{cs.remove('a')}\n")
+	print("{cs.remove('a')}\n")
+	print("{cs.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+false
+1
+```
+
+<!-- test: supplementary-plane-category -->
+<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+### A codepoint above the BMP is classified through the sorted range table
+The BMP table is indexed directly; everything above U+FFFF takes a binary search. No other case
+distinguishes the two — `string-trim/trim-end-emoji` only needs an emoji NOT to be whitespace, which a
+search that always answered `Cn` would also give.
+```maxon
+function main() returns ExitCode
+	let syms = CharacterSet.symbols
+	let letters = CharacterSet.letters
+	print("{syms.contains('🎉')}\n")
+	print("{letters.contains('🎉')}\n")
+	print("{letters.contains('𝐀')}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+false
+true
+```
+
+<!-- test: supplementary-plane-trim -->
+### A trim driven by a supplementary-plane category
+The direct `contains` above and this reach the sorted table by different routes — one from the parser's
+own `__cs_contains` call, one from inside the trim's cluster walk — so a search broken in either
+direction is caught twice rather than once.
+```maxon
+function main() returns ExitCode
+	let s = "🎉🎉ok🎉"
+	let r = s.trim(CharacterSet.symbols)
+	print("[{r}]")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[ok]
+```
+
+<!-- test: supplementary-plane-table-bounds -->
+<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+### The sorted table's TOP, and the `Cn` a codepoint in no range falls out to
+`supplementary-plane-category` finds both its codepoints in the table's MIDDLE, so nothing above
+reaches the last entry and nothing at all reaches the fall-out — a lookup that answered any
+other category for an unmatched supplementary codepoint reddens no other case in the suite (the
+implementation is `stdlib/helpers/string/unicodeCategory.maxon:53-75`). The three here are, in order: inside the highest range
+any preset's mask covers (U+E0100, `Mn`, entry 803 of 806); one byte past that range's end, so the search
+falls out between two entries; and above EVERY range (U+10FFFF), which is the only input that drives `lo` to
+the table's last index and is therefore what an off-by-one in the search's initial high bound would read past.
+```maxon
+function main() returns ExitCode
+	let letters = CharacterSet.letters
+	print("{letters.contains('󠄀')}\n")
+	print("{letters.contains('󠇰')}\n")
+	print("{letters.contains('􏿿')}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+false
+false
+```
+
+<!-- test: member-set-co-owned-by-from -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+### `CharacterSet.from` CO-OWNS its member set
+`from` consumes its argument, and a consuming position is a DURABLE SINK: the set takes its own reference
+to the member box rather than stealing the caller's. `members` therefore stays readable and
+releases its own reference at scope exit, so the box is freed once — exactly the two references, exactly
+two drops.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let members = CharSet from ['x']
+	let adopted = CharacterSet.from(members)
+	print("{members.count()}")
+	_ = adopted
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: one-member-set-fills-two-character-sets -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+### One member set can fill two CharacterSets
+The refcount consequence of the case above, and the reason it is not merely a relaxation: EACH `from`
+takes its own reference, so the box ends at three (two sets plus `members`) and is released three times.
+A move rule — one transferred `+1` — would make the second `from` E3102, because a single reference cannot
+answer for two owners.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let members = CharSet from ['x']
+	let first = CharacterSet.from(members)
+	let second = CharacterSet.from(members)
+	print("{first.contains('x')}{second.contains('x')}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+truetrue
+```
+
+<!-- test: member-set-dropped-unused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A member set that never reaches a box is still dropped
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let orphan = CharSet from ['q', 'r']
+	print("{orphan.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+```
+
+<!-- test: character-set-dropped-unused -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A CharacterSet whose value is never inspected is still dropped
+Both the box and the member set it owns; a leak here exits 101.
+
+⚠ **THE ACCESSORS ARE PURE, SO THEIR RESULTS MUST BE BOUND** (E3064). A preset is built before `main`
+and an accessor only reads the settled slot, so discarding one is code that cannot do anything — the
+compiler is right to refuse it. Binding without inspecting is what this case needs, and it is enough:
+the drop obligation is the binding's, not the reader's.
+```maxon
+function main() returns ExitCode
+	let punctuation = CharacterSet.punctuation
+	let blanks = CharacterSet.whitespacesAndNewlines
+	// TODO: character literals are not supported in minimaxon
+	print("ok" if punctuation.contains('!') and blanks.contains('	') else "no")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok
+```
+
+<!-- test: trim-result-discarded -->
+### A discarded trim result is dropped at statement end
+```maxon
+function main() returns ExitCode
+	let s = "  hi  "
+	_ = s.trim()
+	print("ok")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ok
+```
+
+<!-- test: trim-in-a-loop -->
+### A trim in a loop mints and drops a set and a Character per trip
+Fifty trips, each building a fresh `CharacterSet` of seven members and minting one `Character` per
+grapheme scanned. Anything held past its trip shows up as a leak.
+```maxon
+function main() returns ExitCode
+	var i = 0 as Count
+	var total = 0 as Count
+	while i < 50 'loop'
+		let padded = "  x  "
+		let t = padded.trim()
+		total = total + t.byteLength()
+		i = i + 1
+	end 'loop'
+	print("{total}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+50
+```
+
+<!-- test: one-set-two-trims -->
+### One CharacterSet serves two trims
+The set is BORROWED by the scan, so trimming twice against one set neither frees it early nor twice.
+```maxon
+function main() returns ExitCode
+	let d = CharacterSet.decimalDigits
+	let mixed = "12a34"
+	let head = mixed.trimStart(d)
+	let tail = mixed.trimEnd(d)
+	print("[{head}][{tail}]")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[a34][12a]
+```
+
+<!-- test: trim-crlf-is-one-cluster -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+### CR+LF is ONE grapheme, so a set holding CR but not LF trims neither
+UAX#29 GB3 joins CR+LF into a single cluster, which is why the trim walks clusters rather than bytes:
+the cluster `"\r\n"` is not a member of a set seeded with a bare CR, so nothing is cut.
+```maxon
+function main() returns ExitCode
+	let s = "\r\nx\r\n"
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let cr = CharacterSet.from(CharSet from ['\r'])
+	let r = s.trim(cr)
+	print("{r.byteLength()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+5
+```
+
+<!-- test: malformed-unicode-escape-in-a-string -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
+### A malformed `\uNNNN` in a string is blamed at the escape
+`unicode-escape.invalid-too-few-digits` puts its escape at offset 0 of a character literal,
+so it cannot tell a column that tracks the escape from one that always names the opening quote.
+```maxon
+function main() returns ExitCode
+	let x = "ab\uZZ"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: <fragment>:3:12: Invalid unicode escape '\uZZ': expected 4 hex digits in string interpolation
+```
+
+<!-- test: malformed-escape-full-window -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
+### A malformed `\uNNNN` quotes SIX bytes when six are there
+`availableUnicodeEscapeText` has two arms — the escape runs off the end of the literal body, or it does
+not — and every other malformed-escape case in the corpus takes the TRUNCATED one (`'\u00'` and
+`"ab\uZZ"` each have fewer than six bytes left at the backslash), so the arm that quotes the full
+`\u` + four is unreached. Sabotaging it alone (`available = whole` ⇒ `available = 0`) left the whole
+suite at 2230/0. Here the escape has a byte after it, so the window is complete and the truncation
+never fires.
+```maxon
+function main() returns ExitCode
+	let x = "z\uZZZZ!"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E1004: <fragment>:3:11: Invalid unicode escape '\uZZZZ': expected 4 hex digits in string interpolation
+```
+
+<!-- test: charset-alias-is-compiler-owned -->
+### A user declaration of `CharSet` is refused AT THE DECLARATION
+`CharSet` and `CharacterSet` are user-visible compiler-owned type names. `stdlib/CharacterSet.maxon`'s
+`typealias CharSet = Set with Character` fills the `CharSet` entry of the SAME `genericAliases` map a user
+`typealias` folds into, and a map entry is OVERWRITTEN rather than contested — so without `CharSet` in
+`TypeResolution.isCompilerOwnedTypeName`, a user declaration of the name would not be refused, it would be
+silently taken, and the author blamed at the first USE of the name the compiler had taken:
+*"`Set with Character` requires a Character key — got a 'String' value"*, reported on line 5 for a
+declaration written on line 1. The rule the author broke is stated on line 1.
+```maxon
+typealias CharSet = Set with String
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:2:11: Unsupported: a declaration of the type name 'CharSet', which the compiler owns — its one meaning comes from the compiler itself or from the stdlib module that declares it, and the compiler has no namespace to tell a user declaration of the name apart from that one
+```
+
+<!-- test: characterset-name-is-compiler-owned -->
+<!-- positions: moved -->
+### And so is one of `CharacterSet`, through the SAME derivation
+The two names are not two checks: both are rows of `isCompilerOwnedTypeName`, which
+`requireTypeNameNotCompilerOwned` asks at the four declaration forms that mint a nominal identity
+(`type`, `enum`/`union`, a function typealias, a generic-instance typealias). Withdrawing the two rows
+turns exactly these two cases red, which is what says they share one derivation rather than agreeing by
+coincidence. A RANGED `typealias CharSet = int(0 to 5)` stays legal, as it does for `Ordering` and
+`ExitCode` — it mints no identity, and a ranged reference and a `CharSet from […]` read different
+registries.
+```maxon
+type CharacterSet
+	export var x as Integer
+end 'CharacterSet'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E2015: <fragment>:2:6: Unsupported: a declaration of the type name 'CharacterSet', which the compiler owns — its one meaning comes from the compiler itself or from the stdlib module that declares it, and the compiler has no namespace to tell a user declaration of the name apart from that one
+```
+
+### A `CharacterSet` an aggregate OWNS is dropped by that aggregate's cascade
+
+<!-- test: characterset-at-a-struct-field -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+### A `CharacterSet` at a struct field
+
+⭐⭐ **WHAT A DESTRUCTOR CASCADE CALLS IS INVISIBLE TO THE MODULE SCAN.** `scanRuntimeUsage` walks the Maxon
+module and turns on a runtime bit per callee it SEES; a `__destruct_<T>` body is synthesized later, so every
+callee inside one has to be DECLARED instead (`MmRuntime.declareDestructorCascadeNeeds`).
+
+⚠ **THE CLASS THIS CASE WITNESSES IS A PER-TYPE INSTALL BIT FOR A DROP.** A managed type whose drop has
+its own install bit, rather than riding a family bit its own construction already turns on, links a value
+reached ONLY through a cascade against a decref nothing installed — a backend panic
+(`resolveCallFixups: call to unknown function`) on a program with no diagnostic to its name. `CharacterSet`
+is declared by `stdlib/CharacterSet.maxon` and its drop here is an ordinary synthesized cascade. **The case
+earns its place: it is the struct-field shape the class needs a witness at, and the next per-type install
+bit reopens it.**
+(The source-side statement of the same fact lives at `MmRuntime.noteDestructorUsage`'s header.)
+```maxon
+type Trimmer
+	// TODO: region capability 'immutable' is not supported in minimaxon
+	var chars as immutable CharacterSet
+
+	// TODO: parameter capability 'immutable' is not supported in minimaxon
+	static function init(cs immutable CharacterSet) returns Self
+		return Self{chars: cs}
+	end 'init'
+end 'Trimmer'
+
+function main() returns ExitCode
+	let trimmer = Trimmer.init(CharacterSet.whitespaces)
+	_ = trimmer
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: characterset-at-a-union-payload -->
+<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
+### A `CharacterSet` at a union payload
+
+The union arm of the same declaration. Both arms read the drop CALLEE the cascade will emit and route it
+through the one callee-to-bit map, so neither can answer for a type the other knows about. An arm asking a
+question about `String` and about nothing else would give a payload of any other managed type no bit at
+all.
+```maxon
+union Slot
+	empty
+	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
+	filled(chars immutable CharacterSet)
+end 'Slot'
+
+function main() returns ExitCode
+	let s = Slot.filled(CharacterSet.whitespaces)
+	print("{s}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+filled
+
+```
+
+<!-- test: characterset-at-a-generic-instance-field -->
+<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+### A `CharacterSet` substituted into a generic instance's field
+
+The third arm, and the one that shows the three were one defect rather than three: an instance's cascade is
+synthesized by the same machinery and its needs were declared from `genericInstanceHasStringField`, the
+`String`-only question again.
+```maxon
+typealias Tally = int(0 to 100)
+
+type Box uses T
+	var v as T
+
+	// The instance is DISCARDED below, which is what runs the cascade — so the factory must have an effect
+	// or the discard is E3064 (`discarded-results.md`).
+	static function init(x T, mutates inits Tally) returns Self
+		inits = inits + 1
+		return Self{v: x}
+	end 'init'
+end 'Box'
+
+// TODO: type argument capability 'immutable' is not supported in minimaxon
+typealias CharacterSetBox = Box with immutable CharacterSet
+
+function main() returns ExitCode
+	var inits = 0 as Tally
+	_ = CharacterSetBox.init(CharacterSet.whitespaces, inits: inits)
+	return inits - 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.characterset-undeclared-static-at-a-top-level-initializer -->
+### Error: an undeclared `CharacterSet` static at a TOP-LEVEL initializer
+
+⭐ **THE TOP-LEVEL DOOR MUST NOT KEEP A ROSTER OF ITS OWN.** `stdlib/CharacterSet.maxon` declares the
+presets, and a top-level initializer resolves `CharacterSet.<name>(` through those declarations as a body
+does. A top-level arm that claimed `CharacterSet.<name>(` ahead of them would be a second transcription of
+that module, and its
+refusal would assert *"a global `CharacterSet` is one of the eleven predefined sets, whose members the
+compiler holds as data"* — a false claim, and a more confident sentence than the true one the same name gets
+inside a function.
+
+⇒ what a stdlib-declared type's undeclared static earns here is the sentence EVERY declared type's
+undeclared static earns, in the same code and words a read of it gets (E2073). Add such an arm and this case reads the roster claim instead.
+```maxon
+let bogus = CharacterSet.inverted()
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2073: <fragment>:2:26: 'CharacterSet' has no static method named 'inverted' — the compiler owns that type name, so a static of its own can only come from the module that declares it or from an `extension` of it, and no declaration of that name exists
+```
+
+<!-- test: characterset-from-in-a-body -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+### `CharacterSet.from` — a KEYWORD-named static — in a body
+After a `.`, a keyword is a name, so `CharacterSet.from` is an ordinary static call wherever an expression stands.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let custom = CharacterSet.from(CharSet from ['a', 'e'])
+	let r = "aaxyzee".trim(custom)
+	print("{r}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+xyz
+```
+
+<!-- test: error.characterset-from-at-a-top-level-initializer-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### Error: `CharacterSet.from` at a TOP-LEVEL initializer
+A top-level initializer calls nothing, and `CharacterSet.from` is a call.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: character literals are not supported in minimaxon
+let custom = CharacterSet.from(CharSet from ['a', 'e'])
+
+function main() returns ExitCode
+	let r = "aaxyzee".trim(custom)
+	print("{r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3220: <fragment>:2:14: the initializer of 'custom' calls 'CharacterSet.from': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+```

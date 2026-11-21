@@ -1,0 +1,4681 @@
+---
+feature: where-clauses
+status: stable
+keywords: [where, constraints, type-parameters, generics, interfaces, witness]
+category: type-system
+---
+
+# Where Clauses
+
+## Documentation
+
+A `where` clause constrains a generic type parameter to require interface conformance:
+`type Box uses T where T is Digest`. Inside the shared generic body the concrete type is unknown, so a
+method call on the constrained parameter (`self.item.digest()`) dispatches through a runtime WITNESS TABLE
+(dictionary-passing) rather than a direct call. At each instantiation (`typealias PointBox = Box with Point`)
+the compiler checks that the concrete argument conforms to the constrained interface, reporting E3017 if not.
+
+Multiple interfaces on one parameter chain with `and` (`where T is Digest and Tagged`); multiple constrained
+parameters separate with `,` (`where T is Digest, U is Tagged`).
+
+A witness dispatch's ARGUMENTS obey the same `name:` label grammar and the same label→position slotting as
+any other call (see `parameter-labels.md`), with one documented exemption: because the receiver is an
+interface / type-parameter value rather than a concrete struct, the FIRST argument's label is optional
+whether or not its parameter has a default (`self.item.add(1, b: 2)` and `self.item.add(a: 1, b: 2)` are both legal), while arguments 2 and later must
+still carry one. The labels bind against the INTERFACE's declared parameter names, not the conformer's:
+under dictionary-passing the shared body has no concrete callee to ask, and conformance compares arity and
+types only — several conformers may spell their parameters differently, so the interface's names are the
+only authoritative vocabulary.
+
+## Tests
+
+<!-- test: where-clauses.witness-user-dispatch -->
+Dispatch a USER interface method through the witness of a constrained type parameter — the concrete type is
+unknown in `Box.itemDigest`'s shared body, so `self.item.digest()` goes through the `(Point, Digest)` witness.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x * 31 + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(3, y: 4)
+	let b = PointBox.create(p)
+	if b.itemDigest() == 97 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-dispatch-in-loop -->
+The same witness dispatch driven in a loop — the fused witness call and its element borrow must be leak-free
+across iterations.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(2, y: 3)
+	let b = PointBox.create(p)
+	var total = b.itemDigest()
+	var i = 0 as FullRangeInt
+	while i < 10 'loop'
+		total = b.itemDigest()
+		i = i + 1
+	end 'loop'
+	if total == 5 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.two-constraints -->
+Two constraints on one parameter (`where T is Digest and Tagged`) reserve two witness slots; a dispatch of
+each interface's method reads its own slot.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+interface Tagged
+	function tag() returns Code
+end 'Tagged'
+
+type Point implements Digest, Tagged
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x + self.y
+	end 'digest'
+
+	function tag() returns Code
+		return self.x * self.y
+	end 'tag'
+end 'Point'
+
+type Box uses T where T implements Digest and Tagged
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function combined() returns Code
+		return self.item.digest() + self.item.tag()
+	end 'combined'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(3, y: 4)
+	let b = PointBox.create(p)
+	if b.combined() == 19 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.forward-through-sibling -->
+A generic method that dispatches on `T` reached through a sibling self-call — the caller forwards its own
+witness slot to the sibling (no reload), so both drive the same witness.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function inner() returns Code
+		return self.item.digest()
+	end 'inner'
+
+	function outer() returns Code
+		return self.inner()
+	end 'outer'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(3, y: 4)
+	let b = PointBox.create(p)
+	if b.outer() == 7 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-temporary-arg -->
+The element passed to the container is a TEMPORARY (an rvalue constructor result, not a named binding).
+Its borrow escapes into the container's field, so it is RETAINED (co-owned) at the constructor feed — the
+box holds a real second reference that outlives the temporary's statement, the later witness dispatch reads
+a live element, and the element is freed exactly once: the box's destructor decrefs its co-owned reference,
+then the temporary's own drop releases the last one.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Point implements Digest
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x * 31 + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(3, y: 4))
+	if b.itemDigest() == 97 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.int-actual-for-float-formal -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+An INTEGRAL actual supplied for a `float` interface FORMAL is widened at the witness dispatch, exactly as a
+direct call's argument is (`LowerMaxonToStd.widenIntArgsToFloatParams`). A witness dispatch has no callee
+signature to look the parameter up in, and unwidened, the fused `witnessCall`'s `argFloatMask` — read off
+the already-typed argument VALUES — would declare the argument a GPR/i64 against an impl declaring XMM/f64:
+**x64 would compile clean and answer WRONG** (`movRegImm32 rdx, 2` ahead of `callMem [rbx + 24]`, so
+`k * 2.0` multiplies whatever is left in xmm0) and **wasm would trap `indirect call type mismatch`**. `scale(2)` must therefore read `4.0`, and the second dispatch pins that a genuine `float`
+actual is still passed through untouched (`promoteToFloat` is idempotent).
+```maxon
+typealias Coord = int(0 to 1000)
+
+interface Scaled
+	function scale(k Real) returns Real
+end 'Scaled'
+
+type Point implements Scaled
+	export var x as Coord
+
+	static function create(x Coord) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function scale(k Real) returns Real
+		// TODO: float literals are not supported in minimaxon
+		return k * 2.0
+	end 'scale'
+end 'Point'
+
+type Box uses T where T implements Scaled
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function fromInt() returns Real
+		return self.item.scale(2)
+	end 'fromInt'
+
+	function fromFloat() returns Real
+		// TODO: float literals are not supported in minimaxon
+		return self.item.scale(1.5)
+	end 'fromFloat'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	// TODO: float literals are not supported in minimaxon
+	if b.fromInt() == 4.0 and b.fromFloat() == 3.0 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.float-formal-among-int-formals -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+The formal→actual MAPPING under the widening above, which a one-off would silently break: the receiver is
+`args[0]` and interface formal `j` is `args[j+1]`, so in `combine(a int, k float, b int)` exactly the MIDDLE
+actual is widened and its two integral neighbours are passed through. Widening the wrong position puts a
+double where the impl declares an `int` (and leaves the `int` where it declares a double), which is a wrong
+answer on x64 and an `indirect call type mismatch` on wasm — neither of which a single-float-formal test can
+see. `1 + 3 + 5` reads `9.0`.
+```maxon
+typealias Coord = int(0 to 1000)
+
+interface Mixed
+	function combine(a Integer, k Real, b Integer) returns Real
+end 'Mixed'
+
+type Point implements Mixed
+	export var x as Coord
+
+	static function create(x Coord) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function combine(a Integer, k Real, b Integer) returns Real
+		return k + (a + b) as Real
+	end 'combine'
+end 'Point'
+
+type Box uses T where T implements Mixed
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Real
+		return self.item.combine(1, k: 3, b: 5)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	// TODO: float literals are not supported in minimaxon
+	if b.go() == 9.0 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Real = float(f64.min to f64.max)
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-multi-arg-labelled -->
+The headline unlock: a witness dispatch of a TWO-parameter interface method, spelled the way every other
+Maxon call is spelled — first argument positional, second labelled. The dispatch parses its argument list
+with the label grammar, so `b: 2` is a label and not an expression (which would report `E2004: Undefined
+variable 'b'`). `7 + 1 + 2` reads 10.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1, b: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-multi-arg-out-of-order -->
+Labels REORDER the arguments against the interface's declaration, exactly as they do at a direct call:
+`combine(1, b: 5, k: 3)` must bind `k = 3` and `b = 5` even though `b` appears first in source.
+`1*100 + 3*10 + 5` reads 135, and every wrong slotting reads something else (source order would give 153).
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Mixer
+	function combine(a Code, k Code, b Code) returns Code
+end 'Mixer'
+
+type Point implements Mixer
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function combine(a Code, k Code, b Code) returns Code
+		return self.x + a * 100 + k * 10 + b
+	end 'combine'
+end 'Point'
+
+type Box uses T where T implements Mixer
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.combine(1, b: 5, k: 3)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let bx = PointBox.create(Point.create(0))
+	if bx.go() == 135 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-multi-arg-first-arg-labelled -->
+A LABELLED FIRST ARGUMENT is accepted at an interface / type-parameter receiver — the one documented
+exemption from the rule `parameter-labels.md` states, because the receiver's concrete type is unknown in the
+shared body and the label binds against the interface. A concrete-struct receiver rejects it with E2052
+when the parameter has no default (`parameter-labels.md`'s `error-method-first-arg-named`). Same call, same
+answer as `witness-multi-arg-labelled`: 10.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(a: 1, b: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-multi-arg-ranged-return -->
+Regression pin for the under-supplied garbage-read, in the shape that makes it LOUD rather than silent.
+With a NARROW ranged return (`int(0 to 1000)`), an under-supplied `self.item.add(1)` would leave its
+missing second actual in an uninitialised register, so `7 + 1 + <garbage>` would leave the alias's range
+and the program would die in the impl with `panic: Range check failed`. The labelled call is exact by construction: `7 + 1 + 2` reads 10, in range.
+```maxon
+typealias Small = int(0 to 1000)
+
+interface Adder
+	function add(a Small, b Small) returns Small
+end 'Adder'
+
+type Point implements Adder
+	export var x as Small
+
+	static function create(x Small) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Small, b Small) returns Small
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.add(1, b: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.witness-exitcode-return-high -->
+<!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
+⚠ **THIS CASE RUNS ON WINDOWS ONLY, WHICH LOSES THE ONE LANE ITS DEFECT LIVES ON (wasm).**
+`return 4000000000` is E3005 on every other target — `ExitCode` is `int(0 to 255)` there — so those lanes
+cannot express this program, which is what the `unsupported-targets:` restriction says. It cannot be re-pinned on
+wasm through any other type, and the reason it cannot (plus the array-element route that looks like a
+substitute and measurably is not) is stated once, in `exit-code-range.md`'s *"What the narrowing costs
+the other lanes"*.
+
+⭐⭐ **AN `ExitCode` RETURNED THROUGH A WITNESS, ABOVE 2^31.** `ExitCode` is the only builtin
+type NAME whose tag carries a sub-64 width — a **u32** (`valueTagToStdType`) — and an interface stores its
+method return type as a rendered source STRING, so a witness dispatch RE-DERIVES that width from the name.
+`where-clauses.witness-multi-arg-ranged-return` above already pins that a compiler-owned name survives the
+round trip; what it cannot pin is the VALUE, because every case in this file returns a small number, and a
+small number is the same under either extension rule.
+
+On wasm the recovered u32 lives in an `i32` and must be widened back to the `i64` world every Maxon value
+inhabits. Widened with `i64.extend_i32_s`, reading a u32's top bit as a sign, wasm prints **-294967296**
+where the host prints `4000000000`. That is silent on every register target, where the value never leaves
+its 64-bit GPR, which is why it needs a case that reads the number back rather than returning it as a
+process status (the OS truncates an exit code, so `exitcode` alone could never catch this).
+```maxon
+typealias Num = int(0 to 10)
+
+interface Coded
+	function code() returns ExitCode
+end 'Coded'
+
+type Widget implements Coded
+	export var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function code() returns ExitCode
+		return 4000000000
+	end 'code'
+end 'Widget'
+
+type Box uses T where T implements Coded
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function show() returns ExitCode
+		let v = self.item.code()
+		print("witness={v}\n")
+		return 0
+	end 'show'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	let b = WidgetBox.create(Widget.create(1))
+	return b.show()
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+witness=4000000000
+```
+
+<!-- test: where-clauses.error.instantiate-nonconforming -->
+<!-- positions: moved -->
+A concrete argument that does not implement the constrained interface is rejected at the instantiation (E3017).
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+type Plain
+	export var v as Code
+
+	static function create(v Code) returns Self
+		return Self{v: v}
+	end 'create'
+end 'Plain'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+typealias PlainBox = Box with Plain
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:22:11: Type 'Plain' does not satisfy constraint 'Digest' required by type parameter 'T' of 'Box'
+```
+
+<!-- test: error.a-where-constraint-is-checked-at-an-INFERRED-instantiation -->
+<!-- positions: moved -->
+⭐⭐ **AN INSTANTIATION NEED NOT BE SPELLED, AND THE ONE THAT IS NOT IS CHECKED TOO.**
+`checkWhereConstraints` walks the instantiation SITES a program records, and a `typealias` is only one of
+the provenances that mints one — a bare generic factory binding `T` from its own argument mints another.
+An instance with no recorded site would be invisible to this check, and the consequence would not be a
+missed diagnostic but a COMPILER PANIC two tiers down: *"witnessSlotImpl: no conformance selected a member
+for slot 'int.Sized.size' — this table is being built for a conformance that was never validated"*. The
+same program spelled `typealias IntBox = Box with Whole` is refused the same way, which is what makes
+this case about the PROVENANCE and not about the rule.
+```maxon
+typealias Whole = int(i64.min to i64.max)
+
+interface Sized
+	function size() returns Whole
+end 'Sized'
+
+type Box uses T where T implements Sized
+	export var item as T
+
+	static function create(v T) returns Self
+		return Self{item: v}
+	end 'create'
+
+	function measure() returns Whole
+		return self.item.size()
+	end 'measure'
+end 'Box'
+
+function main() returns ExitCode
+	let b = Box.create(5 as Whole)
+	return b.measure() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:21:14: Type 'Whole' does not satisfy constraint 'Sized' required by type parameter 'T' of 'Box'
+```
+
+<!-- test: where-clauses.error.witness-arg-missing-label -->
+<!-- positions: moved -->
+The label grammar is the SAME rule at a witness dispatch as anywhere else: arguments 2 and later must carry
+a `name:` label. `parseWitnessMethodOnValue` parses its arguments through the label rule rather than a bare
+comma loop that would silently accept this call. E2053 is raised by `consumeArgLabel` — the one copy
+of the syntactic rule — and anchored on the offending argument, exactly as a direct call's is.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1, 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E2053: <fragment>:24:27: the second and later arguments must be named ('name: value')
+```
+
+<!-- test: where-clauses.error.witness-too-few-args -->
+<!-- positions: moved -->
+An UNDER-SUPPLIED witness dispatch is E3036, from the same `slotCallArgs` a direct call is checked by.
+Without an arity check the missing actual would leave an uninitialised register in the argument slot and
+the call would return it, so the program would compile clean and exit on garbage.
+The arity error anchors on the call itself (the method name), matching `SemanticCheck.validateCall`.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3036: <fragment>:24:20: 'Adder.add' expects 2 argument(s) but 1 were provided
+```
+
+<!-- test: where-clauses.error.witness-too-many-args -->
+<!-- positions: moved -->
+The other direction of the same check: one declared formal, two actuals. Arity is tested BEFORE any label is
+resolved (`slotCallArgs`'s first act), so the surplus argument is reported as an arity error and not as an
+unknown label — the same order a direct call is checked in.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code) returns Code
+		return self.x + a
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1, b: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3036: <fragment>:24:20: 'Adder.add' expects 1 argument(s) but 2 were provided
+```
+
+<!-- test: where-clauses.error.witness-unknown-label -->
+<!-- positions: moved -->
+A label naming no parameter of the INTERFACE method is E3037. The vocabulary is the interface's, not the
+conformer's — under dictionary-passing the shared body has no concrete callee to ask, and conformance
+compares arity and types only, so several conformers may spell their parameters differently.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1, zzz: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3037: <fragment>:24:27: 'Adder.add' has no parameter named 'zzz'
+```
+
+<!-- test: where-clauses.error.witness-duplicate-label -->
+<!-- positions: moved -->
+Two actuals targeting ONE formal is E3038: the positional first argument fills parameter `a`, and the label
+`a:` names the position it already holds. Arity matches, so only the slotting can see it.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Adder
+	function add(a Code, b Code) returns Code
+end 'Adder'
+
+type Point implements Adder
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function add(a Code, b Code) returns Code
+		return self.x + a + b
+	end 'add'
+end 'Point'
+
+type Box uses T where T implements Adder
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.add(1, a: 2)
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(7))
+	if b.go() == 10 'ok'
+		return 0
+	end 'ok'
+	return 1
+end 'main'
+```
+```maxoncstderr
+error E3038: <fragment>:24:27: duplicate argument for parameter 'a' of 'Adder.add'
+```
+
+<!-- test: where-clauses.error.operator-witness-wrong-arity -->
+<!-- positions: moved -->
+A constraint whose method has the protocol's NAME and the protocol's RESULT but the wrong ARITY is not the
+protocol, and `==` may not dispatch it. An operator has exactly one operand to give, so the formal count is
+as much a part of "is this `Equatable`?" as the result type and the (absent) `throws` clause are —
+the third hole in the same wall, beside the `.method()` form's own arity check against the interface.
+⚠ **Unchecked, this program compiles CLEAN and the impl reads its unsupplied second `Self` formal out of
+an uninitialised argument register, dereferencing it** (exit 7 from `b.x == 3` on a formal that was never
+passed) — a silent wrong answer one page fault from a
+crash. It reports the same E3005 as no constraint at all, because the author's cure is the same sentence.
+Target-independent.
+```maxon
+typealias Integer = int(0 to u32.max)
+
+interface Weird
+	function equals(a Self, b Self) returns bool
+end 'Weird'
+
+type Thing implements Weird
+	export var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function equals(a Thing, b Thing) returns bool
+		return a.v == b.v
+	end 'equals'
+end 'Thing'
+
+type Pair uses T where T implements Weird
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function eq() returns bool
+		return self.a == self.b
+	end 'eq'
+end 'Pair'
+
+typealias ThingPair = Pair with Thing
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:17: Operator '==' requires type parameter 'T' to be constrained with 'where T is Equatable'
+```
+
+<!-- test: where-clauses.error.operator-witness-wrong-formal-type -->
+<!-- positions: moved -->
+A constraint whose method has the protocol's NAME, the protocol's RESULT and the protocol's ARITY but
+declares its formal as something other than `Self` is not the protocol either — the FOURTH hole in the same
+wall, and the twin of `operator-witness-wrong-arity` above. An operator's one operand is a value of `T`, so
+what the formal is TYPED is as much a part of "is this `Equatable`?" as how many there are.
+`requireGenuineSelfArgs` cannot cover it: it validates the actuals sitting at `Self` formals, and an
+interface like this one declares none. ⚠ **Unchecked, this program compiles CLEAN and `self.a == self.b`
+hands the RECEIVER'S `T` POINTER to a formal the impl reads as an `int`, so `equals` compares a pointer
+against `7` and answers `false` for two equal values** — a silent wrong answer. The `float` twin is worse (the
+witness float-widening `cvtsi2sd`s that pointer) and a `String` formal is an outright type confusion, an
+unmanaged struct pointer read through a managed header. Same E3005, because the author's cure is the same
+sentence. Target-independent.
+```maxon
+typealias Integer = int(0 to u32.max)
+
+interface WeirdEq
+	function equals(other Integer) returns bool
+end 'WeirdEq'
+
+type Thing implements WeirdEq
+	export var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function equals(other Integer) returns bool
+		return other == 7
+	end 'equals'
+end 'Thing'
+
+type Pair uses T where T implements WeirdEq
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function eq() returns bool
+		return self.a == self.b
+	end 'eq'
+end 'Pair'
+
+typealias ThingPair = Pair with Thing
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:17: Operator '==' requires type parameter 'T' to be constrained with 'where T is Equatable'
+```
+
+<!-- test: where-clauses.error.operator-witness-wrong-formal-type-comparable -->
+<!-- positions: moved -->
+The `Comparable` half of `operator-witness-wrong-formal-type`, so the check is pinned for BOTH protocols
+rather than only one — `<`/`>`/`<=`/`>=` read the same formals off the same
+synthesized interface, and a `compare` taking anything but `Self` is no more `Comparable` than a
+non-`Self` `equals` is `Equatable`. Target-independent.
+```maxon
+typealias Integer = int(0 to u32.max)
+
+interface WeirdOrd
+	function compare(other Integer) returns Ordering
+end 'WeirdOrd'
+
+type Thing implements WeirdOrd
+	export var v as Integer
+
+	static function create(v Integer) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function compare(other Integer) returns Ordering
+		return Ordering.lessThan
+	end 'compare'
+end 'Thing'
+
+type Pair uses T where T implements WeirdOrd
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function lt() returns bool
+		return self.a < self.b
+	end 'lt'
+end 'Pair'
+
+typealias ThingPair = Pair with Thing
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:25:17: Operator '<' requires type parameter 'T' to be constrained with 'where T is Comparable'
+```
+
+<!-- test: witness-mutation-of-let-argument-is-written -->
+⭐⭐ **THE WRITE REACHES THE GENERIC ROUTE THROUGH THE REQUIREMENT'S DECLARATION.**
+`Box.run(dest)` forwards `dest` into `self.item.grow(dest)`, which names no callee — the body is compiled ONCE
+against the opaque `T` and the jump goes through a witness table. What it DOES name is a REQUIREMENT, and
+`Grower.grow` declares its `dest` `mutable` (every conformer spells it the same), so `Box.run` writes its
+`dest`. A `let` forbids only reassigning `a`, and an array is written in place and never rebound, so
+`b.run(a)` over a `let`-bound array pushes into the array `a` names and the read finds `9`.
+
+⚠ **THE TWO NON-GENERIC SPELLINGS OF THE SAME PUSH ARE ACCEPTED TOO** —
+a free `grow(a)` and an interface-method `p.grow(a)` write the same array. This case is the third route to it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Grower
+	function grow(mutates dest IntArray)
+end 'Grower'
+
+type Pusher implements Grower
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function grow(mutates dest IntArray)
+		dest.push(9)
+	end 'grow'
+end 'Pusher'
+
+type Box uses T where T implements Grower
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run(dest IntArray)
+		self.item.grow(dest)
+	end 'run'
+end 'Box'
+
+typealias PusherBox = Box with Pusher
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	let b = PusherBox.create(Pusher.create(1))
+	b.run(a)
+	return try a.get(0) otherwise 55
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: witness-mutation-of-var-argument-allowed -->
+⭐ **THE TWIN OF THE CASE ABOVE, AND THE ONE THAT MATTERS: THE SAME PROGRAM WITH `var a`.**
+The write reaches the array the BINDING names, whatever the route — a refusal that fired on the dispatch rather than on the
+subject would take this program with it, and nothing else in this file would notice. Answers 9: the push
+happened, through the witness table, into an array the program declared mutable.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Grower
+	function grow(mutates dest IntArray)
+end 'Grower'
+
+type Pusher implements Grower
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function grow(mutates dest IntArray)
+		dest.push(9)
+	end 'grow'
+end 'Pusher'
+
+type Box uses T where T implements Grower
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run(dest IntArray)
+		self.item.grow(dest)
+	end 'run'
+end 'Box'
+
+typealias PusherBox = Box with Pusher
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	let b = PusherBox.create(Pusher.create(1))
+	b.run(a)
+	return try a.get(0) otherwise 55
+end 'main'
+```
+```exitcode
+9
+```
+
+<!-- test: witness-forwarding-a-let-argument-to-a-reader-allowed -->
+⭐ **THE SECOND CONTROL: A `let` ARRAY FORWARDED THROUGH THE IDENTICAL SHAPE TO A CONFORMER THAT ONLY
+READS.** The summary is a UNION over conformers, so this is what says the union is over what the bodies
+actually do rather than over the fact that a dispatch happened at all. `Summer.total` writes nothing, so
+`Box.run` writes nothing, so the `let` is fine. Answers 0 — an empty array's count.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Reader
+	function total(src IntArray) returns Integer
+end 'Reader'
+
+type Summer implements Reader
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function total(src IntArray) returns Integer
+		return src.count() as Integer
+	end 'total'
+end 'Summer'
+
+type Box uses T where T implements Reader
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run(src IntArray) returns Integer
+		return self.item.total(src)
+	end 'run'
+end 'Box'
+
+typealias SummerBox = Box with Summer
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	let b = SummerBox.create(Summer.create(1))
+	return b.run(a) as ExitCode
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: where-clauses.constraint-interface-declared-below -->
+A `where` constraint's interface is resolved WHOLE-PROGRAM, so writing the `interface` BELOW the
+generic type it constrains is legal — the identical program with the interface written above compiles
+and returns the identical answer. A resolution that walked only THIS FILE's interfaces as the linear parse
+had recorded them so far would refuse it with `E2015 … not declared before its constrained use`.
+```maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+type Point implements Digest
+	export var x as Coord
+	export var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x * 31 + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+interface Digest
+	function digest() returns Code
+end 'Digest'
+
+function main() returns ExitCode
+	let p = Point.create(3, y: 4)
+	let b = PointBox.create(p)
+	if b.itemDigest() == 97 'ok'
+		return 42
+	end 'ok'
+	return 1
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: where-clauses.constraint-interface-in-a-later-file -->
+The same fact across FILES, which is the commoner shape: the constrained type is in the
+earlier-sorting file and the `interface` it names is in the later one, so no declaration order within
+a file can rescue it. It resolves because the interface index is built from EVERY file's tokens
+before ANY file is parsed.
+```maxon
+// --- file: a.maxon
+typealias Code = int(0 to u32.max)
+
+typealias Coord = int(0 to 1000)
+
+type Point implements Digest
+	var x as Coord
+	var y as Coord
+
+	static function create(x Coord, y Coord) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function digest() returns Code
+		return self.x * 31 + self.y
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(3, y: 4)
+	let b = PointBox.create(p)
+	if b.itemDigest() == 97 'ok'
+		return 42
+	end 'ok'
+	return 1
+end 'main'
+
+// --- file: z.maxon
+interface Digest
+	function digest() returns Code
+end 'Digest'
+```
+```exitcode
+42
+```
+
+A requirement whose RETURN type is a generic-alias instance (`IntArray = Array with Integer`), called
+through a `where T is Maker` type parameter. The requirement's return is the instance itself, so
+`self.item.make()` is the array and `get(0)` reads the 42 the conformer pushed.
+
+<!-- test: where-clauses.witness-return-generic-instance -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Maker
+	function make() returns IntArray
+end 'Maker'
+
+type Builder implements Maker
+	export var seed as Integer
+
+	static function create(seed Integer) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function make() returns IntArray
+		let xs = IntArray.create(0)
+		xs.push(self.seed)
+		return xs
+	end 'make'
+end 'Builder'
+
+type Box uses T where T implements Maker
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function first() returns Integer
+		let xs = self.item.make()
+		return try xs.get(0) otherwise 0
+	end 'first'
+end 'Box'
+
+typealias BuilderBox = Box with Builder
+
+function main() returns ExitCode
+	return BuilderBox.create(Builder.create(42)).first()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: where-clauses.error.witness-return-keeps-the-requirements-alias -->
+<!-- positions: moved -->
+A requirement's declared return alias is the type of the call's result, through a `where T is Maker`
+type parameter exactly as through a direct call: `Other` is a second alias of the same instance, so the
+result of `self.item.make()` does not fit an `Other` parameter.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias Other = Array with Integer
+
+interface Maker
+	function make() returns IntArray
+end 'Maker'
+
+type Builder implements Maker
+	let seed as Integer
+
+	static function create(seed Integer) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function make() returns IntArray
+		var xs = IntArray.create(0)
+		xs.push(self.seed)
+		return xs
+	end 'make'
+end 'Builder'
+
+function head(xs Other) returns Integer
+	return try xs.get(0) otherwise 0
+end 'head'
+
+type Box uses T where T implements Maker
+	let item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function first() returns Integer
+		return head(self.item.make())
+	end 'first'
+end 'Box'
+
+typealias BuilderBox = Box with Builder
+
+function main() returns ExitCode
+	return BuilderBox.create(Builder.create(42)).first() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/where-clauses/where-clauses.error.witness-return-keeps-the-requirements-alias.maxon:36:10: argument type mismatch for 'xs': expected 'Other', got 'IntArray'
+```
+
+<!-- test: where-clauses.witness-requirement-returning-byte-array-throws-through-two-conformers -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+A throwing requirement returning `ByteArray`, called through a `where T is Transform` type parameter of a
+generic function, propagated with `try` and caught with `otherwise`: each conformer's result reaches the
+caller as the array, and a refusal reaches it as the error.
+```maxon
+enum ProbeError implements Error
+	refused
+end 'ProbeError'
+
+interface Transform
+	function run(data ByteArray) returns ByteArray throws ProbeError
+end 'Transform'
+
+type Doubler implements Transform
+	let limit as Count
+
+	static function create(limit Count) returns Self
+		return Self{limit: limit}
+	end 'create'
+
+	function run(data ByteArray) returns ByteArray throws ProbeError
+		if data.count() > self.limit 'big'
+			throw ProbeError.refused
+		end 'big'
+		let out = ByteArray.create(0)
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for b in data 'each'
+			out.push(b)
+			out.push(b)
+		end 'each'
+		return out
+	end 'run'
+end 'Doubler'
+
+type Reverser implements Transform
+	let limit as Count
+
+	static function create(limit Count) returns Self
+		return Self{limit: limit}
+	end 'create'
+
+	function run(data ByteArray) returns ByteArray throws ProbeError
+		if data.count() > self.limit 'big'
+			throw ProbeError.refused
+		end 'big'
+		let out = ByteArray.create(0)
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for b in data 'each'
+			out.insert(0, value: b)
+		end 'each'
+		return out
+	end 'run'
+end 'Reverser'
+
+function apply(item T, data ByteArray) uses T returns ByteArray throws ProbeError where T implements Transform
+	let r = try item.run(data)
+	return r
+end 'apply'
+
+function orEmpty(item T, data ByteArray) uses T returns ByteArray where T implements Transform
+	let r = try item.run(data) otherwise ByteArray.create(0)
+	return r
+end 'orEmpty'
+
+function show(bytes ByteArray)
+	print("{bytes.count()}:")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for b in bytes 'each'
+		print(" {b}")
+	end 'each'
+	print("\n")
+end 'show'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let data = ByteArray from [1, 2, 3]
+	show(try apply(Doubler.create(8), data: data) otherwise ByteArray.create(0))
+	show(try apply(Reverser.create(8), data: data) otherwise ByteArray.create(0))
+	show(try apply(Doubler.create(2), data: data) otherwise ByteArray.create(0))
+	show(orEmpty(Reverser.create(8), data: data))
+	show(orEmpty(Doubler.create(2), data: data))
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+6: 1 1 2 2 3 3
+3: 3 2 1
+0:
+3: 3 2 1
+0:
+```
+
+<!-- test: where-clauses.constraint-interface-generic-alias-formal -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+An interface requirement whose parameter type is a GENERIC-ALIAS instance (`IntArray = Array with
+Integer`), met by a conformer spelling the same alias and dispatched through a `where T is Summer`
+parameter with an `IntArray` argument.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+interface Summer
+	function total(xs IntArray) returns Integer
+end 'Summer'
+
+type Adder implements Summer
+	export var base as Integer
+
+	static function create(base Integer) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function total(xs IntArray) returns Integer
+		var sum = self.base
+		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		for x in xs 'each'
+			sum = sum + x
+		end 'each'
+		return sum
+	end 'total'
+end 'Adder'
+
+type Box uses T where T implements Summer
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run(xs IntArray) returns Integer
+		return self.item.total(xs)
+	end 'run'
+end 'Box'
+
+typealias AdderBox = Box with Adder
+
+function main() returns ExitCode
+	let xs = IntArray.create(0)
+	xs.push(10)
+	xs.push(30)
+	let b = AdderBox.create(Adder.create(2))
+	return b.run(xs)
+end 'main'
+```
+```exitcode
+42
+```
+
+⚠ **THE COST OF ONE BUILDER FOR AN INTERFACE, PINNED.** The interface index reads the WHOLE declaration
+through `Parser.readInterfaceDeclaration` — the one builder, which is the point — rather than keeping a
+separate header-only arity store, and that read is TOLERANT: an `interface` whose body will not parse
+records NOTHING, not even its name and `uses` arity, so its name resolves to nothing at every parse-time
+door.
+
+The consequence is a DIAGNOSTIC one and only that. Every program that lands here is a program the real
+parse refuses on its own line, so no wrong program is ever accepted — but the reject below is raised at the
+DISPATCH, in a body that parses before the broken `interface` is reached. The sentence may not claim the
+interface is undeclared (it is declared, eight lines down), so it names both causes.
+
+The program reports both errors — the dispatch's reject and the real `E2010` from the `interface`
+declaration — because the rejected body is abandoned on its own and the rest of the file is still read. The same
+shape with the broken `interface` in a LATER FILE reports the same two.
+
+<!-- test: where-clauses.error.constraint-interface-unreadable -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.digest()
+	end 'go'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+interface Digest
+	function digest() returns Code
+	function bogus(,) returns Code
+end 'Digest'
+
+function main() returns ExitCode
+	return PointBox.create(Point.create(42)).go()
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:20:20: Unsupported: the `where` constraint interface 'Digest' does not resolve — no file in this program declares a readable `interface` of that name, so it is either misspelled or an `interface` whose own declaration fails to parse
+error E2010: <fragment>:28:17: Expected identifier but got ','
+```
+
+### An `extends`-inherited requirement is dispatchable through the constraint that inherits it
+
+A `where` constraint names ONE interface, but the requirements it supplies are that interface's TRANSITIVE
+set — its own and its `extends` parents'. `interfaceWitnessSlots` computes that list once, and both the
+witness-table BUILDER and the dispatch RESOLVER read it, so the slot a call compiles is the slot the blob
+fills. ⚠ **The dispatch walks the chain as the CONFORMANCE CHECK does**: were only the check to walk it, a
+conformer would be required to supply `Base.label()` with no slot in any table to put it in, and calling it
+would be refused outright with `E2015 … no `where` constraint on this type parameter declares a method
+'label'` — a refusal of a legal program, on a constraint that does declare it.
+
+⚠ **THE TWO RESULTS ARE COMBINED POSITIONALLY (`* 10 +`) AND NOT SUMMED, WHICH IS THE WHOLE ASSERTION.**
+`7 + 1` is `8` whichever slot each call reads, so a summed expectation would be satisfied by a compiler that
+resolved both requirements and numbered their slots the wrong way round — the silent wrong-function-pointer
+the shared slot list exists to make unrepresentable, passing green. `71` is reached only by the correct pairing; the
+swap reads `17`. Target-independent.
+
+<!-- test: where-clauses.inherited-requirement-dispatch -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Base
+	function label() returns Code
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Derived extends Base
+	function extra() returns Code
+end 'Derived'
+
+type Widget implements Derived
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function label() returns Code
+		return self.seed
+	end 'label'
+
+	function extra() returns Code
+		return 1
+	end 'extra'
+end 'Widget'
+
+type Box uses T where T implements Derived
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function callInherited() returns Code
+		return self.item.label()
+	end 'callInherited'
+
+	function callOwn() returns Code
+		return self.item.extra()
+	end 'callOwn'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	let w = Widget.create(7)
+	let b = WidgetBox.create(w)
+	return (b.callInherited() * 10 + b.callOwn()) as ExitCode
+end 'main'
+```
+```exitcode
+71
+```
+
+### A child interface requirement beside an inherited one: two slots, two impls
+
+`Base.label()` and `Derived.scaled(width)` are two requirements and take two witness slots. The two calls below
+must reach DIFFERENT impls, which is what `7` and `21` prove: a single slot serving both would return one of
+them twice. Target-independent.
+
+<!-- test: where-clauses.a-child-requirement-and-an-inherited-one-reach-different-impls -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Base
+	function label() returns Code
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Derived extends Base
+	function scaled(width Code) returns Code
+end 'Derived'
+
+type Widget implements Derived
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function label() returns Code
+		return self.seed
+	end 'label'
+
+	function scaled(width Code) returns Code
+		return self.seed * width
+	end 'scaled'
+end 'Widget'
+
+type Box uses T where T implements Derived
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function zeroArg() returns Code
+		return self.item.label()
+	end 'zeroArg'
+
+	function oneArg() returns Code
+		return self.item.scaled(3)
+	end 'oneArg'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	let b = WidgetBox.create(Widget.create(7))
+	return (b.zeroArg() + b.oneArg()) as ExitCode
+end 'main'
+```
+```exitcode
+28
+```
+
+### A DIAMOND gives the shared ancestor ONE slot, not two
+
+`Both extends Left, Right` where `Left` and `Right` each extend `Root` reaches `Root` twice. The walk's
+`visited` set — keyed by interface NAME, the same key the registry is — makes the second arrival contribute
+nothing, so `Root.base()` occupies exactly one slot and the table has four rather than five. Two slots for
+one requirement would not be a wasted word: every slot after the duplicate shifts, and the resolver and the
+builder would have to agree on the same duplication to stay in step.
+
+⚠ **THE FOUR RESULTS ARE A BASE-5 NUMERAL, NOT A SUM, AND THAT IS THE ASSERTION.** Any sum of the four is
+invariant under all 24 permutations of the slots, so it pins only that every requirement RESOLVES — never
+which slot each call reads, which is the failure the shared slot list exists to prevent. As digits `1 2 3 4` of a
+positional numeral the answer is `194` for the correct numbering and a different value for every one of the
+other 23. Target-independent.
+
+<!-- test: where-clauses.diamond-inherited-requirement -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+let SlotRadix = 5
+
+interface Root
+	function base() returns Code
+end 'Root'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Left extends Root
+	function left() returns Code
+end 'Left'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Right extends Root
+	function right() returns Code
+end 'Right'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Both extends Left, Right
+	function both() returns Code
+end 'Both'
+
+type Widget implements Both
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function base() returns Code
+		return 1
+	end 'base'
+
+	function left() returns Code
+		return 2
+	end 'left'
+
+	function right() returns Code
+		return 3
+	end 'right'
+
+	function both() returns Code
+		return 4
+	end 'both'
+end 'Widget'
+
+type Box uses T where T implements Both
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function digits() returns Code
+		return ((self.item.base() * SlotRadix + self.item.left()) * SlotRadix + self.item.right()) * SlotRadix + self.item.both()
+	end 'digits'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	let b = WidgetBox.create(Widget.create(0))
+	return b.digits()
+end 'main'
+```
+```exitcode
+194
+```
+
+### The diamond split across TWO CONSTRAINTS: one requirement reached twice is still one requirement
+
+The case above closes the diamond inside ONE interface, where `interfaceWitnessSlots`' `visited` set sees
+both arrivals. `where T is Left and Right` splits the same diamond across two CONSTRAINTS, and no `visited`
+set spans them — the name search walks each constraint's own slot list and collects `Root.base()` once from
+each. ⚠ **Read as two claimants that would be E3114 on a legal program, with a message naming the
+requirement as its own rival: `'base' … is provided by both Root.base() returns Code and Root.base() returns
+Code`.** The
+two entries are two ROUTES to one requirement: `ConformanceCheck` files the accepted member under
+(conformer, DECLARING interface, method name), and both `__witness_Widget.Left` and `__witness_Widget.Right`
+stamp their `base` slot from that one filing — so either route binds the same function pointer, and the
+second entry is dropped rather than counted (`witnessCandidateAlreadyCollected`).
+
+⚠ **THE THREE RESULTS ARE POSITIONAL, NOT SUMMED.** `1 + 2 + 3` is `6` under every permutation, so a sum
+would pass on a compiler that merely stopped refusing — including one that bound `base` to `Left`'s slot 0
+and returned `left`'s answer for it. `123` is reached only when the inherited requirement AND both
+constraints' own requirements each read their own slot. Target-independent.
+
+<!-- test: where-clauses.shared-ancestor-through-two-constraints -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Root
+	function base() returns Code
+end 'Root'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Left extends Root
+	function left() returns Code
+end 'Left'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Right extends Root
+	function right() returns Code
+end 'Right'
+
+type Widget implements Left, Right
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function base() returns Code
+		return 1
+	end 'base'
+
+	function left() returns Code
+		return 2
+	end 'left'
+
+	function right() returns Code
+		return 3
+	end 'right'
+end 'Widget'
+
+type Box uses T where T implements Left and Right
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.base() * 100 + self.item.left() * 10 + self.item.right()
+	end 'go'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	return WidgetBox.create(Widget.create(0)).go()
+end 'main'
+```
+```exitcode
+123
+```
+
+### The OPERATOR path: two constraints that each `extends Equatable` supply ONE `equals`
+
+The same shape on the operator path, which reaches it through a different filter — `witnessTargetIsProtocol`
+keeps every candidate shaped like `Equatable.equals`, and both routes to the inherited requirement are.
+⚠ **Refused, this would produce the E3114 `Equatable.equals … and Equatable.equals`**, one sentence naming
+one requirement twice. It must not be confused with `where-clauses.error.ambiguous-operator-witness` below,
+which is two DISTINCT declaring interfaces (`Equatable` and `AlsoEquatable`) and stays refused: that pair
+files under two impl keys and can hold two different members. Target-independent.
+
+<!-- test: where-clauses.shared-equatable-through-two-constraints -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface EqL extends Equatable
+	function l() returns Code
+end 'EqL'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface EqR extends Equatable
+	function r() returns Code
+end 'EqR'
+
+type Widget implements EqL, EqR
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function l() returns Code
+		return 1
+	end 'l'
+
+	function r() returns Code
+		return 2
+	end 'r'
+
+	function equals(other Self) returns bool
+		return self.seed == other.seed
+	end 'equals'
+end 'Widget'
+
+type Pair uses T where T implements EqL and EqR
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function go() returns Code
+		return (1 if self.a == self.b else 0) * 100 + self.a.l() * 10 + self.b.r()
+	end 'go'
+end 'Pair'
+
+typealias WidgetPair = Pair with Widget
+
+function main() returns ExitCode
+	return WidgetPair.create(Widget.create(3), b: Widget.create(3)).go()
+end 'main'
+```
+```exitcode
+112
+```
+
+### The NEGATIVE control: a name no interface in the chain declares is still refused
+
+The transitive walk widens what a constraint provides; it must not make the refusal vacuous. `Derived`
+inherits `label` from `Base` and declares `extra` itself, and neither is `missing` — so the call is refused,
+and the sentence is TRUE of every interface in the chain. Without this the two cases above would be
+satisfied by a resolver that had simply stopped refusing anything. Target-independent.
+
+<!-- test: where-clauses.error.no-constraint-declares-method -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Base
+	function label() returns Code
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Derived extends Base
+	function extra() returns Code
+end 'Derived'
+
+type Widget implements Derived
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function label() returns Code
+		return self.seed
+	end 'label'
+
+	function extra() returns Code
+		return 1
+	end 'extra'
+end 'Widget'
+
+type Box uses T where T implements Derived
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.missing()
+	end 'go'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	return WidgetBox.create(Widget.create(7)).go() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:36:20: Unsupported: no requirement named 'missing' is provided by the constraints on type parameter 'T' — a method call on a value whose type is an interface, or on a constrained type parameter, dispatches through a witness table, so the method has to be one that interface declares
+```
+
+### Two requirements of one name and one arity are AMBIGUOUS, not a first-wins pick
+
+`Derived extends Base` where BOTH declare `label()` leaves two requirements the call could equally mean, in
+two distinct slots. They resolve to the same member here, but the slots are still two and a dispatch
+compiles exactly one offset — so there is nothing to choose by, and choosing the first is a silent wrong
+function pointer the moment the two slots differ. E3114 names both claimants by their DECLARING interface,
+which is the interface the author has to edit, and spells each through `assembleMethodSignature` — the same
+`name(p t) returns r` the conformance diagnostics already print a requirement with. Target-independent.
+
+<!-- test: where-clauses.error.ambiguous-inherited-requirement -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Base
+	function label() returns Code
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Derived extends Base
+	function label() returns Code
+end 'Derived'
+
+type Widget implements Derived
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function label() returns Code
+		return self.seed
+	end 'label'
+end 'Widget'
+
+type Box uses T where T implements Derived
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.label()
+	end 'go'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	return WidgetBox.create(Widget.create(7)).go() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3114: <fragment>:32:20: 'label' taking 0 argument(s) is provided by both Derived.label() returns Code and Base.label() returns Code through the constraints on type parameter 'T' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints
+```
+
+### Several requirements of one name and NONE of the call's arity
+
+E3036 names ONE callee and ONE expected count, which cannot be written when several requirements of the name
+exist and the call matches none: blaming an arbitrary one prints a true sentence about the wrong
+requirement. E3115 lists them all instead. ⚠ With a SINGLE requirement of the name there is nothing to
+select between and the arity is E3036's to report — that is what `where-clauses.error.witness-too-few-args`
+above pins. Target-independent.
+
+### The OPERATOR path refuses an ambiguity too, and for the same reason
+
+`==` searches the constraints for `equals` and then requires the hit to BE `Equatable` — result, `throws`
+and formals. That test is a FILTER over every candidate rather than a verdict on the first name match,
+which is what keeps a look-alike constraint from MASKING a real one. Two constraints that are both genuinely
+protocol-shaped are the other half of the same rule: they are two distinct witness slots holding two
+distinct conformers' impls, so "both are `Equatable`" does not make them interchangeable, and the operator
+would silently take whichever was written first. Same E3114 as the `.method()` form. Target-independent.
+
+<!-- test: where-clauses.error.ambiguous-operator-witness -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface AlsoEquatable
+	function equals(other Self) returns bool
+end 'AlsoEquatable'
+
+type Widget implements Equatable, AlsoEquatable
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	function equals(other Self) returns bool
+		return self.seed == other.seed
+	end 'equals'
+end 'Widget'
+
+type Pair uses T where T implements Equatable and AlsoEquatable
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function same() returns bool
+		return self.a == self.b
+	end 'same'
+end 'Pair'
+
+typealias WidgetPair = Pair with Widget
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3114: <fragment>:29:17: 'equals' taking 1 argument(s) is provided by both Equatable.equals(other Self) returns bool and AlsoEquatable.equals(other Self) returns bool through the constraints on type parameter 'T' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints
+```
+
+### A `static` requirement is NOT reachable through a type parameter
+
+A `static` member has no receiver, so a value of `T` cannot dispatch one — a resolver matching a requirement
+by NAME ALONE would bind the static's slot anyway, prepending a receiver the callee has no parameter for.
+**On the program below, x64-windows would then compile clean and return 7 (the right answer, by ABI luck —
+the spurious receiver lands in an argument register the zero-parameter callee never reads), while
+`--target=wasm32-wasi` would compile clean and then trap `indirect call type mismatch` at runtime.**
+`call_indirect` checks the declared functype against the target's own, so wasm caught what x64's
+registers let slide: the slot's signature genuinely disagrees with the callee's.
+
+Neither existing message could be reused. E3036's is about an argument COUNT (it is what the same call shape
+gets on a CONCRETE receiver — `'Widget.origin' expects 0 argument(s) but 1 were provided` — counting the
+receiver as an argument), and E2015's `no `where` constraint … declares a method 'origin'` would be FALSE:
+the constraint declares it, as a static. Target-independent.
+
+<!-- test: where-clauses.error.static-requirement-through-type-param -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Origin
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin() returns Code
+	function digest() returns Code
+end 'Origin'
+
+type Widget implements Origin
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	static function origin() returns Code
+		return 7
+	end 'origin'
+
+	function digest() returns Code
+		return self.seed
+	end 'digest'
+end 'Widget'
+
+type Box uses T where T implements Origin
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.origin()
+	end 'go'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	return WidgetBox.create(Widget.create(7)).go() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3116: <fragment>:33:20: 'Origin.origin' is a `static` requirement, and a `static` member has no receiver to dispatch on — so a value of type parameter 'T' cannot reach it. Call a `static` member on a concrete type
+```
+
+### The ESCAPE HATCH: a `static` member is reached on the CONCRETE type, and still is
+
+The refusal above is only safe because the capability has a route, so the route is pinned beside it. `Widget`
+is named outright, which is the one thing a `where` constraint does not tell you — and the same body still
+dispatches an INSTANCE requirement through the witness, so the two forms are proved to coexist. Returns
+`2 + 7`.
+
+<!-- test: where-clauses.concrete-static-beside-witness-dispatch -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Origin
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin() returns Code
+	function digest() returns Code
+end 'Origin'
+
+type Widget implements Origin
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	static function origin() returns Code
+		return 7
+	end 'origin'
+
+	function digest() returns Code
+		return self.seed
+	end 'digest'
+end 'Widget'
+
+type Box uses T where T implements Origin
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Code
+		return self.item.digest() + Widget.origin()
+	end 'go'
+end 'Box'
+
+typealias WidgetBox = Box with Widget
+
+function main() returns ExitCode
+	return WidgetBox.create(Widget.create(2)).go()
+end 'main'
+```
+```exitcode
+9
+```
+
+### The OPERATOR path has the SAME hole, one door over
+
+`witnessTargetIsProtocol` decides whether a constraint's `equals` IS `Equatable` by comparing the result
+type, the `throws` clause, the formals — and the RECEIVER KIND, without which a `static equals` would pass a
+shape test the protocol's own instance method defines. **On the program below with the comparison reached
+(`a.seed` 7, `b.seed` 1, so the answer is `false`), x64-windows would compile clean and return `true` — the
+static impl reads the RECEIVER as its `other`, not the right operand, a SILENT WRONG ANSWER — and wasm would
+trap `indirect call type mismatch`.** A static look-alike is no more `Equatable` than a throwing one or a
+wrong-arity one, so it takes the same E3005 those take: the author's cure is the
+same sentence. Target-independent.
+
+<!-- test: where-clauses.error.static-operator-witness -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface StaticEq
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function equals(other Self) returns bool
+end 'StaticEq'
+
+type Widget implements StaticEq
+	export var seed as Code
+
+	static function create(seed Code) returns Self
+		return Self{seed: seed}
+	end 'create'
+
+	static function equals(other Self) returns bool
+		return other.seed == 7
+	end 'equals'
+end 'Widget'
+
+type Pair uses T where T implements StaticEq
+	export var a as T
+	export var b as T
+
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function same() returns bool
+		return self.a == self.b
+	end 'same'
+end 'Pair'
+
+typealias WidgetPair = Pair with Widget
+
+function main() returns ExitCode
+	return 1 if WidgetPair.create(Widget.create(7), b: Widget.create(1)).same() else 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:29:17: Operator '==' requires type parameter 'T' to be constrained with 'where T is Equatable'
+```
+
+### The refusal must be the message the author GETS — three shapes that would otherwise answer something else
+
+A RECORDED diagnostic that left the parse running and handed the rejected `static` candidates back to the
+arity/ambiguity selection would look right on the one program that has a single static requirement, a
+matching argument count and nothing else wrong in the file — and on nothing else. **All three of these would
+go wrong:** a wrong-arity call would print E3036's argument COUNT alone; two same-named statics would print
+E3114's *"Rename one requirement, or drop one of the constraints"* alone; and an unrelated later error
+anywhere in the file would print alone, because an aborted parse salvages the type names and drops the
+recorded diagnostics. Each of those is the sentence E3116's own registry entry says must **not** be the
+answer, and following any of them does not fix the program. The reject therefore THROWS, and these pin it.
+
+The count is what tells the two apart from a real arity error: the requirement is unreachable whatever the
+call supplies, so the receiver kind is reported and the argument count never comes up. Target-independent.
+
+<!-- test: where-clauses.error.static-requirement-wrong-arity-at-call -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Origin
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin(seed Code) returns Code
+end 'Origin'
+
+type Box uses T where T implements Origin
+	export var item as T
+
+	function go() returns Code
+		return self.item.origin()
+	end 'go'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3116: <fragment>:12:20: 'Origin.origin' is a `static` requirement, and a `static` member has no receiver to dispatch on — so a value of type parameter 'T' cannot reach it. Call a `static` member on a concrete type
+```
+
+### TWO `static` requirements of one name are the same fact twice, not a choice
+
+Two constraints supplying one `static` name are not an AMBIGUITY — there is nothing to disambiguate,
+because neither of them was ever reachable. Naming the first is the whole answer. Target-independent.
+
+<!-- test: where-clauses.error.two-static-requirements-through-type-param -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface OriginA
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin() returns Code
+end 'OriginA'
+
+interface OriginB
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin() returns Code
+end 'OriginB'
+
+type Box uses T where T implements OriginA, T implements OriginB
+	export var item as T
+
+	function go() returns Code
+		return self.item.origin()
+	end 'go'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3116: <fragment>:16:20: 'OriginA.origin' is a `static` requirement, and a `static` member has no receiver to dispatch on — so a value of type parameter 'T' cannot reach it. Call a `static` member on a concrete type
+```
+
+### A same-named INSTANCE requirement still binds — the filter removes statics, it does not refuse the name
+
+The escape hatch above pins a static and an instance requirement of DIFFERENT names coexisting. This pins
+the harder half: one NAME, supplied `static` by one constraint and as an INSTANCE requirement by another, so
+the filter has to keep the one the call could have meant instead of refusing the name outright. It is a
+generic BODY rather than an instantiation because no conforming type is representable — a type may not
+declare both `static origin` and `origin` (E3006) — which is exactly why the shape needs pinning here: the
+only thing that decides it is the parse.
+
+<!-- test: where-clauses.static-and-instance-requirement-of-one-name -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+```maxon
+public typealias Code = int(0 to u32.max)
+
+public interface StaticOrigin
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function origin() returns Code
+end 'StaticOrigin'
+
+public interface InstanceOrigin
+	function origin() returns Code
+end 'InstanceOrigin'
+
+public type Box uses T where T implements StaticOrigin, T implements InstanceOrigin
+	export var item as T
+
+	function go() returns Code
+		return self.item.origin()
+	end 'go'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+### Basic where clause with Map
+
+Map requires `Key is Hashable`. String implements Hashable, so this should work:
+
+<!-- test: where-clauses.map-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["hello": 42]
+	return try m.get("hello") otherwise 0
+end 'main'
+```
+```exitcode
+42
+```
+
+### Custom Hashable type as Map key
+
+A user-defined type that implements Hashable can be used as a Map key:
+
+<!-- test: where-clauses.custom-hashable-key -->
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type MyKey implements Hashable, Equatable
+	var value as Integer
+
+	function hash() returns HashValue
+		return self.value * 31
+	end 'hash'
+
+	function equals(other MyKey) returns bool
+		return self.value == other.value
+	end 'equals'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'MyKey'
+
+typealias MyKeyMap = Map with (MyKey, Integer)
+
+function main() returns ExitCode
+	let m = MyKeyMap.create()
+	try m.insert(freeze(MyKey.create(1)), value: 42) otherwise ignore
+	return m.count()
+end 'main'
+```
+```exitcode
+1
+```
+
+### Where clause constraint violation
+
+Using a type that doesn't implement Hashable as a Map key should produce a compile error:
+
+<!-- test: where-clauses.constraint-violation -->
+<!-- positions: moved -->
+⚠ **TWO LINES, BECAUSE `Map` DECLARES TWO CONSTRAINTS.** `stdlib/Map.maxon:21` spells
+`where Key is Hashable and Equatable`, and `NotHashable` meets neither — so the compiler reports both.
+Every unmet constraint is a separate thing the author has to supply.
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type NotHashable
+	var x as Integer
+end 'NotHashable'
+
+typealias BadMap = Map with (NotHashable, Integer)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:9:11: Type 'NotHashable' does not satisfy constraint 'Hashable' required by type parameter 'Key' of 'Map'
+error E3017: <fragment>:9:11: Type 'NotHashable' does not satisfy constraint 'Equatable' required by type parameter 'Key' of 'Map'
+```
+
+### Where clause constraint violation in an instance written inline
+
+An instance written inside another alias's arguments is its own instantiation site, so its constraint violation is
+reported where its own base name is written:
+
+<!-- test: where-clauses.constraint-violation-in-an-inline-instance -->
+
+```maxon
+typealias Tally = int(0 to 1024)
+
+type Unhashable
+	var x as Tally
+end 'Unhashable'
+
+typealias Tallies = Array with (Map with (Unhashable, Tally))
+
+function main() returns ExitCode
+	let tallies = Tallies.create(0)
+	print("{tallies.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:8:33: Type 'Unhashable' does not satisfy constraint 'Hashable' required by type parameter 'Key' of 'Map'
+error E3017: <fragment>:8:33: Type 'Unhashable' does not satisfy constraint 'Equatable' required by type parameter 'Key' of 'Map'
+```
+
+### User-defined type with where clause
+
+A user-defined generic type can use where clauses:
+
+<!-- test: where-clauses.user-defined -->
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Valuable
+	function value() returns Integer
+end 'Valuable'
+
+type Wrapper implements Valuable
+	let n as Integer
+
+	function value() returns Integer
+		return self.n
+	end 'value'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Wrapper'
+
+type Holder uses T where T implements Valuable
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Holder'
+
+typealias WrapperHolder = Holder with Wrapper
+
+function main() returns ExitCode
+	let w = Wrapper.create(10)
+	let h = WrapperHolder.create(w)
+	return h.item.value()
+end 'main'
+```
+```exitcode
+10
+```
+
+### Where clause with multiple interfaces using and
+
+A type parameter can require multiple interface conformance:
+
+<!-- test: where-clauses.multiple-interfaces -->
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface HasName
+	function name() returns Integer
+end 'HasName'
+
+interface HasAge
+	function age() returns Integer
+end 'HasAge'
+
+type Person implements HasName, HasAge
+	let years as Integer
+
+	function name() returns Integer
+		return 1
+	end 'name'
+
+	function age() returns Integer
+		return self.years
+	end 'age'
+
+	static function create(age Integer) returns Self
+		return Self{years: age}
+	end 'create'
+end 'Person'
+
+type Registry uses T where T implements HasName and HasAge
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Registry'
+
+typealias PersonRegistry = Registry with Person
+
+function main() returns ExitCode
+	let p = Person.create(30)
+	let r = PersonRegistry.create(p)
+	return r.item.age()
+end 'main'
+```
+```exitcode
+30
+```
+
+### Where clause violation with and - missing one interface
+
+<!-- test: where-clauses.and-violation -->
+<!-- positions: moved -->
+
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Foo
+	function foo() returns Integer
+end 'Foo'
+
+interface Bar
+	function bar() returns Integer
+end 'Bar'
+
+type OnlyFoo implements Foo
+	function foo() returns Integer
+		return 1
+	end 'foo'
+end 'OnlyFoo'
+
+type NeedsBoth uses T where T implements Foo and Bar
+	var item as T
+end 'NeedsBoth'
+
+typealias Bad = NeedsBoth with OnlyFoo
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3017: specs/where-clauses/where-clauses.and-violation.maxon:23:11: Type 'OnlyFoo' does not satisfy constraint 'Bar' required by type parameter 'T' of 'NeedsBoth'
+```
+
+### Equality on unconstrained type parameter requires Equatable
+
+Using `==` or `!=` on a type parameter that isn't constrained with `where T is Equatable` should produce a compile error:
+
+<!-- test: where-clauses.eq-requires-equatable -->
+<!-- positions: moved -->
+```maxon
+type Box uses T
+	var item as T
+
+	function eq(other T) returns bool
+		return item == other
+	end 'eq'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/where-clauses/where-clauses.eq-requires-equatable.maxon:6:17: Operator '==' requires type parameter 'T' to be constrained with 'where T is Equatable'
+```
+
+### Equality on Equatable-constrained type parameter compiles
+
+When the type parameter is properly constrained, `==` should work:
+
+<!-- test: where-clauses.eq-with-equatable -->
+```maxon
+type Box uses T where T implements Equatable
+	var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function eq(other T) returns bool
+		return item == other
+	end 'eq'
+end 'Box'
+
+typealias Int = int(i64.min to i64.max)
+
+typealias IntBox = Box with Int
+
+function main() returns ExitCode
+	let b = IntBox.create(42)
+	if b.eq(42) 'yes'
+		return 1
+	end 'yes'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+### A `Self`-returning static dispatches through the constraints on the value it builds
+
+A `static function` has no `self`. A static that returns its own type has the same witness source the
+layout descriptor uses — the concrete instance it builds — so it carries the block on the same terms and
+can call a constraint-dispatching method on the `Self{…}` it builds.
+`stdlib/Map.maxon`'s `static function init(…) returns Self` is this program.
+
+<!-- test: where-clauses.self-returning-static-dispatches-on-its-own-value -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function of(v T) returns Self
+		let built = Self{v: v}
+		if built.matches(v) 'sameValue'
+			return built
+		end 'sameValue'
+		panic("Holder.of: the value it was built from must equal itself")
+	end 'of'
+
+	function matches(other T) returns bool
+		return v.equals(other)
+	end 'matches'
+
+	function digest() returns HashValue
+		return v.hash()
+	end 'digest'
+end 'Holder'
+
+typealias H = Holder with Integer
+
+function main() returns ExitCode
+	let h = H.of(41)
+	return h.digest()
+end 'main'
+```
+```exitcode
+41
+```
+
+### A static that does NOT return `Self` takes its witness tables from its call site
+
+The other half of the rule above. `H.digestOf(41)` knows `H = Holder with Integer`, so the call hands the
+static the tables the instance method it reaches dispatches through, as it does the layout descriptor.
+
+<!-- test: where-clauses.static-without-self-return-dispatches-through-the-call-sites-tables -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	function digest() returns HashValue
+		return v.hash()
+	end 'digest'
+
+	static function digestOf(v T) returns HashValue
+		let h = Self{v: v}
+		return h.digest()
+	end 'digestOf'
+end 'Holder'
+
+typealias H = Holder with Integer
+
+function main() returns ExitCode
+	let value = 41 as Integer
+	print("{H.digestOf(value) == value.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A static that does NOT return `Self` dispatches on a type-parameter value through its call site's tables
+
+<!-- test: where-clauses.static-hashing-a-type-parameter-value-dispatches-through-the-call-sites-tables -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function hashOf(v T) returns HashValue
+		return v.hash()
+	end 'hashOf'
+end 'Holder'
+
+typealias H = Holder with Integer
+
+function main() returns ExitCode
+	let value = 41 as Integer
+	print("{H.hashOf(value) == value.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A static that does NOT return `Self` dispatches on an array of the type parameter through its call site's tables
+
+<!-- test: where-clauses.static-hashing-an-array-of-the-type-parameter-dispatches-through-the-call-sites-tables -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var v as T
+
+	static function digestAll(items Items) returns HashValue
+		return items.hash()
+	end 'digestAll'
+end 'Holder'
+
+typealias H = Holder with Val
+
+typealias ValArray = Array with Val
+
+function main() returns ExitCode
+	let items = ValArray.create(0)
+	items.push(41)
+	print("{H.digestAll(items) == items.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A closure has no witness tables to hand a witness-only static
+
+<!-- test: where-clauses.error.a-closure-calling-a-witness-only-static-is-refused -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+`hashOf` dispatches through `Holder`'s constraints and so takes the tables from its call site. A closure inherits a witness table only for a direct dispatch, so it has none to hand `Self.hashOf`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function hashOf(v T) returns HashValue
+		return v.hash()
+	end 'hashOf'
+
+	function viaClosure(x T) returns HashValue
+		// TODO: closures are not supported in minimaxon
+		let f = function(y T) gives Self.hashOf(y)
+		return f(x)
+	end 'viaClosure'
+
+	static function make(v T) returns Self
+		return Self{v: v}
+	end 'make'
+end 'Holder'
+
+typealias H = Holder with Integer
+
+function main() returns ExitCode
+	let value = 41 as Integer
+	let h = H.make(value)
+	print("{h.viaClosure(value)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:12:36: Unsupported: a closure that calls 'hashOf' (which dispatches through the type's `where` constraints) on a value of a generic type over a type parameter — a closure inherits a witness table through its environment only for a direct dispatch on a type-parameter value, so it has none to hand on to a callee. Make the call in the method that builds the closure and let the closure use the result, or take the operation as a function parameter
+```
+
+### Error: an array of an unconstrained type parameter is not `Hashable`
+
+<!-- test: where-clauses.error.an-unconstrained-type-parameter-array-is-not-hashable -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Box uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function digest() returns HashValue
+		return items.hash()
+	end 'digest'
+end 'Box'
+
+typealias B = Box with Val
+
+function main() returns ExitCode
+	let box = B.create()
+	print("{box.digest()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E4006: specs/where-clauses/where-clauses.error.an-unconstrained-type-parameter-array-is-not-hashable.maxon:14:16: Type 'Array' has no field named 'hash' ('hash' is available as a conditional extension where Element is Hashable and Equatable, but 'T' does not implement 'Hashable')
+```
+
+### Error: a closure in an instance method hashing a type-parameter array
+
+<!-- test: where-clauses.error.a-closure-in-an-instance-method-hashing-a-type-parameter-array -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+
+	static function create(items Items) returns Self
+		return Self{items: items}
+	end 'create'
+
+	function digest() returns HashValue
+		// TODO: closures are not supported in minimaxon
+		let compute = function() gives items.hash()
+		return compute()
+	end 'digest'
+end 'Holder'
+
+typealias H = Holder with Val
+
+typealias ValArray = Array with Val
+
+function main() returns ExitCode
+	var items = ValArray.create(0)
+	items.push(41)
+	let holder = H.create(items)
+	print("{holder.digest()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/where-clauses/where-clauses.error.a-closure-in-an-instance-method-hashing-a-type-parameter-array.maxon:14:40: Unsupported: a closure that calls 'hash' (which dispatches through the type's `where` constraints) on a value of a generic type over a type parameter — a closure inherits a witness table through its environment only for a direct dispatch on a type-parameter value, so it has none to hand on to a callee. Make the call in the method that builds the closure and let the closure use the result, or take the operation as a function parameter
+```
+
+### A static calling a conditional extension method on a type-parameter instance
+
+<!-- test: where-clauses.a-static-calling-a-conditional-extension-method-on-a-type-parameter-instance -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Box uses Item
+	export var item as Item
+
+	static function create(item Item) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Box'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Box
+	function plain() returns HashValue
+		return 0
+	end 'plain'
+end 'Box'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Box where Item implements Hashable
+	function describe(salt HashValue) returns HashValue
+		return item.hash() + salt
+	end 'describe'
+end 'Box'
+
+type Owner uses T where T implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Boxed = Box with T
+	var v as T
+
+	static function measure(b Boxed) returns HashValue
+		return b.describe(1)
+	end 'measure'
+end 'Owner'
+
+typealias O = Owner with Val
+
+typealias ValBox = Box with Val
+
+function main() returns ExitCode
+	let five = 5 as Val
+	print("{O.measure(ValBox.create(five)) == five.hash() + 1}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A static may call an instance method that hashes a concrete field
+
+<!-- test: where-clauses.static-calls-an-instance-method-that-hashes-a-concrete-field -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Labelled uses T
+	var item as T
+	var label as String
+
+	static function create(item T, label String) returns Self
+		return Self{item: item, label: label}
+	end 'create'
+
+	function hasLabel(text String) returns bool
+		let wanted = label
+		return wanted.equals(text)
+	end 'hasLabel'
+
+	function labelHash() returns HashValue
+		return label.hash()
+	end 'labelHash'
+
+	static function labelled(held Self, text String) returns bool
+		return held.hasLabel(text)
+	end 'labelled'
+
+	static function hashOfLabel(held Self) returns HashValue
+		return held.labelHash()
+	end 'hashOfLabel'
+end 'Labelled'
+
+typealias IntLabelled = Labelled with Val
+
+function main() returns ExitCode
+	let l = IntLabelled.create(7, label: "seven")
+	print("{IntLabelled.labelled(l, text: "seven")}\n")
+	print("{IntLabelled.hashOfLabel(l) == "seven".hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+true
+```
+
+### A static may call an instance method that forwards to a hashing sibling
+
+<!-- test: where-clauses.static-calls-an-instance-method-that-forwards-to-a-hashing-sibling -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Labelled uses T
+	var item as T
+	var label as String
+
+	static function create(item T, label String) returns Self
+		return Self{item: item, label: label}
+	end 'create'
+
+	function labelHash() returns HashValue
+		return label.hash()
+	end 'labelHash'
+
+	function doubledLabelHash() returns HashValue
+		return self.labelHash()
+	end 'doubledLabelHash'
+
+	static function hashOfLabel(held Self) returns HashValue
+		return held.doubledLabelHash()
+	end 'hashOfLabel'
+end 'Labelled'
+
+typealias IntLabelled = Labelled with Val
+
+function main() returns ExitCode
+	let l = IntLabelled.create(7, label: "seven")
+	print("{IntLabelled.hashOfLabel(l) == "seven".hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A static that does NOT return `Self` calls a descriptor-carrying method on a run instance
+
+<!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Outer uses E where E implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with E
+	var e as E
+
+	static function create(e E) returns Self
+		return Self{e: e}
+	end 'create'
+
+	function tally() returns HashValue
+		let items = Items.create(0)
+		items.push(e)
+		if items.count() == 1 'one'
+			return e.hash() + 1
+		end 'one'
+		return 0
+	end 'tally'
+end 'Outer'
+
+type Runner uses D where D implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias OuterD = Outer with D
+	var d as D
+
+	static function run(o OuterD) returns HashValue
+		return o.tally()
+	end 'run'
+end 'Runner'
+
+typealias R = Runner with Val
+
+typealias ValOuter = Outer with Val
+
+function main() returns ExitCode
+	let o = ValOuter.create(41)
+	print("{R.run(o) == o.tally()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### The same hand-off at a managed type argument
+
+<!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance-of-strings -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+type Outer uses E where E implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with E
+	var e as E
+
+	static function create(e E) returns Self
+		return Self{e: e}
+	end 'create'
+
+	function tally() returns HashValue
+		let items = Items.create(0)
+		items.push(e)
+		if items.count() == 1 'one'
+			return e.hash() + 1
+		end 'one'
+		return 0
+	end 'tally'
+end 'Outer'
+
+type Runner uses D where D implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias OuterD = Outer with D
+	var d as D
+
+	static function run(o OuterD) returns HashValue
+		return o.tally()
+	end 'run'
+end 'Runner'
+
+typealias R = Runner with String
+
+typealias StrOuter = Outer with String
+
+function main() returns ExitCode
+	let o = StrOuter.create("outer {40 + 2} value long enough for a heap record")
+	print("{R.run(o) == o.tally()} {R.run(o) == "outer 42 value long enough for a heap record".hash() + 1}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true true
+```
+
+### The same hand-off at a record type argument
+
+<!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance-of-records -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+type Key implements Hashable, Equatable
+	var name as String
+
+	function hash() returns HashValue
+		return self.name.hash()
+	end 'hash'
+
+	function equals(other Key) returns bool
+		return self.name == other.name
+	end 'equals'
+
+	static function create(name String) returns Self
+		return Self{name: name}
+	end 'create'
+end 'Key'
+
+type Outer uses E where E implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with E
+	var e as E
+
+	static function create(e E) returns Self
+		return Self{e: e}
+	end 'create'
+
+	function tally() returns HashValue
+		let items = Items.create(0)
+		items.push(e)
+		if items.count() == 1 'one'
+			return e.hash() + 1
+		end 'one'
+		return 0
+	end 'tally'
+end 'Outer'
+
+type Runner uses D where D implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias OuterD = Outer with D
+	var d as D
+
+	static function run(o OuterD) returns HashValue
+		return o.tally()
+	end 'run'
+end 'Runner'
+
+typealias KeyRunner = Runner with Key
+
+typealias KeyOuter = Outer with Key
+
+function main() returns ExitCode
+	let o = KeyOuter.create(Key.create("record {40 + 2} value long enough for a heap record"))
+	print("{KeyRunner.run(o) == o.tally()} {KeyRunner.run(o) == "record 42 value long enough for a heap record".hash() + 1}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true true
+```
+
+### A closure has no witness tables to hand a static that carries them
+
+<!-- test: where-clauses.error.a-closure-calling-a-witness-carrying-static-is-refused -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+`run` reaches a method that dispatches through `Outer`'s constraints, so it takes `Runner`'s witness tables from its call site. A closure inherits a witness table only for a direct dispatch, so it has none to hand `Self.run`.
+```maxon
+type Outer uses E where E implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with E
+	var e as E
+
+	static function create(e E) returns Self
+		return Self{e: e}
+	end 'create'
+
+	function tally() returns HashValue
+		var items = Items.create(0)
+		items.push(e)
+		if items.count() == 1 'one'
+			return e.hash() + 1
+		end 'one'
+		return 0
+	end 'tally'
+end 'Outer'
+
+type Runner uses D where D implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias OuterD = Outer with D
+	var d as D
+
+	static function run(o OuterD) returns HashValue
+		return o.tally()
+	end 'run'
+
+	function viaClosure(o OuterD) returns HashValue
+		// TODO: closures are not supported in minimaxon
+		let f = function(x OuterD) gives Self.run(x)
+		return f(o)
+	end 'viaClosure'
+
+	static function make(d D) returns Self
+		return Self{d: d}
+	end 'make'
+end 'Runner'
+
+typealias R = Runner with String
+
+typealias StrOuter = Outer with String
+
+function main() returns ExitCode
+	let o = StrOuter.create("outer")
+	let r = R.make("d")
+	print("{r.viaClosure(o)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:32:41: Unsupported: a closure that calls 'run' (which dispatches through the type's `where` constraints) on a value of a generic type over a type parameter — a closure inherits a witness table through its environment only for a direct dispatch on a type-parameter value, so it has none to hand on to a callee. Make the call in the method that builds the closure and let the closure use the result, or take the operation as a function parameter
+```
+
+### A static compares two type-parameter values through its call site's tables
+
+<!-- test: where-clauses.a-static-comparing-type-parameter-values-for-equality-takes-the-call-sites-tables -->
+`a == b` on two `T` values dispatches through `Equatable`, so `same` takes the table from the alias its call names, for a managed argument and a trivial one alike.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Equatable
+	var v as T
+
+	static function same(a T, b T) returns bool
+		return a == b
+	end 'same'
+
+	static function differs(a T, b T) returns bool
+		return a != b
+	end 'differs'
+end 'Holder'
+
+typealias StrHolder = Holder with String
+
+typealias IntHolder = Holder with Integer
+
+function main() returns ExitCode
+	let left = "left {40 + 2} value long enough for a heap record"
+	let same = "left {40 + 2} value long enough for a heap record"
+	print("{StrHolder.same(left, b: same)} {StrHolder.differs(left, b: "right")} {IntHolder.same(3, b: 3)} {IntHolder.differs(3, b: 3)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true true true false
+```
+
+<!-- test: where-clauses.a-static-ordering-type-parameter-values-takes-the-call-sites-tables -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`<` on two `T` values dispatches through `Comparable`. `Rev` orders descending, so a static that read the table of the wrong type, or compared the integers it holds instead of calling `compare`, answers differently. Every call form is exercised: through the alias, through `Self.`, by the bare sibling name, from another static of the generic, from a generic that holds the instance over its own parameter, from an instance method of that generic, and through a bare generic base whose arguments fix the instance.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Rev implements Comparable, Equatable
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function compare(other Self) returns Ordering
+		if self.n > other.n 'gt'
+			return Ordering.lessThan
+		end 'gt'
+		if self.n < other.n 'lt'
+			return Ordering.greaterThan
+		end 'lt'
+		return Ordering.equalTo
+	end 'compare'
+
+	function equals(other Self) returns bool
+		return self.n == other.n
+	end 'equals'
+end 'Rev'
+
+type Pair uses T where T implements Comparable
+	var v as T
+
+	static function smaller(a T, b T) returns bool
+		return a < b
+	end 'smaller'
+
+	static function viaSelf(a T, b T) returns bool
+		return Self.smaller(a, b: b)
+	end 'viaSelf'
+
+	static function viaBare(a T, b T) returns bool
+		return smaller(a, b: b)
+	end 'viaBare'
+
+	static function crossInt(a T, b T) returns String
+		return "{IntPair.smaller(1, b: 2)} {smaller(a, b: b)}"
+	end 'crossInt'
+end 'Pair'
+
+type Runner uses D where D implements Comparable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias PD = Pair with D
+	var d as D
+
+	static function make(d D) returns Self
+		return Self{d: d}
+	end 'make'
+
+	static function run(a D, b D) returns bool
+		return PD.smaller(a, b: b)
+	end 'run'
+
+	function runInstance(a D, b D) returns bool
+		return PD.viaSelf(a, b: b)
+	end 'runInstance'
+end 'Runner'
+
+typealias IntPair = Pair with Integer
+
+typealias RevPair = Pair with Rev
+
+typealias RevRunner = Runner with Rev
+
+typealias IntRunner = Runner with Integer
+
+function main() returns ExitCode
+	let one = Rev.create(1)
+	let two = Rev.create(2)
+	print("{IntPair.smaller(1, b: 2)} {RevPair.smaller(one, b: two)}\n")
+	print("{IntPair.viaSelf(1, b: 2)} {RevPair.viaSelf(one, b: two)}\n")
+	print("{IntPair.viaBare(1, b: 2)} {RevPair.viaBare(one, b: two)}\n")
+	print("{RevPair.crossInt(one, b: two)}\n")
+	print("{IntRunner.run(1, b: 2)} {RevRunner.run(one, b: two)}\n")
+	let r = RevRunner.make(one)
+	print("{r.runInstance(one, b: two)}\n")
+	print("{Pair.smaller(one, b: two)} {Pair.smaller(1 as Integer, b: 2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false
+true false
+true false
+true false
+true false
+false
+false true
+```
+
+<!-- test: where-clauses.error.a-closure-calling-a-comparing-static-is-refused -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+`same` compares `T` values and so takes its tables from its call site. The closure inherits a table only for a direct dispatch, so it has none to hand `Self.same`.
+```maxon
+type Holder uses T where T implements Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function same(a T, b T) returns bool
+		return a == b
+	end 'same'
+
+	function viaClosure(x T, y T) returns bool
+		// TODO: closures are not supported in minimaxon
+		let f = function(p T, q T) gives Self.same(p, b: q)
+		return f(x, y)
+	end 'viaClosure'
+end 'Holder'
+
+typealias StrHolder = Holder with String
+
+function main() returns ExitCode
+	let h = StrHolder.create("a")
+	print("{h.viaClosure("a", y: "a")}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:14:41: Unsupported: a closure that calls 'same' (which dispatches through the type's `where` constraints) on a value of a generic type over a type parameter — a closure inherits a witness table through its environment only for a direct dispatch on a type-parameter value, so it has none to hand on to a callee. Make the call in the method that builds the closure and let the closure use the result, or take the operation as a function parameter
+```
+
+<!-- test: where-clauses.a-static-comparing-integers-in-a-constrained-type-carries-no-tables -->
+<!-- skip: closures are not supported in minimaxon -->
+Control: the comparison is between two `Count` values, not type-parameter values, so `below` takes no witness tables and a closure may call it without a qualifier.
+```maxon
+type Holder uses T where T implements Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function below(i Count, n Count) returns bool
+		return i < n
+	end 'below'
+
+	function viaClosure() returns bool
+		// TODO: closures are not supported in minimaxon
+		let f = function(i Count) gives Self.below(i, n: 3)
+		return f(2)
+	end 'viaClosure'
+end 'Holder'
+
+typealias StrHolder = Holder with String
+
+function main() returns ExitCode
+	let h = StrHolder.create("a")
+	print("{h.viaClosure()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### A comparison dispatches whatever expression produces the type-parameter value
+
+<!-- test: where-clauses.a-static-comparing-field-reads-takes-the-call-sites-tables -->
+`a.v == b.v` compares two reads of a field typed at `T`, through the `Self` parameters that hold them.
+```maxon
+type Holder uses T where T implements Equatable
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function sameField(a Self, b Self) returns bool
+		return a.v == b.v
+	end 'sameField'
+end 'Holder'
+
+typealias StrHolder = Holder with String
+
+function main() returns ExitCode
+	let left = StrHolder.create("field {40 + 2} value long enough for a heap record")
+	let same = StrHolder.create("field {40 + 2} value long enough for a heap record")
+	let other = StrHolder.create("other")
+	print("{StrHolder.sameField(left, b: same)} {StrHolder.sameField(left, b: other)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false
+```
+
+<!-- test: where-clauses.a-static-comparing-call-results-takes-the-call-sites-tables -->
+`keep(a) == keep(b)` compares two call results typed at `T`.
+```maxon
+type Holder uses T where T implements Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function keep(x T) returns T
+		return x
+	end 'keep'
+
+	static function sameKept(a T, b T) returns bool
+		return keep(a) == keep(b)
+	end 'sameKept'
+end 'Holder'
+
+typealias StrHolder = Holder with String
+
+function main() returns ExitCode
+	print("{StrHolder.sameKept("kept {40 + 2} value long enough for a heap record", b: "kept {40 + 2} value long enough for a heap record")} {StrHolder.sameKept("a", b: "b")}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false
+```
+
+<!-- test: where-clauses.a-static-ordering-element-reads-takes-the-call-sites-tables -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`a < b` orders two elements read out of an array of `T`, under a `Comparable` whose order is the reverse of the integers' own.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Rev implements Comparable, Equatable
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function compare(other Self) returns Ordering
+		if self.n > other.n 'gt'
+			return Ordering.lessThan
+		end 'gt'
+		if self.n < other.n 'lt'
+			return Ordering.greaterThan
+		end 'lt'
+		return Ordering.equalTo
+	end 'compare'
+
+	function equals(other Self) returns bool
+		return self.n == other.n
+	end 'equals'
+end 'Rev'
+
+type Holder uses T where T implements Comparable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var v as T
+
+	static function firstBelowSecond(items Items) returns bool
+		let a = try items.get(0) otherwise return false
+		let b = try items.get(1) otherwise return false
+		return a < b
+	end 'firstBelowSecond'
+end 'Holder'
+
+typealias IntHolder = Holder with Integer
+
+typealias RevHolder = Holder with Rev
+
+typealias IntArray = Array with Integer
+
+typealias RevArray = Array with Rev
+
+function main() returns ExitCode
+	let rising = IntArray.create(0)
+	rising.push(1)
+	rising.push(2)
+	let reversed = RevArray.create(0)
+	reversed.push(Rev.create(1))
+	reversed.push(Rev.create(2))
+	print("{IntHolder.firstBelowSecond(rising)} {RevHolder.firstBelowSecond(reversed)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false
+```
+
+### A static takes its tables when it dispatches
+
+<!-- test: where-clauses.a-static-takes-the-call-sites-tables-when-it-dispatches -->
+`pick(a, b)` dispatches through `Comparable` and `bump(n)` dispatches through nothing. Both ends of the hidden-argument ABI decide on the function's own name, so each call passes what its function reserved.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses T where T implements Comparable
+	var v as T
+
+	static function pick(a T, b T) returns bool
+		return a < b
+	end 'pick'
+
+	static function bump(n Integer) returns Integer
+		return n + 1
+	end 'bump'
+end 'Pair'
+
+typealias IntPair = Pair with Integer
+
+typealias StrPair = Pair with String
+
+function main() returns ExitCode
+	print("{IntPair.pick(1, b: 2)} {StrPair.pick("b", b: "a")} {IntPair.bump(4)} {StrPair.bump(5)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true false 5 6
+```
+
+### A generic nothing instantiates may still dispatch in its statics
+
+<!-- test: where-clauses.a-static-dispatching-in-a-generic-nothing-instantiates-compiles -->
+No instantiation of `Holder` exists, so nothing calls `below` or `hashBoth`; both reserve the tables a call would hand them and the program compiles.
+```maxon
+public type Holder uses T where T implements Comparable
+	var v as T
+
+	static function below(a T, b T) returns bool
+		return a < b
+	end 'below'
+
+	static function hashBoth(a T) returns bool
+		return a.compare(a) == 0
+	end 'hashBoth'
+end 'Holder'
+
+function main() returns ExitCode
+	print("declared\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+declared
+```
+
+### A static that does NOT return `Self` calls a method that reads its layout through a blind edge
+
+<!-- test: where-clauses.a-static-calls-a-method-that-reads-its-layout-through-a-blind-edge -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Box uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+
+	static function create(items Items) returns Self
+		return Self{items: items}
+	end 'create'
+
+	function copyCount() returns Val
+		let local = items
+		let c = try local.slice(0, endIndex: local.count()) otherwise return 0
+		return c.count()
+	end 'copyCount'
+
+	static function countOf(held Self) returns Val
+		return held.copyCount()
+	end 'countOf'
+end 'Box'
+
+typealias ValBox = Box with Val
+
+typealias ValArray = Array with Val
+
+function main() returns ExitCode
+	let items = ValArray.create(0)
+	items.push(4)
+	print("{ValBox.countOf(ValBox.create(items))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+### A static that does NOT return `Self` calls a method that forwards to a layout reader
+
+<!-- test: where-clauses.a-static-calls-a-method-that-forwards-to-a-layout-reader -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Box uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+
+	static function create(items Items) returns Self
+		return Self{items: items}
+	end 'create'
+
+	function copyCount() returns Val
+		let local = items
+		let c = try local.slice(0, endIndex: local.count()) otherwise return 0
+		return c.count()
+	end 'copyCount'
+
+	function viaSibling() returns Val
+		return self.copyCount()
+	end 'viaSibling'
+
+	static function countOf(held Self) returns Val
+		return held.viaSibling()
+	end 'countOf'
+end 'Box'
+
+typealias ValBox = Box with Val
+
+typealias ValArray = Array with Val
+
+function main() returns ExitCode
+	let items = ValArray.create(0)
+	items.push(4)
+	print("{ValBox.countOf(ValBox.create(items))}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+### A static's local named like a field compares as its own type
+
+<!-- test: where-clauses.a-static-local-named-like-a-field-compares-as-its-own-type -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+
+	static function create(items Items) returns Self
+		return Self{items: items}
+	end 'create'
+
+	static function same(a Val, b Val) returns bool
+		let items = a
+		let other = b
+		return items == other
+	end 'same'
+end 'Holder'
+
+typealias H = Holder with Val
+
+function main() returns ExitCode
+	print("{H.same(3, b: 3)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+### An INTERFACE EXTENSION's method over a constrained conformer reserves that conformer's witnesses
+
+An extension method is monomorphized for ONE conformer, so it carries that conformer's witness block
+exactly as the conformer's own methods do — and the supply side passes it, because
+`witnessConstraintsOfMethod` resolves a callee by its TYPE name whatever door the method came through.
+A body that reserved none would read two argument registers it never declared. `stdlib/Interfaces.maxon`'s
+`extension Iterator`'s `advanceBy` is the reaching method.
+
+<!-- test: where-clauses.interface-extension-over-a-constrained-conformer -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Step = int(0 to u64.max)
+
+type Ticks uses T where T implements Hashable and Equatable
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	var items as Items
+	var at = 0 as Count
+
+	static function create(items Items) returns Self throws IterationError
+		if items.count() == 0 'empty'
+			throw IterationError.exhausted
+		end 'empty'
+		return Self{items: items}
+	end 'create'
+
+	function current() returns T
+		return try items.get(at) otherwise panic("Ticks.current: the positioning invariant holds")
+	end 'current'
+
+	function advance() throws IterationError
+		at = at + 1
+		if at >= items.count() 'done'
+			throw IterationError.exhausted
+		end 'done'
+	end 'advance'
+end 'Ticks'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Ticks
+	function skip(n Step) throws IterationError
+		var i = 0 as Step
+		while i < n 'loop'
+			try self.advance()
+			i = i + 1
+		end 'loop'
+	end 'skip'
+end 'Ticks'
+
+typealias IntArray = Array with Integer
+
+typealias IntTicks = Ticks with Integer
+
+function main() returns ExitCode
+	let a = IntArray.create(0)
+	a.push(5)
+	a.push(6)
+	a.push(7)
+	let t = try IntTicks.create(a) otherwise panic("non-empty")
+	try t.skip(2) otherwise panic("three elements")
+	return t.current()
+end 'main'
+```
+```exitcode
+7
+```
+
+### A constraint interface named through its directory
+
+<!-- test: a-where-constraint-names-an-interface-through-its-directory -->
+`Box`'s parameter is constrained by `sub.Digest`, the interface `sub/` declares, and the body dispatches
+the requirement through that constraint (21 × 2).
+```maxon
+// --- file: sub/digest.maxon
+export interface Digest
+	function digest() returns ExitCode
+end 'Digest'
+
+// --- file: main.maxon
+type Point implements sub.Digest
+	let x as ExitCode
+
+	static function create(x ExitCode) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns ExitCode
+		return self.x * 2
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements sub.Digest
+	var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns ExitCode
+		return self.item.digest()
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let b = PointBox.create(Point.create(21))
+	return b.itemDigest()
+end 'main'
+```
+```exitcode
+42
+```
+
+### A static that hands on nothing of its type's parameters carries nothing
+
+<!-- test: where-clauses.a-static-calling-a-concrete-witness-method-is-not-a-carrier -->
+`Box.probe` calls `contains` on an `Array with Integer`, whose `Equatable` table is the one for `Integer`. None of `Box`'s own tables is handed on, so `probe` carries no descriptor and no witnesses, and a call through the bare name from `main` has nothing to supply.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Integers = Array with Integer
+
+type Box uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function probe() returns bool
+		let xs = Integers.create(0)
+		xs.push(1)
+		xs.push(2)
+		return xs.contains(2)
+	end 'probe'
+end 'Box'
+
+function main() returns ExitCode
+	print("{Box.probe()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+<!-- test: where-clauses.a-static-creating-a-closure-that-reads-nothing-is-not-a-carrier -->
+<!-- skip: closures are not supported in minimaxon -->
+```maxon
+type Box uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function bump(n Count) returns Count
+		// TODO: closures are not supported in minimaxon
+		let f = function(x Count) gives x + 1
+		return f(n)
+	end 'bump'
+end 'Box'
+
+function main() returns ExitCode
+	print("{Box.bump(1)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+```
+
+<!-- test: where-clauses.a-static-with-conditional-witnesses-that-carries-nothing-is-spawned -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function plain(n Count) returns Count
+		sleep(1)
+		return n + 1
+	end 'plain'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async Holder.plain(1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = await p
+	print("{v}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+```
+
+<!-- test: where-clauses.error.a-static-reading-its-types-parameter-is-not-spawned -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function width(n Count) returns Count
+		sleep(1)
+		// TODO: sizeof(...) is not supported in minimaxon
+		return n + sizeof(T)
+	end 'width'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async Holder.width(1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = await p
+	print("{v}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:16:23: Unsupported: `async Holder.width(…)` reads the enclosing instance's layout descriptor, which a spawn cannot hand it — the green thread's argument region carries the written arguments only. Call it directly, or spawn a function that carries none
+```
+
+<!-- test: where-clauses.a-spawned-function-looks-up-a-signed-enum-key-in-a-shared-map-body -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+A function spawned onto a green thread runs the shared `Map` body over an opaque key. A key from a signed narrow enum is
+stored at its one-byte stride and read back sign-extended inside that body, so the lookup `map.get(Signal.minus)` finds
+the key the spawned function inserted, exactly as the same lookup over a word key does.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+enum Signal
+	minus = -1
+	zero = 0
+	plus = 1
+end 'Signal'
+
+typealias WordMap = Map with (Integer, Count)
+
+typealias SignalMap = Map with (Signal, Count)
+
+function wordLookup(n Count) returns Count
+	sleep(1)
+	let map = WordMap.create()
+	map.upsert(7, value: 3)
+	map.upsert(9, value: 4)
+	let found = try map.get(9) otherwise return 0
+	return n + found
+end 'wordLookup'
+
+function signalLookup(n Count) returns Count
+	sleep(1)
+	let map = SignalMap.create()
+	map.upsert(Signal.minus, value: 3)
+	map.upsert(Signal.plus, value: 4)
+	let found = try map.get(Signal.minus) otherwise return 0
+	return n + found
+end 'signalLookup'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let wordPromise = async wordLookup(10)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let signalPromise = async signalLookup(20)
+	print("{await wordPromise} {await signalPromise}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+14 23
+```
+
+<!-- test: where-clauses.error.a-spawned-method-reading-an-opaque-arrays-elements-has-no-receiver -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+A method of a generic type that reads an element of an `Array with T` takes the instance as its receiver, and a spawn
+carries no receiver: the refusal is the one every method spawn gets, and reading an opaque element makes no method
+spawnable that was not.
+```maxon
+enum Signal
+	minus = -1
+	zero = 0
+	plus = 1
+end 'Signal'
+
+type Holder uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with T
+	var items as Items
+
+	static function create() returns Self
+		return Self{items: Items.create(0)}
+	end 'create'
+
+	function add(value T)
+		items.push(value)
+	end 'add'
+
+	function head() returns Count
+		sleep(1)
+		let first = try items.get(0) otherwise panic("Holder.head: empty")
+		var copy = Items.create(0)
+		copy.push(first)
+		return copy.count()
+	end 'head'
+end 'Holder'
+
+typealias SignalHolder = Holder with Signal
+
+function main() returns ExitCode
+	var holder = SignalHolder.create()
+	holder.add(Signal.minus)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async holder.head()
+	print("{await promise}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:36:22: Unsupported: `async holder.…` spawns a method on a VALUE, and a spawn has no receiver: it starts a linked function by address on the argument words it is handed, and nothing carries a receiver or its ownership across the green-thread boundary. Spawn a free function or a `Type.staticMethod(…)` that takes the value as an argument
+```
+
+<!-- test: where-clauses.a-static-with-conditional-witnesses-called-in-a-closure-passed-to-map -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function width(n Count) returns Count
+		// TODO: sizeof(...) is not supported in minimaxon
+		return n + sizeof(T)
+	end 'width'
+end 'Holder'
+
+typealias Small = int(0 to 100)
+
+typealias SmallHolder = Holder with Small
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [1, 2]
+	// TODO: closures are not supported in minimaxon
+	let ys = xs.map(function(n) gives SmallHolder.width(n))
+	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9 10
+```
+
+<!-- test: where-clauses.a-static-reading-a-witness-called-in-a-closure-passed-to-map -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Equatable
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	static function agree(a T, b T) returns Integer
+		return 1 if a == b else 0
+	end 'agree'
+end 'Holder'
+
+typealias IntHolder = Holder with Integer
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [1, 2]
+	// TODO: closures are not supported in minimaxon
+	let ys = xs.map(function(n) gives IntHolder.agree(n, b: 1))
+	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 0
+```
+
+### A static at the argument-slot ceiling that carries no descriptor keeps the slots it never uses unreserved
+
+<!-- test: where-clauses.a-static-at-the-argument-ceiling-with-conditional-witnesses-is-not-a-carrier -->
+Sixty-two parameters plus two conditional witnesses plus the layout slot would be sixty-five, one past the ceiling. The static reads nothing of `T`, so it is no carrier and takes sixty-two.
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function sum(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count) returns Count
+		return p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61
+	end 'sum'
+end 'Holder'
+
+typealias Small = int(0 to 100)
+
+typealias IntHolder = Holder with Small
+
+function main() returns ExitCode
+	print("{IntHolder.sum(1, p1: 2, p2: 3, p3: 4, p4: 5, p5: 6, p6: 7, p7: 8, p8: 9, p9: 10, p10: 11, p11: 12, p12: 13, p13: 14, p14: 15, p15: 16, p16: 17, p17: 18, p18: 19, p19: 20, p20: 21, p21: 22, p22: 23, p23: 24, p24: 25, p25: 26, p26: 27, p27: 28, p28: 29, p29: 30, p30: 31, p31: 32, p32: 33, p33: 34, p34: 35, p35: 36, p36: 37, p37: 38, p38: 39, p39: 40, p40: 41, p41: 42, p42: 43, p43: 44, p44: 45, p45: 46, p46: 47, p47: 48, p48: 49, p49: 50, p50: 51, p51: 52, p52: 53, p53: 54, p54: 55, p55: 56, p56: 57, p57: 58, p58: 59, p59: 60, p60: 61, p61: 62)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1953
+```
+
+<!-- test: where-clauses.a-witness-only-static-called-through-self-from-an-instance-method -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function make(v T) returns Self
+		return Self{v: v}
+	end 'make'
+
+	static function hashOf(v T) returns HashValue
+		return v.hash()
+	end 'hashOf'
+
+	function viaSelf(x T) returns HashValue
+		return Self.hashOf(x)
+	end 'viaSelf'
+end 'Holder'
+
+typealias H = Holder with Integer
+
+function main() returns ExitCode
+	let value = 41 as Integer
+	let h = H.make(value)
+	print("{h.viaSelf(value) == value.hash()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+<!-- test: where-clauses.a-call-missing-its-descriptor-and-its-tables-is-refused-once -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- positions: moved -->
+`main` names the bare `Holder`, so the call has no instance to take the layout descriptor from or the `where` tables from. It is one refusal, at the call.
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function make(v T) returns Self
+		return Self{v: v}
+	end 'make'
+
+	static function width(n Count) returns Count
+		// TODO: sizeof(...) is not supported in minimaxon
+		return n + sizeof(T)
+	end 'width'
+end 'Holder'
+
+function main() returns ExitCode
+	print("{Holder.width(1)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3162: <fragment>:15:17: 'Holder' is named without type arguments and nothing binds its parameter 'T', so 'Holder.width' has no layout descriptor to be handed: the base has none, and neither does this function. Name the instance with a typealias, giving each of its parameters a type argument
+```
+
+<!-- test: where-clauses.a-static-at-the-argument-ceiling-that-reads-its-types-parameter-is-refused -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- positions: moved -->
+The same sixty-two parameters, but the static reads `sizeof(T)`, so it is a carrier and its layout slot makes the sixty-fifth. The refusal is at the declaration.
+```maxon
+type Holder uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function sum(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count) returns Count
+		// TODO: sizeof(...) is not supported in minimaxon
+		return sizeof(T) + p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61
+	end 'sum'
+end 'Holder'
+
+typealias Small = int(0 to 100)
+
+typealias IntHolder = Holder with Small
+
+function main() returns ExitCode
+	print("{IntHolder.sum(1, p1: 2, p2: 3, p3: 4, p4: 5, p5: 6, p6: 7, p7: 8, p8: 9, p9: 10, p10: 11, p11: 12, p12: 13, p13: 14, p14: 15, p15: 16, p16: 17, p17: 18, p18: 19, p19: 20, p20: 21, p21: 22, p22: 23, p23: 24, p24: 25, p25: 26, p26: 27, p27: 28, p28: 29, p29: 30, p30: 31, p31: 32, p32: 33, p33: 34, p34: 35, p35: 36, p36: 37, p37: 38, p38: 39, p39: 40, p40: 41, p41: 42, p42: 43, p43: 44, p44: 45, p45: 46, p46: 47, p47: 48, p48: 49, p49: 50, p50: 51, p51: 52, p52: 53, p53: 54, p54: 55, p55: 56, p56: 57, p57: 58, p58: 59, p59: 60, p60: 61, p61: 62)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:5:18: Unsupported: a function with 65 argument slots — more than the 64 a call can carry. A signature's slots are its declared parameters plus the hidden ones the ABI adds (a witness per interface-typed parameter, a layout descriptor for a generic that reads one or calls a function that does, one witness per `where` constraint), and the limit is the width of the per-argument float mask that routes each one to its register file
+```
+
+<!-- test: where-clauses.a-closure-written-for-a-descriptor-it-never-reads-leaves-its-static-a-non-carrier -->
+<!-- skip: closures are not supported in minimaxon -->
+The closure calls a sibling static of the generic type, so it holds a word for the layout descriptor; the sibling reads nothing, so neither the closure nor the static that builds it carries a descriptor and a call through the bare name has nothing to supply.
+```maxon
+type Box uses T where T implements Hashable and Equatable
+	var v as T
+
+	static function make(v T) returns Self
+		return Self{v: v}
+	end 'make'
+
+	static function plain() returns Count
+		return 1
+	end 'plain'
+
+	static function viaClosure() returns Count
+		// TODO: closures are not supported in minimaxon
+		let f = function() gives Self.plain()
+		return f()
+	end 'viaClosure'
+end 'Box'
+
+function main() returns ExitCode
+	print("{Box.viaClosure()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```

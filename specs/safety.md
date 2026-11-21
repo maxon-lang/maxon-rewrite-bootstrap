@@ -1,0 +1,2147 @@
+---
+feature: safety
+status: stable
+keywords: panic, fault, safety, crash, runtime
+category: runtime
+---
+# Runtime Safety: CPU Fault Diagnostics
+
+## Documentation
+
+When a Maxon program triggers a CPU fault — a nil pointer dereference — the runtime catches it
+through the platform's fault-handler mechanism, prints a clean diagnostic to stderr, and exits with
+status 1. Every native lane installs one: a vectored exception handler on **x64-Windows**, and a
+`SIGSEGV`/`SIGBUS`/`SIGFPE` handler running on an alternate signal stack on **x64-Linux**,
+**arm64-macOS** and **arm64-Linux**.
+
+**A STACK OVERFLOW IS A PANIC.** A recursion that outgrows its thread's stack prints
+`panic: stack overflow`, the standard backtrace, and exits 1 on every native lane. On `wasm32-wasi` the
+engine owns the stack, so running out of it is wasmtime's own trap, like every other wasm fault. The
+handler needs stack of its own once the thread's is spent: Windows reserves it with
+`SetThreadStackGuarantee`, and a POSIX lane runs the handler on the thread's alternate signal stack. A
+POSIX handler tells an overflow from a bad address by where the fault lands — within 64 KiB of the
+stack pointer is the stack's own guard. A green thread's stack does not overflow this way and has no guard
+page: its prologue guard grows it first, up to 1 GiB, and a recursion that needs more stops there with the
+same panic, trace and exit code. A frame no prologue guard checks — a runtime body — runs inside the guard
+margin the prologue guards keep clear, and the build proves every chain of such frames fits that margin and
+refuses a recursion among them (E5004, `specs/stack-guard-pages.md`). The OS-backed stacks — the main
+thread's, every OS thread's, the signal stack and the per-M system stack — keep real guard regions, and a
+fault there reports the same panic.
+
+A fault on a green thread is covered the same way: every OS thread registers its own alternate signal
+stack on the POSIX lanes, and on Windows every green thread's stack keeps the OS's reservation clear below
+its guard word, where the kernel builds a faulting thread's exception record.
+
+A backtrace holds at most 100 frames, the faulting function's own frame included; a deeper chain ends
+with `...additional frames elided...`.
+
+The fault-handler infrastructure does not yet support `recover()` — once a fault
+fires, the process always exits.
+
+Divide-by-zero is NOT one of these faults. `/` and integer `mod` are throwing
+operations at the language level: a divide whose divisor cannot be proven non-zero
+throws `DivisionByZero`, so the caller must handle it with `try ... otherwise` (or
+propagate it). A divisor proven non-zero — a non-zero literal, or a ranged type whose
+range excludes 0 — compiles to a bare divide with no check. A divisor the compiler
+holds as the constant 0 (`a / 0`) is rejected at compile time. Because the failure is
+in the type system rather than in a CPU trap, the behavior is identical on every
+target: x64 does not rely on the `idiv` `#DE`, AArch64 does not hand back the 0
+`SDIV`/`UDIV` produce for a zero divisor, and `wasm32-wasi` does not trap-exit **3** past a fault
+handler that never sees a wasm trap. The fault handler still classifies a stray `SIGFPE` it
+happens to receive (e.g. a floating-point trap) to a divide-by-zero panic, but a
+correctly compiled integer divide never reaches it. The nil-pointer
+(`SIGSEGV`/`SIGBUS`) path traps identically on both architectures, so the
+`force-segfault` test runs on every native lane.
+
+Float `/` is fallible on the same terms. `x / 0.0` is `±inf` and `0.0 / 0.0` is `NaN` —
+representable values, but a division by zero is a logic error all the same, so it is
+surfaced in the type rather than silently produced: a possibly-zero float divisor throws
+`DivisionByZero`, a constant `0.0` or `-0.0` divisor (both give `±inf`) is a compile-time
+error, and a non-zero literal divisor is a bare divide. Only division is affected — an
+`inf` or `NaN` from a NON-division source (overflow to `inf`, `inf - inf`, a domain error)
+is still produced silently. Float `mod` does not exist (`mod` is integer-only).
+
+**`i64.min / -1` PANICS `integer overflow`, ON EVERY TARGET.** `DivisionByZero` is about the
+DIVISOR being zero and says nothing about a quotient that does not fit: `i64.min / -1` is
+`i64.max + 1`, so `/` has no value to return and the program stops. It prints
+**`panic: integer overflow`**, the standard backtrace, and exits 1 — identically on x64-windows,
+x64-linux, arm64-macos, arm64-linux and wasm32-wasi. A `try (a / b) otherwise …` does not catch it:
+the `try` handles the zero divisor, and an overflow is not that error.
+
+**`i64.min mod -1` IS `0`, ON EVERY TARGET.** The remainder has an answer where the quotient does
+not: `a mod -1` is `0` for EVERY `a`, because truncated division gives
+`a - (-1)·trunc(a / -1) = a - a`. So `mod` tests only its divisor, and `/` needs both operands. A
+divisor the compiler proves is neither `0` nor `-1` — a literal, or a ranged type excluding both —
+compiles to a bare divide with no guard, so the cost is paid only where the proof runs out. A `/` also
+needs none when its dividend's type or value rules `i64.min` out; otherwise its guard is one
+compare-and-branch ahead of the divide, in the dividing function, which is why the backtrace starts
+there.
+
+⚠ A `try (a mod b) otherwise …` is still REQUIRED when the divisor could be `0` (that error is
+real), but at `-1` the fallback never runs — there is nothing to catch, and a case written as though
+it fires asserts the opposite of the rule.
+
+## Tests
+
+The diagnostic also walks the faulting thread's saved frame-pointer chain and prints a symbolized stack
+trace after the panic line (frame 0 is the faulting instruction, resolved from the faulting PC; the
+remaining frames are the callers). This mirrors the ordinary `mrt_panic` software-panic trace. The frame
+addresses themselves are non-deterministic (ASLR), so only the resolved function names are asserted.
+arm64 walks the same chain as x64: AArch64's `stp x29, x30` frame record holds the caller's frame pointer
+and the return address in the same two words x64's saved-RBP chain does — which is why one pair of
+offsets serves both walkers — and every arm64 function including a leaf gets a real frame record. ⚠ A
+Mach-O runs only on macOS, so on any other host an arm64-macos case is compiled
+while the execution is skipped, and the runner reports it as NOT PASSED rather than counting it.
+
+<!-- test: divide-by-zero -->
+### Integer divide-by-zero throws DivisionByZero, caught with try/otherwise
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// An opaque source so the divisor is possibly-zero (the compiler cannot fold it,
+// so `100 / zero` is a throwing operation rather than a compile-time `a / 0` error).
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let zero = opaque(0)
+	var result = 0 as Integer
+	try 'work'
+		result = 100 / zero
+	end 'work' otherwise (e) 'handle'
+		match e 'kind'
+			divisionByZero then result = 42
+		end 'kind'
+	end 'handle'
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: mod-by-zero -->
+### Integer modulo-by-zero throws DivisionByZero, caught with try/otherwise
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let zero = opaque(0)
+	let result = try (5 mod zero) otherwise 7
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: float-divide-by-zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+### Float divide-by-zero throws DivisionByZero, caught with try/otherwise
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+// An opaque source so the divisor is possibly-zero (the compiler cannot fold it,
+// so `100.0 / zero` throws rather than being a compile-time `a / 0.0` error). Float
+// `/` is fallible exactly as integer `/` is: `x / 0.0` would be ±inf — a representable
+// value, but still a logic error — so it is surfaced in the type, not silently produced.
+function opaque(x Float) returns Float
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let zero = opaque(0.0)
+	var result = 0 as FullRangeInt
+	try 'work'
+		// TODO: float literals are not supported in minimaxon
+		let q = 100.0 / zero
+		// Unreachable: the divide throws before this runs. `q > 0.0` keeps the value used so the
+		// divide is not elided, without casting a float to the ExitCode.
+		// TODO: float literals are not supported in minimaxon
+		result = 1 if q > 0.0 else 2
+	end 'work' otherwise (e) 'handle'
+		match e 'kind'
+			divisionByZero then result = 42
+		end 'kind'
+	end 'handle'
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+### The same three programs in the expression form the compiler parses
+
+The two cases above are gated on block-form `try` alone. These carry their DIVISION
+subject — the throw, the `(e)` binding, and the `match e` discrimination of `divisionByZero`
+— in the `try (…) otherwise (e) 'label' … end` form, so the rule is pinned rather than merely
+documented while the block form is outstanding.
+
+<!-- test: divide-by-zero-expression-form -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+### An integer divide's DivisionByZero is bound and discriminated by match
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let zero = opaque(0)
+	var result = 0 as Integer
+	// A STATEMENT-position `try`, which is what the block form's `result = 100 / zero` body amounts to.
+	// The quotient is discarded, and the throw survives that: what raises the error is the divisor test
+	// feeding the fork, not the divide whose value nobody reads.
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try (100 / zero) otherwise (e) 'handle'
+		match e 'kind'
+			divisionByZero then result = 42
+		end 'kind'
+	end 'handle'
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: float-divide-by-zero-expression-form -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+### A float divide's DivisionByZero is bound and discriminated by match
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function opaque(x Float) returns Float
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let zero = opaque(0.0)
+	var result = 0 as FullRangeInt
+	// TODO: float literals are not supported in minimaxon
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try (100.0 / zero) otherwise (e) 'handle'
+		match e 'kind'
+			divisionByZero then result = 42
+		end 'kind'
+	end 'handle'
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+### A RUNTIME `-0.0` divisor throws too — both zeros, not just the one with a zero bit pattern
+
+`error.float-divide-by-negative-constant-zero` below pins `-0.0` as a *folded constant*, which the
+proof settles before any code is emitted. This case pins the other half: a `-0.0` that reaches the
+divide at RUNTIME. Nothing else in this suite reaches it — every other runtime float case here
+divides by `+0.0`, and `+0.0`'s bit pattern is 0, so it would pass even if the zero test read the
+divisor's bits as an integer. `-0.0` is `0x8000000000000000`, so it is the operand that tells a float
+compare apart from a bit compare.
+
+⚠ **What this case does NOT pin.** Emitting that zero test as an
+INTEGER compare does not silently yield `-inf`: it is refused loudly by the x64 emitter's
+register-file guard (`requireClass`, `Targets/X64/X64Backend.maxon` — *"xmm0 is in the xmm register
+file where the gpr file is required"*), because the divisor is in an xmm and an integer compare wants
+a gpr. Under that sabotage this case fails **together with**
+`float-divide-by-runtime-negative-zero`'s `+0.0` sibling rather than instead of it — so it does not
+discriminate there, and the structural guard is the real protection. What is left for this case to
+hold is the SEMANTICS (both zeros throw, and `x / -0.0` is not quietly `-inf`) and one future
+refactor the register guard cannot see: a deliberately well-typed bitcast of the divisor to an
+integer to avoid an xmm compare.
+
+<!-- test: float-divide-by-runtime-negative-zero -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+```maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+function opaque(x Float) returns Float
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let negZero = opaque(-0.0)
+	var result = 0 as FullRangeInt
+	// TODO: float literals are not supported in minimaxon
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try (1.0 / negZero) otherwise (e) 'handle'
+		match e 'kind'
+			divisionByZero then result = 42
+		end 'kind'
+	end 'handle'
+	return result as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+### A possibly-zero divisor without `try` is refused (E3057)
+
+The divide is a throwing operation, so a bare one drops an error flag the caller never reads.
+The message names DIVISION rather than borrowing the array accessor's wording.
+
+<!-- test: error.divide-without-try -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let d = opaque(7)
+	let q = 100 / d
+	return q as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3057: <fragment>:10:14: throwing division requires try: wrap it as `try (a / b) otherwise …`, or give the divisor a ranged type that excludes 0 (e.g. `int(1 to ...)`) — a bare divide drops the divide-by-zero error
+```
+
+<!-- test: error.mod-without-try -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let d = opaque(7)
+	let r = 100 mod d
+	return r as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3057: <fragment>:10:14: throwing division requires try: wrap it as `try (a mod b) otherwise …`, or give the divisor a ranged type that excludes 0 (e.g. `int(1 to ...)`) — a bare divide drops the divide-by-zero error
+```
+
+### The parenthesized `try` target must have emitted the op it is applied to
+
+⭐⭐ **A `try` TARGET THAT EMITS NOTHING MUST BE REFUSED, AND ONLY A REFUSAL KEEPS THE DOOR THE
+WIDTH IT CLAIMS.** `try (a / b)` is accepted because `rewriteLastCallToTryCall` converts the LAST op
+in the current block and a possibly-zero divide leaves a `call __checked_div` there. That derivation
+is sound only while the target is guaranteed to have PUT an op there: a parenthesized group whose
+inner expression is a bare NAME emits no op at all (a name is a lookup), so "the last op the target
+emitted" silently becomes *the last op the previous statement emitted*.
+
+⚠ **Without the guard it is not merely a wrong message.** The second case below would COMPILE and
+return **99**: the `try`/`otherwise` is transplanted onto the `arr.get(2)` two statements above it, so
+the handler fires for the ARRAY's out-of-bounds error, `w` takes the handler's value instead of `a`'s,
+and the E3057 that bare `arr.get(2)` owes disappears along the way — because the op it would be
+reported against has become the `try`'s target rather than a plain `call`. Two diagnostics lost and a
+wrong value produced, from one widened door.
+
+The guard is a DERIVATION rather than a paren-shaped special case: `parseTry` records the module's op
+count before parsing the target, and an op older than that mark cannot be the target's. Every other
+try form is unaffected, because every one of them emits its call.
+
+<!-- test: error.try-over-a-parenthesized-non-call -->
+The group is a plain local, so nothing was emitted for it. The blame must land on the `try`, not on
+the non-throwing `opaque` whose call happens to be the last op in the block.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function opaque(x Integer) returns Integer
+	return x
+end 'opaque'
+
+function main() returns ExitCode
+	let v = opaque(5)
+	let w = try (v) otherwise 99
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:10:10: Unsupported: `try` must be applied to a call — `try f(…)` or `try obj.method(…)`; the expression after `try` is not a call
+```
+
+<!-- test: error.try-over-a-parenthesized-name-cannot-claim-an-earlier-call -->
+<!-- positions: moved -->
+The same shape with a THROWING call in front of it — the case that compiled and answered 99.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+function main() returns ExitCode
+	var arr = IntArray.create(0)
+	arr.push(7)
+	let a = arr.get(2)
+	let w = try (a) otherwise 99
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:9:10: Unsupported: `try` must be applied to a call — `try f(…)` or `try obj.method(…)`; the expression after `try` is not a call
+```
+
+### A divisor the compiler HOLDS as 0 is never recoverable — it is E3103
+
+A throw the program could catch would be a lie about a divide that can only ever fail, so a
+provably-zero divisor is rejected outright rather than routed to `DivisionByZero`. Both float
+zeros are zero: `x / -0.0` is `-inf` exactly as `x / 0.0` is `+inf`, and IEEE-754 makes the two
+patterns compare equal.
+
+<!-- test: error.divide-by-constant-zero -->
+```maxon
+function main() returns ExitCode
+	let a = 12
+	let q = a / 0
+	return q as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:4:12: division by zero: the divisor of '/' is always 0
+```
+
+<!-- test: error.mod-by-constant-zero -->
+```maxon
+function main() returns ExitCode
+	let a = 12
+	let r = a mod 0
+	return r as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:4:12: division by zero: the divisor of 'mod' is always 0
+```
+
+<!-- test: error.divide-by-a-folded-mod-of-minus-one -->
+⭐ **THE FOLD MUST SURVIVE THE OVERFLOW GUARD.** `a mod -1` is `0` for every `a`, so the parser
+holds this `z` as the constant `0` and the divide by it is refused at COMPILE time — exactly as
+`error.divide-by-let-bound-zero` below is. It is pinned because the overflow guard is how it could break: `-1` is
+the only constant divisor that leaves the bare route for a guarded expansion, and an expansion that
+forgot to record its fold would silently turn this compile-time refusal into a runtime `DivisionByZero`
+a `try` could swallow. The fold needs no constant DIVIDEND, because the answer does not depend on
+one.
+```maxon
+function main() returns ExitCode
+	let z = 10 mod -1
+	let q = 100 / z
+	return q as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:4:14: division by zero: the divisor of '/' is always 0
+```
+
+<!-- test: error.divide-by-let-bound-zero -->
+```maxon
+function main() returns ExitCode
+	let a = 12
+	let zero = 0
+	let q = a / zero
+	return q as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:5:12: division by zero: the divisor of '/' is always 0
+```
+
+<!-- test: error.float-divide-by-constant-zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let a = 12.0
+	// TODO: float literals are not supported in minimaxon
+	let q = a / 0.0
+	return trunc(q) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:4:12: division by zero: the divisor of '/' is always 0
+```
+
+<!-- test: error.float-divide-by-negative-constant-zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let a = 12.0
+	// TODO: float literals are not supported in minimaxon
+	let q = a / -0.0
+	return trunc(q) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3103: <fragment>:4:12: division by zero: the divisor of '/' is always 0
+```
+
+### `i64.min mod -1` is `0`, through every door a `mod` has
+
+Three doors reach a `mod`, they are decided by what the compiler can prove about the DIVISOR, and on
+x64 a bare `idiv` makes **all three die** — so all three are pinned. `-1` is not a special divisor to the
+language; it is only special to `idiv`, and the point of these cases is that nothing about the
+answer depends on which door the program came through.
+
+They run on **every** target, which is the other half of the claim: `wasm32-wasi` passes the first
+of them natively (`i64.rem_s` is defined to answer 0) and arm64's `sdiv`+`msub` computes it too, so
+a green x64 lane beside them is what makes the answer the LANGUAGE's rather than one backend's.
+
+<!-- test: mod-at-int-min-by-minus-one-is-zero -->
+#### Door 1 — a divisor the compiler cannot prove non-zero (the throwing `mod`)
+⚠ The `otherwise` is DEAD WEIGHT here and `77` must never be seen. It is spelled only because a
+possibly-zero divisor makes `mod` fallible (E3057 without it); the divide-by-`-1` it is wrapped
+around does not throw, because its answer exists.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	let d = ident(-1)
+	let r = try (n mod d) otherwise 77
+	print("r={r}\n")
+	return 0
+end 'main'
+```
+```stdout
+r=0
+```
+```exitcode
+0
+```
+
+<!-- test: mod-by-a-minus-one-literal-is-zero -->
+#### Door 2 — a literal `-1` divisor, so no `try` at all
+The compiler proves the divisor non-zero, so this `mod` is TOTAL and a `try` around it would be
+refused. It nonetheless has to answer `0` rather than fault — the door the fallible-division rule
+never touches.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	let r = n mod -1
+	print("r={r}\n")
+	return 0
+end 'main'
+```
+```stdout
+r=0
+```
+```exitcode
+0
+```
+
+<!-- test: mod-by-a-ranged-divisor-that-admits-minus-one-is-zero -->
+<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+#### Door 3 — a ranged divisor that excludes `0` but ADMITS `-1`
+`int(-1 to -1)` is the shape that shows "excludes zero" was never the same proof as "cannot
+overflow": it earns the bare divide by the fallible-division rule and is `-1` every time. The
+DIVISOR arrives through a call argument, the one position a ranged type is not re-checked at runtime, so
+nothing holds the caller to the range the proof read — the same door
+`divide-by-zero-premise-enforced-at-the-callee-entry` closes below, and
+`mod-overflow-premise-enforced-at-the-callee-entry` is what happens when it is walked through.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
+typealias NegativeOne = int(-1 to -1) implements Integer
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function remainder(n Integer, d NegativeOne) returns Integer
+	return n mod d
+end 'remainder'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	let d = ident(-1)
+	let r = remainder(n, d: d as NegativeOne)
+	print("r={r}\n")
+	return 0
+end 'main'
+```
+```stdout
+r=0
+```
+```exitcode
+0
+```
+
+<!-- test: mod-by-minus-one-is-zero-for-every-dividend -->
+#### The guard reads the DIVISOR and never the dividend
+`i64.min` is the only dividend that made `idiv` fault, so a guard could pass Door 1 while still
+being keyed on the dividend. These three are `0` for the same reason `i64.min` is — `a mod -1`
+does not depend on `a` — and a positive, a negative and a zero dividend together say so.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let d = ident(-1)
+	let a = try (ident(100) mod d) otherwise 77
+	let b = try (ident(-7) mod d) otherwise 77
+	let c = try (ident(0) mod d) otherwise 77
+	print("a={a} b={b} c={c}\n")
+	return 0
+end 'main'
+```
+```stdout
+a=0 b=0 c=0
+```
+```exitcode
+0
+```
+
+<!-- test: mod-guard-passes-a-wide-dividend-through-untouched -->
+#### ⭐⭐ The mask is `-1` AT ITS FULL WIDTH — the half every case above is blind to (X5)
+Every case above answers `0`, and `0` is what a BROKEN mask produces too: the guard's `mask =
+(d == -1) - 1` is `and`ed into the dividend, so a mask that is short, truncated or zero-extended still
+lands on `0` for the very divisor these cases pin. The mask's `-1` arm — the one that must leave the
+dividend ALONE — is only observable when the divisor is ordinary and the dividend has bits the mask
+could drop. `4198346131161219195` is a 62-bit number, so it has 30 significant bits above the low 32
+and a mask of
+`0x00000000FFFFFFFF` answers `123` (the low limb alone) where the language answers `161219195`.
+
+A mask `add` folded to an immediate that drops the operand WIDTH, reading an i1 compare result, lets
+the backend re-derive that width as 32 bits: `r=123` on `wasm32-wasi`, and invisible on x64, whose
+registers are 64-bit whatever the Std type says. This is the case that makes the mask's width the
+LANGUAGE's rather than one backend's, which is also why the dividend is a `mod` a real program performs
+— the shortest-round-trip float printer divides exactly this way (`__bigDivModSmall`).
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let n = ident(4198346131161219195)
+	let d = ident(1000000000)
+	let q = try (n / d) otherwise 77
+	let r = try (n mod d) otherwise 77
+	print("q={q} r={r}\n")
+	return 0
+end 'main'
+```
+```stdout
+q=4198346131 r=161219195
+```
+```exitcode
+0
+```
+
+<!-- test: error.try-over-a-total-mod-names-the-operator -->
+#### A `try` over a guarded `mod` is refused — and answers as a `mod`, not as a "builtin call"
+The overflow guard makes this `mod` a compiler-expanded CALL rather than a bare `binOp`, so the
+`try` reaches the throwing-target check instead of the not-a-call one. That shape must not change what
+the author is told: they wrote an operator, and the emitted symbol behind it (`__guarded_mod`)
+is exactly the kind of name the `__` reservation exists to keep out of a diagnostic. So E3055 names the
+OPERATOR and the reason — the divisor's range, which is the thing they would have to change.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	let r = try (n mod -1) otherwise 5
+	return r as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3055: <fragment>:10:10: try requires a throwing function: this `mod` cannot fail — its divisor is already proven non-zero, so there is no divide-by-zero error to catch
+```
+
+<!-- test: error.try-over-a-total-quotient-names-the-operator -->
+<!-- positions: moved -->
+#### A `try` over a `/` whose divisor is proven non-zero is the same refusal
+A divisor that is a sum of ranged values carries the interval their ranges give, so `n + 1` over
+`int(0 to 100)` is `1 … 101` and excludes 0. The divide is then a bare `binOp` with no call to rewrite,
+and the `try` is still answered as E3055 naming the OPERATOR, exactly as the guarded `mod` above is: a
+divide that cannot fail is one mistake whichever spelling the author used, not "the expression after `try` is not a call".
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Count = int(0 to 100)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let x = ident(70) as Count
+	let n = ident(7) as Count
+	let q = try (x / (n + 1)) otherwise 5
+	return q as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3055: <fragment>:12:10: try requires a throwing function: this `/` cannot fail — its divisor is already proven non-zero, so there is no divide-by-zero error to catch
+```
+
+<!-- test: mod-by-a-ranged-divisor-below-minus-one-is-a-bare-idiv -->
+#### A range that excludes BOTH `0` and `-1` still buys the unguarded divide
+The proof is what keeps the guard off the common path, so its precision is worth a case: `int(i64.min
+to -2)` is wholly negative — it admits neither hazard — and `specs/division.md`'s
+`ranged-divisor-excluding-minus-one-is-still-a-bare-idiv` is the case whose emitted code holds no
+`cmp`. Here the point is only that a NEGATIVE divisor is not treated as suspicious merely for
+being negative: `-13 mod -5` is `-3`, the remainder taking the DIVIDEND's sign.
+```maxon
+typealias BelowMinusOne = int(i64.min to -2)
+
+function remainder(n BelowMinusOne, d BelowMinusOne) returns Integer
+	return (n mod d) as Integer
+end 'remainder'
+
+function main() returns ExitCode
+	print("r={remainder(-13, d: -5)}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```stdout
+r=-3
+```
+```exitcode
+0
+```
+
+### ⭐⭐ The premise the divide's proof rests on, ENFORCED
+
+The two cases below are this file's record of the cure, and the pair is worth reading as one thing.
+
+`/` and `mod` are throwing operations, and a divisor **proven** non-zero compiles to a bare `idiv`
+with no check and no `try` spellable. One of the two things that can constitute the proof is *a ranged
+type whose range excludes 0* — so when a `NonZero` PARAMETER is the proof, the whole guarantee rests
+on a premise that must be **enforced**. A call argument cannot be checked at runtime where it is
+written: a runtime check is a BRANCH, and an argument is evaluated part-way through building an
+argument list, so a guard emitted where the argument is WRITTEN lands past the call with the callee
+already run. Unguarded, a `NonZero` parameter handed a runtime `0` reaches the bare `idiv`, and the
+catchable `DivisionByZero` the language promises becomes an **uncatchable hardware fault** — a
+different failure, on a path `recover()` cannot see.
+
+**The guard moves rather than defeating the obstacle.** The obstacle is real; the runtime half of the
+argument door belongs to the **callee's entry** — one guard per narrowed parameter per function,
+standing in front of every caller. So both cases below panic with the RANGE message, naming the alias
+whose range was broken and the line the premise is DECLARED on, before the callee's body runs at all.
+The `idiv` is bare, and its proof is true.
+
+⚠ **The panic names the PARAMETER's line, not the caller's**, and that is forced rather than chosen:
+one guard serves every call site, including a call through a function value that has no argument list
+to blame, so the caller's line is not a fact the guard holds. The parameter list is where the premise
+is declared.
+
+⚠ **A guarded leaf function stops being a leaf.** The panic block calls `mrt_panic`, so a function
+whose body contained no call at all acquires one and gains a real frame (`x64.prologue 32`). That is a
+per-FUNCTION cost paid on the in-range path — the honest price of a legitimate elision.
+
+⚠⚠ **THE `mod` HALF IS THE SAME PREMISE, NOT A SECOND ONE.** `i64.min mod -1` comes back as `0`
+wherever the compiler's proof runs — and the proof reads a divisor's DECLARED RANGE. So a
+`d BelowMinusOne` parameter (`int(i64.min to -2)`, a range that rules out both of `idiv`'s hazards)
+handed a runtime `-1` breaks the same premise as its divide-by-zero twin, and one guard refuses both.
+
+⚠⚠ **AND THE FAULT THUNK HAS TESTS OF ITS OWN.** Behind the entry guard these two cases do not reach
+the `#DE` handler, so the fault runtime's coverage comes from elsewhere:
+`integer-overflow-fault-from-int-min-over-minus-one` reaches `STATUS_INTEGER_OVERFLOW` (0xC0000095) with
+a divisor that is genuinely IN range (`-1` in `int(-1 to -1)`, so the entry guard passes and the
+quotient overflows anyway), and `a-checked-divide-still-faults-at-int-min-over-minus-one` reaches it
+through the fallible spelling. No program reaches the `STATUS_INTEGER_DIVIDE_BY_ZERO` (0xC0000094) arm:
+every door that carries a value into a slot whose type excludes zero checks the range where the value
+lands, and the `divide-by-zero-premise-enforced-at-*` cases below pin each door.
+
+<!-- test: divide-by-zero-premise-enforced-at-the-callee-entry -->
+#### ⭐ A runtime zero is refused AT `divide`'S PARAMETER — the `idiv` it would have reached is still bare
+`d` excludes 0, so the divide is proven safe and compiles to the unguarded `idiv` — no throw, no `try`.
+The proof is the CALLER's to keep, and the entry guard holds it to it: the guard fires at line 9,
+the parameter's own declaration, before a single body op runs. Unguarded, this program would die
+`panic: integer divide by zero` — an uncatchable CPU fault where the language promises a catchable
+`DivisionByZero`. The zero is `one - one`, a difference of `NonZero`s: it wears `NonZero` without proving
+it, so it reaches the parameter with no cast and the guard that refuses it is the callee's own.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function divide(n NonZero, d NonZero) returns Integer
+	return (n / d) as Integer
+end 'divide'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	return divide(10, d: one - one) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-callee-entry.test:9: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in divide
+  in main
+  in mrt_start
+```
+
+<!-- test: mod-overflow-premise-enforced-at-the-callers-cast -->
+#### ⭐ A runtime `-1` is refused before it reaches `remainder` — what the `i64.min mod -1` guarantee rests on
+
+The twin of the case above, and the one that says what the `i64.min mod -1` guarantee rests on: the
+compiler's PROOF, not the hardware. `BelowMinusOne` rules out BOTH of `idiv`'s hazardous divisors, so
+`n mod d` compiles to the bare sequence with no guard and no `try` spellable — correctly, given the
+declared type. An `Integer` reaches a `BelowMinusOne` parameter only through an `as`, so a caller that
+breaks the type gets the range panic at that cast, naming `BelowMinusOne`, rather than the fault the
+type stands in front of. **One cure, two hazards** — the divide-by-zero premise and the
+`i64.min mod -1` premise are one premise.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias BelowMinusOne = int(i64.min to -2)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function remainder(n BelowMinusOne, d BelowMinusOne) returns Integer
+	return (n mod d) as Integer
+end 'remainder'
+
+function main() returns ExitCode
+	let bad = ident(-1)
+	return remainder(i64.min, d: bad as BelowMinusOne) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at mod-overflow-premise-enforced-at-the-callers-cast.test:15: Range check failed: value outside typealias 'BelowMinusOne'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: mod-overflow-premise-enforced-at-the-callee-entry -->
+#### ⭐ A runtime `-1` that wears `BelowMinusOne` without proving it is refused AT `remainder`'S PARAMETER
+
+The callee-entry half of the case above. `a - a - a` is a difference of `BelowMinusOne`s, so it wears the alias and proves nothing about it; here it is `3`. No cast stands at the call, so the guard that refuses it is the one at `remainder`'s own entry, before the bare `idiv` the type licenses.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias BelowMinusOne = int(i64.min to -2)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function remainder(n BelowMinusOne, d BelowMinusOne) returns Integer
+	return (n mod d) as Integer
+end 'remainder'
+
+function main() returns ExitCode
+	let a = ident(-3) as BelowMinusOne
+	return remainder(i64.min, d: a - a - a) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at mod-overflow-premise-enforced-at-the-callee-entry.test:9: Range check failed: value outside typealias 'BelowMinusOne'
+Stack trace:
+  in remainder
+  in main
+  in mrt_start
+```
+
+<!-- test: array-element-premise-enforced-at-the-store -->
+#### ⭐ THE LAST DOOR: a runtime zero is refused at the `push`, not at the `idiv`
+
+The entry guard closes the call-argument door at the CALLEE's entry, and cannot reach this one — an element
+travels as `__managed_push`'s third argument into a shared `Array` body whose parameter is the OPAQUE
+element type, so there is no narrowed parameter for an entry guard to stand behind. The store guard
+shuts it from the other side for a value that carries no alias (`-ident(0)`): the guard goes at the
+**store**, in the caller, which is the one place that still knows the element type. A value cast
+`as NonZero` is guarded at the cast, and a value of another named alias is E3005 at the `push`. Everything the entry guard could not see is visible here, and the
+value never reaches the array.
+
+Unguarded, this program would print `before` and die `panic: integer divide by zero` — the element
+read back out is a `NonZero` the compiler believes, so `100 / d` is a bare `idiv`. The `print` is
+there and does NOT run: the guard fires at the `push`, ahead of it, which is what proves the check
+lands at the store rather than at the read.
+```maxon
+typealias Offset = int(-50 to 100)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function ident(v Offset) returns Offset
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let xs = NonZeroArray.create(0)
+	xs.push(-ident(0))
+	let d = try xs.get(0) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at array-element-premise-enforced-at-the-store.test:12: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: error.resize-cannot-expose-a-zero-to-a-non-zero-alias -->
+<!-- positions: moved -->
+#### The route to `#DE` that a store guard could not close is closed at its source: `resize` refuses an element range that excludes its zero
+
+Growing an array *exposes* zero-initialized slots, and a zero is an element only while the element type
+admits it. An `Array with NonZero` would acquire a `0` element with no value crossing any door, and
+`100 / d` is a bare `idiv` because the compiler believes `NonZero` — so `resize` is refused, as it is for a
+MANAGED element it cannot invent, with **E3106**; `growFilled` supplies a value the type admits.
+
+```maxon
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function main() returns ExitCode
+	var xs = NonZeroArray.create(0)
+	xs.resize(1)
+	let d = try xs.get(0) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```maxoncstderr
+error E3106: <fragment>:7:5: 'resize' cannot grow an array of 'NonZero': the grown slots are zero and zero is not a value of 'NonZero'. Append with 'push(value)' or 'growFilled(n, value:)'
+```
+
+⭐⭐ **NO DOOR LEAKS, AND THE TWO CASES BELOW PIN THE WHOLLY-NEGATIVE RANGES.** The claim above rests
+on every door into a ranged binding enforcing its range at runtime, including for a **wholly
+NEGATIVE** divisor range: a `-1` stored upper bound read as the unbounded `u64.max` whatever the low
+bound says would leave `int(-100 to -1)` and `int(i64.min to -2)` with no upper compare and let the
+plain `as` cast admit anything (`specs/ranged-typealias.md`'s `negative-upper-bound-cast-is-checked`
+owns the rule). Both of `idiv`'s hazards are reachable that way, so both are pinned here — the SAME
+hazard as the array-element store above, through a door that is supposed to be shut. `resize` no longer hands back a slot that no value crossed into: it is refused for a range that excludes 0.
+
+⚠ **A MERGE IS NOT A SECOND SUCH PRODUCER.** Every edge into a loop-carried ranged `var` is a door —
+the rebind checks the value it stores — so the merge holds only values its type admits;
+`divide-by-a-loop-carried-divisor-panics-at-the-rebind` below pins it. No producer crosses no door.
+
+<!-- test: negative-range-cast-guard-fires-before-the-divide -->
+#### A zero cast into a wholly-negative divisor range is refused at the CAST, not at the `idiv`
+`int(-100 to -1)` excludes `0`, so `100 / d` is a bare `idiv` with no `try` spellable — correct, given
+the declared type. The guard the language promises therefore has to be the thing that stops a runtime
+`0` getting there. This is `cast-guard-fires-before-the-division`'s negative-range twin, and it died
+`integer divide by zero` before the bound was checked.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NegativeOnly = int(-100 to -1)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let z = ident(0)
+	let d = z as NegativeOnly
+	let q = 100 / d
+	print("q={q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at negative-range-cast-guard-fires-before-the-divide.test:11: Range check failed: value outside typealias 'NegativeOnly'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: negative-range-cast-guard-fires-before-the-remainder -->
+#### ⭐ The `i64.min mod -1` hazard through the same door — `int(i64.min to -2)` admitting a `-1`
+The remainder's own twin, and the reason this pair belongs beside the `i64.min mod -1` cases rather
+than only in `ranged-typealias.md`: `BelowMinusOne` rules out BOTH of `idiv`'s divisors, so `n mod d`
+is bare, and a cast admitting `-1` would bring `i64.min mod -1` back as `panic: integer overflow` — the
+exact fault the overflow guard exists to remove — through a cast the division proof is entitled to
+trust.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias BelowMinusOne = int(i64.min to -2)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let bad = ident(-1)
+	let d = bad as BelowMinusOne
+	let r = i64.min mod d
+	print("r={r}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at negative-range-cast-guard-fires-before-the-remainder.test:11: Range check failed: value outside typealias 'BelowMinusOne'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: integer-overflow-fault-from-int-min-over-minus-one -->
+<!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
+#### `i64.min / -1` panics `integer overflow` — its own words, on every target
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: alias subtyping (implements on typealias) is not supported in minimaxon
+typealias NegativeOne = int(-1 to -1) implements Integer
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+// The divisor's range excludes 0, so no `DivisionByZero` is possible — that error is about the
+// DIVISOR, and says nothing about a quotient that does not fit. `i64.min / -1` is `i64.max + 1`.
+function divide(n Integer, d NegativeOne) returns Integer
+	return n / d
+end 'divide'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	// Opaque, so the divide is not folded or rewritten as a negation.
+	let d = ident(-1)
+	return divide(n, d: d as NegativeOne) as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: integer overflow
+Stack trace:
+  in divide
+  in main
+  in mrt_start
+```
+
+<!-- test: a-checked-divide-still-faults-at-int-min-over-minus-one -->
+#### ⭐ THE BOUNDARY OF THE `mod` RULE: a CHECKED `/` is still fatal here, deliberately
+
+The case above reaches the overflow through a divisor proven non-zero. This one reaches it through the
+**fallible** divide — the spelling that has a `try`, a divisor the compiler cannot prove non-zero, and
+a fallback sitting right there — and the fallback **still never runs**, because an overflow is not a
+throw. **`i64.min / -1` has no representable quotient, so there is no value for a total `/` to
+return**, where `mod`'s answer DOES exist. Pinned so the asymmetry is tested rather than inferred from
+prose.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let n = ident(i64.min)
+	let d = ident(-1)
+	print("before\n")
+	let q = try (n / d) otherwise 77
+	print("q={q}\n")
+	return 0
+end 'main'
+```
+```stdout
+before
+```
+```exitcode
+1
+```
+```stderr
+panic: integer overflow
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-a-loop-carried-divisor-panics-at-the-rebind -->
+#### ⚠⚠ A LOOP-CARRIED DIVISOR IS GUARDED AT ITS REBIND
+
+A `var` declared from a `NonZero` and then REASSIGNED inside a loop merges at the loop header. Both edges
+into that merge are doors: the seed is the callee's guarded `return`, and the rebind `d = d - 1` checks
+the value it stores against `NonZero`. So the merge proves `NonZero`, `100 / d` compiles to a bare
+`idiv` with no `try`, and the `0` the loop computes never reaches it — the program panics at the
+rebind, naming `NonZero`, rather than dying `panic: integer divide by zero`, the uncatchable `#DE`
+where the language promises a catchable `DivisionByZero`.
+```maxon
+typealias NonZero = int(1 to i64.max)
+
+function seed(n NonZero) returns NonZero
+	return n
+end 'seed'
+
+function main() returns ExitCode
+	var d = seed(1)
+	var i = 0 as FullRangeInt
+	while i < 1 'lp'
+		d = d - 1
+		i = i + 1
+	end 'lp'
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-a-loop-carried-divisor-panics-at-the-rebind.test:12: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: unbounded-recursion-panics-with-stack-overflow -->
+<!-- unsupported-targets: wasm32-wasi -->
+### Unbounded recursion panics `stack overflow`
+A recursion with no base case outgrows its thread's stack. The program stops with the standard fault
+shape — the panic line, the innermost 100 frames and the elision line — and exits 1. `wasm32-wasi` is
+excluded because the engine owns that stack: running out of it is wasmtime's own trap.
+```maxon
+typealias Depth = int(0 to i64.max)
+
+function descend(depth Depth) returns Depth
+	return descend(depth + 1) + 1
+end 'descend'
+
+function main() returns ExitCode
+	let reached = descend(0)
+	print("{reached}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: stack overflow
+Stack trace:
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  ...additional frames elided...
+```
+
+<!-- test: unbounded-recursion-on-a-green-thread-panics-with-stack-overflow -->
+<!-- unsupported-targets: wasm32-wasi -->
+<!-- runs: alone -->
+### Unbounded recursion on a green thread panics `stack overflow` too
+The `sleep` runs the scheduler, which puts `main` on a green thread, whose stack grows on demand instead of
+faulting. Growth stops at 1 GiB, and the recursion that asks for more stops with the same line, trace and
+exit code as one that runs an OS thread's stack out — reported from the frame whose entry asked. The case
+grows a stack to that limit and the last growth holds both copies, so it runs with no other case beside it.
+`wasm32-wasi` is excluded: its `sleep` is a blocking host wait with no scheduler behind it, so `main` stays
+on the engine's own call stack and running out of that is wasmtime's own trap.
+```maxon
+typealias Depth = int(0 to i64.max)
+
+function descend(depth Depth) returns Depth
+	return descend(depth + 1) + 1
+end 'descend'
+
+function main() returns ExitCode
+	sleep(1)
+	let reached = descend(0)
+	print("{reached}\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: stack overflow
+Stack trace:
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  in descend
+  ...additional frames elided...
+```
+
+<!-- test: force-segfault -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: arm64-macos -->
+
+⭐⭐ **THE ONLY CASE THAT CAN REACH THE FAULT HANDLER ON PURPOSE.** Every other route into
+`mrt_fault_thunk` is a compiler BUG, so without `__Builtins.forceSegfault()` the whole thunk would be code
+no suite could exercise: green everywhere, and unmeasured. The intrinsic lowers to
+`maxon_force_segfault`, whose body is Maxon source the compiler reads out of `runtime/FaultProbe.maxon`
+(`specs/runtime-source-tier.md`): a `__Raw.storeWord` through address 0, which the handler's
+EXCEPTION_ACCESS_VIOLATION arm turns into this line, this backtrace and exit 1.
+
+`__Builtins` is callable only from a source file under `stdlib/` or `runtime/` (E3185), and the intrinsic has
+no public replacement, so this case and the three below that call it compile as library-tier source.
+`wasm32-wasi` installs no fault handler, and a store through address 0 succeeds in linear memory, so the intrinsic is refused there with E3104 and these cases are counted skips.
+
+⚠ **THE ENTRY POINT IS A FUNCTION AND NOT A STORE INLINED AT THE CALL SITE, BECAUSE THE FRAME LIST IS WHAT
+THIS ASSERTS.** Inlined, frame 0 would be `main` and the case would stop saying that the walk crosses a frame
+boundary at all. `__Raw.ownFrame()` is what keeps it a frame.
+### Deliberate access violation produces a clean panic with backtrace
+```maxon
+function main() returns ExitCode
+	__Builtins.forceSegfault()
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: nil pointer or invalid memory access
+Stack trace:
+  in maxon_force_segfault
+  in main
+  in mrt_start
+```
+
+<!-- test: force-segfault-macos -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-linux -->
+
+### Deliberate access violation produces a clean panic (arm64-macOS)
+⚠⚠ **A Mach-O RUNS ONLY ON macOS**, so on any other host the runner reports this NOT RUN and refuses to
+count it — which is why its target list excludes every other lane rather than marking it as a restriction
+about the FEATURE.
+
+⭐ **ON arm64-macOS IT ANSWERS FRAME FOR FRAME WITH THE x64 CASE ABOVE.** The handler
+reads Darwin's `ucontext`, recovers the faulting frame and walks out through `main` to `mrt_start` — so the
+backtrace below is a reading of this host, not a transcription. That is what makes the two cases one claim
+about the fault path rather than one claim and one placeholder.
+
+⚠ The raw line carries `at rip=… diag_base=…`, whose addresses move with every link; the runner normalizes
+that suffix away, which is why the assertion below is the same text the x64 case asserts.
+
+```maxon
+function main() returns ExitCode
+	__Builtins.forceSegfault()
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: nil pointer or invalid memory access
+Stack trace:
+  in maxon_force_segfault
+  in main
+  in mrt_start
+```
+
+<!-- test: force-segfault-on-a-green-thread -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+### A fault on a green thread walks that thread's own stack
+The fault happens on a coroutine's stack while the handler runs elsewhere — on the machine's system stack on
+Windows, and on the machine's signal stack on a POSIX lane — and the walk is bounded by the green thread's own
+stack, ending at its trampoline.
+
+⚠ **THE COROUTINE GROWS ITS STACK BEFORE IT FAULTS.** The kernel's dispatch of a hardware exception puts the
+processor's saved state on the faulting stack below the fault — over 12 KB on a host with AMX — and the seed
+stack of an x64-windows green thread is 8 KiB. A dispatch that does not fit above the stack's bottom is a fatal
+error of its own, so the case recurses first: the stack is grown, and not shrunk before the thread next parks, by
+the time the fault is raised from a shallow frame, and the dispatch fits on every host.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function descend(depth Integer) returns Integer
+	Scheduler.yield()
+	if depth == 0 'bottom'
+		return 0
+	end 'bottom'
+	return descend(depth - 1) + 1
+end 'descend'
+
+function faultOnAGreenThread() returns ExitCode
+	if descend(1000) != 1000 'grownWrongly'
+		return 2
+	end 'grownWrongly'
+	__Builtins.forceSegfault()
+	return 0
+end 'faultOnAGreenThread'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async faultOnAGreenThread()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r = await p
+	return r
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic: nil pointer or invalid memory access
+Stack trace:
+  in maxon_force_segfault
+  in faultOnAGreenThread
+  in __gt_trampoline
+```
+
+<!-- test: force-segfault-name-is-free-outside-the-function-space -->
+⭐⭐ **THE RESERVATION'S OTHER SIDE, AND IT IS THE HALF THAT KEEPS IT HONEST.** `maxon_force_segfault` is
+reserved in exactly ONE name space — a FREE FUNCTION's, the one the compiler's own entry point occupies
+(`runtime/FaultProbe.maxon`). A field, a parameter, a METHOD, a local and an enum case all take the word
+here and the program runs.
+
+⚠ **THE HAZARD IS THE FREE-FUNCTION DIRECTORY CONTEST AND NOTHING ELSE**, so nothing else is refused. A
+method is already keyed `Holder.maxon_force_segfault`, an enum case is reachable only as `Marker.<case>`, and
+a local, a parameter and a field mint no symbol at all — none of them can reach `isContestedFreeFunction`, so
+refusing them would buy nothing and cost a legal program. It is the line `reserved-self.md` draws for `self`
+one rule over, where a type-qualified case may take the word the receiver rule refuses everywhere else.
+
+⚠ `main` returns 7 + 35, so a compiler that dropped either half of the program answers differently rather
+than exiting 0 by accident.
+```maxon
+typealias Small = int(0 to 100)
+
+type Holder
+	var maxon_force_segfault as Small
+
+	static function make(maxon_force_segfault Small) returns Holder
+		return Self{maxon_force_segfault: maxon_force_segfault}
+	end 'make'
+
+	function held() returns Small
+		return self.maxon_force_segfault
+	end 'held'
+end 'Holder'
+
+type Echo
+	var seed as Small
+
+	static function make(seed Small) returns Echo
+		return Self{seed: seed}
+	end 'make'
+
+	function maxon_force_segfault() returns Small
+		return self.seed
+	end 'maxon_force_segfault'
+end 'Echo'
+
+enum Marker
+	other
+	maxon_force_segfault
+end 'Marker'
+
+function main() returns ExitCode
+	let maxon_force_segfault = 7 as Small
+	let h = Holder.make(maxon_force_segfault)
+	let e = Echo.make(h.held())
+	var bump = 0 as Small
+	match Marker.maxon_force_segfault 'which'
+		other then bump = 0
+		maxon_force_segfault then bump = 35
+	end 'which'
+	return (e.maxon_force_segfault() + bump) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.force-segfault-name-is-reserved -->
+<!-- tier: stdlib -->
+⛔⛔ **`maxon_force_segfault` IS THE ONE COMPILER-OWNED FUNCTION SYMBOL WEARING NO RESERVED PREFIX, SO A
+RESERVATION IS WHAT PROTECTS IT.** The three cases above assert the name as a FRAME a backtrace prints, which
+is why it can never be moved into the `__` band a shape test could recognise — and its body is ordinary
+Maxon source, `runtime/FaultProbe.maxon`, rather than IR the compiler builds after parsing.
+
+⚠ **WHAT THE REFUSAL PREVENTS IS A RENAME, NOT A DUPLICATE.** A second declaration of the bare name makes it
+contested across DIRECTORIES, and the compiler then files each declaration under its own directory-qualified
+spelling — so the runtime's becomes `runtime.maxon_force_segfault` and the bare call
+`__Builtins.forceSegfault()` emits binds to the program's own function, which does not fault. Nothing else
+would report it: the duplicate-symbol refusal tells the two apart by one side having no source file, and here
+both sides are parsed.
+
+A FREE FUNCTION is refused wherever it stands — a subdirectory here, because that is the shape the contest
+needs, and a root declaration is refused by the same one rule. Every other binding of the word is legal, which
+the case above measures.
+```maxon
+// --- file: sub/probe.maxon
+function maxon_force_segfault()
+	print("not the compiler's")
+end 'maxon_force_segfault'
+// --- file: main.maxon
+function main() returns ExitCode
+	__Builtins.forceSegfault()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2051: sub/<fragment>:3:10: identifier 'maxon_force_segfault' is reserved: it is the compiler's own fault-probe entry point, which the library tiers reach through `__Builtins.forceSegfault()`
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-map-value-store -->
+#### A runtime zero is refused where it is stored as a `Map` value, not at the `idiv`
+The map's value type excludes 0, so a value read back out of it is proven non-zero and `100 / d` is a bare `idiv`. The store holds the proof: the zero is refused at `upsert`, ahead of the `print`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroMap = Map with (Count, NonZero)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let m = NonZeroMap.create()
+	m.upsert(1, value: one - one)
+	let d = try m.get(1) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-map-value-store.test:13: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-var-assignment -->
+#### A runtime zero is refused where it is assigned to a `NonZero` `var`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	var d = ident(5) as NonZero
+	d = one - one
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-var-assignment.test:12: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-field-store -->
+#### A runtime zero is refused where it is stored in a `NonZero` field
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+type Holder
+	export var d = 1 as NonZero
+
+	static function create(d NonZero) returns Self
+		return Self{d: d}
+	end 'create'
+end 'Holder'
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let h = Holder.create(3)
+	h.d = one - one
+	print("before\n")
+	return 100 / h.d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-field-store.test:20: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-array-set -->
+#### A runtime zero is refused at `Array.set`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let xs = NonZeroArray.create(0)
+	xs.push(one)
+	try xs.set(0, value: one - one) otherwise ignore
+	let d = try xs.get(0) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-array-set.test:14: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-array-insert -->
+#### A runtime zero is refused at `Array.insert`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let xs = NonZeroArray.create(0)
+	xs.push(one)
+	xs.insert(0, value: one - one)
+	let d = try xs.get(0) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-array-insert.test:14: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-array-grow-filled -->
+#### A runtime zero is refused as the `growFilled` value
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let xs = NonZeroArray.create(0)
+	xs.growFilled(2, value: one - one)
+	let d = try xs.get(1) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-array-grow-filled.test:13: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-array-refill -->
+#### A runtime zero is refused as the `refill` value
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroArray = Array with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let xs = NonZeroArray.create(0)
+	xs.push(one)
+	xs.refill(2, value: one - one)
+	let d = try xs.get(1) otherwise 1
+	print("before\n")
+	return 100 / d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-array-refill.test:14: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-a-union-payload -->
+#### A runtime zero is refused where it is built into a `NonZero` union payload
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+union Divisor
+	by(amount NonZero)
+end 'Divisor'
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let wrapped = Divisor.by(one - one)
+	print("before\n")
+	match wrapped 'which'
+		by(amount) then return 100 / amount
+	end 'which'
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-a-union-payload.test:15: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-struct-literal -->
+#### A runtime zero is refused where it initialises a `NonZero` field in a struct literal
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+type Holder
+	export var d = 1 as NonZero
+
+	static function create(d NonZero) returns Self
+		return Self{d: d}
+	end 'create'
+end 'Holder'
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let h = Holder.create(one - one)
+	print("before\n")
+	return 100 / h.d
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-struct-literal.test:8: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in Holder.create
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-a-generic-payload -->
+#### A runtime zero is refused where it is stored in a generic record instantiated over `NonZero`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+type Box uses T
+	export let value as T
+
+	static function create(value T) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Box'
+
+typealias NonZeroBox = Box with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let b = NonZeroBox.create(one - one)
+	print("before\n")
+	return 100 / b.value
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-a-generic-payload.test:21: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-map-key-store -->
+#### A runtime zero is refused where it is stored as a `Map` key
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroKeys = Map with (NonZero, Count)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let m = NonZeroKeys.create()
+	m.upsert(one - one, value: 5)
+	print("before\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-map-key-store.test:13: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-set-insert -->
+#### A runtime zero is refused where it is inserted into a `Set`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroSet = Set with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let s = NonZeroSet.create()
+	s.insert(one - one)
+	print("before\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-set-insert.test:13: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-list-append -->
+#### A runtime zero is refused where it is appended to a `List`
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+typealias NonZeroList = List with NonZero
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	let xs = NonZeroList.create()
+	xs.append(one - one)
+	print("before\n")
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-list-append.test:13: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-the-closure-parameter -->
+<!-- skip: closures are not supported in minimaxon -->
+#### A runtime zero is refused at a closure's `NonZero` parameter
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	// TODO: closures are not supported in minimaxon
+	let divide = function(d NonZero) gives 100 / d
+	print("before\n")
+	return divide(one - one)
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+before
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-the-closure-parameter.test:11: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in main$closure_0
+  in main
+  in mrt_start
+```
+
+<!-- test: divide-by-zero-premise-enforced-at-a-service-handler-entry -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+#### A runtime zero is refused at the entry of a service handler whose parameter is `NonZero`
+The handler divides by its `NonZero` parameter with a bare `idiv`, so the proof has to hold when the message arrives; the entry guard on the service's own thread holds it. The zero is a difference of two `NonZero`s, which wears the alias without proving it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias NonZero = int(1 to i64.max)
+
+type Divider
+	var last = 0 as Integer
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function divideBy(d NonZero) returns Integer
+		self.last = (100 / d) as Integer
+		return self.last
+	end 'divideBy'
+end 'Divider'
+
+function ident(v Integer) returns Integer
+	return v
+end 'ident'
+
+function main() returns ExitCode
+	let one = ident(1) as NonZero
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Divider.create()
+	print("before\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let q = try await h.divideBy(one - one) otherwise 0
+	return q as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+```stdout
+before
+```
+```stderr
+panic at divide-by-zero-premise-enforced-at-a-service-handler-entry.test:12: Range check failed: value outside typealias 'NonZero'
+Stack trace:
+  in Divider.divideBy
+  in Divider.__behave
+  in __cown_run
+  in __gt_trampoline
+```

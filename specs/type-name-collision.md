@@ -1,0 +1,5413 @@
+---
+feature: type-name-collision
+status: stable
+keywords: [type, typealias, enum, union, interface, duplicate, collision, diagnostics]
+category: diagnostics
+---
+
+# One type NAME, one declaration
+
+## Documentation
+
+A program names a type through five declarations — `type`, `enum`, `union`, `interface`, and
+`typealias` — and every one of them files the name in a **whole-program map keyed by the bare name**.
+Without a check that two of them have not claimed the same name, a program that declares one twice
+compiles, and a **fixed resolution cascade** picks the winner rather than the author.
+
+That is a wrong ANSWER, and its shape depends on which declaration the cascade happens to reach first:
+
+- `type Box` and then `typealias Box = int(0 to 10)` would compile **completely clean**. The alias
+  would be discarded without a word, and every `Box` in the program would mean the struct.
+- The same two declarations in the opposite order would compile to the same thing, so the alias's range
+  would never apply and a cast into it would be reported as `E3009: Cannot cast from int to struct` — a
+  consequence of the collision, describing nothing the author could act on.
+- Across files it is worse than order-dependent, it is unconditional: a `type Box` in **any** file
+  would beat a `typealias Box` in the reader's **own** file, because the struct registry is consulted bare
+  and first while the alias registry is the only one that is directory-scoped.
+
+**The rule: a type name is declared exactly once in any one scope.** A collision is reported at the **later**
+declaration — its own file, its own name token — naming the kind the incumbent declared, which is the
+half the author cannot see. The incumbent is the line that is fine.
+
+Two typealiases of the same name are covered by their own code, **E3061**; everything else is
+**E3006**, the code a name declared twice already carries for functions and for top-level
+`let`/`var` (`specs/duplicate-functions.md`, `specs/static-variables.md` — where a `let` and a `var`
+sharing one name collide *regardless of which keyword introduced them*, the same kind-independence
+this rule states for types).
+
+## Which pairs are in ONE scope
+
+Two declarations of one name are a collision when some qualified or bare spelling could not tell them
+apart. Every `typealias` form — ranged, function, generic-instance, tuple — is scoped by its file and
+directory, so the scope of a declaration is decided by where it sits and how visible it is:
+
+| the pair | outcome |
+|---|---|
+| two declarations in ONE file, any kinds | E3061 for two aliases, E3006 otherwise |
+| two declarations, whatever their visibility, in two files of ONE directory | E3061 for two aliases, E3006 otherwise — a name is declared once per directory (`specs/top-level-name-scope.md`) |
+| two aliases in two directories, of any forms | legal — each is `dir.Name` |
+| a nominal declaration and a nameable alias in two directories | legal |
+| two nominal declarations (`type` / `enum` / `union` / `interface`) of an author program in two directories | legal — each is `dir.Name` |
+| an author declaration and a standard-library one | legal — each is named, `dir.Name` and `stdlib.Name` |
+
+What a legal pair costs is paid at the READ: a file reads its own directory's declaration of the name bare,
+else the project root's, else the one declaration it may name; a file whose directory and the root declare
+none, and that may name two, is E3063, and qualifies (`specs/top-level-name-scope.md`,
+`specs/typealias-collision.md`). A standard-library declaration is never one of the two: beside it, the
+author's declaration is what the bare name means. Two declarations of one name that denote different KINDS
+are kept apart the same way, so a file whose only visible `Handler` is `typealias Handler = int(0 to 10)`
+casts `5 as Handler` against that alias, whatever a file it cannot see declares as `Handler`.
+
+A same-file duplicate is E3061 whether or not other files declare the name too: a newcomer is judged
+against every declaration of its own file, and a cross-file pair that is legal never stands in for the
+same-file one.
+
+A type declaration and a `function` or top-level `let`/`var` of one name in one directory are a collision too,
+and E3006 (`specs/top-level-name-scope.md`).
+
+## The COMPILED name of a generic instantiation lives in the RESERVED namespace
+
+A generic instantiation has no source-level name of its own, so the compiler builds one: `Box with
+String` becomes **`Box_String`**, the base name joined to each argument's name. Every per-type symbol
+the backend emits is derived from that string — `__destruct_Box_String`, `__layout_Box_String` — and a
+declared `type Box_String` derives *its* symbols from the identical string. **Left as one namespace, two
+producers would write into it with nothing comparing them.**
+
+The consequence would not be a resolution ambiguity, which the author might at least see: both claimants
+would be installed as functions of the same name, and the last one linked would win.
+
+- **A LEAK.** `type Box_String` with two `String` fields, plus a `Box with String` anywhere in the
+  program: the instance's one-field cascade would service both, the struct's second `String` would never
+  be released, and the program would exit **101** with a clean build and not one diagnostic.
+- **Worse, a SILENT SUCCESS.** When the two layouts happen to agree, the surviving destructor is
+  *plausible* for the type it was never written for — a `Holder`-field struct destroyed through
+  `__str_decref` — and the program returns the right answer. Nothing would ever be reported, and the
+  type confusion would be invisible until a field moved.
+
+**The rule: the two halves of that namespace are DISJOINT, so there is nothing to compare.** `__` is
+already reserved — a declaration whose name starts with it is `E2051` — so when the string an
+instantiation would compile to is already a declared `type` / `enum` / `union`, the instantiation is
+minted **behind that prefix instead**: `Box with String` beside a `type Box_String` compiles to
+`__Box_String`, and its cascade is `__destruct___Box_String`. Both types exist, both run, and neither
+can reach the other's symbols.
+
+The prefix is applied **on contest only** — a name nothing else claims is spelled bare — and it is applied where the name is BUILT rather than at a later check, because the
+compiled name is baked into emitted code (a scope-exit drop calls `__destruct_<mangled>` directly).
+
+Two properties make one re-mint enough, and they are different properties:
+
+- **A minted name is free of the DECLARED half** because the mint re-probes until it is. That is a loop,
+  not the prefix, and it would hold for any prefix; on a program that *compiles* it runs once, because a
+  declared `__Box_String` is E2051 and the build is already failing.
+- **A minted name is free of every OTHER INSTANCE's** because of the prefix, and nothing probes for it: a
+  compiled name always BEGINS with its base name, and no base may start with `__`, so no *bare* compiled
+  name ever does. Two minted names are therefore equal only when the bare names behind them are — which
+  is the instantiation pair below, reported over the FINAL names. A prefix the language did **not**
+  reserve would break exactly this half in silence: `XBox_String` is a name `XBox with String` compiles
+  to on its own, and a legal program would earn a spurious E3006.
+
+Rejecting the contest instead would be wrong in a way that reaches programs nobody would call unusual:
+an `[Foo, Foo]` array literal interns `Array with Foo` without naming it, so a program whose only crime
+is declaring `type Array_Foo` — a perfectly legal type name — would be refused with an error naming an
+instantiation that appears **nowhere in its source**. The element type does not even have to match: the sweep cannot see a local's type, so a `[Bar, Bar]` literal interns
+`Array with Foo` too, for every declared aggregate in the file.
+
+⚠ **A `typealias` claims nothing, and neither does an `interface`.** An alias mints no symbol of its
+own — a generic instance's methods are emitted under its BASE's name — so `typealias Box_Integer = Box
+with Integer`, whose alias name is exactly what the instance it names compiles to, is legal and never
+displaces anything. An `interface`'s only emitted artifact is `__witness_<conformer>.<interface>`,
+whose head is the *conformer*, so it shares no symbol with an instance either. Only the declarations
+that mint `__destruct_<name>` — `type`, `enum`, `union` — can contest.
+
+That claim is about the DECLARED half of the namespace. The separator it is written with, `.`, carries
+a second guarantee: a `.` occurs in no source identifier and therefore in no compiled instance name, so
+a witness label cannot be spelled by a DIFFERENT conformer/interface pair either. An `interface` is
+exactly where that matters — see *The WITNESS-TABLE label joins TWO names* below.
+
+## Two INSTANTIATIONS that compile to one name are still E3006
+
+A prefix cures a contest with a declaration, because there is a declaration to move out of the way.
+Two instantiations that build the same string have no such asymmetry, and the join makes it possible on
+its own: `_` is a legal character in a type name, so the join is **not injective** — `Pair with
+(Box_Int, Str)` and `Pair with (Box, Int_Str)` both compile to `Pair_Box_Int_Str`. One
+`__destruct_Pair_Box_Int_Str` survives and each pair's fields are released through the OTHER pair's
+per-field callees. Without this rule: build exit 0, no diagnostic, **SIGSEGV**.
+
+**That is E3006**, reported at the `typealias` that names the later of the two — the line the author
+wrote last, the same choice every collision in this file makes. The claimant that SETTLES a name is the
+first one, and a rejected claimant never displaces it, so a THIRD instantiation of one compiled name is
+reported against the same incumbent the second was, at its own line, rather than against a claimant
+that was itself refused.
+
+Each written instantiation records a source anchor of its own: a top-level `typealias` at its name, and an
+instantiation NESTED inside its arguments (`Wrap with (Pair with …)`) at its own base name. The report
+lands at the later claimant's first written site and names the other claimant, so a nested claimant is
+blamed at its own `Pair`, not at the enclosing alias, whose own instantiation is fine. Only an
+instantiation written nowhere has no anchor, and then the report is whole-program (`line == 0`, the
+anchorless form E3001 uses).
+
+It is decided in the FRONT END, over the interned instantiations, **not** at symbol-emission time: a
+diagnostic raised where the symbol is minted has no user span to land on, and would blame a file the
+author never opened.
+
+## The WITNESS-TABLE label joins TWO names, so it joins them with a character no name can hold
+
+A type that conforms to an interface gets a `.rdata` **witness table** — the dictionary a constrained
+generic body dispatches through — and that table is labelled from the pair that identifies it: the
+CONFORMER and the INTERFACE. Joined with `_`, the label is **not injective**, for exactly the reason
+the instantiation join above is not: `_` is a legal character in a type name, so `(A_B, C)` and
+`(A, B_C)` both spell `__witness_A_B_C`.
+
+**The consequence is worse than the instantiation pair's, because there is no second claimant to
+diagnose.** Two instantiations are two interned declarations a front-end check can compare. A witness
+table is minted during LOWERING, from a memo keyed on the LABEL, so the second pair does not *collide*
+with the first — it silently *becomes* it: the mint finds its label already emitted, hands it back, and
+the dispatch site takes the address of a table built for the other pair. Every method slot then
+resolves to the other conformer's implementation, with the other conformer's `self`. Under a `_` join
+the two-pair program below builds with exit 0 and no diagnostic, and returns **33** where the answer is
+**43** — both dispatches reach `A_B.idc`.
+
+Which pair wins is not which one is declared first; it is **which dispatch is lowered first**, so the
+same two declarations return 33 or 44 depending only on the order two calls appear in an expression.
+
+**The rule: the label joins with `.`** — `(A_B, C)` is `__witness_A_B.C` and `(A, B_C)` is
+`__witness_A.B_C` — which makes it injective by CHARACTER CLASS rather than by an algorithm. A `.`
+cannot occur in either half: the lexer admits only `[A-Za-z0-9_]` inside an identifier, and every name
+that reaches the join is a source identifier, a compiled instance name (a `_`-join of source
+identifiers behind an optional `__`), or one of the compiler's own conformer names (`int`, `String`,
+`float`, `bool`). So the join has exactly one split and two pairs can never spell one label.
+
+The alternatives are worse in ways worth writing down, because a later reader will reach for them:
+
+- **Escaping by DOUBLING the separator does not even work.** With a one-character separator, a run of
+  five underscores between two components admits three valid splits, so the decoder would need told
+  the split it cannot derive.
+- **A length prefix works, but it makes injectivity a property of a DECODING ALGORITHM** that every
+  later reader has to get right. The character class makes it a property of the LEXER — the same
+  construction the compiled-instance namespace two sections above rests on, where `__` is safe purely
+  because `E2051` bars a declaration from it.
+
+It is the same `.` a method's compiled name is joined with (`Point.create`), for the same reason, but
+it is a SEPARATE decision and stays a separate constant: a method's separator is what the AUTHOR
+writes at a call site, and a witness label is a name no source can spell.
+
+## Tests
+
+<!-- test: error.type-then-typealias -->
+<!-- positions: moved -->
+The silent case. `Box` is declared as a `type` and then as a ranged `typealias`; without the rule the
+alias is discarded with no diagnostic at all and this program compiles and returns 7.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+
+	static function make() returns Self
+		return Self{v: 7}
+	end 'make'
+end 'Box'
+
+typealias Box = int(0 to 10)
+
+function main() returns ExitCode
+	let b = Box.make()
+	return b.v
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:11:11: duplicate definition of 'Box' — already declared as `type Box`
+```
+
+
+<!-- test: error.typealias-then-type -->
+<!-- positions: moved -->
+The same collision written the other way round. It is reported at the `type`, which is the later
+declaration here — never at the alias, which is fine on its own.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias Box = int(0 to 10)
+
+type Box
+	export var v as Small
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:5:6: duplicate definition of 'Box' — already declared as `typealias Box`
+```
+
+
+<!-- test: error.a-struct-of-a-name-a-private-alias-also-holds-is-not-offered-a-cast -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+`lib/main.maxon` means the STRUCT `Box`, while `b.maxon` means its own ranged alias by the same spelling. A `Box` struct handed to a ranged parameter is a record meeting a number, which no `as` converts, so the refusal names no cast.
+```maxon
+// --- file: lib/a.maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+
+	static function create(v Small) returns Box
+		return Self{v: v}
+	end 'create'
+end 'Box'
+
+// --- file: b.maxon
+typealias Box = int(0 to 10)
+
+function useIt() returns Box
+	return 5
+end 'useIt'
+
+function fromB() returns ExitCode
+	return useIt() as ExitCode
+end 'fromB'
+
+// --- file: lib/main.maxon
+function takesSmall(s Small) returns Small
+	return s
+end 'takesSmall'
+
+function main() returns ExitCode
+	let boxed = Box.create(3)
+	return (takesSmall(boxed) as ExitCode) + fromB()
+end 'main'
+```
+```maxoncstderr
+error E3005: lib/<fragment>:32:10: argument type mismatch for 's': expected 'Small', got 'Box'
+```
+
+<!-- test: crossfile-type-and-file-private-typealias-coexist -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+Across directories, with an unmarked alias at the root. The struct registry is bare, so if it were
+consulted first `b.maxon`'s own `typealias Box` would be unreachable from `b.maxon` itself: the cast below
+would be rejected with `E3009: Cannot cast from int to struct`, against a `type` declared in a directory it
+never names, and an `E3006` would blame the pair as a duplicate.
+
+**Neither declaration is a duplicate of anything.** Directories are separate scopes: the alias is the root's
+and the struct is `lib/`'s. A file in `lib/` sees both and means its own directory's, and `b.maxon`, outside
+`lib/`, cannot see the struct. `b.maxon`'s cast resolves against `b.maxon`'s own alias, which is the
+reader-file rule the ranged registry applies, applied to the CASCADE that picks which registry answers. The
+exported pair that genuinely does collide is the next test.
+
+`lib/main.maxon` names `Box` too, and means the STRUCT — its own directory's declaration — while
+`b.maxon` means its own alias by the same spelling in the same program. That is the whole claim, and it
+is why main constructs one rather than merely calling into `b.maxon`: a case where nobody outside
+`lib/a.maxon` names `Box` would be answered by the compiler without ever deciding which declaration it meant.
+
+⚠ `b.maxon`'s door returns `ExitCode` and its `Box` is read inside `useIt`, so no signature `lib/` calls
+names the alias.
+```maxon
+// --- file: lib/a.maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+
+	static function create(v Small) returns Box
+		return Self{v: v}
+	end 'create'
+end 'Box'
+
+// --- file: b.maxon
+typealias Box = int(0 to 10)
+
+function useIt() returns Box
+	return 5
+end 'useIt'
+
+function fromB() returns ExitCode
+	return useIt() as ExitCode
+end 'fromB'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	let boxed = Box.create(3)
+	return fromB() + (boxed.v as ExitCode)
+end 'main'
+```
+```exitcode
+8
+```
+
+
+<!-- test: error.crossfile-type-and-exported-typealias -->
+The boundary the previous test does not cross: `b.maxon`'s alias is `export`ed, and it sits in the same
+directory as `a.maxon`'s `type`, so both would be spelled `export.Score` — one name in one scope, and the
+pair is a duplicate. File scoping rescues a pair that never meets; it does not merge two that do.
+```maxon
+// --- file: a.maxon
+export typealias Small = int(0 to 100)
+
+export type Score
+	export var v as Small
+end 'Score'
+
+// --- file: b.maxon
+export typealias Score = int(0 to 10)
+
+export function useIt() returns ExitCode
+	return 5
+end 'useIt'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return useIt()
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:10:18: duplicate definition of 'Score' — already declared as `type Score`
+```
+
+
+<!-- test: cross-directory-type-and-exported-typealias-coexist -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A `type` and an exported `typealias` of one name in two DIRECTORIES coexist: each is named by its directory, so
+no reader has to guess which one a spelling means. `a/score.maxon` sees both too, so it names its own type as
+`Self` rather than by the bare name.
+```maxon
+// --- file: a/score.maxon
+export type Score
+	export let v as ExitCode
+
+	export static function make() returns Self
+		return Self{v: 40}
+	end 'make'
+end 'Score'
+
+// --- file: b/score.maxon
+export typealias Score = int(0 to 10)
+
+// --- file: app/main.maxon
+function total(s a.Score, n b.Score) returns ExitCode
+	return s.v + (n as ExitCode)
+end 'total'
+
+function main() returns ExitCode
+	return total(a.Score.make(), n: 2)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-type-and-another-directorys-generic-instance-alias-of-one-name-coexist -->
+`a/` names `Pair with (Integer, Integer)` as `IntPair` while `b/` declares `type IntPair`; each file means its own.
+```maxon
+// --- file: a/a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	static function create(a A, b B) returns Self
+		return Self{first: a, second: b}
+	end 'create'
+end 'Pair'
+
+typealias IntPair = Pair with (Integer, Integer)
+
+export function runA()
+	let p = IntPair.create(3, b: 4)
+	print("a {p.first} {p.second}\n")
+end 'runA'
+
+// --- file: b/b.maxon
+typealias Integer = int(i64.min to i64.max)
+
+type IntPair
+	export var a as Integer
+	export var b as Integer
+
+	static function create(n Integer) returns Self
+		return Self{a: n, b: n}
+	end 'create'
+end 'IntPair'
+
+export function runB()
+	let p = IntPair.create(7)
+	print("b {p.a} {p.b}\n")
+end 'runB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	runA()
+	runB()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a 3 4
+b 7 7
+```
+
+<!-- test: error.a-generic-alias-beside-a-type-of-its-name-refuses-another-alias-of-its-instance -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+`lib/` names `Array with Integer` as `Xs` while `shapes/` declares `type Xs`, so `lib/` spells its own alias
+`lib.Xs`. `app/` names the same instance `Ys`: two aliases are two types, so a `Ys` does not reach a parameter
+declared `lib.Xs`, whatever else in the program wears the name `Xs`.
+```maxon
+// --- file: lib/lib.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export typealias Xs = Array with Integer
+
+export function total(xs lib.Xs) returns ExitCode
+	return xs.count() as ExitCode
+end 'total'
+
+// --- file: shapes/xs.maxon
+export type Xs
+	export let n as ExitCode
+
+	export static function make() returns Self
+		return Self{n: 1}
+	end 'make'
+end 'Xs'
+
+// --- file: app/main.maxon
+typealias Ys = Array with lib.Integer
+
+function main() returns ExitCode
+	var ys = Ys.create(0)
+	ys.push(3)
+	return total(ys) + shapes.Xs.make().n
+end 'main'
+```
+```maxoncstderr
+error E3005: app/<fragment>:25:9: argument type mismatch for 'xs': expected 'Xs', got 'Ys'
+```
+
+<!-- test: error.duplicate-type-same-file -->
+Two `type` declarations of one name in one file. Undiagnosed, the second layout would simply replace
+the first in the registry, so a field the first declared would vanish.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+end 'Box'
+
+type Box
+	export var w as Small
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:8:6: duplicate definition of 'Box' — already declared as `type Box`
+```
+
+
+<!-- test: error.duplicate-type-crossfile -->
+The same duplicate across two files. A `type` has no directory-local form to fall back on — the registry
+is bare and whole-program — so this is a collision wherever the two declarations sit.
+```maxon
+// --- file: a.maxon
+typealias Small = int(0 to 100)
+
+export type Box
+	export var v as Small
+end 'Box'
+
+// --- file: b.maxon
+typealias Small = int(0 to 100)
+
+export type Box
+	export var w as Small
+end 'Box'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:12:13: duplicate definition of 'Box' — already declared as `type Box`
+```
+
+<!-- test: two-directories-each-export-a-type-of-one-name -->
+The same two `type` declarations in two directories: a directory is its own scope, so each `Box` is a type of its
+own, reached from `main.maxon` as `a.Box` and `b.Box`. The two have different fields, so reading `.v` or `.w`
+through the wrong one would not compile.
+```maxon
+// --- file: a/a.maxon
+export type Box
+	export var v as ExitCode
+
+	export static function create() returns Self
+		return Self{v: 40}
+	end 'create'
+end 'Box'
+
+// --- file: b/b.maxon
+export type Box
+	export var w as ExitCode
+
+	export static function create() returns Self
+		return Self{w: 2}
+	end 'create'
+end 'Box'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let first = a.Box.create()
+	let second = b.Box.create()
+	return first.v + second.w
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
+`extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
+directories' `Box`, after the two `type` declarations have already contested it, and the second extension reads
+`Items` while the first extension's declaration is filed. The exported methods the extensions publish name a
+unmarked alias, so the program is refused with E3167 for each pair of method and type, and the compiler does not
+abort.
+```maxon
+// --- file: seq.maxon
+export typealias Digit = int(0 to 9)
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+export interface Seq uses Item
+	function first() returns Item
+end 'Seq'
+
+// --- file: a/box.maxon
+export type Box implements Seq with Digit
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Digit
+	export var n as Digit
+
+	export function first() returns Digit
+		return self.n
+	end 'first'
+end 'Box'
+
+// --- file: b/box.maxon
+export type Box implements Seq with Digit
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Items = Array with Digit
+	export var n as Digit
+
+	export function first() returns Digit
+		return self.n
+	end 'first'
+end 'Box'
+
+// --- file: a/ext.maxon
+// TODO: extension blocks are not supported in minimaxon
+export extension Seq
+	export typealias Items = Array with Item
+	export function all() returns Items
+		var result = Items{}
+		result.push(self.first())
+		return result
+	end 'all'
+end 'Seq'
+
+// --- file: b/ext.maxon
+// TODO: extension blocks are not supported in minimaxon
+export extension Seq
+	export typealias Items = Array with Item
+	export function twice() returns Items
+		var result = Items{}
+		result.push(self.first())
+		result.push(self.first())
+		return result
+	end 'twice'
+end 'Seq'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3167: a/<fragment>:35:18: exported function 'a.Box.all' names unexported typealias 'Items' in its return type
+error E3167: a/<fragment>:35:18: exported function 'a.b.Box.all' names unexported typealias 'Items' in its return type
+error E3167: b/<fragment>:46:18: exported function 'b.a.Box.twice' names unexported typealias 'Items' in its return type
+error E3167: b/<fragment>:46:18: exported function 'b.Box.twice' names unexported typealias 'Items' in its return type
+```
+
+<!-- test: two-directories-each-declare-a-private-type-of-one-name -->
+Two UNMARKED `type Box` declarations in two directories are two types: each file means its own, and the
+program prints each one's field.
+```maxon
+// --- file: a/a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box
+	export var n as Integer
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+end 'Box'
+
+export function runA()
+	print("a {Box.create().n}\n")
+end 'runA'
+
+// --- file: b/b.maxon
+type Box
+	export var label as String
+
+	static function create() returns Self
+		return Self{label: "b"}
+	end 'create'
+end 'Box'
+
+export function runB()
+	print("b {Box.create().label}\n")
+end 'runB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	runA()
+	runB()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a 7
+b b
+```
+
+
+<!-- test: error.type-and-enum -->
+The rule is kind-independent, so a `type` and an `enum` collide exactly as two `type`s do.
+```maxon
+typealias Small = int(0 to 100)
+
+type Shape
+	export var v as Small
+end 'Shape'
+
+enum Shape
+	circle
+	square
+end 'Shape'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:8:6: duplicate definition of 'Shape' — already declared as `type Shape`
+```
+
+
+<!-- test: error.interface-and-type -->
+An `interface` claims a type name too, and the diagnostic names the kind the incumbent declared —
+the half the author cannot see from the line being reported.
+```maxon
+typealias Small = int(0 to 100)
+
+interface Drawable
+	function draw() returns Small
+end 'Drawable'
+
+type Drawable
+	export var v as Small
+end 'Drawable'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:8:6: duplicate definition of 'Drawable' — already declared as `interface Drawable`
+```
+
+
+<!-- test: error.duplicate-union-same-file -->
+`union` is spelled as its own keyword in the message, for the reason every other diagnostic that
+mentions one does: a declaration must not be called by a keyword its author did not write.
+```maxon
+union Tag
+	first
+	second
+end 'Tag'
+
+union Tag
+	third
+end 'Tag'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:7:7: duplicate definition of 'Tag' — already declared as `union Tag`
+```
+
+
+<!-- test: error.duplicate-function-alias-same-file -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+Two typealiases in one file are E3061 whichever FORM they take — the code already covers the ranged
+pair (`specs/export-keyword.md`'s `error.duplicate-typealias-same-file`), and a function alias
+declared twice is the same fact: no qualification could disambiguate two declarations in one file.
+```maxon
+// TODO: function typealiases are not supported in minimaxon
+typealias Handler = function() returns Integer
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Handler = function() returns Integer
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3061: <fragment>:3:11: Duplicate typealias 'Handler'
+```
+
+
+<!-- test: error.duplicate-alias-same-file-while-another-file-declares-it -->
+<!-- positions: moved -->
+The carve-out is per PAIR, and the pair that matters is the newcomer against the declaration that
+most recently claimed the name — **never** against the first one. `a.maxon` declares `L` and `b.maxon`
+declares it twice: `b.maxon`'s second `L` is a same-file duplicate and stays E3061, exactly as it
+would if `a.maxon` did not exist. Against a registry that kept the FIRST declaration instead, each of
+`b.maxon`'s two would be compared with `a.maxon`'s, found to be the legal cross-file case, and accepted —
+the duplicate would compile in silence.
+```maxon
+// --- file: a/a.maxon
+export typealias L = int(0 to 10)
+
+export function fromA() returns L
+	return 1
+end 'fromA'
+
+// --- file: b/b.maxon
+typealias L = int(0 to 20)
+
+typealias L = int(0 to 30)
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromA()
+end 'main'
+```
+```maxoncstderr
+error E3061: b/<fragment>:11:11: Duplicate typealias 'L'
+```
+
+
+<!-- test: error.duplicate-generic-alias-same-file-while-another-file-declares-it -->
+<!-- positions: moved -->
+The same hole for the GENERIC-INSTANCE form. The directory-local carve-out must not hand a generic alias
+a way to stay unchecked for duplication.
+```maxon
+// --- file: base/base.maxon
+
+export type Bx uses T
+	export var value as T
+end 'Bx'
+
+// --- file: a/a.maxon
+typealias Small = int(0 to 100)
+
+typealias G = Bx with Small
+
+// --- file: b/b.maxon
+typealias Small = int(0 to 100)
+
+typealias G = Bx with Small
+
+typealias G = Bx with Small
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: a/<fragment>:10:11: unused typealias: 'G'
+error E3061: b/<fragment>:15:11: Duplicate typealias 'G'
+```
+
+
+<!-- test: crossfile-ranged-and-function-alias-coexist -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+Two directories, one name, two alias FORMS, each unmarked in its directory — legal, and the forms do not decide
+it. Neither file sees the other's declaration, so each declaring file means its own: `alpha/a.maxon`'s
+`pick` returns its `int` alias and `beta/b.maxon`'s `runIt` takes its function alias. A bare, whole-program
+function-alias registry would answer for `alpha/a.maxon` too, rejecting its own `Handler` with
+`Cannot cast from int to function` — a diagnostic in a file whose only `Handler` is an `int` alias, naming a
+declaration it never mentions.
+```maxon
+// --- file: alpha/a.maxon
+typealias Handler = int(0 to 10)
+
+function pick() returns Handler
+	return 5
+end 'pick'
+
+export function useA() returns ExitCode
+	return pick() as ExitCode
+end 'useA'
+
+// --- file: beta/b.maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Handler = function() returns Integer
+
+function zero() returns Integer
+	return 0
+end 'zero'
+
+function runIt(h Handler) returns ExitCode
+	return h() as ExitCode
+end 'runIt'
+
+export function useB() returns ExitCode
+	return runIt(zero)
+end 'useB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return useA() + useB()
+end 'main'
+```
+```exitcode
+5
+```
+
+
+<!-- test: crossfile-generic-alias-same-name-still-legal -->
+The guard against overreach: two files each declaring one UNMARKED generic-instance alias is the
+directory-local case, the same as two ranged aliases, and it is legal.
+```maxon
+// --- file: base/base.maxon
+
+export type Box uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+// --- file: a/a.maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntBox = Box with Integer
+
+export function fromA() returns ExitCode
+	let b = IntBox.create(20)
+	return b.get()
+end 'fromA'
+
+// --- file: b/b.maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntBox = Box with Integer
+
+export function fromB() returns ExitCode
+	let b = IntBox.create(22)
+	return b.get()
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromA() + fromB()
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: crossfile-generic-alias-same-name-crosses-a-declared-signature -->
+The BOUND on a repair, and the condition it isolates: one alias name,
+two different instances, a value crossing from the file that made it into the file that means the other
+one. A callee's recorded RETURN type is re-scoped into its
+DECLARING file before any file is parsed, so a crossing that goes through a declared signature is right
+here and may not become wrong: `take` is resolved by name, its parameter is checked against the signature
+it actually has, and 7 comes back.
+```maxon
+// --- file: a.maxon
+function makeA() returns ByteArray
+	let xs = ByteArray.create(0)
+	xs.push(7)
+	return xs
+end 'makeA'
+
+function take(t ByteArray) returns ExitCode
+	return (try t.get(0) otherwise 0) as ExitCode
+end 'take'
+
+// --- file: b/b.maxon
+typealias ByteArray = Array with String
+
+export function fromB() returns ExitCode
+	let own = ByteArray.create(0)
+	own.push("ab")
+	print("{try own.get(0) otherwise ""}\n")
+	let t = makeA()
+	return take(t)
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromB()
+end 'main'
+```
+```exitcode
+7
+```
+```stdout
+ab
+```
+
+
+<!-- test: error.crossfile-generic-and-ranged-alias-the-unused-ranged-one-is-reported -->
+<!-- positions: moved -->
+One name, two alias FORMS in two files, and only one of them is spelled. `a.maxon` names its own
+generic-instance `Thing`; `b.maxon`'s ranged `Thing` is written nowhere, so E3062 is what that
+declaration has earned. The cross-file credit a generic-instance alias gets is keyed on the bare
+NAME, and a ranged alias sharing that name is a different declaration in a different file that the
+spelling never reached.
+```maxon
+// --- file: base/base.maxon
+
+export type Bx uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Bx'
+
+// --- file: a/a.maxon
+typealias Small = int(0 to 100)
+
+typealias Thing = Bx with Small
+
+export function fromA() returns ExitCode
+	let b = Thing.create(7)
+	return b.get()
+end 'fromA'
+
+// --- file: b/b.maxon
+typealias Thing = int(0 to 10)
+
+export function fromB() returns ExitCode
+	return 2
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromA() + fromB()
+end 'main'
+```
+```maxoncstderr
+error E3062: b/<fragment>:24:11: unused typealias: 'Thing'
+```
+
+
+<!-- test: error.crossfile-generic-and-ranged-alias-the-unused-generic-one-is-reported -->
+<!-- positions: moved -->
+The same pair the other way round, and it fails the same way. `b.maxon` spells `Thing` meaning its
+OWN ranged alias; `a.maxon`'s generic-instance `Thing` is written nowhere. A spelling credits the
+declaration it resolves to and no other, so the file that wrote the name decides what the name meant
+there — the generic declaration it never referred to is unused.
+```maxon
+// --- file: base/base.maxon
+
+export type Bx uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Bx'
+
+// --- file: a/a.maxon
+typealias Small = int(0 to 100)
+
+typealias Thing = Bx with Small
+
+export function fromA() returns ExitCode
+	return 7
+end 'fromA'
+
+// --- file: b/b.maxon
+typealias Thing = int(0 to 10)
+
+typealias Held = Bx with Thing
+
+export function fromB() returns ExitCode
+	let b = Held.create(2)
+	return b.get()
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromA() + fromB()
+end 'main'
+```
+```maxoncstderr
+error E3062: a/<fragment>:16:11: unused typealias: 'Thing'
+```
+
+
+<!-- test: error.crossfile-generic-and-ranged-alias-a-third-file-spells-it -->
+<!-- positions: moved -->
+In both pairs above the file that spells `Thing` also declares one of the two forms, so the reader's
+own declaration answers. Here `c.maxon` declares neither, and both declarations are unmarked, so
+no declaration of `Thing` is visible to it. A non-exported alias is unreachable from another file:
+the spelling in `c.maxon` is refused with the hidden-name refusal, it credits neither declaration,
+and both are reported unused.
+```maxon
+// --- file: base/base.maxon
+
+export type Bx uses T
+	export var value as T
+
+	export static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	export function get() returns T
+		return self.value
+	end 'get'
+end 'Bx'
+
+// --- file: a/a.maxon
+typealias Small = int(0 to 100)
+
+typealias Thing = Bx with Small
+
+export function fromA() returns ExitCode
+	return 1
+end 'fromA'
+
+// --- file: b/b.maxon
+typealias Thing = int(0 to 10)
+
+export function fromB() returns ExitCode
+	return 2
+end 'fromB'
+
+// --- file: c/c.maxon
+export function fromC() returns ExitCode
+	let t = Thing.create(4)
+	return t.get()
+end 'fromC'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return fromA() + fromB() + fromC()
+end 'main'
+```
+```maxoncstderr
+error E3062: a/<fragment>:16:11: unused typealias: 'Thing'
+error E3062: b/<fragment>:23:11: unused typealias: 'Thing'
+error E3008: c/<fragment>:31:10: typealias 'Thing' is not exported
+```
+
+
+<!-- test: instantiation-compiles-onto-declared-type -->
+The LEAK shape, legal. Without the reserved prefix `Box with String` would compile to `Box_String`, and
+so does the `type Box_String` below — `installGenericInstanceDestructors` and `installStructDestructors`
+would each emit a `__destruct_Box_String` and the later install would win. The struct's SECOND `String`
+would then never be released: the build exits 0 with no diagnostic whatever and the program exits
+**101**, the leak-check code. Under the reserved prefix the instance is `__Box_String` instead, so the two cascades are
+different functions; both objects are built, both are dropped, and each answers for itself.
+```maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 1
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+type Box_String
+	export var a as String
+	export var b as String
+
+	static function make() returns Self
+		return Self{a: "x", b: "y"}
+	end 'make'
+
+	function tag() returns Num
+		return 2
+	end 'tag'
+end 'Box_String'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let t = Box_String.make()
+	return s.tag() + t.tag()
+end 'main'
+```
+```exitcode
+3
+```
+
+
+<!-- test: instantiation-compiles-onto-declared-type-matching-layout -->
+The SILENT SUCCESS, which is the more dangerous half. The two claimants have the SAME layout — one
+pointer field — so a surviving shared cascade would be *plausible* for the type it was never written for:
+the struct's `Holder` box would be released through the instance's `__str_decref`, which lands on a
+refcount header that is really there. The program would return the right answer and leak nothing, and
+nothing would be reported until a field moved. Disjointness does not look at layouts, so this
+shape and the leaking one are cured identically — and the leak check still runs, so a cascade servicing
+the wrong type would show up here as an exit **101** rather than as a plausible answer.
+```maxon
+typealias Num = int(0 to 100)
+
+type Holder
+	export var s as String
+
+	static function make() returns Self
+		return Self{s: "held"}
+	end 'make'
+end 'Holder'
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 3
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+type Box_String
+	export var h as Holder
+
+	static function make() returns Self
+		return Self{h: Holder.make()}
+	end 'make'
+
+	function tag() returns Num
+		return 4
+	end 'tag'
+end 'Box_String'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let t = Box_String.make()
+	return s.tag() + t.tag()
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: error.two-instantiations-compile-to-one-name -->
+<!-- positions: moved -->
+No declared type is involved at all: the base name and the arguments are joined with `_`, and `_` is a
+legal character in a type name, so the join is **not injective**. `Pair with (Box_Int, Str)` and `Pair
+with (Box, Int_Str)` both compile to `Pair_Box_Int_Str`, one `__destruct_Pair_Box_Int_Str` survives,
+and each pair's two fields are released through the OTHER pair's per-field callees. Without the
+rule: build exit 0, no diagnostic, **SIGSEGV**. It is reported at the `typealias`
+that names the later instantiation, for the reason the whole file reports at the later declaration.
+```maxon
+type Str
+	export var s as String
+
+	static function make() returns Self
+		return Self{s: "a"}
+	end 'make'
+end 'Str'
+
+type Box
+	export var s as String
+
+	static function make() returns Self
+		return Self{s: "b"}
+	end 'make'
+end 'Box'
+
+type Box_Int
+	export var s as String
+	export var t as String
+	export var u as String
+
+	static function make() returns Self
+		return Self{s: "c", t: "cc", u: "ccc"}
+	end 'make'
+end 'Box_Int'
+
+type Int_Str
+	export var s as String
+	export var t as String
+	export var u as String
+
+	static function make() returns Self
+		return Self{s: "d", t: "dd", u: "ddd"}
+	end 'make'
+end 'Int_Str'
+
+type Pair uses A, B
+	export var first as A
+	export var second as B
+
+	static function create(first A, second B) returns Self
+		return Self{first: first, second: second}
+	end 'create'
+end 'Pair'
+
+typealias P1 = Pair with (Box_Int, Str)
+
+typealias P2 = Pair with (Box, Int_Str)
+
+function main() returns ExitCode
+	let a = P1.create(Box_Int.make(), second: Str.make())
+	let b = P2.create(Box.make(), second: Int_Str.make())
+	return 4
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:43:11: duplicate definition of 'Pair_Box_Int_Str' — the generic instantiations `Pair with (Box_Int, Str)` and `Pair with (Box, Int_Str)` compile to that same name
+```
+
+
+<!-- test: alias-named-like-its-own-compiled-name -->
+The guard against overreach. A `typealias` claims no compiled name — a generic instance's methods are
+emitted under its BASE's name, and nothing is named after the alias — so an alias spelled exactly like
+what the instance it names compiles to is legal, and the rule must leave it alone. Only the three
+keywords that MINT `__destruct_<name>` claim (`type`, `enum`, `union`) — the roster the section above
+states and the two tests below pin.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box uses T
+	export var value as T
+
+	static function create(v T) returns Self
+		return Self{value: v}
+	end 'create'
+
+	function get() returns T
+		return self.value
+	end 'get'
+end 'Box'
+
+typealias Box_Integer = Box with Integer
+
+function main() returns ExitCode
+	let b = Box_Integer.create(7)
+	return b.get()
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: error.nested-instantiation-reported-at-its-own-name -->
+<!-- positions: moved -->
+A NESTED instantiation records a source anchor of its own, at its base name, as a top-level
+`typealias X = Base with Args` does at its name. When the newcomer is the nested one the report lands
+at that nested `Pair` and names the INCUMBENT too, rather than at the enclosing `Wrap` alias, whose own
+instantiation is fine.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+end 'Box'
+
+type Str
+	export var v as Small
+end 'Str'
+
+type Box_Int
+	export var v as Small
+end 'Box_Int'
+
+type Int_Str
+	export var v as Small
+end 'Int_Str'
+
+type Pair uses X, Y
+	export var first as X
+	export var second as Y
+end 'Pair'
+
+type Wrap uses Z
+	export var only as Z
+end 'Wrap'
+
+typealias P1 = Pair with (Box_Int, Str)
+
+typealias W1 = Wrap with (Pair with (Box, Int_Str))
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: <fragment>:29:11: unused typealias: 'P1'
+error E3006: <fragment>:30:27: duplicate definition of 'Pair_Box_Int_Str' — the generic instantiations `Pair with (Box_Int, Str)` and `Pair with (Box, Int_Str)` compile to that same name
+```
+
+
+<!-- test: error.an-alias-written-after-a-nested-instantiation-is-reported-at-its-own-name -->
+<!-- positions: moved -->
+The mirror: the nested instantiation is written first, so the alias is the later claim and the report
+lands at the alias's own name.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+end 'Box'
+
+type Str
+	export var v as Small
+end 'Str'
+
+type Box_Int
+	export var v as Small
+end 'Box_Int'
+
+type Int_Str
+	export var v as Small
+end 'Int_Str'
+
+type Pair uses X, Y
+	export var first as X
+	export var second as Y
+end 'Pair'
+
+type Wrap uses Z
+	export var only as Z
+end 'Wrap'
+
+typealias W1 = Wrap with (Pair with (Box, Int_Str))
+
+typealias P1 = Pair with (Box_Int, Str)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: <fragment>:29:11: unused typealias: 'W1'
+error E3006: <fragment>:30:11: duplicate definition of 'Pair_Box_Int_Str' — the generic instantiations `Pair with (Box, Int_Str)` and `Pair with (Box_Int, Str)` compile to that same name
+```
+
+
+<!-- test: error.nested-instantiations-compile-to-one-name -->
+<!-- positions: moved -->
+The corner where NEITHER claimant is named by a `typealias`: both colliding instantiations are nested,
+inside two DIFFERENT outer generics, so the outer pair does not collide. The later-written one is
+reported at its own base name, naming both instantiations, because pointing at either enclosing alias
+would blame a line that is correct.
+```maxon
+typealias Small = int(0 to 100)
+
+type Box
+	export var v as Small
+end 'Box'
+
+type Str
+	export var v as Small
+end 'Str'
+
+type Box_Int
+	export var v as Small
+end 'Box_Int'
+
+type Int_Str
+	export var v as Small
+end 'Int_Str'
+
+type Pair uses X, Y
+	export var first as X
+	export var second as Y
+end 'Pair'
+
+type Wrap uses Z
+	export var only as Z
+end 'Wrap'
+
+type Hold uses Z
+	export var only as Z
+end 'Hold'
+
+typealias W1 = Wrap with (Pair with (Box_Int, Str))
+
+typealias H1 = Hold with (Pair with (Box, Int_Str))
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: <fragment>:33:11: unused typealias: 'W1'
+error E3006: <fragment>:34:27: duplicate definition of 'Pair_Box_Int_Str' — the generic instantiations `Pair with (Box_Int, Str)` and `Pair with (Box, Int_Str)` compile to that same name
+```
+
+
+<!-- test: error.three-instantiations-compile-to-one-name -->
+<!-- positions: moved -->
+The THIRD claimant, which is a different question from the second: each newcomer is measured against
+the declaration that SETTLED the name, never against the one immediately before it, so a rejected
+claimant does not become the incumbent. Both `Q2` and `Q3` are reported, each at its own line and each
+naming `Q1` — `Pair_A_B_C_D` splits three ways because `_` is a legal name character.
+```maxon
+typealias Small = int(0 to 100)
+
+type A
+	export var v as Small
+end 'A'
+
+type B_C_D
+	export var v as Small
+end 'B_C_D'
+
+type A_B
+	export var v as Small
+end 'A_B'
+
+type C_D
+	export var v as Small
+end 'C_D'
+
+type A_B_C
+	export var v as Small
+end 'A_B_C'
+
+type D
+	export var v as Small
+end 'D'
+
+type Pair uses X, Y
+	export var first as X
+	export var second as Y
+end 'Pair'
+
+typealias Q1 = Pair with (A_B_C, D)
+
+typealias Q2 = Pair with (A_B, C_D)
+
+typealias Q3 = Pair with (A, B_C_D)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: <fragment>:33:11: unused typealias: 'Q1'
+error E3006: <fragment>:34:11: duplicate definition of 'Pair_A_B_C_D' — the generic instantiations `Pair with (A_B_C, D)` and `Pair with (A_B, C_D)` compile to that same name
+error E3006: <fragment>:35:11: duplicate definition of 'Pair_A_B_C_D' — the generic instantiations `Pair with (A_B_C, D)` and `Pair with (A, B_C_D)` compile to that same name
+```
+
+
+<!-- test: error.two-instantiations-compile-to-one-name-a-declaration-also-holds -->
+<!-- positions: moved -->
+Both mechanisms at once, and the pair check has to survive the prefix. `type Pair_Box_Int_Str` is
+declared, so BOTH instantiations are moved into the reserved space — and they land on the *same*
+reserved name, because the prefix is a function of the string and the string is what was ambiguous.
+The declaration is legal and stays legal; the pair still collides and is still reported, at the later
+`typealias`. The name in the message is the name they actually compile to, `__`-prefix and all: saying
+`Pair_Box_Int_Str` would name the declared struct, which is not what collided.
+```maxon
+typealias Small = int(0 to 100)
+
+type Str
+	export var v as Small
+end 'Str'
+
+type Box
+	export var v as Small
+end 'Box'
+
+type Box_Int
+	export var v as Small
+end 'Box_Int'
+
+type Int_Str
+	export var v as Small
+end 'Int_Str'
+
+type Pair_Box_Int_Str
+	export var v as Small
+end 'Pair_Box_Int_Str'
+
+type Pair uses X, Y
+	export var first as X
+	export var second as Y
+end 'Pair'
+
+typealias P1 = Pair with (Box_Int, Str)
+
+typealias P2 = Pair with (Box, Int_Str)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3062: <fragment>:29:11: unused typealias: 'P1'
+error E3006: <fragment>:30:11: duplicate definition of '__Pair_Box_Int_Str' — the generic instantiations `Pair with (Box_Int, Str)` and `Pair with (Box, Int_Str)` compile to that same name
+```
+
+
+<!-- test: crossfile-instantiation-compiles-onto-declared-type -->
+The compiled namespace is whole-program, like the declared one: the instantiation is written in
+`a.maxon` and the contesting declaration is in `b.maxon`, and neither file names the other. That is why
+the prefix is decided over the whole-program declaration sweep rather than per file — nothing `a.maxon`
+can see tells it that `Box_String` is taken, and nothing `b.maxon` can see tells it that an
+instantiation wants the name.
+```maxon
+// --- file: a.maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 7
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+// --- file: b.maxon
+type Box_String
+	var a as String
+
+	static function make() returns Self
+		return Self{a: "x"}
+	end 'make'
+
+	function tag() returns Num
+		return 8
+	end 'tag'
+end 'Box_String'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let t = Box_String.make()
+	return s.tag() + t.tag()
+end 'main'
+```
+```exitcode
+15
+```
+
+
+<!-- test: array-literal-instance-onto-declared-type -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The shape that makes this a defect rather than a corner. Nothing here writes a generic instantiation at
+all: `[Foo.create(1), Foo.create(2)]` is an array literal, and the declaration sweep interns
+`Array with Foo` behind it because that is the only way the parser can name the literal's type. So
+refusing the contest would refuse a program whose author wrote one perfectly ordinary type name —
+`Array_Foo` — with an error naming `Array with Foo`, an instantiation that appears **nowhere in its
+source**. The program builds and returns 9.
+```maxon
+typealias Num = int(0 to 100)
+
+type Foo
+	export var n as Num
+
+	static function create(v Num) returns Self
+		return Self{n: v}
+	end 'create'
+end 'Foo'
+
+type Array_Foo
+	export var tag as Num
+
+	static function create(v Num) returns Self
+		return Self{tag: v}
+	end 'create'
+end 'Array_Foo'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [Foo.create(1), Foo.create(2)]
+	let m = Array_Foo.create(7)
+	return ((xs.count() as Num) + m.tag) as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: array-literal-managed-element-instance-onto-declared-type -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The same shape with a MANAGED element, which is what reaches the destructor machinery: `Foo` owns a
+`String`, so the array's elements are released through a real per-element walk rather than freed
+wholesale. The declared `Array_Foo` is dropped in the same scope. If the two ever shared a symbol the
+leak check would say so — this case exits 9 or it exits 101, and there is no third answer.
+```maxon
+typealias Num = int(0 to 100)
+
+type Foo
+	export var s as String
+
+	static function create(v String) returns Self
+		return Self{s: v}
+	end 'create'
+end 'Foo'
+
+type Array_Foo
+	export var tag as Num
+
+	static function create(v Num) returns Self
+		return Self{tag: v}
+	end 'create'
+end 'Array_Foo'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [Foo.create("a"), Foo.create("b")]
+	let m = Array_Foo.create(7)
+	return ((xs.count() as Num) + m.tag) as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: array-literal-of-unrelated-type-onto-declared-type -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+The sharpest one: the literal is of `Bar`, and `Array with Foo` is interned anyway. A local's type is
+invisible to the token sweep, so a `[<identifier>…]` literal anywhere in a file over-interns
+`Array with T` for **every** declared struct and union in the program — the parser then reads back
+whichever one the first element resolves to, and the rest are registry entries nothing ever emits. A
+rule that rejected a declaration contest therefore rejected `type Array_Foo` on account of a literal
+that has nothing to do with `Foo`. Under disjointness the over-interning is harmless, which is why it
+stays: an unreferenced instance mints no symbol at all.
+```maxon
+typealias Num = int(0 to 100)
+
+type Bar
+	export var n as Num
+
+	static function create(v Num) returns Self
+		return Self{n: v}
+	end 'create'
+end 'Bar'
+
+type Foo
+	export var n as Num
+
+	static function create(v Num) returns Self
+		return Self{n: v}
+	end 'create'
+end 'Foo'
+
+type Array_Foo
+	export var tag as Num
+
+	static function create(v Num) returns Self
+		return Self{tag: v}
+	end 'create'
+end 'Array_Foo'
+
+function main() returns ExitCode
+	// TODO: sizeof(...) is not supported in minimaxon
+	_ = sizeof(Foo)
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [Bar.create(1), Bar.create(2)]
+	let m = Array_Foo.create(7)
+	return ((xs.count() as Num) + m.tag) as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: declared-type-owning-a-string-named-like-an-array-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The declared type is the one that OWNS the `String` here, and that is a different question from the
+case above: a managed struct puts `__destruct_Array_Foo` into the needed-destructor set, and that set is
+keyed by NAME, so the name can pull the base-less `Array with Foo` instance in behind it and kill the
+compiler — `panic ProgramSignatures.baseLayoutOf: base struct 'Array' is not declared`, a stack trace
+with no diagnostic at all.
+
+⚠ **THIS CASE PINS THE BUILTIN GUARD, NOT DISJOINTNESS**: the guard (`genericInstanceHasStringField` /
+`genericInstanceHasManagedField` / `addNestedInstanceDestructors` returning early for an `Array`/`Set`
+instance) is independent of the reserved prefix, and with `claimsCompiledTypeName` forced to answer
+*no* — every other declaration-contest case in this file failing — **this one still passes.** Disjointness is the OUTER defence: the instance
+is `__Array_Foo`, so the struct's cascade names only itself and the guard is never reached. Both are
+real and neither is a substitute for the other; a case that credited the wrong one would go on passing
+after the one doing the work was deleted.
+```maxon
+typealias Num = int(0 to 100)
+
+type Foo
+	export var n as Num
+
+	static function create(v Num) returns Self
+		return Self{n: v}
+	end 'create'
+end 'Foo'
+
+type Array_Foo
+	export var s as String
+	export var tag as Num
+
+	static function create(v Num) returns Self
+		return Self{s: "held", tag: v}
+	end 'create'
+end 'Array_Foo'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let xs = [Foo.create(1), Foo.create(2)]
+	let m = Array_Foo.create(7)
+	return ((xs.count() as Num) + m.tag) as ExitCode
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: declared-type-and-instance-both-cascade -->
+Both cascades are REAL and both run. `type Box_String` owns three `String`s and the `Box with String`
+instance owns one, so a build that emitted a single `__destruct_Box_String` for the two of them either
+leaks two strings or frees one box twice depending on which install won. Two instances are constructed
+so the instance cascade runs more than once, and the leak check fails the case on exit **101** if a
+single `String` survives it.
+```maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 5
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+type Box_String
+	export var a as String
+	export var b as String
+	export var c as String
+
+	static function make() returns Self
+		return Self{a: "aa", b: "bb", c: "cc"}
+	end 'make'
+
+	function tag() returns Num
+		return 6
+	end 'tag'
+end 'Box_String'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let t = Box_String.make()
+	let u = SBox.create("world")
+	return s.tag() + t.tag() + u.tag()
+end 'main'
+```
+```exitcode
+16
+```
+
+
+<!-- test: nested-contest-mints-onto-a-second-contested-name -->
+Both contests at once, one nested inside the other, and it is the case that pins why the probe never
+asks the INSTANCE set. `Box with String` is contested and becomes `__Box_String`, so the enclosing
+`Box with (Box with String)` compiles to `Box___Box_String` — a bare name that already CONTAINS the
+prefix — and `type Box___Box_String` contests that in turn, sending it to `__Box___Box_String`. Four
+managed cascades, four distinct symbols, every object dropped exactly once (a shared symbol is a leak at
+**101** or a wild free). It works because a compiled name always BEGINS with its base name and no base
+may start with `__`, so a minted name can never be some *other* instance's bare one — the property that
+lets `claimsCompiledTypeName` probe declarations only.
+```maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 1
+	end 'tag'
+end 'Box'
+
+typealias Inner = Box with String
+
+typealias Outer = Box with (Box with String)
+
+type Box_String
+	export var a as String
+
+	static function make() returns Self
+		return Self{a: "aa"}
+	end 'make'
+
+	function tag() returns Num
+		return 2
+	end 'tag'
+end 'Box_String'
+
+type Box___Box_String
+	export var a as String
+	export var b as String
+
+	static function make() returns Self
+		return Self{a: "bb", b: "cc"}
+	end 'make'
+
+	function tag() returns Num
+		return 4
+	end 'tag'
+end 'Box___Box_String'
+
+function main() returns ExitCode
+	let i = Inner.create("hello")
+	let o = Outer.create(Inner.create("world"))
+	let d = Box_String.make()
+	let e = Box___Box_String.make()
+	return i.tag() + o.tag() + d.tag() + e.tag()
+end 'main'
+```
+```exitcode
+8
+```
+
+
+<!-- test: union-named-like-a-compiled-instance-name -->
+The `union` half of the claimant roster, and the ONLY shape that makes it load-bearing: a managed-payload
+union mints `__destruct_Box_String` from its bare name exactly as a `type` does, so without it in the
+roster the instance would keep the bare name and the two cascades would be one symbol — a TAG-dispatching
+union destructor reading the instance's `String` pointer as its tag, or a flat field cascade reading the
+union's i64 tag as a `String`. Neither is a leak; both are a wild free. Both objects are built and both
+are dropped, and the leak check fails the case on **101** if either cascade services the wrong one.
+```maxon
+typealias Num = int(0 to 100)
+
+type Held
+	export var s as String
+	export var n as Num
+
+	static function create(n Num) returns Self
+		return Self{s: "held", n: n}
+	end 'create'
+end 'Held'
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 5
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+union Box_String
+	silent
+	held(h Held)
+end 'Box_String'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let m = Box_String.held(Held.create(4))
+	match m 'k'
+		silent then return s.tag()
+		held(h) then return s.tag() + h.n
+	end 'k'
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: enum-named-like-a-compiled-instance-name -->
+The `enum` half, written as a PAYLOAD-FREE enum on purpose: it mints no per-type symbol at all, so
+nothing about this program would break if the roster dropped it — which is precisely why it needs a case
+rather than an argument. The roster is one predicate over one registry (`enum` and `union` share it), and
+this pins that the payload-free spelling reaches the same answer as the managed one above rather than
+some third path. The program builds and returns 9.
+```maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 5
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+enum Box_String
+	circle
+	square
+end 'Box_String'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let e = Box_String.square
+	match e 'k'
+		circle then return s.tag()
+		square then return s.tag() + 4
+	end 'k'
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: interface-named-like-a-compiled-instance-name -->
+The other side of the roster: an `interface` is NOT a claimant. Its only emitted artifact is
+`__witness_<conformer>.<interface>`, whose head is the CONFORMER, so it shares no symbol with an instance
+and there is nothing to move out of the way — the instance keeps the bare `Box_String` and the interface
+keeps its name. The program builds and returns 9.
+
+The `.` separator makes the disjointness this case pins stronger: a `.` occurs in no compiled instance
+name, so `__witness_Pen.Box_String` is unreachable from the instance side by the character class as well
+as by its head.
+```maxon
+typealias Num = int(0 to 100)
+
+type Box uses T
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function tag() returns Num
+		return 5
+	end 'tag'
+end 'Box'
+
+typealias SBox = Box with String
+
+interface Box_String
+	function draw() returns Num
+end 'Box_String'
+
+type Pen implements Box_String
+	export var ink as Num
+
+	static function create(ink Num) returns Self
+		return Self{ink: ink}
+	end 'create'
+
+	function draw() returns Num
+		return self.ink
+	end 'draw'
+end 'Pen'
+
+function main() returns ExitCode
+	let s = SBox.create("hello")
+	let p = Pen.create(4)
+	return s.tag() + p.draw()
+end 'main'
+```
+```exitcode
+9
+```
+
+
+<!-- test: error.declaring-a-reserved-instance-name -->
+<!-- positions: moved -->
+The guard on the reserved space itself, which is the whole reason the prefix is safe to mint into. A
+declaration may not take a `__` name, so the space a contested instance is moved into is one no source
+declaration can ever reach — and if that stopped being true, the disjointness above would quietly stop
+being disjointness.
+```maxon
+typealias Num = int(0 to 100)
+
+type __Array_Foo
+	export var n as Num
+
+	static function create(v Num) returns Self
+		return Self{n: v}
+	end 'create'
+end '__Array_Foo'
+
+function main() returns ExitCode
+	let b = __Array_Foo.create(3)
+	return b.n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2051: <fragment>:4:6: identifier '__Array_Foo' is reserved: declarations starting with '__' are reserved for compiler internals
+```
+
+
+<!-- test: witness-label-two-pairs-that-underscore-join-alike -->
+The witness half of the same non-injective join, and the one with no diagnostic to fall back on.
+Under a `_` join `(A_B, C)` and `(A, B_C)` both spell `__witness_A_B_C`, so the second pair's mint finds
+the first pair's table already emitted and hands it back: `HoldB.go` dispatches through `HoldC`'s table
+and reaches `A_B.idc` — build exit 0, no diagnostic, **33** — where `3 + 4 * 10` is 43.
+```maxon
+typealias Integer = int(0 to u32.max)
+
+interface C
+	function idc() returns Integer
+end 'C'
+
+interface B_C
+	function idb() returns Integer
+end 'B_C'
+
+type A_B implements C
+	export var x as Integer
+
+	static function create() returns Self
+		return Self{x: 0}
+	end 'create'
+
+	function idc() returns Integer
+		return 3
+	end 'idc'
+end 'A_B'
+
+type A implements B_C
+	export var x as Integer
+
+	static function create() returns Self
+		return Self{x: 0}
+	end 'create'
+
+	function idb() returns Integer
+		return 4
+	end 'idb'
+end 'A'
+
+type HoldC uses T where T implements C
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function go() returns Integer
+		return self.v.idc()
+	end 'go'
+end 'HoldC'
+
+type HoldB uses T where T implements B_C
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function go() returns Integer
+		return self.v.idb()
+	end 'go'
+end 'HoldB'
+
+typealias HC = HoldC with A_B
+
+typealias HB = HoldB with A
+
+function main() returns ExitCode
+	let h1 = HC.create(A_B.create())
+	let h2 = HB.create(A.create())
+	return h1.go() + h2.go() * 10
+end 'main'
+```
+```exitcode
+43
+```
+
+
+<!-- test: witness-label-the-other-pair-settles-the-label-first -->
+The same two pairs with the OTHER one settling the shared label, which is what shows a `_` join's answer
+is not merely wrong but arbitrary. The declarations are in the opposite order AND the two dispatches are
+evaluated in the opposite order — and it is the DISPATCH order that decides, because the table is minted
+where a call materializes its witness argument, not where a type is declared. Under a `_` join this
+program answers **44**, both dispatches reaching `A.idb`, against 33 for the identical program with the
+two calls swapped. The answer is 43 either way.
+```maxon
+typealias Integer = int(0 to u32.max)
+
+interface B_C
+	function idb() returns Integer
+end 'B_C'
+
+type A implements B_C
+	export var x as Integer
+
+	static function create() returns Self
+		return Self{x: 0}
+	end 'create'
+
+	function idb() returns Integer
+		return 4
+	end 'idb'
+end 'A'
+
+interface C
+	function idc() returns Integer
+end 'C'
+
+type A_B implements C
+	export var x as Integer
+
+	static function create() returns Self
+		return Self{x: 0}
+	end 'create'
+
+	function idc() returns Integer
+		return 3
+	end 'idc'
+end 'A_B'
+
+type HoldB uses T where T implements B_C
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function go() returns Integer
+		return self.v.idb()
+	end 'go'
+end 'HoldB'
+
+type HoldC uses T where T implements C
+	export var v as T
+
+	static function create(v T) returns Self
+		return Self{v: v}
+	end 'create'
+
+	function go() returns Integer
+		return self.v.idc()
+	end 'go'
+end 'HoldC'
+
+typealias HB = HoldB with A
+
+typealias HC = HoldC with A_B
+
+function main() returns ExitCode
+	let h1 = HC.create(A_B.create())
+	let h2 = HB.create(A.create())
+	return h2.go() * 10 + h1.go()
+end 'main'
+```
+```exitcode
+43
+```
+
+
+<!-- test: witness-label-three-pairs-that-underscore-join-alike -->
+The witness twin of `error.three-instantiations-compile-to-one-name`: `_` splits `A_B_C_D` three ways, so
+`(A_B_C, D)`, `(A_B, C_D)` and `(A, B_C_D)` would all spell one label. Unlike the instantiation trio —
+which is reported twice and never compiles — under a `_` join this one builds clean and returns **111**:
+three distinct interfaces, three distinct conformers, one table, every dispatch landing on `A_B_C.d`. Each of the three
+must reach its own conformer, which the digits of 123 read off individually.
+```maxon
+typealias Small = int(0 to 100)
+
+interface D
+	function d() returns Small
+end 'D'
+
+interface C_D
+	function cd() returns Small
+end 'C_D'
+
+interface B_C_D
+	function bcd() returns Small
+end 'B_C_D'
+
+type A_B_C implements D
+	export var v as Small
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+
+	function d() returns Small
+		return 1
+	end 'd'
+end 'A_B_C'
+
+type A_B implements C_D
+	export var v as Small
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+
+	function cd() returns Small
+		return 2
+	end 'cd'
+end 'A_B'
+
+type A implements B_C_D
+	export var v as Small
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+
+	function bcd() returns Small
+		return 3
+	end 'bcd'
+end 'A'
+
+type HoldD uses T where T implements D
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.d()
+	end 'go'
+end 'HoldD'
+
+type HoldCD uses T where T implements C_D
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.cd()
+	end 'go'
+end 'HoldCD'
+
+type HoldBCD uses T where T implements B_C_D
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.bcd()
+	end 'go'
+end 'HoldBCD'
+
+typealias H1 = HoldD with A_B_C
+
+typealias H2 = HoldCD with A_B
+
+typealias H3 = HoldBCD with A
+
+function main() returns ExitCode
+	let h1 = H1.create(A_B_C.create())
+	let h2 = H2.create(A_B.create())
+	let h3 = H3.create(A.create())
+	return h1.go() * 100 + h2.go() * 10 + h3.go()
+end 'main'
+```
+```exitcode
+123
+```
+
+
+<!-- test: witness-label-one-conformer-two-interfaces-and-a-third-pair -->
+ONE conformer with TWO interfaces, which is the pair the head-is-the-conformer argument alone does not
+separate. `A implements B, B_C` needs two tables — `__witness_A.B` and `__witness_A.B_C` — and they stay
+distinct under either separator, because their heads agree and only the tails differ. The third pair is
+what breaks: under a `_` join `(A_B, C)` spells the SAME `__witness_A_B_C` as `(A, B_C)`, so `HoldC.go`
+dispatches `A_B.c` through `A`'s table and reaches `A.bc` — **144**, where the answer is 142 — the first
+digit correct, which is why the two-interface half has to be in the program to prove it is not at risk.
+```maxon
+typealias Small = int(0 to 100)
+
+interface B
+	function b() returns Small
+end 'B'
+
+interface B_C
+	function bc() returns Small
+end 'B_C'
+
+interface C
+	function c() returns Small
+end 'C'
+
+type A implements B, B_C
+	export var v as Small
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+
+	function b() returns Small
+		return 1
+	end 'b'
+
+	function bc() returns Small
+		return 4
+	end 'bc'
+end 'A'
+
+type A_B implements C
+	export var v as Small
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+
+	function c() returns Small
+		return 2
+	end 'c'
+end 'A_B'
+
+type HoldB uses T where T implements B
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.b()
+	end 'go'
+end 'HoldB'
+
+type HoldBC uses T where T implements B_C
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.bc()
+	end 'go'
+end 'HoldBC'
+
+type HoldC uses T where T implements C
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function go() returns Small
+		return self.item.c()
+	end 'go'
+end 'HoldC'
+
+typealias HB = HoldB with A
+
+typealias HBC = HoldBC with A
+
+typealias HC = HoldC with A_B
+
+function main() returns ExitCode
+	let hb = HB.create(A.create())
+	let hbc = HBC.create(A.create())
+	let hc = HC.create(A_B.create())
+	return hb.go() * 100 + hbc.go() * 10 + hc.go()
+end 'main'
+```
+```exitcode
+142
+```
+
+
+<!-- test: crossfile-return-type-is-the-declaring-files-meaning -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⭐⭐ **A CALLEE'S RETURN TYPE IS A SLOT OF THE FILE THAT DECLARED IT, NEVER OF THE FILE CALLING IT** —
+the shape neither of the coexistence cases above reaches, and the one where getting it wrong is SILENT.
+`a.maxon` means an unmarked root `int(0 to 5)` by `Widget` and `lib/b.maxon` an unmarked `type` of the same name;
+the two coexist because they belong to two directories. `lib/main.maxon` declares NEITHER, and the
+RECORD `fromB` hands it has to be read as `lib/b.maxon`'s `Widget` — a name folded whole-program, or resolved
+in the caller's scope, would give `lib/main.maxon` the integer meaning and dereference a record through it.
+
+Read with the caller's file it would be **a false `E3005` return-type mismatch**, and through the field read below it would dereference the integer as a record — **exit 139,
+clean compile, no diagnostic.**
+
+⚠ `a.maxon` reads its own name INSIDE the body and hands the boundary an `ExitCode`, so the root's meaning never crosses a signature. The contested pair is unchanged: one name, two files, two meanings.
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+typealias Widget = int(0 to 5)
+
+function seed() returns ExitCode
+	return 3
+end 'seed'
+
+function fromA() returns ExitCode
+	let w = seed() as Widget
+	return w as ExitCode
+end 'fromA'
+
+// --- file: lib/b.maxon
+typealias Slot = int(0 to 100)
+
+type Widget
+	export var value as Slot
+
+	static function create(value Slot) returns Widget
+		return Self{value: value}
+	end 'create'
+end 'Widget'
+
+function fromB() returns Widget
+	return Widget.create(9)
+end 'fromB'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	let boxed = fromB()
+	return fromA() + (boxed.value as ExitCode)
+end 'main'
+```
+```exitcode
+12
+```
+
+
+<!-- test: crossfile-return-type-through-two-alias-forms -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+<!-- skip: tuple typealiases are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+The same rule through the arm that has no nominal declaration in it at all — a RANGED alias in one file
+against a TUPLE alias in another. It is a different code path (a tuple alias resolves to the tuple's own
+`structRef`, not to a declared `type`), so narrowing only the nominal side of the cascade leaves it open:
+the tuple `fromB` returns would be read as `lib/main.maxon`'s meaning of `Pair`, and a caller that folded the
+name would bind an integer to a two-slot destructuring.
+
+⚠ `a.maxon` reads its own name INSIDE the body and hands the boundary an `ExitCode`, so the root's meaning never crosses a signature. The contested pair is unchanged: one name, two files, two meanings.
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+typealias Pair = int(0 to 5)
+
+function seed() returns ExitCode
+	return 4
+end 'seed'
+
+function fromA() returns ExitCode
+	let p = seed() as Pair
+	return p as ExitCode
+end 'fromA'
+
+// --- file: lib/b.maxon
+// TODO: tuple typealiases are not supported in minimaxon
+typealias Pair = (ExitCode, ExitCode)
+
+function fromB() returns Pair
+	// TODO: tuple values and types are not supported in minimaxon
+	return (7, 9)
+end 'fromB'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	let p = fromB()
+	// TODO: tuple element access is not supported in minimaxon
+	return fromA() + p.0 + p.1
+end 'main'
+```
+```exitcode
+20
+```
+
+
+<!-- test: error.crossfile-enum-member-is-not-reachable-through-an-alias -->
+⛔⛔ **A MEMBER ACCESS ON A COEXISTING NAME MUST NOT REACH THE OTHER FILE'S DECLARATION, AND WHEN IT DID
+THE RANGE AND THE VALUE CAME FROM DIFFERENT DECLARATIONS.** `a.maxon` means a ranged `int(0 to 5)` by
+`Status`; `b.maxon` declares an `enum Status` whose `big` is 200. `Status.big` written inside `a.maxon`
+resolved to `b.maxon`'s enum and stored **200** into a slot `a.maxon` declares as `int(0 to 5)` — the
+range from one declaration, the value from the other, **compiling clean and exiting 201.**
+
+`a.maxon` means the ALIAS by `Status` — `b/`'s enum is unmarked, so it is the only `Status`
+`a.maxon` sees — and a ranged alias declares no members. So the access is refused as a member the alias
+does not have, naming the alias for what it is, instead of silently reaching the other one.
+```maxon
+// --- file: a/a.maxon
+typealias Status = int(0 to 5)
+
+export function pick() returns ExitCode
+	var s = 1 as Status
+	s = Status.big
+	return s as ExitCode
+end 'pick'
+
+// --- file: b/b.maxon
+enum Status
+	small = 1
+	big = 200
+end 'Status'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return pick()
+end 'main'
+```
+```maxoncstderr
+error E2073: a/<fragment>:7:13: 'Status' is a ranged alias and has no member 'big'
+```
+
+
+<!-- test: crossfile-enum-member-keeps-its-own-files-value -->
+The runnable half of the case above, and the one that asserts the VALUES rather than a diagnostic: each
+file keeps its own declaration, so `b.maxon`'s `Status.big` is still 200 and `a.maxon`'s `Status` still
+ranges 0 to 5. A cure that reached the enum from `a.maxon` would be caught by the error case; a cure that
+lost `b.maxon`'s own enum would be caught here.
+```maxon
+// --- file: a/a.maxon
+typealias Status = int(0 to 5)
+
+export function clamped() returns ExitCode
+	let s = 4 as Status
+	return s
+end 'clamped'
+
+// --- file: b/b.maxon
+enum Status
+	small = 1
+	big = 200
+end 'Status'
+
+export function widest() returns ExitCode
+	return Status.big.rawValue as ExitCode
+end 'widest'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return widest() - clamped()
+end 'main'
+```
+```exitcode
+196
+```
+
+
+<!-- test: error.crossfile-enum-constant-keeps-its-value-in-an-alias-slot-it-does-not-fit -->
+The other road to a constant of an enum: `b.maxon` declares a constant of its own `enum Status`, and
+`a.maxon`, in the same directory, reads it. The constant is the enum's case — its raw value, 200, decays into an alias slot as any
+enum's does — and the slot's range is `a.maxon`'s own, so storing it into a `Narrow` is refused at the
+store, with the value that case holds, exactly as `s = Level.big` is when the enum and the alias are
+declared in one file.
+```maxon
+// --- file: a.maxon
+typealias Narrow = int(0 to 5)
+
+function pick() returns ExitCode
+	var s = 1 as Narrow
+	s = BIG
+	return s as ExitCode
+end 'pick'
+
+// --- file: b.maxon
+enum Status
+	small = 1
+	big = 200
+end 'Status'
+
+let BIG = Status.big
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return pick()
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:7:2: Value 200 is outside the range of 'Narrow' (int(0 to 5))
+```
+
+
+<!-- test: crossfile-enum-constant-decays-into-a-wider-alias-slot -->
+The legal half of the case above: a constant of `b.maxon`'s `export enum Status` read in `a.maxon` is still
+the enum's raw 200 when it lands in an alias slot that holds it. `a.maxon`'s own `Narrow` plays no part in
+the store, so the slot's range is `Wide`'s and the value is `b.maxon`'s.
+```maxon
+// --- file: a.maxon
+typealias Narrow = int(0 to 5)
+
+typealias Wide = int(0 to 1000)
+
+function seed() returns Narrow
+	return 3
+end 'seed'
+
+function widened() returns ExitCode
+	var w = 1 as Wide
+	w = BIG
+	return (w as ExitCode) + (seed() as ExitCode)
+end 'widened'
+
+// --- file: b.maxon
+enum Status
+	small = 1
+	big = 200
+end 'Status'
+
+let BIG = Status.big
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return widened()
+end 'main'
+```
+```exitcode
+203
+```
+
+
+<!-- test: crossfile-return-type-that-is-an-enum-in-its-own-file -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⭐ **A COEXISTING NAME WHOSE DECLARING FILE MEANS AN `enum`, IN A RETURN TYPE.** Nothing in the suite put
+this shape in front of the code: an enum and a union are the two kinds that stay a bare `named` through
+resolution (`resolveNamedStruct` normalizes a struct, `resolveNamedAlias` the function/generic/tuple forms,
+`resolveFloatAliasType` a float alias — none of them touches an enum), so a repair that erases whatever is
+still `named` at the crossing erases them too, **even when the reader and the declaring file agree.**
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+typealias Level = int(0 to 5)
+
+function seed() returns ExitCode
+	return 3
+end 'seed'
+
+function fromA() returns ExitCode
+	let l = seed() as Level
+	return l as ExitCode
+end 'fromA'
+
+// --- file: lib/b.maxon
+enum Level
+	low = 1
+	high = 9
+end 'Level'
+
+function fromB() returns Level
+	return Level.high
+end 'fromB'
+
+function rankOf(l Level) returns ExitCode
+	return l.rawValue
+end 'rankOf'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	return fromA() + rankOf(fromB())
+end 'main'
+```
+```exitcode
+12
+```
+
+
+<!-- test: crossfile-return-type-that-is-a-boxed-union-in-its-own-file -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⭐⭐ **THE SILENT ONE: a BOXED union crossing a file boundary as a returned TEMPORARY.** `holds(s String)`
+gives the union a heap box, so the caller adopts the result and drops it once. Erase the type at the
+crossing and the box is never enrolled — no diagnostic, no output, **exit 139** — which is why this case
+returns a value that depends on the payload rather than merely compiling.
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+typealias Container = int(0 to 5)
+
+function seed() returns ExitCode
+	return 2
+end 'seed'
+
+function fromA() returns ExitCode
+	let c = seed() as Container
+	return c as ExitCode
+end 'fromA'
+
+// --- file: lib/b.maxon
+union Container
+	empty
+	holds(s String)
+end 'Container'
+
+function makeB() returns Container
+	return Container.holds("xyzz")
+end 'makeB'
+
+function widthOf(c Container) returns ExitCode
+	match c 'kind'
+		empty then return 0
+		holds(s) then return s.count() as ExitCode
+	end 'kind'
+end 'widthOf'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	return fromA() + widthOf(makeB())
+end 'main'
+```
+```exitcode
+6
+```
+
+
+<!-- test: crossfile-float-alias-against-a-nominal-declaration -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A FLOAT ranged alias in the contest. `resolveFloatAliasType` reaches the ranged registry through
+`aliasOf`, which is reader-aware about the RANGE and must be about the KIND too — otherwise `lib/b.maxon`'s
+own `returns Level` would be resolved against `a.maxon`'s float alias, and the refusal would land
+**inside `lib/b.maxon`, about a declaration its author never saw.**
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+// TODO: float typealiases are not supported in minimaxon
+typealias Level = float(0.0 to 5.0)
+
+function scaledA() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let v = 2.5 as Level
+	// TODO: float literals are not supported in minimaxon
+	return trunc(v * 2.0) as ExitCode
+end 'scaledA'
+
+// --- file: lib/b.maxon
+enum Level
+	low = 1
+	high = 9
+end 'Level'
+
+function fromB() returns Level
+	return Level.high
+end 'fromB'
+
+function rankOf(l Level) returns ExitCode
+	return l.rawValue
+end 'rankOf'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	return scaledA() + rankOf(fromB())
+end 'main'
+```
+```exitcode
+14
+```
+
+
+<!-- test: crossfile-indirect-call-through-a-contested-returning-alias -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+An INDIRECT call through a function-alias value whose return type is a coexisting name. The result's type
+is a slot of the file that declared the ALIAS, not of the file making the call — and `lib/c.maxon` below
+declares neither `Token` nor `Cb`, so a call scoped by the caller resolved `Token` to `lib/b.maxon`'s struct
+and handed back the integer 3 wearing a record's type.
+
+⚠ `callIt` is `export` and its parameter's type `Cb` returns `Token`, so `ext/a.maxon`'s `Token` must be `export` too (E3167). `lib/b.maxon` then sees both declarations, and its bare `Token` is its own, the one in its directory. `ext/a.maxon`, outside `lib/`, never sees `lib/b.maxon`'s unmarked declarations, so its bare `Token` is its own.
+```maxon
+// --- file: ext/a.maxon
+export typealias Token = int(0 to 5)
+
+// TODO: function typealiases are not supported in minimaxon
+export typealias Cb = function() returns Token
+
+function three() returns Token
+	return 3
+end 'three'
+
+export function goA() returns ExitCode
+	return callIt(three)
+end 'goA'
+
+// --- file: lib/b.maxon
+typealias Slot = int(0 to 100)
+
+type Token
+	export var value as Slot
+
+	static function create(value Slot) returns lib.Token
+		return Self{value: value}
+	end 'create'
+end 'Token'
+
+function fromB() returns lib.Token
+	return lib.Token.create(9)
+end 'fromB'
+
+// --- file: lib/c.maxon
+export function callIt(f Cb) returns ExitCode
+	return f()
+end 'callIt'
+
+// --- file: lib/main.maxon
+function main() returns ExitCode
+	let boxed = fromB()
+	return goA() + (boxed.value as ExitCode)
+end 'main'
+```
+```exitcode
+12
+```
+
+
+<!-- test: crossfile-boxed-union-temporary-is-discarded-by-a-stranger -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+⭐⭐ **THE SILENT SHAPE, AND THE ONE THE LOUD UNION CASE ABOVE CANNOT REACH.** `lib/main.maxon` declares
+NEITHER claimant and mentions `Container` only in `relay`'s signature — a function nothing calls — so the
+boxed union arrives as a DISCARDED owned temporary and every check that would have refused it is bypassed.
+
+The fault this guards is not in `lib/main.maxon` at all: were `a.maxon`'s `return 2 as Container` classified
+by the whole-program enum registry, it would find `lib/b.maxon`'s BOXED union, and the return path would emit
+**`__mm_retain` on the integer 2** — `x64.movRegImm32 rcx, 2` / `x64.callDirect __mm_retain`, in a function
+whose own file has no union in it. **Exit 139, clean compile, no output**, against a control that differs
+only in the name.
+
+⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
+```maxon
+// --- file: a.maxon
+typealias Container = int(0 to 5)
+
+function fromA() returns ExitCode
+	return 2 as Container
+end 'fromA'
+
+// --- file: lib/b.maxon
+union Container
+	empty
+	holds(s String)
+end 'Container'
+
+// `main.maxon` DISCARDS this function's result, which is the whole shape this case is about — so the
+// callee must have an effect, or the discard is E3064 (`specs/discarded-results.md`) and the
+// program never reaches the union it exists to exercise.
+function fromB(mutates fromBCalls Count) returns Container
+	fromBCalls = fromBCalls + 1
+	return Container.holds("hi")
+end 'fromB'
+
+function valueOf(c Container) returns ExitCode
+	match c 'pick'
+		empty then return 0
+		holds(s) then return 3 if s.equals("hi") else 0
+	end 'pick'
+end 'valueOf'
+
+// --- file: lib/main.maxon
+function relay(c Container) returns ExitCode
+	return valueOf(c)
+end 'relay'
+
+function main() returns ExitCode
+	_ = relay
+	var fromBCalls = 0 as Count
+	_ = fromB(fromBCalls)
+	return 5 + fromA()
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: crossfile-ranged-alias-against-a-float-backed-enum-arithmetic -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+The operand rule asks the same question of an arithmetic operator: `a.maxon`'s `W` is an integer alias, so
+`w * 2` multiplies integers, `w / 2` divides them and `w < 4` compares them. Decoding `w` as the other
+file's float-backed enum would turn each into arithmetic on a double's bit pattern. `b.maxon`'s `W` is the
+enum, whose cases are decoded before the operator runs: `W.light + W.heavy` is `4.0`.
+```maxon
+// --- file: a/a.maxon
+typealias W = int(0 to 5)
+
+export function goA() returns ExitCode
+	let w = 3 as W
+	print("{w * 2} {w / 2} {w < 4}\n")
+	return 0
+end 'goA'
+
+// --- file: b/b.maxon
+enum W
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 1.5
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	heavy = 2.5
+end 'W'
+
+export function fromB() returns ExitCode
+	print("{W.light + W.heavy} {W.light * 2} {W.light < W.heavy}\n")
+	return 0
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	_ = goA()
+	_ = fromB()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+6 1 true
+4.0 3.0 true
+```
+
+
+<!-- test: error.crossfile-ranged-alias-beside-a-float-backed-enum-is-not-a-float -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: non-integer enum raw values are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **A NAME HELD BY A RANGED ALIAS IN ONE FILE AND A FLOAT-BACKED ENUM IN ANOTHER IS AN INTEGER IN THE FIRST.**
+`b.maxon`'s unmarked `enum W` is float-backed and `a.maxon`'s `W` is `int(0 to 5)`, so `3 as W` in
+`a.maxon` is an integer that no `float` parameter accepts. Were the value read as the other file's enum, the
+argument would pass as a double's bit pattern and print `1.5e-323`. The enum's own file still passes it.
+```maxon
+// --- file: a/a.maxon
+typealias W = int(0 to 5)
+
+// TODO: float typealiases are not supported in minimaxon
+export typealias Real = float(f64.min to f64.max)
+
+export function takesFloat(f Real) returns Real
+	return f
+end 'takesFloat'
+
+export function goA() returns ExitCode
+	let w = 3 as W
+	print("{takesFloat(w)}\n")
+	return 0
+end 'goA'
+
+// --- file: b/b.maxon
+enum W
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	light = 1.5
+	// TODO: non-integer enum raw values are not supported in minimaxon
+	// TODO: float literals are not supported in minimaxon
+	heavy = 2.5
+end 'W'
+
+export function fromB() returns ExitCode
+	print("{takesFloat(W.heavy)}\n")
+	return 0
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	_ = goA()
+	_ = fromB()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: a/<fragment>:12:10: argument type mismatch for 'f': expected 'Real', got 'W'
+```
+
+
+<!-- test: crossfile-a-private-alias-beside-a-visible-export-is-its-own-files-bare-name -->
+⭐ **A DIRECTORY'S OWN UNMARKED ALIAS WINS OVER ANOTHER DIRECTORY'S VISIBLE EXPORT OF THE SAME NAME.**
+`b.maxon`'s `export union Container` is visible in `a.maxon`, which declares an unmarked
+`typealias Container` of its own. `a.maxon`'s bare `Container` is its own alias, the nearer scope, so `4 as
+Container` is an integer there while `b.maxon` reads its own union bare.
+```maxon
+// --- file: a/a.maxon
+typealias Container = int(0 to 5)
+
+export function useA() returns ExitCode
+	let c = 4 as Container
+	return c
+end 'useA'
+
+// --- file: b/b.maxon
+export union Container
+	empty
+	holds(s String)
+end 'Container'
+
+export function fromB() returns ExitCode
+	let c = Container.holds("hi")
+	match c 'pick'
+		empty then return 0
+		holds(s) then return 3 if s.equals("hi") else 0
+	end 'pick'
+end 'fromB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let blank = b.Container.empty
+	let held = match blank 'k'
+		empty gives 0
+		holds(s) gives s.byteLength() as ExitCode
+	end 'k'
+	return useA() + fromB() + held
+end 'main'
+```
+```exitcode
+7
+```
+
+
+<!-- test: error.crossfile-a-contested-name-does-not-credit-the-other-declaration -->
+⭐ **THE UNUSED-EXPORT AUDIT MUST NOT COUNT A REFERENCE TO ONE DECLARATION AS A REFERENCE TO ANOTHER OF THE
+SAME NAME.** `alpha/` and `beta/` each export `typealias Integer` over one range, so the two claimants are
+the same kind. `main.maxon` names only `alpha.Integer`, so `beta`'s export is named by nobody outside its
+own file and earns E3092. A reference walk crediting EVERY tracked declaration wearing the name would let
+`main.maxon`'s use of `alpha`'s satisfy `beta`'s too and **the diagnostic would vanish.**
+```maxon
+// --- file: alpha/a.maxon
+export typealias Integer = int(0 to 1000)
+
+// --- file: beta/b.maxon
+export typealias Integer = int(0 to 1000)
+
+function seed() returns ExitCode
+	return 2
+end 'seed'
+
+export function pickB() returns ExitCode
+	let two = seed() as beta.Integer
+	return two as ExitCode
+end 'pickB'
+
+// --- file: main.maxon
+function seed() returns ExitCode
+	return 40
+end 'seed'
+
+function main() returns ExitCode
+	let forty = seed() as alpha.Integer
+	return (forty as ExitCode) + pickB()
+end 'main'
+```
+```maxoncstderr
+error E3092: beta/<fragment>:6:18: exported typealias 'Integer' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-unused-exported-alias-beside-a-nominal-of-its-name-is-reported -->
+The same audit when the two claimants are of different KINDS. `ranks/` exports `typealias Score` and `kinds/`
+exports `type Score`; `main.maxon` names only `kinds.Score`, so the alias is named by nobody outside its own
+file and earns E3092.
+```maxon
+// --- file: ranks/score.maxon
+export typealias Score = int(0 to 100)
+
+function seed() returns ExitCode
+	return 7
+end 'seed'
+
+export function grade() returns ExitCode
+	let score = seed() as ranks.Score
+	return score as ExitCode
+end 'grade'
+
+// --- file: kinds/score.maxon
+export type Score
+	export let v as ExitCode
+
+	export static function make() returns Self
+		return Self{v: 30}
+	end 'make'
+end 'Score'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return kinds.Score.make().v + grade()
+end 'main'
+```
+```maxoncstderr
+error E3092: ranks/<fragment>:3:18: exported typealias 'Score' is never referenced outside its declaring directory
+```
+
+<!-- test: a-qualified-ranged-field-beside-a-nominal-of-its-name-is-one-type -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`lib/` exports `typealias Count` and `shapes/` exports `type Count`, and the library declares a `Count` of
+its own. `Tally`'s field is declared `lib.Count`, and its body stores and compares a `lib.Count` it builds
+itself: the field's type and the body's are one declaration, so the store and the comparison take it, and
+`900` fits `lib.Count`'s range.
+```maxon
+// --- file: lib/count.maxon
+export typealias Count = int(0 to 1000)
+
+// --- file: shapes/count.maxon
+export type Count
+	export let sides as ExitCode
+
+	export static function make() returns Self
+		return Self{sides: 4}
+	end 'make'
+end 'Count'
+
+// --- file: app/main.maxon
+function ceiling() returns lib.Count
+	return 900
+end 'ceiling'
+
+type Tally
+	var x as lib.Count
+
+	static function create() returns Self
+		return Self{x: 7}
+	end 'create'
+
+	function raise() returns bool
+		let limit = ceiling()
+		self.x = limit
+		return self.x == limit
+	end 'raise'
+
+	function value() returns lib.Count
+		return self.x
+	end 'value'
+end 'Tally'
+
+function main() returns ExitCode
+	let t = Tally.create()
+	let before = t.value()
+	let same = t.raise()
+	print("{before} {t.value()} {same}")
+	return shapes.Count.make().sides
+end 'main'
+```
+```exitcode
+4
+```
+```stdout
+7 900 true
+```
+
+<!-- test: error.an-unused-alias-beside-an-enum-used-through-a-field-is-reported -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The same audit when the only use is the element type of a field. `levels/` exports `enum Level` and `tags/`
+exports `typealias Level`. `Journal`, beside the enum, holds an `Array with levels.Level`, and `main.maxon`
+matches its elements. Only the enum is used, so the alias earns E3092 and the enum earns none.
+```maxon
+// --- file: levels/level.maxon
+export enum Level
+	low
+	high
+end 'Level'
+
+export typealias Levels = Array with levels.Level
+
+export type Journal
+	export let entries as Levels
+
+	export static function make() returns Self
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return Self{entries: [levels.Level.high, levels.Level.low]}
+	end 'make'
+end 'Journal'
+
+// --- file: tags/level.maxon
+export typealias Level = int(0 to 9)
+
+// --- file: main.maxon
+function main() returns ExitCode
+	var n = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for e in Journal.make().entries 'each'
+		match e 'pick'
+			high then n = n + 40
+			low then n = n + 2
+		end 'pick'
+	end 'each'
+	return n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3092: tags/<fragment>:19:18: exported typealias 'Level' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-unused-function-alias-export-beside-another-directorys-is-reported -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The same audit over two FUNCTION aliases. `a/` and `b/` each export `typealias Handler`; `a/use.maxon` names
+`a.Handler`, and nobody names `b.Handler`, so `b/`'s export earns E3092.
+```maxon
+// --- file: num/num.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+// --- file: a/handler.maxon
+// TODO: function typealiases are not supported in minimaxon
+export typealias Handler = function(Integer) returns Integer
+
+// --- file: a/use.maxon
+export function apply(h a.Handler, v Integer) returns Integer
+	return h(v)
+end 'apply'
+
+// --- file: b/handler.maxon
+// TODO: function typealiases are not supported in minimaxon
+export typealias Handler = function(Integer) returns Integer
+
+// --- file: main.maxon
+function double(n Integer) returns Integer
+	return n * 2
+end 'double'
+
+function main() returns ExitCode
+	return apply(double, v: 21) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3092: b/<fragment>:14:18: exported typealias 'Handler' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-unused-generic-alias-export-beside-another-directorys-is-reported -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The same audit over two GENERIC-INSTANCE aliases of one instance: `a/use.maxon` names `a.Rows`, nobody names
+`b.Rows`, so `b/`'s export earns E3092.
+```maxon
+// --- file: num/num.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+// --- file: a/rows.maxon
+export typealias Rows = Array with Integer
+
+// --- file: a/use.maxon
+export function total(rows a.Rows) returns ExitCode
+	return rows.count() as ExitCode
+end 'total'
+
+// --- file: b/rows.maxon
+export typealias Rows = Array with Integer
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return total([1, 2, 3])
+end 'main'
+```
+```maxoncstderr
+error E3092: b/<fragment>:14:18: exported typealias 'Rows' is never referenced outside its declaring directory
+```
+
+<!-- test: error.a-reached-signature-does-not-credit-the-other-directorys-same-named-alias -->
+The same audit when the only use of `alpha.Integer` is a SIGNATURE the program reaches: `main.maxon` calls
+`alpha`'s `f`, whose parameter is `alpha.Integer`, and names no `Integer` itself. The call credits the
+declaration the signature means, so `beta`'s export, which nobody names, earns E3092.
+```maxon
+// --- file: alpha/a.maxon
+export typealias Integer = int(0 to 1000)
+
+export function f(x alpha.Integer) returns ExitCode
+	return x as ExitCode
+end 'f'
+
+// --- file: beta/b.maxon
+export typealias Integer = int(0 to 1000)
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return f(42)
+end 'main'
+```
+```maxoncstderr
+error E3092: beta/<fragment>:10:18: exported typealias 'Integer' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-instance-argument-reached-through-an-alias-credits-its-own-files-declaration -->
+The same audit when the use is an alias's instance ARGUMENT. `main.maxon` names the library's `ByteArray`,
+which is `Array with Byte` in the library's own file, where `Byte` is the library's. In `main.maxon` a bare
+`Byte` would mean `c/`'s export, but `ByteArray`'s argument is not read there, so `c/`'s `Byte` is named by
+nobody outside its own file and earns E3092.
+```maxon
+// --- file: c/byte.maxon
+export typealias Byte = int(0 to 300)
+
+export function widen() returns ExitCode
+	let b = 250 as Byte
+	return (b - 200) as ExitCode
+end 'widen'
+
+// --- file: main.maxon
+function total(xs ByteArray) returns ExitCode
+	return xs.count() as ExitCode
+end 'total'
+
+function main() returns ExitCode
+	return total("hi".toByteArray()) + widen()
+end 'main'
+```
+```maxoncstderr
+error E3092: c/<fragment>:3:18: exported typealias 'Byte' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-inner-alias-use-does-not-credit-a-file-scope-alias-of-its-name -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+The same audit when one claimant is an INNER alias. `w/`'s `Wrapper` declares `export typealias Idx`, and
+`main.maxon` names it as `Wrapper.Idx`; `x/` exports a file-scope `Idx` that nobody names, so it earns E3092.
+```maxon
+// --- file: x/idx.maxon
+export typealias Idx = int(0 to 3)
+
+// --- file: w/wrapper.maxon
+export type Wrapper
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Idx = int(0 to 9)
+
+	export static function make() returns Self
+		return Self{}
+	end 'make'
+
+	export function at(i Idx) returns ExitCode
+		return i as ExitCode
+	end 'at'
+end 'Wrapper'
+
+// --- file: main.maxon
+function seed() returns Wrapper.Idx
+	return 7
+end 'seed'
+
+function main() returns ExitCode
+	let i = seed()
+	return Wrapper.make().at(i)
+end 'main'
+```
+```maxoncstderr
+error E3092: x/<fragment>:3:18: exported typealias 'Idx' is never referenced outside its declaring directory
+```
+
+<!-- test: error.an-unused-type-beside-a-function-alias-reached-through-a-field-is-reported -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+The unused-declaration audit answers the same way when one claimant is a NOMINAL type and the use is a call
+through a struct FIELD. `a/` exports
+the function alias `Handler` and a `Box` whose field holds one; `k/` declares an unmarked `type Handler` that
+nothing in `k/` names. `main.maxon` calls through `Box`'s field, which reaches `a`'s alias and nothing of
+`k`'s, so `k`'s type earns E3219.
+```maxon
+// --- file: num/num.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+// --- file: a/handler.maxon
+// TODO: function typealiases are not supported in minimaxon
+export typealias Handler = function(Integer) returns Integer
+
+function double(n Integer) returns Integer
+	return n * 2
+end 'double'
+
+export type Box
+	export let h as Handler
+
+	export static function make() returns Self
+		return Self{h: double}
+	end 'make'
+end 'Box'
+
+// --- file: k/handler.maxon
+type Handler
+	let n as ExitCode
+end 'Handler'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let b = Box.make()
+	return b.h(21) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3219: k/<fragment>:21:6: unused type: 'Handler' is not exported and nothing live in its directory names it; delete it
+```
+
+
+<!-- test: error.crossfile-a-service-throws-a-contested-name -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+⭐ **A SERVICE MESSAGE IS A SIGNATURE, AND IT ANSWERS AT THE SAME DOOR.** `divide` is on `Calc`'s message
+surface, so whoever spawns a `Calc` has to be able to name what the message takes, returns and throws —
+and `b.maxon` writes all three over declarations of its own that no other file can see. Four positions,
+four diagnostics, in signature order: the two parameters, the return type, then the throws clause.
+
+⛔ **E3167 STANDS IN FRONT OF E3113 HERE, AND THE E3113 ROAD IS NOT REACHABLE FROM A LEGAL PROGRAM.**
+`b.maxon`'s ranged `Fault` names no enum or union, while `a.maxon`'s unmarked `enum Fault` is a
+declaration `b.maxon` cannot name, so E3113 would refuse the clause even though an `enum Fault` exists in
+the program. That shape cannot be rebuilt around E3167 in one directory: an EXPORTED `typealias Fault`
+beside an `enum Fault` there is a duplicate definition (E3006), so the throws clause cannot name a visible
+ranged `Fault` while the enum exists. The enum is unmarked so `b.maxon` cannot see it at all: the ranged `Fault` is the only one
+`b.maxon` can name.
+`ServiceCompanions.serviceReplyErrorLayout` resolves the clause's `Fault` in any file rather than through
+the message's reader, and is harmless only while a refusal holds here; the refusal is E3167's.
+```maxon
+// --- file: a/a.maxon
+enum Fault implements Error
+	broke
+end 'Fault'
+
+// --- file: b/b.maxon
+typealias Fault = int(0 to 10)
+
+typealias Integer = int(i64.min to i64.max)
+
+export type Calc
+	var count as Integer
+	var seen as Fault
+
+	export static function create() returns Self
+		return Self{count: 0, seen: 3}
+	end 'create'
+
+	export function divide(n Integer, by Integer) returns Integer throws Fault
+		return n + by + self.count + (self.seen as Integer)
+	end 'divide'
+end 'Calc'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.divide(10, by: 2) otherwise return 70
+	return v as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexported typealias 'Integer' in the type of parameter 'n'
+error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexported typealias 'Integer' in the type of parameter 'by'
+error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexported typealias 'Integer' in its return type
+error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexported typealias 'Fault' in its throws clause
+```
+
+<!-- test: a-service-throws-an-enum-qualified-past-another-directorys-alias -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+An exported `typealias Fault` in `calc/` and an `enum Fault` in `faults/` coexist, because each is named by
+its directory. `calc/`'s service message writes `throws faults.Fault`, which is the enum, so the reply
+carries the enum's case back to the awaiting caller, and `main` names the alias as `calc.Fault`.
+```maxon
+// --- file: calc/alias.maxon
+export typealias Fault = int(0 to 10)
+
+// --- file: faults/fault.maxon
+export enum Fault implements Error
+	broke
+end 'Fault'
+
+// --- file: calc/calc.maxon
+export typealias Count = int(i64.min to i64.max)
+
+export type Calc
+	var count as Count
+
+	export static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	export function divide(n Count, by Count) returns Count throws faults.Fault
+		if by == 0 'zero'
+			throw faults.Fault.broke
+		end 'zero'
+		return n + by + self.count
+	end 'divide'
+end 'Calc'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.divide(10, by: 2) otherwise return 70
+	print("{v}\n")
+	let fallback = (v - 9) as calc.Fault
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let w = try await h.divide(1, by: 0) otherwise return fallback as ExitCode
+	return w as ExitCode
+end 'main'
+```
+```stdout
+12
+```
+```exitcode
+3
+```
+
+<!-- test: error.a-service-throws-the-alias-its-own-directory-declares -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The same pair, with the message's clause naming `calc.Fault` — the ranged alias. That names no enum or union,
+so the clause is refused, whatever `faults/` declares under the same name.
+```maxon
+// --- file: calc/alias.maxon
+export typealias Fault = int(0 to 10)
+
+// --- file: faults/fault.maxon
+export enum Fault implements Error
+	broke
+end 'Fault'
+
+// --- file: calc/calc.maxon
+export typealias Count = int(i64.min to i64.max)
+
+export type Calc
+	var count as Count
+
+	export static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	export function divide(n Count, by Count) returns Count throws calc.Fault
+		return n + by + self.count
+	end 'divide'
+end 'Calc'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.divide(10, by: 2) otherwise return 70
+	return v as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3113: calc/<fragment>:20:18: 'throws calc.Fault' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
+```
+
+<!-- test: error.a-service-throws-a-bare-name-means-the-readers-own-directorys-declaration -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The same pair, with the clause written bare in a file of `calc/`: the bare name means `calc/`'s own `Fault`,
+the ranged alias, so the clause names no enum or union however `faults/` is declared.
+```maxon
+// --- file: calc/alias.maxon
+export typealias Fault = int(0 to 10)
+
+// --- file: faults/fault.maxon
+export enum Fault implements Error
+	broke
+end 'Fault'
+
+// --- file: calc/calc.maxon
+export typealias Count = int(i64.min to i64.max)
+
+export type Calc
+	var count as Count
+
+	export static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	export function divide(n Count, by Count) returns Count throws Fault
+		return n + by + self.count
+	end 'divide'
+end 'Calc'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let v = try await h.divide(10, by: 2) otherwise return 70
+	return v as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3113: calc/<fragment>:20:18: 'throws Fault' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
+```
+
+<!-- test: error.a-name-whose-declarations-coexist-in-part-is-blamed-in-path-order -->
+Collision is not transitive. Here `d1/a.maxon`'s `enum Box` and `d2/b.maxon`'s `enum Box` coexist as two
+nominals of two directories, `d2/b.maxon` and `d2/c.maxon` collide as two declarations in one directory, and
+`d1/a.maxon`'s enum and `d2/c.maxon`'s alias coexist. Which one is refused must not depend on the order
+the files arrive in: declarations are admitted path-earliest first, so `d1/a.maxon` and `d2/b.maxon` are
+admitted, and `d2/c.maxon` is refused against `d2/b.maxon`. The files are declared here in the reverse of that
+order.
+```maxon
+// --- file: d2/c.maxon
+export typealias Box = int(0 to 9)
+
+// --- file: d2/b.maxon
+export enum Box
+	large
+end 'Box'
+
+// --- file: d1/a.maxon
+export enum Box
+	small
+end 'Box'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: d2/<fragment>:3:18: duplicate definition of 'Box' — already declared as `enum Box`
+```
+
+
+<!-- test: a-type-and-an-enum-of-one-name-in-two-directories-coexist -->
+Two author NOMINAL declarations of one name in two directories are two types, whatever their kinds: `shapes/`
+declares a `type Box` and `crates/` an `enum Box`, and `main.maxon` reaches each qualified.
+```maxon
+// --- file: shapes/box.maxon
+export type Box
+	export var side as ExitCode
+
+	export static function make() returns Self
+		return Self{side: 30}
+	end 'make'
+end 'Box'
+
+// --- file: crates/box.maxon
+export enum Box
+	open
+	shut
+end 'Box'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let box = shapes.Box.make()
+	let state = crates.Box.shut
+	if state == crates.Box.shut 'closed'
+		return box.side + 12
+	end 'closed'
+	return box.side
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: an-exported-enum-of-one-name-in-two-directories-is-reached-qualified -->
+Two directories each export an `enum Mode` with different cases. `main.maxon` passes each one's case to a function
+declared over that directory's `Mode`, and each `match` lists its own enum's cases.
+```maxon
+// --- file: a/mode.maxon
+export enum Mode
+	fast
+	slow
+end 'Mode'
+
+// --- file: b/mode.maxon
+export enum Mode
+	idle
+	busy
+	warm
+end 'Mode'
+
+// --- file: main.maxon
+function describeA(m a.Mode) returns ExitCode
+	return match m 'm'
+		fast gives 1
+		slow gives 2
+	end 'm'
+end 'describeA'
+
+function describeB(m b.Mode) returns ExitCode
+	return match m 'm'
+		idle gives 1
+		busy gives 2
+		warm gives 3
+	end 'm'
+end 'describeB'
+
+function main() returns ExitCode
+	return describeA(a.Mode.slow) * 10 + describeB(b.Mode.warm)
+end 'main'
+```
+```exitcode
+23
+```
+
+<!-- test: error.a-bare-name-two-directories-export-is-ambiguous -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+`a/` and `b/` each export a `Box`, and `app/main.maxon` sees both: a bare `Box` could mean either, so it is
+E3063 at the name and lists both qualified spellings.
+```maxon
+// --- file: a/a.maxon
+export type Box
+	export var v as ExitCode
+
+	export static function create() returns Self
+		return Self{v: 40}
+	end 'create'
+end 'Box'
+
+// --- file: b/b.maxon
+export type Box
+	export var w as ExitCode
+
+	export static function create() returns Self
+		return Self{w: 2}
+	end 'create'
+end 'Box'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let box = Box.create()
+	return box.v
+end 'main'
+```
+```maxoncstderr
+error E3063: app/<fragment>:22:12: Ambiguous type name 'Box': more than one visible declaration matches it. Qualify it as one of: a.Box, b.Box
+```
+
+<!-- test: a-root-unmarked-type-and-a-subdirectorys-of-one-name-coexist -->
+`main.maxon` at the root and `sub/box.maxon` each declare an unmarked `type Box`. `sub/` sees the root's too, but a
+bare name means the reading file's own directory's declaration first, so each file's bare `Box` is its own, and
+both run.
+```maxon
+// --- file: main.maxon
+type Box
+	export var v as ExitCode
+
+	static function create() returns Self
+		return Self{v: 40}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	return Box.create().v + runSub()
+end 'main'
+
+// --- file: sub/box.maxon
+type Box
+	export var w as ExitCode
+
+	static function create() returns Self
+		return Self{w: 2}
+	end 'create'
+end 'Box'
+
+export function runSub() returns ExitCode
+	return Box.create().w
+end 'runSub'
+```
+```exitcode
+42
+```
+
+<!-- test: a-root-unmarked-type-and-a-subdirectorys-export-of-one-name-are-both-qualified -->
+The root declares an unmarked `type Box` and `sub/` exports another. `other/o.maxon` sees both, so it qualifies:
+the root's is `export.Box` and the subdirectory's `sub.Box`.
+```maxon
+// --- file: main.maxon
+type Box
+	export var v as ExitCode
+
+	static function create() returns Self
+		return Self{v: 40}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	return fromOther()
+end 'main'
+
+// --- file: sub/box.maxon
+export type Box
+	export var w as ExitCode
+
+	export static function create() returns Self
+		return Self{w: 2}
+	end 'create'
+end 'Box'
+
+// --- file: other/o.maxon
+export function fromOther() returns ExitCode
+	return export.Box.create().v + sub.Box.create().w
+end 'fromOther'
+```
+```exitcode
+42
+```
+
+<!-- test: two-directories-error-enums-of-one-name-render-as-their-own -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+Each of `a/` and `b/` exports a `Fault` error enum with a case of the same name. A caught error renders as the
+case of the enum that was thrown, and the program prints one line for each.
+```maxon
+// --- file: a/fault.maxon
+export enum Fault implements Error
+	broken
+	missing
+end 'Fault'
+
+export function failA() throws a.Fault
+	throw a.Fault.missing
+end 'failA'
+
+// --- file: b/fault.maxon
+export enum Fault implements Error
+	missing
+	broken
+end 'Fault'
+
+export function failB() throws b.Fault
+	throw b.Fault.missing
+end 'failB'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try failA() otherwise (e) 'caughtA'
+		print("a {e}\n")
+	end 'caughtA'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try failB() otherwise (e) 'caughtB'
+		print("b {e}\n")
+	end 'caughtB'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a missing
+b missing
+```
+
+<!-- test: error.extension-alias-pair-compiling-to-one-name -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ The same non-injective `_` join as `error.two-instantiations-compile-to-one-name`, reached through the
+door that case cannot reach: a `typealias` declared INSIDE an `extension`, minted once per conforming
+type rather than once where it is written. `Both = Pair with (K, V)` is one line of source, and
+`One implements Duo with (A_B, C)` and `Two implements Duo with (A, B_C)` make it two instantiations
+that both join to `Pair_A_B_C`. Unchecked, the second mint clobbers the first registration, so `One`'s
+`Both` is laid out as `Pair with (A, B_C)` and `p.y.only` reads the wrong field — the program compiles
+and prints `2 77` where it packs `20 77`.
+
+The body reaches `Pair` through `Both.make(...)` rather than a struct literal because an inner alias
+naming a USER generic keeps E3076 — see `specs/inner-alias-construction.md`. That refusal is
+correct and unrelated to the join this case pins; a literal here would report it instead, and the
+E3006 would never be reached.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+type A_B
+	export var only as Num
+
+	static function create(only Num) returns Self
+		return Self{only: only}
+	end 'create'
+end 'A_B'
+
+type A
+	export var pad as Num
+	export var only as Num
+
+	static function create(pad Num, only Num) returns Self
+		return Self{pad: pad, only: only}
+	end 'create'
+end 'A'
+
+type C
+	export var pad as Num
+	export var only as Num
+
+	static function create(pad Num, only Num) returns Self
+		return Self{pad: pad, only: only}
+	end 'create'
+end 'C'
+
+type B_C
+	export var only as Num
+
+	static function create(only Num) returns Self
+		return Self{only: only}
+	end 'create'
+end 'B_C'
+
+type Pair uses X, Y
+	export var x as X
+	export var y as Y
+
+	static function make(x X, y Y) returns Self
+		return Pair{x: x, y: y}
+	end 'make'
+end 'Pair'
+
+// TODO: generic interfaces (uses on interface) are not supported in minimaxon
+interface Duo uses K, V
+	function first() returns K
+	function second() returns V
+end 'Duo'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Duo
+	typealias Both = Pair with (K, V)
+	function packedSecond() returns Num
+		let p = Both.make(first(), y: second())
+		return p.y.only
+	end 'packedSecond'
+end 'Duo'
+
+type One implements Duo with (A_B, C)
+	function first() returns A_B
+		return A_B.create(1)
+	end 'first'
+
+	function second() returns C
+		return C.create(2, only: 20)
+	end 'second'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'One'
+
+type Two implements Duo with (A, B_C)
+	function first() returns A
+		return A.create(3, only: 30)
+	end 'first'
+
+	function second() returns B_C
+		return B_C.create(77)
+	end 'second'
+
+	static function create() returns Self
+		return Self{}
+	end 'create'
+end 'Two'
+
+function main() returns ExitCode
+	print("{One.create().packedSecond()} {Two.create().packedSecond()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3006: <fragment>:53:12: duplicate definition of 'Pair_A_B_C' — the generic instantiations `Pair with (A_B, C)` and `Pair with (A, B_C)` compile to that same name
+```
+
+<!-- test: a-throws-clause-beside-the-librarys-type-names-the-authors -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A user `ParseError` exported beside the library's: a bare `throws ParseError` in a third file names the
+user's enum, because a library declaration never takes part in ambiguity. Only the user's has `malformed`.
+```maxon
+// --- file: lib/errors.maxon
+export enum ParseError implements Error
+	malformed
+end 'ParseError'
+
+// --- file: app/main.maxon
+function check(n ExitCode) returns ExitCode throws ParseError
+	if n > 5 'big'
+		throw ParseError.malformed
+	end 'big'
+	return n
+end 'check'
+
+function main() returns ExitCode
+	return try check(9) otherwise 2
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: error.a-throws-clause-naming-a-type-the-library-keeps-private-is-refused -->
+`stdlib/FilePath.maxon`'s `ParentComponentRule` carries no `public`, so a `throws` clause cannot name it.
+```maxon
+function check(n ExitCode) returns ExitCode throws ParentComponentRule
+	return n
+end 'check'
+
+function main() returns ExitCode
+	return try check(1) otherwise 2
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:2:52: type 'ParentComponentRule' is not exported
+```
+
+<!-- test: an-implemented-interface-beside-the-librarys-names-the-authors -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: sizeof(...) is not supported in minimaxon -->
+A user `Parsable` exported beside the library's: a bare `implements Parsable` in a third file names the
+user's interface, whose one requirement `Doc` meets.
+```maxon
+// --- file: lib/parsable.maxon
+export interface Parsable
+	function parse() returns bool
+end 'Parsable'
+
+// --- file: app/main.maxon
+type Doc implements Parsable
+	export function parse() returns bool
+		return true
+	end 'parse'
+end 'Doc'
+
+function main() returns ExitCode
+	// TODO: sizeof(...) is not supported in minimaxon
+	_ = sizeof(Doc)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-constraint-interface-beside-the-librarys-names-the-authors -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same pair named by a `where` constraint.
+```maxon
+// --- file: lib/parsable.maxon
+export interface Parsable
+	function parse() returns bool
+end 'Parsable'
+
+// --- file: app/main.maxon
+type Doc implements Parsable
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function parse() returns bool
+		return true
+	end 'parse'
+end 'Doc'
+
+function parsed(x T) uses T returns bool where T implements Parsable
+	return x.parse()
+end 'parsed'
+
+function main() returns ExitCode
+	return 0 if parsed(Doc.create()) else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-parent-interface-beside-the-librarys-names-the-authors -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same pair named by an `extends` clause.
+```maxon
+// --- file: lib/parsable.maxon
+export interface Parsable
+	function parse() returns bool
+end 'Parsable'
+
+// --- file: app/main.maxon
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Fancy extends Parsable
+	function shine() returns bool
+end 'Fancy'
+
+type Shiny implements Fancy
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function parse() returns bool
+		return true
+	end 'parse'
+
+	export function shine() returns bool
+		return true
+	end 'shine'
+end 'Shiny'
+
+function main() returns ExitCode
+	return 0 if Shiny.create().shine() else 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: an-authors-comparable-leaves-the-library-sort-on-ints -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+An author `Comparable` names the author's interface, and the library's `where Element is Comparable`
+still names the library's, which `int` meets.
+```maxon
+public interface Comparable
+	function compare(other Self) returns Ordering
+end 'Comparable'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let values = FullRangeIntArray from [3, 1, 2]
+	values.sort()
+	let first = try values.get(0) otherwise return 3
+	print("{first}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: an-authors-comparable-leaves-the-library-sort-on-strings -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+The same for `String`, which meets the library's `Comparable` as `int` does.
+```maxon
+public interface Comparable
+	function compare(other Self) returns Ordering
+end 'Comparable'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let words = ["b", "a"]
+	words.sort()
+	let first = try words.get(0) otherwise return 3
+	print("{first}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+a
+```
+
+<!-- test: an-authors-equatable-leaves-the-library-contains-on-ints -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+An author `Equatable` beside the library's `where Element is Equatable`.
+```maxon
+public interface Equatable
+	function equals(other Self) returns bool
+end 'Equatable'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let values = [3, 1, 2]
+	print("{values.contains(2)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+<!-- test: an-authors-error-leaves-a-service-send-error-conforming -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+An author `Error` beside the library's. A service message's send error still conforms to the library's
+`Error`, so a function may declare `throws Calc.divide.sendError` and propagate it.
+```maxon
+interface Error
+	function code() returns bool
+end 'Error'
+
+typealias Integer = int(i64.min to i64.max)
+
+enum MathError implements Error
+	divideByZero
+
+	function code() returns bool
+		return true
+	end 'code'
+end 'MathError'
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	export function divide(n Integer, by Integer) returns Integer throws MathError
+		if by == 0 'zero'
+			throw MathError.divideByZero
+		end 'zero'
+		return try (n / by) otherwise 0
+	end 'divide'
+end 'Calc'
+
+function divided(h Calc.handle) returns Integer throws Calc.divide.sendError
+	let p = try h.divide(3, by: 1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return try await p otherwise 0
+end 'divided'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	let q = try divided(h) otherwise panic("cannot fail")
+	print("{q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: an-authors-hashable-leaves-library-map-keys-hashing -->
+An author `Hashable` beside `Map` keys the library hashes: `int`, `String` and a payload-free enum.
+```maxon
+public interface Hashable
+	function hash() returns HashValue
+end 'Hashable'
+
+enum Color
+	red
+	green
+end 'Color'
+
+typealias Count = int(0 to 9)
+
+typealias CountsByNumber = Map with (Count, Count)
+
+typealias CountsByWord = Map with (String, Count)
+
+typealias CountsByColor = Map with (Color, Count)
+
+function main() returns ExitCode
+	let byNumber = CountsByNumber.create()
+	byNumber.upsert(3, value: 1)
+	let byWord = CountsByWord.create()
+	byWord.upsert("a", value: 2)
+	let byColor = CountsByColor.create()
+	byColor.upsert(Color.green, value: 3)
+	let n = try byNumber.get(3) otherwise return 3
+	let w = try byWord.get("a") otherwise return 3
+	let c = try byColor.get(Color.green) otherwise return 3
+	print("{n} {w} {c}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 2 3
+```
+
+<!-- test: an-authors-error-leaves-the-compiler-owned-errors-catchable -->
+An author `Error` beside a division by zero and a raw-value lookup that both fail and are caught.
+```maxon
+public interface Error
+	function code() returns bool
+end 'Error'
+
+typealias Integer = int(i64.min to i64.max)
+
+enum Step
+	first = 0
+	second = 1
+end 'Step'
+
+function divided(n Integer, by Integer) returns Integer
+	return try (n / by) otherwise 9
+end 'divided'
+
+function stepOf(raw Integer) returns Step
+	return try Step.fromRawValue(raw) otherwise Step.second
+end 'stepOf'
+
+function main() returns ExitCode
+	let quotient = divided(7, by: 0)
+	let step = stepOf(99)
+	print("{quotient} {step.rawValue}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+9 1
+```
+
+<!-- test: an-authors-comparable-with-the-librarys-shape-orders-its-own-type -->
+An author `Comparable` shaped like the library's constrains the author's generic, whose `<` reaches the
+conformer's own `compare`.
+```maxon
+interface Comparable
+	function compare(other Self) returns Ordering
+end 'Comparable'
+
+typealias Score = int(0 to 100)
+
+type Grade implements Comparable
+	var score as Score
+
+	static function of(score Score) returns Grade
+		return Self{score: score}
+	end 'of'
+
+	function compare(other Grade) returns Ordering
+		if self.score < other.score 'below'
+			return Ordering.lessThan
+		end 'below'
+		if self.score > other.score 'above'
+			return Ordering.greaterThan
+		end 'above'
+		return Ordering.equalTo
+	end 'compare'
+end 'Grade'
+
+function lower(a T, than T) uses T returns bool where T implements Comparable
+	return a < than
+end 'lower'
+
+function main() returns ExitCode
+	let low = Grade.of(1)
+	let high = Grade.of(2)
+	print("{lower(low, than: high)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+<!-- test: an-authors-type-named-comparable-leaves-the-library-sort -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+An author TYPE named `Comparable`, not an interface, beside the library's `sort`.
+```maxon
+type Comparable
+	export var count as ExitCode
+
+	static function create() returns Comparable
+		return Self{count: 0}
+	end 'create'
+end 'Comparable'
+
+function main() returns ExitCode
+	let held = Comparable.create()
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let values = FullRangeIntArray from [3, 1, 2]
+	values.sort()
+	let first = try values.get(0) otherwise return 3
+	print("{first} {held.count}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 0
+```
+
+<!-- test: an-authors-comparable-is-the-authors-own-interface -->
+The bare name names the author's interface: its requirement is the author's `rank()`, not the library's
+`compare`.
+```maxon
+interface Comparable
+	function rank() returns bool
+end 'Comparable'
+
+type Plate implements Comparable
+	static function create() returns Plate
+		return Self{}
+	end 'create'
+
+	export function rank() returns bool
+		return true
+	end 'rank'
+end 'Plate'
+
+function ranked(x T) uses T returns bool where T implements Comparable
+	return x.rank()
+end 'ranked'
+
+function main() returns ExitCode
+	let plate = Plate.create()
+	print("{ranked(plate)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true
+```
+
+<!-- test: error.int-does-not-meet-an-authors-comparable -->
+<!-- positions: moved -->
+`int` meets the library's `Comparable`, never the author's.
+```maxon
+interface Comparable
+	function rank() returns bool
+end 'Comparable'
+
+function ranked(x T) uses T returns bool where T implements Comparable
+	return x.rank()
+end 'ranked'
+
+function main() returns ExitCode
+	print("{ranked(5)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:11:10: Type 'int' does not satisfy constraint 'Comparable' required by type parameter 'T' of 'ranked'
+```
+
+<!-- test: error.an-interface-the-library-keeps-private-cannot-be-implemented -->
+A library interface without `public` is hidden from author code, exactly as a library type is.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+interface OverlayPrivateProtocol
+	function poke() returns bool
+end 'OverlayPrivateProtocol'
+// --- file: main.maxon
+type Doc implements OverlayPrivateProtocol
+	export function poke() returns bool
+		return true
+	end 'poke'
+end 'Doc'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:7:21: type 'OverlayPrivateProtocol' is not exported
+```
+
+<!-- test: error.an-unmarked-library-interface-cannot-constrain-an-author-function -->
+<!-- positions: moved -->
+An unmarked library interface is visible inside its own directory of the library and nowhere else.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+interface OverlayModuleProtocol
+	function poke() returns bool
+end 'OverlayModuleProtocol'
+// --- file: main.maxon
+function poked(x T) uses T returns bool where T implements OverlayModuleProtocol
+	return x.poke()
+end 'poked'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:7:52: type 'OverlayModuleProtocol' is not exported
+```
+
+<!-- test: error.a-hidden-qualified-construction-head-is-refused-at-top-level -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+An unmarked typealias named through its directory as the head of a top-level `from` construction: the qualified spelling reaches the declaration without making it visible.
+```maxon
+// --- file: lib/codes.maxon
+typealias Codes = Array with Byte
+
+export function probeCodes() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let held = Codes from [1]
+	return 0 if held.isEmpty() else 1
+end 'probeCodes'
+
+// --- file: app/main.maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let C = lib.Codes from [1, 2]
+
+function main() returns ExitCode
+	return lib.probeCodes()
+end 'main'
+```
+```maxoncstderr
+error E3008: app/<fragment>:11:9: typealias 'lib.Codes' is not exported
+```
+
+<!-- test: a-literal-init-head-beside-the-librarys-builds-the-authors-type-at-top-level -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a `FilePath` that initializes from a string literal beside the library's; a top-level
+`FilePath from "x"` in another directory builds the user's type, the one with a `text` field.
+```maxon
+// --- file: lib/path.maxon
+export type FilePath implements InitableFromStringLiteral
+	export let text as String
+
+	export static function init(value String) returns FilePath
+		return Self{text: value}
+	end 'init'
+end 'FilePath'
+
+// --- file: app/main.maxon
+// TODO: 'Type from value' conversions are not supported in minimaxon
+let p = FilePath from "x"
+
+function main() returns ExitCode
+	print("{p.text}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+x
+```
+
+<!-- test: error.a-hidden-literal-init-head-is-refused-at-top-level -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- positions: moved -->
+A library type without `public` that initializes from a string literal, constructed at the top level of an
+author's file.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+type OverlayPrivateTag implements InitableFromStringLiteral
+	export let text as String
+
+	static function init(value String) returns OverlayPrivateTag
+		return Self{text: value}
+	end 'init'
+end 'OverlayPrivateTag'
+// --- file: main.maxon
+// TODO: 'Type from value' conversions are not supported in minimaxon
+let t = OverlayPrivateTag from "x"
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:11:9: type 'OverlayPrivateTag' is not exported
+```
+
+<!-- test: an-enum-case-beside-the-librarys-type-names-the-authors-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a `ParseError` beside the library's; a top-level constant naming one of its cases in another
+directory names the user's enum, the one with `malformed`.
+```maxon
+// --- file: lib/errors.maxon
+export enum ParseError implements Error
+	malformed
+end 'ParseError'
+
+// --- file: app/main.maxon
+let e = ParseError.malformed
+
+function main() returns ExitCode
+	let n = match e 'which'
+		malformed gives 3
+	end 'which'
+	return n
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: an-authors-enum-named-like-a-library-alias-is-read-in-a-constant -->
+The library's `CivilMonth` is an int alias; the author's is an enum, and a top-level constant naming one
+of its cases names the author's enum, whose members are its cases rather than `min` and `max`.
+```maxon
+enum CivilMonth
+	january
+	february
+	march
+end 'CivilMonth'
+
+let first = CivilMonth.january
+
+function main() returns ExitCode
+	let n = match first 'which'
+		january gives 1
+		february gives 2
+		march gives 3
+	end 'which'
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: an-exported-enum-named-like-a-library-alias-is-read-in-a-constant -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same constant in another directory. The library's `CivilMonth` takes no part in ambiguity, so the bare
+name means `lib/`'s exported enum.
+```maxon
+// --- file: lib/months.maxon
+export enum CivilMonth
+	january
+	february
+	march
+end 'CivilMonth'
+
+// --- file: app/main.maxon
+let first = CivilMonth.january
+
+function main() returns ExitCode
+	let n = match first 'which'
+		january gives 1
+		february gives 2
+		march gives 3
+	end 'which'
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: error.a-hidden-enum-case-is-refused-at-top-level -->
+A library enum without `public`, its case named as a top-level constant in an author's file.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+enum OverlayPrivateMode
+	first
+	second
+end 'OverlayPrivateMode'
+// --- file: main.maxon
+let m = OverlayPrivateMode.first
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:8:9: type 'OverlayPrivateMode' is not exported
+```
+
+<!-- test: a-union-case-construction-beside-the-librarys-type-names-the-authors-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a union `ParseError` beside the library's enum; a top-level construction of one of its cases
+in another directory builds the user's union.
+```maxon
+// --- file: lib/errors.maxon
+export union ParseError
+	malformed(at Byte)
+	quiet
+end 'ParseError'
+
+// --- file: app/main.maxon
+let h = ParseError.malformed(7)
+
+function main() returns ExitCode
+	match h 'which'
+		malformed(at) then return at as ExitCode
+		quiet then return 0
+	end 'which'
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.a-hidden-union-case-construction-is-refused-at-top-level -->
+A library union without `public`, its payload case constructed by a top-level constant in an author's file.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+union OverlayPrivateOp
+	add(n Byte)
+	nop
+end 'OverlayPrivateOp'
+// --- file: main.maxon
+let h = OverlayPrivateOp.add(7)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:8:9: type 'OverlayPrivateOp' is not exported
+```
+
+<!-- test: a-payload-free-union-case-beside-the-librarys-type-names-the-authors-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The payload-free case of a payload-carrying union is a box rather than a tag, and its type name is judged like
+every other position's: beside the library's declaration it names the user's union.
+```maxon
+// --- file: lib/errors.maxon
+export union ParseError
+	malformed(at Byte)
+	quiet
+end 'ParseError'
+
+// --- file: app/main.maxon
+let u = ParseError.quiet
+
+function main() returns ExitCode
+	match u 'which'
+		malformed(at) then return at as ExitCode
+		quiet then return 5
+	end 'which'
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: error.a-hidden-payload-free-union-case-is-refused-at-top-level -->
+The payload-free case of a library union without `public`, named by a top-level constant in an author's file.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+union OverlayPrivateOp
+	add(n Byte)
+	nop
+end 'OverlayPrivateOp'
+// --- file: main.maxon
+let u = OverlayPrivateOp.nop
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:8:9: type 'OverlayPrivateOp' is not exported
+```
+
+<!-- test: a-factory-type-beside-the-librarys-names-the-authors -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a `FilePath` with a `create()` factory beside the library's; a `FilePath.create()`
+in another directory calls the user's factory.
+```maxon
+// --- file: lib/path.maxon
+export type FilePath
+	export let size as ExitCode
+
+	export static function create() returns FilePath
+		return Self{size: 1}
+	end 'create'
+end 'FilePath'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let g = FilePath.create()
+	return g.size
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: error.a-hidden-factory-type-is-refused-at-top-level -->
+A library type without `public` whose factory is `public`, called by a top-level constant in an author's file:
+the type is named, and naming it is what its tier refuses.
+```maxon
+// --- stdlib-overlay: helpers/string/hash.maxon
+type OverlayPrivateThing
+	export let size as Byte
+
+	public static function create() returns Byte
+		return 1
+	end 'create'
+end 'OverlayPrivateThing'
+// --- file: main.maxon
+let g = OverlayPrivateThing.create()
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: <fragment>:11:9: type 'OverlayPrivateThing' is not exported
+```
+
+<!-- test: error.an-unmarked-type-named-through-its-directory-in-a-signature-is-refused -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+An unmarked type written through its directory in a parameter and a return type, from outside that directory: the
+qualified spelling reaches the declaration without making it visible.
+```maxon
+// --- file: b/thing.maxon
+type Thing
+	export let size as ExitCode
+
+	static function create() returns Thing
+		return Self{size: 1}
+	end 'create'
+end 'Thing'
+
+// --- file: a/main.maxon
+function keep(t b.Thing) returns b.Thing
+	return t
+end 'keep'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: a/<fragment>:12:17: type 'b.Thing' is not exported
+error E3008: a/<fragment>:12:34: type 'b.Thing' is not exported
+```
+
+<!-- test: error.an-unmarked-type-named-through-its-directory-as-a-call-base-is-refused -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+An unmarked type written through its directory as the base of a static call, from another directory.
+```maxon
+// --- file: b/thing.maxon
+type Thing
+	export static function answer() returns ExitCode
+		return 7
+	end 'answer'
+end 'Thing'
+
+// --- file: a/main.maxon
+function main() returns ExitCode
+	return b.Thing.answer()
+end 'main'
+```
+```maxoncstderr
+error E3008: a/<fragment>:11:9: type 'b.Thing' is not exported
+```
+
+<!-- test: error.an-unmarked-type-named-through-its-directory-is-refused-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+An unmarked type written through its directory as a top-level factory head, from outside that directory.
+```maxon
+// --- file: b/thing.maxon
+type Thing
+	export let size as ExitCode
+
+	static function create() returns Thing
+		return Self{size: 1}
+	end 'create'
+end 'Thing'
+
+// --- file: a/main.maxon
+let t = b.Thing.create()
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: a/<fragment>:12:9: type 'b.Thing' is not exported
+```
+
+<!-- test: error.an-unmarked-type-named-bare-outside-its-subtree-is-refused -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The bare name is held to the same tier as the qualified one.
+```maxon
+// --- file: b/thing.maxon
+type Thing
+	export let size as ExitCode
+
+	static function create() returns Thing
+		return Self{size: 1}
+	end 'create'
+end 'Thing'
+
+// --- file: a/main.maxon
+function keep(t Thing) returns Thing
+	return t
+end 'keep'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3008: a/<fragment>:12:17: type 'Thing' is not exported
+error E3008: a/<fragment>:12:32: type 'Thing' is not exported
+```
+
+<!-- test: an-unmarked-type-named-through-its-directory-is-reachable-from-a-subdirectory -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+Inside the declaring directory's subtree the qualified spelling of an unmarked type reaches it.
+```maxon
+// --- file: b/thing.maxon
+type Thing
+	export let size as ExitCode
+
+	static function create() returns Thing
+		return Self{size: 1}
+	end 'create'
+end 'Thing'
+
+// --- file: b/inner/main.maxon
+function main() returns ExitCode
+	let t = b.Thing.create()
+	print("{t.size}\n")
+	return 0
+end 'main'
+```
+```stdout
+1
+```
+
+<!-- test: a-directory-qualified-alias-is-a-top-level-cast-target -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+Two directories export a `Score`; a top-level constant casts to each through its directory, which is the spelling
+E3063 prescribes.
+```maxon
+// --- file: api/score.maxon
+export typealias Score = int(0 to 100)
+
+// --- file: legacy/score.maxon
+export typealias Score = int(0 to 50)
+
+// --- file: app/main.maxon
+let a = 70 as api.Score
+
+let b = 20 as legacy.Score
+
+function main() returns ExitCode
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```stdout
+70 20
+```
+
+<!-- test: error.a-top-level-cast-to-a-directory-qualified-alias-checks-its-range -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+The qualified cast target is that declaration's range, not the other directory's.
+```maxon
+// --- file: api/score.maxon
+export typealias Score = int(0 to 100)
+
+// --- file: legacy/score.maxon
+export typealias Score = int(0 to 50)
+
+// --- file: app/main.maxon
+let a = 70 as api.Score
+
+let b = 70 as legacy.Score
+
+function main() returns ExitCode
+	print("{a} {b}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: app/<fragment>:10:12: Value 70 is outside the range of 'legacy.Score' (int(0 to 50))
+```
+
+<!-- test: error.a-hidden-directory-qualified-alias-is-refused-as-a-top-level-cast-target -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+An unmarked typealias named through its directory as a top-level cast target, from another directory.
+```maxon
+// --- file: lib/score.maxon
+typealias Score = int(0 to 100)
+
+export function probeScore() returns ExitCode
+	let s = 5 as Score
+	return s
+end 'probeScore'
+
+// --- file: app/main.maxon
+let a = 5 as lib.Score
+
+function main() returns ExitCode
+	return lib.probeScore()
+end 'main'
+```
+```maxoncstderr
+error E3008: app/<fragment>:11:14: typealias 'lib.Score' is not exported
+```
+
+<!-- test: error.a-member-beside-the-librarys-enum-is-refused-on-the-authors-alias-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a typealias `Ordering` beside the library's enum. The bare name means the author's int alias,
+because the library takes no part in ambiguity, and a ranged alias declares no members, so
+a top-level read of the enum's case `Ordering.lessThan` is refused.
+```maxon
+// --- file: lib/order.maxon
+export typealias Ordering = int(0 to 9)
+
+// --- file: app/main.maxon
+let o = Ordering.lessThan
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2073: app/<fragment>:6:18: 'Ordering' is a ranged alias and has no member 'lessThan'
+```
+
+<!-- test: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+A directory exports a typealias `LogValue` beside the library's union. The bare name means the author's int alias,
+because the library takes no part in ambiguity, and a ranged alias declares no members, so
+a construction of the union's case `LogValue.boolean(true)` is refused.
+```maxon
+// --- file: lib/value.maxon
+export typealias LogValue = int(0 to 9)
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let v = LogValue.boolean(true)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: app/<fragment>:7:19: call to undefined function 'LogValue.boolean'
+```
+
+<!-- test: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias-in-a-function-body -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same construction in a function body.
+```maxon
+// --- file: lib/value.maxon
+export typealias LogValue = int(0 to 9)
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let v = LogValue.boolean(true)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: app/<fragment>:7:19: call to undefined function 'LogValue.boolean'
+```
+
+<!-- test: error.a-member-beside-the-librarys-payload-carrying-union-is-refused-on-the-authors-alias-at-top-level -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+A directory exports a typealias `StatusCode` beside the library's payload-carrying union. The bare name means the author's int alias,
+because the library takes no part in ambiguity, and a ranged alias declares no members, so
+a top-level read of the payload-free case `StatusCode.ok` is refused.
+```maxon
+// --- file: lib/status.maxon
+export typealias StatusCode = int(0 to 9)
+
+// --- file: app/main.maxon
+let s = StatusCode.ok
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2073: app/<fragment>:6:20: 'StatusCode' is a ranged alias and has no member 'ok'
+```
+
+<!-- test: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- positions: moved -->
+A directory exports a typealias `Console` beside the library's type. The bare name means the author's int alias,
+because the library takes no part in ambiguity, and a ranged alias declares no members, so
+a call of the library type's static factory `Console.stdin()` is refused.
+```maxon
+// --- file: lib/console.maxon
+export typealias Console = int(0 to 9)
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let c = Console.stdin()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
+```
+
+<!-- test: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias-in-a-function-body -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+The same call in a function body.
+```maxon
+// --- file: lib/console.maxon
+export typealias Console = int(0 to 9)
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let c = Console.stdin()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
+```
+
+<!-- test: an-interface-requirement-returning-byte-array-beside-a-type-named-its-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A program declares a struct `Array_Byte` beside an interface requirement returning `ByteArray`. The
+requirement's return type is the byte array its alias names, not the author's struct that shares the
+instance's name, so `p.packed()` through the interface is a byte array and its count is 3.
+```maxon
+public type Array_Byte
+	let tag as ExitCode
+end 'Array_Byte'
+
+interface Packer
+	function packed() returns ByteArray
+end 'Packer'
+
+type Bytes implements Packer
+	let tag as ExitCode
+
+	static function create() returns Self
+		return Self{tag: 0}
+	end 'create'
+
+	function packed() returns ByteArray
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return ByteArray from [1, 2, 3]
+	end 'packed'
+end 'Bytes'
+
+function count(p Packer) returns ExitCode
+	return p.packed().count() as ExitCode
+end 'count'
+
+function main() returns ExitCode
+	return count(Bytes.create())
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: error.a-requirement-returning-the-declared-type-is-not-met-by-the-instance -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A requirement returning the author's struct `Array_Byte` names that struct, not the byte array whose
+instance shares its name, so a `packed()` returning `ByteArray` does not meet it.
+```maxon
+type Array_Byte
+	let tag as ExitCode
+end 'Array_Byte'
+
+interface Packer
+	function packed() returns Array_Byte
+end 'Packer'
+
+type Bytes implements Packer
+	function packed() returns ByteArray
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		return ByteArray from [1, 2, 3]
+	end 'packed'
+end 'Bytes'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:10:6: Partial interface implementation: type 'Bytes' has 1 method(s) with wrong signature:
+  - packed() returns ByteArray (expected packed() returns Array_Byte)
+```
+
+<!-- test: error.a-requirement-taking-the-declared-type-is-not-met-by-the-instance -->
+A requirement parameter typed as the author's struct `Array_Byte` names that struct, not the byte array
+whose instance shares its name, so a `pack` taking a `ByteArray` does not meet it.
+```maxon
+type Array_Byte
+	let tag as ExitCode
+end 'Array_Byte'
+
+interface Packer
+	function pack(b Array_Byte) returns ExitCode
+end 'Packer'
+
+type Bytes implements Packer
+	function pack(b ByteArray) returns ExitCode
+		return b.count() as ExitCode
+	end 'pack'
+end 'Bytes'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:10:6: Partial interface implementation: type 'Bytes' has 1 method(s) with wrong signature:
+  - pack(b ByteArray) returns ExitCode (expected pack(b Array_Byte) returns ExitCode)
+```
+
+<!-- test: a-field-named-like-a-contested-type-keeps-its-spelling-and-a-parameter-type-is-a-reference -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`a/` and `b/` each export a `type Box`, and a type in `a/` has a field spelled `Box`. A parameter's type `Box` is
+a reference to the directory's declaration; the field's name is not, so the declaration, the struct literal's `Box:`
+label and `holder.Box` in another directory all spell it as written.
+```maxon
+// --- file: a/box.maxon
+export type Box
+	export let v as ExitCode
+
+	export static function make() returns Box
+		return Box{v: 3}
+	end 'make'
+end 'Box'
+
+export type Holder
+	export var Box as ExitCode
+
+	export static function make() returns Holder
+		return Holder{Box: 4}
+	end 'make'
+end 'Holder'
+
+export function weigh(b Box) returns ExitCode
+	return b.v
+end 'weigh'
+
+// --- file: b/box.maxon
+export type Box
+	export let w as ExitCode
+
+	export static function make() returns Box
+		return Box{w: 40}
+	end 'make'
+end 'Box'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let holder = Holder.make()
+	let box = a.Box.make()
+	let other = b.Box.make()
+	return holder.Box + weigh(box) + other.w - 5
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: a-panic-in-a-contested-types-method-names-the-type-by-its-directory -->
+<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+`a/` and `b/` each export a `type Box`, and `a/`'s `explode` panics. The stack trace names the frame through the
+directory that declares the type, `a.Box.explode`, as an author writes it, and never through the compiler's own
+spelling of the contested name.
+```maxon
+// --- file: a/box.maxon
+export type Box
+	export let v as ExitCode
+
+	export static function make() returns Box
+		return Box{v: 1}
+	end 'make'
+
+	export function explode() returns ExitCode
+		panic("boom")
+	end 'explode'
+end 'Box'
+
+// --- file: b/box.maxon
+export type Box
+	export let w as ExitCode
+
+	export static function make() returns Box
+		return Box{w: 2}
+	end 'make'
+end 'Box'
+
+// --- file: app/main.maxon
+function main() returns ExitCode
+	let other = b.Box.make()
+	let box = a.Box.make()
+	return box.explode() + other.w
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at box.maxon:9: boom
+Stack trace:
+  in a.Box.explode
+  in main
+  in mrt_start
+```

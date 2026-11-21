@@ -1,0 +1,1628 @@
+---
+feature: netpoll-socket
+status: experimental
+keywords: [socket, netpoll, poller, deadline, park, concurrency, tcp, green-threads, scheduler, listener, accept]
+category: system
+---
+
+# A socket operation parks its green thread on the poller
+
+## Documentation
+
+A socket is registered with the network poller and driven non-blocking, so `connect`, `readSome` and `send`
+PARK the green thread that issued them and hand the processor back. The property is that a green thread
+waiting on a socket holds NO machine: it is suspended on the poller until the descriptor is readable or
+writable, and never sits inside a kernel call holding the processor it was running on.
+
+`Scheduler.counters().netpollBlocks` counts those parks — how many times a green thread has been
+suspended on the network poller waiting for a socket to become ready. It joins the scheduler-state roster
+beside `Scheduler.counters().retakes` and `Scheduler.counters().preempts`, which count the sysmon
+rescues a blocking socket call provokes instead, and `Scheduler.counters().syscalls`, which counts the
+bracketed kernel calls a rescue could be made out of — so it sees a blocking call whether or not the monitor
+looked during it.
+
+A parked socket read carries a DEADLINE: `setReadDeadline(milliseconds)` and
+`setWriteDeadline(milliseconds)` on `TcpClient` (and on `__ManagedSocket` beneath it) end the wait with
+`timedOut` when the peer stays silent; `0` clears the deadline.
+
+The listening side parks the same way. `TcpListener.bind(host, port: p)` binds and listens, and `accept()`
+suspends its green thread on the poller until a connection arrives. `p` of `0` asks the kernel for an
+ephemeral port and `port()` reports the one it gave, which is how a program reaches a listener whose
+address it did not choose — and how two of these cases running at once cannot collide.
+
+## Tests
+
+<!-- test: netpoll-socket.n-concurrent-reads-do-not-serialise -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: tuple return types are not supported in minimaxon -->
+<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- procs: 1 -->
+**FOUR ECHO ROUND-TRIPS IN FLIGHT AT ONE PROCESSOR, AND THE MONITOR NEVER FIRES.** A blocking `readSome` holds the
+only machine there, so four round-trips cost four times one round-trip and sysmon retakes the processor out of
+the kernel call; a reader parked on the poller holds nothing, so the four overlap and nothing is retaken.
+
+⚠⚠ **ONE ROUND-TRIP RUNS BEFORE THE WINDOW OPENS, BECAUSE THE WINDOW MUST HOLD THE SOCKET BAND AND NOTHING
+ELSE.** A retake is sysmon doing its job for a genuinely blocking call, and x64-windows' FIRST crossing
+carries one that is not this band: Winsock's once-per-process startup sits behind the first socket of the process.
+It is a real blocking call and sysmon is right to retake it — it simply says nothing about what a parked
+`readSome` does to its processor. So the warm-up pays for it, and the four measured round-trips cross a window
+that holds only calls the scheduler waits for on the poller (`a-literal-address-round-trip-enters-no-kernel-bracket`
+counts that).
+
+⚠ **THE ASSERTION IS EXACTLY ZERO AND MUST STAY SO.** A tolerance would hide the defect this case exists
+to catch — the whole reading is *"the monitor never had to rescue a machine"*, and *"rarely had to"* is the
+symptom, not the cure.
+
+⭐ **ITS RED IS BEHAVIOURAL — `stuck=true`, the monitor rescuing a machine out of a socket read — RATHER THAN
+A MISSING INTRINSIC.** It asserts what a socket call does to the processor it runs on, and a file whose every
+case died at the same `E3004` would witness nothing about that.
+
+⚠ **THE CASE RUNS WITH THE MONITOR LIVE, AND THE MONITOR ALSO ANSWERS HOST LOAD.** It fires on wall time: a
+host that holds the process off a core for 10 ms preempts the running thread, and a bracketed call that is
+slow only because the host is slow is retaken after two monitor laps — both count as `stuck` though neither
+is a socket read holding the machine. `preempt: off` is no answer, because with the monitor withdrawn *"the
+monitor never had to rescue a machine"* is vacuous. So one ATTEMPT owns its disturbance: a fresh listener,
+its peer, the warm-up, the four round-trips and both counter readings; an attempt the monitor disturbed is
+not tolerated but DISCARDED — its peer awaited, its listener dropped — and repeated, up to `attemptCap`
+times, and only an attempt with EXACTLY ZERO retakes and preemptions prints. A genuine defect fails
+every attempt, since a `readSome` that holds the machine is retaken on each one, and exhausting the cap prints
+the same `stuck=true` the defect would; an attempt with fewer than four echoes is the case's own
+failure and prints at once.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// Four in flight at once plus the warm-up, and the peer is done when it has answered exactly that many.
+let rounds = 5
+
+let readers = 4
+
+let attemptCap = 5
+
+enum Attempt implements Error
+	noListener
+	disturbed
+end 'Attempt'
+
+function echoRounds(listener TcpListener) returns Tally
+	var served = 0 as Tally
+	while served < rounds 'serving'
+		let conn = try listener.accept() otherwise return served
+		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		_ = try conn.send(heard) otherwise return served
+		served = served + 1
+	end 'serving'
+	return served
+end 'echoRounds'
+
+function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
+	let client = try TcpClient.connect("127.0.0.1", port: port)
+	let msg = "maxon line {n}\n"
+	_ = try client.send(msg)
+	let response = String.from(try client.readSome(1024) otherwise return 0)
+	if response == msg 'echoed'
+		return 1
+	end 'echoed'
+	return 0
+end 'echoOnce'
+
+// The monitor answers host load as well as a blocking read, so an attempt it disturbed is repeated; a read
+// that holds the machine is retaken on every one. The peer is awaited before the verdict so a discarded
+// attempt leaves no green thread behind.
+// TODO: tuple return types are not supported in minimaxon
+function attempt() returns (Tally, bool) throws Attempt
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise throw Attempt.noListener
+	return try attemptOver(listener)
+end 'attempt'
+
+// TODO: tuple return types are not supported in minimaxon
+function attemptOver(listener TcpListener) returns (Tally, bool) throws Attempt
+	let port = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async echoRounds(listener)
+	_ = try echoOnce(port, n: 0) otherwise 0
+	let beforeRetake = Scheduler.counters().retakes
+	let beforePreempt = Scheduler.counters().preempts
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async echoOnce(port, n: 1)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async echoOnce(port, n: 2)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async echoOnce(port, n: 3)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p4 = async echoOnce(port, n: 4)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = try await p1 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = try await p2 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = try await p3 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r4 = try await p4 otherwise 0
+	let ok = r1 + r2 + r3 + r4
+	let retaken = Scheduler.counters().retakes - beforeRetake
+	let preempted = Scheduler.counters().preempts - beforePreempt
+	let stuck = (retaken + preempted) > 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	if served != rounds 'peer'
+		panic("unreachable: every round-trip that returned was answered by this peer")
+	end 'peer'
+	if ok == readers and stuck 'noise'
+		throw Attempt.disturbed
+	end 'noise'
+	// TODO: tuple values and types are not supported in minimaxon
+	return (ok, stuck)
+end 'attemptOver'
+
+function main() returns ExitCode
+	var tries = 0 as Tally
+	while tries < attemptCap 'attempts'
+		tries = tries + 1
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let outcome = try attempt() otherwise (e) 'disturbed'
+			match e 'why'
+				noListener then return 1
+				disturbed then continue
+			end 'why'
+		end 'disturbed'
+		print("ok={outcome.0} stuck={outcome.1}\n")
+		return 0
+	end 'attempts'
+	print("ok={readers} stuck=true\n")
+	return 0
+end 'main'
+```
+```stdout
+ok=4 stuck=false
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-literal-address-round-trip-enters-no-kernel-bracket -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**A ROUND-TRIP TO A LITERAL ADDRESS ENTERS NO KERNEL BRACKET.** Every call it makes on a non-blocking socket —
+the connect, the send, the receive and both ends' close — either returns at once or is waited for on the
+poller, so none may hold the machine; a bracketed call is one `__sysmon` may retake the processor out of. This is the
+deterministic form of the premise `n-concurrent-reads-do-not-serialise`'s zero-retake assertion rests on: a
+retake needs the monitor to look during the call, and a bracket count needs only the call.
+
+The warm-up round-trip runs before the window for that case's reason, and the peer is awaited inside it so
+its last close is counted.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// Four in flight at once plus the warm-up, and the peer is done when it has answered exactly that many.
+let rounds = 5
+
+function echoRounds(listener TcpListener) returns Tally
+	var served = 0 as Tally
+	while served < rounds 'serving'
+		let conn = try listener.accept() otherwise return served
+		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		_ = try conn.send(heard) otherwise return served
+		served = served + 1
+	end 'serving'
+	return served
+end 'echoRounds'
+
+function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
+	let client = try TcpClient.connect("127.0.0.1", port: port)
+	let msg = "maxon line {n}\n"
+	_ = try client.send(msg)
+	let response = String.from(try client.readSome(1024) otherwise return 0)
+	if response == msg 'echoed'
+		return 1
+	end 'echoed'
+	return 0
+end 'echoOnce'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async echoRounds(listener)
+	_ = try echoOnce(port, n: 0) otherwise 0
+	let before = Scheduler.counters().syscalls
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async echoOnce(port, n: 1)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async echoOnce(port, n: 2)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p3 = async echoOnce(port, n: 3)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p4 = async echoOnce(port, n: 4)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = try await p1 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = try await p2 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r3 = try await p3 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r4 = try await p4 otherwise 0
+	let ok = r1 + r2 + r3 + r4
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	let brackets = Scheduler.counters().syscalls - before
+	if served != rounds 'peer'
+		panic("unreachable: every round-trip that returned was answered by this peer")
+	end 'peer'
+	print("ok={ok} brackets={brackets}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+ok=4 brackets=0
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-parked-reader-is-on-the-poller -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE `blocked` WITNESS ON ITS OWN: THE PARKS ARE COUNTED, NOT INFERRED FROM A MISSING SYMPTOM.** Its sibling's
+`stuck=false` says only that the monitor never had to rescue a machine, and a reader busy-waiting on a
+non-blocking socket satisfies that just as well as a reader parked on the poller. This case counts the parks
+themselves: two concurrent round-trips must leave at least one poller park each behind them, and both must
+still answer correctly — a counter that rises while the data is wrong is measuring the wrong thing.
+
+⚠ **THE PEER RUNS ONLY WHEN A READER YIELDS, WHICH IS WHAT MAKES THE FLOOR A FLOOR.** It shares the readers'
+strand, so a reader's `readSome` is always issued before anything has been echoed to it and always finds the
+socket empty. The peer's own parks can only add to the count above that floor.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+// One poller park per reader is the floor: a reader that held its machine never reached the poller at all.
+let readers = 2
+
+function echoRounds(listener TcpListener) returns Tally
+	var served = 0 as Tally
+	while served < readers 'serving'
+		let conn = try listener.accept() otherwise return served
+		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		_ = try conn.send(heard) otherwise return served
+		served = served + 1
+	end 'serving'
+	return served
+end 'echoRounds'
+
+function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
+	let client = try TcpClient.connect("127.0.0.1", port: port)
+	let msg = "maxon line {n}\n"
+	_ = try client.send(msg)
+	let response = String.from(try client.readSome(1024) otherwise return 0)
+	if response == msg 'echoed'
+		return 1
+	end 'echoed'
+	return 0
+end 'echoOnce'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let beforeParks = Scheduler.counters().netpollBlocks
+	let port = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async echoRounds(listener)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p1 = async echoOnce(port, n: 1)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p2 = async echoOnce(port, n: 2)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r1 = try await p1 otherwise 0
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let r2 = try await p2 otherwise 0
+	let ok = r1 + r2
+	let parks = Scheduler.counters().netpollBlocks - beforeParks
+	let blocked = parks >= readers
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	if served != readers 'peer'
+		panic("unreachable: every round-trip that returned was answered by this peer")
+	end 'peer'
+	print("ok={ok} blocked={blocked}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+ok=2 blocked=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-read-the-kernel-finished-keeps-its-bytes-past-its-deadline -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: if try is not supported in minimaxon -->
+<!-- procs: 1 -->
+**A RECEIVE THE KERNEL FINISHED IS ANSWERED WITH ITS BYTES, WHATEVER ITS DEADLINE SAYS.** On the
+completion-port lane a deadline that ends the wait while a receive is outstanding cancels the receive and
+collects its completion, and the completion decides the answer. Only a cancelled receive is `timedOut`. One that
+finished first has already taken its bytes out of the stream, so `timedOut` loses them: no later read can see
+them again.
+
+⭐ **THE RACE IS BUILT, NOT HOPED FOR.** The peer's bytes and its close are waiting in the socket, and the
+deadline has passed, before the read is issued. So on the completion-port lane the receive finishes the moment
+it is issued, and the wait that follows finds its deadline already expired. A polled lane reads the waiting
+bytes before it waits at all, and gives the same answer.
+
+⚠ **NOTHING ELSE IS PENDING WHEN THE READ IS ISSUED.** Both ends belong to `main` and the `sleep` is over, so no
+machine waits in the poller to decode the completion before the wait asks its deadline.
+
+⚠ **THE READER RETRIES A TIMEOUT WITH THE DEADLINE CLEARED**, as a program that reads `timedOut` as *"try
+again"* does. A lost read therefore shows up as `heard=` with one timeout counted, not as a hang.
+```maxon
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let dialing = async TcpClient.connect("127.0.0.1", port: listener.port())
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let peer = try listener.accept() otherwise 'cancelled3'
+		dialing.cancel()
+		return 1
+	end 'cancelled3'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let client = try await dialing otherwise return 1
+	_ = try peer.send("abc") otherwise return 1
+	peer.close()
+	try client.setReadDeadline(1) otherwise return 1
+	sleep(100)
+	var heard = ""
+	var timeouts = 0 as Count
+	var open = true
+	while open 'reading'
+		// TODO: if try is not supported in minimaxon
+		if let chunk = try client.readSome(1024) 'got'
+			heard = "{heard}{String.from(chunk)}"
+			open = not chunk.isEmpty()
+		end 'got' else (e) 'failed'
+			match e 'why'
+				timedOut then timeouts = timeouts + 1
+				failed or
+				closed or
+				secure then panic("unreachable: a read of a peer that sent and closed ends in its bytes, its close or its deadline")
+			end 'why'
+			try client.setReadDeadline(0) otherwise panic("unreachable: the reading side is still open")
+		end 'failed'
+	end 'reading'
+	print("heard={heard} timeouts={timeouts}\n")
+	return 0
+end 'main'
+```
+```stdout
+heard=abc timeouts=0
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-write-deadline-fires-on-a-send-the-peer-never-reads -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+let WriteDeadlineMs = 300
+
+let ChunkBytes = 1048576
+
+let MostChunks = 512
+
+function oneChunk() returns String
+	let chunk = StringBuilder.create()
+	for _ in 0 upto ChunkBytes 'fill'
+		chunk.append("x")
+	end 'fill'
+	return chunk.build()
+end 'oneChunk'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let dialing = async TcpClient.connect("127.0.0.1", port: listener.port())
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let peer = try listener.accept() otherwise 'cancelled17'
+		dialing.cancel()
+		return 1
+	end 'cancelled17'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let client = try await dialing otherwise return 1
+	try client.setWriteDeadline(WriteDeadlineMs) otherwise return 1
+	let chunk = oneChunk()
+	var chunks = 0 as Count
+	var fired = false
+	while chunks < MostChunks and not fired 'sending'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		_ = try client.send(chunk) otherwise (e) 'failed'
+			match e 'why'
+				timedOut then fired = true
+				default panic("unreachable: a send to a peer that holds its connection open and reads nothing ends in its bytes or its deadline")
+			end 'why'
+			continue
+		end 'failed'
+		chunks = chunks + 1
+	end 'sending'
+	client.close()
+	peer.close()
+	print("timedOut={fired}\n")
+	return 0
+end 'main'
+```
+```stdout
+timedOut=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-connect-deadline-ends-a-handshake-nobody-answers -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+**A CONNECT DEADLINE ANSWERS `timedOut`.** A listener that never accepts fills its backlog, and
+once the queue is full the kernel drops every further SYN, so the next handshake is never answered and a
+dial with no deadline waits out the kernel's own SYN retries — tens of seconds — and then fails as
+`connectFailed`. `timedOut` is only ever the 300 ms deadline's answer, so the name tells a deadline that
+fired from one the kernel eventually supplied, and no elapsed time is compared to a threshold.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+typealias HeldClients = Array with TcpClient
+
+let deadlineMs = 300
+
+let dialCap = 1000
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let held = HeldClients.create(0)
+	var dialled = 0 as Tally
+	while dialled < dialCap 'fill'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let client = try TcpClient.connect("127.0.0.1", port: listener.port(), deadlineMs: deadlineMs) otherwise (e) 'dialErr'
+			print("{e.name}\n")
+			return 0
+		end 'dialErr'
+		held.push(client)
+		dialled = dialled + 1
+	end 'fill'
+	print("the backlog never filled\n")
+	return 1
+end 'main'
+```
+```stdout
+timedOut
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.drop-a-parked-reader -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**A PROMISE DROPPED WHILE ITS COROUTINE IS PARKED IN `readSome` DOES NOT HANG THE EXIT.** `main` spawns a reader
+that connects and then reads from a peer that never writes, waits until that reader is observably parked on
+the poller INSIDE the read, and lets the promise drop at scope exit without ever awaiting it. The drop must
+unregister the reader from the poller and RENOUNCE it: a reader still registered when its stack is gone is a
+use-after-free the next readiness event walks into, and a reader the drop cannot reach at all leaves the
+exit's join waiting forever — the case TIMES OUT rather than failing.
+
+⭐ **THE READER NAMES THE COUNT ITS OWN PARK WILL REACH, SO NO SLEEP HAS TO BE LONG ENOUGH.** `stall`
+publishes `parkedFrom` in the one statement before its `readSome`: the count as it stood with the connect already
+behind it, plus one. `parkedInRecv()` is then a READING rather than a wait — the count has arrived at that
+mark — and only a netpoll commit can move it there. `main` parks on a timer, which this counter does not see;
+the listener never accepts and the bind parks nothing; so the reader's read is the one park left to move it.
+The count steps where the thread goes onto the direction word and before the suspension returns, so a count
+that has arrived says PUBLISHED and not merely about to be.
+
+⭐ **ONE WORD, PUBLISHED ONCE.** A mark and a separate flag would be two stores, and a reader that saw the
+flag before the mark would answer about a count that had not been written yet. `parkedFrom` carries both
+facts — `0` says the read was never announced, anything else is the count to wait for — so there is no order
+between them to get right.
+
+⚠ **THE COUNT MUST BE TAKEN FROM THE READ, BECAUSE THE CONNECT PARKS TOO.** A delta measured from before the
+spawn is satisfied by the dial alone, which says a coroutine parked SOMEWHERE and not that this one is in its
+read. Nor is the difference cosmetic: a connect park carries no aimed operation and is deregistered and
+renounced, where a read park on the overlapped lane holds a transfer the kernel is still serving and is
+renounced in place behind a cancel. Pinning the reader into its read is what fixes which of the two roads
+this case drops.
+
+⚠ **THE WAIT HAS NO BOUND, SO A PARK THAT NEVER ARRIVES IS A TIMEOUT.** A bound in turns or in milliseconds
+would be a margin against how long the dial takes to wake, and a slow host would read it as a lost park. The
+count only moves when the reader's read commits, so a park that is lost leaves `main` waiting and the runner
+reports the case TIMED OUT, which no pass can hide.
+
+⚠ **`procs: 1` IS LOAD-BEARING HERE, AND NOT ONLY FOR DETERMINISM.** `parkedFrom` is written by the
+coroutine and read by `main`, and one processor is what makes those two never run at once: every handoff
+between them is a switch on the one machine's OS thread, so the write is published before the read can see
+the thread that made it. At
+more than one processor the same two lines would be an unsynchronised word shared by two machines.
+
+⚠ **THE LISTENER IS THE PEER, AND IT NEVER ACCEPTS.** The kernel completes the handshake into the backlog, so
+the connection is ESTABLISHED and the reader's `readSome` genuinely parks — while nothing on the other side can
+ever write to it, or close it out from under the drop this case is about.
+
+⚠ **THE STACK IS FREED BY THE THREAD'S OWN COMPLETION, NOT BY THE DROP.** Nothing can unwind a SUSPENDED
+frame from outside, so a drop that freed the stack would strand every heap value the reader's locals own — the
+socket, the receive buffer, the client. The drop therefore EXPIRES the wait and readies the thread: it resumes,
+answers `timedOut`, unwinds its own frame, and its runner reclaims it. The exit code is the witness — a leaked
+box reports 101.
+
+⚠ **THE WAIT FOR THE COUNT IS WHAT MAKES THIS A POLLER CASE.** A reader that merely yielded at the I/O point
+ahead of its kernel call is also "not complete" and is also reachable by the drop, so the `isComplete()` peek
+alone reads GREEN against a runtime with no poller at all. Only the counter
+separates a promise dropped off the POLLER from one dropped at a plain I/O yield.
+
+⚠ **`reader` MUST BE BOUND.** `_ = async stall()` discards the promise at its own statement: `stall` never
+runs, never opens a socket, `parkedFrom` stays `0` for ever, and the drop takes the never-ran arm. The peek pins that the reader really was still parked when it was dropped — a completed thread
+reads `1`.
+```maxon
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedInRecv(parkedFrom ParkMark) returns bool
+	let mark = parkedFrom.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	return Scheduler.counters().netpollBlocks >= mark
+end 'parkedInRecv'
+
+function stall(listener TcpListener, parkedFrom ParkMark) returns ExitCode throws NetworkError
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port())
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	_ = try client.readSome(1024) otherwise return 1
+	return 0
+end 'stall'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let reader = async stall(listener, parkedFrom: parkedFrom.clone())
+	while not parkedInRecv(parkedFrom) 'untilParkedInRecv'
+		sleep(1)
+	end 'untilParkedInRecv'
+	let stillWaiting = not reader.isComplete()
+	print("dropped={stillWaiting}\n")
+	reader.cancel()
+	return 0
+end 'main'
+```
+```stdout
+dropped=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-renounced-reader-does-not-start-a-read-nothing-can-end -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**A RENOUNCED COROUTINE MAY NOT OPEN A READ NOTHING CAN END.** The drop is one-shot: it reaches the thread in
+whatever state it is in and is then spent. A coroutine dropped while it is on a TIMER — a `sleep`, or the I/O
+yield every blocking operation takes, which is a timer park with a deadline of `now` — is renounced and simply
+carries on, which is the ruling a dropped `sleep` already has. Here it carries on into a `readSome` on a peer that
+never writes, and the wait it then opens has no ender left: the dropper has already spent itself.
+
+⚠ **THE HANG IS SILENT, WHICH IS WHY THE VERDICT IS A TIMEOUT.** The read publishes a waiter, so
+`__np_waiters` stands at one for good; the exit's drain reads that count and never meets, and
+`__sched_checkdead` short-circuits on the same term, so nothing reports it. The process sits in the poller
+until the harness kills it.
+
+⭐ **THE READER SAYS WHEN IT IS ON THE TIMER, SO NO SLEEP OF `main`'S HAS TO OUTLAST THE DIAL.** `stall` sets
+`dialled` in the statement before its `sleep(1000)`, and `main` yields until it reads it. The drop then lands
+with the reader on the timer arm, which is the one road that reaches this defect on every lane and every run,
+and nothing times `main`'s wake against the reader's. `main` yields rather than sleeping because a sleep is a
+timer of its own to be woken late.
+
+⚠ **THE FLAG IS ALSO THE PROOF THAT THE READER REACHED THE NETWORK.** It is set only after the connect has
+returned. What this case turns on is the TIMEOUT above: the read it must not open is opened after the drop, and
+a program that opens it never prints at all. `drop-a-parked-reader` is the case that pins a reader INTO its
+read, and it has to wait for the count to move to do it.
+
+⚠ **`procs: 1` IS WHAT MAKES `dialled` SAFE TO SHARE**, for the reason `drop-a-parked-reader` gives `parkedFrom`.
+```maxon
+typealias Dialled = int(0 to 1)
+
+typealias DialledFlag = SharedValue with Dialled
+
+function stall(listener TcpListener, dialled DialledFlag) returns ExitCode throws NetworkError
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port())
+	dialled.publish(1 as Dialled)
+	sleep(1000)
+	_ = try client.readSome(1024) otherwise return 1
+	return 0
+end 'stall'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let dialled = DialledFlag.create(0 as Dialled)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let reader = async stall(listener, dialled: dialled.clone())
+	while dialled.current() == 0 'untilDialled'
+		Scheduler.yield()
+	end 'untilDialled'
+	let stillWaiting = not reader.isComplete()
+	print("dropped={stillWaiting}\n")
+	reader.cancel()
+	return 0
+end 'main'
+```
+```stdout
+dropped=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-socket-lent-to-a-parked-reader-cannot-be-closed-under-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- procs: 1 -->
+**A SOCKET HAS ONE OWNER AT A TIME, SO NO ONE CAN CLOSE IT UNDER A PARKED READER.** `async readUntilClosed(client)`
+lends the socket to the coroutine that reads it until the promise is awaited or cancelled, so `readOver` closing it
+in between is a use of a lent value (E3102). The reader closes its own socket when it returns, and it cannot do that
+while it is parked in `readSome`.
+```maxon
+function readUntilClosed(client TcpClient) returns ExitCode
+	_ = try client.readSome(1024) otherwise return 1
+	return 0
+end 'readUntilClosed'
+
+function readOver(client TcpClient) returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let reader = async readUntilClosed(client)
+	Scheduler.yield()
+	client.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await reader
+end 'readOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 1
+	return readOver(client)
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:12:2: use of moved value 'client': it is lent to the coroutine of the `async` call at 9:21 until that promise is awaited or cancelled
+```
+
+<!-- test: netpoll-socket.a-cancelled-reader-leaves-its-descriptor-clean-for-the-next-socket -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: x64-windows -->
+**A SOCKET WHOSE PARKED READER WAS CANCELLED IS CLOSED WITH NOTHING STILL WAITING ON IT, SO THE NEXT SOCKET ON
+THAT DESCRIPTOR STARTS CLEAN.** The first connection is lent to a reader that parks on it. `stale.cancel()` readies
+that reader and waits for it to finish, which returns the socket to its owner, and only then does the owner close it.
+The table slot goes on naming the closed socket's record, so `__np_pd_open` on the recycled descriptor hands the SAME
+record to the next socket, and a record that still named a waiter would strand the new owner: a hang with the
+deadlock detector disarmed.
+
+⭐ **THE DESCRIPTOR REUSE IS DETERMINISTIC, NOT HOPEFUL.** POSIX requires `socket()` to return the
+LOWEST-NUMBERED descriptor not currently open by the process. Every other descriptor this program holds —
+the listener, and the socket the peer accepted for the first connection — was opened BEFORE the one that is
+closed here, and neither `close` nor the `connect` that follows it yields, so the peer cannot release its own
+in between. The closed descriptor is therefore the lowest free one when the second connection is made, and
+that connection takes it.
+
+⚠ **THE PEER MUST OUTLAST A CONNECTION THAT DIES WITHOUT SPEAKING.** The first connection is closed without ever
+writing, so the peer's read of it ends with no bytes or with an error; the peer is finished only once it has ECHOED, which is the
+second connection.
+
+⚠ **THE WITNESS IS THAT THE SECOND CONNECTION'S READ COMPLETES AT ALL.** A stranded reader is not a wrong
+answer, it is a thread nothing can ever wake, so the shape of the failure is the case never finishing —
+the runner reports it as TIMED OUT rather than as a mismatch. The echo is asked for before it is read so that
+a read on a HEALTHY socket has an answer waiting for it, which is what makes "never returned" mean the strand
+and not the peer.
+
+⚠ **THE OWNER CANCELS ONLY WHEN THE READER IS COUNTED PARKED, AND THE PEER'S OWN PARK IS COUNTED OUT FIRST.** The
+peer also commits to the poller, in its `readSome` of this same connection, so a count that moved could be the
+peer's. `echoUntilAnswered` publishes `peerFrom` in the statement before that `readSome`, and the owner waits until the
+netpoll count has reached it; only then does the owner start the reader, whose `readNothing` publishes
+`parkedFrom` before its own `readSome`, and the owner waits for that count too. Nothing else is alive to commit between
+the two waits. Neither wait has a bound, so a park that never arrives is a TIMEOUT and no sleep has to outlast the
+host.
+
+⚠ **x64-windows IS MARKED BECAUSE A SOCKET HANDLE THERE CARRIES NO LOWEST-FREE PROMISE.** The reuse this
+case rests on is POSIX's rule that `socket()` returns the lowest-numbered free descriptor; Winsock says
+nothing of the kind, so closing one socket and opening another there need not land on the same record and
+the state this case is about would not be built.
+
+```maxon
+typealias ReadOutcome = int(0 to 3)
+
+typealias Answered = int(0 to 1)
+
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedAt(from ParkMark) returns bool
+	let mark = from.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	return Scheduler.counters().netpollBlocks >= mark
+end 'parkedAt'
+
+// Nothing is ever sent on this connection, so this read parks and is still parked when the owner cancels.
+function readNothing(client TcpClient, parkedFrom ParkMark) returns ReadOutcome
+	var code = 0 as ReadOutcome
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try client.readSome(1024) otherwise (e) 'readErr'
+		match e 'which'
+			failed then code = 1
+			closed then code = 2
+			timedOut then code = 3
+			secure then panic("unreachable: a plain socket's read throws no TLS failure")
+		end 'which'
+	end 'readErr'
+	return code
+end 'readNothing'
+
+function echoUntilAnswered(listener TcpListener, peerFrom ParkMark) returns Answered
+	var answered = 0 as Answered
+	while answered == 0 'serving'
+		let conn = try listener.accept() otherwise return 0
+		peerFrom.publish(Scheduler.counters().netpollBlocks + 1)
+		let heard = try conn.readSome(1024) otherwise continue
+		if heard.isEmpty() 'silent'
+			continue
+		end 'silent'
+		_ = try conn.send(String.from(heard)) otherwise return 0
+		answered = 1
+	end 'serving'
+	return answered
+end 'echoUntilAnswered'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return reuseOver(listener)
+end 'main'
+
+function reuseOver(listener TcpListener) returns ExitCode
+	let peerFrom = ParkMark.create(0 as SchedulerEventCount)
+	let boundPort = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async echoUntilAnswered(listener, peerFrom: peerFrom.clone())
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let first = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'firstConnectFailed'
+		peer.cancel()
+		return 1
+	end 'firstConnectFailed'
+	let reused = reuseItsDescriptor(first, port: boundPort, peerFrom: peerFrom)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answered = await peer
+	if answered != 1 'peer'
+		panic("unreachable: the read that returned was answered by this peer")
+	end 'peer'
+	print(reused)
+	return 0
+end 'reuseOver'
+
+function reuseItsDescriptor(first TcpClient, port NetworkPort, peerFrom ParkMark) returns String
+	while not parkedAt(peerFrom) 'untilPeerParked'
+		sleep(1)
+	end 'untilPeerParked'
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let stale = async readNothing(first, parkedFrom: parkedFrom.clone())
+	while not parkedAt(parkedFrom) 'untilReaderParked'
+		sleep(1)
+	end 'untilReaderParked'
+	stale.cancel()
+	first.close()
+	// The lowest free descriptor is the one just closed, so this connection inherits the released record.
+	let second = try TcpClient.connect("127.0.0.1", port: port) otherwise return "the second connect failed\n"
+	_ = try second.send("reuse\n") otherwise return "the send failed\n"
+	let echo = String.from(try second.readSome(1024) otherwise return "the echo never arrived\n")
+	return "echoed={echo == "reuse\n"}\n"
+end 'reuseItsDescriptor'
+```
+```stdout
+echoed=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-second-reader-cannot-be-started-on-a-socket-lent-to-the-first -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- procs: 1 -->
+**A SOCKET HAS ONE READER AT A TIME, BECAUSE IT HAS ONE OWNER AT A TIME.** `async readNothing(client)` lends the
+socket to the coroutine that reads it until the promise is awaited or cancelled, so `readOver` reading it again in
+between is a use of a lent value (E3102). Two reads of one socket are never in flight together.
+```maxon
+function readNothing(client TcpClient) returns ExitCode
+	_ = try client.readSome(1024) otherwise return 1
+	return 0
+end 'readNothing'
+
+function readOver(client TcpClient) returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let first = async readNothing(client)
+	Scheduler.yield()
+	_ = try client.readSome(1024) otherwise return 2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await first
+end 'readOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 1
+	return readOver(client)
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:12:10: use of moved value 'client': it is lent to the coroutine of the `async` call at 9:20 until that promise is awaited or cancelled
+```
+
+<!-- test: netpoll-socket.a-socket-is-read-again-once-its-parked-reader-is-cancelled -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+**ONCE A PARKED READER IS CANCELLED, ITS SOCKET IS THE OWNER'S AGAIN AND READS NORMALLY.** The reader is parked on the
+socket's read direction, and `first.cancel()` ends that wait and waits for the reader to finish. The owner's own read
+then parks and completes like any other: the cancelled reader left nothing published on the direction word, so the
+owner's wait is the only one and the bytes the peer sends arrive whole.
+
+⭐ **THE PARK IS A READING, NOT A SLEEP.** The owner yields until the netpoll count has moved past the value it read
+before starting the reader, so the cancel always lands on a reader that is parked on the poller. The wait has no bound,
+so a reader that never parks is a TIMEOUT and no sleep has to outlast the host.
+
+⚠ **THE PEER SENDS ONLY AFTER THE CANCEL.** The reader cannot be the one to take the bytes, so the read that returns
+them is the owner's.
+```maxon
+function readNothing(client TcpClient) returns ExitCode
+	_ = try client.readSome(1024) otherwise return 1
+	return 0
+end 'readNothing'
+
+function readOver(client TcpClient, peer TcpClient) returns String
+	let parksBefore = Scheduler.counters().netpollBlocks
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let first = async readNothing(client)
+	while Scheduler.counters().netpollBlocks == parksBefore 'untilParked'
+		Scheduler.yield()
+	end 'untilParked'
+	first.cancel()
+	_ = try peer.send("late") otherwise return "the send failed"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let heard = try client.readSome(1024) otherwise (e) 'unheard'
+		return "recv threw {e.name}"
+	end 'unheard'
+	return "heard={String.from(heard)}"
+end 'readOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 2
+	let peer = try listener.accept() otherwise return 3
+	print("{readOver(client, peer: peer)}\n")
+	return 0
+end 'main'
+```
+```stdout
+heard=late
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-loopback-echo-service-accepts-and-answers -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**A LISTENER IN THIS PROCESS IS A PEER LIKE ANY OTHER: BIND, ACCEPT, ANSWER.** The service side of the poller
+has to compose with the client side end to end — a bound listener, an `accept` that yields a socket of its
+own, and a round-trip over that socket that comes back byte for byte. This is the floor every other listener
+case builds on, and the one that says the two halves meet.
+
+⚠ **THE PORT IS THE KERNEL'S TO CHOOSE.** `port: 0` takes an ephemeral one and `port()` reports it, so two
+spec workers running this file at the same time cannot land on the same address — a fixed number would turn
+a collision into a failure that looks like a defect.
+```maxon
+typealias Served = int(0 to 1)
+
+function serveOne(listener TcpListener) returns Served
+	let conn = try listener.accept() otherwise return 0
+	let heard = String.from(try conn.readSome(1024) otherwise return 0)
+	_ = try conn.send(heard) otherwise return 0
+	return 1
+end 'serveOne'
+
+function roundTrip(port NetworkPort) returns bool
+	let payload = "maxon loopback\n"
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
+	_ = try client.send(payload) otherwise return false
+	let answer = String.from(try client.readSome(1024) otherwise return false)
+	return answer == payload
+end 'roundTrip'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveOne(listener)
+	let echoed = roundTrip(port)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("echoed={echoed} served={served}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+echoed=true served=1
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-parked-accept-is-on-the-poller -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**THE PARKS ARE COUNTED ON THE ACCEPTING SIDE TOO.** A listener that answers is not yet a listener that PARKS:
+an `accept` spun on in a loop, or one left inside a blocking kernel call while sysmon rescues the machine,
+answers its connection just as well. The counter is the only thing that separates an accept suspended on the
+poller from either of those, and the count reaching the mark the accept names is what this case reads.
+
+⚠ **THE DIAL WAITS FIRST, SO THE ACCEPT IS MEASURED WHILE IT IS PARKED AND NOT MERELY ABOUT TO BE.** A
+connection already sitting in the backlog is answered without the poller ever being involved, and the count
+would then say nothing. `acceptOne` publishes `parkedFrom` in the statement before its `accept`, and the dialer
+dials only once the netpoll count has reached it, as `drop-a-parked-reader` does for a read. Nothing else can
+commit to the poller until the dial, so the count moves only if the accept itself parked. The wait has no
+bound, so an accept that held its machine is a TIMEOUT and no sleep has to outlast the host.
+```maxon
+typealias Served = int(0 to 1)
+
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedInAccept(parkedFrom ParkMark) returns bool
+	let mark = parkedFrom.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	return Scheduler.counters().netpollBlocks >= mark
+end 'parkedInAccept'
+
+function acceptOne(listener TcpListener, parkedFrom ParkMark) returns Served
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	let conn = try listener.accept() otherwise return 0
+	_ = try conn.readSome(1024) otherwise return 0
+	return 1
+end 'acceptOne'
+
+function dialOnceParked(port NetworkPort, parkedFrom ParkMark) returns bool
+	while not parkedInAccept(parkedFrom) 'untilParkedInAccept'
+		sleep(1)
+	end 'untilParkedInAccept'
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
+	_ = try client.send("knock\n") otherwise return false
+	return true
+end 'dialOnceParked'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let acceptor = async acceptOne(listener, parkedFrom: parkedFrom.clone())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let dialer = async dialOnceParked(port, parkedFrom: parkedFrom.clone())
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await acceptor
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let dialled = await dialer
+	print("served={served} dialled={dialled}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+served=1 dialled=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-listener-serves-two-connections-in-turn -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**EACH ACCEPTED SOCKET OWNS ITS OWN DESCRIPTOR, AND THE ANSWER COMES BACK ON THE ONE THE QUESTION ARRIVED ON.**
+Both connections are accepted BEFORE either is answered, so the peer holds two live sockets at once — an
+`accept` that handed back the listener's own descriptor, or the previous connection's, would cross the two
+payloads, and each side checking for its OWN bytes is what catches that.
+
+⚠ **NOTHING HERE DEPENDS ON WHICH CLIENT CONNECTS FIRST.** The peer echoes whatever arrives on each socket,
+so the verdict is per-connection identity and not an ordering the scheduler happens to give.
+```maxon
+typealias Served = int(0 to 2)
+
+function serveBoth(listener TcpListener) returns Served
+	let earlier = try listener.accept() otherwise return 0
+	let later = try listener.accept() otherwise return 0
+	var served = 0 as Served
+	let fromEarlier = String.from(try earlier.readSome(1024) otherwise return served)
+	_ = try earlier.send(fromEarlier) otherwise return served
+	served = served + 1
+	let fromLater = String.from(try later.readSome(1024) otherwise return served)
+	_ = try later.send(fromLater) otherwise return served
+	served = served + 1
+	return served
+end 'serveBoth'
+
+function roundTrip(port NetworkPort, payload String) returns bool
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
+	_ = try client.send(payload) otherwise return false
+	let answer = String.from(try client.readSome(1024) otherwise return false)
+	return answer == payload
+end 'roundTrip'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async serveBoth(listener)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let earlier = async roundTrip(port, payload: "first payload\n")
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let later = async roundTrip(port, payload: "second payload\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let earlierOk = await earlier
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let laterOk = await later
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	print("earlier={earlierOk} later={laterOk} served={served}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+earlier=true later=true served=2
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.drop-a-parked-accept -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**AN ACCEPT IS DROPPED FROM THE POLLER THE SAME WAY A READ IS.** A listener registers on the poller for
+readability just as a socket does, so a coroutine suspended in `accept` is reachable by exactly the machinery
+its reading sibling is — and a drop that knows about sockets but not about listeners strands a thread nothing
+can ever wake, which the exit's join then waits on forever.
+
+⚠ **THE LISTENER MUST SURVIVE ITS DROPPED ACCEPT.** `listener` is lent to the coroutine until the cancel, and a
+drop that took the box down with the wait would close a listener its owner gets back — `bound` asks the listener
+for its port after the cancel and gets the same answer it gave before.
+
+⚠ **THE EXIT CODE IS DISTINCTIVE ON PURPOSE.** It is produced at exactly one place, the end of `main`, so a
+leaked box (101), a named abort, or a hang cannot be mistaken for the clean exit this case is about.
+
+⚠ **THE WAIT FOR THE COUNT IS WHAT MAKES THIS A POLLER CASE.** An accept that merely yielded ahead of its
+kernel call is also "not complete" and is also reachable by the drop, so the `isComplete()` peek alone reads
+green against a runtime whose listener never reached the poller at all. `stall` publishes `parkedFrom` in the
+statement before its `accept` and `exchangeOver` waits until the netpoll count has reached it, as
+`drop-a-parked-reader` does; the wait has no bound, so an accept that never parks is a TIMEOUT and no sleep has
+to outlast the host.
+```maxon
+let cleanExit = 42
+
+typealias ParkMark = SharedValue with SchedulerEventCount
+
+function parkedInAccept(parkedFrom ParkMark) returns bool
+	let mark = parkedFrom.current()
+	if mark == 0 'notYet'
+		return false
+	end 'notYet'
+	return Scheduler.counters().netpollBlocks >= mark
+end 'parkedInAccept'
+
+function stall(listener TcpListener, parkedFrom ParkMark) returns ExitCode throws NetworkError
+	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
+	_ = try listener.accept()
+	return 0
+end 'stall'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let acceptor = async stall(listener, parkedFrom: parkedFrom.clone())
+	while not parkedInAccept(parkedFrom) 'untilParkedInAccept'
+		sleep(1)
+	end 'untilParkedInAccept'
+	let stillWaiting = not acceptor.isComplete()
+	acceptor.cancel()
+	let stillBound = listener.port() == port
+	print("dropped={stillWaiting} bound={stillBound}\n")
+	return cleanExit as ExitCode
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+dropped=true bound=true
+```
+```exitcode
+42
+```
+
+<!-- test: netpoll-socket.a-listener-lent-to-a-parked-accept-cannot-be-closed-under-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- procs: 1 -->
+**A LISTENER HAS ONE OWNER AT A TIME, SO NO ONE CAN CLOSE IT UNDER A PARKED ACCEPT.** `async acceptUntilClosed(listener)`
+lends the listener to the coroutine that accepts on it until the promise is awaited or cancelled, so `exchangeOver`
+closing it in between is a use of a lent value (E3102). A listener is closed by its owner once the accept is over,
+and an accept that is no longer wanted is ended by `cancel()`.
+```maxon
+function acceptUntilClosed(listener TcpListener) returns ExitCode
+	_ = try listener.accept() otherwise return 1
+	return 0
+end 'acceptUntilClosed'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let acceptor = async acceptUntilClosed(listener)
+	Scheduler.yield()
+	listener.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await acceptor
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:12:2: use of moved value 'listener': it is lent to the coroutine of the `async` call at 9:23 until that promise is awaited or cancelled
+```
+
+<!-- test: netpoll-socket.a-renounced-acceptor-does-not-start-an-accept-nothing-can-end -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+**AN ACCEPT A RENOUNCED COROUTINE OPENS IS THE SAME UNENDABLE WAIT A READ IS.** A listener registers on the
+poller for readability exactly as a socket does, so a coroutine renounced on a timer and left free to carry on
+into `accept` publishes a waiter nothing will ever end — and the exit's join then waits on it forever.
+
+⚠ **THE COROUTINE TOUCHES THE POLLER ONLY AFTER IT IS RENOUNCED.** It sleeps and then accepts, so there is no
+park before the drop to read a count from: the peek is what says the acceptor was still alive when the drop
+landed, and the exit code is what says the program ended at all.
+
+⭐ **THE ACCEPTOR SAYS WHEN IT IS ON THE TIMER, SO NO SLEEP OF `exchangeOver`'S HAS TO BE TIMED AGAINST IT.**
+`stall` sets `sleeping` in the statement before its `sleep(1000)`, and `exchangeOver` yields until it reads it,
+so the drop lands with the acceptor on the timer arm. `procs: 1` is what makes `sleeping` safe to share.
+
+⚠ **THE EXIT CODE IS DISTINCTIVE ON PURPOSE.** It is produced at exactly one place, the end of `main`, so a
+leaked box (101), a named abort, or a hang cannot be mistaken for the clean exit this case is about.
+```maxon
+typealias Sleeping = int(0 to 1)
+
+let cleanExit = 42
+
+typealias SleepingFlag = SharedValue with Sleeping
+
+function stall(listener TcpListener, sleeping SleepingFlag) returns ExitCode throws NetworkError
+	sleeping.publish(1 as Sleeping)
+	sleep(1000)
+	_ = try listener.accept()
+	return 0
+end 'stall'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let port = listener.port()
+	let sleeping = SleepingFlag.create(0 as Sleeping)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let acceptor = async stall(listener, sleeping: sleeping.clone())
+	while sleeping.current() == 0 'untilSleeping'
+		Scheduler.yield()
+	end 'untilSleeping'
+	let stillWaiting = not acceptor.isComplete()
+	acceptor.cancel()
+	let stillBound = listener.port() == port
+	print("dropped={stillWaiting} bound={stillBound}\n")
+	return cleanExit as ExitCode
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+dropped=true bound=true
+```
+```exitcode
+42
+```
+
+<!-- test: netpoll-socket.a-second-accept-cannot-be-started-on-a-listener-lent-to-the-first -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- procs: 1 -->
+**A LISTENER HAS ONE ACCEPTOR AT A TIME, BECAUSE IT HAS ONE OWNER AT A TIME.** `async acceptOnce(listener)` lends the
+listener to the coroutine that accepts on it until the promise is awaited or cancelled, so `exchangeOver` accepting
+again in between is a use of a lent value (E3102). Two accepts on one listener are never in flight together.
+```maxon
+function acceptOnce(listener TcpListener) returns ExitCode
+	_ = try listener.accept() otherwise return 1
+	return 0
+end 'acceptOnce'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let first = async acceptOnce(listener)
+	Scheduler.yield()
+	_ = try listener.accept() otherwise return 2
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await first
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:12:10: use of moved value 'listener': it is lent to the coroutine of the `async` call at 9:20 until that promise is awaited or cancelled
+```
+
+<!-- test: netpoll-socket.a-second-bind-of-a-live-port-is-refused -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+**A LIVE LISTENER OWNS ITS PORT, AND THE SECOND BIND SAYS SO BY NAME.** A `bind` that quietly succeeded onto a
+port already being listened on would split the backlog between two listeners and make which one accepts a
+given connection a matter of luck. The refusal is the contract, and it has to arrive as a `NetworkError` the
+program can match on rather than as a listener that answers nothing.
+
+⚠ **THE PORT IS THE ONE THE KERNEL GAVE, NOT ONE THIS CASE PICKED.** Binding `0` and reading `port()` back is
+what makes "already in use" mean this program's own listener and not another worker's.
+
+⚠ The `default` arm says *unreachable*, and it has to say so with `panic`: a `default throws` in a match whose
+error has nowhere to go is silently discarded.
+```maxon
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = listener.port()
+	var refused = false
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try TcpListener.bind("127.0.0.1", port: port) otherwise (e) 'again'
+		match e 'which'
+			bindFailed then refused = true
+			default panic("unreachable: a port this process is already listening on can only refuse a bind")
+		end 'which'
+	end 'again'
+	print("refused={refused}\n")
+	return 0
+end 'main'
+```
+```stdout
+refused=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.an-accept-deadline-fires -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+```maxon
+let deadlineMs = 300
+
+let clockSlackMs = 20
+
+function connectOnce(port NetworkPort) returns ExitCode
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return 1
+	client.close()
+	return 0
+end 'connectOnce'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	try listener.setAcceptDeadline(deadlineMs) otherwise return 2
+	var fired = false
+	let start = Clock.nowMs()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try listener.accept() otherwise (e) 'acceptErr'
+		match e 'check'
+			timedOut then fired = true
+			default panic("unreachable: nobody connects, so only the accept deadline can end this accept")
+		end 'check'
+	end 'acceptErr'
+	let tookMs = Clock.elapsedMs(start)
+	try listener.setAcceptDeadline(0) otherwise return 3
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async connectOnce(listener.port())
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let accepted = try listener.accept() otherwise 'cancelled28'
+		peer.cancel()
+		return 4
+	end 'cancelled28'
+	accepted.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let connected = await peer
+	print("timedOut={fired} notEarly={tookMs + clockSlackMs >= deadlineMs} servedAfterClearing={connected == 0}\n")
+	return 0
+end 'main'
+```
+```stdout
+timedOut=true notEarly=true servedAfterClearing=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.shutting-down-the-write-side-ends-the-peers-reads-and-leaves-its-own -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+**`shutdownWrite` ENDS ONE DIRECTION AND ONLY ONE.** The peer's next read sees the end of the stream, the peer can
+still send, and the side that shut its writes still reads what arrives. The server's lingering close stands on all
+three and reports none of them, so a wrong call or a missing import on a lane is invisible anywhere else. Once the
+socket is closed there is nothing left to shut, and saying so is the call's to do.
+```maxon
+function halfClosed(listener TcpListener) returns String
+	let conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.send("before") otherwise return "send-failed"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try conn.shutdownWrite() otherwise (e) 'unshut'
+		return "shutdown threw {e.name}"
+	end 'unshut'
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let heard = try conn.readSome(1024) otherwise (e) 'unheard'
+		return "recv threw {e.name}"
+	end 'unheard'
+	conn.close()
+	let again = "shutdown after close {shutdownOutcome(conn)}"
+	return "heard={String.from(heard)} {again}"
+end 'halfClosed'
+
+function shutdownOutcome(conn TcpClient) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try conn.shutdownWrite() otherwise (e) 'refused'
+		return "threw {e.name}"
+	end 'refused'
+	return "returned"
+end 'shutdownOutcome'
+
+function nextRead(client TcpClient) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let read = try client.readSome(1024) otherwise (e) 'unread'
+		return e.name
+	end 'unread'
+	if read.isEmpty() 'ended'
+		return "ended"
+	end 'ended'
+	return String.from(read)
+end 'nextRead'
+
+function exchangeOver(listener TcpListener) returns ExitCode
+	let boundPort = listener.port()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async halfClosed(listener)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled36'
+		peer.cancel()
+		return 2
+	end 'cancelled36'
+	let first = nextRead(client)
+	let ended = nextRead(client)
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	_ = try client.send("after") otherwise 'cancelled40'
+		peer.cancel()
+		return 4
+	end 'cancelled40'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let served = await peer
+	client.close()
+	print("first={first} then={ended}\n")
+	print("{served}\n")
+	return 0
+end 'exchangeOver'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	return exchangeOver(listener)
+end 'main'
+```
+```stdout
+first=before then=ended
+heard=after shutdown after close threw connectionClosed
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.a-connection-reset-before-it-is-accepted-leaves-the-listener-serving -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: wasm32-wasi -->
+```maxon
+typealias AcceptRound = int(0 to 8)
+
+let AcceptRounds = 8 as AcceptRound
+
+let Greeting = "hello"
+
+function resetBeforeAccept(port NetworkPort) returns bool
+	let argv = StringArray.create(0)
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		argv.push("-NoProfile")
+		argv.push("-Command")
+		argv.push("$s = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp); $s.LingerState = New-Object System.Net.Sockets.LingerOption($true, 0); $s.Connect('127.0.0.1', {port}); $s.Close()")
+		let helper = Executable.name("powershell")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		argv.push("-MSocket")
+		argv.push("-e")
+		argv.push("socket(my $s, PF_INET, SOCK_STREAM, 0) or die; setsockopt($s, SOL_SOCKET, SO_LINGER, pack(\"ii\", 1, 0)) or die; connect($s, pack_sockaddr_in({port}, inet_aton(\"127.0.0.1\"))) or die; close($s)")
+		let helper = Executable.name("perl")
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	let res = try Subprocess.run(helper, arguments: argv) otherwise return false
+	return res.succeeded()
+end 'resetBeforeAccept'
+
+function greet(port NetworkPort) returns ExitCode
+	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return 1
+	_ = try client.send(Greeting) otherwise return 2
+	client.close()
+	return 0
+end 'greet'
+
+function greetingOf(conn TcpClient) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let read = try conn.readSome(1024) otherwise (e) 'unread'
+		return e.name
+	end 'unread'
+	return String.from(read)
+end 'greetingOf'
+
+function serveTheGreeting(listener TcpListener) returns String
+	for round in 0 upto AcceptRounds 'eachAccept'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let conn = try listener.accept() otherwise (e) 'refused'
+			if e == NetworkError.acceptInterrupted 'retriable'
+				continue
+			end 'retriable'
+			return "ended by {e.name} in round {round}"
+		end 'refused'
+		let heard = greetingOf(conn)
+		conn.close()
+		if heard == Greeting 'theGreeting'
+			return "served"
+		end 'theGreeting'
+	end 'eachAccept'
+	return "no greeting in {AcceptRounds} accepts"
+end 'serveTheGreeting'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let reset = resetBeforeAccept(listener.port())
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peer = async greet(listener.port())
+	let outcome = serveTheGreeting(listener)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let greeted = await peer
+	print("reset={reset} {outcome} greeted={greeted == 0}\n")
+	return 0
+end 'main'
+```
+```stdout
+reset=true served greeted=true
+```
+```exitcode
+0
+```
+
+<!-- test: netpoll-socket.an-accept-out-of-descriptors-is-retriable -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- procs: 1 -->
+<!-- unsupported-targets: x64-windows, wasm32-wasi -->
+```maxon
+typealias HeldCount = int(0 to 256)
+
+let HeldLimit = 256
+
+let DescriptorLimit = "ulimit -n 64 && exec \"$0\" child"
+
+let RanOut = "ran-out"
+
+function acceptOutcome(listener TcpListener) returns String
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let conn = try listener.accept() otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	conn.close()
+	return "accepted"
+end 'acceptOutcome'
+
+function fillThenProbe(listener TcpListener, depth HeldCount) returns String
+	if depth >= HeldLimit 'neverRanOut'
+		return "filled=false"
+	end 'neverRanOut'
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return RanOut
+	let below = fillThenProbe(listener, depth: depth + 1)
+	if below != RanOut 'probedBelow'
+		client.close()
+		return below
+	end 'probedBelow'
+	let first = acceptOutcome(listener)
+	client.close()
+	let second = acceptOutcome(listener)
+	return "filled=true first={first} second={second}"
+end 'fillThenProbe'
+
+function outOfDescriptors() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 5
+	print("{fillThenProbe(listener, depth: 0)}\n")
+	return 0
+end 'outOfDescriptors'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'theChild'
+		return outOfDescriptors()
+	end 'theChild'
+	let exe = try Process.executablePath() otherwise return 2
+	let argv = StringArray.create(0)
+	argv.push("-c")
+	argv.push(DescriptorLimit)
+	argv.push(exe.path)
+	let res = try Subprocess.run(Executable.name("sh"), arguments: argv) otherwise return 3
+	print(res.stdout)
+	return 0 if res.succeeded() else 4
+end 'main'
+```
+```stdout
+filled=true first=acceptInterrupted second=accepted
+```
+```exitcode
+0
+```
+

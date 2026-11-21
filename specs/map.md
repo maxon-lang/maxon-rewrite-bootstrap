@@ -1,0 +1,2166 @@
+---
+feature: map
+status: stable
+keywords: map, dictionary, hash, key-value, contains, insert, remove, get
+category: collections
+---
+# Map
+
+## Documentation
+
+A `map` is a collection that stores key-value pairs. It provides fast lookup, insertion, and removal using hash-based indexing.
+
+## Creating a Map
+
+Use map literal syntax with key-value pairs:
+
+```text
+let scores = [1: 100, 2: 85, 3: 92]                 // map<int,int>
+let lookup = [10: 1000, 20: 2000, 30: 3000]         // map<int,int>
+```
+
+The key and value types are automatically inferred from the literal values.
+
+You can also create an empty map with a type alias:
+
+```text
+typealias Integer = int(i64.min to i64.max)
+typealias IntIntMap = Map with (Integer, Integer)
+var m = IntIntMap.create()
+```
+
+## Methods
+
+### insert(key, value) throws MapError
+
+Add a key-value pair to the map. Throws `MapError.keyAlreadyExists` if the key is already present.
+
+```text
+var m = [1: 100, 2: 200]
+try m.insert(3, value: 300) otherwise ignore    // Map now has {1: 100, 2: 200, 3: 300}
+try m.insert(1, value: 150) otherwise ignore    // Throws MapError.keyAlreadyExists
+```
+
+### upsert(key, value)
+
+Insert or update a key-value pair. If the key already exists, updates the value.
+
+```text
+var m = [1: 100, 2: 200]
+m.upsert(3, value: 300)    // Map now has {1: 100, 2: 200, 3: 300}
+m.upsert(1, value: 150)    // Updates key 1 to 150
+```
+
+### get(key) returns Value throws MapError
+
+Get the value for a key. Throws `MapError.keyNotFound` if the key is not in the map.
+
+```text
+let m = [10: 5, 20: 3]
+let v = try m.get(10) otherwise 0    // 5
+let w = try m.get(30) otherwise 0    // 0 (key not found, fallback used)
+```
+
+### contains(key) returns bool
+
+Check if a key exists in the map. Returns `true` if found, `false` otherwise.
+
+```text
+let m = [1: 10, 2: 20]
+m.contains(1)      // true
+m.contains(3)      // false
+```
+
+### remove(key) returns bool
+
+Remove a key-value pair from the map. Returns `true` if the key was present and removed, `false` if it wasn't in the map.
+
+```text
+var m = [1: 10, 2: 20, 3: 30]
+m.remove(2)        // Returns true, map is now {1: 10, 3: 30}
+m.remove(9)        // Returns false, key wasn't present
+```
+
+### count() returns int
+
+Get the number of key-value pairs in the map.
+
+```text
+let m = [1: 10, 2: 20, 3: 30]
+m.count()          // 3
+```
+
+### capacity() returns int
+
+Get the current capacity (number of slots) of the internal hash table.
+
+```text
+let m = [1: 100]
+m.capacity()       // 16 (initial capacity)
+```
+
+## Automatic Growth
+
+The map automatically grows when the load factor (count/capacity) exceeds 75%. When this happens, the capacity doubles and all entries are rehashed.
+
+## Tests
+
+<!-- test: literal.basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 20, 3: 30]
+	return m.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: literal.int-keys -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 20, 3: 30]
+	let result = try m.get(2) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: contains.true -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [10: 100, 20: 200, 30: 300]
+	if m.contains(20) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: contains.false -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [10: 100, 20: 200, 30: 300]
+	if m.contains(40) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: get.existing -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 20, 3: 30]
+	let result = try m.get(2) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: get.missing -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 20]
+	let result = try m.get(0) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: insert.new -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	try m.insert(3, value: 30) otherwise ignore
+	return m.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: upsert.update -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	m.upsert(1, value: 100)
+	let result = try m.get(1) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: insert.then-contains -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [10 as Count: 1 as Count].clone()
+	try m.insert(20, value: 2) otherwise ignore
+	if m.contains(20) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: remove.existing -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count, 3 as Count: 30 as Count].clone()
+	let removed = m.remove(2)
+	if removed 'check'
+		return m.count()
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: remove.nonexistent -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	let removed = m.remove(99)
+	if removed 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: remove.then-contains -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count, 3 as Count: 30 as Count].clone()
+	_ = m.remove(2)
+	if m.contains(2) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: empty-map.from-syntax -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [0 as Count: 0 as Count].clone()
+	_ = m.remove(0)
+	try m.insert(1, value: 100) otherwise ignore
+	let result = try m.get(1) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: single-entry -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [42: 99]
+	let result = try m.get(42) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: negative-keys -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [-5: 50, -3: 30, -1: 10]
+	let result = try m.get(-3) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: remove-reinsert -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count, 3 as Count: 30 as Count].clone()
+	_ = m.remove(2)
+	try m.insert(2, value: 99) otherwise ignore
+	let result = try m.get(2) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: map-type-in-field -->
+```maxon
+typealias StrMap = Map with (String, String)
+
+type Container
+	export var data as StrMap
+
+	static function create(data StrMap) returns Self
+		return Self{data: data}
+	end 'create'
+end 'Container'
+
+function main() returns ExitCode
+	let m = StrMap.create()
+	try m.insert("key", value: "val") otherwise ignore
+	let c = Container.create(m)
+	let result = try c.data.get("key") otherwise ""
+	if result == "val" 'check'
+		return 42
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+<!-- test: string-keys-basic -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["a": 1, "b": 2]
+	let result = try m.get("a") otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: string-keys-get-multiple -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["hello": 10, "world": 20, "foo": 30]
+	let a = try m.get("hello") otherwise 0
+	let b = try m.get("world") otherwise 0
+	return a + b
+end 'main'
+```
+```exitcode
+30
+```
+
+<!-- test: string-keys-contains -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["key1": 100, "key2": 200]
+	if m.contains("key1") 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: string-keys-upsert-update -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["x": 10 as Count].clone()
+	m.upsert("x", value: 99)
+	let result = try m.get("x") otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+99
+```
+
+<!-- test: string-keys-remove -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["alpha": 1 as Count, "beta": 2 as Count, "gamma": 3 as Count].clone()
+	_ = m.remove("beta")
+	if m.contains("beta") 'check'
+		return 1
+	end 'check'
+	return m.count()
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: string-keys-early-return -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["test": 42]
+	let v = try m.get("test") otherwise 0
+	return v
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: multiline-map-literal -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 100, 2: 200, 3: 300]
+	return m.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: map-literal-with-enum-values -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+enum TokenKind
+	Function
+	Var
+end 'TokenKind'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let keywords = ["function": TokenKind.Function, "var": TokenKind.Var]
+	let kind = try keywords.get("function") otherwise TokenKind.Var
+	match kind 'match'
+		Function then return 1
+		Var then return 2
+	end 'match'
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: insert.duplicate-throws -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try m.insert(1, value: 99) otherwise 'err'
+		return 42
+	end 'err'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: insert.duplicate-error-binding -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count].clone()
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try m.insert(1, value: 99) otherwise (e) 'err'
+		match e 'check'
+			keyAlreadyExists then return 1
+			keyNotFound then return 2
+		end 'check'
+	end 'err'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: insert.duplicate-does-not-update -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count].clone()
+	try m.insert(1, value: 99) otherwise ignore
+	let result = try m.get(1) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: upsert.new-key -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count].clone()
+	m.upsert(2, value: 20)
+	return m.count()
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: upsert.existing-key -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	m.upsert(1, value: 100)
+	let result = try m.get(1) otherwise 0
+	return result
+end 'main'
+```
+```exitcode
+100
+```
+
+<!-- test: upsert.then-contains -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [10 as Count: 1 as Count].clone()
+	m.upsert(20, value: 2)
+	if m.contains(20) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: upsert.preserves-count -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	m.upsert(1, value: 100)
+	return m.count()
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: function-valued.dispatch -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+A `Map<String, FunctionType>` lets the caller dispatch by string key.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias UnaryOp = function(Integer) returns Integer
+
+typealias HandlerMap = Map with String, UnaryOp
+
+function double(x Integer) returns Integer
+	return x * 2
+end 'double'
+
+function triple(x Integer) returns Integer
+	return x * 3
+end 'triple'
+
+function main() returns ExitCode
+	let m = HandlerMap.create()
+	m.upsert("d", value: double)
+	m.upsert("t", value: triple)
+	let f = try m.get("d") otherwise panic("missing 'd'")
+	let g = try m.get("t") otherwise panic("missing 't'")
+	return f(7) + g(7)
+end 'main'
+```
+```exitcode
+35
+```
+
+<!-- test: for-in.nested -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+Nested for-in loops on the same map must not corrupt each other's iteration state.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntMap = Map with (Integer, Integer)
+
+function innerSum(m IntMap) returns Integer
+	var total = 0 as Integer
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, v) in m 'inner'
+		total = total + v
+	end 'inner'
+	return total
+end 'innerSum'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 1, 2: 2, 3: 3]
+	var outerTotal = 0 as Integer
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, v) in m 'outer'
+		outerTotal = outerTotal + v + innerSum(m)
+	end 'outer'
+	// Each outer iteration: v + innerSum = v + 6
+	// (1+6) + (2+6) + (3+6) = 7+8+9 = 24
+	if outerTotal == 24 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: a-user-type-can-be-a-map-key -->
+⭐⭐ **ANY TYPE THAT DECLARES THE CONFORMANCES IS A MAP KEY.** `Map` is `stdlib/Map.maxon`, declared
+`where Key is Hashable and Equatable`, so **the set of key types is not a roster: it is the constraint**,
+and a user type that declares both conformances is a key like any other.
+
+⛔⛔ **THE UPSERTS ARE IN A LOOP, AND THAT IS THE WHOLE POINT OF THE SHAPE.** Two STRAIGHT-LINE
+`upsert`s would pass for a reason that has nothing to do with the capability: a straight-line
+`Point.create(…)` temporary is promoted to a binding of `main`'s OWN frame (`giveTemporaryScopeLifetime`),
+so it happens to outlive every read that follows. In a loop the promotion scopes each key to the **loop
+body**, so a map that did not own its keys would hold a key freed at the end of every iteration —
+**`total 0` instead of `total 15`, exit 0, no diagnostic**, with `count()` right and every
+key dangling. A capability that evaporates the moment its subject is written in a loop is not a
+capability, and a case that cannot tell the difference does not test one.
+
+A `Map` key is an `immutable` slot, so a key built at run time enters it frozen: the upserts write
+`freeze Point.create(…)`.
+
+⚠ the compiler's signature match erases a ranged alias to its underlying primitive, so `hash()` written
+`returns Val` — an `int` alias of `HashValue`'s span — is ACCEPTED rather than refused with
+`E3016: Partial interface implementation … expected hash() returns HashValue`. It is recorded here
+because this is the program that surfaces it, not because it is this case's subject.
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Point implements Hashable, Equatable
+	export var x as Val
+	export var y as Val
+
+	static function create(x Val, y Val) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function hash() returns HashValue
+		return x * 31 + y
+	end 'hash'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+typealias PointMap = Map with (Point, Val)
+
+function main() returns ExitCode
+	let m = PointMap.create()
+	for i in 1 upto 4 'fill'
+		m.upsert(freeze(Point.create(i, y: i * 2)), value: i * 7)
+	end 'fill'
+	return (try m.get(Point.create(1, y: 2)) otherwise 0) + (try m.get(Point.create(2, y: 4)) otherwise 0) + (try m.get(Point.create(3, y: 6)) otherwise 0)
+end 'main'
+```
+```exitcode
+42
+```
+
+### A TRIVIAL key column is co-owned, and survives every rehash its load factor triggers
+
+⭐⭐ **THE TRIVIAL-KEY TWIN OF THE TWO MANAGED-COLUMN CASES BELOW.** A `String` key and a
+`String`-owning-struct key both reach the map by being **CONSUMED** — `typeArgIsOwned` says they own
+heap, so the call site MOVES them in and the column's own element walk frees them. An all-scalar struct
+key answers that question `false`; BORROWED, with a scope-lifetime extension as its entire protection, it
+would dangle, because the container outlives the scope in every loop and every `get` would miss.
+
+So a trivial aggregate key is **CO-OWNED**, exactly as a trivial `Box with Point` constructor field is:
+the call site takes a real `__mm_retain`, and the column's element walk releases it. Both ends read
+`typeIsManaged`, so the descriptor's `retainFunc@64` and its `destroyFunc@40` are non-zero together — two
+DIFFERENT questions there would be the same defect stated at the descriptor.
+
+The three sizes are not decoration. **5** is below the first `grow()`, **50** crosses it three times
+(16 → 32 → 64 → 128) and **500** eight; a rehash re-inserts every key through the shared body's
+BORROWED path, so co-ownership on the concrete call site alone would be green at 5 and red at 50.
+
+<!-- test: trivial-key-column-survives-rehash -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Point implements Hashable, Equatable
+	export var x as Val
+	export var y as Val
+
+	static function create(x Val, y Val) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function hash() returns HashValue
+		return x * 31 + y
+	end 'hash'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+typealias PointMap = Map with (Point, Val)
+
+function build(n Val) returns Val
+	let m = PointMap.create()
+	for i in 0 upto n 'fill'
+		m.upsert(freeze(Point.create(i, y: i * 3)), value: i)
+	end 'fill'
+	var seen = 0 as Val
+	for i in 0 upto n 'read'
+		seen = seen + (try m.get(Point.create(i, y: i * 3)) otherwise -1)
+	end 'read'
+	if seen != (n * (n - 1)) / 2 'sum'
+		return -1
+	end 'sum'
+	return m.count()
+end 'build'
+
+function main() returns ExitCode
+	print("5 {build(5)} 50 {build(50)} 500 {build(500)}")
+	return 0
+end 'main'
+```
+```stdout
+5 5 50 50 500 500
+```
+```exitcode
+0
+```
+
+### A trivial KEY beside a managed VALUE — the two columns take different protocols in one map
+
+The pair that proves the descriptor is read **per type parameter** and not once per instance: the key
+column co-owns a trivial aggregate by `__mm_retain`, the value column consumes a `String` outright, and
+the two blocks sit at `layoutBlockOffsetFor(0)` and `(1)` of one `__layout_Map_Point_String`. Stamping
+one column's protocol into the other's block is a wild free, so a map whose two arguments DISAGREE
+about their protocol is the program that would find it. The value is read back and compared, so a rehash that merely
+survived without faulting would still fail here.
+
+<!-- test: trivial-key-with-managed-value-column -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Point implements Hashable, Equatable
+	export var x as Val
+	export var y as Val
+
+	static function create(x Val, y Val) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function hash() returns HashValue
+		return x * 31 + y
+	end 'hash'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+typealias PointStrMap = Map with (Point, String)
+
+function main() returns ExitCode
+	let m = PointStrMap.create()
+	for i in 0 upto 40 'fill'
+		m.upsert(freeze(Point.create(i, y: i * 3)), value: "value number {i}, long enough to escape any small-string envelope")
+	end 'fill'
+	var seen = 0 as Count
+	for i in 0 upto 40 'read'
+		if (try m.get(Point.create(i, y: i * 3)) otherwise "").equals("value number {i}, long enough to escape any small-string envelope") 'hit'
+			seen = seen + 1
+		end 'hit'
+	end 'read'
+	print("hits {seen} count {m.count()}")
+	return 0
+end 'main'
+```
+```stdout
+hits 40 count 40
+```
+```exitcode
+0
+```
+
+### A managed KEY column survives the rehash its load factor triggers
+
+⛔ **A rehash moves every entry, and only a map filled past its load factor exercises it.** `Map.grow()`
+reads a BORROWED key out of the old column and hands it to `insertAtSlot`, whose parameter is enrolled
+OWNED and moved into the new one — so unless the new column takes its own reference, the new array's
+element walk and the old array's each destroy the same record. `Map with (String, …)` then prints the
+right answer for 12 entries and **segfaults at 13**, which is exactly `trunc(16 * 3/4) + 1`: the first
+insert that calls `grow()`.
+
+The guard is the ENTRY COUNT and nothing else, so this case crosses the threshold three times over
+(16 → 32 → 64 → 128 → 256): a case that stopped at 12 would be green on the defect.
+
+<!-- test: managed-key-column-survives-rehash -->
+```maxon
+typealias Count = int(i64.min to i64.max)
+
+typealias StrMap = Map with (String, Count)
+
+function build(n Count) returns Count
+	let m = StrMap.create()
+	for i in 0 upto n 'fill'
+		m.upsert("key number {i}, long enough to escape any small-string envelope", value: i)
+	end 'fill'
+	var seen = 0 as Count
+	for i in 0 upto n 'read'
+		seen = seen + (try m.get("key number {i}, long enough to escape any small-string envelope") otherwise 0)
+	end 'read'
+	if seen != (n * (n - 1)) / 2 'sum'
+		return -1
+	end 'sum'
+	return m.count()
+end 'build'
+
+function main() returns ExitCode
+	print("count {build(200)}")
+	return 0
+end 'main'
+```
+```stdout
+count 200
+```
+```exitcode
+0
+```
+
+### A managed AGGREGATE column survives the rehash too — the retain arm, not the clone arm
+
+The same store, one ownership protocol along: a `String` column takes its reference by COPYING
+(`__str_clone`, because an immortal `.rdata` record admits no incref) and an aggregate takes it with a
+real `__mm_retain`. Both words are read out of the same layout descriptor, so a column that takes its
+reference by only one of them fails here the same way (`0xC0000005` at the first `grow()`) instead of
+printing `total 21190`. The value is read back and summed, so a rehash that merely survived without
+faulting would still fail here.
+
+<!-- test: managed-aggregate-column-survives-rehash -->
+```maxon
+typealias Count = int(i64.min to i64.max)
+
+type Tagged
+	var label as String
+	var n as Count
+
+	static function create(label String, n Count) returns Self
+		return Self{label: label, n: n}
+	end 'create'
+
+	function score() returns Count
+		return n + (label.byteLength() as Count)
+	end 'score'
+end 'Tagged'
+
+typealias TaggedMap = Map with (Count, Tagged)
+
+function build(n Count) returns Count
+	let m = TaggedMap.create()
+	for i in 0 upto n 'fill'
+		m.upsert(i, value: Tagged.create("tag {i}", n: i))
+	end 'fill'
+	var total = 0 as Count
+	for i in 0 upto n 'read'
+		let t = try m.get(i) otherwise panic("Map lost an entry across its rehash")
+		total = total + t.score()
+	end 'read'
+	return total
+end 'build'
+
+function main() returns ExitCode
+	print("total {build(200)}")
+	return 0
+end 'main'
+```
+```stdout
+total 21190
+```
+```exitcode
+0
+```
+
+## The `[k: v]` LITERAL is the same map
+
+⭐⭐ **A LITERAL IS HELD TO THE SAME `Map` EVERY OTHER DOOR IS.** `Map` is `stdlib/Map.maxon`, and a
+`[k: v]` literal takes both its COLUMN RULES and its OWNERSHIP PROTOCOL from that declaration: its keys
+are judged by `Map`'s own `where` clause, and its values reach the table through ordinary `Map.upsert`
+calls. So a `[k: v]` literal and the `create()` + `upsert` spelling of the identical map are one
+container, which is what `Parser.parseMapLiteralBody`'s own header promises.
+
+The four cases below are the two halves of that, each with its control.
+
+### A user `Hashable` key is a literal's key too
+
+⭐ **THE GATE HALF.** `map.md`'s `a-user-type-can-be-a-map-key` pins a user `Point` reaching a map
+through `PointMap.create()` + `upsert`; this is the byte-identical key written in a LITERAL, which no
+fixed roster of key types may refuse. The program exits **42**.
+
+<!-- test: literal.user-type-key -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Point implements Hashable, Equatable
+	export var x as Val
+	export var y as Val
+
+	static function create(x Val, y Val) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function hash() returns HashValue
+		return x * 31 + y
+	end 'hash'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [Point.create(1, y: 2): 7, Point.create(3, y: 4): 11, Point.create(5, y: 6): 24]
+	var total = 0 as Val
+	for i in 1 upto 4 'read'
+		total = total + (try m.get(Point.create(i * 2 - 1, y: i * 2)) otherwise panic("map literal lost a user-type key"))
+	end 'read'
+	print("total {total} count {m.count()}")
+	return total as ExitCode
+end 'main'
+```
+```stdout
+total 42 count 3
+```
+```exitcode
+42
+```
+
+### A literal's key column outlives the frame that built it
+
+⚠ **THE KEY HALF OF THE OWNERSHIP QUESTION, WHICH THE STRAIGHT-LINE CASE ABOVE CANNOT ASK.** An
+all-scalar `Point` is `typeArgIsOwned` FALSE, so `Map.upsert` BORROWS it and the call site takes the
+second reference (`coOwnConcreteAggregateFeed`) — the arrangement `trivial-key-column-survives-rehash`
+pins for the written spelling. Reading it back inside the builder's own frame passes whether or not
+that reference was ever taken, because the builder's temporaries are still alive there. Returning the
+map is what makes the reference load-bearing: the keys' own frame is gone by the time `main` reads
+them.
+
+The program prints `total 42 count 3` and exits **42**.
+
+<!-- test: literal.user-type-key-escapes-its-builder -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Point implements Hashable, Equatable
+	export var x as Val
+	export var y as Val
+
+	static function create(x Val, y Val) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+
+	function hash() returns HashValue
+		return x * 31 + y
+	end 'hash'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+typealias PointMap = Map with (Point, Val)
+
+function build() returns PointMap
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	return [Point.create(1, y: 2): 7, Point.create(3, y: 4): 11, Point.create(5, y: 6): 24]
+end 'build'
+
+function main() returns ExitCode
+	let m = build()
+	var total = 0 as Val
+	for i in 1 upto 4 'read'
+		total = total + (try m.get(Point.create(i * 2 - 1, y: i * 2)) otherwise panic("map literal lost a user-type key"))
+	end 'read'
+	print("total {total} count {m.count()}")
+	return total as ExitCode
+end 'main'
+```
+```stdout
+total 42 count 3
+```
+```exitcode
+42
+```
+
+### An AGGREGATE value column in a literal leaks nothing
+
+⛔⛔ **THE OWNERSHIP HALF: ONE PROTOCOL PER VALUE, OR AN OUTRIGHT LEAK (exit 101 instead
+of 42).** The literal desugars to `Map.create()` plus one `Map.upsert(map, key, value:)` per pair —
+an ORDINARY call, whose arguments the ordinary machinery transfers or co-owns (`applyCallerConsume`),
+and nothing else. A second, move-in protocol on the same value (a parse-time move that drains
+the value from the statement's pending drops) would let the map take its reference while the statement
+skipped releasing its own.
+
+⚠ **ONLY AN AGGREGATE COLUMN SHOWS IT.** The two protocols AGREE for the other columns: an `int` column
+owns no record and moves nothing, and a `String` column is `typeArgIsOwned` TRUE, so the ordinary
+machinery MOVES it — exactly what a move-in does. An all-scalar struct is the one class the call site
+BORROWS, and there a drained temporary is a reference nobody releases.
+
+<!-- test: literal.aggregate-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Pair
+	export var a as Val
+	export var b as Val
+
+	static function create(a Val, b Val) returns Self
+		return Self{a: a, b: b}
+	end 'create'
+
+	function sum() returns Val
+		return a + b
+	end 'sum'
+end 'Pair'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: Pair.create(3, b: 4), 2: Pair.create(10, b: 25)]
+	let first = try m.get(1) otherwise panic("map literal lost an aggregate value")
+	let second = try m.get(2) otherwise panic("map literal lost an aggregate value")
+	let total = first.sum() + second.sum()
+	print("total {total} count {m.count()}")
+	return total as ExitCode
+end 'main'
+```
+```stdout
+total 42 count 2
+```
+```exitcode
+42
+```
+
+### A MANAGED column pair through a literal — the control for the aggregate column
+
+⚠ **THE COLUMNS WHERE A MOVE-IN AND THE ORDINARY CALL AGREE, PINNED SO THAT THE AGGREGATE RULE CANNOT
+BREAK THEM.** A `String` key and a `String` value are `typeArgIsOwned` TRUE and therefore CONSUMED at the
+call, which is the arm where a move-in and the ordinary call machinery agree. Read back and printed
+rather than merely counted: a lost reference here is a use-after-free, not a missing entry, and
+`count()` cannot see one.
+
+⚠ **THE PROMOTION OF EACH BORROWED `.rdata` String HAPPENS INSIDE `emitCall`,** which runs after
+`Map.create` rather than before it — the emitted call sequence is `Map.create`, three `Map.upsert`, six
+`__mm_alloc` + `__str_copy` literal promotions and `__destruct_Map_String_String`. More values are
+therefore live across that call and the allocator spills more slots. That is the price of the literal
+and the written `upsert` sharing ONE ownership protocol, and it is paid only on this path.
+
+<!-- test: literal.managed-column-pair -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = ["alpha": "one", "beta": "two", "gamma": "three"]
+	let a = try m.get("alpha") otherwise panic("map literal lost a String key")
+	let g = try m.get("gamma") otherwise panic("map literal lost a String key")
+	print("{a}/{g} count {m.count()}")
+	return m.count() as ExitCode
+end 'main'
+```
+```stdout
+one/three count 3
+```
+```exitcode
+3
+```
+
+### A literal key that conforms to NEITHER is still refused, at the literal
+
+⛔ **THE REFUSAL THE GATE HALF MUST NOT LOSE.** A literal is the one door a map can be born through
+with no `with (K, V)` annotation to anchor an E3017 on, so a literal with no key rule at all would admit
+a key nothing can hash. It is `Map`'s OWN declared
+`where Key is Hashable and Equatable` that refuses it — the same sentence, code and shape a
+written `typealias OpaqueMap = Map with (Opaque, Val)` gets (`array-conditional-conformance-withheld`'s
+`error.a-key-type-nothing-conforms-for-still-reads-as-a-later-slice`) — anchored on the literal's
+first key, which is the only position the program offers.
+
+<!-- test: error.literal-key-conforming-to-neither -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+type Opaque
+	export var x as Val
+
+	static function create(x Val) returns Self
+		return Self{x: x}
+	end 'create'
+end 'Opaque'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [Opaque.create(1): 5]
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3017: <fragment>:13:11: Type 'Opaque' does not satisfy constraint 'Hashable' required by type parameter 'Key' of 'Map'
+error E3017: <fragment>:13:11: Type 'Opaque' does not satisfy constraint 'Equatable' required by type parameter 'Key' of 'Map'
+```
+
+### The corpus declaration is what serves a `Map` — pinned by members outside a builtin roster
+
+⭐⭐ **THESE ARE THE CASES THAT CAN ONLY PASS IF THE DECLARATION SERVES `Map`.** Every case above this
+section uses only `count`, `contains`, `get`, `upsert`, `insert`, `remove` and `map`, so a green suite over
+them says nothing about which members `Map` has beyond those. `stdlib/Map.maxon` declares
+`getCapacity()` and `createIterator()` as well, and the three cases in this section call them.
+
+<!-- test: corpus.get-capacity -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+typealias ValMap = Map with (Val, Val)
+
+function main() returns ExitCode
+	let m = ValMap.create()
+	let empty = m.getCapacity()
+	m.upsert(1, value: 1)
+	let one = m.getCapacity()
+	for i in 0 upto 40 'fill'
+		m.upsert(i, value: i * 10)
+	end 'fill'
+	print("capacity {empty} {one} {m.getCapacity()} count {m.count()}")
+	return m.count() as ExitCode
+end 'main'
+```
+```stdout
+capacity 0 16 64 count 40
+```
+```exitcode
+40
+```
+
+The three capacities are the corpus's own schedule and not a shape any other reader could supply: a
+map created empty holds no buffers at all (`capacity = 0`), the first `upsert` allocates sixteen
+slots, and `ensureCapacity` doubles at a load factor of 75% — 16 ⇒ 32 at the twelfth entry, 32 ⇒ 64
+at the twenty-fourth, and forty entries therefore rest at 64 rather than growing again.
+
+<!-- test: corpus.create-iterator -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: tuple element access is not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+typealias ValMap = Map with (Val, Val)
+
+function main() returns ExitCode
+	let m = ValMap.create()
+	m.upsert(1, value: 10)
+	m.upsert(2, value: 20)
+	m.upsert(3, value: 30)
+	let it = try m.createIterator() otherwise panic("a three-entry map has an occupied first slot")
+	var total = 0 as Val
+	var more = true
+	while more 'walk'
+		let entry = it.current()
+		// TODO: tuple element access is not supported in minimaxon
+		total = total + entry.0 * entry.1
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		try it.advance() otherwise 'exhausted'
+			more = false
+		end 'exhausted'
+	end 'walk'
+	print("total {total} count {m.count()}")
+	return total as ExitCode
+end 'main'
+```
+```stdout
+total 140 count 3
+```
+```exitcode
+140
+```
+
+⚠ **DRIVEN BY HAND RATHER THAN THROUGH `for … in`, which is the point.** A `for (k, v) in m` reaches
+`MapIterator` too, but it reaches it through the cursor-protocol rewrite that `Range` and `views`
+also take — so it would still compile if `Map` were served by something else that happened to publish
+a cursor. Naming `createIterator()`, `current()` and `advance()` at the call site pins the declared
+protocol itself: the `(Key, Value)` tuple `current()` returns, and `advance()`'s
+`throws IterationError` as the loop's own termination.
+
+### An empty map iterates ZERO times, however it became empty
+
+⚠ **THE EDGE THE CURSOR FORM MAKES NON-OBVIOUS.** `for … in` over a
+cursor is a DO-WHILE — its first test is licensed by the protocol's invariant that a live cursor is
+already positioned on an element — so an empty source has to be refused by the FACTORY rather than by
+the loop, and `Map.createIterator()` is the throwing factory that does it
+(`IterationError.exhausted`). A map that never held an entry has `capacity == 0`; one emptied by
+`remove` has a full slot array of tombstones and a non-zero capacity, and `findNextOccupied` has to
+walk all of it to reach the same answer. Both must run the body zero times, and the body is written to
+say so loudly if either does not: it adds `1 + v`, so one spurious trip moves `trips` off zero whatever
+the slot it read held.
+
+<!-- test: corpus.empty-map-iterates-zero-trips -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+```maxon
+typealias Val = int(i64.min to i64.max)
+
+typealias ValMap = Map with (Val, Val)
+
+function main() returns ExitCode
+	let never = ValMap.create()
+	var trips = 0 as Val
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, v) in never 'neverPopulated'
+		trips = trips + 1 + v
+	end 'neverPopulated'
+	let emptied = ValMap.create()
+	emptied.upsert(1, value: 10)
+	emptied.upsert(2, value: 20)
+	_ = emptied.remove(1)
+	_ = emptied.remove(2)
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (_, v) in emptied 'allRemoved'
+		trips = trips + 1 + v
+	end 'allRemoved'
+	print("trips {trips} counts {never.count()} {emptied.count()}")
+	return trips as ExitCode
+end 'main'
+```
+```stdout
+trips 0 counts 0 0
+```
+```exitcode
+0
+```
+
+## A map literal at FILE SCOPE
+
+A `[k: v]` written as a top-level `let`/`var` initializer is parsed by the body's expression parser, so it is
+the same desugar a body's literal is — `Map.create()` plus one `Map.upsert(k, value: v)` per pair — in an
+initializer function `__module_init` calls before `main`. The first pair fixes both columns; every later
+pair is held to them, in the words a body's literal gets.
+
+⛔⛔ **BOTH HALVES OF EVERY PAIR ARE KEPT BY THE TABLE.** `Map.upsert` pushes its `key` and its `value` into
+`Array with Key` / `Array with Value`, which is a type-parameter FEED and not a consume bit. Releasing either
+half after the call is a use-after-free: the first case below would print `0 0` (both lookups missing, the
+keys having been freed the instant they were stored) and then **segfault**, where it prints `1 2`.
+
+<!-- test: top-level-literal.managed-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+Both columns managed, and the map is read only AFTER `main` has allocated over whatever the init freed —
+so a released key or value is a wrong answer here rather than a lucky one.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: byte string literals are not supported in minimaxon
+let m = [b"alpha": "one", b"beta": "two"]
+
+function main() returns ExitCode
+	let churn = ByteArray.create(0)
+	var i = 0 as Count
+	while i < 64 'allocate'
+		churn.push(65)
+		i = i + 1
+	end 'allocate'
+	// TODO: byte string literals are not supported in minimaxon
+	let a = try m.get(b"alpha") otherwise panic("the file-scope literal lost a key")
+	// TODO: byte string literals are not supported in minimaxon
+	let b = try m.get(b"beta") otherwise panic("the file-scope literal lost a key")
+	print("{a}/{b} count {m.count()} churn {churn.count()}")
+	return 0
+end 'main'
+```
+```stdout
+one/two count 2 churn 64
+```
+```exitcode
+0
+```
+
+<!-- test: error.body-literal-mixed-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: byte string literals are not supported in minimaxon
+	let m = [b"a": 1, b"b": "two"]
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:3:26: Unsupported: this `Map`'s value is an int — got a 'String' value
+```
+
+<!-- test: error.top-level-literal-mixed-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+The first pair fixes both columns. A later pair whose half has another type is refused where it is
+written, in the words a body's literal gets.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: byte string literals are not supported in minimaxon
+let m = [b"a": 1, b"b": "two"]
+
+function main() returns ExitCode
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:2:25: Unsupported: this `Map`'s value is an int — got a 'String' value
+```
+
+<!-- test: body-literal.enum-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+```maxon
+enum Kind
+	one
+	two
+end 'Kind'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: byte string literals are not supported in minimaxon
+	let m = [b"a": Kind.one, b"b": Kind.two]
+	// TODO: byte string literals are not supported in minimaxon
+	let k = try m.get(b"b") otherwise Kind.one
+	print("{k.name}\n")
+	return m.count() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+```stdout
+two
+```
+
+<!-- test: top-level-literal.enum-value-column -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+An enum case is a column value at file scope as it is in a body, and the column is the enum: what `m.get`
+hands back is a `Kind`.
+```maxon
+enum Kind
+	one
+	two
+end 'Kind'
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: byte string literals are not supported in minimaxon
+let m = [b"a": Kind.one, b"b": Kind.two]
+
+function main() returns ExitCode
+	let grown = m.clone()
+	// TODO: byte string literals are not supported in minimaxon
+	grown.upsert(b"c", value: Kind.one)
+	// TODO: byte string literals are not supported in minimaxon
+	let k = try m.get(b"b") otherwise Kind.one
+	print("{k.name}\n")
+	return grown.count() as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+```stdout
+two
+```
+
+## A table under insert/remove churn stays flat
+
+⛔⛔ **A REMOVED ENTRY LEAVES A TOMBSTONE, AND A PROBE STOPS ONLY AT AN EMPTY SLOT.** So a table that is
+inserted into and removed from in turn spends its empty slots one at a time — an insert takes one when no
+tombstone lies before it on the probe path, and a removal never gives one back — until a lookup for an
+absent key probes every slot in the table. The live count never moves, so a load factor that counts only
+`count` never grows or rehashes, and the table's cost per operation ends up its CAPACITY rather than a
+constant. `ensureCapacity` therefore counts tombstones as occupancy and rehashes to clear them.
+
+The case is a COST case and it reads as one: 2,000 live keys and 2,000 rounds of one insert and one
+removal each is 8,000,000 operations, which finish in well under a second at constant cost and take
+minutes at a cost per operation of 4,096 probes. Nothing else here is new — the assertion is the count the
+churn leaves behind.
+
+<!-- test: churn.insert-and-remove-stays-flat -->
+```maxon
+typealias Tally = int(0 to u64.max)
+
+typealias TallyMap = Map with (Tally, Tally)
+
+let Live = 2000 as Tally
+
+let Rounds = 2000 as Tally
+
+function main() returns ExitCode
+	let m = TallyMap.create()
+	for i in 0 upto Live 'seed'
+		m.upsert(i, value: i)
+	end 'seed'
+	for round in 1 to Rounds 'eachRound'
+		for i in 0 upto Live 'eachKey'
+			m.upsert(round * Live + i, value: i)
+			_ = m.remove((round - 1) * Live + i)
+		end 'eachKey'
+	end 'eachRound'
+	let survivor = try m.get(Rounds * Live + 1) otherwise 0
+	return 7 if m.count() == (Live as EntryCount) and survivor == 1 else 1
+end 'main'
+```
+```exitcode
+7
+```
+
+## A clone is a map of its own
+
+`m.clone()` copies every key and value, so writing the copy leaves the map it was taken from unchanged.
+
+<!-- test: clone.writing-the-copy-leaves-the-source-unchanged -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Stock = Map with (String, Integer)
+
+function main() returns ExitCode
+	let original = Stock.create()
+	original.upsert("apples", value: 3)
+	original.upsert("pears", value: 5)
+	let copy = original.clone()
+	copy.upsert("apples", value: 30)
+	copy.upsert("plums", value: 7)
+	_ = copy.remove("pears")
+	let apples = try original.get("apples") otherwise 0
+	let pears = try original.get("pears") otherwise 0
+	let copiedApples = try copy.get("apples") otherwise 0
+	let copiedPlums = try copy.get("plums") otherwise 0
+	print("original {original.count()}: apples {apples}, pears {pears}, plums {original.contains("plums")}\n")
+	print("copy {copy.count()}: apples {copiedApples}, plums {copiedPlums}, pears {copy.contains("pears")}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+original 2: apples 3, pears 5, plums false
+copy 2: apples 30, plums 7, pears false
+```
+
+<!-- test: table-aliases-admit-two-to-the-63 -->
+The hashtable's capacity, slot-index and entry-count aliases are unsigned and reach 2^63, the largest power of two a u64 holds.
+```maxon
+function main() returns ExitCode
+	let capacity = 9223372036854775808 as TableCapacity
+	let slot = 9223372036854775808 as TableSlotIndex
+	let entries = 9223372036854775808 as EntryCount
+	let members = 9223372036854775808 as MemberCount
+	let reached = capacity == 9223372036854775808 as TableCapacity and slot == 9223372036854775808 as TableSlotIndex
+	let counted = entries == 9223372036854775808 as EntryCount and members == 9223372036854775808 as MemberCount
+	if reached and counted 'reached'
+		return 7
+	end 'reached'
+	return 3
+end 'main'
+```
+```exitcode
+7
+```
+
+## Keys that differ only above bit 32
+
+A key's hash is 32 bits wide, so the bits of a 64-bit key above bit 31 reach the table only through how `int.hash()` folds them in. A hash that kept the low half alone would give every key below the same hash, and the table would degrade to one probe chain as it grew.
+
+<!-- test: high-bits.keys-differing-above-bit-32-hash-apart -->
+```maxon
+typealias Tally = int(0 to u64.max)
+
+typealias TallySet = Set with Tally
+
+let KeyCount = 4096 as Tally
+
+let HighShift = 40
+
+function main() returns ExitCode
+	let hashes = TallySet.create()
+	for k in 0 upto KeyCount 'eachKey'
+		let key = k shl HighShift
+		hashes.insert(key.hash() as Tally)
+	end 'eachKey'
+	return 7 if hashes.count() == 4096 else 1
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: a-let-map-value-read-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A `let` map literal is a constant, so a value read from it carries the range of the values written, and fits an alias that admits them.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 40]
+	let v = try m.get(2) otherwise 0
+	print("{take(v)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+40
+```
+
+<!-- test: error.a-let-map-value-read-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The range a `let` map's values carry is checked at the use, and the reachable extreme is named.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 400]
+	let v = try m.get(1) otherwise 0
+	let w = take(v)
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:10: Value 400 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: a-let-map-for-in-keys-and-values-are-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+Both columns of a `let` map literal keep their range through a destructuring `for … in`.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [7: 40]
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (k, v) in m 'each'
+		print("{take(k)} {take(v)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+7 40
+```
+
+<!-- test: error.a-let-map-for-in-key-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
+<!-- positions: moved -->
+A key read through `for … in` is checked against the alias it is handed to.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [700: 40]
+	// TODO: tuple loop variables in for loops are not supported in minimaxon
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for (k, v) in m 'each'
+		print("{take(k)} {take(v)}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:11:11: Value 700 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.a-let-map-mutation-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` map literal is constant data, so a write through it is refused.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10]
+	m.upsert(2, value: 20)
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:2: 'upsert' writes its receiver (line 170: `try values.set(slotIndex as ElementIndex, value: value)`); 'm' is immutable
+```
+
+<!-- test: a-top-level-let-map-read-is-range-known -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A top-level `let` map literal is a constant too, so a value read from it carries the range of the values written.
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let TABLE = [1: 10, 2: 40]
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let v = try TABLE.get(2) otherwise 0
+	print("{take(v)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+40
+```
+
+<!-- test: error.a-top-level-let-map-read-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The range a top-level `let` map's values carry is checked at the use, and the reachable extreme is named.
+```maxon
+typealias Small = int(0 to 100)
+
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let TABLE = [1: 10, 2: 400]
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let v = try TABLE.get(1) otherwise 0
+	let w = take(v)
+	return w as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:10: Value 400 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.a-top-level-let-map-mutation-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A top-level `let` map literal is immutable, so a write through its name is refused.
+```maxon
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let TABLE = [1: 10]
+
+function main() returns ExitCode
+	TABLE.upsert(2, value: 20)
+	return TABLE.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:5:2: 'upsert' writes its receiver (line 170: `try values.set(slotIndex as ElementIndex, value: value)`); 'TABLE' is immutable
+```
+
+<!-- test: error.a-let-map-passed-to-a-mutating-parameter-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` map literal handed to a parameter its callee writes is refused at the call, so no callee can change what the literal's range was read from.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function pokeIn(m CountMap)
+	m.upsert(2, value: 20)
+end 'pokeIn'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	pokeIn(m)
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:10:9: 'pokeIn' writes 'm' (it calls 'upsert', which writes its receiver); 'm' is immutable
+```
+
+<!-- test: a-let-map-read-after-a-reading-call-keeps-its-range -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+A call that only reads the map cannot change the literal, so the range read after it still holds.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 40]
+	let known = m.contains(2)
+	let v = try m.get(2) otherwise 0
+	print("{known} {take(v)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+true 40
+```
+
+<!-- test: error.a-let-map-read-after-a-reading-call-outside-a-narrower-alias -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The same map with an out-of-range value: the column survives the reading call, so the read is refused at compile time.
+```maxon
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10, 2: 400]
+	let known = m.contains(2)
+	let v = try m.get(2) otherwise 0
+	print("{known} {take(v)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:12:18: Value 400 is outside the range of 'Small' (int(0 to 100))
+```
+
+<!-- test: error.an-unnamed-argument-aliasing-a-let-map-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` map literal is an immutable ROOT: an argument that names no binding but returns the very same record
+(`pass(m)`) reaches the same refusal `grow(m)` does, so no spelling of the argument can write what the range
+column was read from.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function pass(m CountMap) returns CountMap
+	return m
+end 'pass'
+
+function grow(m CountMap)
+	m.upsert(2, value: 20)
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	grow(pass(m))
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:14:7: 'grow' writes 'm' (it calls 'upsert', which writes its receiver); 'pass(m)' is immutable
+```
+
+<!-- test: error.an-unnamed-receiver-aliasing-a-let-map-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The receiver spelling of the same route: a call whose receiver is an expression that returns the `let` map's own
+record is a write through the `let`.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function pass(m CountMap) returns CountMap
+	return m
+end 'pass'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	pass(m).upsert(2, value: 20)
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:10:9: 'upsert' writes its receiver (line 170: `try values.set(slotIndex as ElementIndex, value: value)`); the receiver is immutable
+```
+
+<!-- test: error.a-closure-capturing-a-let-map-cannot-write-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A closure that captures a `let` map and writes it through its receiver is refused at the write, so the captured
+record keeps the values its range column was read from.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	// TODO: closures are not supported in minimaxon
+	let f = function() gives m.remove(1)
+	if f() 'removed'
+		return 1
+	end 'removed'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:4:27: cannot write 'm' through the closure that captures it: 'm' is immutable
+```
+
+<!-- test: error.a-let-map-stored-in-a-var-struct-field-cannot-be-written-through-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A `let` map literal stored into a field of a `var` record stays constant, so a write through that field is refused
+and the range column read from the `let` stays true.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+type Holder
+	export var m as CountMap
+
+	static function create(m CountMap) returns Self
+		return Self{m: m}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	var h = Holder.create(m)
+	h.m.upsert(2, value: 20)
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:15:5: 'upsert' writes its receiver (line 170: `try values.set(slotIndex as ElementIndex, value: value)`); the receiver is read-only
+```
+
+<!-- test: error.a-let-map-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A function value has no callee to summarise, but a `let` map literal is a constant its range columns were read from: handing it to an indirect call is refused, because nothing may write it.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function grow(m CountMap)
+	m.upsert(2, value: 20)
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	let f = grow
+	f(m)
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:11:3: 'grow' writes 'm' (it calls 'upsert', which writes its receiver); 'm' is immutable
+```
+
+<!-- test: error.a-let-map-of-bare-numbers-handed-to-a-function-value-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The same for a map of bare numbers, whose columns are what let a read skip the guard.
+```maxon
+typealias Small = int(0 to 100)
+
+typealias SmallMap = Map with (Small, Small)
+
+function grow(m SmallMap)
+	m.upsert(2, value: 20)
+end 'grow'
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: 10]
+	let f = grow
+	f(m)
+	return take(try m.get(1) otherwise 0) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:16:3: argument type mismatch for 1: expected 'SmallMap', got 'Map with (int, int)'
+error E3207: <fragment>:16:3: 'grow' writes 'm' (it calls 'upsert', which writes its receiver); 'm' is immutable
+```
+
+<!-- test: error.a-closure-handing-a-captured-let-map-to-a-function-value-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+A `let` map literal captured by a closure is still the constant its range columns were read from: the closure may not hand it to a function value, which may write it.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function grow(m CountMap) returns Count
+	m.upsert(2, value: 20)
+	return m.count()
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count]
+	let f = grow
+	// TODO: closures are not supported in minimaxon
+	let g = function() gives f(m)
+	return g() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:12:29: cannot write 'm' through the closure that captures it: 'm' is immutable
+```
+
+<!-- test: a-closure-capturing-a-var-map-may-hand-it-to-a-function-value -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+A `var` map is writable, so the same closure is accepted.
+```maxon
+typealias CountMap = Map with (Count, Count)
+
+function grow(m CountMap) returns Count
+	m.upsert(2, value: 20)
+	return m.count()
+end 'grow'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1 as Count: 10 as Count].clone()
+	let f = grow
+	// TODO: closures are not supported in minimaxon
+	let g = function() gives f(m)
+	return g() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: error.a-map-literal-mixing-a-negative-and-a-value-above-i64-max-in-its-keys-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+Each column of a map literal has one integer type.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [-1: 10, u64.max: 20]
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:19: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: error.a-map-literal-mixing-a-negative-and-a-value-above-i64-max-in-its-values-is-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+The value column is held to the same rule.
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let m = [1: -1, 2: u64.max]
+	return m.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:3:21: no common integer type for -1 and 18446744073709551615: cast the elements to an alias
+```
+
+<!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+How many allocations a sequence of inserts and removes makes is a function of the sequence, not of where
+the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
+different odd constant, so each run lays the keys and the tombstones out differently, and the four runs
+count the same allocations.
+```maxon
+typealias Key = int(0 to 4000)
+
+typealias Wide = int(0 to u64.max)
+
+typealias SaltedMap = Map with (Salted, Key)
+
+typealias Multipliers = Array with Wide
+
+typealias Tallies = Array with HeapCount
+
+let HashSpace = 4294967296
+
+let ChurnLength = 2000
+
+let LiveWindow = 5
+
+type Salted implements Hashable, Equatable
+	let value as Key
+	let multiplier as Wide
+
+	static function create(value Key, multiplier Wide) returns Self
+		return Self{value: value, multiplier: multiplier}
+	end 'create'
+
+	function hash() returns HashValue
+		return ((self.value as Wide * self.multiplier) mod HashSpace) as HashValue
+	end 'hash'
+
+	function equals(other Salted) returns bool
+		return self.value == other.value
+	end 'equals'
+end 'Salted'
+
+function churnAllocations(multiplier Wide) returns HeapCount
+	let table = SaltedMap.create()
+	let before = HeapStats.allocationsMade()
+	for i in 0 upto ChurnLength 'eachStep'
+		let k = i as Key
+		table.upsert(Salted.create(k, multiplier: multiplier), value: k)
+		if k >= LiveWindow 'oneLeavesTheWindow'
+			_ = table.remove(Salted.create((k - LiveWindow) as Key, multiplier: multiplier))
+		end 'oneLeavesTheWindow'
+	end 'eachStep'
+	return HeapStats.allocationsMade() - before
+end 'churnAllocations'
+
+function main() returns ExitCode
+	let tallies = Tallies.create(0)
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for multiplier in Multipliers from [2654435761, 2246822519, 3266489917, 668265263] 'eachLayout'
+		tallies.push(churnAllocations(multiplier))
+	end 'eachLayout'
+	let first = try tallies.get(0) otherwise panic("four tallies were pushed")
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for tally in tallies 'eachTally'
+		if tally != first 'differs'
+			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+			for shown in tallies 'eachShown'
+				print("{shown} ")
+			end 'eachShown'
+			return 1
+		end 'differs'
+	end 'eachTally'
+	print("equal\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+equal
+```

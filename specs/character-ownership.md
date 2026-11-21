@@ -1,0 +1,1079 @@
+---
+feature: character-ownership
+status: experimental
+keywords: [character, grapheme, for-in, ownership, drop, uax29]
+category: types
+---
+
+## Documentation
+
+# A `Character` is MINTED per trip, and dropped per trip
+
+`for c in s` walks a `String`'s extended grapheme clusters (UAX #29). Unlike `for x in <Array>`,
+where the element is a counted reference to a value the array also holds, a String's clusters are
+**stored nowhere** —
+the record holds bytes, and a `Character` is a record — so each trip **allocates** one and this loop
+is its only owner.
+
+```text
+for c in "café" 'each'      // 4 trips, 4 Characters minted, 4 dropped
+    print("{c}")
+end 'each'
+```
+
+Every path out of a trip drops it: the body's fall-through, `continue`, `break`, and a `return` out
+of the loop. A leak on any of them fails the run with exit code 101.
+
+A `Character` shares its 48-byte record with a `String`, but it is a **distinct type**: `s == c` is a
+type error, `print(c)` is refused (it takes a `String`), and interpolation — `"{c}"` — is how a
+Character reaches stdout.
+
+## Tests
+
+<!-- test: for-in-string-drops-every-cluster -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Every exit path out of a trip drops its cluster
+
+Five loop shapes over a mixed-width string, repeated 200 times — 5,200 minted Characters. Any path
+that fails to drop one fails the leak gate with exit 101, so a clean exit IS the assertion; the
+`total` check keeps the loops from being trivially right for the wrong reason. Nothing is printed:
+the point is the allocation ledger, not the text.
+
+```maxon
+function fallthroughTrips(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'a'
+		n = n + 1 if c == c else n
+	end 'a'
+	return n
+end 'fallthroughTrips'
+
+function continueTrips(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'b'
+		n = n + 1 if c == c else n
+		if n > 0 'always'
+			continue
+		end 'always'
+	end 'b'
+	return n
+end 'continueTrips'
+
+function breakTrips(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'd'
+		n = n + 1 if c == c else n
+		if n == 2 'stop'
+			break
+		end 'stop'
+	end 'd'
+	return n
+end 'breakTrips'
+
+function returnFromLoop(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'e'
+		n = n + 1 if c == c else n
+		if n == 3 'out'
+			return n
+		end 'out'
+	end 'e'
+	return n
+end 'returnFromLoop'
+
+function discardTrips(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in s 'f'
+		n = n + 1
+	end 'f'
+	return n
+end 'discardTrips'
+
+function main() returns ExitCode
+	let s = "aé中!xéy"
+	var total = 0 as Integer
+	var i = 0 as Count
+	while i < 200 'rep'
+		total = total + fallthroughTrips(s) + continueTrips(s) + breakTrips(s) + returnFromLoop(s) + discardTrips(s)
+		i = i + 1
+	end 'rep'
+	if total != 5200 'wrongTotal'
+		return 1
+	end 'wrongTotal'
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+
+<!-- test: crlf-iterates-once -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### CR LF is ONE cluster when iterated, as well as when counted
+
+GB3 joins CR and LF. An iterator taking an ASCII shortcut that never consults GB3 would answer 2 for
+`for c in s` while `count()` answers 1, so both go through the real scan and this case pins that they
+agree.
+
+```maxon
+function main() returns ExitCode
+	let s = "\r\n"
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in s 'each'
+		n = n + 1
+	end 'each'
+	print("{s.count()} {n}\n")
+	let mid = "ab\r\ncd"
+	var m = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in mid 'more'
+		m = m + 1
+	end 'more'
+	print("{mid.count()} {m}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 1
+5 5
+```
+
+<!-- test: empty-string-iterates-zero-times -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### An empty string has no clusters
+
+```maxon
+function main() returns ExitCode
+	let s = ""
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in s 'each'
+		n = n + 1
+	end 'each'
+	print("{s.count()} {n} {s.bytes().count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0 0 0
+```
+
+<!-- test: lone-combining-mark-is-one-cluster -->
+### A string that is only a combining mark is one cluster
+
+An `Extend` with no base never breaks from what precedes it — and at the start of a string there is
+nothing to attach to, so it stands alone.
+
+```maxon
+function main() returns ExitCode
+	let s = "́"
+	print("{s.count()} {s.byteLength()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 2
+```
+
+<!-- test: lone-zero-width-joiner-is-one-cluster -->
+### A lone ZWJ is one cluster
+
+```maxon
+function main() returns ExitCode
+	let s = "‍"
+	print("{s.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: unpaired-regional-indicator-trails -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Regional indicators pair left to right, and a fifth stands alone
+
+Five regional indicators are two flags and one unpaired indicator.
+
+```maxon
+function main() returns ExitCode
+	let s = "🇺🇸🇬🇧🇫"
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in s 'each'
+		n = n + 1
+	end 'each'
+	print("{s.count()} {n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3
+```
+
+<!-- test: four-byte-cluster-at-end -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A four-byte codepoint as the last cluster
+
+The scan must not read past the buffer when the widest sequence sits at the very end.
+
+```maxon
+function main() returns ExitCode
+	let s = "ab🎉"
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for _ in s 'each'
+		n = n + 1
+	end 'each'
+	print("{s.count()} {n} {s.bytes().count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3 6
+```
+
+<!-- test: string-and-character-do-not-compare -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### A String and a Character are different types
+
+They share a record; they are not the same type. Comparing them is a type error, not a byte compare
+that happens to succeed for a one-cluster String.
+
+```maxon
+function main() returns ExitCode
+	let s = "é"
+	// TODO: character literals are not supported in minimaxon
+	let c = 'é'
+	if s == c 'same'
+		return 1
+	end 'same'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/character-ownership/string-and-character-do-not-compare.maxon:5:7: type mismatch: 'cannot compare String with Character'
+```
+
+<!-- test: print-takes-a-string-not-a-character -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### `print` takes a String; a Character reaches stdout through interpolation
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	let c = '中'
+	print(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/character-ownership/print-takes-a-string-not-a-character.maxon:4:2: argument type mismatch for 'value': expected 'String', got 'Character'
+```
+
+<!-- test: character-parameter-and-equality -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A `Character` is nameable as a declared type
+
+```maxon
+function isTarget(c Character, target Character) returns bool
+	return c == target
+end 'isTarget'
+
+function main() returns ExitCode
+	var hits = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "héllo wörld" 'each'
+		// TODO: character literals are not supported in minimaxon
+		if isTarget(c, target: 'ö') 'match'
+			hits = hits + 1
+		end 'match'
+	end 'each'
+	print("{hits}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1
+```
+
+<!-- test: grapheme-count-of-ascii-matches-byte-length -->
+### Pure ASCII counts one cluster per byte
+
+The ASCII fast path inside the segmenter must agree with the general scan.
+
+```maxon
+function main() returns ExitCode
+	let s = "the quick brown fox"
+	print("{s.count()} {s.byteLength()} {s.bytes().count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+19 19 19
+```
+
+<!-- test: returned-character-is-dropped-by-the-caller -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A `returns Character` hands ownership to the caller, which drops it
+
+A Character crossing a return is a heap record the callee moves out, so the CALLER becomes its sole
+owner. This case is the one that reaches the caller's adoption test (`valueIsManagedHeap`) for a
+Character.
+
+```maxon
+function litOnly() returns Character
+	// TODO: character literals are not supported in minimaxon
+	return 'é'
+end 'litOnly'
+
+function main() returns ExitCode
+	var i = 0 as Count
+	var n = 0 as Count
+	while i < 50 'rep'
+		let c = litOnly()
+		n = n + 1 if c == c else n
+		i = i + 1
+	end 'rep'
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+50
+```
+
+<!-- test: loop-element-moves-into-an-outer-var -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Assigning the trip's cluster to an outer `var` MOVES it
+
+`found = c` must move the minted cluster into `found` — dropping whatever `found` held — not copy it.
+The element carries its owned-heap provenance; a reassignment that saw a borrow would promote a COPY
+(a second allocation per trip) and leave the original with no owner: exit 101.
+
+```maxon
+function reassignInLoop(s String) returns Integer
+	var n = 0 as Integer
+	// TODO: character literals are not supported in minimaxon
+	var found = 'é'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'each'
+		found = c
+		n = n + 1
+	end 'each'
+	n = n + 1 if found == found else n
+	return n
+end 'reassignInLoop'
+
+function lastOf(s String) returns Character
+	// TODO: character literals are not supported in minimaxon
+	var found = 'é'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'each'
+		found = c
+	end 'each'
+	return found
+end 'lastOf'
+
+function main() returns ExitCode
+	var i = 0 as Count
+	var t = 0 as Integer
+	let word = "héllö"
+	while i < 50 'rep'
+		t = t + reassignInLoop(word)
+		print("{lastOf(word)}")
+		i = i + 1
+	end 'rep'
+	print("\nt={t}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+öööööööööööööööööööööööööööööööööööööööööööööööööö
+t=300
+```
+
+<!-- test: promoting-a-character-keeps-its-type -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A `var` Character stays a Character
+
+A `var`'s managed initializer is promoted to an owned copy at its declaration, and the copy is built
+by the interpolation encoder — whose result is a String. Keeping the source's type is what makes the
+next line legal; typed `String`, `found` would make the assignment E3005.
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	var found = 'é'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "ab中" 'each'
+		found = c
+	end 'each'
+	print("{found} {found.byteLength()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+中 3
+```
+
+<!-- test: character-literal-adopts-the-character-type -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### A character literal in a Character-expecting position IS a Character
+
+Every character literal IS a `Character`, so no position has to ask for one: `c == 'a'` inside
+`for c in s`, `found = 'z'` into a `Character` var and `return 'a'` from `returns Character` are all the
+literal's own type meeting itself. What the case measures is the behaviour and not the route to it.
+
+```maxon
+function firstAscii() returns Character
+	// TODO: character literals are not supported in minimaxon
+	return 'a'
+end 'firstAscii'
+
+function main() returns ExitCode
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "banana" 'scan'
+		// TODO: character literals are not supported in minimaxon
+		if c == 'a' 'hit'
+			n = n + 1
+		end 'hit'
+	end 'scan'
+	var m = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "banana" 'scan2'
+		// TODO: character literals are not supported in minimaxon
+		if c != 'a' 'miss'
+			m = m + 1
+		end 'miss'
+	end 'scan2'
+	var w = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "héllö théré" 'scan3'
+		// TODO: character literals are not supported in minimaxon
+		if 'é' == c 'lhs'
+			w = w + 1
+		end 'lhs'
+	end 'scan3'
+	// TODO: character literals are not supported in minimaxon
+	var found = 'é'
+	// TODO: character literals are not supported in minimaxon
+	found = 'z'
+	print("{n} {m} {w} {found} {firstAscii()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3 3 z a
+```
+
+<!-- test: an-int-position-keeps-its-integer-literal -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A character literal meeting an `int` is still an int
+
+The literal is a `Character` and the INTEGER position converts it to its codepoint
+(`Parser.integerizedOperand`). What must not move is the ANSWER, and `char-literal-to-int.md`'s codepoint
+arithmetic pins the rest of it.
+
+```maxon
+function main() returns ExitCode
+	let cp = 45
+	var hits = 0 as Count
+	// TODO: character literals are not supported in minimaxon
+	if cp == '-' 'dash'
+		hits = hits + 1
+	end 'dash'
+	// TODO: character literals are not supported in minimaxon
+	if 'A' == 'A' 'bothLiterals'
+		hits = hits + 1
+	end 'bothLiterals'
+	// TODO: character literals are not supported in minimaxon
+	let digit = 53 - '0'
+	print("{hits} {digit}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 5
+```
+
+<!-- test: character-literal-at-a-call-argument -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Character literal at a call argument
+
+```maxon
+function isTarget(c Character, target Character) returns bool
+	return c == target
+end 'isTarget'
+
+function main() returns ExitCode
+	var hits = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "banana" 'each'
+		// TODO: character literals are not supported in minimaxon
+		if isTarget(c, target: 'a') 'match'
+			hits = hits + 1
+		end 'match'
+	end 'each'
+	print("{hits}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: rebinding-the-iterated-string-walks-the-old-string -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Rebinding `s` inside `for c in s` leaves the loop on the string it started on
+
+The loop holds its own reference to the string it evaluated on entry, so rebinding the variable in
+the body changes what `s` names and not what the loop walks: all 20 clusters of the old string are
+visited.
+
+```maxon
+function main() returns ExitCode
+	var s = "abcdefgh ijklmnop {40 + 2}"
+	var n = 0 as Count
+	var seen = ""
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'each'
+		n = n + 1
+		if n == 2 'swap'
+			s = "z"
+		end 'swap'
+		seen.append("{c}")
+	end 'each'
+	print("{n} {seen} {s}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+20 abcdefgh ijklmnop 42 z
+```
+
+<!-- test: appending-to-the-iterated-string-extends-the-iteration -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Appending to the iterated String extends the walk
+
+A mutating method changes the record the loop walks, and the loop re-reads its length every step,
+so the two bytes appended in the body are visited too.
+
+```maxon
+function main() returns ExitCode
+	var s = "heap string number {40 + 2} here"
+	var n = 0 as Count
+	var seen = ""
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'each'
+		n = n + 1
+		if s.byteLength() < 28 'grow'
+			s.append("!")
+		end 'grow'
+		seen.append("{c}")
+	end 'each'
+	print("{n} {seen} {s}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+28 heap string number 42 here!! heap string number 42 here!!
+```
+
+<!-- test: rebinding-a-module-string-in-body-walks-the-old-string -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### Rebinding a `mutable` String parameter inside a `for` over it
+
+The same rule for a `mutable` parameter: the loop walks the 86-byte string it started on, and `k` totals
+the byte length of every cluster of it.
+
+```maxon
+typealias ByteTally = int(0 to 1000)
+
+function walk(mutates banner String) returns ByteTally
+	banner = "{banner} {40 + 2} and more text to make it heap"
+	var k = 0 as ByteTally
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in banner 'l'
+		banner = "z"
+		k = k + (c.byteLength() as ByteTally)
+	end 'l'
+	return k
+end 'walk'
+
+function main() returns ExitCode
+	var banner = "hello world this is a long string for heap allocation"
+	let k = walk(banner)
+	print("{k} {banner}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+86 z
+```
+
+<!-- test: a-character-array-takes-a-borrowed-literal -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### An `Array with Character` accepts a literal, exactly as an `Array with String` does
+
+A move into durable storage picks its protocol off the element's RECORD, not off its type: a borrowed
+byte record is COPIED into a fresh owned one. Asked as `tagIsText`, a Character element would take the
+aggregate arm and `a.push('é')` would be refused as *"a struct/union has no `clone`"* — on a value whose
+clone is `__str_clone`, and while the identical literal into a struct FIELD is accepted.
+
+```maxon
+typealias CharArray = Array with Character
+
+function build(s String) returns Integer
+	let a = CharArray.create(0)
+	// TODO: character literals are not supported in minimaxon
+	a.push('é')
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in s 'each'
+		a.push(c)
+	end 'each'
+	return a.count()
+end 'build'
+
+function main() returns ExitCode
+	var i = 0 as Count
+	var t = 0 as Integer
+	while i < 200 'rep'
+		t = t + build("héllö")
+		i = i + 1
+	end 'rep'
+	print("{t}\n")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+1200
+```
+
+<!-- test: a-character-array-takes-a-one-byte-literal -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A ONE-BYTE character literal adopts `Character` at an array element too
+
+`push` / `set` / `insert` take whatever the element slot declares, and a one-byte literal must not be a
+different KIND of thing from a wider one. There is no width rule: `'e'` and `'é'` are both a `Character`,
+so `a.push('e')` needs no adoption before the slot's type is compared — and a width rule that made `'e'`
+an `int` would refuse it as *"cannot assign 'int' … of type 'Character'"*, which this case catches.
+
+```maxon
+typealias Count = int(0 to 1000)
+
+typealias CharArray = Array with Character
+
+function build() returns Count
+	let a = CharArray.create(0)
+	// TODO: character literals are not supported in minimaxon
+	a.push('e')
+	// TODO: character literals are not supported in minimaxon
+	a.insert(0, value: 'z')
+	// TODO: character literals are not supported in minimaxon
+	try a.set(1, value: 'q') otherwise panic("test invariant: set OOB")
+	return a.count()
+end 'build'
+
+function main() returns ExitCode
+	print("{build()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2
+```
+
+<!-- test: panic-takes-a-string-not-a-character -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### `panic` takes a string literal, and a Character is not one
+
+The near-twin of `print-takes-a-string-not-a-character`. ⚠ **The two doors ask DIFFERENT questions and
+this case does not pin `tagIsText`** — `print` does, but `panic`'s argument must be a string **literal**, not merely a
+value of string type, because its message is baked into `.rdata` at parse time along with the file and
+line the runtime prints. A `'中'` is a character-literal token, so it is refused at the literal door
+before any type tag is consulted — which is why the message names the rule that actually rejected it.
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	let c = '中'
+	panic(c)
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/character-ownership/panic-takes-a-string-not-a-character.maxon:4:8: 'panic' requires a string literal, but its argument is Character
+```
+
+<!-- test: an-array-literal-element-is-not-a-character -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### An array literal infers no element type from a Character
+
+A type-side site of `tagIsText`, and the one whose wrong answer is SILENT: with
+`tagIsText` answering for a Character, `['é']` infers `Array with String` and stores Characters in it.
+
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let a = ['é', 'ö']
+	print("{a.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/character-ownership/an-array-literal-element-is-not-a-character.maxon:3:11: Unsupported: an array literal element of type 'Character' — a literal's elements are an integer, a float, a bool, a String, a struct, or a boxed union (a bare `[…]` infers the type from the first element)
+```
+
+<!-- test: a-single-byte-literal-adopts-on-the-left-too -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+### The LEFT operand's literal is judged against the RIGHT one
+
+A one-word transposition — the left operand asking its own tag instead of the other side's — leaves every
+other case green: `integerizedOperand` is asked of both operands, each against what the OTHER is, and a
+left operand compared with itself would answer about nothing.
+
+```maxon
+function main() returns ExitCode
+	var n = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "banana" 'scan'
+		// TODO: character literals are not supported in minimaxon
+		if 'a' == c 'hit'
+			n = n + 1
+		end 'hit'
+	end 'scan'
+	var m = 0 as Count
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in "banana" 'scan2'
+		// TODO: character literals are not supported in minimaxon
+		if 'a' != c 'miss'
+			m = m + 1
+		end 'miss'
+	end 'scan2'
+	print("{n} {m}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 3
+```
+
+<!-- test: a-character-literal-receiver-is-not-a-try-block-label -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'A' -->
+### `try 'A'.asciiValue()` is a call, not a block-form `try`
+
+A block LABEL and a character literal are the same `TokenKind.charLiteral`; only grammatical position tells
+them apart. The two forms are NOT disjoint on the token alone: a character literal with methods is a call
+that begins with a charLiteral, and reading this program as a block-form `try` reports **E3059**, *"a
+block-form `try 'label' … end` groups statements and yields no value"* — a diagnostic about a construct it
+does not contain. `charLiteralOpensTryBlockIn`'s disambiguator is the `.`: a block
+label is always followed by a statement, so the lexer emits a `newline` behind it and never a dot.
+
+```maxon
+function main() returns ExitCode
+	let val = try 'A'.asciiValue() otherwise 0
+	print("{val}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+65
+```
+
+<!-- test: a-character-literal-fills-a-character-struct-field -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A character literal at a struct-literal field
+
+`Self{ch: 'e'}` compiles and runs: the literal IS a `Character`, so the field and the value are the same
+type without anything being asked.
+
+```maxon
+type Cell
+	export var ch as Character
+
+	static function create() returns Cell
+		// TODO: character literals are not supported in minimaxon
+		return Self{ch: 'e'}
+	end 'create'
+end 'Cell'
+
+function main() returns ExitCode
+	let c = Cell.create()
+	print("{c.ch}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+e
+```
+
+<!-- test: a-character-binding-is-never-retyped-by-an-int -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### Only a LONE LITERAL converts — a `Character` binding meeting an `int` is a type error
+
+The coercion keys on the operand being written as a character literal, never on the two tags. Without that
+guard `let c = 'a'` followed by `c == 45` would silently re-type the BINDING to 97 — a wrong answer with no
+diagnostic anywhere — because a `let` binds the literal's own SSA value.
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	let c = 'a'
+	if c == 45 'oops'
+		return 1
+	end 'oops'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/character-ownership/a-character-binding-is-never-retyped-by-an-int.maxon:4:7: type mismatch: 'cannot compare Character with int'
+```
+
+<!-- test: a-character-let-in-a-body-holds-a-character -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A `let` holds a character literal of any byte width
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	let dash = '-'
+	// TODO: character literals are not supported in minimaxon
+	let arrow = '→'
+	print("[{dash}] {dash.byteLength()} [{arrow}] {arrow.byteLength()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[-] 1 [→] 3
+```
+
+<!-- test: a-module-level-character-initializer-holds-a-character -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A top-level `let` holds a character as a body's `let` does
+
+A module-scope initializer is the expression a body would write, so a character literal binds a `Character`
+there too, whatever its byte width, the one-byte case included.
+
+```maxon
+// TODO: character literals are not supported in minimaxon
+let DASH = '-'
+
+// TODO: character literals are not supported in minimaxon
+let ARROW = '→'
+
+function main() returns ExitCode
+	print("[{DASH}] {DASH.byteLength()} [{ARROW}] {ARROW.byteLength()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+[-] 1 [→] 3
+```
+
+<!-- test: a-character-range-needs-both-bounds -->
+<!-- skip: character literals are not supported in minimaxon -->
+### A range is a `Character` range only when BOTH bounds are character literals
+
+`for c in 'a' to 'e'` iterates Characters; `for i in 'a' to n` is an INTEGER range starting at 97, because
+one bound is a number and the range is therefore over numbers — the same rule that makes `cp == '-'` a
+comparison of numbers. The element type follows the pair, never either half.
+
+```maxon
+function main() returns ExitCode
+	// TODO: character literals are not supported in minimaxon
+	for c in 'a' to 'e' 'chars'
+		print("{c}")
+	end 'chars'
+	let stop = 99
+	var total = 0 as Codepoint
+	// TODO: character literals are not supported in minimaxon
+	for i in 'a' to stop 'codepoints'
+		total = total + i
+	end 'codepoints'
+	print(" {total}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+abcde 294
+```
+
+<!-- test: a-wide-character-literal-converts-to-its-codepoint -->
+<!-- skip: character literals are not supported in minimaxon -->
+### The conversion is to the CODEPOINT, not to a byte
+
+`'é'` is two bytes and one codepoint, and an integer position wants the codepoint: 233, which is what the
+program compares against. It is what makes the rule a statement about characters rather than about the
+one-byte case.
+
+```maxon
+function main() returns ExitCode
+	var hits = 0 as Count
+	let cp = 233
+	// TODO: character literals are not supported in minimaxon
+	if cp == 'é' 'accent'
+		hits = hits + 1
+	end 'accent'
+	// TODO: character literals are not supported in minimaxon
+	if '中' == 20013 'han'
+		hits = hits + 1
+	end 'han'
+	// TODO: character literals are not supported in minimaxon
+	let shifted = 'é' + 1
+	print("{hits} {shifted}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 234
+```
+
+<!-- test: a-cluster-has-no-integer-reading -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### A multi-codepoint cluster stays a `Character` in an integer position
+
+A ZWJ family emoji is a SEQUENCE of codepoints, so there is no single number to convert it to — answering
+with the FIRST would be a wrong number wearing a conversion's name. The literal stays a `Character` and the
+operator raises its own type error.
+
+```maxon
+function main() returns ExitCode
+	let cp = 128104
+	// TODO: character literals are not supported in minimaxon
+	if cp == '👨‍👩‍👧‍👦' 'family'
+		return 1
+	end 'family'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: specs/character-ownership/a-cluster-has-no-integer-reading.maxon:4:8: type mismatch: 'cannot compare int with Character'
+```
+
+<!-- test: an-ascii-array-literal-is-a-character-array-too -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: character literals are not supported in minimaxon -->
+<!-- positions: moved -->
+### `['a', 'b']` infers the same element type `['é', 'ö']` does
+
+The two literals are one kind of array, and the compiler refuses a `Character` array in both — a one-byte
+literal array is not an `Array with integer`.
+
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: character literals are not supported in minimaxon
+	let a = ['a', 'b']
+	print("{a.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/character-ownership/an-ascii-array-literal-is-a-character-array-too.maxon:3:11: Unsupported: an array literal element of type 'Character' — a literal's elements are an integer, a float, a bool, a String, a struct, or a boxed union (a bare `[…]` infers the type from the first element)
+```

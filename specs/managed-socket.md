@@ -1,0 +1,111 @@
+---
+feature: managed-socket
+status: experimental
+keywords: [socket, tcp, managed, __ManagedSocket, RAII, handle, network]
+category: type-system
+---
+
+# __ManagedSocket
+
+## Documentation
+
+### Overview
+
+`__ManagedSocket` is a compiler builtin type that wraps an OS socket handle with automatic cleanup via a destructor when the last reference goes out of scope.
+
+### Type Structure
+
+`__ManagedSocket` has a single field:
+- `_handle` (int) — The raw OS socket handle
+
+### Static Methods
+
+- `__ManagedSocket.tcpConnect(managed, port, milliseconds:)` — Resolves the hostname and connects a TCP socket. `milliseconds:` is optional; `0` or omitted waits with no deadline. Throws `__ManagedSocketError.resolveFailed` if DNS resolution fails, `connectFailed` if the connection is refused, `timedOut` if the deadline passes first.
+
+### Instance Methods
+
+- `sendFrom(managed, offset, length)` — Sends bytes from managed memory at the given offset. Throws `__ManagedSocketError.bufferOutOfBounds` if `offset + length > capacity`, `sendFailed` on OS error.
+- `recv(managed)` — Receives up to `managed.capacity` bytes. Returns 0 if the peer closed gracefully. Throws `recvFailed` on OS error.
+- `close()` — Explicitly closes the socket handle. Idempotent. Also called automatically via destructor. Does not throw.
+
+## Tests
+
+<!-- test: managed-socket.error-direct-construction -->
+A program outside the library tiers cannot name the type at all, so the construction is refused at the name.
+```maxon
+function main() returns ExitCode
+	let s = __ManagedSocket{_handle: 0}
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3185: <fragment>:3:10: '__ManagedSocket' named outside the library tiers: the raw OS socket handle type is nameable only from a source file under stdlib/ or runtime/ — use 'TcpClient' or 'TcpListener'
+```
+
+<!-- test: managed-socket.error-direct-construction-in-the-library-tier -->
+<!-- tier: stdlib -->
+Library code may name the type, and still cannot build one from a literal: a socket comes only from
+`tcpConnect` or `bindListener`.
+```maxon
+function main() returns ExitCode
+	let s = __ManagedSocket{_handle: 0}
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3072: <fragment>:3:26: '__ManagedSocket' is a compiler builtin type and cannot be constructed directly
+```
+
+<!-- test: managed-socket.connect-bad-host -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
+`panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently
+discarded — and with a payload-carrying error it would leak the box (`exit 101`). E3059 refuses it.
+```maxon
+function main() returns ExitCode
+	let host = "no-such-host-xyz-98765.invalid"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedSocket.tcpConnect(host.toByteArray().managed, port: 80) otherwise (e) 'connErr'
+		match e 'check'
+			resolveFailed then print("resolve failed")
+			default panic("unreachable: tcpConnect reports only resolveFailed or connectFailed")
+		end 'check'
+		return 42
+	end 'connErr'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+```stdout
+resolve failed
+```
+
+<!-- test: managed-socket.connect-refused -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- tier: stdlib -->
+⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
+`panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently
+discarded — and with a payload-carrying error it would leak the box (`exit 101`). E3059 refuses it.
+```maxon
+function main() returns ExitCode
+	let host = "192.0.2.1"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try __ManagedSocket.tcpConnect(host.toByteArray().managed, port: 1) otherwise (e) 'connErr'
+		match e 'check'
+			connectFailed then print("connect failed")
+			default panic("unreachable: tcpConnect reports only resolveFailed or connectFailed")
+		end 'check'
+		return 42
+	end 'connErr'
+	return 0
+end 'main'
+```
+```exitcode
+42
+```
+```stdout
+connect failed
+```

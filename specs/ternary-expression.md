@@ -1,0 +1,2510 @@
+---
+feature: ternary-expression
+status: experimental
+keywords: [ternary, conditional, if, else, inline]
+category: expressions
+---
+
+# Ternary Expression
+
+## Documentation
+
+Ternary expressions provide a concise way to choose between two values based on a condition. The syntax places the true value first, followed by the condition, then the false value:
+
+```text
+<true_value> if <condition> else <false_value>
+```
+
+The condition must be a `bool` expression, and both arms must produce the same type.
+
+**Basic usage:**
+
+```maxon
+function main() returns ExitCode
+	let x = 10 if true else 20
+	return x
+end 'main'
+```
+```exitcode
+10
+```
+
+**With comparisons:**
+
+```maxon
+function main() returns ExitCode
+	let a = 5
+	let b = 3
+	let max = a if a > b else b
+	return max
+end 'main'
+```
+```exitcode
+5
+```
+
+**With strings:**
+
+```maxon
+function main() returns ExitCode
+	let flag = true
+	let status = "Active" if flag else "Offline"
+	print(status)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+Active
+```
+
+**In string interpolation:**
+
+```text
+let msg = "Status: {"Active" if is_online else "Offline"}"
+```
+
+**Chaining:**
+
+Ternary expressions can be chained. The else branch is parsed as a full expression, so chained ternaries associate to the right:
+
+```text
+let x = 1 if a else 2 if b else 3
+// equivalent to: 1 if a else (2 if b else 3)
+```
+
+### Precedence
+
+The ternary operator binds **looser** than all binary operators:
+
+```text
+a + b if cond else c * d
+// equivalent to: (a + b) if cond else (c * d)
+```
+
+### Rules
+
+- The condition must be a `bool` expression
+- Both arms must produce the same type
+- Binds looser than all binary operators
+- Chainable via right-association of the else branch
+
+## Tests
+
+<!-- test: ternary-expression.basic-true -->
+```maxon
+function main() returns ExitCode
+	let x = 10 if true else 20
+	return x
+end 'main'
+```
+```exitcode
+10
+```
+
+<!-- test: ternary-expression.basic-false -->
+```maxon
+function main() returns ExitCode
+	let x = 10 if false else 20
+	return x
+end 'main'
+```
+```exitcode
+20
+```
+
+<!-- test: ternary-expression.with-variable-condition -->
+```maxon
+function main() returns ExitCode
+	let flag = true
+	let x = 1 if flag else 0
+	return x
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.with-comparison -->
+```maxon
+function main() returns ExitCode
+	let a = 5
+	let b = 3
+	let x = 1 if a > b else 0
+	return x
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.with-strings -->
+```maxon
+function main() returns ExitCode
+	let flag = true
+	let s = "yes" if flag else "no"
+	print(s)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+yes
+```
+
+<!-- test: ternary-expression.string-interp-expression -->
+```maxon
+function main() returns ExitCode
+	let x = 5
+	let msg = "value: {x if x > 0 else 0}"
+	print(msg)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+value: 5
+```
+
+<!-- test: ternary-expression.string-interp-nested-strings -->
+```maxon
+function main() returns ExitCode
+	let flag = true
+	let msg = "status: {"on" if flag else "off"}"
+	print(msg)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+status: on
+```
+
+<!-- test: ternary-expression.complex-expressions -->
+```maxon
+function main() returns ExitCode
+	let a = 3
+	let b = 2
+	let cond = true
+	let x = a + b if cond else a * b
+	return x
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: ternary-expression.chained -->
+```maxon
+function main() returns ExitCode
+	let a = false
+	let b = true
+	let x = 1 if a else 2 if b else 3
+	return x
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: ternary-expression.in-return -->
+```maxon
+function main() returns ExitCode
+	let done = true
+	return 1 if done else 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.with-floats -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x = 1.5 if true else 2.5
+	return trunc(x)
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.mixed-int-float-promotes -->
+<!-- skip: float literals are not supported in minimaxon -->
+The two branches cross register classes — a `float` `1.0` and an `int` `2` — so the integer branch
+is promoted to float (`cvtsi2sd`) and the result is uniformly float. `trunc` reads the
+float result back to an int for the exit code. With the condition
+true the float branch is selected, so `trunc(1.0)` is 1.
+```maxon
+function main() returns ExitCode
+	let c = true
+	// TODO: float literals are not supported in minimaxon
+	let x = 1.0 if c else 2
+	return trunc(x)
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.with-bools -->
+```maxon
+function main() returns ExitCode
+	let x = true if true else false
+	let result = 1 if x else 0
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.false-path-strings -->
+```maxon
+function main() returns ExitCode
+	let flag = false
+	let s = "yes" if flag else "no"
+	print(s)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+no
+```
+
+<!-- test: ternary-expression.nested-in-loop-body -->
+A ternary in a `let` binding inside a loop body. The `while`'s carried-variable
+token scan (`blockStatementEndIndex`/`opensBlockAt`) walks this body BEFORE it is
+parsed, and must NOT count the ternary's `if`/`else` as block openers — they open
+no `end`, so counting them over-runs the loop's extent and trips the drift guard.
+```maxon
+function main() returns ExitCode
+	var total = 0 as FullRangeInt
+	var i = 0 as FullRangeInt
+	while i < 3 'l'
+		let x = 5 if i > 0 else 9
+		total = total + x
+		i = i + 1
+	end 'l'
+	return total
+end 'main'
+```
+```exitcode
+19
+```
+
+<!-- test: ternary-expression.nested-in-if-body -->
+The same token-scan hazard for an `if` body rather than a loop body.
+```maxon
+function main() returns ExitCode
+	var total = 0 as FullRangeInt
+	let c = true
+	if c 'g'
+		let x = 5 if c else 9
+		total = total + x
+	end 'g'
+	return total
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: ternary-expression.in-if-condition -->
+A ternary inside an `if` CONDITION. The condition is parsed as a value expression,
+and the enclosing `if`'s token scan runs over the ternary's `if`/`else` in the
+condition — which must not be mistaken for the statement's own block structure.
+```maxon
+function main() returns ExitCode
+	let c = true
+	if (5 if c else 3) > 4 'g'
+		return 1
+	end 'g'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.in-while-condition -->
+A ternary inside a `while` CONDITION.
+```maxon
+function main() returns ExitCode
+	var i = 0 as FullRangeInt
+	let lim = true
+	while i < (3 if lim else 1) 'l'
+		i = i + 1
+	end 'l'
+	return i
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: ternary-expression.as-match-scrutinee -->
+A ternary as a `match` SCRUTINEE — the same token-scan hazard for the `match`
+statement's extent.
+```maxon
+function main() returns ExitCode
+	let c = true
+	match (1 if c else 2) 'm'
+		1 then return 11
+		default then return 22
+	end 'm'
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: ternary-expression.owned-arm-moved-read-in-condition -->
+The TRUE arm gives an owned binding (moving it out), while the CONDITION — which
+runs first but parses second — reads that same binding LIVE. The move state the
+true arm left must be rewound before the condition parses, or the condition falsely
+sees the binding as already moved (a spurious use-after-move). Selecting the true
+arm here, its value transfers exactly once with no leak.
+
+⚠ **`k` IS A `var`, AND THE KEYWORD IS THE WHOLE CASE.** A ternary arm reading an
+IMMUTABLE binding CO-OWNS it and poisons nothing, so with `let k`
+there is no move for the rewind to rewind and this case would pass without ever
+reaching its own subject. Only a MUTABLE source moves, so only a `var` puts a
+poison between the arm's parse and the condition's.
+```maxon
+function hasContent(s String) returns bool
+	return s.byteLength() > 0
+end 'hasContent'
+
+function main() returns ExitCode
+	let k = "key{1}"
+	let s = k if hasContent(k) else "fallback"
+	print(s)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+key1
+```
+
+<!-- test: ternary-expression.in-extension-method-before-sibling -->
+<!-- skip: extension blocks are not supported in minimaxon -->
+
+Regression: a postfix ternary on a `let` binding inside an extension method
+must not confuse the parser's extension-block scanner. The scanner walks
+tokens at depth 1 to find function declarations; an inline `if ... else`
+must not be counted as a block opener, otherwise sibling methods declared
+later in the same extension block fail to register and become "Undefined
+method" at every call site.
+
+```maxon
+typealias Small = int(0 to 1000)
+
+interface Bounded
+	function lo() returns Small
+	function hi() returns Small
+end 'Bounded'
+
+// TODO: extension blocks are not supported in minimaxon
+extension Bounded
+	function pickSmaller() returns Small
+		let smaller = self.lo() if self.lo() < self.hi() else self.hi()
+		return smaller
+	end 'pickSmaller'
+	function describe() returns Small
+		return self.hi() - self.lo()
+	end 'describe'
+end 'Bounded'
+
+type Pair implements Bounded
+	let l as Small
+	let h as Small
+
+	function lo() returns Small
+		return l
+	end 'lo'
+
+	function hi() returns Small
+		return h
+	end 'hi'
+
+	static function create(l Small, h Small) returns Self
+		return Self{l: l, h: h}
+	end 'create'
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.create(7, h: 12)
+	let s = p.pickSmaller()
+	let d = p.describe()
+	return s + d
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: ternary-expression.error.unused-loopvar-before-ternary -->
+<!-- positions: moved -->
+
+Regression: a postfix ternary appearing downstream of an inner-loop
+`try ... otherwise` (which allocates a `try_N.merge` block) inside an
+outer loop whose induction variable is **unused** must still surface the
+unused-variable diagnostic (E3012), not crash. A parser that left the inner
+`try_N.merge` block without a terminator in this exact CFG shape would trip
+`assertAllBlocksTerminated` before E3012 could be reported. The block-terminator wiring must remain well-formed regardless
+of how many `if ... else` merge blocks are allocated later in the same
+function body.
+
+```maxon
+typealias Idx = int(i64.min to i64.max)
+
+typealias IdxList = List with Idx
+
+function splice(lst IdxList, anchor Idx, after bool)
+	for outer in 0 upto 2 'eachBlock'
+		var insertPos = -1 as Idx
+		for posIdx in 0 upto lst.count() 'eachOpRef'
+			let ref = try lst.get(posIdx) otherwise panic("oob")
+			if ref == anchor 'foundAnchor'
+				insertPos = posIdx as Idx
+				break
+			end 'foundAnchor'
+		end 'eachOpRef'
+		if insertPos >= 0 'doInsert'
+			let target = insertPos + 1 if after else insertPos
+			try lst.insert(target as ElementIndex, value: 99) otherwise panic("insert oob")
+			return
+		end 'doInsert'
+	end 'eachBlock'
+	panic("not found")
+end 'splice'
+
+function main() returns ExitCode
+	let a = IdxList.create()
+	a.append(10)
+	a.append(20)
+	a.append(30)
+	splice(a, anchor: 20, after: false)
+	print("pos1={try a.get(1) otherwise -1} pos2={try a.get(2) otherwise -1}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/ternary-expression/ternary-expression.error.unused-loopvar-before-ternary.maxon:6:6: unused variable: 'outer'
+```
+
+<!-- test: ternary-expression.error.type-mismatch -->
+```maxon
+function main() returns ExitCode
+	let x = 10 if true else "hello"
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2028: specs/ternary-expression/ternary-expression.error.type-mismatch.maxon:3:13: ternary expression type mismatch: true branch is 'int' but false branch is 'String'
+```
+
+<!-- test: ternary-expression.error.non-bool-condition -->
+```maxon
+function main() returns ExitCode
+	let x = 10 if 42 else 20
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2028: specs/ternary-expression/ternary-expression.error.non-bool-condition.maxon:3:13: ternary expression requires a bool condition, got 'int'
+```
+
+<!-- test: ternary-expression.error.struct-type-mismatch -->
+
+Both arms are managed (struct) types, so a coarse Bool/Integer/Float/Struct
+kind check sees them as equal. The arm-match check must compare the concrete
+type names, otherwise `Cat if c else Dog` slips through and crashes in lowering
+when the merged result is read with the wrong field set.
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Cat
+	export var legs as Integer
+
+	static function create() returns Self
+		return Self{legs: 4}
+	end 'create'
+end 'Cat'
+
+type Dog
+	export var tails as Integer
+
+	static function create() returns Self
+		return Self{tails: 1}
+	end 'create'
+end 'Dog'
+
+function main() returns ExitCode
+	let flag = true
+	let x = Cat.create() if flag else Dog.create()
+	return x.legs
+end 'main'
+```
+```maxoncstderr
+error E2028: specs/ternary-expression/ternary-expression.error.struct-type-mismatch.maxon:22:23: ternary expression type mismatch: true branch is 'Cat' but false branch is 'Dog'
+```
+
+<!-- test: ternary-expression.logical-op-condition -->
+A `bool or bool` (or `and`/`xor`) expression is a valid ternary condition. The
+`and`/`or`/`xor` operators are dual-purpose — bitwise on ints, logical on bools
+— so their result type must follow the operand kind: bool operands yield a bool
+result, not an integer. When the operand types aren't known until after type
+resolution (here `f.a` / `f.b` are field loads), the result stays unresolved and
+the condition-is-bool check defers to TypeResolution rather than wrongly reading
+as `Integer` and tripping E2028. This mirrors the compiler's own
+`useStringLiteralBacking = isStringBacked or isCharBacked` used in a ternary.
+```maxon
+type Flags
+	export let a as bool
+	export let b as bool
+
+	static function make(a bool, b bool) returns Flags
+		return Flags{a: a, b: b}
+	end 'make'
+end 'Flags'
+
+function pick(f Flags) returns ExitCode
+	let either = f.a or f.b
+	let both = f.a and f.b
+	let one = 4 if either else 0
+	let two = 1 if both else 0
+	return (one + two) as ExitCode
+end 'pick'
+
+function main() returns ExitCode
+	return pick(Flags.make(true, b: false))
+end 'main'
+```
+```exitcode
+4
+```
+
+### Ownership across the two arms
+
+A ternary is a **merge of two values whose ownership can differ**: one arm may
+yield a value the expression only *borrows* (a field read, a variable, a
+parameter), while the other yields a **freshly-owned** one returned by a call.
+The merged result carries a single obligation, so the merge must reconcile the
+two rather than adopt one arm's and be wrong on the other.
+
+Only the SELECTED arm runs (see *Only the selected arm is evaluated* below), so the
+rule is about what the arm that DID run owes the result. When both arms yield owned
+values the result is uniformly owned, by one of two routes: an owned TEMPORARY hands
+over the one reference it already holds, while a value an IMMUTABLE binding still owns
+is CO-OWNED — the arm's edge takes a SECOND reference and the binding keeps its own, so
+it stays readable after the merge. A **mutable** source moves. When
+one arm borrows a **String**, the borrow is promoted to an owned copy so the result is
+still uniformly owned.
+
+A borrowed **non-text aggregate** (a struct or a boxed union) has no COPY promotion, and it
+does not need one: it is CO-OWNED instead, by an `__mm_retain` incref of the shared box —
+the same promotion a `var q = p` binding of a borrowed struct parameter gets, and the same
+one `return <borrowed aggregate>` gets. Left unpromoted the borrowed box really would be
+freed by the merged result AND by the borrow's real owner: a double free, and a leak
+(exit 101) whenever the borrowed arm is the one taken. The incref is what balances it —
+the result phi's single drop releases a real second reference — so the construct is
+CORRECT on either arm rather than refused on both, which is what the parser needs given
+that it cannot know which arm a runtime condition will pick.
+
+Every ownership test below exits `0` only when every allocation is freed (the runtime's
+leak check substitutes exit code `101` when any allocation is still live at exit), so the
+borrowed-arm cases pin the absence of the leak by RUNNING rather than by rejecting.
+
+<!-- test: ternary-expression.ownership.borrowed-arm-selected -->
+### A borrowed-aggregate arm merged with an owned arm is CO-OWNED, not leaked
+One arm gives a BORROWED boxed union (`e.kind`, a field read); the other gives an OWNED
+one (`remapKind(e.kind)`, a fresh call result). The merged result is owned, so the borrowed
+arm is increfed on its own edge: the result's drop releases that second reference and `e`
+still owns the box it always owned. Unpromoted this would leak (exit 101) with the borrowed arm
+taken, which is the run this case pins — the exit code is the assertion.
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+type Entry
+	export var kind as Kind
+
+	static function create(kind Kind) returns Self
+		return Self{kind: kind}
+	end 'create'
+end 'Entry'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let e = Entry.create(Kind.value(3))
+	let identity = true
+	// `e.kind` is BORROWED; `remapKind(e.kind)` is FRESHLY OWNED.
+	let n = record(e.kind if identity else remapKind(e.kind))
+	print("{n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: ternary-expression.ownership.owned-arm-selected -->
+### The SAME construct with the condition inverted is balanced identically
+The only change from the case above is `identity = false`, which at runtime takes the OWNED
+arm and never touches the borrowed one. The promotion is a PARSE-time property of the
+construct, not of the runtime path — the parser cannot know the condition, so it increfs the
+borrowed edge whichever arm the condition would pick — and the incref sits on that edge, so
+the untaken arm costs nothing. (This spelling never takes the borrowed arm, so an unbalanced merge
+would not leak here. It is the CONTROL, and it must keep exiting `0` and printing the
+OWNED arm's answer, which is how a promotion wrongly hoisted out of the arm would show up.)
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+type Entry
+	export var kind as Kind
+
+	static function create(kind Kind) returns Self
+		return Self{kind: kind}
+	end 'create'
+end 'Entry'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let e = Entry.create(Kind.value(3))
+	let identity = false
+	let n = record(e.kind if identity else remapKind(e.kind))
+	print("{n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+4
+```
+
+<!-- test: ternary-expression.ownership.owned-arm-first -->
+### The owned arm may be either arm — here the TRUE arm is the fresh one
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let k = Kind.value(3)
+	let remapped = false
+	let n = record(remapKind(k) if remapped else k)
+	print("{n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: ternary-expression.ownership.both-arms-owned -->
+### Both arms freshly owned — the arm not selected is still released
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let k = Kind.value(3)
+	let c = true
+	let n = record(remapKind(k) if c else remapKind(k))
+	print("{n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+4
+```
+
+<!-- test: ternary-expression.ownership.chained-arms -->
+### A chained ternary co-owns at the outer merge that borrows an aggregate
+The chain right-associates to `e.kind if a else (remapKind(e.kind) if b else remapKind(e.kind))`.
+The inner ternary merges two OWNED arms; the OUTER merge pairs the borrowed `e.kind` with the
+inner's owned result, so the borrowed edge is increfed at the outer merge and the inner result
+is moved in at its own. Two merges, one rule, and the box is freed exactly once.
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+type Entry
+	export var kind as Kind
+
+	static function create(kind Kind) returns Self
+		return Self{kind: kind}
+	end 'create'
+end 'Entry'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let e = Entry.create(Kind.value(3))
+	let a = true
+	let b = false
+	let n = record(e.kind if a else remapKind(e.kind) if b else remapKind(e.kind))
+	print("{n}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+<!-- test: ternary-expression.ownership.immutable-binding-arms-are-co-owned -->
+### An arm reading an IMMUTABLE binding CO-OWNS it — the binding stays readable
+⭐⭐ **THE MERGE ASKS THE SAME QUESTION `try … otherwise <binding>` ANSWERS.** An arm whose value IS an immutable binding's own value hands the phi a reference
+the binding still owes a drop for, so the phi must take a SECOND one — exactly what
+`Parser.transferFallbackToPhi` does on a value `try`'s error edge, and exactly what a durable sink
+does (`Parser.storeOwnedValueIntoDurableSink`). Poisoning the source instead would make `let` behave
+one way at a rebind (an ALIAS, both names live) and the opposite way one construct over, refusing this
+pair of ternaries — each reading both bindings, in opposite order — E3102 on the second line while the
+identical `let receiversOwn = programsOwn` is accepted. Both bindings are read AFTER both
+merges here, and each box is released exactly once, so the leak gate is the assertion.
+```maxon
+function describe(spelling String, first bool) returns String
+	let programsOwn = "the `type {spelling}` this program declares"
+	let librarys = "the `{spelling}` the standard library declares"
+	let receiversOwn = programsOwn if first else librarys
+	let theOther = librarys if first else programsOwn
+	return "{receiversOwn} / {theOther} / {programsOwn}"
+end 'describe'
+
+function main() returns ExitCode
+	print(describe("Array", first: true))
+	print("\n")
+	print(describe("Array", first: false))
+	print("\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+the `type Array` this program declares / the `Array` the standard library declares / the `type Array` this program declares
+the `Array` the standard library declares / the `type Array` this program declares / the `type Array` this program declares
+```
+
+<!-- test: ternary-expression.ownership.immutable-arm-merged-with-a-fresh-temp -->
+### One immutable-binding arm, one FRESH arm — one edge increfs, the other transfers
+The two edges owe the phi its single reference by different routes: the binding's edge takes a
+SECOND reference (the binding keeps its own and drops it at scope exit), while the fresh
+interpolation's edge hands over the one it already holds. Getting either backwards is visible
+here — increfing the temp leaks and moving the binding double-frees — and the binding is read
+after the merge on both runs, so the co-owning half is exercised whichever arm the condition picks.
+```maxon
+function pick(tag String, fresh bool) returns String
+	let held = "held {tag} padded out long enough to be a real heap allocation"
+	let chosen = "fresh {tag} padded out long enough to be a real heap allocation" if fresh else held
+	return "{chosen} | {held}"
+end 'pick'
+
+function main() returns ExitCode
+	print(pick("a", fresh: true))
+	print("\n")
+	print(pick("b", fresh: false))
+	print("\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+fresh a padded out long enough to be a real heap allocation | held a padded out long enough to be a real heap allocation
+held b padded out long enough to be a real heap allocation | held b padded out long enough to be a real heap allocation
+```
+
+<!-- test: ternary-expression.ownership.immutable-arm-inside-a-loop -->
+### The co-owning arm is not held to a LOOP refusal that only a move earns
+⭐ **A REFUSAL WHOSE PREMISE IS THE MOVE.** `poisonOwningBinding` refuses a move of a binding declared
+outside the innermost loop — the back edge would re-move it next iteration and a `break` would leave it
+live on the normal exit, neither of which the join model reaches. An arm that CO-OWNS moves nothing, so
+none of that reasoning applies: the incref is taken on the arm's edge inside the loop and the phi's drop
+falls inside the loop too, balanced per iteration, and `base` keeps its one scope-exit drop. The `var`
+spelling of the same program is refused by that E2015; the refusal does not stand over a program that
+moves nothing. Three iterations, one of them taking the fresh arm.
+```maxon
+function main() returns ExitCode
+	let base = "base {1} padded out long enough to be a real heap allocation"
+	var i = 0 as FullRangeInt
+	var total = 0 as BytePos
+	while i < 3 'l'
+		let pick = i > 0
+		let chosen = base if pick else "alt {2} padded out long enough to be a real heap allocation"
+		total = total + chosen.byteLength()
+		i = i + 1
+	end 'l'
+	print("{total}|{base}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+173|base 1 padded out long enough to be a real heap allocation
+```
+
+<!-- test: ternary-expression.error.mutable-binding-arm-still-moves -->
+### A MUTABLE binding's arm still MOVES — the control for the case above
+⚠ **THE BOUNDARY, NOT AN OVERSIGHT.** Co-ownership rests on neither name being writable:
+a `var` source can be written through after the merge, so a second name for its value could watch
+it change, and the arm therefore MOVES. Without this case
+the co-owning arm above could be widened to every source and nothing in the suite would notice.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function build(x Integer) returns String
+	return "v{x} padded out long enough to be a real heap allocation"
+end 'build'
+
+function main() returns ExitCode
+	var t = build(1)
+	let c = true
+	let u = t if c else build(2)
+	print(u)
+	print(t)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:13:8: use of moved value 't': its ownership moved to another binding at an earlier bind or assignment
+```
+
+<!-- test: ternary-expression.error.owned-string-arm-undeclared-call -->
+<!-- positions: moved -->
+### An owned-String arm merged with an undeclared-call arm still reports the call error
+The owned interpolation arm makes the result phi owned, so the false arm is routed through the
+same borrowed-give promotion. Its value is UNRESOLVED (a call no file declares), which is not a
+struct/union to refuse and not a String to promote — so the merge must DEFER, not crash: the
+undeclared call is a `E3004` from semantic analysis, and a `E3004` program must surface that, never
+a parser panic. (Regression guard: refusing the borrowed-aggregate merge must not swallow this arm.)
+```maxon
+function pick(x Integer, c bool) returns String
+	return "{x}" if c else undefinedThing()
+end 'pick'
+
+function main() returns ExitCode
+	let s = pick(5, c: true)
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```maxoncstderr
+error E3004: specs/ternary-expression/ternary-expression.error.owned-string-arm-undeclared-call.maxon:3:25: call to undefined function 'undefinedThing'
+```
+
+<!-- test: ternary-expression.ownership.result-stored-in-container -->
+### The merged result can be stored, and is owned exactly once when it is
+The shape is a table fold choosing between an already-interned entry and a
+freshly remapped one, then storing the winner.
+```maxon
+typealias Id = int(0 to 1000)
+
+union Kind
+	none
+	value(inner Id)
+end 'Kind'
+
+typealias KindArray = Array with Kind
+
+type Entry
+	export var kind as Kind
+
+	static function create(kind Kind) returns Self
+		return Self{kind: kind}
+	end 'create'
+end 'Entry'
+
+function remapKind(k Kind) returns Kind
+	return match k 'r'
+		none gives Kind.none
+		value(inner) gives Kind.value(inner + 1)
+	end 'r'
+end 'remapKind'
+
+function record(k Kind) returns Id
+	return match k 'r'
+		none gives 0
+		value(inner) gives inner
+	end 'r'
+end 'record'
+
+function main() returns ExitCode
+	let e = Entry.create(Kind.value(3))
+	let out = KindArray.create(0)
+	let identity = true
+	out.push(e.kind if identity else remapKind(e.kind))
+	print("{record(try out.get(0) otherwise Kind.none)}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3
+```
+
+### Only the selected arm is evaluated
+
+A ternary **chooses before it evaluates**. The arm the condition does not select is never
+run — not its calls, not its arithmetic, not its allocations. This is the whole point of the
+form: it is what lets a ternary act as a *guard*.
+
+```text
+return small if fits else (big as Small)   // never range-check-panics when it doesn't fit
+```
+
+An eagerly-evaluated ternary computes the same answer as a lazy one whenever both arms are
+total, so no value test can tell them apart. The evidence therefore has to be **observational**:
+a side effect that provably did not happen. Two oracles are used below — a counter in a global
+(exact), and an out-of-range cast, which range-check-panics the process if it is ever reached.
+(Integer `/` cannot serve as this oracle: a possibly-zero divide is a throwing operation, so
+it cannot appear bare in an arm — it would need a `try`, which would swallow the very fault the
+oracle relies on.)
+
+<!-- test: ternary-expression.elision.guard-actually-guards -->
+### A guarded out-of-range cast does not run
+The idiomatic use of the form. If the unselected arm ran, the out-of-range cast would die with
+a range-check panic instead of answering.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Small = int(0 to 10)
+
+function clampOrGuard(useDefault bool, big Integer) returns Integer
+	// `big as Small` range-check-panics for big > 10; it sits in the arm that
+	// `useDefault` does NOT select, so it must never run.
+	return 5 if useDefault else (big as Small)
+end 'clampOrGuard'
+
+function main() returns ExitCode
+	let guarded = clampOrGuard(true, big: 1000) // the cast is in the arm NOT selected
+	let direct = clampOrGuard(false, big: 7)
+	return (guarded + direct) as ExitCode
+end 'main'
+```
+```exitcode
+12
+```
+
+<!-- test: ternary-expression.elision.false-arm-not-evaluated -->
+### The false arm is not evaluated when the condition is true
+```maxon
+function track(result Integer, mutates count Integer) returns Integer
+	count = count + 1
+	return result
+end 'track'
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var sideEffectCount = 0 as Integer
+	let x = 7 if true else track(9, count: sideEffectCount)
+	if x != 7 'v'
+		return 99
+	end 'v'
+	return sideEffectCount
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: ternary-expression.elision.true-arm-not-evaluated -->
+### The true arm is not evaluated when the condition is false
+```maxon
+function track(result Integer, mutates count Integer) returns Integer
+	count = count + 1
+	return result
+end 'track'
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var sideEffectCount = 0 as Integer
+	let x = track(9, count: sideEffectCount) if false else 7
+	if x != 7 'v'
+		return 99
+	end 'v'
+	return sideEffectCount
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: ternary-expression.elision.selected-arm-is-evaluated-exactly-once -->
+### The selected arm IS evaluated — exactly once, not zero times and not twice
+The counterpart direction: elision must not become elimination.
+```maxon
+function track(result Integer, mutates count Integer) returns Integer
+	count = count + 1
+	return result
+end 'track'
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var sideEffectCount = 0 as Integer
+	let x = track(4, count: sideEffectCount) if true else track(9, count: sideEffectCount)
+	if x != 4 'v'
+		return 99
+	end 'v'
+	return sideEffectCount
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.elision.chained-evaluates-only-the-winner -->
+### In a chain, every arm but the winner is skipped
+```maxon
+function track(result Integer, mutates count Integer) returns Integer
+	count = count + 1
+	return result
+end 'track'
+
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	var sideEffectCount = 0 as Integer
+	// Right-associates: track(1) if false else (track(2) if true else track(3))
+	let x = track(1, count: sideEffectCount) if false else track(2, count: sideEffectCount) if true else track(3, count: sideEffectCount)
+	if x != 2 'v'
+		return 99
+	end 'v'
+	return sideEffectCount
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: ternary-expression.elision.condition-always-evaluated -->
+### The condition itself is always evaluated, exactly once
+```maxon
+function pick(mutates count FullRangeInt) returns bool
+	count = count + 1
+	return false
+end 'pick'
+
+function main() returns ExitCode
+	var sideEffectCount = 0 as FullRangeInt
+	let x = 1 if pick(sideEffectCount) else 2
+	if x != 2 'v'
+		return 99
+	end 'v'
+	return sideEffectCount
+end 'main'
+```
+```exitcode
+1
+```
+
+### The arms move, and every fact about them must move with them
+
+The true arm is parsed before anything reveals it is an arm — the `if` only arrives after it —
+so it is emitted into the unconditional path and then **relocated** into the true branch. That
+relocation is the source of two whole classes of defect, and both are questions the parser must
+answer about the arm rather than about the tokens around it.
+
+**Where a value LIVES.** The parser caches, per variable, the SSA value it last read and the
+block that value was defined in; a later read in that same block reuses it instead of reloading.
+Relocate the defining op and that cache names a block the value has left. The repair must key on
+**value provenance** — *which values did the ops that moved define?* — because the only other
+available question, *which variable names are new since the arm began?*, is a different one: a
+self-field alias is a **pre-existing name whose value is rewritten in place** when a call
+invalidates it, so name-novelty cannot see it. Keyed on names, `n if n > threshold else base` in a method that
+has just called another method would emit a comparison in the entry block against a field load that
+has moved into the true arm.
+
+**What a value CARRIES.** The merged result is a new temp holding a copy of the winning arm, so
+every fact the arms carried is either merged into it or dropped — and a fact that is silently
+neither is a miscompile. The type and the concrete struct name are merged and the arms must
+agree on them. **A function signature is merged the same way**: it lives on the variable, not on
+the `var_ref` the merge is read back through, so without merging it there is nothing left to
+recover it from. A capture **environment** is the one fact the merge cannot carry at all, and
+that is not a silent drop either — see `first-class-functions.md`.
+
+<!-- test: ternary-expression.self-field-in-condition-and-arm -->
+### A self-field read in BOTH the condition and an arm reloads in each
+`pick` calls another method first, which invalidates the cached `self.n`. The arm's reload is
+relocated into the true branch; the condition, which runs unconditionally, must then get a
+reload of its own rather than reusing the one that moved. Pinning the ANSWER, not just that it
+compiles: a condition that reused the moved reload would answer 0 here, or crash.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Counter
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function bump() returns Integer
+		return self.n + 1
+	end 'bump'
+
+	function pick(threshold Integer) returns Integer
+		let base = self.bump()
+		return n if n > threshold else base
+	end 'pick'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create(5)
+	return c.pick(1)
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: ternary-expression.self-field-in-condition-and-arm-false-path -->
+### The same shape, taking the false arm
+The false arm's value must win when the condition is false, which proves the condition's own
+reload is a real read of the field and not a constant that happened to agree.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Counter
+	export var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function bump() returns Integer
+		return self.n + 1
+	end 'bump'
+
+	function pick(threshold Integer) returns Integer
+		let base = self.bump()
+		return n if n > threshold else base
+	end 'pick'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create(5)
+	return c.pick(99)
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: ternary-expression.function-arms -->
+### Both arms are functions, and the result is callable
+The merged result's SIGNATURE has to survive the merge. It is read back through a `var_ref`,
+which carries only a kind, so if the ternary does not put the signature on the merged binding
+nothing downstream can recover it and `let h = ...` fails to compile.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function dbl(n Integer) returns Integer
+	return n * 2
+end 'dbl'
+
+function trp(n Integer) returns Integer
+	return n * 3
+end 'trp'
+
+function main() returns ExitCode
+	let c = 1
+	let h = dbl if c > 0 else trp
+	return h(21)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: ternary-expression.function-arms-called-directly -->
+### A parenthesized ternary of functions is callable in place
+The same signature, reaching the other consumer: the `(` suffix that turns a function VALUE
+into a call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function dbl(n Integer) returns Integer
+	return n * 2
+end 'dbl'
+
+function trp(n Integer) returns Integer
+	return n * 3
+end 'trp'
+
+function main() returns ExitCode
+	let c = 0
+	return (dbl if c > 0 else trp)(14)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: ternary-expression.error.function-arm-signature-mismatch -->
+### The two function arms must have the SAME signature
+The merged slot holds one signature and either arm may end up in it, so a caller checked
+against one arm's signature could be handed the other's.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function unary(n Integer) returns Integer
+	return n * 2
+end 'unary'
+
+function binary(a Integer, b Integer) returns Integer
+	return a + b
+end 'binary'
+
+function main() returns ExitCode
+	let c = 1
+	let h = unary if c > 0 else binary
+	return h(21)
+end 'main'
+```
+```maxoncstderr
+error E2028: specs/ternary-expression/ternary-expression.error.function-arm-signature-mismatch.maxon:14:16: ternary expression type mismatch: true branch is 'fn(Integer) returns Integer' but false branch is 'fn(Integer, Integer) returns Integer'
+```
+
+<!-- test: ternary-expression.error.function-arm-signature-mismatch-forward-ref -->
+### Forward-referenced function arms are checked whole-program
+The helpers are declared BELOW `main`, so at parse the arms' parameter types are not yet in any
+registry the parser holds — signature agreement cannot be checked there. It is drained WHOLE-PROGRAM,
+after every file's signatures are merged, so a forward-referenced mismatch is caught exactly as a
+same-file backward one (and a cross-file one) is. Without this the merge would silently adopt the first
+arm's signature and `h(21)` would run `binary` with one argument, reading an undefined second.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	let c = 1
+	let h = unary if c > 0 else binary
+	return h(21)
+end 'main'
+
+function unary(n Integer) returns Integer
+	return n * 2
+end 'unary'
+
+function binary(a Integer, b Integer) returns Integer
+	return a + b
+end 'binary'
+```
+```maxoncstderr
+error E2028: specs/ternary-expression/ternary-expression.error.function-arm-signature-mismatch-forward-ref.maxon:6:16: ternary expression type mismatch: true branch is 'fn(Integer) returns Integer' but false branch is 'fn(Integer, Integer) returns Integer'
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-reads -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by the TRUE arm
+The condition runs first but parses second, so the true arm's read of `u` is parsed before the condition's
+call hands `u` to `idUT`, which keeps it. The refusal is the one the same condition hoisted into a `let` earns
+in `error.condition-keeps-then-arm-reads-hoisted`: the read of a value a call kept is a use after the move
+whichever way the source spells the order.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = (u if lg(peekUT(idUT(u))) != 0 else UT.none)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:11: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-reads-hoisted -->
+<!-- positions: moved -->
+### The hoisted control: the keep is made before the conditional
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let t = lg(peekUT(idUT(u)))
+	let c = (u if t != 0 else UT.none)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:35:11: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-moves-then-arm-reads -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+### A move made in the CONDITION is seen by the TRUE arm
+The condition hands `t` to a closure, which owns what it captures, and the true arm reads `t` after it.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Num
+
+function run(f Thunk) returns Num
+	return f()
+end 'run'
+
+function main() returns ExitCode
+	var t = "key{1} padded out long enough to be a real heap allocation"
+	// TODO: closures are not supported in minimaxon
+	let r = t if run(function() gives t.byteLength()) > 0 else "fallback"
+	t = "again"
+	print(r)
+	print(t)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:12:10: use of moved value 't': its ownership moved to the closure that captures it
+```
+
+<!-- test: ternary-expression.error.condition-moves-then-arm-reads-hoisted -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+### The hoisted control: the move is made before the conditional
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Num
+
+function run(f Thunk) returns Num
+	return f()
+end 'run'
+
+function main() returns ExitCode
+	var t = "key{1} padded out long enough to be a real heap allocation"
+	// TODO: closures are not supported in minimaxon
+	let n = run(function() gives t.byteLength())
+	let r = t if n > 0 else "fallback"
+	t = "again"
+	print(r)
+	print(t)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:13:10: use of moved value 't': its ownership moved to the closure that captures it
+```
+
+<!-- test: ternary-expression.arm-keeps-then-condition-reads -->
+### A keep made in the TRUE arm is not seen by the CONDITION
+The condition runs before the arm at run time, so its read of `u` precedes the keep the arm makes, whatever
+order the two are parsed in.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = (idUT(u) if lg(peekUT(u)) != 0 else UT.none)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: ternary-expression.error.outer-condition-keeps-inner-arm-reads -->
+<!-- positions: moved -->
+### A keep in an OUTER condition is seen by a read in a nested conditional's arm
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = ((u if lg(1) != 0 else UT.none) if lg(peekUT(idUT(u))) != 0 else UT.none)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:12: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.inner-condition-keeps-inner-arm-reads -->
+<!-- positions: moved -->
+### A keep in a nested conditional's own condition is seen by that conditional's true arm
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	let c = ((u if lg(peekUT(idUT(u))) != 0 else UT.none) if lg(1) != 0 else UT.none)
+	_ = peekUT(c)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:12: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-closure-captures -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a closure the TRUE arm builds over the kept value
+The closure literal captures `u` by value, which is a read of `u`; the condition's call keeps `u` first.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(1))
+	// TODO: closures are not supported in minimaxon
+	let f = (function() gives peekUT(u)) if lg(peekUT(idUT(u))) != 0 else (function() gives lg(0))
+	return f()
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:34:35: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-field-read -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a field read in the TRUE arm
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekTk(x Tk) returns Num
+	return x.n
+end 'peekTk'
+
+function idTk(x Tk) returns Tk
+	return x
+end 'idTk'
+
+function main() returns ExitCode
+	let u = Tk.create(1)
+	let r = u.n if lg(peekTk(idTk(u))) != 0 else 0
+	return r
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:26:10: use of moved value 'u': its ownership moved to the parameter 'x' of 'idTk', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-method-call -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a method call in the TRUE arm
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Num
+		return self.n
+	end 'peek'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekTk(x Tk) returns Num
+	return x.n
+end 'peekTk'
+
+function idTk(x Tk) returns Tk
+	return x
+end 'idTk'
+
+function main() returns ExitCode
+	let u = Tk.create(1)
+	let r = u.peek() if lg(peekTk(idTk(u))) != 0 else 0
+	return r
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:10: use of moved value 'u': its ownership moved to the parameter 'x' of 'idTk', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-lends-then-arm-reads-scalar -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+### A lend made in the CONDITION is seen by a scalar read in the TRUE arm
+The condition starts a coroutine that writes `n`, so `n` is lent until the promise is drained, and the true arm
+reads it.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+typealias Pending = Promise with Tally
+
+function started(p Pending) returns Tally
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p
+end 'started'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let r = n if started(async bump(n, k: 1)) > 0 else 0
+	print("{r}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:19:10: use of moved value 'n': it is lent to the coroutine of the `async` call at 19:29 until that promise is awaited or cancelled
+```
+
+<!-- test: ternary-expression.arm-local-binding-moved-inside-the-true-arm -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+### A binding the TRUE arm declares and moves is not the ternary's to re-check
+The arm's `match` binds `t`, reads `t.n`, then hands `t` to a closure that captures it. `t` ends with the arm, so
+the condition that runs first has nothing to say about it.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Thunk = function() returns Num
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function run(f Thunk) returns Num
+	return f()
+end 'run'
+
+function add(a Num, b Num) returns Num
+	return a + b
+end 'add'
+
+function main() returns ExitCode
+	let u = UT.have(Tk.create(7))
+	let n = (match u 'm'
+		none gives 0
+		// TODO: closures are not supported in minimaxon
+		have(t) gives add(t.n, b: run(function() gives t.n))
+	end 'm') if lg(1) != 0 else 0
+	return n
+end 'main'
+```
+```exitcode
+14
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-statement-reads -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a read in a statement nested in the TRUE arm
+The true arm is a `try` whose handler block holds a `print`. The statement runs inside the arm, after the condition's call kept `u`, so its read of `u` is the use after the move that the hoisted control earns for the same condition made before the conditional.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		print("{peekUT(u)}\n")
+		return 0
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:47:18: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-statement-reads-hoisted -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### The hoisted control: the keep is made before the conditional
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	let t = lg(peekUT(idUT(u)))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		print("{peekUT(u)}\n")
+		return 0
+	end 'h') if t != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-return-reads -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a `return` nested in the TRUE arm
+The read is inside the nested statement itself, and the statement is a `return`.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		return peekUT(u)
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:47:17: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-read-before-nested-statement -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a read that precedes the TRUE arm's nested statement
+The `try`'s call reads `u` before the handler block's statement is entered.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(peekUT(u)) otherwise 'h'
+		return 0
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:46:30: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-if-reads -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a read in an `if` nested in the TRUE arm
+The handler block holds an `if` whose body reads `u`.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		if k > 0 'positive'
+			return peekUT(u)
+		end 'positive' return 0
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-then-arm-while-reads -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the CONDITION is seen by a read in a `while` nested in the TRUE arm
+The handler block holds a `while` whose body reads `u`.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		while k > 0 'spin'
+			return peekUT(u)
+		end 'spin' return 0
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.error.condition-keeps-nested-then-arm-statement-reads -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+### A keep made in the OUTER condition is seen by a statement nested in a nested conditional's TRUE arm
+The inner conditional's true arm is the `try` whose handler block reads `u`; the outer condition keeps it.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = ((try mayFail(k) otherwise 'h'
+		print("{peekUT(u)}\n")
+		return 0
+	end 'h') if lg(1) != 0 else 0) if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:47:18: use of moved value 'u': its ownership moved to the parameter 'x' of 'idUT', which keeps it
+```
+
+<!-- test: ternary-expression.arm-local-binding-read-in-nested-statement -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+### A binding the TRUE arm's nested statements declare is not the conditional's to re-check
+The handler block binds `local` and reads it inside an `if`; the condition that runs first keeps `u`, and has nothing to say about `local`.
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+union UT
+	none
+	have(t Tk)
+end 'UT'
+
+type Tk is noncopyable
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Tk'
+
+function lg(x Num) returns Num
+	return x
+end 'lg'
+
+function peekUT(x UT) returns Num
+	match x 'x1'
+		none then return 0
+		have(t) then return t.n
+	end 'x1'
+end 'peekUT'
+
+function idUT(x UT) returns UT
+	return x
+end 'idUT'
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Num) returns Num throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function probe(k Num) returns Num
+	let u = UT.have(Tk.create(k))
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		let local = UT.have(Tk.create(2))
+		if k > 0 'positive'
+			return peekUT(local)
+		end 'positive' return 0
+	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: ternary-expression.error.condition-lends-then-arm-statement-reads -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+### A lend made in the CONDITION is seen by a read in a statement nested in the TRUE arm
+The condition starts a coroutine that writes `n`, so `n` is lent until the promise is drained, and the `print` in the
+true arm's handler block reads it.
+```maxon
+typealias Tally = int(0 to u64.max)
+
+enum Oops implements Error
+	bad
+end 'Oops'
+
+function mayFail(k Tally) returns Tally throws Oops
+	if k > 100 'big'
+		throw Oops.bad
+	end 'big'
+	return k
+end 'mayFail'
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+typealias Pending = Promise with Tally
+
+function started(p Pending) returns Tally
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return await p
+end 'started'
+
+function probe(k Tally) returns Tally
+	var n = 5 as Tally
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let c = (try mayFail(k) otherwise 'h'
+		print("{n}\n")
+		return 0
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	end 'h') if started(async bump(n, k: 1)) > 0 else 0
+	return c
+end 'probe'
+
+function main() returns ExitCode
+	_ = probe(1)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:32:11: use of moved value 'n': it is lent to the coroutine of the `async` call at 34:28 until that promise is awaited or cancelled
+```

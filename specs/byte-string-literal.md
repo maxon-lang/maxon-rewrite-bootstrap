@@ -1,0 +1,992 @@
+---
+feature: byte-string-literal
+status: stable
+keywords: [byte, string, literal, bytebuffer]
+category: types
+---
+
+# Byte String Literal
+
+## Documentation
+
+A byte string literal uses the `b"..."` prefix to create a `ByteArray` (`Array with Byte`) directly from a string, without allocating a `String`. This is useful when working with raw bytes or APIs that expect byte arrays.
+
+### Syntax
+
+```text
+let bytes = b"hello"           // ByteArray containing [104, 101, 108, 108, 111]
+let empty = b""                // Empty ByteArray
+let escaped = b"line\n"        // Supports escape sequences
+```
+
+The byte string literal supports the same escape sequences as regular string literals (`\n`, `\t`, `\\`, `\0`, etc.), including the `\xNN` hex escape (see the `hex-escape` spec) and the `\uNNNN` unicode escape.
+
+### Non-ASCII characters and byte values
+
+Unlike a regular string literal — where a source character is stored as its multi-byte UTF-8 encoding — a byte string literal is a raw byte sequence. A literal character (or a `\uNNNN` escape) whose codepoint is in the range `0x00`–`0xFF` (Latin-1) contributes exactly **one** byte equal to that codepoint. So `b"À"` (U+00C0) and `b"\xc0"` produce the identical single byte `0xC0` (192), and `b"é"` (U+00E9) produces the single byte `0xE9` (233).
+
+```text
+let a = b"À"        // one byte: [192]
+let b = b"\xc0"     // one byte: [192] — identical to b"À"
+```
+
+A codepoint above `0xFF` cannot be represented as a single byte, so a literal character or `\uNNNN` escape that names one is rejected at compile time with **E1004**. Use a `\xNN` hex escape to embed a specific raw byte regardless of its Unicode interpretation.
+
+### Use Cases
+
+Byte string literals are particularly useful as map keys when the map uses `ByteArray` keys, avoiding the overhead of `String` construction and `toByteArray()` conversion:
+
+```text
+typealias KeywordMap = Map with (ByteArray, int)
+let keywords = [b"if": 1, b"else": 2, b"while": 3]
+```
+
+### Methods
+
+Byte string literals produce a standard `ByteArray`, so all `Array` methods are available:
+
+```text
+let data = b"hello"
+data.count()       // 5
+data.get(0)        // 104 (ASCII 'h')
+```
+
+### Identical to `String.toByteArray()`
+
+A byte string literal has *exactly* the type `String.toByteArray()` returns — `ByteArray`, whose
+element is the ranged `Byte` (`int(0 to u8.max)`). The two are therefore interchangeable in every
+position, including when `let`-bound, and elements read out of one may be ordered-compared against
+elements read out of the other.
+
+### Immutable image data
+
+A byte string literal is `immutable` image data, written inline or bound to a `let`: the array lives in
+the program image and is never allocated per use. Reading it is free. A write through it is refused: a
+`var` bound to a literal and then written (`push`, `set`, `remove`, `resize`, …) is E3207, and so is
+passing the literal to a parameter its callee writes. Storing it into a plain `ByteArray` field, array
+element or union payload is E3196, and returning it from a result not marked `returns immutable` is
+E3209. To get a writable array, take `.clone()` of the literal, build one with `ByteArray.create` and
+`push`, or call `"text".toByteArray()`.
+
+```text
+var copy = b"hi".clone()       // a private, writable array
+copy.push(88)
+```
+
+### At module scope
+
+A byte string literal is a compile-time constant, so it may initialize a module-scope `let`. The array
+is materialized ONCE at startup and every reference loads it — so a byte string constant on a hot path
+costs no allocation per use.
+
+```text
+let Keyword = b"critsplit"     // one ByteArray for the whole program
+```
+
+`let X = "lit".toByteArray()` builds the same array before `main` instead, by a call; `let X = b"lit"`
+needs none.
+
+## Tests
+
+<!-- test: byte-string-literal.basic -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"hello"
+	return bytes.count()
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: byte-string-literal.empty -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b""
+	return bytes.count()
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: byte-string-literal.escape-sequences -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"a\nb"
+	return bytes.count()
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: byte-string-literal.content -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"AB"
+	let a = try bytes.get(0) otherwise 0
+	let b = try bytes.get(1) otherwise 0
+	print("{a} {b}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+65 66
+```
+
+<!-- test: byte-string-literal.map-key -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: byte string literals are not supported in minimaxon
+	let m = [b"hello": 1, b"world": 2]
+	// TODO: byte string literals are not supported in minimaxon
+	let v1 = try m.get(b"hello") otherwise 0
+	// TODO: byte string literals are not supported in minimaxon
+	let v2 = try m.get(b"world") otherwise 0
+	print("{v1} {v2}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 2
+```
+
+<!-- test: byte-string-literal.local-map -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: byte string literals are not supported in minimaxon
+	let m = [b"hello": 1 as Count, b"world": 2 as Count]
+	// TODO: byte string literals are not supported in minimaxon
+	let v1 = try m.get(b"hello") otherwise 0
+	// TODO: byte string literals are not supported in minimaxon
+	let v2 = try m.get(b"world") otherwise 0
+	print("{v1} {v2}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 2
+```
+
+<!-- test: byte-string-literal.local-map-struct -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Info
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Info'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: byte string literals are not supported in minimaxon
+	let m = [b"hello": Info.create(10), b"world": Info.create(20)]
+	// TODO: byte string literals are not supported in minimaxon
+	let v1 = try m.get(b"hello") otherwise Info.create(0)
+	// TODO: byte string literals are not supported in minimaxon
+	let v2 = try m.get(b"world") otherwise Info.create(0)
+	print("{v1.value} {v2.value}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+10 20
+```
+
+<!-- test: byte-string-literal.top-level-let -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A byte string literal initializes a module-scope `let`, and the global is a `ByteArray`.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let Keyword = b"critsplit"
+
+function takes(b ByteArray) returns ExitCode
+	return 0 if b.count() == 9 else 1
+end 'takes'
+
+function main() returns ExitCode
+	return takes(Keyword)
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: byte-string-literal.local-var -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A `var` holds a byte string literal and can be reassigned to another one.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	var Buffer = b""
+	if Buffer.count() != 0 'notEmpty'
+		return 1
+	end 'notEmpty'
+	// TODO: byte string literals are not supported in minimaxon
+	Buffer = b"filled"
+	return Buffer.count()
+end 'main'
+```
+```exitcode
+6
+```
+
+<!-- test: byte-string-literal.tobytearray-ordered-compare -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A `let`-bound byte string literal has the same element type as `String.toByteArray()`, so bytes
+read out of the two can be ordered-compared.
+```maxon
+function main() returns ExitCode
+	let fromString = "9223372036854775807".toByteArray()
+	// TODO: byte string literals are not supported in minimaxon
+	let fromLiteral = b"9223372036854775807"
+	let a = try fromString.get(0) otherwise panic("oob")
+	let b = try fromLiteral.get(0) otherwise panic("oob")
+	if a > b or a < b 'differ'
+		return 1
+	end 'differ'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: byte-string-literal.dead-global-not-leaked -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A byte string global whose only reader is eliminated as dead code must not be allocated and
+then left unreleased — dead-code elimination drops the literal along with the global it fed.
+```maxon
+public typealias Integer = int(i64.min to i64.max)
+
+// TODO: byte string literals are not supported in minimaxon
+let Live = b"aa"
+
+// TODO: byte string literals are not supported in minimaxon
+public let Dead = b"bbbb"
+
+public function readDead() returns Integer
+	return Dead.count()
+end 'readDead'
+
+function main() returns ExitCode
+	return Live.count()
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: byte-string-literal.tobytearray-in-a-body -->
+
+```maxon
+function main() returns ExitCode
+	let b = "critsplit".toByteArray()
+	let first = try b.get(0) otherwise panic("oob")
+	print("{first} {b.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+99 9
+```
+
+<!-- test: byte-string-literal.error.tobytearray-global-is-refused -->
+<!-- positions: moved -->
+
+A global's initializer calls nothing, so a method call whose result is a record is refused there; the `ByteArray`
+is built where it is used.
+```maxon
+let B = "critsplit".toByteArray()
+
+function main() returns ExitCode
+	let first = try B.get(0) otherwise panic("oob")
+	print("{first} {B.count()}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3220: <fragment>:2:9: the initializer of 'B' calls 'String.toByteArray': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
+```
+
+<!-- test: byte-string-literal.tobytearray-local -->
+
+A method call whose result is a record initializes a body's `let`: the `ByteArray` is built when `main` runs.
+```maxon
+function main() returns ExitCode
+	let b = "critsplit".toByteArray()
+	let first = try b.get(0) otherwise panic("oob")
+	print("{first} {b.count()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+99 9
+```
+
+<!-- test: byte-string-literal.field-access -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let len = b"test".count()
+	return len
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: byte-string-literal.try-literal-accessor -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A throwing `.get()` applied directly to a byte-string literal, with no intermediate binding — the
+`try` target parse must accept the byte-string literal exactly as it accepts an array literal, and the
+literal's owned temp must drop on both the in-bounds and the caught out-of-bounds path.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let ok = try b"AB".get(1) otherwise 0
+	// TODO: byte string literals are not supported in minimaxon
+	let oob = try b"AB".get(9) otherwise 200
+	print("{ok} {oob}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+66 200
+```
+
+<!-- test: byte-string-literal.push-grows-off-rdata -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A literal's array lives in `.rdata` and is never written, so the writable array is a `.clone()`: its bytes are
+copied into a heap buffer of its own. Pushing onto it grows that buffer and leaves the `.rdata` blob
+alone — the run reports no leak, and the grown array drops leak-free.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hi".clone()
+	a.push(88)
+	let g = try a.get(2) otherwise 0
+	print("{a.count()} {g}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 88
+```
+
+<!-- test: byte-string-literal.latin1-char -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"À"
+	let b0 = try bytes.get(0) otherwise 0
+	print("{bytes.count()} {b0}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 192
+```
+
+<!-- test: byte-string-literal.latin1-two -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"Àé"
+	let b0 = try bytes.get(0) otherwise 0
+	let b1 = try bytes.get(1) otherwise 0
+	print("{bytes.count()} {b0} {b1}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 192 233
+```
+
+<!-- test: byte-string-literal.latin1-hex-equivalent -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let literal = b"À"
+	// TODO: byte string literals are not supported in minimaxon
+	let hex = b"\xc0"
+	let a = try literal.get(0) otherwise 0
+	let b = try hex.get(0) otherwise 1
+	if a == b 'equal'
+		print("{a}")
+		return 0
+	end 'equal'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+192
+```
+
+<!-- test: byte-string-literal.latin1-mixed -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let bytes = b"AÀB"
+	let b0 = try bytes.get(0) otherwise 0
+	let b1 = try bytes.get(1) otherwise 0
+	let b2 = try bytes.get(2) otherwise 0
+	print("{bytes.count()} {b0} {b1} {b2}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+3 65 192 66
+```
+
+<!-- test: byte-string-literal.set-detaches-from-rdata -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+An in-place `set` on the `.clone()` of a byte-string literal writes the clone's private buffer, never the
+literal's `.rdata`, which is mapped read-only. The clone copies the `length · element_size` live bytes, so
+the other elements survive the write.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hi".clone()
+	try a.set(0, value: 88) otherwise panic("test invariant: index 0 is in bounds")
+	let v = try a.get(0) otherwise 0
+	let w = try a.get(1) otherwise 0
+	print("{v} {w} {a.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+88 105 2
+```
+
+<!-- test: byte-string-literal.clear-detaches-from-rdata -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+`clear` zeroes the whole live region in place, so on a byte-string literal itself it would write `.rdata`;
+on the `.clone()` it writes the private buffer. The cleared array must remain a usable, writable array — the
+push below lands in the clone's buffer, not back in the blob.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hey".clone()
+	a.clear()
+	a.push(65)
+	let z = try a.get(0) otherwise 0
+	print("{a.count()} {z}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+1 65
+```
+
+<!-- test: byte-string-literal.remove-detaches-from-rdata -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+`remove` shifts the tail down one slot — an in-place write — so it runs on the `.clone()`. The
+removed element is read out of the buffer and the survivors are compacted in the private copy.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hey".clone()
+	let r = try a.remove(0) otherwise panic("test invariant: index 0 is in bounds")
+	let f = try a.get(0) otherwise 0
+	print("{r} {a.count()} {f}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+104 2 101
+```
+
+<!-- test: byte-string-literal.pop-detaches-from-rdata -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+`pop` zeroes the slot it vacates (the `[length, capacity)`-is-zero invariant), so it too writes the
+buffer, and so it runs on the `.clone()`.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"yo".clone()
+	let p = try a.pop() otherwise panic("test invariant: a two-element array is not empty")
+	let f = try a.get(0) otherwise 0
+	print("{p} {a.count()} {f}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+111 1 121
+```
+
+<!-- test: byte-string-literal.detach-happens-once -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+The clone owns one private buffer for every later write. A second write that copied again would allocate a
+fresh buffer and abandon the first one — the leak check would exit 101 — and the grow below would then be
+reallocating a buffer that had just been replaced. Both writes must land in the same private buffer, and the
+grow must carry all three earlier bytes forward.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"abc".clone()
+	try a.set(0, value: 88) otherwise panic("test invariant: index 0 is in bounds")
+	try a.set(2, value: 90) otherwise panic("test invariant: index 2 is in bounds")
+	a.push(89)
+	let v0 = try a.get(0) otherwise 0
+	let v1 = try a.get(1) otherwise 0
+	let v2 = try a.get(2) otherwise 0
+	let v3 = try a.get(3) otherwise 0
+	print("{v0} {v1} {v2} {v3} {a.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+88 98 90 89 4
+```
+
+<!-- test: byte-string-literal.detached-literal-drops-clean -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A literal's clone has a `capacity@16` that is not the rdata sentinel, so its drop legitimately frees
+the buffer — the one it allocated, never the blob. Five clone-and-drop rounds make either mistake loud:
+a missed free leaks (exit 101) and a freed blob corrupts the allocator.
+
+⚠ **ITS EMITTED CODE CARRIES A NARROWING GUARD IN A PROGRAM THAT NEVER DECLARES `Byte`.** `stdlib/String.maxon`
+supplies `public typealias Byte = int(0 to u8.max)` (`:22`), so a `b"…"` literal's element has a DECLARED
+RANGE and `a.set(0, value: n as Byte)` — an `Integer` cast into a `Byte` slot — gets the narrowing guard. The slot before
+`__managed_set` holds `cmpRegImm32 rbx, 0` / `cmpRegImm32 rbx, 255` / `mrt_panic`, and the
+`movRegReg rcx, r12` / `__managed_set` sequence follows under the `__rc_ok` label; with `Byte` UNDECLARED
+the slot holds only `movRegReg rcx, r12`.
+```maxon
+function detachAndRead(n Integer) returns Integer
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hi".clone()
+	try a.set(0, value: n as Byte) otherwise panic("test invariant: index 0 is in bounds")
+	return try a.get(0) otherwise 0
+end 'detachAndRead'
+
+function main() returns ExitCode
+	var total = 0 as Integer
+	var i = 0 as Integer
+	while i < 5 'round'
+		total = total + detachAndRead(i)
+		i = i + 1
+	end 'round'
+	print("{total}")
+	return 0
+end 'main'
+
+typealias Integer = int(i64.min to i64.max)
+```
+```exitcode
+0
+```
+```stdout
+10
+```
+
+<!-- test: byte-string-literal.untouched-literal-drops-clean -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+The other half of the same rule: a literal that is only READ never detaches, so its `capacity@16` stays
+the sentinel and its drop must still skip the buffer free. `__mm_free` on a `.rdata` address that was
+never allocated corrupts the allocator; three rounds make it loud.
+```maxon
+function main() returns ExitCode
+	var total = 0 as Count
+	var i = 0 as Count
+	while i < 3 'round'
+		// TODO: byte string literals are not supported in minimaxon
+		let a = b"hi"
+		let v = try a.get(0) otherwise 0
+		total = total + (v as Count)
+		i = i + 1
+	end 'round'
+	print("{total}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+312
+```
+
+<!-- test: byte-string-literal.empty-literal-detaches -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+
+A ZERO-LENGTH clone must still own a private buffer. Skipping it as an optimization leaves the rdata pointer
+in the record with the sentinel capacity still in place, and the next reallocation then reads a header that
+does not exist. The clone of `b""` has no writable in-place mutator (`set`/`remove`/`pop` all throw on
+empty), so the zero-byte buffer is reached through the grow path: `resize` publishes two zero-filled slots
+that the `set`s below then write.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"".clone()
+	a.resize(2)
+	try a.set(0, value: 65) otherwise panic("test invariant: index 0 is in bounds")
+	try a.set(1, value: 66) otherwise panic("test invariant: index 1 is in bounds")
+	let v0 = try a.get(0) otherwise 0
+	let v1 = try a.get(1) otherwise 0
+	print("{a.count()} {v0} {v1}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+2 65 66
+```
+
+<!-- test: error.byte-string-literal.constant-pushed-into-a-container-is-refused -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+
+⭐ **THE EIGHT CLONE CASES ABOVE WRITE A HEAP COPY. A LITERAL'S OWN RECORD, INLINE OR BOUND TO A MODULE-LEVEL
+`let`, IS `.rdata` ITSELF**, so a mutation reached through it would write a read-only page.
+
+So the constant may never come to rest in a mutable sink: pushing it into a container whose element is a
+plain `ByteArray` is E3196; declare the element `immutable ByteArray`, or push a `clone()`.
+```maxon
+typealias ByteArrayArray = Array with ByteArray
+
+// TODO: byte string literals are not supported in minimaxon
+let Keyword = b"critsplit"
+
+function main() returns ExitCode
+	var a = ByteArrayArray.create(0)
+	a.push(Keyword)
+	// TODO: byte string literals are not supported in minimaxon
+	var e = try a.get(0) otherwise b""
+	e.push(88)
+	let k = try Keyword.get(0) otherwise 0
+	print("{e.count()} {Keyword.count()} {k}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3196: <fragment>:8:10: cannot store an immutable 'ByteArray' into 'an element of the container push writes', which holds a mutable 'ByteArray'; declare the element `immutable ByteArray`
+```
+
+<!-- test: error.byte-string-literal.constant-handed-to-a-factory-that-keeps-it-is-refused -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+
+The other durable sink: a field of a record a factory builds. `Holder.create` keeps its argument in a plain
+`ByteArray` field, so the record it returns holds the constant and is read-only for the caller; writing through
+it is E3197. Pass a `clone()`, or declare the field and the parameter `immutable ByteArray`.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let Keyword = b"critsplit"
+
+type Holder
+	export var b as ByteArray
+
+	static function create(b ByteArray) returns Self
+		return Self{b: b}
+	end 'create'
+end 'Holder'
+
+function main() returns ExitCode
+	var h = Holder.create(Keyword)
+	h.b.push(88)
+	let k = try Keyword.get(0) otherwise 0
+	print("{h.b.count()} {Keyword.count()} {k}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3197: <fragment>:14:7: cannot write 'a container' through 'a call result', which is read-only
+```
+
+<!-- test: error.byte-string-literal.constant-appended-to-a-corpus-container-is-refused -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+
+`List.append` is a CORPUS member, so the constant reaches storage through a parameter the stdlib body keeps
+rather than through a compiler-emitted container primitive. The refusal is the same at either door.
+```maxon
+typealias ByteArrayList = List with ByteArray
+
+// TODO: byte string literals are not supported in minimaxon
+let Keyword = b"critsplit"
+
+function main() returns ExitCode
+	var l = ByteArrayList.create()
+	l.append(Keyword)
+	var e = try l.removeFirst() otherwise panic("test invariant: the list holds one element")
+	e.push(88)
+	let k = try Keyword.get(0) otherwise 0
+	print("{e.count()} {Keyword.count()} {k}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3196: <fragment>:8:12: cannot store an immutable 'ByteArray' into 'List.append.value', which holds a mutable 'ByteArray'; declare the element `immutable ByteArray`
+```
+
+<!-- test: error.byte-string-literal.a-var-bound-to-a-literal-is-not-writable -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+
+A `var` bound to a literal holds the literal's `immutable` image data, so writing it is E3207; take a
+`.clone()` for a writable array, as the cases above do.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	var a = b"hi"
+	a.push(88)
+	return a.count()
+end 'main'
+```
+```maxoncstderr
+error E3207: <fragment>:4:5: 'push' needs a writable receiver; 'a' is immutable
+```
+
+<!-- test: error.byte-string-literal.negative-resize-is-refused -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+
+A NEGATIVE `resize` is the one mutator that could write outside its buffer entirely. With the
+`__ManagedMemory` guard stubbed out, `resize(-2)` on the clone of a byte-string literal takes a private
+buffer at the head of the grow, the growth check is then satisfied (`3 >= -2`) so nothing reallocates, and
+the shrink zeroes from `buffer + n·element_size` — two bytes BELOW the freshly allocated private buffer —
+over the allocation header. Then the process exits 0, the leak gate stays green, `capacity()` reads 3 and
+`count()` publishes -2.
+
+⚠ **TWO REFUSALS STAND IN FRONT OF THAT, AND THE OUTER ONE IS THE ONE THAT FIRES.** `Array.resize` takes
+an `ElementIndex`, declared `int(0 to i64.max)`, so a negative is refused at the DOOR — a literal at compile
+time, as below, and a laundered one at the callee-entry guard (exit **1**, not 73). The buffer-level abort
+is unreachable from any spelling a program can write. It is kept deliberately, as defence in depth: it
+is the layer that would still be there if a future caller reached `__managed_memory` without passing through
+`Array`, and this line is why nothing can redden it.
+```maxon
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	var a = b"hey".clone()
+	a.resize(-2)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:4:5: Value -2 is outside the range of 'ElementIndex' (int(0 to 18446744073709551615))
+```
+
+<!-- test: byte-string-literal.laundered-negative-resize-panics-at-the-door -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+The laundered twin: the door refuses it at run time instead, BEFORE the buffer's own abort can be reached.
+```maxon
+typealias Signed = int(i64.min to i64.max)
+
+function launder(n Signed) returns Signed
+	return n
+end 'launder'
+
+function main() returns ExitCode
+	// TODO: byte string literals are not supported in minimaxon
+	let a = b"hey".clone()
+	a.resize(launder(-2) as ElementIndex)
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+```stderr
+panic at byte-string-literal.laundered-negative-resize-panics-at-the-door.test:10: Range check failed: value outside typealias 'ElementIndex'
+Stack trace:
+  in main
+  in mrt_start
+```
+
+### A RAW newline in the body — legal here, and ONLY here
+
+A byte string is byte-exact, so a literal newline written inside `b"…"` **is** the byte it spells: the
+literal spans source lines and holds `0x0A` at that position. `Runtime/GtRuntime.maxon:568` is the
+consumer — `let GtTraceNewlineText = b"` with the closing quote on the next line is how this compiler's
+own source spells a one-byte newline constant.
+
+⛔ **A `String` literal is the opposite, and the asymmetry is deliberate.** `"…"` carries interpolation
+and escape decoding and is line-oriented; a raw newline in one is `E1002 Unterminated string literal`
+which is what catches a missing closing quote. In
+one program, both forms: the byte string compiles and holds the newline, the String literal does not.
+Do not "unify" the two scanners on this point.
+
+⚠ **AND A SCANNER THAT CONSUMES A NEWLINE OWES THE LINE COUNTER.** A body that swallows newlines without
+counting them leaves `line` short for the whole rest of the file, and every diagnostic after it names
+somebody else's code. That defect costs twice over: wrong diagnostic
+lines, and `maxon fmt` silently DELETING comments, because it keys them by true source line and emits
+them against token lines. Counting happens in the one mover every scan funnels through, so the
+second case below is what stands between this feature and that defect.
+
+<!-- test: byte-string-literal.raw-newline-spans-source-lines -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+The literal below is written across three source lines and holds exactly the five bytes `a \n b \n c`.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let Spanning = b"a
+
+b
+
+c "
+
+function main() returns ExitCode
+	let first = try Spanning.get(0) otherwise panic("get(0)")
+	let nl = try Spanning.get(1) otherwise panic("get(1)")
+	let last = try Spanning.get(4) otherwise panic("get(4)")
+	print("count={Spanning.count()} first={first} nl={nl} last={last}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+count=5 first=97 nl=10 last=99
+```
+
+<!-- test: byte-string-literal.raw-newline-of-its-own -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+A byte string whose whole body is one raw newline — the `GtRuntime.maxon:568` shape, verbatim.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let GtTraceNewlineText = b"
+
+"
+
+function main() returns ExitCode
+	let only = try GtTraceNewlineText.get(0) otherwise panic("get(0)")
+	print("count={GtTraceNewlineText.count()} byte={only}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+count=1 byte=10
+```
+
+<!-- test: error.raw-newline-keeps-diagnostic-lines-honest -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐⭐ **THE DRIFT GUARD, AND IT IS THE ONLY OBSERVABLE THERE IS.** The literal above the error swallows
+TWO newlines, so a lexer that consumes them without counting reports this call two lines too early —
+at line 6 with the counting removed, against the line 8 it is written on. Nothing else in the
+suite can see that: the program compiles, runs and answers correctly either way, and only the POSITION
+in the diagnostic moves.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let Spanning = b"a
+
+b
+
+c "
+
+function main() returns ExitCode
+	print("len={Spanning.count()}")
+	return undefinedAfterTheLiteral()
+end 'main'
+```
+```maxoncstderr
+error E3004: specs/byte-string-literal/error.raw-newline-keeps-diagnostic-lines-honest.maxon:8:9: call to undefined function 'undefinedAfterTheLiteral'
+```

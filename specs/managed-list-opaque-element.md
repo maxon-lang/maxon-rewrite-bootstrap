@@ -1,0 +1,357 @@
+---
+feature: managed-list-opaque-element
+status: stable
+keywords: [managed-list, generic, type-parameter, layout-descriptor, ownership, drop]
+category: ownership
+---
+
+# `__ManagedList` at a bare type parameter
+
+## Documentation
+
+A generic type may hold a `__ManagedList with Element` — a compiler-owned chain whose element is the
+enclosing type's own parameter. The chain is created once per *instantiation*, and the element type is
+not known when its body is compiled: a shared generic body compiles once for every instantiation.
+
+### Where the element destructor comes from
+
+`__list_create` stamps an `element_drop@24` into the chain, and the runtime walk in `__list_clear` reads
+it at run time to release every element it still holds. For a concrete element that stamp is a statically
+known callee. **For an opaque `Element` there is no such callee at compile time** — so the stamp comes
+from the enclosing instantiation's **layout descriptor**, whose `destroyFunc@40` the caller already
+threads in for exactly this purpose.
+
+That is the same road a managed `Array with <type parameter>` already travels. Before this, the chain
+door refused opacity outright rather than stamp a zero, because a zero stamp is not a refusal — it is a
+leak that compiles.
+
+### Why two instantiations in one program is the test that matters
+
+A single instantiation cannot tell a *correct* descriptor from a *lucky* one. Two instantiations of one
+generic body — one managed, one trivial — share that body and must not share the stamp: the managed one
+must release its elements and the trivial one must not walk anything. A test that instantiates once
+passes just as happily with the destructor hard-wired.
+
+## Tests
+
+<!-- test: a-chain-at-an-opaque-element-holds-managed-values -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The base case. Every element is a heap `String` the chain owns; the run must end with nothing leaked,
+which is what the exit code reports.
+```maxon
+typealias Count = int(0 to u64.max)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = __ManagedList with Element
+	var chain as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.insertLast(v)
+	end 'add'
+
+	function size() returns Count
+		return self.chain.count()
+	end 'size'
+end 'Bag'
+
+typealias StringBag = Bag with String
+
+function main() returns ExitCode
+	let b = StringBag.create()
+	b.add("alpha")
+	b.add("beta")
+	b.add("gamma")
+	return b.size() as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: a-chain-at-an-opaque-element-holds-trivial-values -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The trivial control. The same generic body, an element with no destructor: the stamp must be the
+trivial one and the walk must release nothing.
+```maxon
+typealias Count = int(0 to u64.max)
+
+typealias Small = int(0 to 1000)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = __ManagedList with Element
+	var chain as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.insertLast(v)
+	end 'add'
+
+	function size() returns Count
+		return self.chain.count()
+	end 'size'
+end 'Bag'
+
+typealias SmallBag = Bag with Small
+
+function main() returns ExitCode
+	let b = SmallBag.create()
+	b.add(7)
+	b.add(9)
+	return b.size() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: two-instantiations-of-one-chain-body-carry-their-own-stamps -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⭐⭐ **THE CONTROL THAT MATTERS.** One generic body, two instantiations, in one program. They share the
+compiled body and must not share the element destructor: the `String` bag has to release its elements
+and the `int` bag has to release nothing. A wrong stamp shows up here as a leak (exit 101) or a fault,
+and shows up in neither test above on its own.
+```maxon
+typealias Count = int(0 to u64.max)
+
+typealias Small = int(0 to 1000)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = __ManagedList with Element
+	var chain as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.insertLast(v)
+	end 'add'
+
+	function size() returns Count
+		return self.chain.count()
+	end 'size'
+end 'Bag'
+
+typealias StringBag = Bag with String
+
+typealias SmallBag = Bag with Small
+
+function main() returns ExitCode
+	let s = StringBag.create()
+	s.add("alpha")
+	s.add("beta")
+	let n = SmallBag.create()
+	n.add(1)
+	n.add(2)
+	n.add(3)
+	return (s.size() + n.size()) as ExitCode
+end 'main'
+```
+```exitcode
+5
+```
+
+<!-- test: clearing-a-chain-of-opaque-managed-elements-releases-them -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+`clear()` is the runtime walk that reads `element_drop@24` and releases every element still held. With
+an opaque element that stamp is the descriptor's, so this is the case where a zero stamp leaks rather
+than merely being unused.
+```maxon
+typealias Count = int(0 to u64.max)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = __ManagedList with Element
+	var chain as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.insertLast(v)
+	end 'add'
+
+	function drop()
+		self.chain.clear()
+	end 'drop'
+
+	function size() returns Count
+		return self.chain.count()
+	end 'size'
+end 'Bag'
+
+typealias StringBag = Bag with String
+
+function main() returns ExitCode
+	let b = StringBag.create()
+	b.add("alpha")
+	b.add("beta")
+	b.drop()
+	return (b.size() + 4) as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: two-type-parameters-each-with-their-own-chain -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⭐⭐ **THE BLOCK-OFFSET HAZARD, PINNED.** A layout descriptor reserves one block **per type
+parameter**, so a type with two of them holds two chains whose stamps come from two different blocks of
+one descriptor. Reading the wrong block is not a refusal — it stamps the *other* parameter's destructor,
+which for `Small`-then-`String` means either leaking every string or calling a string destructor on an
+integer. A probe that finds nothing is only a result once it is a case.
+```maxon
+typealias Count = int(0 to u64.max)
+
+typealias Small = int(0 to 1000)
+
+type Twin uses First, Second
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias FirstChain = __ManagedList with First
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias SecondChain = __ManagedList with Second
+	var left as FirstChain
+	var right as SecondChain
+
+	static function create() returns Self
+		return Self{left: FirstChain.create(), right: SecondChain.create()}
+	end 'create'
+
+	function addLeft(v First)
+		self.left.insertLast(v)
+	end 'addLeft'
+
+	function addRight(v Second)
+		self.right.insertLast(v)
+	end 'addRight'
+
+	function total() returns Count
+		return self.left.count() + self.right.count()
+	end 'total'
+end 'Twin'
+
+typealias SmallThenString = Twin with Small, String
+
+function main() returns ExitCode
+	let t = SmallThenString.create()
+	t.addLeft(1)
+	t.addLeft(2)
+	t.addRight("alpha")
+	return t.total() as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: removing-an-opaque-element-from-a-chain-releases-it -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+⭐⭐ **THE MOVE-OUT.** Taking an element *out* of a chain
+makes the caller its sole owner, so an unbound one is released at scope exit through the
+descriptor-gated `__drop_type_param` — and a method reserves that descriptor only if the pre-scan
+recognises its call as a move-out. The pre-scan's roster (`Parser.containerMoveOutMethodAt`) carries the
+chain surfaces' move-outs beside the `Array`'s two names (`pop`, `remove`); without the `List` surface's
+`removeFirst` on it, this program, the exact twin of a `self.arr.pop()` that compiles, would be
+**refused** with a sentence naming three shapes none of which is its own.
+```maxon
+typealias Count = int(0 to u64.max)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = List with Element
+	var chain as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.append(v)
+	end 'add'
+
+	// Nothing else in this body needs a layout descriptor, so the move-out has to ask for one itself.
+	function drainOne() throws ArrayError
+		_ = try self.chain.removeFirst()
+	end 'drainOne'
+
+	function size() returns Count
+		return self.chain.count()
+	end 'size'
+end 'Bag'
+
+typealias StringBag = Bag with String
+
+function main() returns ExitCode
+	let b = StringBag.create()
+	b.add("alpha")
+	b.add("beta")
+	try b.drainOne() otherwise panic("drain")
+	return b.size() as ExitCode
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: an-opaque-element-removed-from-one-chain-and-moved-into-another -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+The move-out's other half: the element the caller solely owns is handed straight on to a second
+chain, so it must be **moved** rather than dropped-and-reinserted. One record, one release — a drop
+here on top of the second chain's teardown walk is a double free, and no release at all is a leak.
+
+⚠ **THIS CASE DOES NOT PIN THE ROSTER ABOVE, AND SAYING SO IS THE POINT.** With
+`removeFirst` removed from `Parser.containerMoveOutMethodAt`, this one still passes, because the
+`self.spare.append(moved)` one line down reserves the descriptor through the move-**in** roster. Its
+subject is the ownership transfer, not the reservation; the case above is the one that goes red.
+```maxon
+typealias Count = int(0 to u64.max)
+
+type Bag uses Element
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias EChain = List with Element
+	var chain as EChain
+	var spare as EChain
+
+	static function create() returns Self
+		return Self{chain: EChain.create(), spare: EChain.create()}
+	end 'create'
+
+	function add(v Element)
+		self.chain.append(v)
+	end 'add'
+
+	function shift() throws ArrayError
+		let moved = try self.chain.removeFirst()
+		self.spare.append(moved)
+	end 'shift'
+
+	function total() returns Count
+		return self.chain.count() + self.spare.count()
+	end 'total'
+end 'Bag'
+
+typealias StringBag = Bag with String
+
+function main() returns ExitCode
+	let b = StringBag.create()
+	b.add("alpha")
+	b.add("beta")
+	try b.shift() otherwise panic("shift")
+	return b.total() as ExitCode
+end 'main'
+```
+```exitcode
+2
+```

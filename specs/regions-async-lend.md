@@ -1,0 +1,1018 @@
+---
+feature: regions-async-lend
+status: experimental
+keywords: [async, by-reference, lent, promise, cancel, coroutine, mutable parameter]
+category: semantics
+---
+
+# A variable passed by reference, or a unique value passed, to `async` is lent until its promise is drained
+
+## Documentation
+
+A variable handed to a `mutable` parameter of an `async` callee is the coroutine's to write: the coroutine receives the
+caller's own cell, and the write is visible once the promise is awaited or cancelled. Until then the variable is lent to
+the coroutine like a move that ends at the drain, and the caller may neither read, write nor pass it, nor name it in the
+statement that starts the coroutine. A tied promise is awaited or cancelled before its function returns, and
+`.cancel()` waits for the coroutine to finish.
+
+A `unique` value, local or parameter, passed to an `async` call is lent to the coroutine the same way: until the
+promise is awaited or cancelled, any read, `close()`, pass or move of it is E3102, and after the drain it is the
+caller's again. An `isolated` local passed to an `isolated` parameter of the `async` callee is moved instead: the
+coroutine owns it, the promise is not tied, and the caller's binding is gone.
+
+## Tests
+
+<!-- test: the-coroutine-writes-the-callers-variable-and-the-await-shows-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+`bump` writes its `mutable` parameter, which is the caller's own `n`: after the await `n` is 6.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{n} {k}\n")
+	return 0
+end 'main'
+```
+```stdout
+6 1
+```
+```exitcode
+0
+```
+
+<!-- test: the-coroutine-writes-a-string-variable-and-the-await-shows-it -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+A `String` variable is the coroutine's cell as well.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var label = "original"
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(label)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{label} {k}\n")
+	return 0
+end 'main'
+```
+```stdout
+replaced 1
+```
+```exitcode
+0
+```
+
+<!-- test: cancelling-the-promise-waits-and-the-write-is-visible -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+`.cancel()` of a tied promise waits for the coroutine to stop, so the caller's variable holds the write.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	Scheduler.yield()
+	promise.cancel()
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```stdout
+6
+```
+```exitcode
+0
+```
+
+<!-- test: cancelling-a-coroutine-that-never-started-leaves-the-variable-alone -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+A coroutine cancelled before it starts never runs, so the variable keeps its value.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	promise.cancel()
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```stdout
+5
+```
+```exitcode
+0
+```
+
+<!-- test: a-field-of-a-local-handed-by-reference-is-written-by-the-coroutine -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+The by-reference argument is the field cell `holder.f`.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+	export var g as String
+
+	static function create() returns Self
+		return Self{f: "original", g: "other"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{holder.f} {k}\n")
+	return 0
+end 'main'
+```
+```stdout
+replaced 1
+```
+```exitcode
+0
+```
+
+<!-- test: each-lap-lends-the-variable-until-its-own-await -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+The variable is lent for one lap and free again after its await, so three laps count to eight.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	var lap = 0 as Tally
+	while lap < 3 'laps'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let promise = async bump(n, k: 1)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let k = await promise
+		lap = lap + k
+	end 'laps'
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```stdout
+8
+```
+```exitcode
+0
+```
+
+<!-- test: a-read-between-the-async-and-the-await-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+The variable is lent to the coroutine until `promise` is awaited, so reading it before is refused.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	print("{n}\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:14:10: use of moved value 'n': it is lent to the coroutine of the `async` call at 13:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-write-between-the-async-and-the-await-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+Assigning the lent variable before the await is refused.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	n = 7
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:14:2: use of moved value 'n': it is lent to the coroutine of the `async` call at 13:22 until that promise is awaited or cancelled
+```
+
+<!-- test: passing-the-lent-variable-before-the-await-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+Handing the lent variable to another call before the await is refused.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function twice(n Tally) returns Tally
+	return n * 2
+end 'twice'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	let doubled = twice(n)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k} {doubled}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:18:22: use of moved value 'n': it is lent to the coroutine of the `async` call at 17:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-sibling-field-of-the-lent-local-is-refused-before-the-await -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+The lend is per variable: reading `holder.g` while `holder.f` is lent is refused.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+	export var g as String
+
+	static function create() returns Self
+		return Self{f: "original", g: "other"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	print("{holder.g}\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:23:10: use of moved value 'holder': it is lent to the coroutine of the `async` call at 22:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-read-after-the-cancel-is-accepted -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+The lend ends at the cancel.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	Scheduler.yield()
+	promise.cancel()
+	n = n + 10
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```stdout
+16
+```
+```exitcode
+0
+```
+
+<!-- test: a-read-in-the-statement-that-starts-the-coroutine-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+Every read in the statement that starts the coroutine counts: the coroutine's write is not ordered against them.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: n + 1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{n} {k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3186: <fragment>:13:27: argument 'n' is read by another operand of this statement and passed by reference to 'bump' (parameter 'n') — a hold cannot protect a value its by-reference cell overwrites. Copy 'n' into a `let` in an earlier statement (`.clone()` a record, array or string) and use the copy for the other operand
+```
+
+<!-- test: a-literal-at-a-by-reference-position-of-an-async-call-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+A by-reference position takes a variable, not a literal.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(5, k: 1)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2013: <fragment>:12:22: cannot pass a literal to a function that writes parameter 'n' (in main); pass a `var`
+```
+
+<!-- test: a-loop-that-reassigns-the-lent-holder-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+The lend belongs to the variable, not to the value it holds at the moment: a loop that assigns `holder` would free the record whose field cell the coroutine still holds, so the assignment is refused.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+
+	static function create() returns Self
+		return Self{f: "original"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	var lap = 0 as Tally
+	while lap < 2 'laps'
+		holder = Holder.create()
+		lap = lap + 1
+	end 'laps'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{holder.f} {k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:25:3: use of moved value 'holder': it is lent to the coroutine of the `async` call at 21:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-read-in-a-loop-that-reassigns-the-lent-holder-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+Inside a loop that assigns the lent variable, a read before the assignment is refused as well.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+
+	static function create() returns Self
+		return Self{f: "original"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	var lap = 0 as Tally
+	while lap < 2 'laps'
+		print("{holder.f}\n")
+		holder = Holder.create()
+		lap = lap + 1
+	end 'laps'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:25:11: use of moved value 'holder': it is lent to the coroutine of the `async` call at 21:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-holder-reassigned-after-its-await-in-a-loop-is-accepted -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+Each lap awaits its own promise, which ends the lend, so the holder may be replaced afterwards.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+
+	static function create() returns Self
+		return Self{f: "original"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	var lap = 0 as Tally
+	while lap < 2 'laps'
+		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+		let promise = async shout(holder.f)
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let k = await promise
+		print("{holder.f}\n")
+		holder = Holder.create()
+		lap = lap + k
+	end 'laps'
+	print("{holder.f}\n")
+	return 0
+end 'main'
+```
+```stdout
+replaced
+replaced
+original
+```
+```exitcode
+0
+```
+
+<!-- test: a-shadow-of-the-lent-holder-in-an-inner-scope-is-accepted -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+An inner `holder` is another variable: only the outer one is lent.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+
+	static function create() returns Self
+		return Self{f: "original"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	let holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	var lap = 0 as Tally
+	while lap < 1 'laps'
+		let holder = Holder.create()
+		print("{holder.f}\n")
+		lap = lap + 1
+	end 'laps'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{holder.f} {k}\n")
+	return 0
+end 'main'
+```
+```stdout
+original
+replaced 1
+```
+```exitcode
+0
+```
+
+<!-- test: the-lent-holder-is-refused-again-when-its-shadow-ends -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+The outer `holder` comes back at the end of the inner scope, still lent.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Holder
+	export var f as String
+
+	static function create() returns Self
+		return Self{f: "original"}
+	end 'create'
+end 'Holder'
+
+function shout(mutates text String) returns Tally
+	sleep(1)
+	text = "replaced"
+	return 1
+end 'shout'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async shout(holder.f)
+	var lap = 0 as Tally
+	while lap < 1 'laps'
+		let holder = Holder.create()
+		print("{holder.f}\n")
+		lap = lap + 1
+	end 'laps'
+	print("{holder.f}\n")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:30:10: use of moved value 'holder': it is lent to the coroutine of the `async` call at 21:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-lent-variable-reassigned-in-a-try-body-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+A `try` body is no exception to the lend: the assignment is refused before the await.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+enum Failure implements Error
+	broke
+end 'Failure'
+
+function check(k Tally) throws Failure
+	if k > 100 'tooBig'
+		throw Failure.broke
+	end 'tooBig'
+end 'check'
+
+function bump(mutates n Tally, k Tally) returns Tally
+	sleep(1)
+	n = n + 1
+	return k
+end 'bump'
+
+function main() returns ExitCode
+	var n = 5 as Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async bump(n, k: 1)
+	try 'work'
+		check(1)
+		n = 7
+	end 'work' otherwise (e) 'handler'
+		match e 'which'
+			broke then print("broke\n")
+		end 'which'
+	end 'handler'
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let k = await promise
+	print("{k}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:27:3: use of moved value 'n': it is lent to the coroutine of the `async` call at 23:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-unique-local-handed-to-async-is-usable-after-the-await -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+`token` is lent to the coroutine of `inspect` until `promise` is awaited, and it is the caller's again afterwards: the read after the await sees the same `Token` that the coroutine read.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+end 'Token'
+
+function inspect(token Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function main() returns ExitCode
+	let token = Token.create(5)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async inspect(token)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await promise
+	print("{answer} {token.peek()}\n")
+	return 0
+end 'main'
+```
+```stdout
+6 5
+```
+```exitcode
+0
+```
+
+<!-- test: a-unique-parameter-read-before-the-await-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A `unique` parameter handed to `async` is lent to the coroutine like a local is: `over` may not read `token` between the `async` and the await.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+end 'Token'
+
+function inspect(token Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function over(token Token) returns Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async inspect(token)
+	let before = token.peek()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await promise
+	return answer + before
+end 'over'
+
+function main() returns ExitCode
+	let token = Token.create(5)
+	print("{over(token)}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:24:15: use of moved value 'token': it is lent to the coroutine of the `async` call at 23:22 until that promise is awaited or cancelled
+```
+
+<!-- test: closing-a-unique-local-before-the-await-is-refused -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+<!-- unsupported-targets: wasm32-wasi -->
+`close()` is a use like any other: it is refused while `token` is lent to the coroutine, so nothing can close a value under the coroutine that holds it.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+
+	function close()
+		self.n = 0
+	end 'close'
+end 'Token'
+
+function inspect(token Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function main() returns ExitCode
+	let token = Token.create(5)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async inspect(token)
+	token.close()
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await promise
+	print("{answer}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3102: <fragment>:29:2: use of moved value 'token': it is lent to the coroutine of the `async` call at 28:22 until that promise is awaited or cancelled
+```
+
+<!-- test: a-unique-parameter-is-usable-and-closable-after-the-await -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- unsupported-targets: wasm32-wasi -->
+Once `promise` is awaited the lend has ended: `over` reads `token` and closes it, and `after` is the value the coroutine saw, so the sum is 11.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+
+	function close()
+		self.n = 0
+	end 'close'
+end 'Token'
+
+function inspect(token Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function over(token Token) returns Tally
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async inspect(token)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await promise
+	let after = token.peek()
+	token.close()
+	return answer + after
+end 'over'
+
+function main() returns ExitCode
+	let token = Token.create(5)
+	print("{over(token)}\n")
+	return 0
+end 'main'
+```
+```stdout
+11
+```
+```exitcode
+0
+```
+
+<!-- test: a-unique-isolated-value-moves-into-an-async-isolated-parameter-and-is-released-once -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- unsupported-targets: wasm32-wasi -->
+An `isolated` parameter of an `async` callee takes the unique region by move, so the coroutine holds the one reference and the run ends with nothing left allocated.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+end 'Token'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function inspect(token isolated Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function main() returns ExitCode
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let token = Token.create(5) as isolated Token
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let promise = async inspect(token)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let answer = await promise
+	print("{answer}\n")
+	return 0
+end 'main'
+```
+```stdout
+6
+```
+```exitcode
+0
+```
+
+<!-- test: a-unique-isolated-value-moved-into-an-async-call-pushed-into-an-array-is-released-once -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- unsupported-targets: wasm32-wasi -->
+The promise of the same call is pushed into an array and awaited in a loop.
+
+```maxon
+typealias Tally = int(0 to u64.max)
+
+typealias TallyPromise = Promise with Tally
+
+typealias TallyPromises = Array with TallyPromise
+
+type Token is noncopyable
+	var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		return self.n
+	end 'peek'
+end 'Token'
+
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+function inspect(token isolated Token) returns Tally
+	sleep(1)
+	return token.peek() + 1
+end 'inspect'
+
+function main() returns ExitCode
+	let inFlight = TallyPromises.create(0)
+	// TODO: region capability 'isolated' is not supported in minimaxon
+	let token = Token.create(5) as isolated Token
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	inFlight.push(async inspect(token))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for promise in inFlight 'eachPromise'
+		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+		let answer = await promise
+		print("{answer}\n")
+	end 'eachPromise'
+	return 0
+end 'main'
+```
+```stdout
+6
+```
+```exitcode
+0
+```

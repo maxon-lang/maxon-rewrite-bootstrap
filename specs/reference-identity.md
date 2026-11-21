@@ -1,0 +1,514 @@
+---
+feature: reference-identity
+status: experimental
+keywords: [is, is not, reference, identity, pointer, equality]
+category: operators
+---
+
+# Reference Identity
+
+## Documentation
+
+### Overview
+
+In Maxon, all struct-typed variables are references (heap pointers). The `==` operator compares **contents** (value equality via `Equatable`), while the `is` operator compares **reference identity** — whether two variables point to the same object in memory.
+
+Binding one name to another (`let b = a`) creates a **reference** (alias) — `b` points to the same object as `a`. To create a new independent object, use `var b = a.clone()`. To check if two references point to the same object, use `is`.
+
+> **`var b = a` is a move.** Canonical says `var b = a` also aliases, and pins it
+> with a `mutation-through-alias` case expecting a write through `b` to be visible through `a`. Under
+> Maxon's ownership model — *"single ownership, everything is a reference … the
+> key is mutability"* — that shape is a **move**, precisely because a second name could watch the value
+> change; The compiler answers `E3102 use of moved value`. The ownership model wins, so that one case is not carried here.
+> `let b = a` from an immutable `a` is a second reference, which is what `assignment-creates-alias`
+> pins and what the compiler does. Nothing else in this file is affected: reference identity itself is
+> orthogonal to how a binding acquires its reference.
+
+### Operators
+
+- `a is b` — returns `true` if `a` and `b` refer to the same object
+- `a is not b` — returns `true` if `a` and `b` refer to different objects
+
+### Example
+
+```text
+function areSame(a Point, b Point) returns bool
+  return a is b
+end 'areSame'
+
+let p = Point{x: 1, y: 2}
+areSame(p, b: p)  // true  — same reference passed twice
+```
+
+### Rules
+
+- `is` and `is not` work on struct-typed values (including String, Array, and user-defined types).
+- Using `is` or `is not` on primitive types (int, float, bool, byte) is a compile error — primitives are values, not references.
+- Both operands must be the same type.
+- **Literal interning:** identical string/byte/character literals that are provably never mutated are emitted once as a single shared immortal object. Two such literals with the same value therefore refer to the same object, so `is` returns `true` for them (e.g. `"hello" is "hello"`). This is safe precisely because the shared object is immutable; a literal that *is* mutated gets its own independent object.
+
+## Tests
+
+<!-- test: self-identity -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is a 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: assignment-creates-alias -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = a
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is b 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: clone-creates-new-object -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = a.clone()
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is b 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: different-objects -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = Point.create(1, y: 2)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is b 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: is-not-operator -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = Point.create(1, y: 2)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is not b 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: is-not-self -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is not a 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: function-same-arg -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Box
+	export var value as Integer
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Box'
+
+function areSame(a Box, b Box) returns bool
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	return a is b
+end 'areSame'
+
+function main() returns ExitCode
+	let x = Box.create(42)
+	let y = Box.create(42)
+	var result = 0 as ExitCode
+	if areSame(x, b: x) 'same'
+		result = result + 1
+	end 'same'
+	if areSame(x, b: y) 'diff'
+		result = result + 10
+	end 'diff'
+	return result
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: string-identity -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// Two identical string literals are INTERNED: a never-mutated literal is emitted once as a
+	// shared immortal object, so `a` and `b` refer to the same object and `a is b` is true.
+	let a = "hello"
+	let b = "hello"
+	var result = 0 as ExitCode
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is a 'self'
+		result = result + 1
+	end 'self'
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is b 'diff'
+		result = result + 10
+	end 'diff'
+	return result
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: clone-isolates-mutation -->
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	export var x as Integer
+	export var y as Integer
+
+	static function create(x Integer, y Integer) returns Self
+		return Self{x: x, y: y}
+	end 'create'
+end 'Point'
+
+function main() returns ExitCode
+	let a = Point.create(1, y: 2)
+	let b = a.clone()
+	b.x = 99
+	return a.x
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: primitive-error -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	let a = 42
+	let b = 42
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if a is b 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3068: specs/reference-identity/primitive-error.maxon:5:7: 'is' requires reference types (structs), not primitive values
+```
+
+<!-- test: byte-array-constant-identity -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+<!-- skip: byte string literals are not supported in minimaxon -->
+A module-level `let` holding a byte string is image data, not a heap object: the whole program reads ONE
+`.rdata` record for it, and the record table pools by bytes. So `is` answers the same way it does for the
+interned string literals above — a constant is itself, and two constants with the same bytes are one
+object. An INLINE `b"…"` is image data of the same class, pooled by its bytes with the constants, so
+`A is b"hi"` is true.
+```maxon
+// TODO: byte string literals are not supported in minimaxon
+let A = b"hi"
+
+// TODO: byte string literals are not supported in minimaxon
+let B = b"hi"
+
+// TODO: byte string literals are not supported in minimaxon
+let C = b"ho"
+
+function main() returns ExitCode
+	var result = 0 as ExitCode
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if A is A 'self'
+		result = result + 1
+	end 'self'
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if A is B 'sameBytes'
+		result = result + 2
+	end 'sameBytes'
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if A is not C 'otherBytes'
+		result = result + 4
+	end 'otherBytes'
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	// TODO: byte string literals are not supported in minimaxon
+	if A is b"hi" 'inlineIsPooled'
+		result = result + 8
+	end 'inlineIsPooled'
+	return result
+end 'main'
+```
+```exitcode
+15
+```
+
+<!-- test: static-array-of-literals -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+An array of never-mutated string literals is a shared immortal record: its inline pointer table
+references the elements' own static records. Iterating and indexing it allocate nothing, the
+elements stay valid, and going out of scope frees nothing extra (no leak).
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let colors = ["red", "green", "blue"]
+	var joined = ""
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for c in colors 'each'
+		joined = "{joined}{c} "
+	end 'each'
+	let mid = try colors.get(1) otherwise "?"
+	print("{joined}| {mid} | {colors.count()}")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+red green blue | green | 3
+```
+
+<!-- test: a-durable-store-of-a-constant-is-refused -->
+<!-- positions: moved -->
+⭐ **BINDING A CONSTANT KEEPS ITS IDENTITY; STORING ONE INTO A MUTABLE CONTAINER IS REFUSED, AND THE
+DIFFERENCE IS THE POINT.** A module-level `let` is image data on a read-only page. `let b = A` is a borrow
+and shares the one record, so `b is A` — that is `assignment-creates-alias` and it holds here unchanged. But
+a container OUTLIVES the statement and may be written through later, and a write through it would land on
+the image. So a store into a container whose elements are writable is `E3196`: the program takes its
+private copy with `.clone()` (`a-durable-store-of-a-cloned-constant-is-its-own-object`) or declares the
+container's elements `immutable` (`an-immutable-container-accepts-a-constant`).
+
+⚠ **THE REFUSAL IS WHAT KEEPS THE PAGE UNWRITTEN.** Push a constant into an array, take the element back
+out and `push` to it: without the refusal that write reaches `.rdata` and faults on x64, or — with no
+read-only section — silently rewrites the constant on wasm32-wasi. The `*-detaches-from-rdata` cases
+in `byte-string-literal.md` pin the write half on a `.clone()`.
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias NumArray = Array with Num
+
+typealias Holder = Array with NumArray
+
+let Anchor = NumArray.create(0)
+
+function main() returns ExitCode
+	var h = Holder.create(0)
+	h.push(Anchor)
+	return h.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3196: <fragment>:10:9: cannot store an immutable 'NumArray' into 'an element of the container push writes', which holds a mutable 'NumArray'; declare the element `immutable NumArray`
+```
+
+<!-- test: a-durable-store-of-a-cloned-constant-is-its-own-object -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+⭐ **A CLONE OF A CONSTANT IS A DIFFERENT OBJECT, AND THE STORE TAKES IT.** `let b = A` shares the one
+record, so `b is A`; the container's element is the private copy `.clone()` made, so it is not `A`. `is` is
+where the representation choice becomes visible, and this case is where the compiler says which answer is
+its own. `self-identity`, `assignment-creates-alias` and `byte-array-constant-identity` are unaffected.
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias NumArray = Array with Num
+
+typealias Holder = Array with NumArray
+
+let Anchor = NumArray.create(0)
+
+function main() returns ExitCode
+	var result = 0 as ExitCode
+	let bound = Anchor
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if bound is Anchor 'bindingBorrows'
+		result = result + 1
+	end 'bindingBorrows'
+	let h = Holder.create(0)
+	h.push(Anchor.clone())
+	let stored = try h.get(0) otherwise NumArray.create(0)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if stored is not Anchor 'storeCopies'
+		result = result + 2
+	end 'storeCopies'
+	return result
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: an-immutable-container-accepts-a-constant -->
+<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+⭐ **AN `immutable` ELEMENT TYPE TAKES A FROZEN VALUE.** Nothing can write through the container's elements,
+so the image is never written and the store the case above refuses is accepted: the container holds the
+constant and reads it back.
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias NumArray = Array with Num
+
+// TODO: type argument capability 'immutable' is not supported in minimaxon
+typealias Holder = Array with immutable NumArray
+
+let Anchor = NumArray.create(0)
+
+function main() returns ExitCode
+	let h = Holder.create(0)
+	h.push(Anchor)
+	let stored = try h.get(0) otherwise NumArray.create(0)
+	return (h.count() as ExitCode) + (stored.count() as ExitCode)
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: an-immutable-container-keeps-the-constants-identity -->
+<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+⭐ **AN `immutable` ELEMENT NEEDS NO PRIVATE COPY OF AN IMMORTAL IMAGE.** The container shares the constant's own
+record, so the element read back IS the constant: `stored is Anchor`, where a container of writable elements
+holds a private copy and `is` answers false (`a-durable-store-of-a-cloned-constant-is-its-own-object`).
+```maxon
+typealias Num = int(0 to 1000)
+
+typealias NumArray = Array with Num
+
+// TODO: type argument capability 'immutable' is not supported in minimaxon
+typealias Holder = Array with immutable NumArray
+
+let Anchor = NumArray.create(0)
+
+function main() returns ExitCode
+	let h = Holder.create(0)
+	h.push(Anchor)
+	let stored = try h.get(0) otherwise NumArray.create(0)
+	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
+	if stored is Anchor 'keepsIdentity'
+		return 1
+	end 'keepsIdentity'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```

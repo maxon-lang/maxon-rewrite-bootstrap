@@ -1,0 +1,148 @@
+---
+feature: empty-block
+status: stable
+keywords: [empty, block, error, diagnostic, if, else, while, for]
+category: diagnostics
+---
+
+## Documentation
+
+### Overview
+
+Empty blocks are a compile error. All block constructs (`if`, `else`, `while`, `for`, `try/otherwise`) must contain at least one statement. Function bodies are excluded from this rule.
+
+### Example
+
+```text
+if condition 'check'
+  // error: empty block
+end 'check'
+```
+
+## Tests
+
+<!-- test: empty-if -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+```maxon
+function main() returns ExitCode
+	if true 'check'
+	end 'check'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-if.maxon:4:2: empty block: 'check'
+```
+
+<!-- test: empty-else -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+```maxon
+function main() returns ExitCode
+	if true 'then'
+		return 1
+	end 'then' else 'otherwise'
+	end 'otherwise'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-else.maxon:6:2: empty block: 'otherwise'
+```
+
+<!-- test: empty-while -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+```maxon
+function main() returns ExitCode
+	var x = 5 as Count
+	while x > 0 'loop'
+	end 'loop'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-while.maxon:5:2: empty block: 'loop'
+```
+
+<!-- test: empty-for-in -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+```maxon
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let arr = [1, 2, 3]
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for item in arr 'loop'
+	end 'loop'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-for-in.maxon:5:2: empty block: 'loop'
+```
+
+<!-- test: empty-for-range -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+```maxon
+function main() returns ExitCode
+	for i in 0 to 10 'loop'
+	end 'loop'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-for-range.maxon:4:2: empty block: 'loop'
+```
+
+<!-- test: empty-otherwise -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- positions: moved -->
+The block-form `try … otherwise` handler is parsed by the same `parseBlockBody` as the four above, so
+it is refused by the same check. Pinned because it is the one construct the check reaches that no
+other test in this file covers: deleting the check left the other five red and this one silent.
+```maxon
+typealias Int = int(i64.min to i64.max)
+
+typealias IntArray = Array with Int
+
+function main() returns ExitCode
+	var a = IntArray.create(0)
+	a.push(1)
+	var n = 0 as Int
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	n = try a.get(0) otherwise 'oops'
+	end 'oops'
+	return n as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/empty-block/empty-otherwise.maxon:10:2: empty block: 'oops'
+```
+
+<!-- test: valid-nonempty-if -->
+```maxon
+function main() returns ExitCode
+	if true 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: valid-empty-function -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+```maxon
+function doNothing()
+end 'doNothing'
+
+function main() returns ExitCode
+	doNothing()
+	return 0
+end 'main'
+```
+```exitcode
+0
+```

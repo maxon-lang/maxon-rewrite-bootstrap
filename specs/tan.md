@@ -1,0 +1,124 @@
+---
+feature: tan
+status: stable
+keywords: tan, tangent, trigonometry, math, radians
+category: math-intrinsic
+---
+# tan
+
+## Documentation
+
+Calculate the tangent of an angle (in radians).
+
+**Signature:** `Math.tan(x float) float`
+
+**Parameters:**
+- `x` - The angle in radians
+
+**Returns:** The tangent of the input angle
+
+**Example:**
+
+```maxon
+let x = 0.0
+let y = Math.tan(x)       // 0.0
+
+let quarterPi = 0.785398  // π/4
+let z = Math.tan(quarterPi)    // 1.0 (approximately)
+```
+**Notes:**
+- The function works with radians, not degrees
+- To convert degrees to radians: `radians = degrees * (π / 180)`
+- `Math.tan(0.0)` returns exactly `0.0`
+- `Math.tan(π/4)` returns approximately `1.0`
+- The tangent function has vertical asymptotes at odd multiples of π/2
+
+## Tests
+
+<!-- test: tan.zero -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let result = Math.tan(0.0)
+	// TODO: float literals are not supported in minimaxon
+	if result == 0.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: tan.multiple-values -->
+<!-- skip: float literals are not supported in minimaxon -->
+Floats print in the **shortest round-trip** representation (⚖ user ruling; `specs/sin.md` sets out
+why). A shortest digit string is only correct for the exact double it came from, so these four are
+verified against the doubles `Math.tan` returns here, with bit patterns `0`, `4603095874924660554`,
+`4609692760021066663`, `4607182435342692924`.
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let x1 = Math.tan(0.0)
+	// TODO: float literals are not supported in minimaxon
+	let x2 = Math.tan(0.5)
+	// TODO: float literals are not supported in minimaxon
+	let x3 = Math.tan(1.0)
+	// TODO: float literals are not supported in minimaxon
+	let x4 = Math.tan(0.7854)
+	print("{x1}\n")
+	print("{x2}\n")
+	print("{x3}\n")
+	print("{x4}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+0.0
+0.5463024898437905
+1.5574077246549025
+1.0000036732118494
+```
+
+<!-- test: tan.quarter-pi -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: float literals are not supported in minimaxon
+	let quarterPi = 0.785398163
+	let result = Math.tan(quarterPi)
+	// Should be approximately 1.0
+	// TODO: float literals are not supported in minimaxon
+	let diff = abs(result - 1.0)
+	// TODO: float literals are not supported in minimaxon
+	if diff < 0.01 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: tan.with-int-promotion -->
+<!-- skip: float literals are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	let x = 0 // int
+	let result = Math.tan(x) // x promoted to 0.0
+	// TODO: float literals are not supported in minimaxon
+	if result == 0.0 'check'
+		return 0
+	end 'check'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```

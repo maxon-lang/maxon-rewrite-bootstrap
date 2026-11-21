@@ -1,0 +1,1482 @@
+---
+feature: filepath
+status: experimental
+keywords: [filepath, path, filesystem, file, directory]
+category: stdlib
+---
+
+# FilePath Type
+
+## Documentation
+
+`FilePath` is a type-safe wrapper around `String` for filesystem paths. It provides platform-aware path manipulation with methods for joining, extracting components, and querying path properties.
+
+### Construction
+
+Create a `FilePath` from a string literal or via `FilePath.from()`:
+
+```maxon
+function main() returns ExitCode
+	let p = FilePath from "C:\\Users\\test.txt"
+	print("{p}\n")
+	let q = try FilePath.from("hello.maxon") otherwise panic("bad path")
+	print("{q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+C:\Users\test.txt
+hello.maxon
+```
+
+### Path Components
+
+Extract filename, extension, stem, and parent directory:
+
+```maxon
+function main() returns ExitCode
+	let p = FilePath from "C:\\Users\\docs\\readme.md"
+	print("{p.filename()}\n")
+	print("{p.fileExtension()}\n")
+	print("{p.stem()}\n")
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+readme.md
+.md
+readme
+C:\Users\docs
+```
+
+### Joining Paths
+
+Use `join()` to append components with the platform separator:
+
+```maxon
+function main() returns ExitCode
+	let base = FilePath from "C:\\Users"
+	let full = base.join("docs").join("readme.md")
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+C:\Users\docs\readme.md
+```
+
+### Normalizing Paths
+
+`normalize()` folds a path lexically, without asking the filesystem: `.` components are removed, each `..`
+cancels the component before it, repeated separators collapse and a trailing separator is dropped. A `..`
+that would climb above an absolute path's root is dropped; one at the front of a relative path is kept. A
+relative path that folds away entirely is `.`, and the empty path stays empty.
+
+## Tests
+
+<!-- test: filepath-from-string -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\test.txt"
+	print("{p.toString()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\test.txt
+```
+```stdout
+C:/test.txt
+```
+
+<!-- test: filepath-from-method -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("hello.maxon") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hello.maxon
+```
+
+<!-- test: filepath-filename -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\Users\\test.txt"
+	print("{p.filename()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+test.txt
+```
+
+<!-- test: filepath-filename-fwd -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:/Users/test.txt"
+	print("{p.filename()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+test.txt
+```
+
+<!-- test: filepath-extension -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file.txt"
+	print("{p.fileExtension()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+.txt
+```
+
+<!-- test: filepath-extension-none -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file"
+	print("'{p.fileExtension()}'\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+''
+```
+
+<!-- test: filepath-extension-maxon -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "Compiler.maxon"
+	print("{p.fileExtension()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+.maxon
+```
+
+<!-- test: filepath-stem -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file.txt"
+	print("{p.stem()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+file
+```
+
+<!-- test: filepath-hidden-file -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from ".gitignore"
+	print("ext:'{p.fileExtension()}'\n")
+	print("stem:'{p.stem()}'\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+ext:''
+stem:'.gitignore'
+```
+
+<!-- test: filepath-parent -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\Users\\test.txt"
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users
+```
+```stdout
+C:/Users
+```
+
+<!-- test: filepath-parent-fwd -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:/Users/test.txt"
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users
+```
+```stdout
+C:/Users
+```
+
+<!-- test: filepath-parent-none -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file.txt"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try p.parent() otherwise 'noParent'
+		print("caught noParent\n")
+		return 0
+	end 'noParent'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught noParent
+```
+
+<!-- test: filepath-parent-under-root -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "/foo"
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\
+```
+```stdout
+/
+```
+
+<!-- test: filepath-parent-of-root-throws -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "/"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try p.parent() otherwise 'noParent'
+		print("caught noParent\n")
+		return 0
+	end 'noParent'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught noParent
+```
+
+<!-- test: filepath-parent-under-drive-root -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\foo"
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\
+```
+```stdout
+C:
+```
+
+<!-- test: filepath-parent-of-drive-root-throws -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: if try is not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\"
+	// TODO: if try is not supported in minimaxon
+	if let parent = try p.parent() 'hasParent'
+		print("{parent}\n")
+	end 'hasParent' else 'noParent'
+		print("caught noParent\n")
+	end 'noParent'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+caught noParent
+```
+```stdout
+C:
+```
+
+<!-- test: filepath-parent-under-unc-root -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "\\\\server\\share\\foo"
+	let parent = try p.parent() otherwise panic("no parent")
+	print("{parent}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\\server\share\
+```
+```stdout
+//server/share
+```
+
+<!-- test: filepath-parent-drive-relative-throws -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:foo"
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try p.parent() otherwise 'noParent'
+		print("caught noParent\n")
+		return 0
+	end 'noParent'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught noParent
+```
+
+<!-- test: filepath-parent-walk-up-terminates -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	var level = FilePath from "/a/b/c"
+	var steps = 0 as Count
+	while steps < 10 'upwards'
+		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+		let above = try level.parent() otherwise 'atTheTop'
+			print("top after {steps}\n")
+			return 0
+		end 'atTheTop'
+		if above.isEmpty() 'empty'
+			print("empty parent at {steps}\n")
+			return 1
+		end 'empty'
+		print("{above}\n")
+		level = above
+		steps = steps + 1
+	end 'upwards'
+	print("did not terminate\n")
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\a\b
+\a
+\
+top after 3
+```
+```stdout
+/a/b
+/a
+/
+top after 3
+```
+
+<!-- test: filepath-join -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Users"
+	let full = base.join("test")
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\test
+```
+```stdout
+C:/Users/test
+```
+
+<!-- test: filepath-join-trailing-sep -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Users\\"
+	let full = base.join("test")
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\test
+```
+```stdout
+C:/Users/test
+```
+
+<!-- test: filepath-join-chain -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Users"
+	let full = base.join("docs").join("readme.md")
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\docs\readme.md
+```
+```stdout
+C:/Users/docs/readme.md
+```
+
+<!-- test: filepath-is-absolute-drive -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "/absolute/path"
+	if p.isAbsolute() 'abs'
+		print("absolute\n")
+	end 'abs'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+absolute
+```
+
+<!-- test: filepath-is-absolute-unc -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "\\\\server\\share"
+	if p.isAbsolute() 'abs'
+		print("absolute\n")
+	end 'abs'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+absolute
+```
+
+<!-- test: filepath-is-relative -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "foo/bar"
+	if p.isRelative() 'rel'
+		print("relative\n")
+	end 'rel'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+relative
+```
+
+<!-- test: filepath-change-extension -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file.txt"
+	let q = p.changeExtension(".md")
+	print("{q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+file.md
+```
+
+<!-- test: filepath-change-extension-add -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file"
+	let q = p.changeExtension(".exe")
+	print("{q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+file.exe
+```
+
+<!-- test: filepath-change-extension-with-parent -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:\\Users\\file.txt"
+	let q = p.changeExtension(".md")
+	print("{q}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\file.md
+```
+```stdout
+C:/Users/file.md
+```
+
+<!-- test: filepath-normalize -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "C:/Users/test"
+	let n = p.normalize()
+	print("{n}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\test
+```
+```stdout
+C:/Users/test
+```
+
+<!-- test: filepath-normalize-folds-dot-segments -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for spelled in ["a/./b/../c", "a//b/", "../a/../../b", "a/..", "./", ""] 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		print("[{p.normalize()}]\n")
+	end 'eachPath'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[a\c]
+[a\b]
+[..\..\b]
+[.]
+[.]
+[]
+```
+```stdout
+[a/c]
+[a/b]
+[../../b]
+[.]
+[.]
+[]
+```
+
+<!-- test: filepath-normalize-stops-at-the-root -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let spellings = ["C:/x/../../y", "C:/..", "//server/share/x/../..", "C:a/../..", "/x/.."]
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let spellings = ["/x/../../y", "/..", "//a/./b", "/x/..", "/"]
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for spelled in spellings 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		print("[{p.normalize()}]\n")
+	end 'eachPath'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[C:\y]
+[C:\]
+[\\server\share\]
+[C:..]
+[\]
+```
+```stdout
+[/y]
+[/]
+[/a/b]
+[/]
+[/]
+```
+
+<!-- test: filepath-equality -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let a = FilePath from "C:\\test.txt"
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let b = FilePath from "C:\\test.txt"
+	if a == b 'eq'
+		print("equal\n")
+	end 'eq'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+equal
+```
+
+<!-- test: filepath-inequality -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let a = FilePath from "C:\\a.txt"
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let b = FilePath from "C:\\b.txt"
+	if a != b 'neq'
+		print("not equal\n")
+	end 'neq'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+not equal
+```
+
+<!-- test: filepath-stringable -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "hello.txt"
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hello.txt
+```
+
+<!-- test: filepath-empty -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from ""
+	if p.isEmpty() 'empty'
+		print("empty\n")
+	end 'empty'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+empty
+```
+
+<!-- test: filepath-separator -->
+```maxon
+function main() returns ExitCode
+	print("{FilePath.separator()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\
+```
+```stdout
+/
+```
+
+<!-- test: filepath-resolve-relative -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Users"
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let rel = FilePath from "docs"
+	let resolved = rel.resolve(base)
+	print("{resolved}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\docs
+```
+```stdout
+C:/Users/docs
+```
+
+<!-- test: filepath-resolve-absolute-unchanged -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Other"
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let abs = FilePath from "C:\\Users\\file.txt"
+	let resolved = abs.resolve(base)
+	print("{resolved}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\file.txt
+```
+```stdout
+C:/Other/C:/Users/file.txt
+```
+
+<!-- test: filepath-resolve-folds-dot-segments -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "C:/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let absolute = FilePath from "C:/work/./runtime/../stdlib/Clock.maxon"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let absolute = FilePath from "/work/./runtime/../stdlib/Clock.maxon"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "../../runtime/Clock.maxon", "."] 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		print("[{p.resolve(base)}]\n")
+	end 'eachPath'
+	print("[{absolute.resolve(base)}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[C:\work\project\runtime\Clock.maxon]
+[C:\work\project\runtime\Clock.maxon]
+[C:\runtime\Clock.maxon]
+[C:\work\project]
+[C:\work\stdlib\Clock.maxon]
+```
+```stdout
+[/work/project/runtime/Clock.maxon]
+[/work/project/runtime/Clock.maxon]
+[/runtime/Clock.maxon]
+[/work/project]
+[/work/stdlib/Clock.maxon]
+```
+
+<!-- test: filepath-resolve-drive-relative -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameDrive = FilePath from "C:/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let otherDrive = FilePath from "D:/elsewhere"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameDrive = FilePath from "/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let otherDrive = FilePath from "/elsewhere"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:"] 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		let elsewhere = p.resolve(otherDrive)
+		print("[{p.resolve(sameDrive)}] [{elsewhere}] {elsewhere.isAbsolute()}\n")
+	end 'eachPath'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[C:\work\project\src\main.maxon] [C:src\main.maxon] false
+[C:\work\project\lib] [c:lib] false
+[C:\work\project] [C:.] false
+```
+```stdout
+[/work/project/C:src/main.maxon] [/elsewhere/C:src/main.maxon] true
+[/work/project/lib] [/elsewhere/lib] true
+[/work/project/C:] [/elsewhere/C:] true
+```
+
+<!-- test: filepath-anchored-at-keeps-parent-components -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "C:/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let absolute = FilePath from "C:/work/./runtime/../stdlib//Clock.maxon/"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let absolute = FilePath from "/work/./runtime/../stdlib//Clock.maxon/"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "a//b/", "../../runtime/Clock.maxon", "a/../b", ".", ""] 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		print("[{p.anchoredAt(base)}]\n")
+	end 'eachPath'
+	print("[{absolute.anchoredAt(base)}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[C:\work\project\runtime\Clock.maxon]
+[C:\work\project\runtime\Clock.maxon]
+[C:\work\project\a\b]
+[C:\work\project\..\..\runtime\Clock.maxon]
+[C:\work\project\a\..\b]
+[C:\work\project]
+[C:\work\project]
+[C:\work\runtime\..\stdlib\Clock.maxon]
+```
+```stdout
+[/work/project/runtime/Clock.maxon]
+[/work/project/runtime/Clock.maxon]
+[/work/project/a/b]
+[/work/project/../../runtime/Clock.maxon]
+[/work/project/a/../b]
+[/work/project]
+[/work/project]
+[/work/runtime/../stdlib/Clock.maxon]
+```
+
+<!-- test: filepath-anchored-at-roots-and-drives -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameDrive = FilePath from "C:/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let otherDrive = FilePath from "D:/elsewhere"
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let roots = ["C:/..", "C:/", "//server/share", "//server/share/x/..", "/x/./"]
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameDrive = FilePath from "/work/project"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let otherDrive = FilePath from "/elsewhere"
+		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+		let roots = ["/..", "/", "//a/./b", "/x/./"]
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for spelled in roots 'eachRoot'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		print("[{p.anchoredAt(sameDrive)}]\n")
+	end 'eachRoot'
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:", "C:./x"] 'eachPath'
+		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
+		let elsewhere = p.anchoredAt(otherDrive)
+		print("[{p.anchoredAt(sameDrive)}] [{elsewhere}] {elsewhere.isAbsolute()}\n")
+	end 'eachPath'
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[C:\..]
+[C:\]
+[\\server\share]
+[\\server\share\x\..]
+[\x]
+[C:\work\project\src\main.maxon] [C:src\main.maxon] false
+[C:\work\project\src\..\lib] [c:src\..\lib] false
+[C:\work\project] [C:.] false
+[C:\work\project\x] [C:x] false
+```
+```stdout
+[/..]
+[/]
+[/a/b]
+[/x]
+[/work/project/C:src/main.maxon] [/elsewhere/C:src/main.maxon] true
+[/work/project/c:src/../lib] [/elsewhere/c:src/../lib] true
+[/work/project/C:] [/elsewhere/C:] true
+[/work/project/C:./x] [/elsewhere/C:./x] true
+```
+
+<!-- test: filepath-path-immutable -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "hello.txt"
+	print("{p.path}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+hello.txt
+```
+
+<!-- test: filepath-join-filepath -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from "C:\\Users"
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let child = FilePath from "docs"
+	let full = base.joinPath(child)
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\docs
+```
+```stdout
+C:/Users/docs
+```
+
+<!-- test: filepath-join-empty-base -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let base = FilePath from ""
+	let full = base.join("test.txt")
+	print("{full}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+test.txt
+```
+
+<!-- test: filepath-from-throws-invalid -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let p = try FilePath.from("https://example.com/path") otherwise 'err'
+		print("caught error\n")
+		return 0
+	end 'err'
+	print("{p}\n")
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught error
+```
+
+<!-- test: filepath-from-valid-ok -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("C:\\valid\\path.txt") otherwise panic("unexpected error")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\valid\path.txt
+```
+```stdout
+C:/valid/path.txt
+```
+
+### File URL Support
+
+`FilePath` transparently accepts `file://` URLs in both `init()` and `from()`, extracting the filesystem path. Non-file URL schemes cause a panic in `init()` or throw `FilePathError.notFileURL` in `from()`.
+
+<!-- test: filepath-file-url-from -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("file:///tmp/test.txt") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\tmp\test.txt
+```
+```stdout
+/tmp/test.txt
+```
+
+<!-- test: filepath-file-url-init -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	let p = FilePath from "file:///tmp/test.txt"
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\tmp\test.txt
+```
+```stdout
+/tmp/test.txt
+```
+
+<!-- test: filepath-file-url-unix-path -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("file:///home/user/file.txt") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\home\user\file.txt
+```
+```stdout
+/home/user/file.txt
+```
+
+<!-- test: filepath-file-url-escapes-are-decoded -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("file:///tmp/a%20b/%C3%A9t%C3%A9.txt") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+\tmp\a b\été.txt
+```
+```stdout
+/tmp/a b/été.txt
+```
+
+<!-- test: filepath-file-url-escaped-drive-colon -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("file:///c%3A/Users/file.txt") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+c:\Users\file.txt
+```
+```stdout
+/c:/Users/file.txt
+```
+
+<!-- test: filepath-not-file-url -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try FilePath.from("https://example.com/path") otherwise 'err'
+		print("caught notFileURL\n")
+		return 0
+	end 'err'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught notFileURL
+```
+
+<!-- test: filepath-malformed-url -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+```maxon
+function main() returns ExitCode
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	try FilePath.from("file://[unclosed/path.txt") otherwise (e) 'err'
+		print("caught {e.name}\n")
+		return 0
+	end 'err'
+	return 1
+end 'main'
+```
+```exitcode
+0
+```
+```stdout
+caught malformedURL
+```
+
+<!-- test: filepath-regular-string-unchanged -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("C:\\Users\\normal\\path.txt") otherwise panic("bad path")
+	print("{p}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+C:\Users\normal\path.txt
+```
+```stdout
+C:/Users/normal/path.txt
+```
+
+<!-- test: filepath-file-url-empty-path -->
+```maxon
+function main() returns ExitCode
+	let p = try FilePath.from("file:///") otherwise panic("bad path")
+	print("path='{p}'\n")
+	print("empty={p.isEmpty()}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+path='\'
+empty=false
+```
+```stdout
+path='/'
+empty=false
+```
+
+<!-- test: filepath-starts-with-follows-the-hosts-case-rule -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let path = FilePath from "C:\\Work\\Proj\\main.maxon"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameCase = FilePath from "C:\\Work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let driveOnly = FilePath from "c:\\Work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let lowerRoot = FilePath from "c:\\work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let upperDirectory = FilePath from "C:\\WORK\\PROJ"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let partialComponent = FilePath from "c:\\wor"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let path = FilePath from "/Work/Proj/main.maxon"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let sameCase = FilePath from "/Work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let driveOnly = FilePath from "/work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let lowerRoot = FilePath from "/work"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let upperDirectory = FilePath from "/WORK/PROJ"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let partialComponent = FilePath from "/wor"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	print("{path.startsWith(sameCase)}\n")
+	print("{path.startsWith(driveOnly)}\n")
+	print("{path.startsWith(lowerRoot)}\n")
+	print("{path.startsWith(upperDirectory)}\n")
+	print("{path.startsWith(partialComponent)}\n")
+	print("{path.startsWith(path)}\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+true
+true
+true
+true
+false
+true
+```
+```stdout
+true
+false
+false
+false
+false
+true
+```
+
+<!-- test: filepath-relative-to-follows-the-hosts-case-rule -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+```maxon
+function main() returns ExitCode
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#if os(Windows)
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let path = FilePath from "C:\\Work\\Proj\\Sub\\main.maxon"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "c:\\work\\proj\\"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#else
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let path = FilePath from "/Work/Proj/Sub/main.maxon"
+		// TODO: 'Type from value' conversions are not supported in minimaxon
+		let base = FilePath from "/work/proj/"
+	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	#endif
+	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	let relative = try path.relativeTo(base) otherwise 'outside'
+		print("outside\n")
+		return 0
+	end 'outside'
+	print("[{relative}]\n")
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+```Stdout:x64-windows
+[Sub\main.maxon]
+```
+```stdout
+outside
+```

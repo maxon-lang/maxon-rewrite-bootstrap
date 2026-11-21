@@ -1,0 +1,237 @@
+---
+feature: doc-comments
+status: stable
+keywords: doc comment, comment, trivia, layout, lexer, token
+category: language
+---
+# Doc comments
+
+## Documentation
+
+A `///` doc comment is a **token** in the compiler's lexer (`TokenKind.docComment`), not whitespace the
+lexer throws away. It carries its own prose, its own line and column, and its own source span, so a
+formatter can round-trip it and an editor can attach it to the declaration below.
+
+That it is a token is the whole reason this file exists. `//` and `/* … */` produce nothing and can
+never change how a program parses; `///` produces something, and every place the grammar counts
+tokens, ends a line, or expects a name is therefore a decision somebody has to make. **A doc comment
+is LAYOUT everywhere except in a position that demands a name**: the parser steps over it wherever it
+steps over a newline, through the one predicate `Lexer.tokenKindIsSkippedLayout`.
+
+```maxon
+/// What this function is for.
+export function f() returns int
+	return 1
+end 'f'
+```
+
+The cases below pin the consequences. They are not a survey of the feature — each one is a place
+where `///` being a token could change the meaning of a program, and several of them would fail
+**silently**, with no diagnostic, if the layout rule were written down twice and the copies disagreed.
+
+## Tests
+
+<!-- test: doc-comments.layout-not-a-statement -->
+A doc comment as a body's LAST line is layout, not a statement. If it were read as one it would
+become the block's final statement and the `return` below it would stop being the tail.
+```maxon
+function main() returns ExitCode
+	let a = 3
+	/// a doc comment as the body's last line
+	return a
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: doc-comments.tail-inference-survives -->
+The same rule, in the place where it would have been SILENT. `panic` ends a function, and the
+emitter elides the unreachable tail after it. A doc comment written after the `panic` must not
+become the last top-level statement — nothing would be diagnosed, the exit edge would simply stop
+being elided.
+
+⚠ **`tail` is CALLED with a RUNTIME value, and neither half is incidental.** Uncalled, dead-code
+elimination drops the function before it is emitted and the emitted code holds only `@main`. Called with
+a literal, the call inlines, the branch folds and the panic path vanishes. Either way the case would
+pass while exercising nothing: a case that cannot reach its own subject reads exactly like one that
+checked it.
+
+⭐ **The claim is backed by a THREE-WAY CONTROL, not by the exit code.** The emitted IR for `tail` is
+BYTE-IDENTICAL whether the line after the `panic` is a `///` doc comment, an ordinary `//` comment,
+or nothing at all. That is the actual property: the doc comment costs no
+codegen. The exit code alone could not have shown it, because the failure this guards against is
+silent — an exit edge the emitter stops eliding, with no diagnostic anywhere. The emitted IR for `tail` (`--emit-ir`) is
+what would change.
+```maxon
+typealias Count = int(0 to u64.max)
+
+function tail(n Count) returns ExitCode
+	if n > 0 'positive'
+		return 1
+	end 'positive'
+	panic("gone")
+/// after a panic, the tail is still elided
+end 'tail'
+
+function main() returns ExitCode
+	// Runtime-valued, so neither the call nor the branch folds away and the panic path
+	// survives into the emitted code where the golden can record it. A spec case runs with
+	// no arguments, so this is 1.
+	return tail(CommandLine.args().count() as Count)
+end 'main'
+```
+```exitcode
+1
+```
+
+<!-- test: doc-comments.not-an-array-element -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+A doc comment inside `[ … ]` is not an element, so the literal is still EMPTY and still refused. A
+counter that treated it as content would report a non-empty literal for a program the real parse
+reads as empty.
+```maxon
+function main() returns ExitCode
+/// a doc comment is not an element
+// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+let xs = []
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: specs/doc-comments/doc-comments.not-an-array-element.maxon:3:11: Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array
+```
+
+<!-- test: doc-comments.not-a-block-body -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- positions: moved -->
+A block holding nothing but a doc comment is still an EMPTY block, exactly as one holding only a `//`
+comment is.
+```maxon
+function main() returns ExitCode
+	if 1 == 1 'ok'
+	/// a doc comment is not a statement
+	end 'ok'
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3082: specs/doc-comments/doc-comments.not-a-block-body.maxon:5:2: empty block: 'ok'
+```
+
+<!-- test: doc-comments.trailing-after-function-is-a-plain-comment -->
+A `///` after code on its line is a plain comment and ends the line, so its prose never stands where a
+name belongs: the function below has no name on its line, and the name expected after `function` is
+refused at the line's end.
+```maxon
+function /// a comment where a name belongs
+broken() returns ExitCode
+	return 0
+end 'broken'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2010: specs/doc-comments/doc-comments.trailing-after-function-is-a-plain-comment.maxon:2:44: Expected identifier but got 'newline'
+```
+
+<!-- test: doc-comments.between-declarations -->
+Doc comments in every declaration position they are actually written in — above a file's first
+declaration, above a type, indented above its fields and methods, and above enum cases. This is the
+shape `stdlib/` uses 1,728 times, so it is the one whose breakage stops the whole suite.
+```maxon
+/// A coordinate on the plane.
+typealias Coord = int(0 to 1000)
+
+/// A point.
+type Point
+	/// The x coordinate.
+	let x as Coord
+	/// The y coordinate.
+	let y as Coord
+
+	/// Build one.
+	static function at(x Coord, y Coord) returns Point
+		return Self{x: x, y: y}
+	end 'at'
+
+	/// Manhattan distance from the origin.
+	function norm() returns Coord
+		return self.x + self.y
+	end 'norm'
+end 'Point'
+
+/// The kinds of thing.
+public enum Kind
+	/// the first
+	alpha
+	/// the second
+	beta
+end 'Kind'
+
+function main() returns ExitCode
+	let p = Point.at(3, y: 4)
+	return p.norm()
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: doc-comments.trailing-after-a-statement-ends-the-line -->
+A `///` after code on the same line ends that line as a plain comment, so the statement before it is complete.
+```maxon
+function main() returns ExitCode
+	let a = 3 /// a note on the statement
+	return a /// a note on the return
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: doc-comments.trailing-after-a-match-arm-ends-the-line -->
+The same for a match arm, in both forms.
+```maxon
+typealias Code = int(0 to 9)
+
+function code(n Code) returns Code
+	return match n 'm'
+		1 gives 4 /// a note on the arm
+		default gives 0
+	end 'm'
+end 'code'
+
+function main() returns ExitCode
+	match code(1) 'check'
+		4 then return 4 /// a note on the statement arm
+		default then return 1
+	end 'check'
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: doc-comments.trailing-after-a-block-label-ends-the-line -->
+A block label and a declaration header end their lines the same way.
+```maxon
+typealias Code = int(0 to 9)
+
+function pick(n Code) returns Code /// a note on the header
+	if n > 3 'big' /// a note on the label
+		return 2
+	end 'big'
+	return 1
+end 'pick'
+
+function main() returns ExitCode
+	return pick(5)
+end 'main'
+```
+```exitcode
+2
+```

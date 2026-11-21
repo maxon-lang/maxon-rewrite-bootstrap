@@ -1,0 +1,515 @@
+---
+feature: promise-typing
+status: stable
+keywords: [async, await, promise, green-threads, type, ownership, E3005, E2004, E2015]
+category: concurrency
+---
+
+# Promises are TYPED at birth
+
+## Documentation
+
+`async f()` mints a promise. That promise is **typed** — `Promise with T`, or `Promise with (T, E)` when
+`f` throws — from the moment it is minted, exactly as `stdlib/Builtins.maxon` declares it: an *opaque
+handle*, typed by both the value its thunk returns and the error its thunk throws.
+
+The handle IS a machine word, but that is a representation, not a type, and a value carrying its
+representation as its type would be accepted everywhere that word is accepted: `return async work()`
+would satisfy a `returns Integer` and print a raw green-thread pointer; `p + 1` would be pointer
+arithmetic; `p.clone()` would hand out a second copy of a handle exactly one owner may reclaim; and an
+`Integer` parameter would take a promise.
+
+Typing the promise at birth is what refuses all of them, and it does so through the checks that already
+exist rather than a new roster: a promise is not an `Integer`, so every position that wants an `Integer`
+already knows how to say no. **The roster of refusals is DERIVED, not enumerated** — which is the point.
+There is no list to keep in step with the language.
+
+⚠ **ON THE SPELLINGS IN THESE DIAGNOSTICS.** An instance no `typealias` spells renders by its type
+ARGUMENT's range, not by an alias of that argument, on the ground that the alias is exactly the thing that
+was ambiguous: the primitive's full range prints as the bare primitive (`Promise with int`), and a narrower
+range prints as that range. Declare `typealias IntPromise = Promise with Integer` and the diagnostics say
+`IntPromise`.
+
+A promise converts to no `int`. Its result arrives through `await`, and **`p.isComplete()`** (see
+`promise-peek.md`) asks whether it has finished without consuming it. The handle word under a promise,
+`p.inner`, is library-tier surface: read outside a source file under `stdlib/` or `runtime/` it is
+**E3185**.
+
+## Tests
+
+<!-- test: promise-typing.error.return-a-promise-as-its-result-type -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A promise is not its result. `grab` is declared `returns Integer` and returns `async plain()`, which is a
+`Promise with Integer` — the value that will eventually produce an `Integer`, not an `Integer`. Before
+promises were typed this compiled and printed the green thread's raw address (a different number on every
+run), which is the wrong answer this whole slice exists to stop.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function grab() returns Integer
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	return async plain()
+end 'grab'
+
+function main() returns ExitCode
+	print("grabbed {grab()}")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:10:3: Cannot return 'Promise with int' from function declared to return 'Integer'
+```
+
+<!-- test: promise-typing.error.arithmetic-on-a-promise -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A promise is not a number, so it has no arithmetic.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	let bumped = p + 1
+	print("bumped {bumped}")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await p) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2004: <fragment>:11:18: Cannot operate on Promise with int and int
+```
+
+<!-- test: promise-typing.error.a-promise-in-an-integer-parameter -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+An `Integer` parameter does not take a promise. The cure is to `await` it and pass the RESULT — which is
+also the only spelling that keeps the thread's one owner intact.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function takesInt(n Integer) returns Integer
+	return n
+end 'takesInt'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	return takesInt(p) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:15:10: argument type mismatch for 'n': expected 'Integer', got 'Promise with int'
+```
+
+<!-- test: promise-typing.error.clone-a-promise -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+⭐ The one that would be a latent double-reclaim rather than merely a wrong type. A promise owns a green
+thread that exactly one owner may reclaim; a `p.clone()` would hand back a second copy of the handle,
+with nothing to say which of the two owned the thread. `Promise` declares no `clone`, and synthesizing
+one is refused at the receiver.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let p = async plain()
+	let copy = p.clone()
+	print("copied {copy.isComplete()}")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await p) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:11:16: a promise cannot be borrowed through 'clone': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `Promise with int` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.clone-a-map-of-promises -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+The same refusal one container deep: a `Map` whose values are promises would hand each thread to two maps.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias Pending = Map with (Integer, IntPromise)
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var pending = Pending.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	pending.upsert(1, value: async plain())
+	let copy = pending.clone()
+	return copy.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `Pending` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.clone-a-record-holding-an-array-of-promises -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+And through a record whose field is an array of promises.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+type Batch
+	export let pending as IntPromiseArray
+
+	static function create(pending IntPromiseArray) returns Self
+		return Self{pending: pending}
+	end 'create'
+end 'Batch'
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var pending = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	pending.push(async plain())
+	let batch = Batch.create(pending)
+	let copy = batch.clone()
+	return copy.pending.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:23:20: a promise cannot be borrowed through 'clone': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `Batch` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.append-an-array-of-promises -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+`append` copies every element of its argument, so an array of promises appended to another would leave each
+thread with two arrays to reclaim it.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseArray = Array with IntPromise
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var first = IntPromiseArray.create(0)
+	var second = IntPromiseArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	second.push(async plain())
+	first.append(second)
+	return first.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:15:9: a promise cannot be borrowed through 'append': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. an element of this array is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.clone-an-array-of-records-holding-a-promise -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+And through an array whose element is a record holding a promise: the array's copy reaches the promise
+only through the element type.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias JobArray = Array with Job
+
+type Job
+	export var pending as IntPromise
+
+	static function create(pending IntPromise) returns Self
+		return Self{pending: pending}
+	end 'create'
+end 'Job'
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var jobs = JobArray.create(0)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	jobs.push(Job.create(async plain()))
+	let copy = jobs.clone()
+	return copy.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:22:19: a promise cannot be borrowed through 'clone': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `JobArray` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.clone-a-list-of-promises -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+`List` declares its own `clone`, which walks the list and appends each element to a new one. Over promises
+that walk copies every handle, so the refusal is the same one a synthesized copy gets, at the call.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseList = List with IntPromise
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var pending = IntPromiseList.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	pending.append(async plain())
+	let copy = pending.clone()
+	return copy.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `IntPromiseList` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+```
+
+<!-- test: promise-typing.error.filter-a-list-of-promises -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+`filter` keeps each element its predicate accepts by copying it into a new array, so a list of promises
+filtered would give each kept thread two owners.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseList = List with IntPromise
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var pending = IntPromiseList.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	pending.append(async plain())
+	// TODO: closures are not supported in minimaxon
+	let kept = pending.filter(function(p IntPromise) gives p.isComplete())
+	return kept.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:14:22: a promise cannot be borrowed through 'filter': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. Read it through a door that names its slot (`get(i)`, `first()`, `for … in`, or an array's cursor), or move it out with `pop`/`remove`
+```
+
+<!-- test: promise-typing.error.clone-a-generic-array-field-instantiated-with-a-promise -->
+<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- positions: moved -->
+A generic type's shared body copies an `Array with T` field without knowing what `T` is, so the copy is
+refused at the instantiation that makes `T` a promise, as every opaque-element copy is.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromise = Promise with Integer
+
+typealias IntPromiseBag = Bag with IntPromise
+
+type Bag uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias TArray = Array with T
+	var items as TArray
+
+	static function create() returns Self
+		return Self{items: TArray.create(0)}
+	end 'create'
+
+	function add(item T)
+		self.items.push(item)
+	end 'add'
+
+	function copied() returns Self
+		return Self{items: self.items.clone()}
+	end 'copied'
+
+	function count() returns ElementIndex
+		return self.items.count()
+	end 'count'
+end 'Bag'
+
+function plain() returns Integer
+	// TODO: 'Type from value' conversions are not supported in minimaxon
+	_ = File.exists(FilePath from "noyield.txt")
+	return 7
+end 'plain'
+
+function main() returns ExitCode
+	var bag = IntPromiseBag.create()
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	bag.add(async plain())
+	let copy = bag.copied()
+	return copy.count() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3141: <fragment>:4:11: a promise cannot be borrowed through 'slice': it owns a green thread, and a green thread has exactly one owner — so reading one out of the thing that holds it MOVES it. `IntPromiseBag` is or holds a promise, and a promise owns a green thread that exactly one owner may reclaim — so a copy would give two of them one thread. `await` the promise and copy a value holding its RESULT
+note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the construct above
+```
+
+<!-- test: promise-typing.error.inner-is-library-tier -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- positions: moved -->
+A program has no promise → `int` conversion, and a service REPLY is a promise like any other: its handle
+word `.inner` is library-tier surface, so a read of it from a program is refused at the member and the
+remedy names the safe peek. `services.md:a-reply-inner-compiles-in-the-library-tier` is the same program
+in the library tier; `library-tier-surface.md` pins the door on an `async` promise.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+type Calc
+	var count as Integer
+
+	static function create() returns Self
+		return Self{count: 7}
+	end 'create'
+
+	export function total() returns Integer
+		return self.count
+	end 'total'
+end 'Calc'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	let p = try h.total() otherwise panic("send total")
+	let named = p.inner > 0
+	print("names a thread {named}")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await p) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3185: <fragment>:19:16: '.inner' read from outside the library tiers: a promise's raw green-thread handle is reachable only from a source file under stdlib/ or runtime/ — use 'isComplete()' or 'await'
+```
+
+<!-- test: promise-typing.a-promise-array-element-may-be-spelled-inline -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+⛔⛔ **`Array with Promise with T` AND THE TWO-STEP ALIAS ARE ONE TYPE.**
+`typealias Ps = Promise with Integer` followed by `Array with Ps` and the element written
+inline must mean the same thing; an inline element sized through the primitive helper raises
+
+```
+panic at LayoutDescriptor.maxon:563: primitiveTypeByteSize: a `genericInstance` is an aggregate —
+size it through its base StructLayout.sizeBytes, not this helper
+  in ProgramSignatures.trivialElementSlot → arrayElementSize → Parser.emitArrayCreateOp
+```
+
+⇒ **one meaning, two answers — and a panic is never one of the two.** The case asserts the ANSWER rather
+than the absence of a crash: the array is built, a reply promise is pushed into it, popped and awaited, and
+the value arrives.
+
+⭐ **"IS IT AN `__mm` BOX?" IS NOT "IS THIS ELEMENT STORED AS A POINTER?".** A promise is a pointer into
+the scheduler's own slab that `__gt_promise_drop` reclaims and no refcount owns, so `typeIsManaged`
+answers **false** for a promise by design (*"an `Array with Promise` answers `false` there and `true`
+here"*, in `containerElementOwesDrop`'s words). Sizing the element by `containerElementIsManaged` would
+send it to the INLINE-STORAGE path, where `trivialElementSlot` would size an aggregate through the
+primitive helper; the two-step spelling would escape only because its element is the alias NAME, which
+the undeclared-`named` fallback sizes at a machine word. `arrayElementSize` asks `typeOccupiesAPointerSlot`
+of the element type (through `elementStrideOfType`), which is the question actually being asked, and both
+populations answer it.
+
+⚠ **THE TWO SPELLINGS AGREE TO THE BYTE.** A drop-the-promises
+program — an `Array with Promise` filled and abandoned — emits the same bytes and
+exits 0 under both spellings, so the inline form gets the same `element_size@24` stride and the same
+`element_destroy@40` stamp rather than merely stopping short of the panic.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntPromiseArray = Array with Promise with Integer
+
+type Calc
+	var n as Integer
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function double(by Integer) returns Integer
+		return by * 2
+	end 'double'
+end 'Calc'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn Calc.create()
+	let ps = IntPromiseArray.create(0)
+	ps.push(try h.double(21) otherwise panic("send double"))
+	let p = try ps.pop() otherwise panic("the push above filled it")
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	return (await p) as ExitCode
+end 'main'
+```
+```exitcode
+42
+```

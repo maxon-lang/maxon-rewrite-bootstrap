@@ -1,0 +1,720 @@
+---
+feature: builtins-cpu-parallel
+status: stable
+keywords: [builtins, __Builtins, cpuCount, schedMaxActiveWorkers, intrinsics, parallel, scheduler, green-threads]
+category: system
+---
+
+# `__Builtins.cpuCount()` and `__Builtins.schedMaxActiveWorkers()`
+
+## Documentation
+
+`__Builtins` is the compiler's builtin TYPE, whose static methods are INTRINSICS rather than
+functions any file declares. This spec pins the two QUERIES of the CPU-parallel family — the third
+member, `__Builtins.parallelBoundary()`, is a marker rather than a query and has its own spec:
+
+| Intrinsic | Meaning |
+|---|---|
+| `__Builtins.cpuCount()` | how many logical CPUs the OS reports for this MACHINE, as an `int`, never below 1 |
+| `__Builtins.schedMaxActiveWorkers()` | the high-water mark of concurrently-active green-thread worker Ms this PROCESS has had, as an `int`, never below 1 |
+
+Both take no arguments. Their one caller in the repository is `scripts/multicore-stress/alloc-torture.maxon`, the
+multi-core validation harness, which prints both so its driver can sweep the core-count clamp
+(`cpucount=`) and see that more than one core actually ran the work (`workers=`).
+
+They read as a pair and they are NOT the same kind of question, which is the whole reason this file
+documents them together:
+
+- `cpuCount` asks the MACHINE how parallel a run COULD be. It is an OS call.
+- `schedMaxActiveWorkers` asks this compiler's own SCHEDULER how parallel a run WAS. It is a
+  property of the emitted runtime and reaches no OS.
+
+### `schedMaxActiveWorkers` for an `async` program is 1 UNTIL ITS GREEN THREAD REACHES THE SCHEDULER
+
+The compiler HAS a worker M — `SchedRuntime.buildSchedWorkerLoop` — and a high-water counter that loop
+raises on every entry, which is what this intrinsic reads. ⚖ **An `async` call creates a COROUTINE of the
+calling green thread**, published only to its owner's queue, so a coroutine never
+gives a worker M anything to take. A second machine comes from the system monitor, or from the program's own
+green thread — `main`'s, in an `async`-only program — asking to be put behind everyone:
+
+- **Preemption.** The monitor preempts a green thread that has held its processor for 10 ms, at its next
+  function prologue, and puts it on the global queue behind every other runnable green thread
+  (`sched-preempt.md`). It may resume on another OS thread. `__Builtins.schedPreemptCount()` counts these.
+- **A retake.** A kernel call long enough for the monitor to retake its processor hands that processor to a
+  new M when no processor is idle and no M is looking for work (Go's `handoffp`, `sched-syscall-handoff.md`).
+  `__Builtins.schedRetakeCount()` counts these.
+- **An overdue timer.** The monitor starts a machine on an idle processor for a timer no running machine will
+  fire in time. `__Builtins.schedTimerStartCount()` counts these.
+- **A `Scheduler.yield()` with no sibling coroutine to run** puts the green thread on the global queue the way a
+  preemption does (`scheduler-yield.md`).
+
+Each global put pays a wake — Go's `wakep` — and a wake starts a worker M when a processor is idle. So does a
+ready that fires a timer or reaps a child, once the machine that fired it runs the readied strand (Go's
+`resetspinning`).
+⇒ **An `async`-only program that never yields alone and never parks on a timer or a child reads 1 exactly
+when the monitor's three counters read 0**,
+and that conditional — not a bare `workers == 1` a descheduled run can break — is what the case below
+asserts.
+
+⛔ **IT IS NOT 1 IN EVERY PROGRAM.** A program that spawns services publishes real green threads to a P ring, wakes worker Ms and reads this intrinsic above 1;
+`multicore-stress/pin-matrix.sh` asserts exactly that, per family. The cases below are `async` programs and their
+subject is the `async` half.
+
+⚠ **`__Builtins.schedStealCount()` needs a second M for the same reason**: a steal takes a green thread out of
+another P's ring, and no `async` frame ever enters a ring — only a green thread readied onto one can be
+stolen, and only by a worker M, which a run that never reaches the scheduler does not start.
+`sched-runqueue.md` carries that half.
+
+⚠ **THAT IS A READING, NOT A PLACEHOLDER.** The body is a `.data` load, and the slot is SEEDED TO 1
+rather than written by an initializer, so a program that never installs the scheduler reads the truth (one
+M: its own) with no code at all. `multicore-stress/pin-matrix.sh` asserts `workers=1` for its coroutine
+family at one processor and `workers >= 2` for the spawn family above one; the coroutine half is asserted
+only for a row whose `monitor=` reading — the three counters' sum — is 0.
+
+⚠ **THE SYSTEM MONITOR IS NOT A WORKER M, AND IT IS THE ONE THING THAT COULD MAKE THIS
+LOOK WRONG.** It reads per-machine state and hands a stuck processor on; it never RUNS a green thread and it
+never adopts a P.
+
+### What the compiler answers for `alloc-torture.maxon`
+
+`scripts/multicore-stress/alloc-torture.maxon` is the one program in the repository that calls both
+intrinsics. It prints `aggregate=205500`, `workers=1` and the host's `cpucount=`, and exits 42. The
+`aggregate=` row is the harness's own determinism signal.
+
+⛔ **`workers=1` IS NOT A CONSEQUENCE OF THE PROCESSOR COUNT.** The compiler defaults to the machine's count,
+so this program builds one P per logical CPU. **The `workers=` row is 1 anyway**, because this program's work
+is `async` and an `async` frame is a coroutine of its caller — no coroutine is published where a worker M
+could take it — and because its run is too short for the monitor to preempt its green thread.
+
+⛔ **NO COROUTINE OF THIS PROGRAM REACHES A WORKER M.** `multicore-stress/pin-matrix.sh` asserts
+`aggregate=205500` and exit 42 at every value it sweeps and at the default, and `workers=1` at one
+processor. The allocator is sharded per P (`sched-processor.md`); its cross-P paths are correct and,
+for THIS program, UNREACHED — `spawn`'s service programs are what reach them.
+
+### The two land on OPPOSITE sides of the target line, and that is the pair's sharpest property
+
+`cpuCount` is an OS query with a different API on every platform — `GetActiveProcessorCount` on
+Windows, `sysconf(_SC_NPROCESSORS_ONLN)` under POSIX, and on WASI **nothing at all**: a component
+has no OS-thread concept and no primitive that reports one. The compiler lowers it wherever a backend
+provides that read — x64-windows, arm64-macOS and arm64-linux — and every other target refuses at the
+call's own span with **E3104** (by the `__cpu_` PREFIX, so a second entry point in that band is gated
+by construction rather than by memory). A fabricated `1` on a lane that cannot ask the OS would be a
+silent wrong answer, which is strictly worse than a refusal.
+
+⚠ The POSIX half is not a re-spelling of the Windows one: the two APIs fail differently (`0` against
+`-1`), and the `_SC_` parameter is itself numbered per OS. ⭐ **AND THE LINUX LANE SHARES NOTHING WITH THE
+macOS ONE:**
+`sysconf` is a libc FUNCTION rather than a syscall, so a static image with no libc cannot call it at
+all — the read there is `sched_getaffinity` plus a popcount of the returned mask, which answers the
+processors this PROCESS may use rather than the ones the machine has, and so agrees with `nproc`
+rather than with a machine-wide count. The authority on which target provides it is
+`TargetFacilities.targetProvidesFacility`; this paragraph names the lanes only to say
+that there is more than one, and the per-case `unsupported-targets:` markers below are what actually gate.
+
+`schedMaxActiveWorkers` is refused NOWHERE, and for a reason of its own rather than by omission: its
+whole body is one `.data` load and a `ret`, which lowers on every target the compiler emits, and a load
+reaches no more OS than a constant return does. It therefore wears the
+`__sched_` band rather than `__cpu_`, because the `__cpu_` band is refused by its prefix.
+`schedProcessorCount` shares the `__sched_` band and is refused on wasm by name, as a query that installs the
+scheduler.
+
+⇒ The two `on-wasm` cases below are a PAIR and are half the proof each: the refusal case alone
+cannot tell a live gate from a compiler that refuses everything, and the acceptance case alone
+cannot tell a live gate from one that has stopped refusing.
+
+### `cpuCount` returns the count of ACTIVE logical processors, ALL groups
+
+The compiler reads `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` rather than
+`GetSystemInfo().dwNumberOfProcessors`. The two agree on every machine with a single processor group
+— i.e. every machine with at most 64 logical processors, which is what the difference is about:
+`dwNumberOfProcessors` reports the CALLING THREAD's group, so on a 128-processor host it answers 64
+while the count of the machine is 128. The compiler takes the direct-return API because its Std tier has no way to hand a backend a 48-byte
+`SYSTEM_INFO` scratch buffer without either allocating on the heap for a 4-byte read or putting a
+Windows struct layout into the target-neutral tier; the more-correct answer on a multi-group host is
+the second reason, not the first.
+
+The clamp to at least 1 lives in builder-built Std rather than in the backend:
+`GetActiveProcessorCount` answers 0 on failure and `sysconf` answers -1, so one signed `< 1` test
+serves both and each lane supplies only the read.
+
+⚠ **THE CLAMP IS REACHABLE.** Pointed at an invalid processor group, `GetActiveProcessorCount` answers
+`0`, and the Std guard turns that into `1`. The arm is not decoration.
+
+### The count is MACHINE-specific, so the cases assert PROPERTIES
+
+There is no literal to compare against — the answer differs on every host — so the cases below
+assert what cannot vary:
+
+- it is at least 1, which is the clamp's own contract;
+- it is at most 4096, the ceiling Windows can report at all (64 processor groups of 64), so a
+  captured wrong register, a sign-extension or a stale high half shows up as an out-of-range number
+  rather than as a plausible-looking count nobody would question;
+- it is STABLE across calls in one process — the machine does not grow cores mid-run;
+- and it AGREES WITH THE ENVIRONMENT a child process was started with.
+
+⚠ **THE LAST ONE IS THE ONLY DISCRIMINATOR AGAINST A CONSTANT, AND IT IS WHY IT SPAWNS A CHILD.**
+Bounds and stability are all satisfied by a lowering that returns a fixed `1` and never calls the OS
+at all — the failure mode a green suite would otherwise hide. Windows populates
+`NUMBER_OF_PROCESSORS` in a new process's environment block from the same fact the API reports, and
+that is a second reading through a mechanism that shares no code with the intrinsic. It is asserted
+as a DISCRIMINATION rather than an equality (*the child says "1" ⟺ we say 1*) so that it stays true
+on a multi-group host, where the environment reports one group's count and the intrinsic reports the
+machine's. `process-id.md` reaches for a child process for the identical reason and accepts the
+identical dependency.
+
+⚠ On a genuinely single-processor host with `NUMBER_OF_PROCESSORS` unset the child prints the
+literal `%NUMBER_OF_PROCESSORS%` and this case fails. Windows sets that variable for every process;
+the case is written to be honest about what it leans on rather than to be immune to a Windows that
+stops doing so.
+
+Every `__Builtins` member is library-tier: only a source file under `stdlib/` or `runtime/` may call one,
+and a call from anywhere else is E3185. The cases below call the intrinsics themselves, so they compile in
+the library tier (`<!-- tier: stdlib -->`). A program asks `Scheduler.machineCpuCount()`,
+`Scheduler.counters()` and `Scheduler.currentStackBytes()`, waits for the green threads it left running with
+`Scheduler.quiesce()`, and keeps its green thread on one machine with `Scheduler.pinToMachine()`,
+`Scheduler.currentMachine()` and `Scheduler.unpinFromMachine()`; the last two cases call those.
+
+## Tests
+
+<!-- test: builtins-cpu-parallel.cpu-count-is-at-least-one -->
+<!-- tier: stdlib -->
+The clamp's own contract, and the property a missing lowering fails first: the call answers a number
+at least 1 rather than whatever the result register happened to hold.
+```maxon
+function main() returns ExitCode
+	let cpus = __Builtins.cpuCount()
+	if cpus >= 1 'atLeastOne'
+		return 3
+	end 'atLeastOne'
+	return 1
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-is-in-range -->
+<!-- tier: stdlib -->
+Windows can report at most 64 processor groups of 64 logical processors each, so `[1, 4096]` is the
+whole space of answers the API has. A capture of the wrong register, a sign-extension of a `DWORD`
+or a high half left over from an earlier call lands outside it; a real count cannot. ⚠ The BOUND is
+Windows-derived and the CASE is not: `sysconf(_SC_NPROCESSORS_ONLN)` answers a small positive `long`
+on Darwin and its failure answer is `-1`, which the clamp turns into 1 — so every honest answer on
+that lane sits inside the same window, and the register-capture defects this case exists to catch
+(a clobbered x0, an unpatched GOT slot, a high half left over) land outside it there too. The local
+`windowsCeiling` names where the number came from, not which lane may run the case.
+```maxon
+function main() returns ExitCode
+	let cpus = __Builtins.cpuCount()
+	let windowsCeiling = 4096
+	var score = 0 as Count
+	if cpus >= 1 'atLeastOne'
+		score = score + 1
+	end 'atLeastOne'
+	if cpus <= windowsCeiling 'belowTheCeiling'
+		score = score + 2
+	end 'belowTheCeiling'
+	return score as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-is-stable-across-calls -->
+<!-- tier: stdlib -->
+Three independent calls in one process agree. A machine does not grow cores mid-run, so this is what
+a lowering that read a fresh counter, or that captured a register the call had clobbered, would
+fail.
+```maxon
+function main() returns ExitCode
+	let first = __Builtins.cpuCount()
+	let second = __Builtins.cpuCount()
+	let third = __Builtins.cpuCount()
+	var score = 0 as Count
+	if first == second 'firstPair'
+		score = score + 1
+	end 'firstPair'
+	if second == third 'secondPair'
+		score = score + 3
+	end 'secondPair'
+	return score as ExitCode
+end 'main'
+```
+```exitcode
+4
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-agrees-with-a-child-environment -->
+<!-- tier: stdlib -->
+**THE ONE DISCRIMINATOR AGAINST A CONSTANT.** Spawn `cmd /c echo %NUMBER_OF_PROCESSORS%` and read
+the environment Windows gave the child — a second reading of the same fact through a mechanism that
+shares no code with the intrinsic. `echo` appends `\r\n`, so a child that reports a single-digit `1`
+prints exactly three bytes; anything else is a count above 9, a multi-digit count, or (on a
+multi-group host) one group's share of a bigger machine. Either way the two readings must AGREE
+about whether this machine has one processor, which a fixed `1` cannot do on any host that has more.
+The child is waited on and both structs released, so the case is leak-clean.
+```maxon
+typealias Byte = int(0 to u8.max)
+
+typealias ByteArray = Array with Byte
+
+function appendToken(out ByteArray, token String)
+	let bytes = token.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byteLoop'
+		out.push((try bytes.get(i) otherwise panic("appendToken: get is in range")) as Byte)
+	end 'byteLoop'
+	out.push(0)
+end 'appendToken'
+
+function main() returns ExitCode
+	let argv = ByteArray.create(0)
+	appendToken(argv, token: "cmd")
+	appendToken(argv, token: "/c")
+	appendToken(argv, token: "echo")
+	appendToken(argv, token: "%NUMBER_OF_PROCESSORS%")
+	let empty = ""
+	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
+	let h = __Builtins.subprocessSpawn(argv, 4, empty.cstr(), env, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	let r = __Builtins.subprocessWaitCollect(h, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(r))
+	let one = "1"
+	let oneLineBytes = 3
+	let childSaysOne = out.byteLength() == oneLineBytes and out.startsWith(one)
+	let cpus = __Builtins.cpuCount()
+	__Builtins.subprocessResultRelease(r)
+	__Builtins.subprocessReleaseHandle(h)
+	var score = 0 as Count
+	if childSaysOne == (cpus == 1) 'readingsAgreeAboutOne'
+		score = score + 5
+	end 'readingsAgreeAboutOne'
+	if cpus >= 1 'clamped'
+		score = score + 2
+	end 'clamped'
+	return score as ExitCode
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-arity-checked -->
+<!-- tier: stdlib -->
+`cpuCount` takes no arguments. An intrinsic has no signature for the ordinary arity check to read,
+so it is refused by the same `builtinArity` check `currentProcessId`/`commandLineCount` use. This
+case is front-end only and target-neutral, so it carries no marker.
+```maxon
+function main() returns ExitCode
+	return __Builtins.cpuCount(1) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3036: <fragment>:3:20: '__Builtins.cpuCount' takes exactly 0 arguments, but 1 was given
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-rejected-on-wasm -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+WASI has no processor-count primitive at all, so this lane is a refusal of the permanent kind rather
+than of the not-yet kind. The call is refused at its source span with `E3104`, naming the runtime
+entry that has no lowering there — never a panic from inside the wasm backend, and never a
+fabricated count.
+```maxon
+function main() returns ExitCode
+	let cpus = __Builtins.cpuCount()
+	return cpus as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:24: this construct lowers to the runtime entry '__cpu_count', which has no wasm32-wasi implementation
+```
+
+<!-- test: builtins-cpu-parallel.cpu-count-rejected-on-wasm-when-unreached -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+The gate is REACHABILITY-BLIND for the program's own source — a library-tier case's files included, because a project rooted under `stdlib/` keeps its own files as the program's rather than recording them as library source (`StdlibLoader.setAsideTheUsersOwnLibraryFiles`): `probe` is never called, yet its intrinsic is still
+refused. `SemanticCheck` visits every function and dead-function elimination runs two tiers later,
+so this is the same rule that reports a type error in an unreached function — the half
+`builtins-clock.thread-cpu-ticks-rejected-on-wasm-when-unreached` keeps for the CPU-clock intrinsic.
+```maxon
+public function probe() returns ExitCode
+	return __Builtins.cpuCount() as ExitCode
+end 'probe'
+
+function main() returns ExitCode
+	return 4
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:20: this construct lowers to the runtime entry '__cpu_count', which has no wasm32-wasi implementation
+```
+
+<!-- test: builtins-cpu-parallel.a-machine-pin-is-refused-on-wasm -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+WASI has no green threads, so there is no machine to bind one to. `MachinePin.acquire()` is refused at its source span
+with `E3104`, never by a panic from inside the wasm backend.
+```maxon
+function main() returns ExitCode
+	var pin = MachinePin.acquire()
+	pin.release()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:23: 'MachinePin.acquire' lowers to the runtime entry '__gt_pin_acquire', which has no wasm32-wasi implementation
+error E3104: <fragment>:4:6: 'MachinePin.release' lowers to the runtime entry '__gt_pin_release', which has no wasm32-wasi implementation
+```
+
+<!-- test: builtins-cpu-parallel.the-raw-pin-pair-is-refused-on-wasm -->
+<!-- positions: moved -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+`Scheduler.pinToMachine()`, `Scheduler.unpinFromMachine()` and `Scheduler.currentMachine()` are refused on WASI at their
+own spans for the same reason.
+```maxon
+function main() returns ExitCode
+	if not Scheduler.pinToMachine() 'refused'
+		return 1
+	end 'refused'
+	Scheduler.unpinFromMachine()
+	return Scheduler.currentMachine() as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:19: 'Scheduler.pinToMachine' lowers to the runtime entry '__gt_pin_m', which has no wasm32-wasi implementation
+error E3104: <fragment>:7:12: 'Scheduler.unpinFromMachine' lowers to the runtime entry '__gt_unpin_m', which has no wasm32-wasi implementation
+error E3104: <fragment>:8:19: 'Scheduler.currentMachine' lowers to the runtime entry '__gt_current_m', which has no wasm32-wasi implementation
+```
+
+<!-- test: builtins-cpu-parallel.sched-max-active-workers-is-one -->
+<!-- tier: stdlib -->
+A program that never spawns anything runs on one M — its own — whatever processor count the scheduler
+resolved, so the high-water mark of concurrently-active worker Ms is 1. The
+`>= 1` half is the contract's floor; the `== 1` half is this runtime's reading of it. ⚠ **THE CLAIM IS ABOUT
+THIS PROGRAM AND NOT ABOUT THE DEFAULT**, which is the machine's processor count: a worker M is started by
+WORK reaching `__sched_wake_or_spawn`, and this program produces none — see the next case, which produces
+`async` work and reads the same 1.
+
+⭐ **AND THIS PROGRAM INSTALLS NO SCHEDULER AT ALL, WHICH IS WHAT MAKES IT DISCRIMINATING, BECAUSE THE
+ANSWER IS A `.data` LOAD.** Nothing here ever runs `__gt_init`, so nothing ever writes the
+counter; a mark that were SEEDED BY AN INITIALIZER instead of by `.data` would read 0 here and this
+case would go red. That ordering hazard is the reason the slot carries its 1 from the image.
+```maxon
+function main() returns ExitCode
+	let workers = __Builtins.schedMaxActiveWorkers()
+	var score = 0 as Count
+	if workers >= 1 'contractFloor'
+		score = score + 1
+	end 'contractFloor'
+	if workers == 1 'singleM'
+		score = score + 2
+	end 'singleM'
+	return score as ExitCode
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: builtins-cpu-parallel.sched-max-active-workers-is-one-under-async -->
+<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- tier: stdlib -->
+**THE CASE THAT SAYS THE COUNTER IS MAINTAINED, AND READS 1 UNLESS THE MONITOR ACTED.** A program that
+spawns two coroutines, runs them and awaits them observes one worker M, or the system monitor stepped in: a
+coroutine is never published where a worker M could take it, and this program never yields, so the only roads
+to a second machine are the monitor's three and each has a counter. The case therefore asserts `workers == 1`
+OR one of them counted, and cannot go red because the OS descheduled the process long enough for a
+preemption. What turns it red is a second worker M with all three at 0 — a coroutine that reached the
+scheduler. The workers are read first: every counter is stepped before the machine it may start.
+⚠ It is a DEFAULT-`MAXON_MAX_PROCS` reading, and that is a CHOICE rather than a limitation: the per-case
+processor marker `specs/sched-default-procs.md` owns could pin it. The case stays unpinned deliberately: its
+subject is that an `async`-only program reaches no worker M the monitor did not start **at whatever count the
+machine happens to have**, so pinning one would narrow it to a count nobody runs. The sweep over
+`{1, 2, 7, 12}` is `multicore-stress/pin-matrix.sh`'s, because comparing counts is what that instrument is
+for and a spec case runs at exactly one.
+
+⛔ **THE MARKER IS NAMED HERE AND NOT SPELLED, AND THAT IS DELIBERATE.** Writing it out verbatim inside a
+case's marker region makes the parser read the prose AS a marker — `parseProcsValue` panics on the `N`,
+and the whole FILE stops parsing. `sched-default-procs.md`
+can spell it because its copy sits in the Documentation section, above `## Tests`, which nothing scans for
+markers.
+```maxon
+function work(n ExitCode) returns ExitCode
+	__Builtins.parallelBoundary()
+	return n + 1
+end 'work'
+
+function main() returns ExitCode
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let first = async work(1)
+	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let second = async work(2)
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let a = await first
+	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+	let b = await second
+	let workers = __Builtins.schedMaxActiveWorkers()
+	let monitorActions = __Builtins.schedPreemptCount() + __Builtins.schedRetakeCount() + __Builtins.schedTimerStartCount()
+	var score = a + b
+	if workers == 1 or monitorActions > 0 'singleMUnlessTheMonitorActed'
+		score = score + 2
+	end 'singleMUnlessTheMonitorActed'
+	return score
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: builtins-cpu-parallel.sched-max-active-workers-arity-checked -->
+<!-- tier: stdlib -->
+`schedMaxActiveWorkers` takes no arguments, and earns the same `builtinArity` refusal its sibling
+does. Front-end only and target-neutral, so it carries no marker.
+```maxon
+function main() returns ExitCode
+	return __Builtins.schedMaxActiveWorkers(1) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3036: <fragment>:3:20: '__Builtins.schedMaxActiveWorkers' takes exactly 0 arguments, but 1 was given
+```
+
+<!-- test: builtins-cpu-parallel.sched-max-active-workers-runs-on-wasm -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+**THE OTHER HALF OF THE TARGET PAIR, AND IT IS AN ACCEPTANCE.** The scheduler query reaches no OS —
+its whole body is one `.data` load and a `ret` — so it lowers on every target the compiler emits and is
+refused nowhere. ⭐ It is also the one case that proves the counter's `.data` slot is laid out for a
+program that installs NO scheduler: on a lane with no green threads at all, the load still has a slot
+to read, because `schedRuntimeGlobals` gates the two worker counters on the QUERY as well as on
+`usesGt`. Without this case, `cpu-count-rejected-on-wasm` would pass just as happily against a
+compiler that refused the entire family on wasm; with it, the gate has to be the narrow one.
+```maxon
+function main() returns ExitCode
+	let workers = __Builtins.schedMaxActiveWorkers()
+	if workers == 1 'singleM'
+		return 3
+	end 'singleM'
+	return 1
+end 'main'
+```
+```exitcode
+3
+```
+
+<!-- test: builtins-cpu-parallel.error.the-per-processor-counters-are-refused-off-their-substrate -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+<!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
+⛔⛔ **THE PER-PROCESSOR COUNTERS ARE REFUSED WITH `E3104`, NOT LEFT TO THE BACKEND.** Off its substrate a
+counter reaches `SchedRuntime.tlsSlotArrayBase`, which has no per-OS-thread slot on `wasm32-wasi`. **A panic
+is the worst answer a compiler can give**: no span, no code, and it names a runtime emitter rather than the
+call the user wrote.
+
+⇒ The per-P counter sums sit in `TargetFacilities.calleeHostFacility` under
+`HostFacility.greenThreads`, as `__gt_await_any` and a service's two ops do, so the refusal
+lands on the call's own span. ⚠ **They are named individually and NOT by prefix** — one of them is a
+`__slab_` entry, and `schedMaxActiveWorkers` sets no `usesGt` and **must keep working here**, which the
+sibling case `sched-max-active-workers-runs-on-wasm` in this file is what proves. `schedProcessorCount` is on
+the roster: its answer is the scheduler's resolution, so asking installs the scheduler.
+
+⚠ **ONE PROGRAM NAMES EVERY MEMBER ON PURPOSE.** The band is a roster in the compiler
+(`SchedRuntime.isSchedSubstrateQueryCallee`), so the thing worth pinning is that every scheduler-state query
+is on it; a per-builtin case would pass while a sibling was quietly dropped from the list. A query added to
+the roster is added here too.
+
+⛔ **THE PROGRAM BELOW RETURNS THE COUNTERS RATHER THAN PRINTING THEM.** Each counter records its
+scheduler use through `recordGtUsage`, which turns `usesHeap` on with `usesGt`; `usesGt` alone would link the
+scheduler against a `__slab_alloc` that dead-function elimination had pruned — `resolveCallFixups: call to
+unknown function`, on **every** lane. `print` turns `usesHeap` on by itself, so only a program that discards
+the value exposes that.
+⚠ **NO NATIVE LANE REFUSES THESE COUNTERS**, so this case runs on wasm alone. It proves the
+`TargetFacilities.calleeHostFacility` arm fires, not that the x64 backend lowers the counters —
+`StdToX64Conversion.lowerTlsSetValue` has a real arm, and the x64-linux lane's passing cases are what prove
+it. `services.md`'s `error.a-service-is-rejected-on-wasm` states the convention this follows.
+
+```maxon
+function main() returns ExitCode
+	let c0 = __Builtins.schedStealCount()
+	let c1 = __Builtins.schedRetakeCount()
+	let c2 = __Builtins.slabRemoteFreeCount()
+	let c3 = __Builtins.schedGtRecycleCount()
+	let c4 = __Builtins.schedPreemptCount()
+	let c5 = __Builtins.schedSliceCount()
+	let c6 = __Builtins.schedGlobalPushCount()
+	let c7 = __Builtins.schedTimerStartCount()
+	let c8 = __Builtins.schedIdleProcessorCount()
+	let c9 = __Builtins.schedGtRecordsCarved()
+	let c10 = __Builtins.schedParkWakeCount()
+	let c11 = __Builtins.gtStackBytes()
+	let c12 = __Builtins.schedNetpollBlockCount()
+	let c13 = __Builtins.schedTimerScanStepCount()
+	let c14 = __Builtins.schedSyscallCount()
+	let c15 = __Builtins.schedProcessorCount()
+	return (c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3104: <fragment>:3:22: this construct lowers to the runtime entry '__sched_steal_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:4:22: this construct lowers to the runtime entry '__sched_retake_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:5:22: this construct lowers to the runtime entry '__slab_remote_free_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:6:22: this construct lowers to the runtime entry '__sched_gt_recycle_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:7:22: this construct lowers to the runtime entry '__sched_preempt_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:8:22: this construct lowers to the runtime entry '__sched_slice_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:9:22: this construct lowers to the runtime entry '__sched_global_push_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:10:22: this construct lowers to the runtime entry '__sched_timer_start_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:11:22: this construct lowers to the runtime entry '__sched_idle_processor_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:12:22: this construct lowers to the runtime entry '__sched_gt_records_carved', which has no wasm32-wasi implementation
+error E3104: <fragment>:13:23: this construct lowers to the runtime entry '__sched_park_wake_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:14:23: this construct lowers to the runtime entry '__sched_gt_stack_bytes', which has no wasm32-wasi implementation
+error E3104: <fragment>:15:23: this construct lowers to the runtime entry '__sched_netpoll_block_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:16:23: this construct lowers to the runtime entry '__sched_timer_scan_step_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:17:23: this construct lowers to the runtime entry '__sched_syscall_count', which has no wasm32-wasi implementation
+error E3104: <fragment>:18:23: this construct lowers to the runtime entry '__sched_processor_count', which has no wasm32-wasi implementation
+```
+
+<!-- test: builtins-cpu-parallel.quiesce-waits-for-the-green-threads-a-program-left-running -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+`Scheduler.quiesce()` parks `main` until every other green thread has finished and answers how many have
+not. The service prints from its own green thread after `main` asked for its shutdown, so its line precedes the
+one that follows the wait, and the wait answers 0. wasm32-wasi has no green threads.
+```maxon
+typealias Greetings = int(0 to 1000)
+
+type Greeter
+	var greeted as Greetings
+
+	static function create() returns Self
+		return Self{greeted: 0}
+	end 'create'
+
+	export function greet(times Greetings)
+		self.greeted = self.greeted + times
+		sleep(20)
+		print("greeted {self.greeted}\n")
+	end 'greet'
+end 'Greeter'
+
+function main() returns ExitCode
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let greeter = spawn Greeter.create()
+	try greeter.greet(2) otherwise panic("an open mailbox with room takes the send")
+	greeter.shutdown()
+	let outstanding = Scheduler.quiesce()
+	print("quiesced {outstanding}\n")
+	return 0
+end 'main'
+```
+```stdout
+greeted 2
+quiesced 0
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-cpu-parallel.a-pinned-green-thread-stays-on-its-machine-across-a-park -->
+`Scheduler.pinToMachine()` binds the calling green thread to the machine running it, and answers whether it
+did; `Scheduler.currentMachine()` names that machine, and 0 is no machine. A `sleep` parks the thread, and a
+pinned thread resumes on the machine it parked on. `Scheduler.unpinFromMachine()` releases it. wasm32-wasi
+has no green threads.
+```maxon
+function main() returns ExitCode
+	sleep(1)
+	if not Scheduler.pinToMachine() 'refused'
+		print("refused\n")
+		return 1
+	end 'refused'
+	let pinned = Scheduler.currentMachine()
+	sleep(10)
+	let resumed = Scheduler.currentMachine()
+	Scheduler.unpinFromMachine()
+	print("on a machine {pinned != 0}, stayed {resumed == pinned}\n")
+	return 0
+end 'main'
+```
+```stdout
+on a machine true, stayed true
+```
+```exitcode
+0
+```
+
+<!-- test: builtins-cpu-parallel.an-unpin-by-a-thread-that-holds-no-pin-aborts -->
+<!-- unsupported-targets: wasm32-wasi -->
+`Scheduler.unpinFromMachine()` releases a pin the calling green thread holds. A thread that holds none has
+nothing to release, and an unpin there is a fatal error rather than a silent no-op, because it would release a
+pin that another owner of the same thread took.
+```maxon
+function main() returns ExitCode
+	Scheduler.unpinFromMachine()
+	return 0
+end 'main'
+```
+```stderr
+fatal error: a machine pin was released by a green thread that holds none
+```
+```exitcode
+70
+```
+
+<!-- test: builtins-cpu-parallel.a-pinned-service-outlives-main-and-resumes-on-its-machine -->
+<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- procs: 1 -->
+A service pins itself to the machine that runs it and parks on timers until `main` publishes a release. That
+machine is the main one, so it waits for its pinned thread while another machine runs `main` to its end, and the
+exit drain that follows finds a timer pending. The machine that fires the timer is not the pinned thread's, so it
+must hand the thread to its own machine rather than resume it: the service prints after `main` has returned, from
+the machine it parked on, and the program exits 0 with nothing leaked. The release is what orders the service's
+last line after `main`'s, so no timer is compared to how long `main` takes to get there.
+```maxon
+typealias Count = int(0 to 1000)
+
+typealias ReleaseCell = SharedValue with bool
+
+let releasePollMs = 1
+
+type Holder
+	let released as ReleaseCell
+	var held as Count
+
+	static function create(released ReleaseCell) returns Self
+		return Self{released: released, held: 0}
+	end 'create'
+
+	export function hold()
+		if not Scheduler.pinToMachine() 'refused'
+			print("refused\n")
+			return
+		end 'refused'
+		let parkedOn = Scheduler.currentMachine()
+		print("the pinned service parks\n")
+		while not self.released.current() 'untilReleased'
+			sleep(releasePollMs)
+		end 'untilReleased'
+		self.held = self.held + 1
+		print("the pinned service resumed on its own machine {Scheduler.currentMachine() == parkedOn}\n")
+		Scheduler.unpinFromMachine()
+	end 'hold'
+end 'Holder'
+
+function main() returns ExitCode
+	let released = ReleaseCell.create(false)
+	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let holder = spawn Holder.create(released.clone())
+	try holder.hold() otherwise panic("an open mailbox with room takes the send")
+	Scheduler.yield()
+	print("main returns\n")
+	released.publish(true)
+	return 0
+end 'main'
+```
+```stdout
+the pinned service parks
+main returns
+the pinned service resumed on its own machine true
+```
+```exitcode
+0
+```

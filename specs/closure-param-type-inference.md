@@ -1,0 +1,438 @@
+---
+feature: closure-param-type-inference
+status: experimental
+keywords: [closure, map, sort, parameters, inference, arity, diagnostics, E2003, E2015, E3005]
+category: diagnostics
+---
+
+# A Function-Typed Parameter Types the Closure Written at It
+
+## Documentation
+
+The compiler's parser does not INFER an omitted closure parameter type; the call argument the closure is
+written at hands it down. Any argument whose parameter is declared with a function type offers one type per
+parameter of that function type, in order: `Array.sortBy(cmp SortComparator)` offers
+`function(Element, Element) returns Ordering`, a container's `map` offers `function(Element) returns
+Element`, and a user function's `step Combine` offers whatever `Combine` declares. The types are in hand
+before the argument is parsed, because the callee's declaration names them.
+
+**The offer is positional, and its arity is the declared one.** Parameter k of the closure takes type k. A
+parameter past the end of the offer has no declared slot to be typed from — and nothing to infer it by, since
+the compiler has no inference pass. It is refused as un-inferrable (**E2003**), positioned at the parameter's name. A closure that declares an earlier parameter's
+type itself is still counted positionally, so `function(a Integer, b)` at a one-parameter slot is refused
+exactly as `function(a, b)` is.
+
+**Only a closure literal written AT the argument takes the offer.** A closure nested inside another
+argument's expression, or inside the closure's own body, sits at a different position and is offered
+nothing there.
+
+A position that offers nothing — including every NAMED function's own parameter list — keeps the E2015
+refusal, which names the construct that does infer.
+
+**The ARITY is a second rule standing beside the first, and it is not a closure rule.** A function value
+bound at a function-typed parameter must have that parameter's shape, whatever produced the value. Three
+shapes reach a `map` transform position with the wrong arity and all three are refused: a closure literal
+that types every parameter, a closure that declares none, and a bare reference to a NAMED function of the
+wrong shape. The last has no closure literal to look at, which is why the check cannot live in the closure
+parse: it is the ordinary argument agreement check (**E3005**), decided whole-program at the argument.
+
+⚠ **WHY A WRONG-ARITY TRANSFORM IS REFUSED RATHER THAN RUN.** Admitted,
+`nums.map(function(a Integer, b Integer) gives a + b)` would read an argument
+nobody passed. `map` calls its transform with ONE element plus the uniform
+`__env` slot, so `b` would be whatever the second argument slot happens to hold — a value that is luck
+rather than an answer. On `wasm32-wasi` the same
+program would not run at all — `call_indirect` type-checks the callee's signature, so the call to the
+transform traps with *"indirect call type mismatch"*. The shape is undefined rather than merely
+unspecified, so it is refused.
+
+The rules stay separate because they refuse different things. E2003 is about a parameter no declared slot
+can TYPE and fires in the parser at the parameter's name; E3005 is about a function value whose SHAPE — its
+arity or its parameter types — disagrees with the parameter, and fires after merge, at the argument.
+`nums.map(function(a String) gives 1)` over an int array is refused by the second — accepted,
+`gives a.count()`, the spelling that actually USES the parameter, would compile clean and SEGFAULT, since
+the walk hands the transform the element whatever it declares. It is pinned by `collection.error-map-transform-param-type-mismatch`, with
+`collection.map-struct-element-preserved` as its anti-false-refusal control.
+
+⚠ **A shape this file exists to keep out.** Accepted, an untyped `b` past the offer would type itself from
+some other slot, and the closure would lift with three ABI slots `(a, b, __env)`; `map`'s call to its
+transform passes exactly two, so `b` would read the environment POINTER as its value and `a + b` would
+degrade to `a`. It would compile clean and print a plausible number — `sum=6` for `[1, 2, 3]`, the right answer
+to a different question.
+
+⭐ **EVERY CONTAINER'S `map` IS AN ORDINARY DECLARED FUNCTION.** `nums.map(f)` is a call to
+`stdlib/Interfaces.maxon`'s `extension Iterable` — `map(transform ElementTransform)` — so the arity half and
+the parameter-TYPE half are both what a function-typed argument's own agreement rule answers:
+**E3005 `argument type mismatch for 'transform': expected 'fn(int) returns int', got 'fn(int, int) returns
+int'`**, at the ARGUMENT's own column. No container synthesizes a `map` of its own, so there is no
+transform-specific arity diagnostic: a wrong-arity transform is the same mistake as any other function value
+of the wrong shape at a function-typed parameter, and it reads the same.
+
+This is `stdlib-loading.md`'s `print` finding one surface over, and the `sleep` precedent before it —
+*"a builtin's bespoke argument rejection, replaced by the ordinary one"* — and it is the shape a retirement
+takes every time: the bespoke sentence existed because there was no declaration to read.
+
+## Tests
+
+<!-- test: the-transform-parameter-takes-the-container-element -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The positive half. One untyped parameter, typed from the array's element, and the transform is actually
+applied — so this fails on its VALUE if the refusal below ever over-reaches.
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let out = nums.map(function(a) gives a * 10)
+	var sum = 0 as FullRangeInt
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in out 'loop'
+		sum = sum + n
+	end 'loop'
+	print("sum={sum}\n")
+	return 0
+end 'main'
+```
+```stdout
+sum=60
+```
+
+<!-- test: error-a-fully-typed-transform-of-the-wrong-arity-is-still-refused -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+Nothing is INFERRED here — every parameter declares its type — so E2003 has nothing to say and the arity
+rule is what refuses it. Admitted, it would read an uninitialised second argument: `wasm32-wasi`'s
+`call_indirect` type-checks the signature and traps, and a native target reads the second argument
+slot's leftovers. The anchor is the argument, not a
+parameter: the value is what disagrees with the position.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let out = nums.map(function(a Integer, b Integer) gives a + b)
+	var sum = 0 as Integer
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in out 'loop'
+		sum = sum + n
+	end 'loop'
+	print("sum={sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:6:17: argument type mismatch for 'transform': expected 'fn(int) returns int', got 'fn(Integer, Integer) returns int'
+```
+
+<!-- test: error-a-transform-that-declares-no-parameter-is-refused-too -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- positions: moved -->
+The UNDER-arity half, and the reason the rule is stated as an equality rather than a ceiling. A
+zero-parameter transform is handed the element anyway and simply ignores it, which reads harmless and is
+the same undefined call: `wasm32-wasi` traps on it exactly as it traps on the over-arity shape.
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let out = nums.map(function() gives 7)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:5:17: argument type mismatch for 'transform': expected 'fn(int) returns int', got 'fn() returns int'
+```
+
+<!-- test: error-a-named-function-of-the-wrong-arity-is-refused-at-the-argument -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- positions: moved -->
+⭐ **The shape a closure-literal check structurally cannot see.** There is no closure here at all — a bare
+reference to a function declared elsewhere — so the arity is not a fact the parse of this line holds. It is
+pinned so a later refactor cannot quietly narrow the rule back to closure literals and keep the suite
+green.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function twoArg(a Integer, b Integer) returns Integer
+	return a + b
+end 'twoArg'
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	let out = nums.map(twoArg)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3005: <fragment>:10:17: argument type mismatch for 'transform': expected 'fn(int) returns int', got 'fn(Integer, Integer) returns Integer'
+```
+
+<!-- test: error-a-second-untyped-closure-parameter-is-uninferrable -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The blocker. `b` is past the one parameter the transform's declared function type offers.
+```maxon
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let out = nums.map(function(a, b) gives a + b)
+	var sum = 0
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in out 'loop'
+		sum = sum + n
+	end 'loop'
+	print("sum={sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2003: <fragment>:5:33: Cannot infer type for closure parameter 'b'. Add an explicit type annotation.
+```
+
+<!-- test: error-the-offer-is-spent-even-when-the-first-parameter-declined-it -->
+<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- positions: moved -->
+The first parameter declares its own type, so it does not TAKE the offer — and it still occupies the first
+position, because the offer is positional. `b` is the second parameter of a one-parameter slot, refused for
+the same reason and with the same sentence as above, anchored at the parameter name.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	let nums = [1, 2, 3]
+	// TODO: closures are not supported in minimaxon
+	let out = nums.map(function(a Integer, b) gives a + b)
+	var sum = 0
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for n in out 'loop'
+		sum = sum + n
+	end 'loop'
+	print("sum={sum}\n")
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2003: <fragment>:6:41: Cannot infer type for closure parameter 'b'. Add an explicit type annotation.
+```
+
+<!-- test: error-a-position-that-offers-nothing-still-names-the-one-that-does -->
+The `none` refusal, distinct from E2003: a NAMED function's parameter list is typed by no call argument at
+all, so its later untyped parameter is E2015 and names the construct that does infer. Pinned here
+because the E2003 arm is reached by narrowing this one, and a mistake in that narrowing would show up as
+this program changing its answer.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+function twice(a Integer, b) returns Integer
+	return a
+end 'twice'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:4:27: Unsupported: parameter 'b' with no type — the compiler infers an omitted parameter type only for a closure literal passed where the parameter is declared with a function type; every other parameter declares its type
+```
+
+<!-- test: a-conformers-own-map-types-its-closure-from-its-own-parameter -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The offer is read off the DECLARATION the call names, never off the method's spelling. `Counter` declares
+its OWN `map`, whose transform is `Doubler` — so `x` takes `Doubler`'s `Integer`, and the call runs
+`Counter`'s body, not the `extension Iterable` one: `4`, where an element-preserving `map` would have
+produced an array.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Doubler = function(Integer) returns Integer
+
+type Counter
+	var n as Integer
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function map(transform Doubler) returns Integer
+		return transform(self.n)
+	end 'map'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = Counter.create(2)
+	print("{c.map(function(x) gives x * 2)}\n")
+	return 0
+end 'main'
+```
+```stdout
+4
+```
+
+<!-- test: the-comparator-parameters-take-the-container-element -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+`sortBy`'s comparator is a function-typed parameter of two elements, so a closure passed there takes both
+parameter types from it — every position whose declared type is a function type offers one type per
+parameter, and a comparator has two.
+```maxon
+typealias Score = int(i64.min to i64.max)
+
+typealias ScoreArray = Array with Score
+
+function main() returns ExitCode
+	let scores = ScoreArray.create(0)
+	scores.push(3)
+	scores.push(1)
+	scores.push(2)
+	// TODO: closures are not supported in minimaxon
+	scores.sortBy(function(left, right) gives right.compare(left))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for score in scores 'each'
+		print("{score}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```stdout
+3
+2
+1
+```
+
+<!-- test: a-comparator-whose-element-is-a-generic-alias-takes-parameters-declared-at-it -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The container's element is itself a generic alias, `ByteArray`, so the comparator's two slots are that
+alias's instance, and a closure that declares its parameters at `ByteArray` matches them.
+```maxon
+typealias Rows = Array with ByteArray
+
+function main() returns ExitCode
+	let rows = Rows.create(0)
+	rows.push("ccc".toByteArray())
+	rows.push("a".toByteArray())
+	rows.push("bb".toByteArray())
+	// TODO: closures are not supported in minimaxon
+	rows.sortBy(function(left ByteArray, right ByteArray) gives left.count().compare(right.count()))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for row in rows 'each'
+		print("{row.count()}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```stdout
+1
+2
+3
+```
+
+<!-- test: the-comparator-parameters-take-a-generic-alias-element -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+The same comparator with its parameter types left out takes them from the generic-alias element.
+```maxon
+typealias Rows = Array with ByteArray
+
+function main() returns ExitCode
+	let rows = Rows.create(0)
+	rows.push("ccc".toByteArray())
+	rows.push("a".toByteArray())
+	rows.push("bb".toByteArray())
+	// TODO: closures are not supported in minimaxon
+	rows.sortBy(function(left, right) gives right.count().compare(left.count()))
+	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	for row in rows 'each'
+		print("{row.count()}\n")
+	end 'each'
+	return 0
+end 'main'
+```
+```stdout
+3
+2
+1
+```
+
+<!-- test: a-user-functions-function-typed-parameter-types-its-closure -->
+<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+The offer is not a container's: any call argument whose parameter is declared with a function type types
+the closure written there, a user function's as much as the standard library's.
+```maxon
+typealias Tally = int(0 to 1000)
+
+// TODO: function typealiases are not supported in minimaxon
+typealias Combine = function(Tally, Tally) returns Tally
+
+function fold(start Tally, step Combine, times Tally) returns Tally
+	var total = start
+	for _ in 0 upto times 'each'
+		total = step(total, 3)
+	end 'each'
+	return total
+end 'fold'
+
+function main() returns ExitCode
+	// TODO: closures are not supported in minimaxon
+	let total = fold(1, step: function(acc, n) gives acc + n, times: 4)
+	print("{total}\n")
+	return 0
+end 'main'
+```
+```stdout
+13
+```
+
+<!-- test: a-generic-alias-fixes-the-type-parameter-a-static-call-offers -->
+<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+A static call through a generic alias is made on that alias's instance, so `Inspect`'s parameter, which
+is `Array with T` where it is declared, is `Array with Tally` where the closure is written, and `items`
+takes that type.
+```maxon
+typealias Tally = int(0 to 1000)
+
+type Batch uses T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	export typealias Items = Array with T
+	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: function typealiases are not supported in minimaxon
+	export typealias Inspect = function(Items) returns Tally
+
+	static function measure(seed Items, inspect Inspect) returns Tally
+		return inspect(seed)
+	end 'measure'
+end 'Batch'
+
+typealias TallyBatch = Batch with Tally
+
+typealias TallyArray = Array with Tally
+
+function main() returns ExitCode
+	let seed = TallyArray.create(0)
+	seed.push(4)
+	print("{TallyBatch.measure(seed, inspect: function(items) gives items.count())}\n")
+	return 0
+end 'main'
+```
+```stdout
+1
+```

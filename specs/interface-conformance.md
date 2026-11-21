@@ -1,0 +1,1769 @@
+---
+feature: interface-conformance
+status: stable
+keywords: [interface, conformance, implements, type-checking]
+category: type-system
+---
+
+# Interface Conformance Checking
+
+## Documentation
+
+### Declaring Interface Conformance
+
+Types declare interface conformance using the `implements` keyword. The type must implement all methods declared by the interface:
+
+```text
+interface Printable
+  function toString() returns int
+end 'Printable'
+
+type MyType implements Printable
+  function toString() returns int
+    return 42
+  end 'toString'
+end 'MyType'
+```
+
+### Multiple Interface Conformance
+
+Types can conform to multiple interfaces:
+
+```text
+type MyType implements Interface1, Interface2
+  // must implement all methods from both interfaces
+end 'MyType'
+```
+
+### Conformance Errors
+
+If a type declares conformance but doesn't implement all required methods, a compile error is reported:
+
+```text
+interface Counter
+  function get() returns int
+  function increment()
+end 'Counter'
+
+type BadCounter implements Counter
+  function get() returns int
+    return 0
+  end 'get'
+  // ERROR: missing 'increment' method
+end 'BadCounter'
+```
+
+### Throws Conformance and the Abstract `Error` Requirement
+
+An interface method's `throws` clause fixes the ABI of every witness dispatch of that method, so an
+implementation's own clause must agree with it. Naming the SAME type always agrees. Beyond that, one
+relaxation is sound, and it is the one `Error` exists for:
+
+- **A requirement whose `throws` names an INTERFACE — `throws Error` — is satisfied by an implementation
+  that throws its own concrete error type.** `Error` is a marker interface: it declares no case, so a
+  `try` at the dispatch has nothing to decode and binds an opaque scalar. There is no ordinal to get
+  wrong, and the implementation is free to be more specific.
+- **The relaxation stops at the flag SHAPE.** A payload-carrying (heap-boxed) union hands its error over
+  as a BOX POINTER, while a requirement that decodes opaquely is caught through the scalar
+  `ordinal + bias` ABI — the pointer would be decoded as an ordinal and its box never released. An
+  implementation throwing a boxed union under an abstract requirement is therefore still refused.
+- **It is one-directional.** A requirement naming a CONCRETE error type still demands that exact type: an
+  implementation declaring the abstract `throws Error` under `throws DigestError` is a WIDENING, and the
+  dispatch would decode whatever it threw as a `DigestError`.
+- **An unresolvable requirement type is not abstract, it is a mistake**, and still demands the same name.
+- **And the same holds of the IMPLEMENTATION's type.** The relaxation is granted only to an error type
+  whose flag shape the compiler can actually see, so an implementation whose `throws` names no declared
+  enum or union — a typo, or a struct — is refused rather than waved through: "the compiler found no
+  entry for it" is not evidence that its flag is a scalar.
+
+## Tests
+
+<!-- test: conformance-basic -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Counter
+	function get() returns Integer
+	function increment(mutates self)
+end 'Counter'
+
+type SimpleCounter implements Counter
+	var value as Integer
+
+	function get() returns Integer
+		return value
+	end 'get'
+
+	function increment()
+		value = value + 1
+	end 'increment'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'SimpleCounter'
+
+function main() returns ExitCode
+	let c = SimpleCounter.create(40)
+	c.increment()
+	c.increment()
+	return c.get()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: conformance-multiple-interfaces -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Readable
+	function read() returns Integer
+end 'Readable'
+
+interface Writable
+	function write(mutates self, value Integer)
+end 'Writable'
+
+type Buffer implements Readable, Writable
+	var data as Integer
+
+	function read() returns Integer
+		return data
+	end 'read'
+
+	function write(value Integer)
+		data = value
+	end 'write'
+
+	static function create(data Integer) returns Self
+		return Self{data: data}
+	end 'create'
+end 'Buffer'
+
+function main() returns ExitCode
+	let buf = Buffer.create(0)
+	buf.write(42)
+	return buf.read()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: conformance-missing-method -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Counter
+	function get() returns Integer
+	function increment()
+end 'Counter'
+
+type BadCounter implements Counter
+	let value as Integer
+
+	function get() returns Integer
+		return value
+	end 'get'
+end 'BadCounter'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: specs/interface-conformance/conformance-missing-method.maxon:10:6: Partial interface implementation: type 'BadCounter' is missing 1 method(s):
+  - increment() returns void
+```
+
+<!-- test: conformance-wrong-param-type -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+interface Processor
+	function process(value Integer) returns Integer
+end 'Processor'
+
+type BadProcessor implements Processor
+	function process(value Float) returns Integer
+		return 0
+	end 'process'
+end 'BadProcessor'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: specs/interface-conformance/conformance-wrong-param-type.maxon:10:6: Partial interface implementation: type 'BadProcessor' has 1 method(s) with wrong signature:
+  - process(value Float) returns Integer (expected process(value Integer) returns Integer)
+```
+
+<!-- test: conformance-wrong-return-type -->
+<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- positions: moved -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+// TODO: float typealiases are not supported in minimaxon
+typealias Float = float(f64.min to f64.max)
+
+interface Provider
+	function provide() returns Integer
+end 'Provider'
+
+type BadProvider implements Provider
+	function provide() returns Float
+		// TODO: float literals are not supported in minimaxon
+		return 0.0
+	end 'provide'
+end 'BadProvider'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: specs/interface-conformance/conformance-wrong-return-type.maxon:10:6: Partial interface implementation: type 'BadProvider' has 1 method(s) with wrong signature:
+  - provide() returns Float (expected provide() returns Integer)
+```
+
+<!-- test: conformance-extra-methods-ok -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Simple
+	function getValue() returns Integer
+end 'Simple'
+
+type Extended implements Simple
+	let value as Integer
+
+	function getValue() returns Integer
+		return value
+	end 'getValue'
+
+	function extraMethod() returns Integer
+		return 100
+	end 'extraMethod'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Extended'
+
+function main() returns ExitCode
+	let e = Extended.create(42)
+	return e.getValue()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: conformance-no-interface -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Standalone
+	var value as Integer
+
+	function get() returns Integer
+		return value
+	end 'get'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Standalone'
+
+function main() returns ExitCode
+	let s = Standalone.create(42)
+	return s.get()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.conformance-alias-crossing -->
+<!-- positions: moved -->
+A `typealias` names its own type, so a requirement spelled `A` is met only by an implementation spelling
+`A`. `B` is a different type even over the identical range, and the refusal quotes both spellings, each
+naming its own declaration.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+typealias A = int(0 to 100)
+
+typealias B = int(0 to 100)
+
+interface Processor
+	function process(value A) returns Integer
+end 'Processor'
+
+type Widget implements Processor
+	var v as Integer
+
+	function process(value B) returns Integer
+		return value
+	end 'process'
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+end 'Widget'
+
+function main() returns ExitCode
+	var w = Widget.create()
+	return w.process(7)
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:11:6: Partial interface implementation: type 'Widget' has 1 method(s) with wrong signature:
+  - process(value B) returns Integer (expected process(value A) returns Integer)
+```
+
+<!-- test: error.an-interface-requirement-over-another-files-same-instance-alias-is-not-met -->
+<!-- positions: moved -->
+The same rule across two files, over a GENERIC alias. `alpha/ifc.maxon` and `beta/impl.maxon` each declare
+`Bag = Array with Integer` — one instance, two declarations — so the requirement's `alpha.Bag` is not met by
+a method taking `beta.Bag`. Both are exported from two directories, which is legal, and every file that sees
+both names its own through its directory.
+```maxon
+// --- file: alpha/ifc.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export typealias Bag = Array with Integer
+
+export interface Sink
+	function put(b alpha.Bag) returns Integer
+end 'Sink'
+
+// --- file: beta/impl.maxon
+export typealias Bag = Array with Integer
+
+export type Store implements Sink
+	var total as Integer
+
+	export static function create() returns Store
+		return Store{total: 0}
+	end 'create'
+
+	export function put(b beta.Bag) returns Integer
+		return self.total + (b.count() as Integer)
+	end 'put'
+end 'Store'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let store = Store.create()
+	var bag = beta.Bag.create(0)
+	bag.push(3)
+	let spare = alpha.Bag.create(0)
+	return (store.put(bag) + (spare.count() as Integer)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3016: beta/<fragment>:13:13: Partial interface implementation: type 'Store' has 1 method(s) with wrong signature:
+  - put(b beta.Bag) returns Integer (expected put(b alpha.Bag) returns Integer)
+```
+
+<!-- test: error.an-impl-over-another-files-same-named-alias-of-another-range-does-not-conform -->
+<!-- positions: moved -->
+The ranged form, over two RANGES. `a/` and `b/` each export `Score`, `a/`'s over `int(0 to 10)` and `b/`'s
+over `int(0 to 100)`; a type is its declaration, not its name, so the requirement's `a.Score` is not met by
+a method taking `b.Score`. Each file sees both exports, so each spells the one it means through its
+directory, and both signature lines quote that spelling.
+```maxon
+// --- file: a/rater.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export typealias Score = int(0 to 10)
+
+export interface Rater
+	function rate(s a.Score) returns Integer
+end 'Rater'
+
+// --- file: b/judge.maxon
+export typealias Score = int(0 to 100)
+
+export type Judge implements Rater
+	var bias as Integer
+
+	export static function create() returns Judge
+		return Judge{bias: 1}
+	end 'create'
+
+	export function rate(s b.Score) returns Integer
+		return self.bias + (s as Integer)
+	end 'rate'
+end 'Judge'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let judge = Judge.create()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: b/<fragment>:13:13: Partial interface implementation: type 'Judge' has 1 method(s) with wrong signature:
+  - rate(s b.Score) returns Integer (expected rate(s a.Score) returns Integer)
+```
+
+<!-- test: error.a-conformance-mismatch-over-a-contested-byte-array-names-it-in-source-form -->
+<!-- positions: moved -->
+The file declares its own `Byte` beside the library's, so `Bytes` is an `Array with Byte` over the
+author's two-byte `Byte` and the library's `ByteArray` is a different type. Both signature lines name
+each parameter as source spells it, and neither alias name is contested, so both stay bare.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias Byte = int(0 to 1000)
+
+typealias Bytes = Array with Byte
+
+interface Sink
+	function put(b Bytes) returns Integer
+end 'Sink'
+
+type Store implements Sink
+	var total as Integer
+
+	function put(b ByteArray) returns Integer
+		return self.total + (b.count() as Integer)
+	end 'put'
+
+	static function create() returns Self
+		return Self{total: 0}
+	end 'create'
+end 'Store'
+
+function main() returns ExitCode
+	let store = Store.create()
+	let spare = Bytes.create(0)
+	return (store.put("A".toByteArray()) + (spare.count() as Integer)) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:10:6: Partial interface implementation: type 'Store' has 1 method(s) with wrong signature:
+  - put(b ByteArray) returns Integer (expected put(b Bytes) returns Integer)
+```
+
+<!-- test: an-impl-spelling-the-requirements-alias-qualified-meets-it -->
+Only `alpha/` declares `Bag`. The requirement spells it bare and the implementation in `beta/` spells it
+`alpha.Bag`: two spellings of one declaration, so the requirement is met.
+```maxon
+// --- file: alpha/ifc.maxon
+export typealias Integer = int(i64.min to i64.max)
+
+export typealias Bag = Array with Integer
+
+export interface Sink
+	function put(b Bag) returns Integer
+end 'Sink'
+
+// --- file: beta/impl.maxon
+export type Store implements Sink
+	var total as Integer
+
+	export static function create() returns Store
+		return Store{total: 0}
+	end 'create'
+
+	export function put(b alpha.Bag) returns Integer
+		return self.total + (b.count() as Integer)
+	end 'put'
+end 'Store'
+
+// --- file: main.maxon
+function main() returns ExitCode
+	let store = Store.create()
+	let bag = Bag.create(0)
+	bag.push(3)
+	bag.push(4)
+	return store.put(bag) as ExitCode
+end 'main'
+```
+```exitcode
+2
+```
+
+<!-- test: conformance-alias-crossing -->
+The crossing that IS legal: the implementation declares the requirement's own alias, and a `B` value
+reaches it through the one door between two aliases, an explicit `as`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias A = int(0 to 100)
+
+typealias B = int(0 to 100)
+
+interface Processor
+	function process(value A) returns Integer
+end 'Processor'
+
+type Widget implements Processor
+	var v as Integer
+
+	function process(value A) returns Integer
+		return value
+	end 'process'
+
+	static function create() returns Self
+		return Self{v: 0}
+	end 'create'
+end 'Widget'
+
+function seed() returns B
+	return 7
+end 'seed'
+
+function main() returns ExitCode
+	let w = Widget.create()
+	let b = seed()
+	return w.process(b as A)
+end 'main'
+```
+```exitcode
+7
+```
+
+### A type implementing a compiler builtin interface
+
+<!-- test: builtin-interface-conformer-in-the-library-tier -->
+<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- tier: stdlib -->
+`stdlib/Builtins.maxon`'s `BuiltinArrayLiteral` is a MARKER: the compiler finds the type implementing it and
+uses that declaration as the record a `[…]` literal builds. A conformer's record holds a `__ManagedMemory`,
+which only a source file under `stdlib/` or `runtime/` may name (E3185), so the conformer cases here compile
+in the library tier; `stdlib/Array.maxon` is one — the compiler reads the corpus's declaration rather than transcribing a layout.
+
+⚠ **THE FIELD MUST BE A BUFFER OVER THE TYPE PARAMETER, AND THE INNER `typealias` IS HOW ONE IS SPELT.** A
+field declaration may not carry a `with` clause directly (`var managed as __ManagedMemory with
+Element` is refused), so the alias is not a style choice — it is the only spelling, and it is
+`stdlib/Array.maxon`'s own. The refusal one case down is what a field over the WRONG element earns.
+```maxon
+public type MyCollection uses Element implements BuiltinArrayLiteral
+	// TODO: nested typealias declarations are not supported in minimaxon
+	typealias Buf = __ManagedMemory with Element
+	var managed as Buf
+
+	static function init(mutates managed Buf) returns Self
+		return Self{managed: managed}
+	end 'init'
+end 'MyCollection'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: error.builtin-array-conformer-over-the-wrong-element -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+⭐⭐ **The compiler REFUSES A CONFORMER WHOSE BUFFER IS NOT OVER ITS OWN TYPE PARAMETER.**
+`Array with T` and `__ManagedMemory with T` are ONE `GenericInstanceId`, so a
+`MyCollection{managed: m}` literal is not a CONSTRUCTION at all — it is an IDENTITY on the record, handed back
+wearing `Self`. A bare `__ManagedMemory` field is a buffer over `Byte`, so the value handed back would wear an
+identity its bytes do not have: a container declared generic over `Element` whose storage has a one-byte
+stride whatever `Element` is.
+
+⚠ **THE REFUSAL IS AT THE FIELD, AHEAD OF THE LATER RETURN COMPARE, WHOSE SENTENCE NAMES NEITHER
+FAULT**: `Cannot return 'ByteArray' from function declared to return …` — a sentence about a RETURN, in a
+program whose fault is a FIELD.
+```maxon
+type MyCollection uses Element implements BuiltinArrayLiteral
+	var managed as __ManagedMemory
+
+	static function init(mutates managed __ManagedMemory) returns Self
+		return Self{managed: managed}
+	end 'init'
+end 'MyCollection'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:6:10: Unsupported: the field 'managed' of `MyCollection`, which declares itself the compiler's array record — such a literal IS its buffer and is handed back as `Self`, so the field's element must be the type parameter `MyCollection` is generic over, and this one's is not. The value would wear an identity its bytes do not have. Declare the field through an inner `typealias` over the parameter, which is `stdlib/Array.maxon`'s own spelling
+```
+
+<!-- test: interface-method-unused-param-allowed -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet(volume Integer) returns Integer
+end 'Greeter'
+
+type Silent implements Greeter
+	let value as Integer
+
+	function greet(volume Integer) returns Integer
+		return value
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Silent'
+
+function callGreet(g Greeter) returns Integer
+	return g.greet(99)
+end 'callGreet'
+
+function main() returns ExitCode
+	let s = Silent.create(42)
+	return callGreet(s)
+end 'main'
+```
+```exitcode
+42
+```
+
+
+<!-- test: interface-method-via-extended-interface -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Base
+	function ping(payload Integer) returns Integer
+end 'Base'
+
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Extended extends Base
+	function other() returns Integer
+end 'Extended'
+
+type Impl implements Extended
+	let n as Integer
+
+	function ping(payload Integer) returns Integer
+		return n
+	end 'ping'
+
+	function other() returns Integer
+		return n + 1
+	end 'other'
+
+	static function create(n Integer) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Impl'
+
+function callPing(b Base) returns Integer
+	return b.ping(7)
+end 'callPing'
+
+function main() returns ExitCode
+	let i = Impl.create(5)
+	return callPing(i)
+end 'main'
+```
+```exitcode
+5
+```
+
+
+<!-- test: interface-method-may-leave-a-required-parameter-unread -->
+⭐ **THE POSITIVE HALF OF THE UNUSED-PARAMETER WAIVER** (`unused-parameters`); the negative half is
+`non-interface-method-on-conforming-type-still-errors`, directly below. An implementer is forced to declare
+every parameter the CONTRACT names, so a method satisfying a requirement is exempt from E3012 even when its
+own implementation has no use for one — `Quiet.greet` ignores `volume` entirely and must still compile.
+Without the waiver this is `unused variable: 'volume'`, and `_` is not available to fix it: the name is the
+interface's to choose, not the implementer's.
+
+The receiver is CONCRETE (`q.greet(7)`), the shape `conformance-basic` uses — no interface-typed parameter
+is involved, so this does not wait on existentials.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet(volume Integer) returns Integer
+end 'Greeter'
+
+type Quiet implements Greeter
+	let value as Integer
+
+	function greet(volume Integer) returns Integer
+		return value
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Quiet'
+
+function main() returns ExitCode
+	let q = Quiet.create(42)
+	return q.greet(7)
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: non-interface-method-on-conforming-type-still-errors -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet() returns Integer
+end 'Greeter'
+
+type Hello implements Greeter
+	let value as Integer
+
+	function greet() returns Integer
+		return value
+	end 'greet'
+
+	function helper(unused Integer) returns Integer
+		return value
+	end 'helper'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Hello'
+
+function main() returns ExitCode
+	let h = Hello.create(1)
+	return h.helper(5)
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/interface-conformance/non-interface-method-on-conforming-type-still-errors.maxon:16:18: unused variable: 'unused'
+```
+
+
+<!-- test: interface-method-local-var-still-errors -->
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet(volume Integer) returns Integer
+end 'Greeter'
+
+type Silent implements Greeter
+	let value as Integer
+
+	function greet(volume Integer) returns Integer
+		let unusedLocal = 99
+		return value
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Silent'
+
+function main() returns ExitCode
+	let s = Silent.create(1)
+	return s.greet(0)
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/interface-conformance/interface-method-local-var-still-errors.maxon:13:7: unused variable: 'unusedLocal'
+```
+
+<!-- test: interface-method-reports-every-unused-local-and-no-waived-parameter -->
+The contract waives `volume` and `pitch`, which go unread; the two unread locals are each reported.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet(volume Integer, pitch Integer) returns Integer
+end 'Greeter'
+
+type Silent implements Greeter
+	let value as Integer
+
+	function greet(volume Integer, pitch Integer) returns Integer
+		let first = 1
+		let second = 2
+		return value
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Silent'
+
+function main() returns ExitCode
+	let s = Silent.create(1)
+	return s.greet(0, pitch: 0)
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/interface-conformance/interface-method-reports-every-unused-local-and-no-waived-parameter.maxon:13:7: unused variable: 'first'
+error E3012: specs/interface-conformance/interface-method-reports-every-unused-local-and-no-waived-parameter.maxon:14:7: unused variable: 'second'
+```
+
+<!-- test: interface-method-loop-variable-still-errors -->
+⭐ **THE WAIVER IS ABOUT PARAMETERS, AND A `for` BINDING IS NOT ONE**. `interface-method-may-leave-a-required-parameter-unread` above is the positive control that the waiver is live at all; this is the line it stops at. A contract can force an implementer to DECLARE a parameter it has no use for, and it has nothing whatever to say about a loop variable the author wrote inside the body — so the loop binding is still refused, and `for _ in` is the spelling that fixes it.
+
+⚠ **`limit` IS ALSO UNREAD, DELIBERATELY.** The two unused declarations in one method are what make this case discriminating in BOTH directions: it fails if the waiver is allowed to reach the loop binding, and it fails again if a waived PARAMETER is allowed to end the scan before the loop binding is reached.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Counter
+	function tally(limit Integer) returns Integer
+end 'Counter'
+
+type Impl implements Counter
+	let value as Integer
+
+	function tally(limit Integer) returns Integer
+		var total = 0 as Integer
+		for i in 0 upto 3 'l'
+			total = total + 1
+		end 'l'
+		return total + value
+	end 'tally'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Impl'
+
+function main() returns ExitCode
+	let c = Impl.create(1)
+	return c.tally(3)
+end 'main'
+```
+```maxoncstderr
+error E3012: specs/interface-conformance/interface-method-loop-variable-still-errors.maxon:14:7: unused variable: 'i'
+```
+
+<!-- test: interface-impl-ignore-param-name -->
+An interface-implementing method may name a parameter `_` (the ignore name) even
+when the interface declares it with a real name. The impl doesn't use the
+argument; callers through the interface still pass it by the interface's name,
+which they can see, so an `_` impl param satisfies any expected name — it can
+never be the bound name. Without this carve-out the conformance check reports a
+spurious E3016 "wrong signature" (`greet(_ bool)` vs `greet(loud bool)`).
+Returns `7`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+interface Greeter
+	function greet(loud bool) returns Integer
+end 'Greeter'
+
+type Quiet implements Greeter
+	let value as Integer
+
+	function greet(_ bool) returns Integer
+		return value
+	end 'greet'
+
+	static function create(value Integer) returns Self
+		return Self{value: value}
+	end 'create'
+end 'Quiet'
+
+function useGreeter(g Greeter) returns Integer
+	return g.greet(loud: true)
+end 'useGreeter'
+
+function main() returns ExitCode
+	let q = Quiet.create(7)
+	return useGreeter(q)
+end 'main'
+```
+```exitcode
+7
+```
+
+<!-- test: error.implements-unknown-interface -->
+An `implements` clause naming an interface that does not exist is E3015, positioned at the type name:
+a typo'd interface name must not silently pass.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Widget implements Drawable
+	let size as Integer
+
+	static function create(size Integer) returns Self
+		return Self{size: size}
+	end 'create'
+end 'Widget'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3015: <fragment>:5:6: type 'Widget' implements unknown interface 'Drawable'
+```
+
+<!-- test: error.partial-builtin-interface -->
+A struct declaring conformance to a stdlib protocol interface (synthesized by the compiler) without
+supplying its method is the same E3016 as a user interface — here `Stringable` without `toString`.
+```maxon
+
+typealias Integer = int(i64.min to i64.max)
+
+type Thing implements Stringable
+	var id as Integer
+
+	static function create(id Integer) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Thing'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:5:6: Partial interface implementation: type 'Thing' is missing 1 method(s):
+  - toString() returns String
+```
+
+### `static` interface requirements
+
+An `interface` may declare a `static function` requirement, and the conformance check holds a conformer to
+it like any other requirement. Skipping it would not be a lenience but a disagreement: The compiler
+dispatches an interface through a WITNESS TABLE with one slot per interface
+method — statics included — and the slot is stamped with a relocation naming `<Type>.<method>`. A conformer
+that supplied nothing would leave the linker resolving an address for a function nobody emitted, and the
+build would die in `bakeFuncAbs64Relocs`, not in a diagnostic.
+
+⚠ **THE RULE IS THE ONE E3016 ALREADY STATES, AND IT DOES NOT CONSULT THE WITNESS TABLE.** A type that does
+not define all of an interface's members does not conform to it — whether or not any generic in the program
+happens to instantiate against that interface. Making the table's existence decide conformance would leave
+the same program accepted or rejected depending on a `typealias` written elsewhere, which is exactly the
+two-components-disagreeing shape this rule closes.
+
+⚠ **A PRESENT static's SIGNATURE IS CHECKED TOO**, because its slot carries an address whose ABI the
+interface picked.
+
+<!-- test: error.static-requirement-not-supplied -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+A `static` requirement the conformer does not supply is E3016, not a failure in
+`bakeFuncAbs64Relocs`.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function tag() returns Code
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Wide
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run() returns Code
+		return self.item.digest()
+	end 'run'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	let b = PointBox.create(p)
+	return b.run()
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' is missing 1 method(s):
+  - static tag() returns Code
+```
+
+<!-- test: error.static-requirement-not-supplied-without-witness -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **WHETHER A WITNESS TABLE IS BUILT MUST NOT DECIDE WHETHER A TYPE CONFORMS.** The identical conformance
+with no generic instantiation anywhere in the program — so no witness table, no relocation, nothing that
+could fail at link time — is the SAME E3016.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function tag() returns Code
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	return p.digest()
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' is missing 1 method(s):
+  - static tag() returns Code
+```
+
+<!-- test: static-requirement-supplied -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+⭐⭐ **THE OVER-REJECTION GUARD.** A conformer that DOES supply the static compiles and runs — and it is the
+case a careless fix breaks, because checking a static requirement against the type's INSTANCE members
+rejects this program while still rejecting the two above. The witness table is built here, so its `tag`
+slot relocates against a `Point.tag` that exists.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function tag() returns Code
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	static function tag() returns Code
+		return 7
+	end 'tag'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Wide
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function run() returns Code
+		return self.item.digest()
+	end 'run'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	let b = PointBox.create(p)
+	return b.run()
+end 'main'
+```
+```exitcode
+42
+```
+
+<!-- test: error.static-requirement-wrong-signature -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+A supplied static whose signature disagrees with the requirement reaches E3016's WRONG-SIGNATURE arm, the
+same arm an instance method reaches. Under dictionary-passing a static is dispatched through its witness
+slot, so the shapes must agree.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function tag() returns Code
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	static function tag(extra Code) returns Code
+		return extra
+	end 'tag'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	return p.digest()
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' has 1 method(s) with wrong signature:
+  - static tag(extra Code) returns Code (expected static tag() returns Code)
+```
+
+<!-- test: error.static-requirement-supplied-as-instance-method -->
+<!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- positions: moved -->
+⭐ **A RECEIVER-KIND DISAGREEMENT IS A SIGNATURE DISAGREEMENT (this compiler's own rule — neither reference has it).**
+An instance method carries `__self` at position 0 and a static does not, so an instance impl installed in a
+slot the interface declared static would be dispatched with no receiver in the register it reads `self`
+from. The `static ` prefix is in the rendered signature precisely so this rejection's two halves do not
+print as the same string.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	// TODO: static functions in interfaces are not supported in minimaxon
+	static function tag() returns Code
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function tag() returns Code
+		return self.x
+	end 'tag'
+
+	function digest() returns Code
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	return p.digest()
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:9:6: Partial interface implementation: type 'Point' has 1 method(s) with wrong signature:
+  - tag() returns Code (expected static tag() returns Code)
+```
+
+<!-- test: error.instance-requirement-supplied-as-static-method -->
+<!-- positions: moved -->
+The other direction, which accepted would be a SILENT WRONG ANSWER: an INSTANCE requirement met by a static
+would be dispatched with a receiver passed into a callee with no `self` parameter.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Wide
+	function digest() returns Code
+end 'Wide'
+
+type Point implements Wide
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	static function digest() returns Code
+		return 7
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	let p = Point.create(42)
+	return p.x
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:8:6: Partial interface implementation: type 'Point' has 1 method(s) with wrong signature:
+  - static digest() returns Code (expected digest() returns Code)
+```
+
+<!-- test: throws-narrower-than-abstract-requirement -->
+⭐⭐ **AN IMPLEMENTATION MAY THROW A NARROWER ERROR TYPE THAN THE REQUIREMENT DECLARES, WHEN THE
+REQUIREMENT IS ABSTRACT.** `Digest.digest` declares `throws Error` — the marker interface, which
+declares no case — so the `try` at the witness dispatch has nothing to decode and binds an opaque scalar.
+`Point.digest` throwing its own `MyParseError` is a conformer being MORE SPECIFIC, which is exactly what an
+error interface is for; `stdlib/Builtins.maxon`'s `Parsable.fromString … throws Error` is the shape the whole
+corpus writes. Both edges are pinned in one exit code: the success edge carries the real 20 through the
+witness, the error edge takes the handler's 55.
+```maxon
+typealias Code = int(0 to u32.max)
+
+enum MyParseError implements Error
+	badInput
+end 'MyParseError'
+
+interface Digest
+	function digest() returns Code throws Error
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws MyParseError
+		if self.x < 10 'small'
+			throw MyParseError.badInput
+		end 'small'
+		return self.x
+	end 'digest'
+end 'Point'
+
+type Box uses T where T implements Digest
+	export var item as T
+
+	static function create(item T) returns Self
+		return Self{item: item}
+	end 'create'
+
+	function itemDigest() returns Code
+		return try self.item.digest() otherwise 55
+	end 'itemDigest'
+end 'Box'
+
+typealias PointBox = Box with Point
+
+function main() returns ExitCode
+	let good = PointBox.create(Point.create(20))
+	let bad = PointBox.create(Point.create(3))
+	return (good.itemDigest() + bad.itemDigest()) as ExitCode
+end 'main'
+```
+```exitcode
+75
+```
+
+<!-- test: error.throws-wider-than-concrete-requirement -->
+<!-- positions: moved -->
+⭐⭐ **THE NARROWING IS ONE-DIRECTIONAL, AND THIS IS THE CASE THAT PROVES THE PERMISSION DOES NOT SWALLOW
+THE REFUSAL.** The requirement names a CONCRETE error type, so its ordinals are exactly what the `try` at
+the dispatch decodes; an implementation declaring the abstract `throws Error` is a WIDENING — it may throw
+anything at all, and whatever it throws comes back decoded as a `DigestError`. Refused, with the same
+sentence any other disagreeing pair of named types gets.
+```maxon
+typealias Code = int(0 to u32.max)
+
+enum DigestError implements Error
+	tooSmall
+end 'DigestError'
+
+interface Digest
+	function digest() returns Code throws DigestError
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws Error
+		if self.x < 10 'small'
+			throw DigestError.tooSmall
+		end 'small'
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:12:6: Method 'Point.digest' throws 'Error' but interface 'Digest' declares it 'throws DigestError' — a witness dispatch types its caught error off the INTERFACE, so the impl's error would be decoded as 'DigestError'
+error E3113: <fragment>:17:11: 'throws Error' names an INTERFACE. A caught error is decoded off the DECLARED clause, and an interface declares no case to decode — a payload-carrying conformer arrives as a heap box pointer that would be read back as an ordinal and never released. Name the error enum or union this function actually throws
+```
+
+<!-- test: error.boxed-throws-under-abstract-requirement -->
+<!-- skip: union errors are not supported in minimaxon; an error is an enum -->
+<!-- positions: moved -->
+⭐⭐ **THE RELAXATION STOPS AT THE FLAG SHAPE, AND THAT BOUNDARY IS A MEMORY-SAFETY OBLIGATION RATHER THAN A
+WRONG ANSWER.** An abstract requirement declares no case, so a `try` at the dispatch catches it through the
+SCALAR `ordinal + bias` ABI — while a payload-carrying union hands its error over as a heap BOX POINTER. Were
+this accepted, the pointer would be decoded as an ordinal and the box would never be released.
+The narrowing is granted only to error types whose own flag is that same scalar.
+
+⚠ **THE PLAIN-FUNCTION SPELLING OF THIS PROGRAM IS REFUSED TOO, BY A CHECK OF ITS OWN.** `function f(x Code) returns Code throws Error` throwing this same
+`BoxedError` and caught by `try f(3) otherwise 55` would decode the box pointer as an ordinal and leak the
+box — a plain function's `throws` clause must name a declared enum or union (**E3113**,
+`specs/error-handling.md`'s `error.throws-interface-on-a-plain-function`) — so the two routes into the
+boxed-flag mismatch are refused by two checks that each own their own side: E3016 owns the relation between
+a requirement and its impl, E3113 owns a function's own clause. This case's own program is untouched by
+E3113: `Digest.digest`'s `throws Error` is an interface REQUIREMENT, which never becomes a function.
+```maxon
+typealias Code = int(0 to u32.max)
+
+// TODO: union errors are not supported in minimaxon; an error is an enum
+union BoxedError implements Error
+	withMessage(msg String)
+end 'BoxedError'
+
+interface Digest
+	function digest() returns Code throws Error
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws BoxedError
+		if self.x < 10 'small'
+			throw BoxedError.withMessage("nope")
+		end 'small'
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:12:6: Method 'Point.digest' throws 'BoxedError' but interface 'Digest' declares it 'throws Error', which declares no case to decode — a witness dispatch catches such a requirement through the SCALAR error-flag ABI, while a payload-carrying union is handed over as a heap box pointer that would be decoded as an ordinal and never released. Throw a payload-free enum, or declare the requirement as 'BoxedError' itself
+```
+
+<!-- test: error.throws-unknown-requirement-type-is-not-abstract -->
+<!-- positions: moved -->
+⭐⭐ **AN UNRESOLVABLE REQUIREMENT TYPE IS A MISTAKE, NOT AN ABSTRACT ERROR CHANNEL.** `throws Bogus` names
+neither a declared enum nor an interface, so nothing licenses an implementation to name something else — a
+rule keyed only on "the requirement decodes nothing" would have let a typo'd requirement accept any error
+type at all, silently. The requirement must name an INTERFACE for the narrowing to apply.
+```maxon
+typealias Code = int(0 to u32.max)
+
+enum DigestError implements Error
+	tooSmall
+end 'DigestError'
+
+interface Digest
+	function digest() returns Code throws Bogus
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws DigestError
+		if self.x < 10 'small'
+			throw DigestError.tooSmall
+		end 'small'
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:12:6: Method 'Point.digest' throws 'DigestError' but interface 'Digest' declares it 'throws Bogus' — a witness dispatch types its caught error off the INTERFACE, so the impl's error would be decoded as 'Bogus'
+```
+
+<!-- test: error.throws-requirement-shadowed-by-a-user-enum-is-concrete -->
+<!-- positions: moved -->
+⭐⭐ **`Error` IS A NAME, NOT A KEYWORD — AND A USER MAY DECLARE AN `enum Error`, WHICH MAKES THE REQUIREMENT
+CONCRETE AGAIN.** Interface LOOKUP resolves `Error` to the synthesized marker whatever else is declared, so a
+narrowing rule keyed on "the requirement names an interface" ALONE would grant the exemption here — while the
+catch site reads the ENUM registry, finds the user's two cases, and decodes the implementation's ordinals as
+`shadowAlpha`/`shadowBeta`. The rule therefore asks the enum registry FIRST, exactly as the decode does: a
+requirement with cases to decode is concrete, and its implementation must name it.
+```maxon
+typealias Code = int(0 to u32.max)
+
+enum Error
+	shadowAlpha
+	shadowBeta
+end 'Error'
+
+enum OtherError
+	oops
+end 'OtherError'
+
+interface Digest
+	function digest() returns Code throws Error
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws OtherError
+		if self.x < 10 'small'
+			throw OtherError.oops
+		end 'small'
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:17:6: Method 'Point.digest' throws 'OtherError' but interface 'Digest' declares it 'throws Error' — a witness dispatch types its caught error off the INTERFACE, so the impl's error would be decoded as 'Error'
+```
+
+<!-- test: error.throws-unresolvable-impl-type-under-abstract-requirement -->
+<!-- positions: moved -->
+⭐⭐ **THE MIRROR OF THE CASE ABOVE, ON THE IMPLEMENTATION'S SIDE.**
+`error.throws-unknown-requirement-type-is-not-abstract` establishes that a REQUIREMENT naming nothing is a
+mistake and not a licence. The IMPLEMENTATION owes the identical argument: the guard that keeps the
+narrowing to scalar-flagged errors must not read "no entry" in the enum registry as "not boxed, therefore
+fine" — the PERMISSIVE answer to a memory-safety question, for a name it cannot resolve. Read that way,
+this exact program would compile, link and run, where the strict same-name rule the exemption relaxes
+refuses it.
+
+⚠ The refusal reaches only pairs the strict rule refuses — a same-named pair never asks either
+question — so nothing the strict rule accepts is touched by it. `throws Bogus` on a
+plain function is not refused at this door: **E3113** refuses it, at the function's own clause. Both fire on the program below and both are reported, the conformance
+refusal first — `checkConformance` runs before the pipeline, and it is the only one of the two that
+can name the requirement the implementation is violating.
+```maxon
+typealias Code = int(0 to u32.max)
+
+interface Digest
+	function digest() returns Code throws Error
+end 'Digest'
+
+type Point implements Digest
+	export var x as Code
+
+	static function create(x Code) returns Self
+		return Self{x: x}
+	end 'create'
+
+	function digest() returns Code throws Bogus
+		return self.x
+	end 'digest'
+end 'Point'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:8:6: Method 'Point.digest' throws 'Bogus' but interface 'Digest' declares it 'throws Error', and 'Bogus' names no declared enum or union — the narrowing an abstract requirement permits is granted only to an error type whose flag SHAPE the compiler can see, and an unresolvable name is a mistake rather than a licence. Declare 'Bogus', or name 'Error' itself
+error E3113: <fragment>:13:11: 'throws Bogus' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
+```
+
+## A builtin literal marker is not a marker a user type may wear
+
+<!-- test: error.literal-marker-conformer-would-be-dropped-through-the-wrong-cascade -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### The record a marker conformer gets is a BYTE RECORD, and its cascade is a STRUCT's
+
+⭐⭐ **THE ENVELOPE COLLAPSE IS A LAYOUT RULE; THE VALUE IT PRODUCES CARRIES AN IDENTITY NOTHING ELSE
+AGREES WITH.** A type whose `implements` clause names one of `stdlib/Builtins.maxon`'s literal markers
+holds its `managed` inline, and its `Self{…}` is built through the fused byte-record encoder
+(`__str_from_bytes` / `__str_of_buffer`) — 48 bytes, `managed` at 0 and the grapheme flag at 40. But the
+VALUE is tagged `structRef`, because `returns Self` resolves to the struct, so it is dropped by
+`__destruct_<T>` and copied by `__clone_<T>`: cascades built from the DECLARED field list, over a record
+that has no slot for a third field. Unrefused, the program below faults with **exit
+0xC0000005**, the cascade reading `label` at offset 48 of a 48-byte record and handing whatever it finds
+to `__str_decref`.
+
+⇒ the compiler mints a fused record only for the two names it owns the record FOR. `String` and `Character` are
+on `TypeResolution.isCompilerOwnedTypeName`, so no user file can declare either, and their values are
+tagged `string`/`character` and dropped through `__str_decref` — never through a struct cascade.
+```maxon
+type Wrapped implements BuiltinStringLiteral
+	var managed as __ManagedMemory
+	var flag as bool
+	var label = "tag"
+
+	static function init(mutates value __ManagedMemory) returns Self
+		return Self{managed: value, flag: false}
+	end 'init'
+end 'Wrapped'
+
+function main() returns ExitCode
+	var mm = try __ManagedMemory.create(64, elementSize: 1) otherwise return 1
+	try mm.setLength(40) otherwise return 2
+	let w = Wrapped.init(mm)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:8:10: Unsupported: `Wrapped` implements `BuiltinStringLiteral`, one of `stdlib/Builtins.maxon`'s literal markers, so its record would be the compiler's own fused byte record rather than the fields it declares. The compiler mints that record only for the two names it owns the record FOR — `String` and `Character` — because a conformer of any other name gets a VALUE whose bytes are a byte record's and whose IDENTITY is a struct's: every declared field the fused record has no slot for is discarded at construction, and the struct cascade that later drops or clones it reads past the record's end
+```
+
+<!-- test: error.literal-marker-conformer-would-be-cloned-through-the-wrong-cascade -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### The clone half of the same refusal
+
+`__clone_<T>` is built from the identical declared field list, so co-owning such a value out of a struct
+field faults for the identical reason — **0xC0000005** unrefused. One door refuses both,
+because there is exactly one producer of a fused wrapper value.
+```maxon
+type Wrapped implements BuiltinStringLiteral
+	var managed as __ManagedMemory
+	var flag as bool
+	var label = "tag"
+
+	static function init(mutates value __ManagedMemory) returns Self
+		return Self{managed: value, flag: false}
+	end 'init'
+end 'Wrapped'
+
+type Box
+	var w as Wrapped
+
+	static function init(x Wrapped) returns Self
+		return Self{w: x}
+	end 'init'
+
+	function get() returns Wrapped
+		return self.w
+	end 'get'
+end 'Box'
+
+function main() returns ExitCode
+	var mm = try __ManagedMemory.create(64, elementSize: 1) otherwise return 1
+	try mm.setLength(40) otherwise return 2
+	let b = Box.init(Wrapped.init(mm))
+	let copy = b.get()
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:8:10: Unsupported: `Wrapped` implements `BuiltinStringLiteral`, one of `stdlib/Builtins.maxon`'s literal markers, so its record would be the compiler's own fused byte record rather than the fields it declares. The compiler mints that record only for the two names it owns the record FOR — `String` and `Character` — because a conformer of any other name gets a VALUE whose bytes are a byte record's and whose IDENTITY is a struct's: every declared field the fused record has no slot for is discarded at construction, and the struct cascade that later drops or clones it reads past the record's end
+```
+
+<!-- test: error.literal-marker-conformer-cannot-hold-what-its-literal-was-given -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### ⚠ THE SILENT ONE — a field written `false` that reads back TRUE
+
+⭐⭐ **THE MOST SERIOUS OF THE THREE, BECAUSE IT NEITHER FAULTS NOR LEAKS.** The fused encoder takes the
+`managed` field as its source and the field named `singleByteGraphemesFlag` as its flag; a conformer whose
+second field is named anything else reaches `__str_from_bytes`, which CLASSIFIES the bytes and writes its
+own answer at @40. The declared `flag` occupies @40 in the collapsed layout, so `Self{flag: false}` is
+written, discarded, and read back as the classifier's `true`. Unrefused, it exits **7**,
+the `true` branch, for a program whose only literal wrote `false`.
+```maxon
+type Wrapped implements BuiltinStringLiteral
+	var managed as __ManagedMemory
+	var flag as bool
+
+	static function init(mutates value __ManagedMemory) returns Self
+		return Self{managed: value, flag: false}
+	end 'init'
+
+	function readFlag() returns bool
+		return self.flag
+	end 'readFlag'
+end 'Wrapped'
+
+function main() returns ExitCode
+	var mm = try __ManagedMemory.create(4, elementSize: 1) otherwise return 1
+	try mm.setLength(1) otherwise return 2
+	try mm.setByte(0, 65) otherwise return 3
+	let w = Wrapped.init(mm)
+	return (7 if w.readFlag() else 9) as ExitCode
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:7:10: Unsupported: `Wrapped` implements `BuiltinStringLiteral`, one of `stdlib/Builtins.maxon`'s literal markers, so its record would be the compiler's own fused byte record rather than the fields it declares. The compiler mints that record only for the two names it owns the record FOR — `String` and `Character` — because a conformer of any other name gets a VALUE whose bytes are a byte record's and whose IDENTITY is a struct's: every declared field the fused record has no slot for is discarded at construction, and the struct cascade that later drops or clones it reads past the record's end
+```
+
+<!-- test: error.char-literal-marker-conformer-is-refused-too -->
+<!-- positions: moved -->
+<!-- tier: stdlib -->
+### `BuiltinCharLiteral` is refused by the same door
+
+The marker the refusal quotes is the one the type DECLARES, so the two byte-record markers reach one
+refusal rather than one each — the record is the same 48 bytes and the defect is the same defect.
+```maxon
+type Glyph implements BuiltinCharLiteral
+	var managed as __ManagedMemory
+
+	static function init(mutates value __ManagedMemory) returns Self
+		return Self{managed: value}
+	end 'init'
+end 'Glyph'
+
+function main() returns ExitCode
+	let mm = try __ManagedMemory.create(4, elementSize: 1) otherwise return 1
+	let g = Glyph.init(mm)
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E2015: <fragment>:6:10: Unsupported: `Glyph` implements `BuiltinCharLiteral`, one of `stdlib/Builtins.maxon`'s literal markers, so its record would be the compiler's own fused byte record rather than the fields it declares. The compiler mints that record only for the two names it owns the record FOR — `String` and `Character` — because a conformer of any other name gets a VALUE whose bytes are a byte record's and whose IDENTITY is a struct's: every declared field the fused record has no slot for is discarded at construction, and the struct cascade that later drops or clones it reads past the record's end
+```
+
+### An interface named through its directory
+
+<!-- test: a-type-implements-an-interface-named-through-its-directory -->
+`K` implements `sub.Greeter`, the interface `sub/` declares, and is passed where that interface is the
+parameter's type, so its `greet` answers through the conformance.
+```maxon
+// --- file: sub/greeter.maxon
+export interface Greeter
+	function greet() returns ExitCode
+end 'Greeter'
+
+// --- file: main.maxon
+type K implements sub.Greeter
+	let v as ExitCode
+
+	static function make() returns K
+		return K{v: 11}
+	end 'make'
+
+	function greet() returns ExitCode
+		return self.v
+	end 'greet'
+end 'K'
+
+function call(g sub.Greeter) returns ExitCode
+	return g.greet()
+end 'call'
+
+function main() returns ExitCode
+	return call(K.make())
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: an-interface-extends-an-interface-named-through-its-directory -->
+<!-- skip: interface inheritance (extends) is not supported in minimaxon -->
+`Both` extends `sub.Base`, so a conformer of `Both` answers `Base`'s requirement through it (5 + 6).
+```maxon
+// --- file: sub/base.maxon
+export interface Base
+	function base() returns ExitCode
+end 'Base'
+
+// --- file: main.maxon
+// TODO: interface inheritance (extends) is not supported in minimaxon
+interface Both extends sub.Base
+	function more() returns ExitCode
+end 'Both'
+
+type K implements Both
+	let v as ExitCode
+
+	static function make() returns K
+		return K{v: 5}
+	end 'make'
+
+	function base() returns ExitCode
+		return self.v
+	end 'base'
+
+	function more() returns ExitCode
+		return self.v + 1
+	end 'more'
+end 'K'
+
+function call(b Both) returns ExitCode
+	return b.base() + b.more()
+end 'call'
+
+function main() returns ExitCode
+	return call(K.make())
+end 'main'
+```
+```exitcode
+11
+```
+
+<!-- test: error.a-requirement-return-alias-is-not-met-by-another-alias -->
+<!-- positions: moved -->
+A requirement's return type is the alias it names, as a parameter's is: `Other` is a second alias of the
+same instance as `IntArray`, so a `make()` returning `Other` does not meet a requirement returning
+`IntArray`.
+```maxon
+typealias Integer = int(i64.min to i64.max)
+
+typealias IntArray = Array with Integer
+
+typealias Other = Array with Integer
+
+interface Maker
+	function make() returns IntArray
+end 'Maker'
+
+type Builder implements Maker
+	function make() returns Other
+		return Other.create(0)
+	end 'make'
+end 'Builder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+```
+```maxoncstderr
+error E3016: <fragment>:10:6: Partial interface implementation: type 'Builder' has 1 method(s) with wrong signature:
+  - make() returns Other (expected make() returns IntArray)
+```
