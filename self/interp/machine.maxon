@@ -76,6 +76,30 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: import is the runtime source's, which the interpreter never runs")
 	end 'visitCallImport'
 
+	function visitAtomicAdd(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: atomicadd is the runtime source's, which the interpreter never runs")
+	end 'visitAtomicAdd'
+
+	function visitAtomicExchange(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: atomicxchg is the runtime source's, which the interpreter never runs")
+	end 'visitAtomicExchange'
+
+	function visitCompareExchange(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: cmpxchg is the runtime source's, which the interpreter never runs")
+	end 'visitCompareExchange'
+
+	function visitSpinPause(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: spinpause is the runtime source's, which the interpreter never runs")
+	end 'visitSpinPause'
+
+	function visitThreadContext(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: threadcontext is the runtime source's, which the interpreter never runs")
+	end 'visitThreadContext'
+
+	function visitCallCode(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: callcode is the runtime source's, which the interpreter never runs")
+	end 'visitCallCode'
+
 	function visitBin(mutates self, f ir.IrFunction, x ir.Instr)
 		execBin(vm, x: x)
 	end 'visitBin'

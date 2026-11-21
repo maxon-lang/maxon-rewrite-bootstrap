@@ -361,6 +361,29 @@ export type Asm
 		encodeRepeCmpsb(code)
 	end 'repeCmpsb'
 
+	// The atomic forms are full fences. lockXadd adds src to the word at base + disp and leaves the word it found in src,
+	// xchg swaps them, and lockCmpxchg stores src there when the word is rax, leaving the word it found in rax.
+	export function lockXadd(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeLockXaddBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'lockXadd'
+
+	export function xchg(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeXchgBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'xchg'
+
+	export function lockCmpxchg(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeLockCmpxchgBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'lockCmpxchg'
+
+	export function pause(mutates self)
+		encodePause(code)
+	end 'pause'
+
+	// loadGs reads the word at base + disp from the start of the running thread's TEB.
+	export function loadGs(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegGsBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadGs'
+
 	// leaData, loadData and storeData reference an offset of the data section, which the link makes an address.
 	export function leaData(mutates self, dst X64Register, dataOffset Count)
 		encodeLeaRegRip(code, dest: dst, disp: 0)

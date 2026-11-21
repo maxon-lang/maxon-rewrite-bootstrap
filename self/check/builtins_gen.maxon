@@ -155,5 +155,11 @@ function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.N
 	if op == ast.Intrinsic.intrRawHeapAddress or op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawLiveAddress 'signature35'
 		return
 	end 'signature35'
+	if op == ast.Intrinsic.intrRawAtomicAdd or op == ast.Intrinsic.intrRawAtomicExchange or op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause 'signature36'
+		return
+	end 'signature36'
+	if op == ast.Intrinsic.intrRawThreadContext or op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawThreadStartAddress 'signature37'
+		return
+	end 'signature37'
 	panic("check: {op.name} is no intrinsic")
 end 'checkIntrinsicArgs'

@@ -550,6 +550,23 @@ function testX64Encoder()
 	end 'pad'
 	backend.patchRel32(c, at: forward, target: c.count())
 	expectEncoded(c, expected: "e90a00000000000000000000000000", label: "jmpRel32 forward")
+	// The atomic forms and the read of the thread's context came after the assembler, so their bytes are the Intel
+	// manual's, which internal/x64gen's literal rows also hold.
+	c = ByteArray.create(0)
+	backend.encodeLockXaddBaseDispReg(c, base: r12, disp: 8, src: r9)
+	expectEncoded(c, expected: "f04d0fc14c2408", label: "lockXaddBaseDispReg")
+	c = ByteArray.create(0)
+	backend.encodeXchgBaseDispReg(c, base: r13, disp: 0, src: backend.X64Register.rdx)
+	expectEncoded(c, expected: "49875500", label: "xchgBaseDispReg")
+	c = ByteArray.create(0)
+	backend.encodeLockCmpxchgBaseDispReg(c, base: rcx, disp: 0, src: backend.X64Register.rdx)
+	expectEncoded(c, expected: "f0480fb111", label: "lockCmpxchgBaseDispReg")
+	c = ByteArray.create(0)
+	backend.encodePause(c)
+	expectEncoded(c, expected: "f390", label: "pause")
+	c = ByteArray.create(0)
+	backend.encodeLoadRegGsBaseDisp(c, dest: rax, base: rcx, disp: backend.tebTlsSlotsOffset)
+	expectEncoded(c, expected: "65488b8180140000", label: "loadRegGsBaseDisp")
 end 'testX64Encoder'
 
 function selfTest()

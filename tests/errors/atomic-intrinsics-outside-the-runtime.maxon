@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	_ = __Raw.atomicAdd(0, offset: 0, value: 1)
+	_ = __Raw.compareExchange(0, offset: 0, expected: 0, desired: 1)
+	_ = __Raw.threadContext()
+	return 0
+end 'main'
+
+// expect-error: E3152 at 2:12
+// expect-error: E3152 at 3:12
+// expect-error: E3152 at 4:12

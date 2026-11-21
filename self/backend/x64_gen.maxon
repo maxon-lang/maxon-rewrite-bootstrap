@@ -621,6 +621,45 @@ export function encodeCallReg(mutates code ByteArray, reg X64Register)
 	writeModRmReg(code, regBits: 2, rm: reg)
 end 'encodeCallReg'
 
+// lock xadd [base + disp], src: F0 REX.W 0F C1 /r.
+export function encodeLockXaddBaseDispReg(mutates code ByteArray, base X64Register, disp Imm32, src X64Register)
+	code.push(0xF0)
+	emitRex(code, wide: true, regField: src, rmField: base, force: false)
+	code.push(0x0F)
+	code.push(0xC1)
+	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
+end 'encodeLockXaddBaseDispReg'
+
+// xchg [base + disp], src: REX.W 87 /r.
+export function encodeXchgBaseDispReg(mutates code ByteArray, base X64Register, disp Imm32, src X64Register)
+	emitRex(code, wide: true, regField: src, rmField: base, force: false)
+	code.push(0x87)
+	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
+end 'encodeXchgBaseDispReg'
+
+// lock cmpxchg [base + disp], src: F0 REX.W 0F B1 /r.
+export function encodeLockCmpxchgBaseDispReg(mutates code ByteArray, base X64Register, disp Imm32, src X64Register)
+	code.push(0xF0)
+	emitRex(code, wide: true, regField: src, rmField: base, force: false)
+	code.push(0x0F)
+	code.push(0xB1)
+	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
+end 'encodeLockCmpxchgBaseDispReg'
+
+// pause : F3 90.
+export function encodePause(mutates code ByteArray)
+	code.push(0xF3)
+	code.push(0x90)
+end 'encodePause'
+
+// mov dest, [base + disp]: 65 REX.W 8B /r.
+export function encodeLoadRegGsBaseDisp(mutates code ByteArray, dest X64Register, base X64Register, disp Imm32)
+	code.push(0x65)
+	emitRex(code, wide: true, regField: dest, rmField: base, force: false)
+	code.push(0x8B)
+	writeMem(code, regBits: regLow3(dest), base: base, disp: disp)
+end 'encodeLoadRegGsBaseDisp'
+
 // jmp rel: E9.
 export function encodeJmpRel32(mutates code ByteArray, rel Imm32)
 	code.push(0xE9)
@@ -852,6 +891,11 @@ export enum X64Form
 	storeRipReg
 	callRip
 	callReg
+	lockXaddBaseDispReg
+	xchgBaseDispReg
+	lockCmpxchgBaseDispReg
+	pause
+	loadRegGsBaseDisp
 	jmpRel32
 	callRel32
 	jccRel32
@@ -896,6 +940,8 @@ export function setsFlags(form X64Form) returns bool
 		sarRegCl or
 		sarRegImm8 or
 		repeCmpsb or
+		lockXaddBaseDispReg or
+		lockCmpxchgBaseDispReg or
 		ucomisdXmm0Xmm1 gives true
 		movRegReg or
 		loadRegBaseDisp or
@@ -926,6 +972,9 @@ export function setsFlags(form X64Form) returns bool
 		storeRipReg or
 		callRip or
 		callReg or
+		xchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 or
@@ -1000,6 +1049,11 @@ export function readsFlags(form X64Form) returns bool
 		storeRipReg or
 		callRip or
 		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
 		jmpRel32 or
 		callRel32 or
 		movqXmm0Reg or
@@ -1029,7 +1083,11 @@ export function readsMemory(form X64Form) returns bool
 		repeCmpsb or
 		loadRegRip or
 		callRip or
-		callReg gives true
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		loadRegGsBaseDisp gives true
 		movRegReg or
 		addRegReg or
 		subRegReg or
@@ -1073,6 +1131,7 @@ export function readsMemory(form X64Form) returns bool
 		repStosq or
 		leaRegRip or
 		storeRipReg or
+		pause or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 or
@@ -1104,6 +1163,9 @@ export function writesMemory(form X64Form) returns bool
 		storeRipReg or
 		callRip or
 		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
 		callRel32 gives true
 		movRegReg or
 		addRegReg or
@@ -1148,6 +1210,8 @@ export function writesMemory(form X64Form) returns bool
 		repeCmpsb or
 		leaRegRip or
 		loadRegRip or
+		pause or
+		loadRegGsBaseDisp or
 		jmpRel32 or
 		jccRel32 or
 		movqXmm0Reg or

@@ -40,6 +40,12 @@ export enum Opcode
 	opStoreRaw
 	opGlobalAddr
 	opCallImport
+	opAtomicAdd
+	opAtomicExchange
+	opCompareExchange
+	opSpinPause
+	opThreadContext
+	opCallCode
 	opBin
 	opCmp
 	opFBin
@@ -596,6 +602,24 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCallImport 'opCallImport'
 		return 7
 	end 'opCallImport'
+	if op == Opcode.opAtomicAdd 'opAtomicAdd'
+		return 3
+	end 'opAtomicAdd'
+	if op == Opcode.opAtomicExchange 'opAtomicExchange'
+		return 3
+	end 'opAtomicExchange'
+	if op == Opcode.opCompareExchange 'opCompareExchange'
+		return 3
+	end 'opCompareExchange'
+	if op == Opcode.opSpinPause 'opSpinPause'
+		return 3
+	end 'opSpinPause'
+	if op == Opcode.opThreadContext 'opThreadContext'
+		return 1
+	end 'opThreadContext'
+	if op == Opcode.opCallCode 'opCallCode'
+		return 31
+	end 'opCallCode'
 	if op == Opcode.opBin 'opBin'
 		return 64
 	end 'opBin'
@@ -876,6 +900,58 @@ export function newCallImport(dst Reg, name Index, argsStart Reg, argsCount Reg)
 	r.b = argsCount
 	return r
 end 'newCallImport'
+
+// AtomicAdd adds Src to the word at an address as one indivisible step, a full fence, and gives the word it found.
+export function newAtomicAdd(dst Reg, addr Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opAtomicAdd)
+	r.dst = dst
+	r.a = addr
+	r.b = src
+	return r
+end 'newAtomicAdd'
+
+// AtomicExchange puts Src in the word at an address as one indivisible step, a full fence, and gives the word it
+// found.
+export function newAtomicExchange(dst Reg, addr Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opAtomicExchange)
+	r.dst = dst
+	r.a = addr
+	r.b = src
+	return r
+end 'newAtomicExchange'
+
+// CompareExchange is given the address, the word expected and the word desired in Args: as one indivisible step,
+// a full fence, it puts the desired word at the address when the expected one is there, and gives the word it found.
+export function newCompareExchange(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opCompareExchange)
+	r.dst = dst
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newCompareExchange'
+
+// SpinPause tells the processor that the thread is waiting in a loop for another one.
+export function newSpinPause() returns Instr
+	var r = Instr.make(Opcode.opSpinPause)
+	return r
+end 'newSpinPause'
+
+// ThreadContext gives the word the running thread keeps in the runtime's thread-local slot: its context.
+export function newThreadContext(dst Reg) returns Instr
+	var r = Instr.make(Opcode.opThreadContext)
+	r.dst = dst
+	return r
+end 'newThreadContext'
+
+// CallCode calls the code at the address that is the first of Args with the rest of Args, by the internal
+// convention, and gives what it returns.
+export function newCallCode(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opCallCode)
+	r.dst = dst
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newCallCode'
 
 // Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a
 // signed '/' is i64.min / -1.
@@ -1317,6 +1393,42 @@ export function callImportArgsCount(x Instr) returns Count
 	return try x.b as Count otherwise panic("ir: callImport args is out of range")
 end 'callImportArgsCount'
 
+export function atomicAddAddr(x Instr) returns Reg
+	return x.a
+end 'atomicAddAddr'
+
+export function atomicAddSrc(x Instr) returns Reg
+	return x.b
+end 'atomicAddSrc'
+
+export function atomicExchangeAddr(x Instr) returns Reg
+	return x.a
+end 'atomicExchangeAddr'
+
+export function atomicExchangeSrc(x Instr) returns Reg
+	return x.b
+end 'atomicExchangeSrc'
+
+// compareExchangeArgsStart is where the args of a CompareExchange start in their pool.
+export function compareExchangeArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: compareExchange args is out of range")
+end 'compareExchangeArgsStart'
+
+// compareExchangeArgsCount is how many args a CompareExchange has.
+export function compareExchangeArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: compareExchange args is out of range")
+end 'compareExchangeArgsCount'
+
+// callCodeArgsStart is where the args of a CallCode start in their pool.
+export function callCodeArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: callCode args is out of range")
+end 'callCodeArgsStart'
+
+// callCodeArgsCount is how many args a CallCode has.
+export function callCodeArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: callCode args is out of range")
+end 'callCodeArgsCount'
+
 export function binOp(x Instr) returns BinOp
 	return binOpOf(x.sub)
 end 'binOp'
@@ -1734,6 +1846,24 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return table.Option.some(x.dst)
 	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		return table.Option.some(x.dst)
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		return table.Option.some(x.dst)
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		return table.Option.some(x.dst)
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return table.Option.none
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		return table.Option.some(x.dst)
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		return table.Option.some(x.dst)
+	end 'opCallCode'
 	if x.op == Opcode.opBin 'opBin'
 		return table.Option.some(x.dst)
 	end 'opBin'
@@ -1880,6 +2010,24 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return table.Option.none
 	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		return table.Option.none
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		return table.Option.none
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		return table.Option.none
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return table.Option.none
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		return table.Option.none
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		return table.Option.none
+	end 'opCallCode'
 	if x.op == Opcode.opBin 'opBin'
 		return binFail(x)
 	end 'opBin'
@@ -1982,6 +2130,12 @@ export interface InstrVisitor
 	function visitStoreRaw(mutates self, f IrFunction, x Instr)
 	function visitGlobalAddr(mutates self, f IrFunction, x Instr)
 	function visitCallImport(mutates self, f IrFunction, x Instr)
+	function visitAtomicAdd(mutates self, f IrFunction, x Instr)
+	function visitAtomicExchange(mutates self, f IrFunction, x Instr)
+	function visitCompareExchange(mutates self, f IrFunction, x Instr)
+	function visitSpinPause(mutates self, f IrFunction, x Instr)
+	function visitThreadContext(mutates self, f IrFunction, x Instr)
+	function visitCallCode(mutates self, f IrFunction, x Instr)
 	function visitBin(mutates self, f IrFunction, x Instr)
 	function visitCmp(mutates self, f IrFunction, x Instr)
 	function visitFBin(mutates self, f IrFunction, x Instr)
@@ -2077,6 +2231,30 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCallImport(f, x: x)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		visitor.visitAtomicAdd(f, x: x)
+		return
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		visitor.visitAtomicExchange(f, x: x)
+		return
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		visitor.visitCompareExchange(f, x: x)
+		return
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		visitor.visitSpinPause(f, x: x)
+		return
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		visitor.visitThreadContext(f, x: x)
+		return
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		visitor.visitCallCode(f, x: x)
+		return
+	end 'opCallCode'
 	if x.op == Opcode.opBin 'opBin'
 		visitor.visitBin(f, x: x)
 		return
@@ -2281,6 +2459,24 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return "{resultText(x.dst)}import {quote(callImportName(f, x: x))}({f.regsText(callImportArgsStart(x), count: callImportArgsCount(x))})"
 	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		return "{resultText(x.dst)}atomicadd %{atomicAddAddr(x)}, %{atomicAddSrc(x)}"
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		return "{resultText(x.dst)}atomicxchg %{atomicExchangeAddr(x)}, %{atomicExchangeSrc(x)}"
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		return "{resultText(x.dst)}cmpxchg({f.regsText(compareExchangeArgsStart(x), count: compareExchangeArgsCount(x))})"
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return "spinpause"
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		return "{resultText(x.dst)}threadcontext"
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		return "{resultText(x.dst)}callcode({f.regsText(callCodeArgsStart(x), count: callCodeArgsCount(x))})"
+	end 'opCallCode'
 	if x.op == Opcode.opBin 'opBin'
 		var text = "{resultText(x.dst)}{binOpText(binOp(x))}"
 		if binUnsigned(x) 'unsigned'

@@ -512,6 +512,61 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		self.put(f, v: x.dst, r: rax)
 	end 'visitCallImport'
 
+	// The atomic operations and the thread's context are the runtime's scheduler's: each atomic one is a single locked
+	// instruction, so a full fence.
+	function visitAtomicAdd(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rcx, v: ir.atomicAddAddr(x))
+		self.get(f, r: rax, v: ir.atomicAddSrc(x))
+		u.asm.lockXadd(rcx, disp: 0, src: rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitAtomicAdd'
+
+	function visitAtomicExchange(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rcx, v: ir.atomicExchangeAddr(x))
+		self.get(f, r: rax, v: ir.atomicExchangeSrc(x))
+		u.asm.xchg(rcx, disp: 0, src: rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitAtomicExchange'
+
+	function visitCompareExchange(mutates self, f ir.IrFunction, x ir.Instr)
+		let start = ir.compareExchangeArgsStart(x)
+		self.get(f, r: rcx, v: f.args[start])
+		self.get(f, r: rax, v: f.args[try start + 1 otherwise panic("backend: an argument past the pool")])
+		self.get(f, r: rdx, v: f.args[try start + 2 otherwise panic("backend: an argument past the pool")])
+		u.asm.lockCmpxchg(rcx, disp: 0, src: rdx)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitCompareExchange'
+
+	function visitSpinPause(mutates self, f ir.IrFunction, x ir.Instr)
+		u.asm.pause()
+	end 'visitSpinPause'
+
+	// visitThreadContext reads the thread-local slot in the TEB itself, as TlsGetValue does for a slot below 64, which
+	// the entry made sure the runtime's is.
+	function visitThreadContext(mutates self, f ir.IrFunction, x ir.Instr)
+		u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+		u.asm.loadGs(rax, base: rcx, disp: tebTlsSlotsOffset)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitThreadContext'
+
+	// visitCallCode calls the code at the address that is the first of the arguments with the rest, by the internal
+	// convention.
+	function visitCallCode(mutates self, f ir.IrFunction, x ir.Instr)
+		let start = ir.callCodeArgsStart(x)
+		let count = ir.callCodeArgsCount(x)
+		let words = try count - 1 otherwise panic("backend: a call of code with no address")
+		for i in 1 upto count 'args'
+			self.get(f, r: rax, v: f.args[try start + i otherwise panic("backend: an argument past the pool")])
+			u.asm.push(rax)
+		end 'args'
+		self.get(f, r: rax, v: f.args[start])
+		u.asm.callRegister(rax)
+		if words > 0 'pop'
+			u.asm.addImm(rsp, imm: imm32Of(try words * wordBytes otherwise panic("backend: more arguments than memory")))
+		end 'pop'
+		self.put(f, v: x.dst, r: rax)
+	end 'visitCallCode'
+
 	function visitBin(mutates self, f ir.IrFunction, x ir.Instr)
 		self.get(f, r: rax, v: ir.binLeft(x))
 		self.get(f, r: rcx, v: ir.binRight(x))

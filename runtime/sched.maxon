@@ -1,0 +1,14 @@
+// The scheduler: the behaviours that `when` schedules, run by worker threads. No behaviour runs natively yet, so the
+// entry stub's calls find nothing to do.
+
+// schedDrain is what the entry stub calls after main: it runs behaviours until none is left, and gives back main's exit
+// code.
+function schedDrain(code Count) returns Count
+	return code
+end 'schedDrain'
+
+// workerMain is what a thread the runtime makes runs, with its context, which rt.threadStart has stored in the
+// thread-local slot.
+function workerMain(context Count)
+	return
+end 'workerMain'

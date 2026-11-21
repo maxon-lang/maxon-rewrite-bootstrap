@@ -385,8 +385,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if symbol == ir.Rt.rtHeap or symbol == ir.Rt.rtStdout or symbol == ir.Rt.rtStderr or symbol == ir.Rt.rtLive 'internal1'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal1'
-	if symbol == ir.Rt.rtImageDataStart or symbol == ir.Rt.rtImageDataEnd or symbol == ir.Rt.rtCheckLeaks 'internal2'
+	if symbol == ir.Rt.rtImageDataStart or symbol == ir.Rt.rtImageDataEnd or symbol == ir.Rt.rtCheckLeaks or symbol == ir.Rt.rtTlsSlot 'internal2'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal2'
+	if symbol == ir.Rt.rtTlsOffset or symbol == ir.Rt.rtMainContext or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtSchedDrain 'internal3'
+		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
+	end 'internal3'
+	if symbol == ir.Rt.rtWorkerMain 'internal4'
+		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
+	end 'internal4'
 	panic("interp: a call of no runtime entry")
 end 'runtimeEntry'

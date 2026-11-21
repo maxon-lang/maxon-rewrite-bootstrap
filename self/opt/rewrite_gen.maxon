@@ -52,6 +52,24 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs DefList, m
 	if op == ir.Opcode.opCallImport 'opcodeCallImport'
 		return false
 	end 'opcodeCallImport'
+	if op == ir.Opcode.opAtomicAdd 'opcodeAtomicAdd'
+		return false
+	end 'opcodeAtomicAdd'
+	if op == ir.Opcode.opAtomicExchange 'opcodeAtomicExchange'
+		return false
+	end 'opcodeAtomicExchange'
+	if op == ir.Opcode.opCompareExchange 'opcodeCompareExchange'
+		return false
+	end 'opcodeCompareExchange'
+	if op == ir.Opcode.opSpinPause 'opcodeSpinPause'
+		return false
+	end 'opcodeSpinPause'
+	if op == ir.Opcode.opThreadContext 'opcodeThreadContext'
+		return false
+	end 'opcodeThreadContext'
+	if op == ir.Opcode.opCallCode 'opcodeCallCode'
+		return false
+	end 'opcodeCallCode'
 	if op == ir.Opcode.opBin 'opcodeBin'
 		return rewriteBin(fn, at: at, defs: defs, out: out)
 	end 'opcodeBin'

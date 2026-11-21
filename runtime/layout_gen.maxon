@@ -27,6 +27,75 @@ let arrayHeaderBytes = 24 as Count
 // arrayFirstCapacity is the capacity of an empty array's first buffer, which it doubles from.
 let arrayFirstCapacity = 4 as Count
 
+// frozenCountOffset is where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0.
+let frozenCountOffset = 0 as Count
+
+// frozenValueOffset is where the box of a frozen value holds the value: a scalar, or the address of its box.
+let frozenValueOffset = 8 as Count
+
+// frozenBoxBytes is the size of the box of a frozen value.
+let frozenBoxBytes = 16 as Count
+
+// cownCountOffset is where a cown holds how many owners share it, stepped atomically.
+let cownCountOffset = 0 as Count
+
+// cownTailOffset is where a cown holds the address of the newest request slot queued on it, or 0 when no behaviour holds or waits for it.
+let cownTailOffset = 8 as Count
+
+// cownEndingOffset is where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0.
+let cownEndingOffset = 16 as Count
+
+// cownValueOffset is where a cown holds its value, a word: a behaviour that mutates it is given this field's address.
+let cownValueOffset = 24 as Count
+
+// cownBytes is the size of a cown.
+let cownBytes = 32 as Count
+
+// behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
+let behaviourPendingOffset = 0 as Count
+
+// behaviourRunOffset is where a behaviour's record holds the address of its thunk, which is called with the record.
+let behaviourRunOffset = 8 as Count
+
+// behaviourCownCountOffset is where a behaviour's record holds how many cowns it names.
+let behaviourCownCountOffset = 16 as Count
+
+// behaviourSlotsOffset is where a behaviour's request slots begin, one for each cown; its cowns follow them, and its captures, a word each, follow those.
+let behaviourSlotsOffset = 24 as Count
+
+// requestCownOffset is where a request slot holds the cown it asks for.
+let requestCownOffset = 0 as Count
+
+// requestNextOffset is where a request slot holds the address of the slot queued on the same cown after it, or 0.
+let requestNextOffset = 8 as Count
+
+// requestBlockedOffset is where a request slot holds 1 while its behaviour is still being queued on its cowns, which a later slot waits out before it links itself.
+let requestBlockedOffset = 16 as Count
+
+// requestOwnerOffset is where a request slot holds the address of the record of its behaviour.
+let requestOwnerOffset = 24 as Count
+
+// requestSlotBytes is the size of a request slot.
+let requestSlotBytes = 32 as Count
+
+// contextIndexOffset is where a thread's context holds its worker's index, 0 for the main thread.
+let contextIndexOffset = 0 as Count
+
+// contextQueueOffset is where a thread's context holds the address of its worker's queue of runnable behaviours.
+let contextQueueOffset = 8 as Count
+
+// contextParkEventOffset is where a thread's context holds the event its worker waits on while it is parked.
+let contextParkEventOffset = 16 as Count
+
+// contextHeapOffset is where a thread's context holds the address of its allocator's state.
+let contextHeapOffset = 24 as Count
+
+// contextRandomOffset is where a thread's context holds the state of its random numbers, which pick the queue it steals from first.
+let contextRandomOffset = 32 as Count
+
+// contextBytes is the size of a thread's context.
+let contextBytes = 40 as Count
+
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count
 

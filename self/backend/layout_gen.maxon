@@ -57,5 +57,59 @@ export let tableTypeEntry = 2
 // tableFirstMethod is the entry of the first method of a table, the methods following in the order the interface requires them.
 export let tableFirstMethod = 3
 
+// frozenCountOffset is where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0.
+export let frozenCountOffset = 0
+
+// frozenValueOffset is where the box of a frozen value holds the value: a scalar, or the address of its box.
+export let frozenValueOffset = 8
+
+// frozenBoxBytes is the size of the box of a frozen value.
+export let frozenBoxBytes = 16
+
+// cownCountOffset is where a cown holds how many owners share it, stepped atomically.
+export let cownCountOffset = 0
+
+// cownTailOffset is where a cown holds the address of the newest request slot queued on it, or 0 when no behaviour holds or waits for it.
+export let cownTailOffset = 8
+
+// cownEndingOffset is where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0.
+export let cownEndingOffset = 16
+
+// cownValueOffset is where a cown holds its value, a word: a behaviour that mutates it is given this field's address.
+export let cownValueOffset = 24
+
+// cownBytes is the size of a cown.
+export let cownBytes = 32
+
+// behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
+export let behaviourPendingOffset = 0
+
+// behaviourRunOffset is where a behaviour's record holds the address of its thunk, which is called with the record.
+export let behaviourRunOffset = 8
+
+// behaviourCownCountOffset is where a behaviour's record holds how many cowns it names.
+export let behaviourCownCountOffset = 16
+
+// behaviourSlotsOffset is where a behaviour's request slots begin, one for each cown; its cowns follow them, and its captures, a word each, follow those.
+export let behaviourSlotsOffset = 24
+
+// requestCownOffset is where a request slot holds the cown it asks for.
+export let requestCownOffset = 0
+
+// requestNextOffset is where a request slot holds the address of the slot queued on the same cown after it, or 0.
+export let requestNextOffset = 8
+
+// requestBlockedOffset is where a request slot holds 1 while its behaviour is still being queued on its cowns, which a later slot waits out before it links itself.
+export let requestBlockedOffset = 16
+
+// requestOwnerOffset is where a request slot holds the address of the record of its behaviour.
+export let requestOwnerOffset = 24
+
+// requestSlotBytes is the size of a request slot.
+export let requestSlotBytes = 32
+
+// contextBytes is the size of a thread's context.
+export let contextBytes = 40
+
 // byteBytes is the size of an element of a byte array.
 export let byteBytes = 1

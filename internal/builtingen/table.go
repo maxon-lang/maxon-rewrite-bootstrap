@@ -316,6 +316,15 @@ func rawFunctions() []function {
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),
 		raw("liveAddress", nil, "Count", "RawLiveAddress"),
+		// The atomic operations are full fences and give the word they found at the address.
+		raw("atomicAdd", append(slices.Clone(at), "value Count"), "Count", "RawAtomicAdd"),
+		raw("atomicExchange", append(slices.Clone(at), "value Count"), "Count", "RawAtomicExchange"),
+		raw("compareExchange", append(slices.Clone(at), "expected Count", "desired Count"), "Count", "RawCompareExchange"),
+		raw("spinPause", nil, "", "RawSpinPause"),
+		raw("threadContext", nil, "Count", "RawThreadContext"),
+		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
+		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
+		raw("threadStartAddress", nil, "Count", "RawThreadStartAddress"),
 	}
 	for n := 0; n <= maxImportArgs; n++ {
 		params := []string{"name String"}
@@ -586,6 +595,12 @@ var entries = []entry{
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},
+	{"TlsSlot", "g.tlsSlot", "Runtime", roleGlobal, "the thread-local slot that each thread keeps its context in, which the entry takes with TlsAlloc and a thread sets with TlsSetValue"},
+	{"TlsOffset", "g.tlsOffset", "Runtime", roleGlobal, "where the thread-local slot is in a thread's TEB, which a read of the thread's context loads at"},
+	{"MainContext", "g.mainContext", "Runtime", roleGlobal, "the context of the main thread, which the entry stores in the thread-local slot"},
+	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
+	{"SchedDrain", "rt.schedDrain", "Source", roleInternal, "(exit code) -> exit code: what the entry calls after main, which runs behaviours until none is left"},
+	{"WorkerMain", "rt.workerMain", "Source", roleInternal, "(context): what a thread the runtime makes runs"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -706,6 +721,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"StrUtf16Count", "stringUtf16Count(text String) Count"},
 	{"PanicIndex", "panicIndex()"},
 	{"CheckLeaks", "checkLeaks(code Count) Count"},
+	{"SchedDrain", "schedDrain(code Count) Count"},
+	{"WorkerMain", "workerMain(context Count)"},
 	{"ArrayNew", "arrayNew() Count"},
 	{"ArrayLen", "arrayLength(array Count) Count"},
 	{"ArrayElem", "arrayElem(array Count, index Count) Count"},

@@ -38,6 +38,12 @@ const (
 	operandSizePrefix = 0x66
 	// scalarDoublePrefix is the mandatory prefix of the scalar-double forms of SSE2 (addsd, cvtsi2sd).
 	scalarDoublePrefix = 0xF2
+	// lockPrefix makes the read, change and write of a memory operand one indivisible step, and a full fence.
+	lockPrefix = 0xF0
+	// gsSegmentPrefix addresses memory from the base of gs, which on Windows x64 is the running thread's TEB.
+	gsSegmentPrefix = 0x65
+	// repPrefix is also the mandatory prefix of pause, which is a rep nop.
+	repPrefix = 0xF3
 	// The ModRM bytes of the forms that name xmm registers only: xmm0 with xmm1, and xmm0 with itself, register to register.
 	modrmXmm0Xmm1 = 0xC1
 	modrmXmm0Xmm0 = 0xC0
@@ -389,6 +395,27 @@ func buildForms() []form {
 		form{
 			name: "CallReg", mnemonic: "call", operands: []operand{reg("reg", fieldRM)},
 			opcode: []byte{0xFF}, modrm: modDigit, digit: 2, readsMemory: true, writesMemory: true,
+		},
+		// The atomic forms and the thread's context, which the runtime's scheduler is written on (README, "The runtime").
+		form{
+			name: "LockXaddBaseDispReg", mnemonic: "lock xadd", operands: []operand{mem(), reg("src", fieldReg)},
+			prefix: []byte{lockPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xC1}, modrm: modOperands,
+			setsFlags: true, readsMemory: true, writesMemory: true,
+		},
+		// xchg with a memory operand is locked whether or not it has the prefix.
+		form{
+			name: "XchgBaseDispReg", mnemonic: "xchg", operands: []operand{mem(), reg("src", fieldReg)},
+			rexW: true, opcode: []byte{0x87}, modrm: modOperands, readsMemory: true, writesMemory: true,
+		},
+		form{
+			name: "LockCmpxchgBaseDispReg", mnemonic: "lock cmpxchg", operands: []operand{mem(), reg("src", fieldReg)},
+			prefix: []byte{lockPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xB1}, modrm: modOperands,
+			setsFlags: true, readsMemory: true, writesMemory: true,
+		},
+		form{name: "Pause", mnemonic: "pause", prefix: []byte{repPrefix}, opcode: []byte{0x90}, effects: noEffects},
+		form{
+			name: "LoadRegGsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg), mem()},
+			prefix: []byte{gsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
 		},
 		form{name: "JmpRel32", mnemonic: "jmp", operands: []operand{rel32()}, opcode: []byte{0xE9}, effects: noEffects},
 		form{name: "CallRel32", mnemonic: "call", operands: []operand{rel32()}, opcode: []byte{0xE8}, effects: writes},

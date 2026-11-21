@@ -88,6 +88,62 @@ var layouts = []layoutConst{
 	{"tableFirstMethod", 3, true, toSelfBack,
 		"the entry of the first method of a table, the methods following in the order the interface requires them."},
 
+	// A frozen value is a counted box that holds the value, read in place by every owner and borrow.
+	{"frozenCountOffset", 0, false, toRuntime | toSelfBack,
+		"where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0."},
+	{"frozenValueOffset", 1, false, toRuntime | toSelfBack,
+		"where the box of a frozen value holds the value: a scalar, or the address of its box."},
+	{"frozenBoxBytes", 2, false, toRuntime | toSelfBack,
+		"the size of the box of a frozen value."},
+
+	// A cown has no lock word: the behaviours waiting on it are a chain of their request slots, the newest at tail.
+	{"cownCountOffset", 0, false, toRuntime | toSelfBack,
+		"where a cown holds how many owners share it, stepped atomically."},
+	{"cownTailOffset", 1, false, toRuntime | toSelfBack,
+		"where a cown holds the address of the newest request slot queued on it, or 0 when no behaviour holds or waits for it."},
+	{"cownEndingOffset", 2, false, toRuntime | toSelfBack,
+		"where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0."},
+	{"cownValueOffset", 3, false, toRuntime | toSelfBack,
+		"where a cown holds its value, a word: a behaviour that mutates it is given this field's address."},
+	{"cownBytes", 4, false, toRuntime | toSelfBack,
+		"the size of a cown."},
+
+	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order
+	// the source names them, and its captures.
+	{"behaviourPendingOffset", 0, false, toRuntime | toSelfBack,
+		"where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0."},
+	{"behaviourRunOffset", 1, false, toRuntime | toSelfBack,
+		"where a behaviour's record holds the address of its thunk, which is called with the record."},
+	{"behaviourCownCountOffset", 2, false, toRuntime | toSelfBack,
+		"where a behaviour's record holds how many cowns it names."},
+	{"behaviourSlotsOffset", 3, false, toRuntime | toSelfBack,
+		"where a behaviour's request slots begin, one for each cown; its cowns follow them, and its captures, a word each, follow those."},
+	{"requestCownOffset", 0, false, toRuntime | toSelfBack,
+		"where a request slot holds the cown it asks for."},
+	{"requestNextOffset", 1, false, toRuntime | toSelfBack,
+		"where a request slot holds the address of the slot queued on the same cown after it, or 0."},
+	{"requestBlockedOffset", 2, false, toRuntime | toSelfBack,
+		"where a request slot holds 1 while its behaviour is still being queued on its cowns, which a later slot waits out before it links itself."},
+	{"requestOwnerOffset", 3, false, toRuntime | toSelfBack,
+		"where a request slot holds the address of the record of its behaviour."},
+	{"requestSlotBytes", 4, false, toRuntime | toSelfBack,
+		"the size of a request slot."},
+
+	// A thread's context is what the thread-local slot holds: the main thread's is a global of the entry, a worker's the
+	// runtime's.
+	{"contextIndexOffset", 0, false, toRuntime,
+		"where a thread's context holds its worker's index, 0 for the main thread."},
+	{"contextQueueOffset", 1, false, toRuntime,
+		"where a thread's context holds the address of its worker's queue of runnable behaviours."},
+	{"contextParkEventOffset", 2, false, toRuntime,
+		"where a thread's context holds the event its worker waits on while it is parked."},
+	{"contextHeapOffset", 3, false, toRuntime,
+		"where a thread's context holds the address of its allocator's state."},
+	{"contextRandomOffset", 4, false, toRuntime,
+		"where a thread's context holds the state of its random numbers, which pick the queue it steals from first."},
+	{"contextBytes", 5, false, toRuntime | toSelfBack,
+		"the size of a thread's context."},
+
 	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},
 	{"bytesFirstCapacity", 16, true, toRuntime,

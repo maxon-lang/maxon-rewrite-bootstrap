@@ -464,6 +464,27 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
 		return lowerRawLiveAddress(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawLiveAddress'
+	if op == ast.Intrinsic.intrRawAtomicAdd 'intrRawAtomicAdd'
+		return lowerRawAtomicAdd(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawAtomicAdd'
+	if op == ast.Intrinsic.intrRawAtomicExchange 'intrRawAtomicExchange'
+		return lowerRawAtomicExchange(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawAtomicExchange'
+	if op == ast.Intrinsic.intrRawCompareExchange 'intrRawCompareExchange'
+		return lowerRawCompareExchange(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawCompareExchange'
+	if op == ast.Intrinsic.intrRawSpinPause 'intrRawSpinPause'
+		return lowerRawSpinPause(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawSpinPause'
+	if op == ast.Intrinsic.intrRawThreadContext 'intrRawThreadContext'
+		return lowerRawThreadContext(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawThreadContext'
+	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
+		return lowerRawCallCode(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawCallCode'
+	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
+		return lowerRawThreadStartAddress(l, p: p, c: c, recv: recv, args: args)
+	end 'intrRawThreadStartAddress'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return lowerRawCallImport(l, p: p, c: c, recv: recv, args: args)
 	end 'intrRawCallImport'
@@ -934,6 +955,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawLiveAddress 'intrRawLiveAddress'
 		return false
 	end 'intrRawLiveAddress'
+	if op == ast.Intrinsic.intrRawAtomicAdd 'intrRawAtomicAdd'
+		return false
+	end 'intrRawAtomicAdd'
+	if op == ast.Intrinsic.intrRawAtomicExchange 'intrRawAtomicExchange'
+		return false
+	end 'intrRawAtomicExchange'
+	if op == ast.Intrinsic.intrRawCompareExchange 'intrRawCompareExchange'
+		return false
+	end 'intrRawCompareExchange'
+	if op == ast.Intrinsic.intrRawSpinPause 'intrRawSpinPause'
+		return false
+	end 'intrRawSpinPause'
+	if op == ast.Intrinsic.intrRawThreadContext 'intrRawThreadContext'
+		return false
+	end 'intrRawThreadContext'
+	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
+		return false
+	end 'intrRawCallCode'
+	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
+		return false
+	end 'intrRawThreadStartAddress'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return true
 	end 'intrRawCallImport'

@@ -35,7 +35,7 @@ function sameWord(mutates l Lowerer, w Reg, kind IrKind) returns Reg
 	return wrappingBin(l, op: BinOp.binAdd, a: w, b: zero, kind: kind)
 end 'sameWord'
 
-// globalAddress is the address of a global of the entry stub.
+// globalAddress is the address of a symbol of the entry stub: a global, or the code a thread starts at.
 function globalAddress(mutates l Lowerer, symbol Rt) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newGlobalAddr(d, symbol: symbol))
@@ -113,6 +113,56 @@ end 'lowerRawStderrAddress'
 function lowerRawLiveAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtLive)
 end 'lowerRawLiveAddress'
+
+function lowerRawAtomicAdd(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newAtomicAdd(d, addr: at, src: args[2]))
+	return d
+end 'lowerRawAtomicAdd'
+
+function lowerRawAtomicExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newAtomicExchange(d, addr: at, src: args[2]))
+	return d
+end 'lowerRawAtomicExchange'
+
+function lowerRawCompareExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	var words = RegList.create(0)
+	words.push(rawAddress(l, address: args[0], offset: args[1]))
+	words.push(args[2])
+	words.push(args[3])
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.compareExchange(d, args: words)
+	emit(l, i: instr)
+	return d
+end 'lowerRawCompareExchange'
+
+// lowerRawSpinPause gives 0 as its value, as a store does.
+function lowerRawSpinPause(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	emit(l, i: newSpinPause())
+	return konst(l, value: 0 as Word)
+end 'lowerRawSpinPause'
+
+function lowerRawThreadContext(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newThreadContext(d))
+	return d
+end 'lowerRawThreadContext'
+
+function lowerRawCallCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.callCode(d, args: args)
+	emit(l, i: instr)
+	return d
+end 'lowerRawCallCode'
+
+// lowerRawThreadStartAddress is the address of the code a thread the runtime makes starts at, which the entry stub's
+// unit defines.
+function lowerRawThreadStartAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtThreadStart)
+end 'lowerRawThreadStartAddress'
 
 // lowerRawCallImport calls the DLL function that its first operand, a string literal, names. The call evaluates its
 // operands itself, since the name is read as text and is no value.

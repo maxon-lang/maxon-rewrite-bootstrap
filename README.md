@@ -996,12 +996,23 @@ are a `Count`:
 | `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
 | `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()`, `liveAddress()` | the address of a global of the entry stub |
 | `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns |
+| `__Raw.atomicAdd(address, offset: o, value: v)`, `__Raw.atomicExchange(address, offset: o, value: v)` | adds `v` to the word at `address + o`, or puts `v` there, as one locked step (a full fence), and gives the word it found |
+| `__Raw.compareExchange(address, offset: o, expected: e, desired: d)` | puts `d` in the word at `address + o` when `e` is there, as one locked step, and gives the word it found: it succeeded when that is `e` |
+| `__Raw.spinPause()` | `pause`, in a loop that waits for another thread |
+| `__Raw.threadContext()` | the running thread's context: the word in the runtime's thread-local slot |
+| `__Raw.callCode1(code, arg1: a)` | calls the code at the address `code` with one word by the internal convention, as a behaviour's thunk is called with its record, and gives what it returns |
+| `__Raw.threadStartAddress()` | the address of `rt.threadStart`, the code a thread that `CreateThread` makes starts at |
 
 Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag
-(`ast.intrinsicRuntimeOnly`). They lower to four IR operations that only the runtime's code has: `loadraw.W`
-and `storeraw.W`, W the width in bits, at the address plus the offset; `globaladdr` of an `Rt` global; and `import`,
-which names the DLL function among the function's strings. The wrapping arithmetic is an unchecked `bin`, `addressOf`
+(`ast.intrinsicRuntimeOnly`). They lower to IR operations that only the runtime's code has: `loadraw.W`
+and `storeraw.W`, W the width in bits, at the address plus the offset; `globaladdr` of an `Rt` global; `import`,
+which names the DLL function among the function's strings; `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
+the offset (`lock xadd`, `xchg`, `lock cmpxchg`); `spinpause`; `threadcontext`, which reads the slot straight from the
+TEB (`mov rax, gs:[rcx + 0x1480]`, `rcx` the slot's offset in `g.tlsOffset`); and `callcode`, an indirect call. Each
+atomic operation and `spinpause` reads and writes memory, so no pass moves a load or a store across one; on x64 a plain
+load is an acquire and a plain store a release, so these are all the scheduler needs. The interpreter never runs the
+runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
 the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
 (`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, and `visitCallImport`, which aligns the stack itself, since a Maxon
 function's frame is not aligned, and keeps `rsp` in `rbx`, which the callee preserves, saving `rbx` first).
@@ -1023,8 +1034,18 @@ mapped function exists with exactly that signature (`E3004` when it is missing, 
 which it sets before `main`, and the count of live boxes (`g.live`), which it defines, zero, in every executable; the
 linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
 The runtime is the same code whatever the build: `alloc` and `free` always count, and `--count-allocations` changes only
-the stub, which then passes `main`'s exit code to the runtime's `checkLeaks`; that exits with the leak report and 99 when
+the stub, which then passes the exit code to the runtime's `checkLeaks`; that exits with the leak report and 99 when
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are maxon's runtime's.
+
+**Threads.** Each thread keeps its context, a record of `contextBytes` (`abigen`), in one thread-local slot. Before
+`main` the stub takes it with `TlsAlloc` into `g.tlsSlot`, panics when it is not one of the TEB's 64 inline slots (as
+maxon's `emitRequireTebTlsSlot` does, `TLS_OUT_OF_INDEXES` included), keeps its offset in the TEB's slot array in
+`g.tlsOffset`, and stores the main thread's context, the global `g.mainContext`, with `TlsSetValue`. After `main` it
+calls the runtime's `schedDrain` with `main`'s exit code, which runs the behaviours that are left and gives the code
+back. A thread the runtime makes starts at `rt.threadStart`, which `CreateThread` calls by Win64 with the thread's
+context: it saves the registers Win64 keeps, keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
+context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
+value's box, a cown and a behaviour's record with its request slots.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
