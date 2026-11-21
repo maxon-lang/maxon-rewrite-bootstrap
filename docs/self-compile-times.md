@@ -15,3 +15,4 @@ One uncached `minimaxon build self --timings` with the Go compiler, one row per 
 | 2026-11-21 | 588462b | 1.2a maxon message text | 9353 | 17.6 | 10.0 | 12.1 |
 | 2026-11-21 | 0a3c110 | 1.2a collection built-ins | 9389 | 16.6 | 12.1 | 11.2 |
 | 2026-11-21 | 26ce7e8 | 1.2a byte arrays | 9394 | 18.7 | 13.6 | 13.8 |
+| 2026-11-21 | 64a224d | 1.2a OS built-ins | 9602 | 17.1 | 10.9 | 13.2 |
