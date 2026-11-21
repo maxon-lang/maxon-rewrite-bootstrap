@@ -195,7 +195,6 @@ end 'main'
 ```
 
 <!-- test: a-field-record-swapped-out-is-stored-into-a-let-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `let old = self.log` followed by `self.log = Log.create()` moves the record out of the field: the replacement is a
@@ -255,7 +254,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	// TODO: byte string literals are not supported in minimaxon
 	holder.note(b"a")
 	let kept = holder.closeWhole()
 	return kept.log.told.names.count() as ExitCode
@@ -266,7 +264,6 @@ end 'main'
 ```
 
 <!-- test: unrelated-work-between-the-swap-load-and-store-is-accepted -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 Statements that neither read nor write the field, the old record, or anything that reaches them may sit between the
@@ -331,7 +328,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	// TODO: byte string literals are not supported in minimaxon
 	holder.note(b"a")
 	let kept = holder.closeWhole()
 	return kept.log.told.names.count() as ExitCode
@@ -342,7 +338,6 @@ end 'main'
 ```
 
 <!-- test: a-record-another-holder-also-names-is-swapped-out-and-kept -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The `Holder` was built around a `Log` that `main` still names. Swapping the field leaves that second holder with the old record, and the `let` field keeps it: a write through `shared` is read through `kept`.
@@ -402,10 +397,8 @@ end 'Holder'
 function main() returns ExitCode
 	let shared = Log.create()
 	let holder = Holder.create(shared)
-	// TODO: byte string literals are not supported in minimaxon
 	holder.note(b"a")
 	let kept = holder.closeWhole()
-	// TODO: byte string literals are not supported in minimaxon
 	shared.told.note(b"b")
 	return kept.log.told.names.count() as ExitCode
 end 'main'

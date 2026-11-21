@@ -266,9 +266,9 @@ inside a condition that is itself re-evaluated per iteration.
 function main() returns ExitCode
 	var i = 0 as ElementIndex
 	while (try [10, 20, 30].get(i) otherwise 0) > 0 'loop'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'loop'
-	return i as ExitCode
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

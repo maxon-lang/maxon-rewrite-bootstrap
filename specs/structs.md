@@ -583,11 +583,11 @@ type Tag
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	function itself() returns Tag
-		return self
+		return self.clone()
 	end 'itself'
 end 'Tag'
 
@@ -595,7 +595,7 @@ function main() returns ExitCode
 	let a = Tag.create("probe")
 	let b = a.itself()
 	print("{a.name}/{b.name}")
-	return (a.name.count() + b.name.count()) as ExitCode
+	return try (a.name.count() + b.name.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -703,7 +703,7 @@ type Tally
 	end 'create'
 
 	function itself() returns Tally
-		return self
+		return self.clone()
 	end 'itself'
 end 'Tally'
 
@@ -712,9 +712,9 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	for _ in 0 upto 14 'trip'
 		let handle = t.itself()
-		sum = sum + handle.n + (handle.label.count() as Integer)
+		sum = try sum + handle.n + (handle.label.count() as Integer) otherwise panic("out of range")
 	end 'trip'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

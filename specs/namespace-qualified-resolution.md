@@ -1936,7 +1936,6 @@ error E3095: app/<fragment>:21:10: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-under-if-try -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
 <!-- positions: moved -->
@@ -1961,7 +1960,6 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let v = try pick() 'ok'
 		return v as ExitCode
 	end 'ok'

@@ -1429,7 +1429,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-environment-names-fold-case-on-windows -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **ON WINDOWS AN OVERRIDE REPLACES THE INHERITED VARIABLE UNDER ANY SPELLING.** Windows reads an
@@ -1453,7 +1452,6 @@ function outcomeOf(role String, environment Environment) returns String
 	config.arguments = argv
 	config.environment = environment
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
 	end 'ran' else (e) 'refused'
@@ -1499,7 +1497,6 @@ spawn failed: two names in the environment are the variable 'maxon_spec_env_fold
 ```
 
 <!-- test: subprocess-pathext-shim-a-name-with-no-extension-is-tried-only-with-pathext -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **ON WINDOWS A NAME WITH NO EXTENSION IS TRIED ONLY WITH EACH `PATHEXT` EXTENSION.** Windows never runs
 an extensionless file by name: `CreateProcessW` appends `.exe` to a name that has no extension, and `cmd`'s
@@ -1518,7 +1515,6 @@ Only Windows runs it: `PATHEXT` is that platform's convention, and POSIX tries a
 ```maxon
 function outcomeOf(name String) returns String
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name(name), arguments: StringArray.create(0)) 'ran'
 		outcome = "exit {result.exitCode()}"
 	end 'ran' else (e) 'failed'
@@ -1567,7 +1563,6 @@ name with another extension: executable not found: maxon-spec-pathext-shim.bat
 ```
 
 <!-- test: subprocess-a-bare-name-is-searched-in-createprocess-order-on-windows -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -1618,7 +1613,6 @@ function exitOf(name String, workingDirectory WorkingDirectory) returns String
 	let config = Configuration.create(Executable.name(name))
 	config.workingDirectory = workingDirectory
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = "exit {result.exitCode()}"
 	end 'ran' else (e) 'failed'
@@ -2618,14 +2612,14 @@ end 'describe'
 
 function runChild()
 	// "ab\0cd" on stdout, "w\0x" on stderr — a NUL in the middle of each, and two different lengths.
-	let out = ByteArray.create(0)
+	var out = ByteArray.create(0)
 	out.push(97)
 	out.push(98)
 	out.push(0)
 	out.push(99)
 	out.push(100)
 	print(String.from(out))
-	let err = ByteArray.create(0)
+	var err = ByteArray.create(0)
 	err.push(119)
 	err.push(0)
 	err.push(120)
@@ -2638,7 +2632,7 @@ function main() returns ExitCode
 		return 0
 	end 'childMode'
 	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("emit")
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
 	print("{describe("stdout", text: result.stdout)}\n")
@@ -2753,7 +2747,6 @@ errline len=4 [119 0 120 121]
 ```
 
 <!-- test: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2784,7 +2777,6 @@ function main() returns ExitCode
 	argv.push("child")
 	argv.push("a\0b")
 	argv.push("after")
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(exe, arguments: argv) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -2801,13 +2793,11 @@ refused spawnFailed
 ```
 
 <!-- test: subprocess-an-environment-entry-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An environment variable whose name or value holds a NUL cannot reach a child intact on any OS, so the spawn
 is refused as `spawnFailed` before anything starts, for every arm that hands the child variables of its own.
 ```maxon
 function attempt(label String, config Configuration)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("{label}: ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -2854,7 +2844,6 @@ custom: refused spawnFailed
 ```
 
 <!-- test: subprocess-a-working-directory-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A working directory holding a NUL names no directory, never the one named by the bytes before the NUL — so
 the spawn is refused as `spawnFailed` and the child never runs, even when that prefix is a directory that
@@ -2872,7 +2861,6 @@ function main() returns ExitCode
 	let exe = Executable.path(try Process.executablePath() otherwise return 3)
 	let argv = StringArray.create(0)
 	argv.push("child")
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("subprocess-nul-working-directory\0x"))) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -2890,7 +2878,6 @@ refused spawnFailed
 ```
 
 <!-- test: subprocess-a-program-path-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A program path holding a NUL names no program, never the one named by the bytes before the NUL — so the
 spawn is refused as `spawnFailed` and nothing runs, even when that prefix is this case's own executable.
@@ -2905,7 +2892,6 @@ function main() returns ExitCode
 	let exe = Executable.path(folder.join("{me.filename()}\0x"))
 	let argv = StringArray.create(0)
 	argv.push("child")
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(exe, arguments: argv) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -2922,14 +2908,12 @@ refused spawnFailed
 ```
 
 <!-- test: subprocess-a-redirect-file-path-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A redirect file whose path holds a NUL names no file, never the one named by the bytes before the NUL — so
 a spawn that reads stdin from one, or writes stdout or stderr to one, is refused as `spawnFailed` and the
 child never runs. The prefix is a file that exists, and it is neither read from nor written to.
 ```maxon
 function attempt(label String, config Configuration)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("{label}: ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -3043,7 +3027,6 @@ streamed: 4 bytes [97 0 98 10]
 ```
 
 <!-- test: subprocess-a-spawn-whose-pipes-cannot-be-made-fails-instead-of-panicking -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A spawn whose stdin or stdout pipe cannot be made fails as `spawnFailed`, and nothing panics. The case runs
@@ -3053,7 +3036,6 @@ collecting stdout, every other stream inherited so that pipe is the only descrip
 case is POSIX-only because Windows has no per-process handle limit a program can lower and reach in a test.
 ```maxon
 function attempt(label String, config Configuration)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("{label}: ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -3119,7 +3101,6 @@ child exit 0
 ```
 
 <!-- test: subprocess-a-stdin-pipe-that-cannot-be-created-reports-the-creations-own-error -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- process: own -->
 A spawn whose stdin pipe cannot be created fails with the error the creation itself reported, not one from a
@@ -3149,7 +3130,6 @@ function main() returns ExitCode
 	let fed = Configuration.create(Executable.name("cmd"))
 	fed.arguments = argv
 	fed.standardInput = InputSource.bytes("x")
-	// TODO: if try is not supported in minimaxon
 	if let result = try fed.run() 'ran'
 		print("fed: ran with exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -3170,7 +3150,6 @@ fed: refused spawn failed: os error 231
 ```
 
 <!-- test: subprocess-a-program-started-with-its-stdin-closed-reads-and-hands-on-the-null-device -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A program started with its standard input closed reads its standard input as the null device, and a child that
 inherits it does too. Such a program's first new descriptor is 0, so unless the runtime reopens a closed standard
@@ -3185,7 +3164,6 @@ function spawnWithStdinClosed(exe Executable)
 	let fed = Configuration.create(exe)
 	fed.arguments = fedArgv
 	fed.standardInput = InputSource.bytes("xyz")
-	// TODO: if try is not supported in minimaxon
 	if let result = try fed.run() 'ran'
 		print("fed: ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -3193,7 +3171,6 @@ function spawnWithStdinClosed(exe Executable)
 	end 'refused'
 	let inherited = Configuration.create(Executable.path(try FilePath.from("/bin/cat") otherwise panic("/bin/cat is a valid path")))
 	inherited.standardInput = InputSource.inherit
-	// TODO: if try is not supported in minimaxon
 	if let result = try inherited.run() 'catRan'
 		print("inherited: cat exit {result.exitCode()} stdout {result.stdout.byteLength()} bytes stderr {result.stderr.byteLength()} bytes\n")
 	end 'catRan' else (e) 'catRefused'
@@ -3238,7 +3215,6 @@ child exit 0
 ```
 
 <!-- test: subprocess-a-child-that-writes-before-it-reads-gets-its-whole-stdin -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A collected run feeds a child's stdin and drains its stdout together, so a child that writes more than a pipe
 holds before it reads anything still receives its whole input. The child is this case's own executable: it
@@ -3296,7 +3272,6 @@ function main() returns ExitCode
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
 	config.deadline = WaitDeadline.within(deadlineMs)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("exit {result.exitCode()}\nstdout {result.stdout.byteLength()} bytes\n{result.stderr}")
 	end 'ran' else (e) 'refused'
@@ -4131,7 +4106,6 @@ alpha beta
 ```
 
 <!-- test: subprocess-a-redirect-file-path-past-the-legacy-windows-limit-is-opened -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A redirect file is opened by the parent before the child starts, and its path is held to the same rule as every other
 path: a layout past the legacy Windows limit opens. The child is this case's own executable; the parent redirects its
@@ -4157,7 +4131,6 @@ function main() returns ExitCode
 	let config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardOutput = OutputDestination.file(target)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4251,7 +4224,6 @@ refused ioFailed
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A collected run feeds a payload larger than a pipe holds to a child that exits at once without reading a byte. On
 a POSIX host a write to a pipe whose read end is closed raises SIGPIPE, whose default action ends the writer, so
@@ -4289,7 +4261,6 @@ function main() returns ExitCode
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
 	config.deadline = WaitDeadline.within(deadlineMs)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4308,7 +4279,7 @@ parent continues
 ```
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-closes-its-stdin-after-a-pause-ends-in-the-childs-own-exit -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The first part of the payload fills the pipe and the push waits for room; the child then closes its standard input
 without having read it. The wait ends with the pipe broken, the push stops, and the run reports the child's exit
@@ -4338,7 +4309,6 @@ function main() returns ExitCode
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
 	config.deadline = WaitDeadline.within(deadlineMs)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4358,7 +4328,6 @@ parent continues
 
 <!-- test: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A payload that fits in the pipe may be accepted or refused depending on whether the child has already gone, and
 the run answers the same either way: the child's exit status.
@@ -4377,7 +4346,6 @@ function main() returns ExitCode
 	let config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes("hello\n")
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4396,7 +4364,7 @@ parent continues
 ```
 
 <!-- test: subprocess-a-run-keeps-the-output-of-a-child-that-exits-without-reading-its-fed-payload -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The output a child wrote before it exited without reading its input is collected whole when the feed of a payload
 larger than a pipe is cut short.
@@ -4425,7 +4393,6 @@ function main() returns ExitCode
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
 	config.deadline = WaitDeadline.within(deadlineMs)
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()} stdout {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -4728,7 +4695,7 @@ function main() returns ExitCode
 		return 0
 	end 'childMode'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("( \"$0\" child; echo \"child=$?\" >&2 ) | head -n 1 >/dev/null")
 	argv.push(me.path)
@@ -4759,7 +4726,7 @@ function main() returns ExitCode
 		return 0
 	end 'childMode'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("\{ ( \"$0\" child 2>&1 >/dev/null; echo \"child=$?\" >&3 ) | head -n 1 >/dev/null; \} 3>&2")
 	argv.push(me.path)
@@ -4784,7 +4751,7 @@ that was handed the default is ended by it and its parent shell reports 128 + 13
 ignored SIGPIPE survives and says so.
 ```maxon
 function main() returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("sh -c 'kill -PIPE $$; echo survived'; echo status=$?")
 	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3

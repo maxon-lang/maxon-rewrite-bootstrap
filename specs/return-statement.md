@@ -517,7 +517,7 @@ function pick(k Index) returns String
 	if k == 3 'last'
 		return moved
 	end 'last'
-	return "{s0.byteLength() + s4.byteLength() + s5.byteLength() + s6.byteLength()}"
+	return "{try s0.byteLength() + s4.byteLength() + s5.byteLength() + s6.byteLength() otherwise panic("out of range")}"
 end 'pick'
 
 function main() returns ExitCode

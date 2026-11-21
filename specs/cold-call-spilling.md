@@ -128,14 +128,14 @@ function walk(a WordArray, n Word) returns Word
 	var t = 0 as Word
 	var w = 1 as Word
 	for i in 0 upto n 'each'
-		w = w * 3 + i
-		t = t + (try a.get(i as ElementIndex) otherwise 99) + w
+		w = try w * 3 + i otherwise panic("out of range")
+		t = try t + (try a.get(i as ElementIndex) otherwise 99) + w otherwise panic("out of range")
 	end 'each'
 	return t
 end 'walk'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
@@ -270,21 +270,21 @@ function weigh(a WordArray, i Word) returns Word
 	if v > 2 'heavy'
 		print("")
 	end 'heavy'
-	return v * 2
+	return try v * 2 otherwise panic("out of range")
 end 'weigh'
 
 function total(a WordArray, n Word) returns Word
 	var t = 0 as Word
 	var w = 5 as Word
 	for i in 0 upto n 'each'
-		w = w + i
-		t = t + weigh(a, i: i) + w
+		w = try w + i otherwise panic("out of range")
+		t = try t + weigh(a, i: i) + w otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
@@ -326,17 +326,17 @@ function viaArray(a WordArray, n Word) returns Word
 	var a8 = 9 as Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		a0 = a0 + i
+		a0 = try a0 + i otherwise panic("out of range")
 		a1 = a1 xor a0
-		a2 = a2 + a1
+		a2 = try a2 + a1 otherwise panic("out of range")
 		a3 = a3 xor a2
-		a4 = a4 + a3
+		a4 = try a4 + a3 otherwise panic("out of range")
 		a5 = a5 xor a4
-		a6 = a6 + a5
+		a6 = try a6 + a5 otherwise panic("out of range")
 		a7 = a7 xor a6
-		a8 = a8 + a7
+		a8 = try a8 + a7 otherwise panic("out of range")
 		let e = try a.get(i as ElementIndex) otherwise 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'viaArray'
@@ -353,23 +353,23 @@ function reference(n Word) returns Word
 	var a8 = 9 as Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		a0 = a0 + i
+		a0 = try a0 + i otherwise panic("out of range")
 		a1 = a1 xor a0
-		a2 = a2 + a1
+		a2 = try a2 + a1 otherwise panic("out of range")
 		a3 = a3 xor a2
-		a4 = a4 + a3
+		a4 = try a4 + a3 otherwise panic("out of range")
 		a5 = a5 xor a4
-		a6 = a6 + a5
+		a6 = try a6 + a5 otherwise panic("out of range")
 		a7 = a7 xor a6
-		a8 = a8 + a7
+		a8 = try a8 + a7 otherwise panic("out of range")
 		let e = i if i < 6 else 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'reference'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i)
 	end 'seed'
@@ -405,18 +405,18 @@ function viaArray(a WordArray, n Word) returns Word
 	var a9 = 10 as Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		a0 = a0 + i
+		a0 = try a0 + i otherwise panic("out of range")
 		a1 = a1 xor a0
-		a2 = a2 + a1
+		a2 = try a2 + a1 otherwise panic("out of range")
 		a3 = a3 xor a2
-		a4 = a4 + a3
+		a4 = try a4 + a3 otherwise panic("out of range")
 		a5 = a5 xor a4
-		a6 = a6 + a5
+		a6 = try a6 + a5 otherwise panic("out of range")
 		a7 = a7 xor a6
-		a8 = a8 + a7
+		a8 = try a8 + a7 otherwise panic("out of range")
 		a9 = a9 xor a8
 		let e = try a.get(i as ElementIndex) otherwise 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'viaArray'
@@ -434,24 +434,24 @@ function reference(n Word) returns Word
 	var a9 = 10 as Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		a0 = a0 + i
+		a0 = try a0 + i otherwise panic("out of range")
 		a1 = a1 xor a0
-		a2 = a2 + a1
+		a2 = try a2 + a1 otherwise panic("out of range")
 		a3 = a3 xor a2
-		a4 = a4 + a3
+		a4 = try a4 + a3 otherwise panic("out of range")
 		a5 = a5 xor a4
-		a6 = a6 + a5
+		a6 = try a6 + a5 otherwise panic("out of range")
 		a7 = a7 xor a6
-		a8 = a8 + a7
+		a8 = try a8 + a7 otherwise panic("out of range")
 		a9 = a9 xor a8
 		let e = i if i < 6 else 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'reference'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i)
 	end 'seed'
@@ -487,17 +487,17 @@ function viaArray(a WordArray, n Word) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		let z = 1 if i < 6 else 0
-		a0 = (a0 + i) * z
+		a0 = try (a0 + i) * z otherwise panic("out of range")
 		a1 = (a1 xor a0) * z
-		a2 = (a2 + a1) * z
+		a2 = try (a2 + a1) * z otherwise panic("out of range")
 		a3 = (a3 xor a2) * z
-		a4 = (a4 + a3) * z
+		a4 = try (a4 + a3) * z otherwise panic("out of range")
 		a5 = (a5 xor a4) * z
-		a6 = (a6 + a5) * z
+		a6 = try (a6 + a5) * z otherwise panic("out of range")
 		a7 = (a7 xor a6) * z
-		a8 = (a8 + a7) * z
+		a8 = try (a8 + a7) * z otherwise panic("out of range")
 		let e = try a.get(i as ElementIndex) otherwise 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'viaArray'
@@ -515,23 +515,23 @@ function reference(n Word) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		let z = 1 if i < 6 else 0
-		a0 = (a0 + i) * z
+		a0 = try (a0 + i) * z otherwise panic("out of range")
 		a1 = (a1 xor a0) * z
-		a2 = (a2 + a1) * z
+		a2 = try (a2 + a1) * z otherwise panic("out of range")
 		a3 = (a3 xor a2) * z
-		a4 = (a4 + a3) * z
+		a4 = try (a4 + a3) * z otherwise panic("out of range")
 		a5 = (a5 xor a4) * z
-		a6 = (a6 + a5) * z
+		a6 = try (a6 + a5) * z otherwise panic("out of range")
 		a7 = (a7 xor a6) * z
-		a8 = (a8 + a7) * z
+		a8 = try (a8 + a7) * z otherwise panic("out of range")
 		let e = i if i < 6 else 99
-		t = t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 otherwise panic("out of range")
 	end 'each'
 	return t
 end 'reference'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i)
 	end 'seed'

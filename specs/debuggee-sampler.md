@@ -113,7 +113,7 @@ end 'main'
 ```
 
 <!-- test: a-register-block-offset-outside-the-block-throws-out-of-bounds -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got 'with' -->
 <!-- tier: stdlib -->
 `word` and `with` throw `outOfBounds` for an offset that is not a multiple of 8 and for one at or past the end. A block
 that is not a CONTEXT throws it from the named accessors too.
@@ -128,7 +128,6 @@ function block(length ScratchBytes) returns RegisterBlock
 end 'block'
 
 function wordOutcome(held RegisterBlock, offset RegisterOffset) returns String
-	// TODO: if try is not supported in minimaxon
 	if let word = try held.word(offset) 'read'
 		return "{word}"
 	end 'read' else (e) 'refused'
@@ -137,7 +136,6 @@ function wordOutcome(held RegisterBlock, offset RegisterOffset) returns String
 end 'wordOutcome'
 
 function withOutcome(held RegisterBlock, offset RegisterOffset) returns String
-	// TODO: if try is not supported in minimaxon
 	if let changed = try held.with(offset, word: 1) 'written'
 		return "{try changed.word(offset) otherwise 0}"
 	end 'written' else (e) 'refused'
@@ -146,7 +144,6 @@ function withOutcome(held RegisterBlock, offset RegisterOffset) returns String
 end 'withOutcome'
 
 function programCounterOutcome(held RegisterBlock) returns String
-	// TODO: if try is not supported in minimaxon
 	if let word = try held.programCounter() 'read'
 		return "{word}"
 	end 'read' else (e) 'refused'
@@ -173,7 +170,6 @@ end 'main'
 ```
 
 <!-- test: a-gpr-index-past-the-last-register-panics-at-the-cast -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Win64GprIndex` is `int(0 to 15)`, so an index one past the last register never reaches `gpr`: the cast that makes it
 panics.
@@ -183,7 +179,6 @@ function main() returns ExitCode
 	let pages = ScratchPages.reserve(0x1000)
 	let block = RegisterBlock.readFrom(pages, at: 0, length: 0x4D0)
 	pages.release()
-	// TODO: byte string literals are not supported in minimaxon
 	let past = b"0123456789abcdef".count() as Win64GprIndex
 	return (try block.gpr(past) otherwise 7) as ExitCode
 end 'main'
@@ -199,13 +194,11 @@ Stack trace:
 ```
 
 <!-- test: a-process-trace-moves-at-most-the-transfer-window -->
-<!-- skip: if try is not supported in minimaxon -->
 A transfer larger than the 512-byte window throws `unreadable` or `unwritable` before the target is touched, and one
 of no bytes answers at once. `close` releases the region and a second `close` changes nothing.
 
 ```maxon
 function readOutcome(trace ProcessTrace, count DebuggeeByteCount) returns String
-	// TODO: if try is not supported in minimaxon
 	if let bytes = try trace.readMemory(1, address: 4096, count: count) 'read'
 		return "read {bytes.count()}"
 	end 'read' else (e) 'refused'
@@ -342,16 +335,13 @@ timed out
 ```
 
 <!-- test: a-census-bucket-past-the-last-panics-at-the-cast -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 `HeapBucketIndex` is `int(0 to 2047)`. The last bucket reads, and an index one past it panics where it is made.
 
 ```maxon
 function main() returns ExitCode
 	let census = HeapStats.census(HeapCensusMode.bySizeClass)
-	// TODO: byte string literals are not supported in minimaxon
 	let last = (b"x".count() + 2046) as HeapBucketIndex
 	print("last {census.bucketCount(last) >= 0}\n")
-	// TODO: byte string literals are not supported in minimaxon
 	let past = (b"x".count() + 2047) as HeapBucketIndex
 	return (census.bucketCount(past) mod 2) as ExitCode
 end 'main'
@@ -390,7 +380,6 @@ noSuchProcess
 ```
 
 <!-- test: a-sampled-process-lists-its-threads-and-modules -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 The program samples itself: it has threads and modules, a thread it releases is no longer known to the sample, and
 `close` releases the rest. Linux refuses a process the right to trace its own threads, so that lane samples a child
@@ -404,7 +393,6 @@ function main() returns ExitCode
 	print("threads {threads.count() > 0} modules {modules.count() > 0}\n")
 	let first = try threads.get(0) otherwise return 3
 	sampled.release(first)
-	// TODO: if try is not supported in minimaxon
 	if let cycles = try sampled.cycles(first) 'known'
 		print("known {cycles}\n")
 	end 'known' else (e) 'unknown'
@@ -643,7 +631,6 @@ a word at an unaligned offset ends where the next word begins true
 ```
 
 <!-- test: a-child-held-inside-its-loader-has-no-module-list-until-it-is-released -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- process: own -->
 The program runs itself as a traced child and holds it at its second library-load event. The first is `ntdll.dll`,
@@ -690,7 +677,6 @@ function main() returns ExitCode
 		end 'notYetHeld'
 	end 'untilTheLoaderMaps'
 	let sampled = try SampledProcess.open(pid) otherwise return 5
-	// TODO: if try is not supported in minimaxon
 	if let held = try sampled.modules() 'heldListed'
 		print("held listed {held.count()} modules\n")
 	end 'heldListed' else (e) 'heldRefused'
@@ -904,7 +890,6 @@ depth after the drop 0
 <!-- test: a-process-sampling-its-own-threads-never-suspends-its-caller -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- procs: 4 -->
 <!-- process: own -->
@@ -924,7 +909,6 @@ function captureEverything(sampled SampledProcess) returns Round
 	let threads = sampled.threads()
 	var refusals = 0 as Round
 	for thread in threads 'eachThread'
-		// TODO: if try is not supported in minimaxon
 		if let _ = try sampled.capture(thread) 'sampled'
 			refusals = refusals + 0
 		end 'sampled' else (e) 'refused'

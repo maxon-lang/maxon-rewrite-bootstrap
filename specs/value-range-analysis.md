@@ -104,14 +104,14 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function bump(a WordArray, i Word) returns Word
+function bump(mutates a WordArray, i Word) returns Word
 	let before = try a.get(i as ElementIndex) otherwise panic("bump: i is in range")
 	try a.set(i as ElementIndex, value: before + 1) otherwise panic("bump: i is in range")
 	return try a.get(i as ElementIndex) otherwise panic("bump: i is in range")
 end 'bump'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(5)
 	if bump(a, i: 0) != 6 'first'
 		return 1
@@ -206,6 +206,7 @@ end 'main'
 ```
 
 <!-- test: a-counter-walked-below-zero-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control. `i` is a loop-carried value that the loop's own test bounds to `[-1, 2]`, so its check is
 undecided and stays; the fourth iteration reaches the door with `-1` and the door refuses.
 ```maxon
@@ -241,6 +242,7 @@ Stack trace:
 ```
 
 <!-- test: an-increment-that-wraps-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control for wrapping. `big` is loaded, then refined to `[1, i64.max]` by the branch; `big + 1` has a
 corner outside the range, so it is the whole range and the check on `wrapped` stays. The value is
 `i64.min`, and the door refuses it. An interval arithmetic that clamped instead of widening would
@@ -282,7 +284,7 @@ typealias Word = int(i64.min to i64.max)
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(-1)
 	a.push(7)
 	let v = try a.get(0) otherwise 0

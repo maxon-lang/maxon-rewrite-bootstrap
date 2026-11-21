@@ -95,8 +95,6 @@ error E2016: <fragment>:3:10: invalid character literal: unknown escape sequence
 ```
 
 <!-- test: brace-escape-refused-in-byte-string -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `\{` is not an escape in a byte string literal
 
 The same rule holds for a byte string: a `b"…"` blob does not interpolate, so it has no more use for a
@@ -105,7 +103,6 @@ brace escape than a character literal does. `b"a\{b"` is refused rather than dec
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let b = b"a\{b"
 	print("{b.count()}\n")
 	return 0
@@ -116,7 +113,6 @@ error E2015: <fragment>:3:10: Unsupported: the escape sequence '\{' in a byte st
 ```
 
 <!-- test: unescaped-brace-is-an-ordinary-character -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### A bare `{` needs no escape where nothing interpolates
 
@@ -129,7 +125,6 @@ function main() returns ExitCode
 	let open = '{'
 	// TODO: character literals are not supported in minimaxon
 	let close = '}'
-	// TODO: byte string literals are not supported in minimaxon
 	let blob = b"a{b}c"
 	print("[{open}{close}] {blob.count()}\n")
 	return 0

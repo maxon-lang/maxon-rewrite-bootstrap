@@ -478,17 +478,15 @@ end 'main'
 ```
 
 <!-- test: an-image-literal-passed-through-a-returning-function-is-written-through-a-copy -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 `b"abc"` is an immortal record in read-only memory, and `touch` returns its parameter, so `touch(b"abc")` is the
 literal itself: reading it is free and writing it is refused. The caller writes a `.clone()`, a private copy
 passed through `touch`; the writes, and the rebinds that follow, must not fault or reach the literal.
 ```maxon
 function touch(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'touch'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var last = touch(b"abc".clone())
 	last.push(100)
 	for _ in 0 upto 3 'each'
@@ -698,11 +696,11 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
-	let parent = TallyArray.create(0)
+	var parent = TallyArray.create(0)
 	parent.push(1)
 	parent.push(2)
 	parent.push(3)
@@ -763,13 +761,12 @@ end 'main'
 ```
 
 <!-- test: a-rebind-in-one-arm-of-a-branch-beside-an-image-literal-in-the-other-is-written-through-a-copy -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 `route` rebinds `last` through `touch` in one arm and takes `touch(b"xyz".clone())` in the other, so the join is
 reached from a predecessor that holds a counted record and one that holds the literal's copy. Each call writes
 to its result; none may write to the literal, and the counts must not drift between calls.
 ```maxon
 function touch(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'touch'
 
 function route(flag bool) returns ByteArray
@@ -778,7 +775,6 @@ function route(flag bool) returns ByteArray
 	if flag 'again'
 		last = touch(last)
 	end 'again' else 'first'
-		// TODO: byte string literals are not supported in minimaxon
 		last = touch(b"xyz".clone())
 	end 'first'
 	last.push(9)

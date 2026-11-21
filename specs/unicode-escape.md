@@ -164,8 +164,7 @@ error E1004: specs/unicode-escape/unicode-escape.invalid-too-few-digits.maxon:3:
 ```
 
 <!-- test: unicode-escape.invalid-too-few-digits-byte-string -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ### Error: too few hex digits in a byte string literal
 
 A `b"..."` literal decodes `\uNNNN` by its own rule (one Latin-1 byte, not UTF-8), but a malformed
@@ -174,7 +173,6 @@ string literal as its context.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\u12"
 	return 0
 end 'main'
@@ -184,8 +182,7 @@ error E1004: specs/unicode-escape/unicode-escape.invalid-too-few-digits-byte-str
 ```
 
 <!-- test: unicode-escape.nonfirst-escape-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ### The reported column of a non-first escape
 
 The column a malformed digit escape is blamed at is the literal token's column advanced by the escape's
@@ -197,7 +194,6 @@ diagnostic reports 16.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"AB\u12"
 	return 0
 end 'main'

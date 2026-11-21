@@ -29,7 +29,6 @@ or return a `.clone()` of the frozen path when the caller must write.
 ## Tests
 
 <!-- test: a-result-handed-to-a-keeping-callee-is-writable -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `declare` clones what it files and returns what it built; `Candidate.create` keeps `binding` in a field, so the
@@ -94,7 +93,6 @@ end 'Walker'
 
 function main() returns ExitCode
 	let walker = Walker.create()
-	// TODO: byte string literals are not supported in minimaxon
 	walker.declareParam(b"a", kind: 1, line: 2)
 	print("{walker.candidates.count()}\n")
 	return 0
@@ -108,7 +106,6 @@ end 'main'
 ```
 
 <!-- test: a-result-the-callee-also-stored-is-writable-to-its-keeper -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The callee files `made` itself and returns it too; the caller still keeps the result in a field.
@@ -172,7 +169,6 @@ end 'Walker'
 
 function main() returns ExitCode
 	let walker = Walker.create()
-	// TODO: byte string literals are not supported in minimaxon
 	walker.declareParam(b"a", kind: 1, line: 2)
 	print("{walker.candidates.count()}\n")
 	return 0
@@ -186,7 +182,6 @@ end 'main'
 ```
 
 <!-- test: a-binding-rebound-beside-a-parameter-is-writable-through-a-callee -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `current` is the parameter `head` on the way in and a fresh block on each pass; `append` writes it either way.
@@ -245,7 +240,6 @@ type Pass
 			if i == 1 'repeat'
 				self.module.append(current)
 			end 'repeat' else 'advance'
-				// TODO: byte string literals are not supported in minimaxon
 				let next = self.module.add(b"next")
 				current = next
 			end 'advance'
@@ -255,7 +249,6 @@ end 'Pass'
 
 function main() returns ExitCode
 	let pass = Pass.create()
-	// TODO: byte string literals are not supported in minimaxon
 	let head = pass.module.add(b"head")
 	pass.cascade(head, rounds: 3)
 	print("{head.hits}\n")
@@ -270,7 +263,6 @@ end 'main'
 ```
 
 <!-- test: a-field-is-written-through-a-binding-rebound-beside-a-parameter -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The same rebinding, written through directly rather than handed to a callee.
@@ -321,7 +313,6 @@ type Pass
 			if i == 1 'repeat'
 				current.hits = 6
 			end 'repeat' else 'advance'
-				// TODO: byte string literals are not supported in minimaxon
 				let next = self.module.add(b"next")
 				current = next
 			end 'advance'
@@ -331,7 +322,6 @@ end 'Pass'
 
 function main() returns ExitCode
 	let pass = Pass.create()
-	// TODO: byte string literals are not supported in minimaxon
 	let head = pass.module.add(b"head")
 	pass.mark(head, rounds: 3)
 	print("{head.hits}\n")
@@ -346,7 +336,6 @@ end 'main'
 ```
 
 <!-- test: a-ternary-beside-an-immutable-field-read-does-not-freeze-its-holder -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
@@ -376,10 +365,8 @@ function step(joined Join, baseline immutable ByteArray, give immutable ByteArra
 end 'step'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var joined = Join.create(b"")
 	for _ in 0 upto 3 'eachPass'
-		// TODO: byte string literals are not supported in minimaxon
 		joined = step(joined, baseline: b"ab", give: b"abc")
 	end 'eachPass'
 	print("{joined.alias.count()}\n")
@@ -394,17 +381,14 @@ end 'main'
 ```
 
 <!-- test: a-ternary-of-a-parameter-and-a-constant-fits-an-immutable-result -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function pick(name ByteArray) returns immutable ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return name if name.count() > 3 else b"default"
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let picked = pick(b"ab")
 	print("{picked.count()}\n")
 	return 0
@@ -418,20 +402,17 @@ end 'main'
 ```
 
 <!-- test: a-match-giving-a-parameter-and-a-constant-fits-an-immutable-result -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function pick(name ByteArray) returns immutable ByteArray
 	return match name.count() > 3 'sel'
 		true gives name
-		// TODO: byte string literals are not supported in minimaxon
 		default gives b"default"
 	end 'sel'
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let picked = pick(b"ab")
 	print("{picked.count()}\n")
 	return 0
@@ -445,7 +426,6 @@ end 'main'
 ```
 
 <!-- test: error.an-immutable-result-choosing-a-parameter-or-a-constant-refuses-mutable-data -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` may hand back `name` itself, and its result is `immutable`, so the caller's `live` has to be frozen: otherwise the result would change when `live` does.
@@ -453,7 +433,6 @@ end 'main'
 ```maxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function pick(name ByteArray, long bool) returns immutable ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return name if long else b"default"
 end 'pick'
 
@@ -470,7 +449,6 @@ error E3207: <fragment>:8:20: 'pick' needs 'name' frozen (line 3: `return name i
 ```
 
 <!-- test: error.an-immutable-result-rebinding-a-parameter-in-a-loop-refuses-mutable-data -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same holds when the choice is a variable rebound in a loop.
@@ -480,7 +458,6 @@ The same holds when the choice is a variable rebound in a loop.
 function pick(name ByteArray, rounds Count) returns immutable ByteArray
 	var chosen = name
 	for _ in 0 upto rounds 'rebind'
-		// TODO: byte string literals are not supported in minimaxon
 		chosen = b"default"
 	end 'rebind'
 	return chosen
@@ -499,12 +476,10 @@ error E3207: <fragment>:14:20: 'pick' needs 'name' frozen (line 9: `return chose
 ```
 
 <!-- test: an-immutable-result-choosing-a-parameter-accepts-frozen-data-through-a-branch-and-a-loop -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function pickBranch(name ByteArray, long bool) returns immutable ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return name if long else b"default"
 end 'pickBranch'
 
@@ -512,7 +487,6 @@ end 'pickBranch'
 function pickLoop(name ByteArray, rounds Count) returns immutable ByteArray
 	var chosen = name
 	for _ in 0 upto rounds 'rebind'
-		// TODO: byte string literals are not supported in minimaxon
 		chosen = b"default"
 	end 'rebind'
 	return chosen

@@ -1452,12 +1452,9 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.through-a-try-otherwise-result -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `ByteArray.get` returns the stdlib's `Byte`, and the `try … otherwise` result states it.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"A"
 	let ch = try bytes.get(0) otherwise panic("get")
 	let w = ch as Byte
@@ -1469,16 +1466,14 @@ error E3010: specs/type-casting/error.unneeded.through-a-try-otherwise-result.ma
 ```
 
 <!-- test: a-try-otherwise-result-cast-to-another-alias-is-a-real-cast -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ```maxon
 typealias Wide = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"A"
 	let ch = try bytes.get(0) otherwise panic("get")
 	let w = ch as Wide
-	return (w - 23) as ExitCode
+	return try (w - 23) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

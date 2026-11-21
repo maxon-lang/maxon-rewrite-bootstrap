@@ -4199,7 +4199,7 @@ end 'Box'
 
 function pick(p Box) returns Box
 	let spare = Boxes.create(0)
-	return try spare.first() otherwise p
+	return try spare.first() otherwise p.clone()
 end 'pick'
 
 function main() returns ExitCode

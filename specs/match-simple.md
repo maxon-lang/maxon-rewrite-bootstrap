@@ -725,7 +725,7 @@ type Lookup
 	var names as StringArray
 
 	static function make() returns Lookup
-		let a = StringArray.create(0)
+		var a = StringArray.create(0)
 		a.push("alpha")
 		return Lookup{names: a}
 	end 'make'
@@ -739,7 +739,7 @@ type Lookup
 			0 gives self.getName(0)
 			default panic("empty")
 		end 'pick'
-		return name.byteLength() as Idx
+		return try name.byteLength() as Idx otherwise panic("out of range")
 	end 'nameLen'
 end 'Lookup'
 

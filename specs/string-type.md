@@ -534,14 +534,12 @@ end 'main'
 ```
 
 <!-- test: find-last-not-found -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
-	// TODO: if try is not supported in minimaxon
 	if let idx = try s.findLast("xyz") 'found'
 		print("FOUND\n")
-		return idx.charIndex() as ExitCode
+		return try idx.charIndex() as ExitCode otherwise panic("out of range")
 	end 'found' else 'not_found'
 		print("NOT_FOUND\n")
 	end 'not_found'

@@ -25,12 +25,12 @@ the arm's block would leave it uncounted and print a freed string.
 ```maxon
 typealias StringArray = Array with String
 
-function clearsAndAnswers(arr StringArray) returns bool
+function clearsAndAnswers(mutates arr StringArray) returns bool
 	arr.clear()
 	return true
 end 'clearsAndAnswers'
 
-function pick(arr StringArray, flag bool) returns String
+function pick(mutates arr StringArray, flag bool) returns String
 	let s = try arr.get(0) otherwise ""
 	let both = (flag and clearsAndAnswers(arr)) if flag else false
 	if both 'cleared'
@@ -40,7 +40,7 @@ function pick(arr StringArray, flag bool) returns String
 end 'pick'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = pick(arr, flag: arr.count() == 1)
 	print("[{s}] {arr.count()}\n")
 	return 0

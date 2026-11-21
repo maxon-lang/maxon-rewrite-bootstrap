@@ -2310,13 +2310,13 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let k = 3
-	let v = Holder.create("ab{k}")
+	var v = Holder.create("ab{k}")
 	let n = v.name
 	v.name.append("XY")
 	print("{n} {v.name}\n")
@@ -2338,18 +2338,18 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
-function nudge(t Holder)
+function nudge(mutates t Holder)
 	t.name.append("XY")
 end 'nudge'
 
 function main() returns ExitCode
 	let k = 3
 	let s = "ab{k}"
-	let v = Holder.create(s)
+	var v = Holder.create(s)
 	nudge(v)
 	print("{s} {v.name}\n")
 	return 0
@@ -2370,14 +2370,14 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
 let Greeting = "hi"
 
 function main() returns ExitCode
-	let v = Holder.create(Greeting)
+	var v = Holder.create(Greeting)
 	v.name.append("!")
 	print("{Greeting} {v.name}\n")
 	return 0

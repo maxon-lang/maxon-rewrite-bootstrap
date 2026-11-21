@@ -262,7 +262,7 @@ function firstIndex() returns ElementIndex
 end 'firstIndex'
 
 function main() returns ExitCode
-	let arr = NarrowArray.create(0)
+	var arr = NarrowArray.create(0)
 	arr.push(4)
 	var n = arr.count() as ElementIndex
 	print("{n}")

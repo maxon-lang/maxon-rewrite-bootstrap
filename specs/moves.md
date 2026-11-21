@@ -1155,11 +1155,11 @@ it is still readable after the clear.
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let items = Words.create(0)
+	var items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
 	for x in items 'each'
-		let taken = items
+		var taken = items
 		taken.clear()
 		print("{x} {taken.count()}\n")
 		break

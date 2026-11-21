@@ -12330,7 +12330,6 @@ error E3098: <fragment>:32:5: a promise of 'Integer' throwing 'MathError' cannot
 ```
 
 <!-- test: a-stopped-service-stores-no-reply-and-its-send-fails-serviceStopped -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A STORED REPLY NEVER CARRIES THE STOP.** A reply awaited out of an array is described by its STORAGE TYPE,
 which names only what the handler throws; the failure of the send is read where the send is made. This shuts the
@@ -12361,7 +12360,6 @@ function main() returns ExitCode
 	let h = spawn Slow.create()
 	h.shutdown()
 	let ps = ReplyPromiseArray.create(0)
-	// TODO: if try is not supported in minimaxon
 	if let reply = try h.value() 'sent'
 		ps.push(reply)
 	end 'sent' else (e) 'gone'
@@ -18668,7 +18666,6 @@ error E3198: <fragment>:34:10: 'try boxes.get(0) otherwise return 1' is isolated
 
 <!-- test: services.an-array-an-if-view-dead-before-the-send-is-sent -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -18711,7 +18708,6 @@ function main() returns ExitCode
 	modify boxes 'fill'
 		boxes.push(Box.create(1))
 	end 'fill'
-	// TODO: if try is not supported in minimaxon
 	if let e = try boxes.get(0) 'first'
 		print("{e.n}\n")
 	end 'first'

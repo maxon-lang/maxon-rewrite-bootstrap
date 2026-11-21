@@ -187,15 +187,15 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let outer = IntArray.create(0)
+	var outer = IntArray.create(0)
 	outer.resize(3)
 	try outer.set(0, value: 10) otherwise panic("test invariant: set OOB")
 	if true 'block'
-		let inner = IntArray.create(0)
+		var inner = IntArray.create(0)
 		inner.resize(5)
 		try inner.set(0, value: 20) otherwise panic("test invariant: set OOB")
 	end 'block'
-	return try outer.get(0) otherwise 0
+	return try (try outer.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

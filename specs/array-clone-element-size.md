@@ -64,7 +64,6 @@ that function being wrong. Only the run can.
 ## Tests
 
 <!-- test: clone-preserves-narrow-ranged-element-width -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### Cloning an Array with a 1-byte ranged element keeps the 1-byte stride
 `NarrowCol` is `Array with int(0 to 16)` — one byte per element. `WideCol` exists so a
 second, 8-byte integer-element instantiation is in play and the element type cannot be
@@ -105,7 +104,6 @@ function main() returns ExitCode
 	let b = Bytes.create(0)
 	b.push(65)
 	let bc = b.clone()
-	// TODO: byte string literals are not supported in minimaxon
 	bc.append(b"CD")
 	let b0 = try bc.get(0) otherwise 0
 	let b1 = try bc.get(1) otherwise 0

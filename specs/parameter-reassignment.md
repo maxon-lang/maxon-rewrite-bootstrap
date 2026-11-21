@@ -240,7 +240,7 @@ end 'main'
 <!-- test: a-string-parameter-copied-into-a-local-var-may-be-appended-to -->
 ```maxon
 function shouted(s String) returns String
-	var t = s
+	var t = s.clone()
 	t.append("!")
 	return t
 end 'shouted'

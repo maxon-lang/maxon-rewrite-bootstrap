@@ -427,7 +427,7 @@ type Label
 	var text as String
 
 	static function create(t String) returns Label
-		return Label{text: t}
+		return Label{text: t.clone()}
 	end 'create'
 
 	function head() returns String
@@ -436,7 +436,7 @@ type Label
 
 	function width() returns Integer
 		let last = text.endIndex()
-		return last.charIndex()
+		return try last.charIndex() as Integer otherwise panic("out of range")
 	end 'width'
 
 	function upTo(needle String) returns String

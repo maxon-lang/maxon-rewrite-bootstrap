@@ -2562,7 +2562,7 @@ typealias Num = int(0 to 1000)
 
 function firstSpace(s String) returns Num throws StringError
 	let idx = try s.findFirst(" ")
-	return idx.bytePos() as Num
+	return try idx.bytePos() as Num otherwise panic("out of range")
 end 'firstSpace'
 
 function main() returns ExitCode
@@ -2595,7 +2595,7 @@ end 'SearchFailed'
 
 function firstSpace(s String) returns Num throws SearchFailed
 	let idx = try s.findFirst(" ") otherwise throw SearchFailed.notFound
-	return idx.bytePos() as Num
+	return try idx.bytePos() as Num otherwise panic("out of range")
 end 'firstSpace'
 
 function main() returns ExitCode
@@ -2631,7 +2631,7 @@ end 'StringError'
 
 function firstSpace(s String) returns Num throws StringError
 	let idx = try s.findFirst(" ") otherwise throw StringError.another
-	return idx.bytePos() as Num
+	return try idx.bytePos() as Num otherwise panic("out of range")
 end 'firstSpace'
 
 function main() returns ExitCode

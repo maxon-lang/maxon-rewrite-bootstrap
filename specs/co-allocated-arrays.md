@@ -865,13 +865,11 @@ end 'main'
 ```
 
 <!-- test: an-immortal-literal-array-clones-and-detaches-as-before -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A constant array literal is image data, not a co-allocation; cloning it and writing the clone still copies.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let literal = b"hello"
-	let copy = literal.clone()
+	var copy = literal.clone()
 	try copy.set(0, value: 72) otherwise return 1
 	let original = try literal.get(0) otherwise return 2
 	let changed = try copy.get(0) otherwise return 3
@@ -943,7 +941,7 @@ end 'main'
 typealias Names = Array with String
 
 function build() returns Names
-	let names = Names.create(0)
+	var names = Names.create(0)
 	var index = 0 as ElementIndex
 	while index < 6 'each'
 		names.push("name number {index}")
@@ -958,7 +956,7 @@ function cut() returns Names
 end 'cut'
 
 function main() returns ExitCode
-	let part = cut()
+	var part = cut()
 	if part.count() != 3 'count'
 		return 1
 	end 'count'

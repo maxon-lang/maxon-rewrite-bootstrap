@@ -92,7 +92,6 @@ encode-012 [AA==]
 ```
 
 <!-- test: base64.decode -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The texts `encode` produces for the same inputs decode back to them.
@@ -116,7 +115,6 @@ function errorName(failure Base64Error) returns String
 end 'errorName'
 
 function report(id String, text String)
-	// TODO: if try is not supported in minimaxon
 	if let bytes = try Base64.decode(text) 'decoded'
 		print("{id} [{toHex(bytes)}]\n")
 	end 'decoded' else (failure) 'refused'
@@ -159,7 +157,6 @@ decode-012 [00]
 ```
 
 <!-- test: base64.decode-refuses-what-encode-cannot-produce -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Missing padding and bad lengths, whitespace, URL-safe and non-ASCII symbols, misplaced and excess padding, and non-zero pad bits, each with the one error the check order gives it.
@@ -183,7 +180,6 @@ function errorName(failure Base64Error) returns String
 end 'errorName'
 
 function report(id String, text String)
-	// TODO: if try is not supported in minimaxon
 	if let bytes = try Base64.decode(text) 'decoded'
 		print("{id} [{toHex(bytes)}]\n")
 	end 'decoded' else (failure) 'refused'

@@ -14,7 +14,6 @@ category: collections
 ## Tests
 
 <!-- test: bytearray-array-contains -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 Check that ByteArrayArray.contains() uses content equality, not pointer identity.
 ```maxon
@@ -27,18 +26,14 @@ typealias ByteArrayArray = Array with immutable ByteArray
 
 function main() returns ExitCode
 	let names = ByteArrayArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"hello")
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"world")
 	// Contains should match by content, not by pointer
-	// TODO: byte string literals are not supported in minimaxon
 	if names.contains(b"hello") 'found'
 		print("found\n")
 	end 'found' else 'notFound'
 		print("not found\n")
 	end 'notFound'
-	// TODO: byte string literals are not supported in minimaxon
 	if names.contains(b"missing") 'found2'
 		print("found\n")
 	end 'found2' else 'notFound2'

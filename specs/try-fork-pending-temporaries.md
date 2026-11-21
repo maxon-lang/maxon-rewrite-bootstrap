@@ -380,7 +380,6 @@ end 'main'
 <!-- test: a-promise-result-of-a-catching-condition-is-not-released-on-the-error-edge -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 The same promise result reached through a catching `if`: the success value belongs to the then branch, and
 the else branch must not release it.
 ```maxon
@@ -406,7 +405,6 @@ function start(fail bool) returns IntPromise throws StartError
 end 'start'
 
 function run(fail bool) returns Integer
-	// TODO: if try is not supported in minimaxon
 	if let p = try start(fail) 'started'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await p

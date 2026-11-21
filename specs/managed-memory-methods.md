@@ -92,14 +92,14 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
 	let sliced = try arr.slice(1, endIndex: 4) otherwise return 99
-	return sliced.count()
+	return try sliced.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -143,7 +143,7 @@ end 'main'
 function main() returns ExitCode
 	var s = "hello"
 	s.append(" world")
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -168,15 +168,13 @@ end 'main'
 ```
 
 <!-- test: empty-bstring-push -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 An empty byte string is immutable image data, so the pushes go to its `.clone()`.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let v = b"".clone()
+	var v = b"".clone()
 	v.push(7)
 	v.push(8)
-	return v.count() as ExitCode
+	return try v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -399,12 +397,12 @@ Push three heap strings, then `resize(1)`. The two dropped strings must be freed
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("first heap string long enough to require an allocation")
 	xs.push("second heap string long enough to require an allocation")
 	xs.push("third heap string long enough to require an allocation")
 	xs.truncate(1)
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -439,20 +437,20 @@ type Box
 	var payload as String
 
 	static function create(payload String) returns Self
-		return Self{payload: payload}
+		return Self{payload: payload.clone()}
 	end 'create'
 end 'Box'
 
 typealias BoxArray = Array with Box
 
 function main() returns ExitCode
-	let boxes = BoxArray.create(0)
+	var boxes = BoxArray.create(0)
 	boxes.push(Box.create("box one with a heap string payload long enough"))
 	boxes.push(Box.create("box two with a heap string payload long enough"))
 	boxes.push(Box.create("box three with a heap string payload long enough"))
 	boxes.push(Box.create("box four with a heap string payload long enough"))
 	boxes.truncate(2)
-	return boxes.count() as ExitCode
+	return try boxes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -465,11 +463,11 @@ Shrinking all the way to zero frees every element (equivalent to `clear`).
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("only string payload long enough to need a heap allocation")
 	xs.push("other string payload long enough to need a heap allocation")
 	xs.truncate(0)
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -484,14 +482,14 @@ the regrow must not double-free or leak.
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("first string payload long enough to need a heap allocation")
 	xs.push("second string payload long enough to need a heap allocation")
 	xs.push("third string payload long enough to need a heap allocation")
 	xs.truncate(1)
 	xs.push("replacement payload long enough to need a heap allocation here")
 	let v = try xs.get(1) otherwise ""
-	return v.count() as ExitCode
+	return try v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -525,7 +523,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	var i = 0 as Count
 	while i < 8 'fill'
 		a.push(77)
@@ -539,11 +537,11 @@ function main() returns ExitCode
 		let v = try a.get(j) otherwise -1
 		print("{v}\n")
 		if v != 0 'garbage'
-			stale = stale + 1
+			stale = try stale + 1 otherwise panic("out of range")
 		end 'garbage'
 		j = j + 1
 	end 'read'
-	return stale as ExitCode
+	return try stale as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -663,7 +661,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(11)
 	a.push(22)
 	a.push(33)
@@ -675,7 +673,7 @@ function main() returns ExitCode
 		print("{v}\n")
 		i = i + 1
 	end 'read'
-	return removed as ExitCode
+	return try removed as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -694,7 +692,7 @@ cleared, so regrown slots read `false`.
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let b = BoolArray.create(0)
+	var b = BoolArray.create(0)
 	b.push(true)
 	b.push(true)
 	b.push(true)
@@ -706,11 +704,11 @@ function main() returns ExitCode
 		let v = try b.get(i) otherwise true
 		print("{v}\n")
 		if v 'set'
-			stale = stale + 1
+			stale = try stale + 1 otherwise panic("out of range")
 		end 'set'
 		i = i + 1
 	end 'read'
-	return stale as ExitCode
+	return try stale as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1385,7 +1383,7 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("a published string, long enough to require an allocation")
 	try xs.set(launder(-1) as ElementIndex, value: "a string refused for a negative index, long enough to allocate") otherwise 'negativeIndex'
 		return 42
@@ -1514,7 +1512,6 @@ error E3110: <fragment>:7:25: 'managed.byteAt' cannot address the bytes of an el
 ```
 
 <!-- test: raw-byte-access-still-works-for-every-trivial-element-kind -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FALSE-REJECT GUARD, and the case that makes the two refusals above safe to keep.** Byte access is the
@@ -1544,7 +1541,6 @@ function main() returns ExitCode
 	xs.push(7)
 	try xs.managed.setByte(0, value: 3) otherwise return 10
 	total = total + (try xs.managed.byteAt(0) otherwise return 11)
-	// TODO: byte string literals are not supported in minimaxon
 	let s = b"hello"
 	total = total + (try s.managed.byteAt(1) otherwise return 12)
 	return (total - 136) as ExitCode

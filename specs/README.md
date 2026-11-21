@@ -62,6 +62,7 @@ specs to; raise it when more pass.
 | 2026-11-21 | array and map literals, and a block handler on a try expression | 2424 | 3845 | 11380 | 30 s |
 | 2026-11-21 | a for loop over an array or an iterable type | 2515 | 4063 | 11071 | 30 s |
 | 2026-11-21 | a typealias inside a type | 2568 | 4330 | 10751 | 30 s |
+| 2026-11-21 | String and Array methods, the conditional try, byte string literals | 3053 | 3970 | 10626 | 35 s |
 
 Of the skipped tests, 10719 are skipped by the conversion (`<!-- skip: kind -->`, 368 of them the main-in-a-subdirectory
 difference) and 700 by the runner (508 `tier`, the rest directives, overlays and result blocks it cannot honour yet).

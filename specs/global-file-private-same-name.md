@@ -27,7 +27,6 @@ one slot and silently return a wrong number.
 ## Tests
 
 <!-- test: file-private-same-name-in-two-directories-through-a-generic-instance -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in two DIRECTORIES each declare an unmarked `limit`, `tag` and `calls` (a `SharedValue` cell). A generic type
 declared in `a.maxon` has a method that reads them, and `app/main.maxon` instantiates it and calls that method
@@ -40,7 +39,6 @@ The answers are distinct on purpose: `weighA` is `5 + 2 + 3`, and the method's s
 // --- file: lib/a.maxon
 let limit = 5
 
-// TODO: byte string literals are not supported in minimaxon
 let tag = b"AAA"
 
 let calls = CallCell.create(1 as Count)
@@ -71,7 +69,6 @@ end 'weighA'
 // --- file: app/main.maxon
 let limit = 70
 
-// TODO: byte string literals are not supported in minimaxon
 let tag = b"BBBBBB"
 
 let calls = CallCell.create(500 as Count)
@@ -247,7 +244,6 @@ hi
 
 <!-- test: global-file-private-same-name.two-private-helpers-of-one-name-in-two-directories-returning-different-managed-types -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '"..."' -->
 The `stripTrailingCR` shape: two files of two directories, one unmarked helper name, parameter types that differ
 AND return types that differ — and both of them MANAGED, so the divergence is not one any later retype could
 repair. A result typed from the wrong member here is a leak in one direction and a drop of a record the

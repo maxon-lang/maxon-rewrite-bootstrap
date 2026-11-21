@@ -45,7 +45,6 @@ has, and the UTF-16 boundary they cross is Windows' own.
 ## Tests
 
 <!-- test: an-argument-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument `日本`, and `CommandLine.args()` hands it over as the
@@ -80,7 +79,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -112,7 +110,6 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell sets `MAXON_WIDE_TEXT` to `日本` and starts the program, and `Process.environmentVariable`
@@ -147,7 +144,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -252,7 +248,6 @@ end 'main'
 ```
 
 <!-- test: a-file-maxon-names-is-so-named-on-disk -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program writes `日本.txt`, and PowerShell finds a file of exactly that name in the directory.
@@ -274,7 +269,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -310,7 +304,6 @@ end 'main'
 ```
 
 <!-- test: a-file-named-on-disk-is-listed-and-opened-in-utf8 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell makes a directory `日本` and a file `日本.txt` holding `ok`. `Directory.list` names both in
@@ -334,7 +327,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -390,7 +382,6 @@ content ok
 ```
 
 <!-- test: a-directory-maxon-creates-renames-and-removes-is-named-so-on-disk -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program makes a directory `日本`, writes `日本.txt` inside it and renames that to `本日.txt`, and
@@ -414,7 +405,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -465,7 +455,6 @@ end 'main'
 ```
 
 <!-- test: the-current-directory-and-the-executable-path-come-back-in-utf8 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` and runs the copy from inside it.
@@ -500,7 +489,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -519,7 +507,6 @@ end 'removeTree'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() > 1 'child'
-		// TODO: if try is not supported in minimaxon
 		if let exe = try Process.executablePath() 'found'
 			let exeDirectory = (try exe.parent() otherwise return 4).filename()
 			print("executable directory {codepointsOf(exeDirectory)} {exeDirectory.byteLength()}\n")
@@ -547,7 +534,6 @@ current directory 26085,26412 6
 ```
 
 <!-- test: a-child-started-in-a-utf8-working-directory-sees-it-in-utf16 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
@@ -575,7 +561,6 @@ function powershell(script String, workingDirectory FilePath) returns String
 	config.arguments = argv
 	config.workingDirectory = WorkingDirectory.at(workingDirectory)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -606,7 +591,6 @@ end 'main'
 ```
 
 <!-- test: a-supplementary-plane-argument-arrives-as-utf8 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument U+1F600, which UTF-16 spells as the surrogate pair
@@ -641,7 +625,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -673,7 +656,6 @@ end 'main'
 ```
 
 <!-- test: a-file-name-with-a-lone-surrogate-is-listed-as-the-replacement-character -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS stores a name as UTF-16 units without checking that they pair, so PowerShell can make a file named
@@ -709,7 +691,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -747,7 +728,6 @@ end 'main'
 ```
 
 <!-- test: a-name-of-the-longest-component-is-listed-whole -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS allows a name component of 255 UTF-16 units. PowerShell makes a file named with 255 of U+65E5, and
@@ -772,7 +752,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -815,7 +794,6 @@ end 'main'
 ```
 
 <!-- test: a-program-in-a-utf8-path-directory-is-found-by-name -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` as `maxon-wide-probe.exe`. The program starts
@@ -839,7 +817,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -857,7 +834,6 @@ end 'removeTree'
 
 function outcomeOf(config Configuration) returns String
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
 	end 'ran' else (e) 'refused'
@@ -907,7 +883,6 @@ found
 ```
 
 <!-- test: a-redirect-file-with-a-utf8-name-is-written-and-read -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
@@ -940,7 +915,6 @@ end 'powershellConfiguration'
 
 function outcomeOf(config Configuration) returns String
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -983,7 +957,6 @@ ping
 ```
 
 <!-- test: a-redirect-to-a-utf8-name-that-cannot-open-reports-the-failure -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
@@ -1016,7 +989,6 @@ end 'powershellConfiguration'
 
 function outcomeOf(config Configuration) returns String
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -1060,7 +1032,6 @@ stdout spawn failed: os error 5
 ```
 
 <!-- test: a-shared-memory-segment-named-in-utf8-is-adopted-under-that-name -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell publishes a named section `maxon-wide-日本` through .NET's `MemoryMappedFile`, writes 42 into
@@ -1084,7 +1055,6 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	// TODO: if try is not supported in minimaxon
 	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
@@ -1120,14 +1090,12 @@ published 7
 ```
 
 <!-- test: a-path-holding-a-nul-names-no-file -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos -->
 Windows names no file with a NUL in it, so a path holding one names nothing at all — never the file named by
 the characters before the NUL. `FilePath.from` refuses such a spelling as an invalid character, and a path
 that reaches one through `join` is a file that does not exist.
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let accepted = try FilePath.from("windows-wide-nul\0probe.txt") 'accepted'
 		print("accepted {accepted.path.byteLength()}\n")
 	end 'accepted' else (e) 'refused'

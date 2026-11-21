@@ -65,7 +65,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function make() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -74,7 +74,7 @@ end 'make'
 
 function main() returns ExitCode
 	let s = try make().slice(1, endIndex: 3) otherwise return 9
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -167,7 +167,7 @@ not: a `String` has three throwing methods a program can reach on one (`findFirs
 ```maxon
 function main() returns ExitCode
 	let idx = try "abcb".findFirst("b") otherwise return 9
-	return idx.charIndex() as ExitCode
+	return try idx.charIndex() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -182,7 +182,7 @@ exactly once. The needle is found at grapheme 3 of `"ab7cb"`.
 function main() returns ExitCode
 	let n = 7
 	let idx = try "ab{n}cb".findLast("b") otherwise return 9
-	return idx.charIndex() as ExitCode
+	return try idx.charIndex() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -196,7 +196,7 @@ interpolated receiver's allocation must not leak (the suite's leak gate is what 
 function main() returns ExitCode
 	let n = 7
 	let idx = try "ab{n}c".findFirst("z") otherwise return 4
-	return idx.charIndex() as ExitCode
+	return try idx.charIndex() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

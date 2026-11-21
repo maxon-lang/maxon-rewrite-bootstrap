@@ -110,7 +110,7 @@ function refModNeg(n Word, d NegDivisor) returns Word
 end 'refModNeg'
 
 function edgeDividends() returns WordArray
-	let ns = WordArray.create(0)
+	var ns = WordArray.create(0)
 	ns.push(0)
 	ns.push(1)
 	ns.push(-1)
@@ -225,18 +225,18 @@ end 'refMod'
 // The largest positive `n` with `n mod d == d - 1`. Both divisions here read a RUNTIME divisor, so
 // neither is reduced and neither can be folded — the value is the hardware's answer, not the pass's.
 function hardestDividend(d PosDivisor) returns Word
-	return i64.max - (try ((refMod(i64.max, d: d) + 1) mod (d as Word)) otherwise panic("d is never zero"))
+	return try i64.max - (try ((refMod(i64.max, d: d) + 1) mod (d as Word)) otherwise panic("d is never zero")) otherwise panic("out of range")
 end 'hardestDividend'
 
 function neighbourhood(d PosDivisor) returns WordArray
 	let anc = hardestDividend(d)
-	let ns = WordArray.create(0)
+	var ns = WordArray.create(0)
 	ns.push(anc)
-	ns.push(anc - 1)
-	ns.push(anc + 1)
-	ns.push(-anc)
-	ns.push(-anc - 1)
-	ns.push(-anc + 1)
+	ns.push(try anc - 1 otherwise panic("out of range"))
+	ns.push(try anc + 1 otherwise panic("out of range"))
+	ns.push(try -anc otherwise panic("out of range"))
+	ns.push(try -anc - 1 otherwise panic("out of range"))
+	ns.push(try -anc + 1 otherwise panic("out of range"))
 	return ns
 end 'neighbourhood'
 

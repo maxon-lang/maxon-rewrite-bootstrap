@@ -2954,7 +2954,6 @@ end 'main'
 ```
 
 <!-- test: error.global-bytestring-map-with-union-array -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `KeywordInfo.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2978,14 +2977,12 @@ end 'Op'
 
 typealias OpArray = Array with Op
 
-// TODO: byte string literals are not supported in minimaxon
 let keywordMap = [b"if": KeywordInfo.create(1, helpText: "Conditional statement."), b"else": KeywordInfo.create(2, helpText: "Alternative branch.")]
 
 function main() returns ExitCode
 	var ops = OpArray.create(0)
 	ops.push(Op.add(1))
 	ops.push(Op.nop)
-	// TODO: byte string literals are not supported in minimaxon
 	let info = try keywordMap.get(b"if") otherwise KeywordInfo.create(0, helpText: "")
 	if info.kind != 1 'badLookup'
 		return 1
@@ -2998,7 +2995,6 @@ error E3220: <fragment>:21:18: the initializer of 'keywordMap' calls 'KeywordInf
 ```
 
 <!-- test: global-map-with-union-values -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 The enum-construct sits directly inside the map literal's value buffer, so the payload read and
 the map's element-assign chain are pruned by one and the same pass.
 ```maxon
@@ -3009,11 +3005,9 @@ union Op
 	nop
 end 'Op'
 
-// TODO: byte string literals are not supported in minimaxon
 let opMap = [b"add": Op.add(5), b"nop": Op.nop]
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let op = try opMap.get(b"add") otherwise Op.nop
 	return match op 'check'
 		add(v) gives v
@@ -3026,7 +3020,6 @@ end 'main'
 ```
 
 <!-- test: error.live-global-survives-dead-global-pruning -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `describe`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3045,13 +3038,11 @@ function describe(n Kind) returns String
 	return "kind {n}"
 end 'describe'
 
-// TODO: byte string literals are not supported in minimaxon
 let keywordMap = [b"if": KeywordInfo.create(1, helpText: describe(1)), b"else": KeywordInfo.create(2, helpText: describe(2))]
 
 public let unusedNames = StringArray.create(0)
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let info = try keywordMap.get(b"else") otherwise KeywordInfo.create(0, helpText: "")
 	if info.helpText != "kind 2" 'badHelp'
 		return 1
@@ -3577,10 +3568,8 @@ error E3220: <fragment>:20:9: the initializer of 'G' calls 'Config.make': a modu
 ```
 
 <!-- test: a-top-level-let-map-with-cast-values-reads-back-typed -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A cast names its type at file scope too, so a top-level `let` map built from `as Count` values is a typed map that reads back as `Count`.
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Tally = [b"one": 1 as Count, b"two": 2 as Count, b"three": 3 as Count]
 
 function show(v Count)
@@ -3588,7 +3577,6 @@ function show(v Count)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let one = try Tally.get(b"one") otherwise 0
 	show(one)
 	print("{Tally.count()}\n")
@@ -3604,13 +3592,10 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-let-map-values-keep-their-alias -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The alias a file-scope cast names is the column's type, so a read of it does not pass where another alias is declared.
 ```maxon
 typealias Score = int(0 to 100)
 
-// TODO: byte string literals are not supported in minimaxon
 let Tally = [b"one": 1 as Count]
 
 function show(v Score)
@@ -3618,7 +3603,6 @@ function show(v Score)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let one = try Tally.get(b"one") otherwise 0
 	show(one)
 	return 0

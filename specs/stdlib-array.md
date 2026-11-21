@@ -242,7 +242,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -440,7 +440,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)

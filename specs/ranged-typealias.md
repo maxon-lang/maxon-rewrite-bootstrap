@@ -690,7 +690,7 @@ function ident(v Positive) returns Positive
 end 'ident'
 
 function quotient(halfRadix HalfRadix, bits Positive) returns Integer
-	let half = bits shr 1
+	let half = try bits shr 1 otherwise panic("out of range")
 	return half / (halfRadix as Positive)
 end 'quotient'
 
@@ -1928,8 +1928,8 @@ function seed() returns FullRangeInt
 end 'seed'
 
 function main() returns ExitCode
-	let i = seed() as ElementIndex
-	return i as ExitCode
+	let i = try seed() as ElementIndex otherwise panic("out of range")
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

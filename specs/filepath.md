@@ -367,12 +367,10 @@ C:
 
 <!-- test: filepath-parent-of-drive-root-throws -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = FilePath from "C:\\"
-	// TODO: if try is not supported in minimaxon
 	if let parent = try p.parent() 'hasParent'
 		print("{parent}\n")
 	end 'hasParent' else 'noParent'

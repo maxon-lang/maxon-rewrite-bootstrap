@@ -174,7 +174,6 @@ mm_free StringRecord #2
 ```
 
 <!-- test: module-let-byte-string-read-allocates-no-record-per-read -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A module-scope `let` holding a byte string literal is ONE array for the whole program, so READING it must
 cost nothing. Three reads of the same global appear here and the block is EMPTY: not one memory-manager
 event may attend them. The read is a single `.rdata` address, and an address is not an allocation.
@@ -200,7 +199,6 @@ shape of it.
 
 <!-- MmTrace -->
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Keyword = b"critsplit"
 
 function main() returns ExitCode

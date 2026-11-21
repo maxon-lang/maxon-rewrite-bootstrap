@@ -502,12 +502,12 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(1))
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
 	arr.clear()
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1838,7 +1838,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

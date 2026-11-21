@@ -246,7 +246,7 @@ UNSUBSTITUTED `Cell with Holder.T` — the trivial box drop, and a stranded stri
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -259,7 +259,7 @@ type Holder uses T
 	export typealias Inner = Cell with T
 	export var cell as Inner
 
-	static function create(cell Inner) returns Self
+	static function create(consumes cell Inner) returns Self
 		return Self{cell: cell}
 	end 'create'
 
@@ -274,7 +274,7 @@ typealias StrHolder = Holder with String
 
 function main() returns ExitCode
 	let h = StrHolder.create(StrCell.make("a string long enough to force a heap allocation"))
-	return h.value().count() as ExitCode
+	return try h.value().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

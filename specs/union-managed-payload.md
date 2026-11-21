@@ -531,7 +531,7 @@ end 'M'
 function grab(m M) returns String
 	return match m 'k'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'k'
 end 'grab'
 
@@ -601,7 +601,7 @@ end 'M'
 function grab(m M) returns String
 	return match m 'k'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'k'
 end 'grab'
 

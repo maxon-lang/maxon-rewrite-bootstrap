@@ -154,7 +154,6 @@ structure-005 unexpectedTag
 ```
 
 <!-- test: der.headers -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `peekHeader` reads every tag class, the constructed bit, the low and high tag-number forms and the short and long length forms without consuming them, and refuses each length and tag-number encoding X.690 section 10.1 and 8.1.2 rule out of DER.
 ```maxon
@@ -208,7 +207,6 @@ end 'describe'
 
 function report(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let header = try reader.peekHeader() 'read'
 		let again = try reader.peekHeader() otherwise panic("a second peek reads the same header")
 		print("{id} {describe(header)} {describe(again) == describe(header)} {reader.isAtEnd()}\n")
@@ -274,7 +272,6 @@ header-023 truncated
 ```
 
 <!-- test: der.integers -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `readInteger` gives the magnitude without its sign octet and refuses an empty, non-minimal (X.690 section 8.3.2) or negative INTEGER, and a constructed or wrongly tagged element.
@@ -335,7 +332,6 @@ end 'errorName'
 
 function report(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let value = try reader.readInteger() 'read'
 		print("{id} [{toHex(value)}] {reader.isAtEnd()}\n")
 	end 'read' else (failure) 'refused'
@@ -384,7 +380,6 @@ integer-015 nonMinimalInteger
 ```
 
 <!-- test: der.primitives -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 OBJECT IDENTIFIER (X.690 section 8.19), NULL (8.8), BIT STRING (8.6 and 11.2) and OCTET STRING: their content rules, and the constructed forms DER forbids.
@@ -445,7 +440,6 @@ end 'errorName'
 
 function readOid(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let identifier = try reader.readObjectIdentifier() 'read'
 		print("{id} [{toHex(identifier)}]\n")
 	end 'read' else (failure) 'refused'
@@ -464,7 +458,6 @@ end 'readNull'
 
 function readBits(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let bits = try reader.readBitString() 'read'
 		print("{id} {bits.unusedBits} [{toHex(bits.bytes())}]\n")
 	end 'read' else (failure) 'refused'
@@ -474,7 +467,6 @@ end 'readBits'
 
 function readOctets(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let octets = try reader.readOctetString() 'read'
 		print("{id} [{toHex(octets)}]\n")
 	end 'read' else (failure) 'refused'
@@ -666,7 +658,6 @@ constructed-012 truncated
 ```
 
 <!-- test: der.times -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 UTCTime and GeneralizedTime in the form X.690 section 11.7 and 11.8 and RFC 5280 section 4.1.2.5 require, as Unix seconds: two-digit years from 1950 to 2049, the Gregorian calendar, and seconds and a `Z` always present.
 ```maxon
@@ -716,7 +707,6 @@ end 'errorName'
 
 function readUtc(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let seconds = try reader.readUtcTime() 'read'
 		print("{id} {seconds}\n")
 	end 'read' else (failure) 'refused'
@@ -726,7 +716,6 @@ end 'readUtc'
 
 function readGeneralized(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let seconds = try reader.readGeneralizedTime() 'read'
 		print("{id} {seconds}\n")
 	end 'read' else (failure) 'refused'
@@ -801,7 +790,6 @@ time-028 unexpectedTag
 ```
 
 <!-- test: der.x509-reads -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The reads X.509 needs beyond the universal types: BOOLEAN (X.690 sections 8.2 and 11.1), an INTEGER of either sign (8.3), an implicitly tagged primitive (8.14), a whole element, and the six string types with their character rules.
@@ -862,7 +850,6 @@ end 'errorName'
 
 function readBoolean(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let value = try reader.readBoolean() 'read'
 		print("{id} {value}\n")
 	end 'read' else (failure) 'refused'
@@ -872,7 +859,6 @@ end 'readBoolean'
 
 function readSigned(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let content = try reader.readSignedInteger() 'read'
 		print("{id} [{toHex(content)}]\n")
 	end 'read' else (failure) 'refused'
@@ -882,7 +868,6 @@ end 'readSigned'
 
 function readImplicit(id String, tagNumber DerTagNumber, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let content = try reader.readImplicit(tagNumber) 'read'
 		print("{id} [{toHex(content)}]\n")
 	end 'read' else (failure) 'refused'
@@ -892,7 +877,6 @@ end 'readImplicit'
 
 function readImplicitBits(id String, tagNumber DerTagNumber, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let bits = try reader.readImplicitBitString(tagNumber) 'read'
 		print("{id} {bits.unusedBits} [{toHex(bits.bytes())}]\n")
 	end 'read' else (failure) 'refused'
@@ -902,7 +886,6 @@ end 'readImplicitBits'
 
 function readImplicitSigned(id String, tagNumber DerTagNumber, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let content = try reader.readImplicitSignedInteger(tagNumber) 'read'
 		print("{id} [{toHex(content)}]\n")
 	end 'read' else (failure) 'refused'
@@ -923,7 +906,6 @@ end 'readElements'
 
 function readText(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: if try is not supported in minimaxon
 	if let text = try reader.readString() 'read'
 		print("{id} [{toHex(text.toByteArray())}]\n")
 	end 'read' else (failure) 'refused'

@@ -47,7 +47,6 @@ copy-retained original releases on the hit edge.
 ## Tests
 
 <!-- test: memoize-get-then-insert-reused-key -->
-<!-- skip: if try is not supported in minimaxon -->
 A memoizing get-then-insert reusing one key across a `tryCall get` (consume,
 copy minted) and a later `insert` (re-consume) must release the retained key
 on the cache-HIT success edge, or every hit leaks the key.
@@ -65,12 +64,11 @@ end 'keyFor'
 // key dies without reaching `insert`; its retained +1 must be released there.
 function memoized(cache MemoMap, n Count) returns Count
 	let key = keyFor(n)
-	// TODO: if try is not supported in minimaxon
 	if let hit = try cache.get(key) 'hit'
 		return hit
 	end 'hit'
 	let computed = n + 1
-	try cache.insert(key, value: computed) otherwise ignore
+	try cache.insert(key, value: computed as Count) otherwise ignore
 	return computed
 end 'memoized'
 

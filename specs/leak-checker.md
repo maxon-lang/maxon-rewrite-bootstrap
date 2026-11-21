@@ -119,7 +119,6 @@ end 'main'
 ```
 
 <!-- test: no-leak.if-let-try-union-map -->
-<!-- skip: if try is not supported in minimaxon -->
 ### `if let X = try map.get(K)` on union-valued maps
 Assigning to an outer `var` from a `match` destructuring of a value bound by
 `if let X = try map.get(K) 'L'` must release both the bound union and the
@@ -145,7 +144,6 @@ typealias TypeMap = Map with (String, ReturnType)
 
 function dispatch(m TypeMap, key String) returns MaxonType
 	var resultType = MaxonType.integer
-	// TODO: if try is not supported in minimaxon
 	if let rt = try m.get(key) 'haveRT'
 		resultType = match rt 'unwrap'
 			void gives MaxonType.integer

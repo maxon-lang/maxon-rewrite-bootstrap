@@ -123,8 +123,8 @@ borrow-yielding accessor funnels through one door, so one promotion covers all o
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -136,7 +136,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().first() otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -149,8 +149,8 @@ end 'main'
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -160,7 +160,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().last() otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

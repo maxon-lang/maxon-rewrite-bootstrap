@@ -315,12 +315,12 @@ type Holder
 	export let path as String
 
 	static function create(path String) returns Self
-		return Self{path: path}
+		return Self{path: path.clone()}
 	end 'create'
 end 'Holder'
 
 function pass(s String) returns String
-	return s
+	return s.clone()
 end 'pass'
 
 function main() returns ExitCode
@@ -407,7 +407,7 @@ function relay(s String) returns String
 end 'relay'
 
 function pass(s String) returns String
-	return s
+	return s.clone()
 end 'pass'
 ```
 ```exitcode
@@ -425,9 +425,9 @@ typealias Integer = int(i64.min to i64.max)
 
 function pick(s String, depth Integer) returns String
 	if depth == 0 'bottom'
-		return s
+		return s.clone()
 	end 'bottom'
-	return pick(s, depth: depth - 1)
+	return pick(s, depth: try depth - 1 otherwise panic("out of range"))
 end 'pick'
 
 function main() returns ExitCode
@@ -511,7 +511,6 @@ cap7 more cap7
 ```
 
 <!-- test: returned-alias-bound-by-if-let-over-a-let-source-is-written -->
-<!-- skip: if try is not supported in minimaxon -->
 An `if let` binding made from a `let`'s record names it: `relayT` hands `source` back, `b` is written, and `source` reads the write.
 
 ```maxon
@@ -527,7 +526,7 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p
+	return p.clone()
 end 'relay'
 
 enum PointError implements Error
@@ -538,16 +537,15 @@ function relayT(p Point) returns Point throws PointError
 	if p.x < 0 'neg'
 		throw PointError.negative
 	end 'neg'
-	return p
+	return p.clone()
 end 'relayT'
 
 function main() returns ExitCode
 	let source = Point.create(1)
-	// TODO: if try is not supported in minimaxon
 	if let a = try relayT(source) 'ok'
-		let b = relay(a)
+		var b = relay(a)
 		b.x = 99
-		return source.x
+		return try source.x as ExitCode otherwise panic("out of range")
 	end 'ok'
 	return 0
 end 'main'
@@ -557,7 +555,6 @@ end 'main'
 ```
 
 <!-- test: returned-alias-bound-by-if-let-over-a-fresh-value-is-writable -->
-<!-- skip: if try is not supported in minimaxon -->
 An `if let` binding follows its scrutinee, and a value `make` just built has no other holder, so `b` shares
 `a`'s record with nothing else that is read: the write through `b` is the write `a` reads back.
 ```maxon
@@ -573,7 +570,7 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p
+	return p.clone()
 end 'relay'
 
 function make(n Integer) returns Point throws PointError
@@ -588,11 +585,10 @@ enum PointError implements Error
 end 'PointError'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let a = try make(1) 'ok'
-		let b = relay(a)
+		var b = relay(a)
 		b.x = 99
-		return a.x
+		return try a.x as ExitCode otherwise panic("out of range")
 	end 'ok'
 	return 0
 end 'main'
@@ -602,7 +598,6 @@ end 'main'
 ```
 
 <!-- test: returned-alias-bound-by-if-var-is-written -->
-<!-- skip: if try is not supported in minimaxon -->
 An `if var` binding is a mutable name like any other `var`: `relayT` hands `a` back, and the write through `b` is read through `a`.
 
 ```maxon
@@ -623,10 +618,9 @@ end 'PointError'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	// TODO: if try is not supported in minimaxon
 	if var b = try relayT(a) 'ok'
 		b.x = 99
-		return a.x
+		return try a.x as ExitCode otherwise panic("out of range")
 	end 'ok'
 	return 0
 end 'main'
@@ -635,7 +629,7 @@ function relayT(p Point) returns Point throws PointError
 	if p.x < 0 'neg'
 		throw PointError.negative
 	end 'neg'
-	return p
+	return p.clone()
 end 'relayT'
 ```
 ```exitcode
@@ -687,7 +681,7 @@ A `String` a call hands back may be the very record `a` names. Binding it to a `
 reaches the copy and `a` is unchanged.
 ```maxon
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 function main() returns ExitCode
@@ -710,7 +704,7 @@ lit7 long enough to be a real heap string value lit7 long enough to be a real he
 The accepted twin: the clone is the caller's own record, so the append reaches nothing `a` holds.
 ```maxon
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 function main() returns ExitCode
@@ -876,11 +870,11 @@ copy of the `String` `pass` hands back, so the append reaches the copy and `q` i
 ```maxon
 
 function pass(s String) returns String
-	return s
+	return s.clone()
 end 'pass'
 
 function tagIt(p String)
-	let q = p
+	let q = p.clone()
 	var x = pass(q)
 	x.append("!")
 	print("{q}\n")

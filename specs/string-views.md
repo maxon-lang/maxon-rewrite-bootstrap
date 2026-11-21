@@ -364,7 +364,6 @@ Stack trace:
 ```
 
 <!-- test: truncated-sequences-stop-at-the-buffer-end -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A lead byte may not promise more bytes than the buffer holds
 `String.from(bytes)` is the FIRST door arbitrary bytes reach the UTF-8 decoders through: every earlier
@@ -401,13 +400,9 @@ function show(label String, bytes ByteSeq)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	show("lead2-alone", bytes: b"\xC3")
-	// TODO: byte string literals are not supported in minimaxon
 	show("lead3-one-continuation", bytes: b"\xE4\xB8")
-	// TODO: byte string literals are not supported in minimaxon
 	show("lead4-two-continuations", bytes: b"\xF0\x9F\x98")
-	// TODO: byte string literals are not supported in minimaxon
 	show("well-formed-3byte", bytes: b"\xE4\xB8\xAD")
 	return 0
 end 'main'
@@ -546,14 +541,12 @@ end 'main'
 ```
 
 <!-- test: a-byte-read-back-through-a-literal-is-still-a-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### An element read out of an `Array with Byte` rebuilds an `Array with Byte`
 An array literal infers its instance from its first element's TYPE, so a `get` that erased its element
 to a bare `int` made `[b.get(0), …]` an eight-byte-strided `Array with integer` — and the byte array
 could not be rebuilt from its own elements. `String.from` is what makes the stride observable.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let src = b"Hi!"
 	let x = try src.get(0) otherwise 0
 	let y = try src.get(1) otherwise 0

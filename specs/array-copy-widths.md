@@ -22,11 +22,11 @@ The lead moves the destination's first copied byte across the four alignments th
 runs meet, and the length sweeps past three whole blocks so each run is empty, short and long in turn.
 ```maxon
 function expectedAt(index Count) returns Byte
-	return ((index * 7 + 3) and 0xFF) as Byte
+	return ((try index * 7 + 3 otherwise panic("out of range")) and 0xFF) as Byte
 end 'expectedAt'
 
 function patterned(count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for i in 0 upto count 'eachByte'
 		bytes.push(expectedAt(i))
 	end 'eachByte'
@@ -42,7 +42,7 @@ function main() returns ExitCode
 	for length in 0 upto 131 'eachLength'
 		let source = patterned(length)
 		for lead in 0 upto 4 'eachLead'
-			let destination = ByteArray.create(0)
+			var destination = ByteArray.create(0)
 			for _ in 0 upto lead 'eachLeadByte'
 				destination.push(200)
 			end 'eachLeadByte'
@@ -75,11 +75,11 @@ Both move the array's own bytes within one buffer, in opposite directions, so ea
 word and byte runs are exercised by the same sweep.
 ```maxon
 function expectedAt(index Count) returns Byte
-	return ((index * 7 + 3) and 0xFF) as Byte
+	return ((try index * 7 + 3 otherwise panic("out of range")) and 0xFF) as Byte
 end 'expectedAt'
 
 function patterned(count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for i in 0 upto count 'eachByte'
 		bytes.push(expectedAt(i))
 	end 'eachByte'
@@ -93,7 +93,7 @@ end 'byteAt'
 function main() returns ExitCode
 	var wrong = 0 as Count
 	for length in 0 upto 131 'eachLength'
-		let shifted = patterned(length)
+		var shifted = patterned(length)
 		shifted.insert(0, value: 255)
 		if shifted.count() != length + 1 'wrongInsertCount'
 			wrong = wrong + 1
@@ -107,7 +107,7 @@ function main() returns ExitCode
 				end 'wrongUp'
 			end 'eachShiftedUp'
 		end 'rightInsertCount'
-		let shrunk = patterned(length + 1)
+		var shrunk = patterned(length + 1)
 		let removed = try shrunk.remove(0) otherwise panic("a non-empty array has a front element")
 		if removed != expectedAt(0) 'wrongRemoved'
 			wrong = wrong + 1
@@ -150,11 +150,11 @@ let Modulus = 997
 let Marker = 1000
 
 function expectedAt(index Count) returns Byte
-	return ((index * Scale + 3) mod Modulus) as Byte
+	return try ((index * Scale + 3) mod Modulus) as Byte otherwise panic("out of range")
 end 'expectedAt'
 
 function patterned(count Count) returns Bytes
-	let elements = Bytes.create(0)
+	var elements = Bytes.create(0)
 	for i in 0 upto count 'eachElement'
 		elements.push(expectedAt(i))
 	end 'eachElement'
@@ -169,43 +169,43 @@ function main() returns ExitCode
 	var wrong = 0 as Count
 	for length in 0 upto 41 'eachLength'
 		for at in 0 to length 'eachInsertPosition'
-			let grown = patterned(length)
+			var grown = patterned(length)
 			grown.insert(at, value: Marker)
 			if grown.count() != length + 1 'wrongInsertCount'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongInsertCount' else 'rightInsertCount'
 				if elementAt(grown, index: at) != Marker 'wrongMarker'
-					wrong = wrong + 1
+					wrong = try wrong + 1 otherwise panic("out of range")
 				end 'wrongMarker'
 				for i in 0 upto at 'eachBelow'
 					if elementAt(grown, index: i) != expectedAt(i) 'wrongBelow'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongBelow'
 				end 'eachBelow'
 				for i in at upto length 'eachShiftedUp'
 					if elementAt(grown, index: i + 1) != expectedAt(i) 'wrongUp'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongUp'
 				end 'eachShiftedUp'
 			end 'rightInsertCount'
 		end 'eachInsertPosition'
 		for at in 0 upto length 'eachRemovePosition'
-			let shrunk = patterned(length)
+			var shrunk = patterned(length)
 			let removed = try shrunk.remove(at) otherwise panic("the position is below the count")
 			if removed != expectedAt(at) 'wrongRemoved'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoved'
-			if shrunk.count() + 1 != length 'wrongRemoveCount'
-				wrong = wrong + 1
+			if (try shrunk.count() + 1 otherwise panic("out of range")) != length 'wrongRemoveCount'
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoveCount' else 'rightRemoveCount'
 				for i in 0 upto at 'eachKept'
 					if elementAt(shrunk, index: i) != expectedAt(i) 'wrongKept'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongKept'
 				end 'eachKept'
 				for i in at upto shrunk.count() 'eachShiftedDown'
 					if elementAt(shrunk, index: i) != expectedAt(i + 1) 'wrongDown'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongDown'
 				end 'eachShiftedDown'
 			end 'rightRemoveCount'
@@ -239,11 +239,11 @@ let Modulus = 4294967291
 let Marker = 4294967295
 
 function expectedAt(index Count) returns Byte
-	return ((index * Scale + 3) mod Modulus) as Byte
+	return try ((index * Scale + 3) mod Modulus) as Byte otherwise panic("out of range")
 end 'expectedAt'
 
 function patterned(count Count) returns Bytes
-	let elements = Bytes.create(0)
+	var elements = Bytes.create(0)
 	for i in 0 upto count 'eachElement'
 		elements.push(expectedAt(i))
 	end 'eachElement'
@@ -258,43 +258,43 @@ function main() returns ExitCode
 	var wrong = 0 as Count
 	for length in 0 upto 41 'eachLength'
 		for at in 0 to length 'eachInsertPosition'
-			let grown = patterned(length)
+			var grown = patterned(length)
 			grown.insert(at, value: Marker)
 			if grown.count() != length + 1 'wrongInsertCount'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongInsertCount' else 'rightInsertCount'
 				if elementAt(grown, index: at) != Marker 'wrongMarker'
-					wrong = wrong + 1
+					wrong = try wrong + 1 otherwise panic("out of range")
 				end 'wrongMarker'
 				for i in 0 upto at 'eachBelow'
 					if elementAt(grown, index: i) != expectedAt(i) 'wrongBelow'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongBelow'
 				end 'eachBelow'
 				for i in at upto length 'eachShiftedUp'
 					if elementAt(grown, index: i + 1) != expectedAt(i) 'wrongUp'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongUp'
 				end 'eachShiftedUp'
 			end 'rightInsertCount'
 		end 'eachInsertPosition'
 		for at in 0 upto length 'eachRemovePosition'
-			let shrunk = patterned(length)
+			var shrunk = patterned(length)
 			let removed = try shrunk.remove(at) otherwise panic("the position is below the count")
 			if removed != expectedAt(at) 'wrongRemoved'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoved'
-			if shrunk.count() + 1 != length 'wrongRemoveCount'
-				wrong = wrong + 1
+			if (try shrunk.count() + 1 otherwise panic("out of range")) != length 'wrongRemoveCount'
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoveCount' else 'rightRemoveCount'
 				for i in 0 upto at 'eachKept'
 					if elementAt(shrunk, index: i) != expectedAt(i) 'wrongKept'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongKept'
 				end 'eachKept'
 				for i in at upto shrunk.count() 'eachShiftedDown'
 					if elementAt(shrunk, index: i) != expectedAt(i + 1) 'wrongDown'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongDown'
 				end 'eachShiftedDown'
 			end 'rightRemoveCount'
@@ -328,11 +328,11 @@ let Modulus = 9223372036854775783
 let Marker = 9223372036854775807
 
 function expectedAt(index Count) returns Byte
-	return ((index * Scale + 3) mod Modulus) as Byte
+	return try ((index * Scale + 3) mod Modulus) as Byte otherwise panic("out of range")
 end 'expectedAt'
 
 function patterned(count Count) returns Bytes
-	let elements = Bytes.create(0)
+	var elements = Bytes.create(0)
 	for i in 0 upto count 'eachElement'
 		elements.push(expectedAt(i))
 	end 'eachElement'
@@ -347,43 +347,43 @@ function main() returns ExitCode
 	var wrong = 0 as Count
 	for length in 0 upto 41 'eachLength'
 		for at in 0 to length 'eachInsertPosition'
-			let grown = patterned(length)
+			var grown = patterned(length)
 			grown.insert(at, value: Marker)
 			if grown.count() != length + 1 'wrongInsertCount'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongInsertCount' else 'rightInsertCount'
 				if elementAt(grown, index: at) != Marker 'wrongMarker'
-					wrong = wrong + 1
+					wrong = try wrong + 1 otherwise panic("out of range")
 				end 'wrongMarker'
 				for i in 0 upto at 'eachBelow'
 					if elementAt(grown, index: i) != expectedAt(i) 'wrongBelow'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongBelow'
 				end 'eachBelow'
 				for i in at upto length 'eachShiftedUp'
 					if elementAt(grown, index: i + 1) != expectedAt(i) 'wrongUp'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongUp'
 				end 'eachShiftedUp'
 			end 'rightInsertCount'
 		end 'eachInsertPosition'
 		for at in 0 upto length 'eachRemovePosition'
-			let shrunk = patterned(length)
+			var shrunk = patterned(length)
 			let removed = try shrunk.remove(at) otherwise panic("the position is below the count")
 			if removed != expectedAt(at) 'wrongRemoved'
-				wrong = wrong + 1
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoved'
-			if shrunk.count() + 1 != length 'wrongRemoveCount'
-				wrong = wrong + 1
+			if (try shrunk.count() + 1 otherwise panic("out of range")) != length 'wrongRemoveCount'
+				wrong = try wrong + 1 otherwise panic("out of range")
 			end 'wrongRemoveCount' else 'rightRemoveCount'
 				for i in 0 upto at 'eachKept'
 					if elementAt(shrunk, index: i) != expectedAt(i) 'wrongKept'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongKept'
 				end 'eachKept'
 				for i in at upto shrunk.count() 'eachShiftedDown'
 					if elementAt(shrunk, index: i) != expectedAt(i + 1) 'wrongDown'
-						wrong = wrong + 1
+						wrong = try wrong + 1 otherwise panic("out of range")
 					end 'wrongDown'
 				end 'eachShiftedDown'
 			end 'rightRemoveCount'

@@ -365,7 +365,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle}
+		return Self{settle: settle.clone()}
 	end 'create'
 end 'Holder'
 
@@ -378,13 +378,13 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(settle Settle)
+	function keep(mutates self, settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(count Integer)
+	function run(mutates self, count Integer)
 		let settle = Settle.someMoved(count)
-		let spare = SettleArray.create(0)
+		var spare = SettleArray.create(0)
 		spare.push(settle)
 		self.keep(settle)
 		spare.clear()
@@ -392,9 +392,9 @@ type Registry
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	registry.run(3)
-	return registry.held.count() as ExitCode
+	return try registry.held.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

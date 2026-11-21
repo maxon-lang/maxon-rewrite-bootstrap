@@ -85,7 +85,6 @@ extract-004 [19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04]
 ```
 
 <!-- test: hkdf.expand -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 RFC 5869 A.1 to A.3, and a length of 0.
@@ -130,7 +129,6 @@ function errorName(failure HkdfError) returns String
 end 'errorName'
 
 function report(id String, algorithm HashAlgorithm, prkHex String, infoHex String, length HkdfOutputLength)
-	// TODO: if try is not supported in minimaxon
 	if let okm = try hkdfExpand(algorithm, pseudoRandomKey: fromHex(prkHex), info: fromHex(infoHex), length: length) 'expanded'
 		print("{id} [{toHex(okm)}]\n")
 	end 'expanded' else (failure) 'refused'
@@ -157,7 +155,6 @@ expand-004 []
 ```
 
 <!-- test: hkdf.expand-refuses-a-length-past-255-blocks -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 One byte past `255 * HashLen` for each algorithm.
@@ -202,7 +199,6 @@ function errorName(failure HkdfError) returns String
 end 'errorName'
 
 function report(id String, algorithm HashAlgorithm, prkHex String, infoHex String, length HkdfOutputLength)
-	// TODO: if try is not supported in minimaxon
 	if let okm = try hkdfExpand(algorithm, pseudoRandomKey: fromHex(prkHex), info: fromHex(infoHex), length: length) 'expanded'
 		print("{id} [{toHex(okm)}]\n")
 	end 'expanded' else (failure) 'refused'
@@ -227,7 +223,6 @@ hkdf-err-006 outputTooLong
 ```
 
 <!-- test: hkdf.derive -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 RFC 5869 A.1 to A.3, Wycheproof empty, zero and long salts for each algorithm, and a length of 0 for each algorithm.
@@ -272,7 +267,6 @@ function errorName(failure HkdfError) returns String
 end 'errorName'
 
 function report(id String, algorithm HashAlgorithm, saltHex String, ikmHex String, infoHex String, length HkdfOutputLength)
-	// TODO: if try is not supported in minimaxon
 	if let okm = try hkdf(algorithm, salt: fromHex(saltHex), inputKeyMaterial: fromHex(ikmHex), info: fromHex(infoHex), length: length) 'derived'
 		print("{id} [{toHex(okm)}]\n")
 	end 'derived' else (failure) 'refused'
@@ -327,7 +321,6 @@ derive-018 []
 ```
 
 <!-- test: hkdf.derive-the-maximum-length -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `255 * HashLen` bytes for each algorithm, pinned by length and SHA-256 digest.
@@ -372,7 +365,6 @@ function errorName(failure HkdfError) returns String
 end 'errorName'
 
 function report(id String, algorithm HashAlgorithm, saltHex String, ikmHex String, infoHex String, length HkdfOutputLength)
-	// TODO: if try is not supported in minimaxon
 	if let okm = try hkdf(algorithm, salt: fromHex(saltHex), inputKeyMaterial: fromHex(ikmHex), info: fromHex(infoHex), length: length) 'derived'
 		print("{id} {okm.count()} [{toHex(sha256(okm))}]\n")
 	end 'derived' else (failure) 'refused'
@@ -397,7 +389,6 @@ derive-021 16320 [f1d2571780c8a83db38dd812b9cab70a8c2e66bfaf1a2fb3632a154ce63a52
 ```
 
 <!-- test: hkdf.derive-refuses-a-length-past-255-blocks -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 One byte past `255 * HashLen` for each algorithm.
@@ -442,7 +433,6 @@ function errorName(failure HkdfError) returns String
 end 'errorName'
 
 function report(id String, algorithm HashAlgorithm, saltHex String, ikmHex String, infoHex String, length HkdfOutputLength)
-	// TODO: if try is not supported in minimaxon
 	if let okm = try hkdf(algorithm, salt: fromHex(saltHex), inputKeyMaterial: fromHex(ikmHex), info: fromHex(infoHex), length: length) 'derived'
 		print("{id} [{toHex(okm)}]\n")
 	end 'derived' else (failure) 'refused'

@@ -599,7 +599,7 @@ function movedOnceThenLeaves(stop Integer) returns Integer
 	while i < 3 'trips'
 		if i == stop 'found'
 			let t = s
-			seen = t.count() as Integer
+			seen = try t.count() as Integer otherwise panic("out of range")
 			break
 		end 'found'
 		i = i + 1
@@ -657,7 +657,7 @@ function reassignedThenMoved(count Integer) returns Integer
 	while i < count 'trips'
 		s = label(i)
 		let t = s
-		total = total + t.count() as Integer
+		total = try total + t.count() as Integer otherwise panic("out of range")
 		i = i + 1
 	end 'trips'
 	return total
@@ -735,7 +735,7 @@ function forMoveThenBreak(stop Integer) returns Integer
 	for i in 0 upto 3 'trips'
 		if i == stop 'found'
 			let t = s
-			seen = t.count() as Integer
+			seen = try t.count() as Integer otherwise panic("out of range")
 			break
 		end 'found'
 	end 'trips'

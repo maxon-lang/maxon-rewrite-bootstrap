@@ -67,19 +67,19 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function fill(a WordArray, n Count)
+function fill(mutates a WordArray, n Count)
 	for i in 0 upto n 'each'
 		try a.set(i, value: (i * 3 + 1) as Word) otherwise panic("fill: i < n = a.count()")
 	end 'each'
 end 'fill'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.resize(5)
 	fill(a, n: 5)
 	var seen = 0 as Word
 	for v in a 'check'
-		seen = seen + v
+		seen = try seen + v otherwise panic("out of range")
 	end 'check'
 	if seen != 35 'sum'
 		return 1
@@ -132,26 +132,26 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function overwrite(b WordArray, n Count)
+function overwrite(mutates b WordArray, n Count)
 	for i in 0 upto n 'each'
 		try b.set(i, value: (100 + i) as Word) otherwise panic("overwrite: i < n = b.count()")
 	end 'each'
 end 'overwrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i)
 	end 'seed'
-	let b = try a.slice(0, endIndex: 4) otherwise panic("main: 0..4 is within a")
+	var b = try a.slice(0, endIndex: 4) otherwise panic("main: 0..4 is within a")
 	overwrite(b, n: 4)
 	var sumA = 0 as Word
 	for v in a 'readA'
-		sumA = sumA + v
+		sumA = try sumA + v otherwise panic("out of range")
 	end 'readA'
 	var sumB = 0 as Word
 	for v in b 'readB'
-		sumB = sumB + v
+		sumB = try sumB + v otherwise panic("out of range")
 	end 'readB'
 	if sumA != 6 'aUntouched'
 		return 1
@@ -342,18 +342,18 @@ function tally(a WordArray) returns Word
 	var last = 0 as Count
 	var i = 0 as ElementIndex
 	while true 'l'
-		t = t + (try a.get(i) otherwise 0)
+		t = try t + (try a.get(i) otherwise 0) otherwise panic("out of range")
 		last = a.count()
 		if i >= 2 'stop'
 			break
 		end 'stop'
 		i = i + 1
 	end 'l'
-	return (last as Word) * 100 + t
+	return try (last as Word) * 100 + t otherwise panic("out of range")
 end 'tally'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	a.push(3)
@@ -377,17 +377,17 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function crossWrite(a WordArray, b WordArray, n Count) returns Word
+function crossWrite(mutates a WordArray, b WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		try a.set(i, value: (i + 10) as Word) otherwise panic("crossWrite: i < n")
-		t = t + (try b.get(i) otherwise panic("crossWrite: i < n"))
+		t = try t + (try b.get(i) otherwise panic("crossWrite: i < n")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'crossWrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.resize(4)
 	if crossWrite(a, b: a, n: 4) != 46 'sum'
 		return 1

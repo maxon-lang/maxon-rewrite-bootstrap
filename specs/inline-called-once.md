@@ -67,7 +67,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function flipOnce(current IntArray, temp IntArray, n Integer) returns Integer
+function flipOnce(current IntArray, mutates temp IntArray, n Integer) returns Integer
 	for i in 0 upto n 'copy'
 		let element = try current.get(i as ElementIndex) otherwise panic("flipOnce: i < n = current.count()")
 		try temp.set(i as ElementIndex, value: element) otherwise panic("flipOnce: i < n = temp.count()")
@@ -85,14 +85,14 @@ function flipOnce(current IntArray, temp IntArray, n Integer) returns Integer
 	end 'reverse'
 	let first = try temp.get(0) otherwise panic("flipOnce: n >= 1")
 	let second = try temp.get(1) otherwise panic("flipOnce: n >= 2")
-	return first + second
+	return try first + second otherwise panic("out of range")
 end 'flipOnce'
 
 function main() returns ExitCode
 	let n = 5
-	let current = IntArray.create(0)
+	var current = IntArray.create(0)
 	current.resize(n)
-	let temp = IntArray.create(0)
+	var temp = IntArray.create(0)
 	temp.resize(n)
 	for i in 0 upto n 'fill'
 		try current.set(i as ElementIndex, value: i) otherwise panic("main: i < n = current.count()")
@@ -100,9 +100,9 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for round in 1 to 4 'rounds'
 		try current.set(0, value: round) otherwise panic("main: n >= 1")
-		total = total + flipOnce(current, temp: temp, n: n)
+		total = try total + flipOnce(current, temp: temp, n: n) otherwise panic("out of range")
 	end 'rounds'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -119,30 +119,30 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function inner(a IntArray, n Integer) returns Integer
+function inner(mutates a IntArray, n Integer) returns Integer
 	var sum = 0 as Integer
 	for i in 0 upto n 'each'
 		let v = try a.get(i as ElementIndex) otherwise panic("inner: i < n = a.count()")
 		try a.set(i as ElementIndex, value: v * 2) otherwise panic("inner: i < n = a.count()")
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
 	return sum
 end 'inner'
 
-function outer(a IntArray, n Integer) returns Integer
+function outer(mutates a IntArray, n Integer) returns Integer
 	for i in 0 upto n 'fill'
 		try a.set(i as ElementIndex, value: i + 1) otherwise panic("outer: i < n = a.count()")
 	end 'fill'
 	let before = inner(a, n: n)
 	let last = try a.get((n - 1) as ElementIndex) otherwise panic("outer: n >= 1")
-	return before + last
+	return try before + last otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
 	let n = 4
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(n)
-	return outer(a, n: n) as ExitCode
+	return try outer(a, n: n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -150,6 +150,7 @@ end 'main'
 ```
 
 <!-- test: a-panic-inside-a-spliced-body-names-the-callee -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE TRACE GATE.** The same flip step as the shape case, but `temp` is one slot shorter than `n`,
 so the `set` in the copy loop's LAST iteration takes its `otherwise panic` arm — inside a loop body
 that the splice places in `main`'s frame. The panic block carries its inline site, the range record names
@@ -209,6 +210,7 @@ Stack trace:
 ```
 
 <!-- test: a-panic-in-the-innermost-of-a-chain-names-every-level -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `main` → `outer` → `inner`, each called once, so `inner`'s blocks are spliced through two levels, and
 the panic fires in `inner`'s loop. Its block's inline site names `inner` nested under `outer`'s site,
 so the range records nest and the printer walks them innermost-first: three lines for one frame.
@@ -256,6 +258,7 @@ Stack trace:
 ```
 
 <!-- test: a-panic-in-a-loop-the-unswitcher-versioned-names-the-callee -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A `for` over an index range doing `get` + `set` on one `Array with Integer` is the shape
 `unswitchInvariantGuards` versions into a fast copy (the bound proven inside the array) and a slow
 copy (the guards kept). The panic fires from the SLOW copy's blocks — the versioned loop is copied
@@ -298,6 +301,7 @@ Stack trace:
 ```
 
 <!-- test: a-range-check-inside-a-spliced-body-names-the-callee -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **A RANGE GUARD IS A PANIC BLOCK THE COMPILER WROTE, AND THE SPLICE MUST TAG IT TOO.** `divide` has a store loop
 so it is no leaf and is called exactly once, so it is spliced. Its `returns NonZero` guard fires on a value built
 by honest arithmetic: `a - a` wears `NonZero` without proving it, and is zero. The guard's block
@@ -394,24 +398,24 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function fill(a IntArray, n Integer, base Integer) returns Integer
+function fill(mutates a IntArray, n Integer, base Integer) returns Integer
 	var total = 0 as Integer
 	for i in 0 upto n 'each'
-		let v = base + i * i
+		let v = try base + i * i otherwise panic("out of range")
 		try a.set(i as ElementIndex, value: v) otherwise panic("fill: i < n = a.count()")
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'each'
 	return total
 end 'fill'
 
 function main() returns ExitCode
 	let n = 4
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(n)
 	let first = fill(a, n: n, base: 1)
 	let second = fill(a, n: n, base: 2)
 	let last = try a.get(n - 1) otherwise panic("main: n >= 1")
-	return (first + second + last) as ExitCode
+	return try (first + second + last) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -466,22 +470,22 @@ enum FillError implements Error
 	negativeCount
 end 'FillError'
 
-function fillChecked(a IntArray, n Integer) returns Integer throws FillError
+function fillChecked(mutates a IntArray, n Integer) returns Integer throws FillError
 	if n < 0 'negative'
 		throw FillError.negativeCount
 	end 'negative'
-	if (a.count() as Integer) < n 'short'
+	if (try a.count() as Integer otherwise panic("out of range")) < n 'short'
 		throw FillError.tooShort
 	end 'short'
 	var total = 0 as Integer
 	for i in 0 upto n 'each'
 		try a.set(i as ElementIndex, value: i * 3) otherwise panic("fillChecked: i < n <= a.count()")
-		total = total + i * 3
+		total = try total + i * 3 otherwise panic("out of range")
 	end 'each'
 	return total
 end 'fillChecked'
 
-function report(a IntArray, n Integer) returns Integer
+function report(mutates a IntArray, n Integer) returns Integer
 	let total = try fillChecked(a, n: n) otherwise (e) 'refused'
 		match e 'which'
 			tooShort then return 1000
@@ -492,7 +496,7 @@ function report(a IntArray, n Integer) returns Integer
 end 'report'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(5)
 	let total = report(a, n: 5)
 	if report(a, n: 9) != 1000 'shortWrong'
@@ -502,7 +506,7 @@ function main() returns ExitCode
 		return 2
 	end 'negativeWrong'
 	let last = try a.get(4) otherwise panic("main: a.count() = 5")
-	return (total + last) as ExitCode
+	return try (total + last) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -519,22 +523,22 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function bumpAll(a IntArray, n Integer, mutates bumps Integer) returns Integer
+function bumpAll(mutates a IntArray, n Integer, mutates bumps Integer) returns Integer
 	for i in 0 upto n 'each'
 		let v = try a.get(i as ElementIndex) otherwise panic("bumpAll: i < n = a.count()")
 		try a.set(i as ElementIndex, value: v + 1) otherwise panic("bumpAll: i < n = a.count()")
-		bumps = bumps + 1
+		bumps = try bumps + 1 otherwise panic("out of range")
 	end 'each'
 	return bumps
 end 'bumpAll'
 
 function main() returns ExitCode
 	let n = 4
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(n)
 	var bumps = 10 as Integer
 	let returned = bumpAll(a, n: n, bumps: bumps)
-	return (returned + bumps) as ExitCode
+	return try (returned + bumps) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -563,7 +567,7 @@ end 'firstIndexOf'
 
 function main() returns ExitCode
 	let n = 4
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(n)
 	for i in 0 upto n 'fill'
 		try a.set(i as ElementIndex, value: 5 + 2 * i) otherwise panic("main: i < n = a.count()")
@@ -571,9 +575,9 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for round in 0 to 1 'rounds'
 		let needle = 9 if round == 0 else 100
-		total = total + firstIndexOf(a, n: n, needle: needle)
+		total = try total + firstIndexOf(a, n: n, needle: needle) otherwise panic("out of range")
 	end 'rounds'
-	return (total + 36) as ExitCode
+	return try (total + 36) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -589,7 +593,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function fillSquares(a IntArray, n Integer)
+function fillSquares(mutates a IntArray, n Integer)
 	for i in 0 upto n 'each'
 		try a.set(i as ElementIndex, value: i * i) otherwise panic("fillSquares: i < n = a.count()")
 	end 'each'
@@ -597,12 +601,12 @@ end 'fillSquares'
 
 function main() returns ExitCode
 	let n = 5
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(n)
 	fillSquares(a, n: n)
 	let fourth = try a.get(4) otherwise panic("main: n = 5")
 	let third = try a.get(3) otherwise panic("main: n = 5")
-	return (fourth + third) as ExitCode
+	return try (fourth + third) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

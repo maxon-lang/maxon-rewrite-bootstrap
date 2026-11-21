@@ -33,7 +33,7 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
+	static function create(consumes x T, tag Integer) returns Self
 		return Self{v: x, tag: tag}
 	end 'create'
 end 'Box'
@@ -43,7 +43,7 @@ typealias StrBox = Box with String
 typealias BoxArray = Array with StrBox
 
 function makeClone() returns BoxArray
-	let src = BoxArray.create(0)
+	var src = BoxArray.create(0)
 	src.push(StrBox.create("first boxed string, long enough to live on the heap", tag: 10))
 	src.push(StrBox.create("second boxed string, long enough to live on the heap", tag: 20))
 	return src.clone()
@@ -58,7 +58,7 @@ function main() returns ExitCode
 	if not b.v.equals("second boxed string, long enough to live on the heap") 'badString'
 		return 93
 	end 'badString'
-	return b.tag
+	return try b.tag as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -76,7 +76,7 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
+	static function create(consumes x T, tag Integer) returns Self
 		return Self{v: x, tag: tag}
 	end 'create'
 end 'Box'
@@ -86,7 +86,7 @@ typealias StrBox = Box with String
 typealias BoxArray = Array with StrBox
 
 function main() returns ExitCode
-	let src = BoxArray.create(0)
+	var src = BoxArray.create(0)
 	src.push(StrBox.create("original boxed string, long enough to live on the heap", tag: 7))
 	let copy = src.clone()
 	try src.set(0, value: StrBox.create("replaced", tag: 99)) otherwise return 91
@@ -101,7 +101,7 @@ function main() returns ExitCode
 	if not mine.v.equals("original boxed string, long enough to live on the heap") 'cloneFollowedTheSource'
 		return 96
 	end 'cloneFollowedTheSource'
-	return mine.tag
+	return try mine.tag as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

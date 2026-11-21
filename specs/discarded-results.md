@@ -2795,10 +2795,10 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data}
+		return Cursor{data: data.clone()}
 	end 'over'
 
-	function wipe()
+	function wipe(mutates self)
 		self.data.clear()
 	end 'wipe'
 end 'Cursor'
@@ -2810,19 +2810,19 @@ type Walker
 		return Walker{cursor: Cursor.over(data)}
 	end 'over'
 
-	function wipe()
+	function wipe(mutates self)
 		self.cursor.wipe()
 	end 'wipe'
 end 'Walker'
 
 function wiped(data IntArray) returns Integer
-	let walker = Walker.over(data)
+	var walker = Walker.over(data)
 	walker.wipe()
 	return 1
 end 'wiped'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(4)
 	_ = wiped(values)
 	if values.count() != 0 'wrong'
@@ -2992,7 +2992,7 @@ type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data}
+		return Child{data: data.clone()}
 	end 'over'
 end 'Child'
 
@@ -3003,19 +3003,19 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function shorten()
+	function shorten(mutates self)
 		self.child.data.truncate(1)
 	end 'shorten'
 end 'Parent'
 
 function shortened(target IntArray) returns Integer
-	let parent = Parent.over(target)
+	var parent = Parent.over(target)
 	parent.shorten()
 	return 1
 end 'shortened'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(2)
 	values.push(1)
 	_ = shortened(values)
@@ -3666,22 +3666,22 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data}
+		return Cursor{data: data.clone()}
 	end 'over'
 
-	function drop()
+	function drop(mutates self)
 		self.data.clear()
 	end 'drop'
 end 'Cursor'
 
 function wipe(values IntArray) returns Integer
-	let cursor = Cursor.over(values)
+	var cursor = Cursor.over(values)
 	cursor.drop()
 	return 1
 end 'wipe'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(4)
 	_ = wipe(values)
 	if values.count() != 0 'wrong'
@@ -3704,27 +3704,27 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data}
+		return Cursor{data: data.clone()}
 	end 'over'
 
-	function adopt(extra IntArray)
-		self.data = extra
+	function adopt(mutates self, extra IntArray)
+		self.data = extra.clone()
 	end 'adopt'
 
-	function drop()
+	function drop(mutates self)
 		self.data.clear()
 	end 'drop'
 end 'Cursor'
 
 function reset(extra IntArray) returns Integer
-	let cursor = Cursor.over(IntArray.create(0))
+	var cursor = Cursor.over(IntArray.create(0))
 	cursor.adopt(extra)
 	cursor.drop()
 	return 1
 end 'reset'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(4)
 	_ = reset(values)
 	if values.count() != 0 'wrong'

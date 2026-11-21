@@ -138,7 +138,7 @@ function main() returns ExitCode
 		none gives 0
 		bytes(d) gives d.byteLength()
 	end 'i'
-	return e + i
+	return try e + i otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -146,7 +146,6 @@ end 'main'
 ```
 
 <!-- test: bytearray-insert-preserves-tail -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### `insert` into a byte-string literal keeps the elements it shifted
 `b"hey"` is immutable image data, so the insert runs on its `.clone()`, a writable array holding the literal's bytes;
 the shift and the erase run against a 1-byte stride. The erase must clear
@@ -154,8 +153,7 @@ one byte. An 8-byte erase wipes the just-shifted `e` and `y` and the array reads
 back `h X \0 \0` with `count() == 4` — corrupt data behind a successful exit.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let bytes = b"hey".clone()
+	var bytes = b"hey".clone()
 	bytes.insert(1, value: 88)
 	if bytes.count() != 4 'cnt'
 		return 1
@@ -190,15 +188,13 @@ end 'main'
 ```
 
 <!-- test: bytearray-insert-at-front-preserves-all -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### `insert(0, ...)` shifts the whole array and keeps all of it
 Inserting at the front shifts every element, so the erased slot is followed by
 the maximum number of live neighbours — five here, so an over-wide erase loses
 all five rather than the two `insert(1, ...)` loses.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let bytes = b"axbxc".clone()
+	var bytes = b"axbxc".clone()
 	bytes.insert(0, value: 90)
 	if bytes.count() != 6 'cnt'
 		return 1
@@ -226,7 +222,6 @@ that each run walks in the direction the overlap needs, and that the two runs ha
 right ORDER.
 
 <!-- test: bytearray-insert-at-front-crosses-the-word-and-tail-boundary -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### An `insert` that shifts two whole words AND a remainder, upward, onto itself
 Twenty-one bytes shifted UP one is two machine words plus a five-byte remainder, and the
 destination overlaps the source everywhere but its top byte. Three things have to be true and
@@ -238,8 +233,7 @@ each has its own way of going wrong:
 * the remainder must exist at all — without it the array keeps its old last five bytes.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let bytes = b"abcdefghijklmnopqrstu".clone()
+	var bytes = b"abcdefghijklmnopqrstu".clone()
 	bytes.insert(0, value: 90)
 	if bytes.count() != 22 'cnt'
 		return 1
@@ -252,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: bytearray-remove-at-front-crosses-the-word-and-tail-boundary -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### The same crossing DOWNWARD — a `remove` that shifts twenty bytes onto their own source
 `remove(0)` moves the surviving twenty bytes DOWN one: two machine words followed by a
 four-byte remainder, overlapping the source the other way. Every clause above is mirrored —
@@ -261,8 +254,7 @@ the high word has not read yet; and the words must ASCEND, because the high word
 on `buffer[8]`, which the low word still has to read.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let bytes = b"abcdefghijklmnopqrstu".clone()
+	var bytes = b"abcdefghijklmnopqrstu".clone()
 	let gone = try bytes.remove(0) otherwise panic("test invariant: index 0 is in bounds")
 	if gone != 97 'first'
 		return 1
@@ -296,7 +288,6 @@ and the same one a widening `__managed_append` across differing strides would ne
 does not have, so the literal is refused at its own position.
 
 <!-- test: byte-string-literal-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A `b"…"` literal is refused when this program's `Byte` does not fit one byte
 ```maxon
@@ -307,7 +298,6 @@ typealias Bytes = Array with Byte
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(65)
-	// TODO: byte string literals are not supported in minimaxon
 	made.append(b"CD")
 	return made.count()
 end 'main'
@@ -317,7 +307,6 @@ error E2015: specs/bytearray-element-size/byte-string-literal-refused-when-byte-
 ```
 
 <!-- test: byte-string-global-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 A `let`/`var` at file scope is folded to bytes by the initializer sweep and its record is built by
@@ -328,7 +317,6 @@ typealias Byte = int(0 to u64.max)
 
 typealias Bytes = Array with Byte
 
-// TODO: byte string literals are not supported in minimaxon
 let BUFFER = b"hi"
 
 function main() returns ExitCode
@@ -342,7 +330,6 @@ error E2015: specs/bytearray-element-size/byte-string-global-refused-when-byte-i
 ```
 
 <!-- test: byte-string-key-of-a-top-level-map-is-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### The refusal reaches a byte-string KEY of a top-level map literal, which is a THIRD doorway
 A top-level `[b"…": v]` is neither a function body's expression nor a bare `let G = b"…"`: the map
@@ -355,7 +342,6 @@ typealias Byte = int(0 to u64.max)
 
 typealias Bytes = Array with Byte
 
-// TODO: byte string literals are not supported in minimaxon
 let KEYWORDS = [b"hi": 1]
 
 function main() returns ExitCode
@@ -368,7 +354,6 @@ end 'main'
 error E2015: <fragment>:5:17: Unsupported: a `b"…"` byte-string literal in a program whose `Byte` is a 8-byte range: the literal's blob is byte-PACKED, so its record would stride 1 while every `Array with Byte` built by `.create()` strides 8 — two values of one type that behave differently. Declare `Byte` as `int(0 to u8.max)` (or any range that fits one byte), or build the array with `.create()` + `push`
 ```
 <!-- test: byte-string-literal-accepted-at-the-canonical-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### The canonical `Byte` keeps both producers agreeing, and they interoperate
 `.create()` and `b"…"` both stride 1, so a literal appends into a heap-grown array — which is the whole
 point of the unification, and the thing that aborted before it.
@@ -380,7 +365,6 @@ typealias Bytes = Array with Byte
 function main() returns ExitCode
 	let made = Bytes.create(0)
 	made.push(65)
-	// TODO: byte string literals are not supported in minimaxon
 	made.append(b"CD")
 	return 0 if made.count() == 3 and (try made.get(1) otherwise 0) == 67 and (try made.get(2) otherwise 0) == 68 else 1
 end 'main'
@@ -418,7 +402,6 @@ the expression emitter — the initializer sweep folds it to bytes and `ModuleIn
 rule wired to the emitter alone would let a stored byte-string global slip it.
 
 <!-- test: byte-string-literal-refused-when-a-byte-is-outside-the-elements-range -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A `b"…"` literal is refused when a byte does not fit this program's `Byte`
 ```maxon
@@ -431,7 +414,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return takes(b"\xdf")
 end 'main'
 ```
@@ -440,7 +422,6 @@ error E3005: specs/bytearray-element-size/byte-string-literal-refused-when-a-byt
 ```
 
 <!-- test: byte-string-literal-checks-every-byte-not-only-the-first -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### Every byte is checked, not just the first
 The first byte fits and the second does not. A rule that looked at the blob's head — or at its WIDTH, which
@@ -455,7 +436,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return takes(b"\x41\xdf")
 end 'main'
 ```
@@ -464,7 +444,6 @@ error E3005: specs/bytearray-element-size/byte-string-literal-checks-every-byte-
 ```
 
 <!-- test: byte-string-literal-accepted-at-the-elements-exact-maximum -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### The element's exact maximum is IN range
 The boundary is inclusive, and this is the case that separates `<=` from `<`.
 ```maxon
@@ -477,7 +456,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return 0 if takes(b"\x64") == 100 else 1
 end 'main'
 ```
@@ -486,7 +464,6 @@ end 'main'
 ```
 
 <!-- test: byte-string-literal-refused-one-past-the-elements-maximum -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### …and one past it is not
 ```maxon
@@ -499,7 +476,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return takes(b"\x65")
 end 'main'
 ```
@@ -508,7 +484,6 @@ error E3005: specs/bytearray-element-size/byte-string-literal-refused-one-past-t
 ```
 
 <!-- test: byte-string-literal-of-in-range-bytes-still-compiles -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### A narrow `Byte` that genuinely admits the literal's bytes keeps compiling
 `a`, `b` and `c` are 97, 98 and 99, all inside `int(0 to 100)`. A refusal derived from the element's TYPE
 rather than from the literal's VALUES would reject this program, which is a wrong answer pointing the
@@ -523,7 +498,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return 0 if takes(b"abc") == 99 else 1
 end 'main'
 ```
@@ -532,7 +506,6 @@ end 'main'
 ```
 
 <!-- test: an-empty-byte-string-literal-fits-any-byte-element -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### An EMPTY literal has no byte to be out of range
 The degenerate end of a per-value rule: nothing to check, so nothing to refuse.
 ```maxon
@@ -545,7 +518,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	return takes(b"")
 end 'main'
 ```
@@ -554,7 +526,6 @@ end 'main'
 ```
 
 <!-- test: byte-string-global-refused-when-a-byte-is-outside-the-elements-range -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 The narrow twin of `byte-string-global-refused-when-byte-is-wider-than-one-byte`, and it is here for the
@@ -565,7 +536,6 @@ typealias Byte = int(0 to 100)
 
 typealias Bytes = Array with Byte
 
-// TODO: byte string literals are not supported in minimaxon
 let BUFFER = b"\xdf"
 
 function main() returns ExitCode
@@ -579,7 +549,6 @@ error E3005: specs/bytearray-element-size/byte-string-global-refused-when-a-byte
 ```
 
 <!-- test: readers-own-byte-decides-which-literal-bytes-fit -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ### A byte legal under ONE file's `Byte` stays legal there while a sibling file's is narrower
 The RANGE half of the rule that the reading file's `Byte` decides: `wide.maxon`'s literal is checked against `wide.maxon`'s `int(0 to u8.max)`, and `main.maxon`'s
 against its own `int(0 to 100)`. Both declarations are unmarked, so each file sees exactly one `Byte`.
@@ -590,7 +559,6 @@ was recorded last — gets one of the two wrong.
 typealias Byte = int(0 to u8.max)
 
 export function anyByte(b Integer) returns Integer
-	// TODO: byte string literals are not supported in minimaxon
 	let a = b"\xdf"
 	return (try a.get(0) otherwise 0) - (b as Byte)
 end 'anyByte'
@@ -604,7 +572,6 @@ function narrow(b Byte) returns Integer
 end 'narrow'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let mine = b"\x41"
 	return anyByte(narrow(try mine.get(0) otherwise 0)) as ExitCode
 end 'main'
@@ -614,8 +581,6 @@ end 'main'
 ```
 
 <!-- test: the-narrow-files-own-byte-literal-is-still-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### …and the identical literal moved into the NARROW file meets its own declaration's wall
 The half that proves the case above is not simply a lost refusal. One program, two files, two answers.
 ```maxon
@@ -623,7 +588,6 @@ The half that proves the case above is not simply a lost refusal. One program, t
 typealias Byte = int(0 to u8.max)
 
 export function anyByte(b Integer) returns Integer
-	// TODO: byte string literals are not supported in minimaxon
 	var a = b"\xdf"
 	return (try a.get(0) otherwise 0) - (b as Byte)
 end 'anyByte'
@@ -637,7 +601,6 @@ function narrow(b Byte) returns Integer
 end 'narrow'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var mine = b"\xdf"
 	return anyByte(narrow(try mine.get(0) otherwise 0)) as ExitCode
 end 'main'
@@ -1005,8 +968,6 @@ that would go quiet if `Parser.requireByteStringBlobFitsItsElement` ever stopped
 exposure and its own pair — `readers-own-byte-decides-which-literal-bytes-fit` and its twin, above.
 
 <!-- test: error.a-byte-string-literal-takes-the-sibling-files-wide-byte-it-names-bare -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A `b"…"` in a file with no `Byte` of its own takes the `Byte` its bare name reaches
 `main.maxon` declares no `Byte`, and the one author declaration it sees is `wide.maxon`'s exported
 `int(0 to 1000)`. That is what its bare `Byte` means, so it is its literal's element too, and a 2-byte
@@ -1022,7 +983,6 @@ end 'widen'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var a = b"hi"
 	let n = try a.get(0) otherwise 0
 	return (n - (widen(56) as Byte)) as ExitCode
@@ -1033,8 +993,6 @@ error E2015: <fragment>:12:10: Unsupported: a `b"…"` byte-string literal in a 
 ```
 
 <!-- test: the-wide-files-own-byte-literal-is-still-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### …and the WIDE file's own `b"…"` is still refused, in the same program
 The other half, and the half that proves the case above is not simply a lost refusal: the identical
 literal moved into `wide.maxon` meets the wall its own declaration builds. One program, two files,
@@ -1045,7 +1003,6 @@ instances are distinct.
 typealias Byte = int(0 to 1000)
 
 export function widen() returns Integer
-	// TODO: byte string literals are not supported in minimaxon
 	var a = b"hi"
 	return try a.get(0) otherwise 0
 end 'widen'
@@ -1687,7 +1644,6 @@ error E3118: <fragment>:12:10: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: a-narrow-byte-refuses-a-raw-byte-write-into-a-literals-buffer -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The buffer surface of a `b"…"` literal is the same write, and the literal's range rule cannot reach it
@@ -1703,7 +1659,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var v = b"abc"
 	try v.managed.setByte(0, 223) otherwise return 3
 	return takes(v)
@@ -1787,7 +1742,6 @@ end 'main'
 ```
 
 <!-- test: a-narrow-byte-refuses-a-file-read-into-its-buffer -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `__ManagedFile.read` blits a file's contents, so it answers to the element too
@@ -1811,7 +1765,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let f = try __ManagedFile.openRead(b"DATA.BIN".managed) otherwise return 3
 	var buf = try __ManagedMemory.create(8, 1) otherwise return 1
 	_ = try f.read(buf, 4) otherwise return 4
@@ -2283,7 +2236,6 @@ end 'main'
 ```
 
 <!-- test: a-raw-byte-write-into-a-byte-no-file-declares-is-still-accepted -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### A program that declares no `Byte` at all keeps its raw writer
 The literal mints its own `Array with Byte` (`undeclaredNamedElementSlot`'s byte arm), which strides
@@ -2291,7 +2243,6 @@ one byte and has no declared range for a raw byte to fall outside of — exactly
 literal is immutable, so the raw write goes into its `.clone()`.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let v = b"abc".clone()
 	try v.managed.setByte(0, 223) otherwise return 3
 	return 0 if (try v.managed.byteAt(0) otherwise 0) == 223 else 4
@@ -2330,7 +2281,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-byte-means-the-sibling-export-and-so-does-the-literal -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 The library's `Byte` never takes part in an ambiguity, so the bare `Byte` means `sibling.maxon`'s export,
 and so does the `b"hi"` literal's element. The export fits one byte, so the literal is legal, and `-` meets
 one declaration on both sides: `104 - 56`.
@@ -2345,7 +2295,6 @@ end 'widen'
 typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let a = b"hi"
 	let n = try a.get(0) otherwise 0
 	return (n - (widen(56) as Byte)) as ExitCode
@@ -2356,7 +2305,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-string-literal-adopts-the-sibling-files-byte-the-file-names-bare -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 `main.maxon` declares no `Byte`; its bare `Byte` is `types.maxon`'s unmarked one, and so is the element of
 its `b"hi"`. The literal therefore reaches a parameter `main.maxon` declares as an `Array with Byte`.
 ```maxon
@@ -2373,7 +2321,6 @@ function describe(xs Bytes) returns ExitCode
 end 'describe'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let a = b"hi"
 	return describe(a)
 end 'main'
@@ -2386,8 +2333,6 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-string-element-is-named-bare-when-nothing-contests-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 Nothing in this program declares `Byte`, so the library's is the only one and the message names it bare.
 ```maxon
 typealias Small = int(0 to 200)
@@ -2397,7 +2342,6 @@ function takeSmall(s Small) returns ExitCode
 end 'takeSmall'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let a = b"hi"
 	let n = try a.get(0) otherwise 0
 	return takeSmall(n)
@@ -2408,7 +2352,6 @@ error E3005: <fragment>:11:9: argument type mismatch for 's': expected 'Small', 
 ```
 
 <!-- test: a-byte-string-literal-beside-an-authors-type-named-byte -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `b"…"` literal's element follows the file's bare `Byte` only when that names an integer alias. Here the
 bare `Byte` names a nominal `type Byte`, which cannot be a byte element, so the literal's element is the
@@ -2425,7 +2368,6 @@ end 'Byte'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
 	return (h as ExitCode) - 100 + a.Byte.make().v
@@ -2436,9 +2378,7 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-string-literal-under-an-ambiguous-bare-byte-is-ambiguous -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 `main.maxon` declares no `Byte` and sees two exported author declarations of it, so its bare `Byte` is
 ambiguous, and the `b"hi"` literal, whose element is what that bare name means, is ambiguous with it.
 ```maxon
@@ -2452,7 +2392,6 @@ export typealias Byte = int(0 to 200)
 function main() returns ExitCode
 	let low = 1 as alpha.Byte
 	let high = 2 as beta.Byte
-	// TODO: byte string literals are not supported in minimaxon
 	var bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
 	return (h as ExitCode) - 100 + (low as ExitCode) + (high as ExitCode)

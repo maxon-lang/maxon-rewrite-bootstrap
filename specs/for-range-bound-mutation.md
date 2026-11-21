@@ -143,10 +143,10 @@ type Holder
 	var items as Words
 
 	static function create(items Words) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
-	function grow()
+	function grow(mutates self)
 		for i in 0 upto 300 'g'
 			items.push("holder-filler-{i}-pppppppppppppppp")
 		end 'g'
@@ -156,13 +156,13 @@ end 'Holder'
 
 function main() returns ExitCode
 	let arr = ["first-{1}", "second-{2}", "third-{3}"]
-	let h = Holder.create(arr)
+	var h = Holder.create(arr)
 	var seen = 0 as Tally
 	for x in arr 'each'
 		h.grow()
 		print("x.len={x.byteLength()}\n")
 		print("x={x}\n")
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'each'
 	print("done seen={seen} arrCount={arr.count()}\n")
 	return 0
@@ -188,7 +188,7 @@ function wipe(mutates pending Lines)
 end 'wipe'
 
 function main() returns ExitCode
-	let pending = Lines.create(0)
+	var pending = Lines.create(0)
 	pending.push("hello world this is a long string for heap allocation {40 + 2}")
 	for it in pending 'scan'
 		wipe(pending)

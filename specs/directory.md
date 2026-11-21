@@ -277,7 +277,6 @@ Directory not found
 
 <!-- test: list-an-unreadable-directory-is-access-denied -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A directory the process may not list is `accessDenied`, never `notFound`: a caller that cannot tell a missing directory from
 one it may not read cannot report the reason. The case denies itself the listing (a deny entry for Everyone on Windows,
@@ -396,7 +395,6 @@ function main() returns ExitCode
 	end 'denied'
 	let hostRefuses = hostRefusesListing(directory)
 	var verdict = "listed"
-	// TODO: if try is not supported in minimaxon
 	if let entries = try Directory.list(directory) 'listed'
 		verdict = "listed {entries.count()} entries"
 	end 'listed' else (e) 'refused'
@@ -1582,7 +1580,6 @@ a denial that did not bind is uid 0's true
 ```
 
 <!-- test: a-path-holding-a-nul-names-no-directory-not-its-prefix -->
-<!-- skip: if try is not supported in minimaxon -->
 A path holding a NUL names no directory on any lane — never the one named by the bytes before the NUL.
 Creating one creates nothing, and listing one is refused even when the prefix is a directory that exists.
 ```maxon
@@ -1595,7 +1592,6 @@ function main() returns ExitCode
 	if not Directory.create(listedPrefix) 'setup'
 		return 3
 	end 'setup'
-	// TODO: if try is not supported in minimaxon
 	if let entries = try Directory.list(here.join("directory-nul-listed\0x")) 'listed'
 		print("list answered {entries.count()} entries\n")
 	end 'listed' else (e) 'listRefused'

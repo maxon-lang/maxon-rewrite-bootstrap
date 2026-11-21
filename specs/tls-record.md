@@ -45,7 +45,6 @@ The 3 canra vectors that name a value the Maxon types cannot spell have no case:
 ## Tests
 
 <!-- test: tls-record.open-tls13-1 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13RecordProtection.open`: every protected record of RFC 8448 sections 3 to 7, OpenSSL's TLS 1.3 records, padding, every suite, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the inner content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-open-rfc8448-3-1 to tls13-open-gen-2-1 (40).
@@ -89,7 +88,6 @@ function openTls13(suite Tls13CipherSuite, keyHex String, ivHex String, sequence
 end 'openTls13'
 
 function report(id String, suite Tls13CipherSuite, keyHex String, ivHex String, sequenceNumber TlsSequenceNumber, record ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let opened = try openTls13(suite, keyHex: keyHex, ivHex: ivHex, sequenceNumber: sequenceNumber, record: record) 'opened'
 		let plaintext = opened.plaintext()
 		if plaintext.count() > 4000 'long'
@@ -193,7 +191,6 @@ tls13-open-gen-2-1 23 474554202f20485454502f312e310d0a0d0a
 ```
 
 <!-- test: tls-record.open-tls13-2 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -315,7 +312,6 @@ function openTls13(suite Tls13CipherSuite, keyHex String, ivHex String, sequence
 end 'openTls13'
 
 function report(id String, suite Tls13CipherSuite, keyHex String, ivHex String, sequenceNumber TlsSequenceNumber, record ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let opened = try openTls13(suite, keyHex: keyHex, ivHex: ivHex, sequenceNumber: sequenceNumber, record: record) 'opened'
 		let plaintext = opened.plaintext()
 		if plaintext.count() > 4000 'long'
@@ -389,7 +385,6 @@ record-err-019 invalidIvLength
 ```
 
 <!-- test: tls-record.open-tls12 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -520,7 +515,6 @@ function openTls12(suite Tls12CipherSuite, keyHex String, ivHex String, sequence
 end 'openTls12'
 
 function report(id String, suite Tls12CipherSuite, keyHex String, ivHex String, sequenceNumber TlsSequenceNumber, record ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let opened = try openTls12(suite, keyHex: keyHex, ivHex: ivHex, sequenceNumber: sequenceNumber, record: record) 'opened'
 		let plaintext = opened.plaintext()
 		if plaintext.count() > 4000 'long'
@@ -576,7 +570,6 @@ record-err-033 badRecordMac
 ```
 
 <!-- test: tls-record.seal-tls13 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13RecordProtection.seal`: the records of RFC 8448 sections 3 and 5, every suite, padding, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the record, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-seal-rfc8448-3-1 to record-err-018 (35).
@@ -629,7 +622,6 @@ function sealTls13(suite Tls13CipherSuite, keyHex String, ivHex String, sequence
 end 'sealTls13'
 
 function report(id String, suite Tls13CipherSuite, keyHex String, ivHex String, sequenceNumber TlsSequenceNumber, contentType TlsContentType, plaintext ByteArray, paddingLength TlsPaddingLength)
-	// TODO: if try is not supported in minimaxon
 	if let record = try sealTls13(suite, keyHex: keyHex, ivHex: ivHex, sequenceNumber: sequenceNumber, contentType: contentType, plaintext: plaintext, paddingLength: paddingLength) 'sealed'
 		if record.count() > 4000 'long'
 			print("{id} {record.count()} {toHex(sha256(record))}\n")
@@ -722,7 +714,6 @@ record-err-018 invalidKeyLength
 ```
 
 <!-- test: tls-record.seal-tls12 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls12RecordProtection.seal`: AES-GCM records whose explicit nonce is the sequence number, ChaCha20-Poly1305 records, the largest record and every refusal. A line prints the record, or the length and SHA-256 of one over 4000 bytes. Vectors tls12-seal-openssl-rsa-chacha-0 to record-err-030 (10).
@@ -775,7 +766,6 @@ function sealTls12(suite Tls12CipherSuite, keyHex String, ivHex String, sequence
 end 'sealTls12'
 
 function report(id String, suite Tls12CipherSuite, keyHex String, ivHex String, sequenceNumber TlsSequenceNumber, contentType TlsContentType, plaintext ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let record = try sealTls12(suite, keyHex: keyHex, ivHex: ivHex, sequenceNumber: sequenceNumber, contentType: contentType, plaintext: plaintext) 'sealed'
 		if record.count() > 4000 'long'
 			print("{id} {record.count()} {toHex(sha256(record))}\n")
@@ -818,7 +808,6 @@ record-err-030 invalidIvLength
 ```
 
 <!-- test: tls-record.tls13-sequence-numbers -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A `Tls13RecordProtection` numbers its records from the number given to `create`, 0 by default: each record it seals or opens takes the next number, a refused call keeps the number, and after 2^64 - 1 it refuses to go on.
@@ -834,7 +823,6 @@ function toHex(bytes ByteArray) returns String
 end 'toHex'
 
 function opened(label String, protection Tls13RecordProtection, record ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let result = try protection.open(record) 'innerOpened'
 		print("{label} {result.contentType.rawValue} {toHex(result.plaintext())}\n")
 	end 'innerOpened' else (failure) 'refused'
@@ -843,7 +831,6 @@ function opened(label String, protection Tls13RecordProtection, record ByteArray
 end 'opened'
 
 function sealed(label String, protection Tls13RecordProtection, contentType TlsContentType, message ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let record = try protection.seal(contentType, plaintext: message) 'innerSealed'
 		print("{label} {record.count()}\n")
 	end 'innerSealed' else (failure) 'refused'
@@ -905,7 +892,6 @@ beyond sequenceNumberExhausted
 ```
 
 <!-- test: tls-record.tls12-sequence-numbers -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A `Tls12RecordProtection` numbers its records from the number given to `create`, 0 by default: each record it seals or opens takes the next number, a refused call keeps the number, and after 2^64 - 1 it refuses to go on.
@@ -921,7 +907,6 @@ function toHex(bytes ByteArray) returns String
 end 'toHex'
 
 function opened(label String, protection Tls12RecordProtection, record ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let result = try protection.open(record) 'innerOpened'
 		print("{label} {result.contentType.rawValue} {toHex(result.plaintext())}\n")
 	end 'innerOpened' else (failure) 'refused'
@@ -930,7 +915,6 @@ function opened(label String, protection Tls12RecordProtection, record ByteArray
 end 'opened'
 
 function sealed(label String, protection Tls12RecordProtection, contentType TlsContentType, message ByteArray)
-	// TODO: if try is not supported in minimaxon
 	if let record = try protection.seal(contentType, plaintext: message) 'innerSealed'
 		print("{label} {record.count()}\n")
 	end 'innerSealed' else (failure) 'refused'

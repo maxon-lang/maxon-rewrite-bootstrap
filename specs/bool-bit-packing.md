@@ -247,14 +247,14 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.clear()
 	let c = arr.count()
 	arr.push(true)
 	let c2 = arr.count()
-	return c * 10 + c2
+	return try c * 10 + c2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -365,7 +365,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)

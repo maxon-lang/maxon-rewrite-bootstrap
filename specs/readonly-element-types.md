@@ -636,7 +636,6 @@ error E3197: specs/readonly-element-types/error.the-element-a-cursor-reads-is-no
 ```
 
 <!-- test: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `add` stores its parameter into an `Array with immutable ByteArray`, directly and through `register`. Neither keeps
@@ -653,7 +652,6 @@ type Source
 	export let title as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{title: b"title"}
 	end 'create'
 end 'Source'
@@ -691,7 +689,6 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapper-storing-into-a-plain-element-refuses-an-immutable-argument -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same wrappers over an `Array with ByteArray` keep the value where something may write it, so the read-only
@@ -707,7 +704,6 @@ type Source
 	export let title as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{title: b"title"}
 	end 'create'
 end 'Source'
@@ -744,7 +740,6 @@ error E3207: <fragment>:36:19: 'register' writes 'name' (it calls 'add', which w
 ```
 
 <!-- test: a-set-element-read-by-for-is-kept-without-a-copy -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The elements of a `Set` are read-only once stored, so the element a `for` reads out of a set goes to a
@@ -772,7 +767,6 @@ end 'note'
 
 function main() returns ExitCode
 	let reached = NameSet.create()
-	// TODO: byte string literals are not supported in minimaxon
 	reached.insert(b"a")
 	let credits = CreditArray.create(0)
 	for name in reached 'eachReached'
@@ -786,7 +780,6 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-by-for-is-not-stored-into-a-var-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A key read back out of a `Map` is read-only, so it cannot be stored into a `var` field, where it would have a
@@ -819,7 +812,6 @@ end 'Tally'
 
 function main() returns ExitCode
 	var tally = Tally.create()
-	// TODO: byte string literals are not supported in minimaxon
 	tally.record(b"a")
 	tally.rememberKeys()
 	return tally.last.count() as ExitCode
@@ -830,7 +822,6 @@ error E3196: specs/readonly-element-types/error.a-map-key-read-by-for-is-not-sto
 ```
 
 <!-- test: error.a-set-element-read-by-for-is-not-stored-into-a-var-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 An element read back out of a `Set` is read-only, so it cannot be stored into a `var` field, where it would have a
 second writer.
@@ -859,7 +850,6 @@ end 'Tally'
 
 function main() returns ExitCode
 	var tally = Tally.create()
-	// TODO: byte string literals are not supported in minimaxon
 	tally.record(b"a")
 	tally.rememberElements()
 	return tally.last.count() as ExitCode

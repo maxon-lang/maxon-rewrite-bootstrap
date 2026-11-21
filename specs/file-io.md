@@ -861,7 +861,6 @@ destination exists false
 ```
 
 <!-- test: a-path-holding-a-nul-names-no-file-not-its-prefix -->
-<!-- skip: if try is not supported in minimaxon -->
 A path holding a NUL names no file on any lane — never the file named by the bytes before the NUL. Every
 `File` operation on one answers as it would for a file that is not there, and the file the prefix names
 is neither read, overwritten, moved nor deleted.
@@ -873,7 +872,6 @@ function main() returns ExitCode
 	let moved = here.join("file-io-nul-probe-moved")
 	try File.writeText(prefix, content: "x") otherwise return 3
 	print("exists {File.exists(holding)}\n")
-	// TODO: if try is not supported in minimaxon
 	if let text = try File.readText(holding) 'read'
 		print("readText answered {text}\n")
 	end 'read' else (e) 'readRefused'

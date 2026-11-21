@@ -54,14 +54,14 @@ survives the clear, and both parameters and the caller see the one array emptied
 ```maxon
 typealias StringArray = Array with String
 
-function look(a StringArray, b StringArray)
+function look(a StringArray, mutates b StringArray)
 	let s = try a.get(0) otherwise ""
 	b.clear()
 	print("[{s}] {a.count()} {b.count()}\n")
 end 'look'
 
 function main() returns ExitCode
-	let x = StringArray.create(0)
+	var x = StringArray.create(0)
 	x.push("hello {40 + 2} world, long enough for the heap")
 	look(x, b: x)
 	print("{x.count()}\n")
@@ -101,15 +101,15 @@ type Rec
 	end 'create'
 end 'Rec'
 
-function readThenClear(r Rec, log InnerArray) returns Coord
+function readThenClear(r Rec, mutates log InnerArray) returns Coord
 	let s = try r.ids.get(0) otherwise panic("present")
 	log.clear()
 	let filler = Inner.create(77)
-	return s.v + filler.v - 77
+	return try s.v + filler.v - 77 otherwise panic("out of range")
 end 'readThenClear'
 
 function main() returns ExitCode
-	let r = Rec.create()
+	var r = Rec.create()
 	r.ids.push(Inner.create(1234))
 	let got = readThenClear(r, log: r.ids)
 	print("{got} {r.ids.count()}\n")

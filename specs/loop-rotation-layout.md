@@ -59,7 +59,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function copyTail(source WordArray, scratch WordArray, n Word)
+function copyTail(source WordArray, mutates scratch WordArray, n Word)
 	for i in 1 upto n 'copy'
 		let element = try source.get(i as ElementIndex) otherwise panic("copyTail: i < n = source.count()")
 		try scratch.set(i as ElementIndex, value: element) otherwise panic("copyTail: i < n = scratch.count()")
@@ -67,8 +67,8 @@ function copyTail(source WordArray, scratch WordArray, n Word)
 end 'copyTail'
 
 function main() returns ExitCode
-	let source = WordArray.create(0)
-	let scratch = WordArray.create(0)
+	var source = WordArray.create(0)
+	var scratch = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		source.push(i * 3)
 		scratch.push(0)
@@ -76,9 +76,9 @@ function main() returns ExitCode
 	copyTail(source, scratch: scratch, n: 6)
 	var total = 0 as Word
 	for v in scratch 'sum'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -96,17 +96,17 @@ typealias WordArray = Array with Word
 function sumFrom(a WordArray, n Word, start Word) returns Word
 	var t = start
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i as ElementIndex) otherwise panic("sumFrom: i < n = a.count()"))
+		t = try t + (try a.get(i as ElementIndex) otherwise panic("sumFrom: i < n = a.count()")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'sumFrom'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 0, start: 100)
+	return try sumFrom(a, n: 0, start: 100) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -123,17 +123,17 @@ typealias WordArray = Array with Word
 function sumFrom(a WordArray, n Word, start Word) returns Word
 	var t = start
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i as ElementIndex) otherwise panic("sumFrom: i < n = a.count()"))
+		t = try t + (try a.get(i as ElementIndex) otherwise panic("sumFrom: i < n = a.count()")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'sumFrom'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 7 to 9 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 1, start: 100)
+	return try sumFrom(a, n: 1, start: 100) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -153,19 +153,19 @@ function grid(a WordArray, rows Word, width Word) returns Word
 	for r in 0 upto rows 'row'
 		var line = 0 as Word
 		for c in 0 upto width 'col'
-			line = line + (try a.get((r * width + c) as ElementIndex) otherwise panic("grid: r * width + c < rows * width = a.count()"))
+			line = try line + (try a.get((r * width + c) as ElementIndex) otherwise panic("grid: r * width + c < rows * width = a.count()")) otherwise panic("out of range")
 		end 'col'
-		t = t + line * (r + 1)
+		t = try t + line * (r + 1) otherwise panic("out of range")
 	end 'row'
 	return t
 end 'grid'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 9 'seed'
 		a.push(i)
 	end 'seed'
-	return grid(a, rows: 3, width: 3)
+	return try grid(a, rows: 3, width: 3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -191,17 +191,17 @@ function oddSum(a WordArray, n Word) returns Word
 		if v mod 2 == 0 'even'
 			continue
 		end 'even'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'each'
 	return t
 end 'oddSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return oddSum(a, n: 8)
+	return try oddSum(a, n: 8) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -225,20 +225,20 @@ function weightedSum(a WordArray, n Word) returns Word
 		let v = try a.get(i as ElementIndex) otherwise panic("weightedSum: i < n = a.count()")
 		i = i + 1
 		if v mod 2 == 0 'even'
-			t = t + 10
+			t = try t + 10 otherwise panic("out of range")
 			continue
 		end 'even'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'each'
 	return t
 end 'weightedSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return weightedSum(a, n: 8)
+	return try weightedSum(a, n: 8) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -287,17 +287,17 @@ typealias WordArray = Array with Word
 function clampedSum(a WordArray, n Word) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i as ElementIndex) otherwise 7)
+		t = try t + (try a.get(i as ElementIndex) otherwise 7) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'clampedSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 1 to 4 'seed'
 		a.push(i)
 	end 'seed'
-	return clampedSum(a, n: 7)
+	return try clampedSum(a, n: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -305,6 +305,7 @@ end 'main'
 ```
 
 <!-- test: a-range-check-fires-inside-a-rotated-loop -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control. The counter walks below zero, so the range check's sunk panic block runs from inside the
 rotated loop.
 ```maxon
@@ -354,22 +355,22 @@ function sumUntilZero(a WordArray) returns Word
 	var i = 0 as Word
 	var t = 0 as Word
 	while (try a.get(i as ElementIndex) otherwise panic("sumUntilZero: a ends with a 0")) > 0 'scan'
-		t = t + (try a.get(i as ElementIndex) otherwise panic("sumUntilZero: i < a.count()"))
-		i = i + 1
+		t = try t + (try a.get(i as ElementIndex) otherwise panic("sumUntilZero: i < a.count()")) otherwise panic("out of range")
+		i = try i + 1 otherwise panic("out of range")
 	end 'scan'
 	return t
 end 'sumUntilZero'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(6)
 	a.push(5)
 	a.push(0)
 	a.push(9)
-	let b = WordArray.create(0)
+	var b = WordArray.create(0)
 	b.push(0)
 	b.push(3)
-	return sumUntilZero(a) * 10 + sumUntilZero(b)
+	return try sumUntilZero(a) * 10 + sumUntilZero(b) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -395,16 +396,16 @@ function firstNegative(a WordArray, n Word) returns Word
 		end 'hit'
 		i = i + 1
 	end 'scan'
-	return found + 100
+	return try found + 100 otherwise panic("out of range")
 end 'firstNegative'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(3)
 	a.push(4)
 	a.push(-1)
 	a.push(5)
-	return firstNegative(a, n: 4)
+	return try firstNegative(a, n: 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -429,11 +430,11 @@ function indexOf(a WordArray, n Word, target Word) returns Word
 end 'indexOf'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(4)
 	a.push(8)
 	a.push(15)
-	return indexOf(a, n: 3, target: 15) * 10 + indexOf(a, n: 3, target: 99) + 5
+	return try indexOf(a, n: 3, target: 15) * 10 + indexOf(a, n: 3, target: 99) + 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

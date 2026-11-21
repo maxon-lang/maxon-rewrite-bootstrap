@@ -37,10 +37,10 @@ type List
 	export var nodes as NodeArray
 	export var head as Integer
 
-	function pushFront(value Integer)
+	function pushFront(mutates self, value Integer)
 		let node = Node.create(value, next: self.head)
 		self.nodes.push(node)
-		self.head = (self.nodes.count() as Integer) - 1
+		self.head = try (self.nodes.count() as Integer) - 1 otherwise panic("out of range")
 	end 'pushFront'
 
 	function walk()
@@ -52,18 +52,18 @@ type List
 	end 'walk'
 
 	static function create(nodes NodeArray, head Integer) returns Self
-		return Self{nodes: nodes, head: head}
+		return Self{nodes: nodes.clone(), head: head}
 	end 'create'
 end 'List'
 
 function main() returns ExitCode
-	let list = List.create(NodeArray.create(0), head: -1)
+	var list = List.create(NodeArray.create(0), head: -1)
 	list.pushFront(10)
 	list.pushFront(20)
 	list.walk()
 	list.pushFront(30)
 	let n1 = try list.nodes.get(1) otherwise Node.create(0, next: -1)
-	return n1.value
+	return try n1.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -85,8 +85,8 @@ end 'opaque'
 
 function main() returns ExitCode
 	let c = u64.max as Count
-	let minusOne = opaque(0) - 1
-	return 7 if (c as Integer) == minusOne else 1
+	let minusOne = try opaque(0) - 1 otherwise panic("out of range")
+	return 7 if (try c as Integer otherwise panic("out of range")) == minusOne else 1
 end 'main'
 ```
 ```exitcode
@@ -1429,7 +1429,7 @@ type Tally
 	export var h as Count
 
 	static function create() returns Tally
-		let t = Self{a: u64.max - 1, b: 0, c: 0, d: 0, e: 0, h: 0}
+		var t = Self{a: u64.max - 1, b: 0, c: 0, d: 0, e: 0, h: 0}
 		t.b = u64.max xor 1
 		t.c = (u64.max as Count) / 1
 		t.d = (0xA5A5A5A5A5A5A5A5 as Count) * 1
@@ -1634,8 +1634,8 @@ type Tally
 	export var total as Count
 
 	static function create(c Count) returns Tally
-		let t = Self{total: 0}
-		t.total = c - 1
+		var t = Self{total: 0}
+		t.total = try c - 1 otherwise panic("out of range")
 		return t
 	end 'create'
 end 'Tally'
@@ -1645,11 +1645,11 @@ function take(c Count) returns Count
 end 'take'
 
 function viaParameter(c Count) returns Count
-	return take(c - 1)
+	return take(try c - 1 otherwise panic("out of range"))
 end 'viaParameter'
 
 function viaReturn(c Count) returns Count
-	return c - 1
+	return try c - 1 otherwise panic("out of range")
 end 'viaReturn'
 
 function main() returns ExitCode
@@ -1736,7 +1736,7 @@ function take(c Count) returns Count
 end 'take'
 
 function difference(a Count, b Count) returns Count
-	return take(a - b)
+	return take(try a - b otherwise panic("out of range"))
 end 'difference'
 
 function main() returns ExitCode

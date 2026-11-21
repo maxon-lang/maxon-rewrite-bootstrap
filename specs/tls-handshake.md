@@ -51,7 +51,6 @@ application keys of RFC 8448, signing under each scheme, and the names a program
 ## Tests
 
 <!-- test: tls-handshake.replay-rfc8448-and-openssl -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -161,7 +160,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -220,7 +218,6 @@ client13-openssl-mtls-ecdsa-p256 {"state":"connected","version":772,"cipher_suit
 ```
 
 <!-- test: tls-handshake.handshakes-by-server-key -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -330,7 +327,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -389,7 +385,6 @@ client13-ed25519 {"state":"connected","version":772,"cipher_suite":4867,"group":
 ```
 
 <!-- test: tls-handshake.client-authentication -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -499,7 +494,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -568,7 +562,6 @@ client13-mtls-no-common-scheme {"state":"connected","version":772,"cipher_suite"
 ```
 
 <!-- test: tls-handshake.certificate-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -678,7 +671,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -747,7 +739,6 @@ client13-err-certificate-context illegalParameter
 ```
 
 <!-- test: tls-handshake.certificate-verify-and-finished-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -857,7 +848,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -946,7 +936,6 @@ client13-err-message-order unexpectedMessage
 ```
 
 <!-- test: tls-handshake.reference-handshakes-the-canra-vectors-do-not-list -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1056,7 +1045,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1145,7 +1133,6 @@ reference13-records-after-close-notify-are-ignored {"state":"connected","version
 ```
 
 <!-- test: tls-handshake.reference-refusals-the-canra-vectors-do-not-list -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1255,7 +1242,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsClientConfig, entropy TlsClientEntropy, peer TlsPeerAuthenticator, helloSource TlsClientHelloSource, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsClientReplay.run(config, entropy: entropy, peer: peer, helloSource: helloSource, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2060,7 +2046,6 @@ partial-message-then-alert unexpectedMessage closed=false
 ```
 
 <!-- test: tls-handshake.a-private-key-signs-for-each-scheme-that-fits-it -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
@@ -2125,20 +2110,17 @@ function main() returns ExitCode
 	let p384 = TlsPrivateKey.ecP384(fromHex("6b9d3dad2e1b8c1c05b19875b6659f4de23c3b667bf297ba9aa47740787137d896d5724e4c70a825f872c9ea60d2edf5"))
 	let signed = try p384.sign(TlsSignatureScheme.ecdsaSecp384r1Sha384, message: fromHex("73616d706c65"), salt: salt) otherwise return 1
 	print("p384 sample matches {toHex(signed) == "306602310094edbb92a5ecb8aad4736e56c691916b3f88140666ce9fa73d64c4ea95ad133c81a648152e44acf96e36dd1e80fabe4602310099ef4aeb15f178cea1fe40db2603138f130e740a19624526203b6351d0a3a94fa329c145786e679e7b82c71a38628ac8"}\n")
-	// TODO: if try is not supported in minimaxon
 	if let _ = try p384.sign(TlsSignatureScheme.ed25519, message: fromHex("00"), salt: salt) 'accepted'
 		print("p384 key with ed25519 scheme signed\n")
 	end 'accepted' else (failure) 'mismatch'
 		print("p384 key with ed25519 scheme {failure}\n")
 	end 'mismatch'
-	// TODO: if try is not supported in minimaxon
 	if let _ = try p384.sign(TlsSignatureScheme.rsaPssRsaeSha256, message: fromHex("00"), salt: salt) 'accepted'
 		print("p384 key with rsa scheme signed\n")
 	end 'accepted' else (failure) 'rsaScheme'
 		print("p384 key with rsa scheme {failure}\n")
 	end 'rsaScheme'
 	let rsaKey = TlsPrivateKey.rsa(try RsaPrivateKey.parse(fromHex("308204bd020100300d06092a864886f70d0101010500048204a7308204a30201000282010100b4ce089a881ca602e8f42fe171f946cd7480617120b3013becf99188e60f79e0231cd898bce1150d858988318af87bba9f146f468208fcf2119c2c672b3bce84337b91c630fcd0063e5639dcccd8b3cd491161826171e200c6240a48d7b6abea22d729a00853ced0cee0d799de7644580294af4de0dd96bb6064f28cc17e29a077668f9317dc31f691d41df9b9e1a472b98f6df35eaf208d6873b529efbf861c2da3631268fbeb639d95295767b62bd968a39ae1f8ccba5cf07ab1f6e064f91f25dbd829a92ea4472ad282a1d13acee1e4bdfc12eab1ba3dd2a0b7e96941533b5e1ac7fd625ca4144abde73096e9248e341d58626576e02fa2675e3dbf65265d02030100010282010045df65c5ca9a3fb1da331c19e500efd2d09618922e8fdf0738a28e12b8cdfc4c9965397375730abec9ff878995ea476eacb1a9fb369fa099302309a9e93458b010714db9a90eda99bf17758f15ff1d25557a891368f328e321afa5e5d6af7aaaa6423e8ce10afa5f09c42cae0321f3718bb5c835b19410ff62d640421338dd7ec628dc43300c23e36bb201c57474de8bd382a64ae081a8a81bf0ecce10169ab362fa3b3736633a2045041e393493bd44c7795c88a9e74a348f6b3da074469db759e29bd7054d2ac252f7efbf49b14c40dbd442abf51091580e0e21e2a01322840ac3f8d4634bccd79cfd41fdb615e07bd1cb858d6e76f3b9e94fd032a5ea290502818100e9d14e6b52e82ead2112a1ec53f521fb9f81384fcb6ad79948afab9b434345db1fe0759b6b7cf787091698d23ec129370cb35ff478c359a7582c5e13c23c15ed919b778fb91219b0c09e6e922f62021d26632c33d8206bd78717f606ec43669e37cdaee172360e2b4f08827a6fc43e4cee822784a20e224bd1b5935d0505c35f02818100c5f536aee5b2f848afc370d68fa2ac1503e4f8c3b85631bf9baaadf0c03055612634b819ee8ac36e217be9f35b6d02f3d206bae460e51eba2adef5a7c40ee3ebf8856a94da2f90488c15051e96593087e4d2e331fd490fce4cd8a8f8b20a3d5cfb865ce0d392f85351a2ddb3bc82d878943370e64b4b5dd8d90e72092b0bcbc302818100ddc23afb0555dab72f2fe9cd27cfcd9c45aa9c0aea25fa37923db2a77e42f6a51df597f5811bb3f429c579c9a5e533bed757e5010bec5342a918e35d201236c5ec1ca467f6a259254f7ab3ea07f08f8ab016cd1c9ab61d31fc19d8a8b63a32c08ab29453942bfa824ee20646336ccf9dcd743a20cc465576cd7dc6372a054e47028180008cbbc8248f28ad5aff99f29e977f0ed7e1ece6ee3e1f093f2f6c283d00655c4db4dbc606a98ffd604e6dc9e5391a46ff1051b88ca4563f821af867acddb5b8540a5acf6b03b2cce0c6b62aed93f5d48ac823256264af8c8d1e14ea0be4876318b7b8ce4f081b746fc79a0203c6013fe4797818cba0bbf3fc36540ebe75dbed028180607cc46d66a8c6c0599730342557c5fba4e2c5ce59cb965be8889fc3e1f3b40fda0f8d09a9ba65a55c3df93f1c7540493dfe0345f5060082417442c0f31259fe8923aa19020a143af648d916ac3f11f6449ad7471fc1ccdb6b8cfd95c71fc27a6113efe24a6884f0fb804cd75e94574785436e1593ee4511431b32cf15040e5a")) otherwise panic("the case\'s RSA key was refused"))
-	// TODO: if try is not supported in minimaxon
 	if let _ = try rsaKey.sign(TlsSignatureScheme.rsaPssRsaeSha512, message: fromHex("00"), salt: fromHex("0102")) 'accepted'
 		print("rsa key with a 2 byte salt signed\n")
 	end 'accepted' else (failure) 'shortSalt'

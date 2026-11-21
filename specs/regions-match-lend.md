@@ -4946,7 +4946,7 @@ end 'Slot'
 typealias Slots = Array with Slot
 
 function main() returns ExitCode
-	let xs = Slots.create(0)
+	var xs = Slots.create(0)
 	xs.push(Slot.held(Box.create(2)))
 	var i = 0 as ElementIndex
 	match try xs.get(i) otherwise panic("none") 'm'

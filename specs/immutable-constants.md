@@ -34,12 +34,9 @@ carries `isolated` or `immutable` (E3217).
 ## Tests
 
 <!-- test: error.a-constant-module-let-stored-into-a-plain-field-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `Name` is image data, and `value` is a plain `ByteArray` field, where something may write it.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 type Tok
@@ -61,18 +58,16 @@ error E3196: <fragment>:8:22: cannot store an immutable 'ByteArray' into 'Tok.va
 ```
 
 <!-- test: a-constant-module-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 `create` only holds its parameter in the record it returns, so the constant `Name` is accepted and the `Tok` the caller gets is read-only: the caller reads it.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -90,12 +85,10 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-record-built-from-a-constant-module-let-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 The `Tok` holds the constant `Name`, so the caller cannot write its bytes through the record.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 type Tok
@@ -118,7 +111,6 @@ error E3197: <fragment>:14:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: a-constant-local-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A `let` bound to a literal inside `main` is image data like a module `let`, and the `Tok` built from it is read-only for the caller.
 
 ```maxon
@@ -126,12 +118,11 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let name = b"abc"
 	let t = Tok.create(name)
 	print("{t.value.count()}\n")
@@ -146,8 +137,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-record-built-from-a-constant-local-let-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 The `Tok` holds the constant `name`, so the caller cannot write its bytes through the record.
 
 ```maxon
@@ -160,7 +150,6 @@ type Tok
 end 'Tok'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let name = b"abc"
 	let t = Tok.create(name)
 	t.value.push(100)
@@ -173,7 +162,6 @@ error E3197: <fragment>:13:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: a-constant-static-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A `static let` bound to a literal is image data too, and the `Tok` built from it is read-only for the caller.
 
@@ -188,7 +176,6 @@ end 'Tok'
 
 type Names
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: byte string literals are not supported in minimaxon
 	static let Alpha = b"abc"
 
 	static function token() returns Tok
@@ -210,7 +197,6 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-a-constant-static-let-is-refused-by-a-mutable-array -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The `Tok` holds the constant `Alpha`, so it is read-only and the mutable array refuses it.
@@ -228,7 +214,6 @@ end 'Tok'
 
 type Names
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: byte string literals are not supported in minimaxon
 	static let Alpha = b"abc"
 
 	static function keep(into TokArray)
@@ -248,13 +233,11 @@ error E3196: <fragment>:16:13: cannot store a read-only 'Tok' into 'an element o
 ```
 
 <!-- test: a-constant-module-let-is-stored-into-an-immutable-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `value` is declared `immutable ByteArray`, and `create` takes its parameter with no word: storing it into an
 `immutable` field is all `create` does, so the parameter takes immutable data.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 type Tok
@@ -280,7 +263,6 @@ end 'main'
 ```
 
 <!-- test: a-constant-local-let-is-stored-into-an-immutable-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ```maxon
 type Tok
@@ -293,7 +275,6 @@ type Tok
 end 'Tok'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let name = b"abcd"
 	let t = Tok.create(name)
 	print("{t.value.count()} {name.count()}\n")
@@ -308,7 +289,6 @@ end 'main'
 ```
 
 <!-- test: constant-names-are-pushed-into-an-immutable-array-and-read-by-for -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An array whose element is `immutable ByteArray` takes a module `let` and a local `let`, and `for` reads each name back.
 
@@ -316,11 +296,9 @@ An array whose element is `immutable ByteArray` takes a module `let` and a local
 // TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias NameArray = Array with immutable ByteArray
 
-// TODO: byte string literals are not supported in minimaxon
 let Alpha = b"alpha"
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let beta = b"be"
 	let names = NameArray.create(0)
 	names.push(Alpha)
@@ -341,14 +319,11 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-module-let-pushed-into-a-plain-array-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The element is a plain `ByteArray`, so a reader of the array may write what it holds.
 
 ```maxon
 typealias NameArray = Array with ByteArray
 
-// TODO: byte string literals are not supported in minimaxon
 let Alpha = b"alpha"
 
 function main() returns ExitCode
@@ -363,10 +338,7 @@ error E3196: <fragment>:8:13: cannot store an immutable 'ByteArray' into 'an ele
 ```
 
 <!-- test: error.a-write-through-a-constant-module-let-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 function main() returns ExitCode
@@ -380,13 +352,10 @@ error E3207: <fragment>:5:7: 'push' needs a writable receiver; 'Name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-local-let-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A `let` no longer freezes what it names, but this one names image data.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let name = b"abc"
 	name.push(100)
 	print("{name.count()}\n")
@@ -398,12 +367,9 @@ error E3207: <fragment>:4:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-let-bound-to-a-constant-let-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `copy` names what `Name` names, which is image data.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 function main() returns ExitCode
@@ -418,13 +384,11 @@ error E3207: <fragment>:6:7: 'push' needs a writable receiver; 'copy' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-field-of-an-immutable-holder-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `value` is `immutable`, so what it holds is not writable through any name that reads it.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 type Tok
@@ -526,13 +490,11 @@ error E3207: <fragment>:11:21: 'create' needs 'value' frozen (line 6: `return Se
 ```
 
 <!-- test: a-slice-of-an-immutable-source-is-frozen-into-an-immutable-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `src` is `immutable`, so a slice of it is a clean call and `freeze` takes it.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Source = b"abcdef"
 
 type Tok
@@ -595,12 +557,10 @@ error E3200: <fragment>:11:20: 'try src.slice(0, endIndex: 2) otherwise panic("h
 ```
 
 <!-- test: a-constant-module-let-is-read-by-a-reading-parameter-and-an-immutable-parameter -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 Neither parameter writes or keeps its argument, so both take image data.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 function reads(name ByteArray) returns Count
@@ -625,10 +585,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-module-let-passed-to-a-parameter-the-callee-writes-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 function grow(name ByteArray)
@@ -645,12 +602,9 @@ error E3207: <fragment>:9:7: 'grow' writes 'name' (line 5: `name.push(100)`); 'N
 ```
 
 <!-- test: error.an-unmarked-result-returning-a-constant-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The result is read by a caller that may write it, so it is declared `immutable`.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 function nameOf() returns ByteArray
@@ -667,11 +621,9 @@ error E3209: <fragment>:5:9: a return does not fit the declared result: 'Name' i
 ```
 
 <!-- test: an-immutable-result-returns-a-constant -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Name = b"abc"
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -702,7 +654,6 @@ end 'main'
 ```
 
 <!-- test: inline-byte-literal-is-immutable -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An inline literal is image data like a constant `let`: it is stored into an `immutable` field and into an
@@ -722,10 +673,8 @@ type Tok
 end 'Tok'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let t = Tok.create(b"abc")
 	let names = NameArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"de")
 	print("{t.value.count()} {names.count()}\n")
 	return 0
@@ -739,7 +688,6 @@ end 'main'
 ```
 
 <!-- test: an-inline-byte-literal-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 The `Tok` built from an inline byte literal is read-only for the caller, which reads it.
 
 ```maxon
@@ -747,12 +695,11 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let t = Tok.create(b"abc")
 	print("{t.value.count()}\n")
 	return 0
@@ -766,8 +713,6 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-an-inline-byte-literal-is-refused-by-a-mutable-array -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The `Tok` holds the literal, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -783,7 +728,6 @@ end 'Tok'
 
 function main() returns ExitCode
 	var toks = TokArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	toks.push(Tok.create(b"abc"))
 	print("{toks.count()}\n")
 	return 0
@@ -794,15 +738,12 @@ error E3196: <fragment>:14:12: cannot store a read-only 'Tok' into 'an element o
 ```
 
 <!-- test: error.an-inline-byte-literal-is-refused-by-a-parameter-the-callee-writes -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function grow(name ByteArray)
 	name.push(100)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	grow(b"abc")
 	return 0
 end 'main'
@@ -812,13 +753,10 @@ error E3207: <fragment>:7:7: 'grow' writes 'name' (line 3: `name.push(100)`); a 
 ```
 
 <!-- test: error.a-var-bound-to-a-byte-literal-and-written-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `var` allows rebinding, not writing a literal: `.clone()` is the mutable copy.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	var name = b"abc"
 	name.push(100)
 	print("{name.count()}\n")
@@ -830,11 +768,9 @@ error E3207: <fragment>:4:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: a-clone-of-a-byte-literal-is-mutable -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
-	let name = b"abc".clone()
+	var name = b"abc".clone()
 	name.push(100)
 	print("{name.count()}\n")
 	return 0
@@ -848,11 +784,8 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-result-returning-a-byte-literal-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function nameOf() returns ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return b"abc"
 end 'nameOf'
 
@@ -866,7 +799,6 @@ error E3209: <fragment>:3:9: a return does not fit the declared result: a byte-s
 ```
 
 <!-- test: map-key-read-into-immutable-holder -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `Map` key slot is `immutable`: a literal is inserted as it is, and the key a `for` reads back is stored into an
@@ -888,9 +820,7 @@ end 'Credit'
 
 function main() returns ExitCode
 	let counts = CountMap.create()
-	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"ab", value: 1)
-	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"cde", value: 2)
 	let credits = CreditArray.create(0)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
@@ -913,7 +843,6 @@ end 'main'
 ```
 
 <!-- test: set-element-read-into-immutable-holder -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `Set` element slot is `immutable` as well: the element a `for` reads goes into an `immutable` field with no copy.
 
@@ -933,9 +862,7 @@ end 'Credit'
 
 function main() returns ExitCode
 	let names = NameSet.create()
-	// TODO: byte string literals are not supported in minimaxon
 	names.insert(b"ab")
-	// TODO: byte string literals are not supported in minimaxon
 	names.insert(b"cde")
 	let credits = CreditArray.create(0)
 	for name in names 'eachElement'
@@ -1146,7 +1073,6 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-is-refused-by-a-plain-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The key a `for` reads is `immutable`, so a plain `ByteArray` field cannot hold it.
@@ -1166,7 +1092,6 @@ end 'Credit'
 
 function main() returns ExitCode
 	var counts = CountMap.create()
-	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"ab", value: 1)
 	var credits = CreditArray.create(0)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
@@ -1183,7 +1108,6 @@ error E3196: <fragment>:19:16: cannot store a read-only 'Credit' into 'an elemen
 
 <!-- test: immutable-names-share-across-a-service-send -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1192,7 +1116,6 @@ would be E3200), and a send hands the `Tok` over by move. Two `Tok`s built from 
 the name is image data, so the sends walk no counts and both read the same bytes.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Label = b"alpha"
 
 type Tok
@@ -1300,13 +1223,11 @@ error E3207: <fragment>:3:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: a-union-payload-declared-immutable-holds-a-constant-name -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 A union payload takes a capability word like a field: `named` holds image data, and the `match` reads it back as
 `immutable`.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Alpha = b"alpha"
 
 union Label
@@ -1337,10 +1258,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-name-stored-into-a-plain-union-payload-is-refused -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Alpha = b"alpha"
 
 union Label
@@ -1414,14 +1332,12 @@ end 'main'
 ```
 
 <!-- test: reads-of-an-immutable-slot-are-immutable -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `get`, a `for` loop and a `Map` value all hand back `immutable` data when the slot is `immutable`, so each goes
 straight into an `immutable` result or element.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Alpha = b"alpha"
 
 // TODO: type argument capability 'immutable' is not supported in minimaxon
@@ -1465,16 +1381,13 @@ end 'main'
 ```
 
 <!-- test: a-map-get-result-takes-its-capability-from-the-value-slot-only -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The key `Spelling` is immutable, and the value array `get` returns is the map's own, writable one: the result does not
 join the key's capability.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Spelling = b"x"
 
-// TODO: byte string literals are not supported in minimaxon
 let Declaring = b"decl"
 
 // TODO: type argument capability 'immutable' is not supported in minimaxon
@@ -1499,7 +1412,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-default-may-be-immutable-data-marked-or-not -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
@@ -1507,7 +1419,6 @@ A default value is checked against its parameter: an unmarked parameter only rea
 call that returns `immutable` data, and an `immutable` parameter takes them as well.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Preset = b"abc"
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1544,7 +1455,6 @@ end 'main'
 ```
 
 <!-- test: a-read-of-an-immutable-field-passed-to-an-immutable-parameter-does-not-freeze-its-holder -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `label` is an `immutable` field, so `sigs.label` is frozen whoever holds it: `measure` hands it to a parameter that
@@ -1557,7 +1467,6 @@ type Sigs
 	export let label as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{hits: 0, label: b"abc"}
 	end 'create'
 end 'Sigs'
@@ -1587,7 +1496,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-payload-read-through-a-result-does-not-freeze-the-record-the-result-came-from -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
@@ -1607,7 +1515,6 @@ type Sigs
 	export var last as Member
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{hits: 0, last: Member.one(b"payload")}
 	end 'create'
 
@@ -1647,7 +1554,6 @@ end 'outer'
 
 function main() returns ExitCode
 	let sigs = Sigs.create()
-	// TODO: byte string literals are not supported in minimaxon
 	let chain = outer(sigs, written: b"abc")
 	print("{chain.name.count()} {sigs.hits}\n")
 	return 0
@@ -1661,7 +1567,6 @@ end 'main'
 ```
 
 <!-- test: a-call-declared-to-return-immutable-data-passed-to-a-frozen-need-does-not-freeze-the-receiver -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -1682,7 +1587,6 @@ type Table
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
 	export function nameAt(index ElementIndex) returns immutable ByteArray
-		// TODO: byte string literals are not supported in minimaxon
 		return try self.names.get(index) otherwise b"none"
 	end 'nameAt'
 
@@ -1707,7 +1611,6 @@ end 'reframe'
 
 function main() returns ExitCode
 	let table = Table.create()
-	// TODO: byte string literals are not supported in minimaxon
 	table.intern(b"xy")
 	let name = reframe(table)
 	print("{name.count()} {table.hits}\n")
@@ -1722,7 +1625,6 @@ end 'main'
 ```
 
 <!-- test: a-method-returning-its-immutable-field-does-not-freeze-its-receiver -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
@@ -1736,7 +1638,6 @@ type Sigs
 	export let label as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{hits: 0, label: b"label"}
 	end 'create'
 
@@ -1814,7 +1715,6 @@ error E3207: <fragment>:17:15: 'takes' takes `immutable` 'name'; 'sigs' is mutab
 ```
 
 <!-- test: an-immutable-element-fills-an-immutable-struct-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -1838,7 +1738,6 @@ end 'Window'
 
 function main() returns ExitCode
 	let names = NameList.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"outer")
 	let first = try names.get(0) otherwise panic("main: one name was pushed")
 	let window = Window.create(first, depth: 1)
@@ -1854,7 +1753,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-fills-a-one-word-union-payload -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -1893,7 +1791,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let names = NameList.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"unit")
 	let first = try names.get(0) otherwise panic("main: one name was pushed")
 	let holder = Holder.create()
@@ -1910,7 +1807,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-fills-the-second-payload-case-of-a-boxed-union -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A union with two payload cases is boxed, and its second case takes `immutable` elements of an
@@ -1936,9 +1832,7 @@ end 'weigh'
 
 function main() returns ExitCode
 	let names = NameList.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"ab")
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"cde")
 	let first = try names.get(0) otherwise panic("main: two names were pushed")
 	let second = try names.get(1) otherwise panic("main: two names were pushed")
@@ -1955,7 +1849,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-field-read-off-a-parameter-arrays-element-goes-into-a-set -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `name` is an `immutable` field, so reading it off an element of an unmarked array parameter hands the set data nobody
@@ -1994,7 +1887,6 @@ end 'Func'
 
 function main() returns ExitCode
 	let functions = FuncArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	functions.push(Func.create(b"alpha"))
 	print("{Func.namesOf(functions).count()} {Func.countsOf(functions).count()}\n")
 	return 0
@@ -2008,7 +1900,6 @@ end 'main'
 ```
 
 <!-- test: error.a-mutable-field-read-off-a-parameter-arrays-element-is-refused-by-a-set -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 `name` is a plain `ByteArray` field, so the element's name is data another name may write.
 
@@ -2034,7 +1925,6 @@ end 'Func'
 
 function main() returns ExitCode
 	var functions = FuncArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	functions.push(Func.create(b"alpha".clone()))
 	print("{Func.namesOf(functions).count()}\n")
 	return 0
@@ -2065,12 +1955,11 @@ end 'main'
 ```
 
 <!-- test: a-set-of-names-is-built-from-an-array-literal-of-names -->
-<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias NameSet = Set with ByteArray
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let members = NameSet from [b"ab", b"cd", b"ab"]
 	print("{members.count()}\n")
 	return 0
@@ -2085,7 +1974,6 @@ end 'main'
 
 <!-- test: error.a-set-of-names-is-refused-a-plain-array-of-names -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 `Set.init` keeps the elements of the array it is given, so for a record element it needs them frozen: the array of
 `ByteArray` is data other names may write.
@@ -2097,11 +1985,9 @@ typealias NameArray = Array with ByteArray
 
 function main() returns ExitCode
 	let names = NameArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"ab".clone())
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let members = NameSet from names
-	// TODO: byte string literals are not supported in minimaxon
 	names.push(b"cd".clone())
 	print("{members.count()}\n")
 	return 0
@@ -2207,7 +2093,6 @@ error E3207: <fragment>:15:15: 'wrap' needs 'name' frozen (line 11: `return Hold
 ```
 
 <!-- test: a-match-expression-with-a-panic-arm-returns-a-declared-immutable-result -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The arm that panics yields no value, so it does not make the merged result mutable.
 
@@ -2219,7 +2104,6 @@ end 'Kind'
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function constant() returns immutable ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return b"retain"
 end 'constant'
 
@@ -2429,7 +2313,6 @@ error E3217: <fragment>:27:14: parameter `readings` of the message `Meter.add` i
 ```
 
 <!-- test: a-lookup-with-an-immutable-key-and-a-fresh-fallback-is-written -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The key is `immutable`, but the value the lookup answers is read from the map's value slot, so `lines` is writable.
@@ -2463,9 +2346,7 @@ end 'collect'
 
 function main() returns ExitCode
 	let tokens = TokenArray.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	tokens.push(Token.create(b"a"))
-	// TODO: byte string literals are not supported in minimaxon
 	tokens.push(Token.create(b"a"))
 	print("{collect(tokens).count()}\n")
 	return 0
@@ -2479,7 +2360,6 @@ end 'main'
 ```
 
 <!-- test: an-arm-returns-an-immutable-result-beside-an-arm-that-panics-over-an-owned-payload -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The arm that panics returns no value, so the one arm that returns decides the result.
 
@@ -2505,7 +2385,6 @@ end 'lookup'
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function constant() returns immutable ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	return b"abc"
 end 'constant'
 
@@ -2530,7 +2409,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-constant-is-returned-past-two-owned-locals -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 Every owned local is dropped on the way out, and the one return still carries the constant's class.
 
@@ -2550,7 +2428,6 @@ function pick() returns immutable ByteArray
 	let first = Bag.create()
 	let second = Bag.create()
 	print("{first.items.count() + second.items.count()}\n")
-	// TODO: byte string literals are not supported in minimaxon
 	return b"picked"
 end 'pick'
 
@@ -2568,7 +2445,6 @@ end 'main'
 ```
 
 <!-- test: a-name-read-through-a-result-chain-keeps-its-immutable-element -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An element of an array of `immutable` names stays `immutable` when the array is reached through a call result.
@@ -2612,7 +2488,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let texts = NameRoster.create(1, zeroed: false)
-	// TODO: byte string literals are not supported in minimaxon
 	texts.push(b"a")
 	let h = Holder.create(Base.over(Frozen.of(texts)))
 	let n = h.nameOf(0)
@@ -2691,7 +2566,6 @@ end 'main'
 ```
 
 <!-- test: a-constant-name-kept-by-a-field-an-element-and-a-map-key-is-frozen-into-an-array -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -2731,14 +2605,10 @@ end 'frozenCopyOf'
 
 function main() returns ExitCode
 	let tokens = Tokens.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	tokens.push(Token.create(b"generateRung"))
-	// TODO: byte string literals are not supported in minimaxon
 	tokens.push(Token.create(b"abc"))
 	let counts = Counts.create()
-	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"generateRung", value: 1)
-	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"abc", value: 2)
 	let names = Names.create(0)
 	for token in tokens 'eachToken'
@@ -2762,7 +2632,6 @@ end 'main'
 ```
 
 <!-- test: a-constant-name-handed-through-a-plain-parameter-into-a-map-is-not-copied -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -2774,10 +2643,8 @@ themselves: the map is cloned into a shared cell, whose freeze finds no record w
 // TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias NominalMap = Map with (ByteArray, immutable ByteArray)
 
-// TODO: byte string literals are not supported in minimaxon
 let HashName = b"HashValue"
 
-// TODO: byte string literals are not supported in minimaxon
 let OrderName = b"Ordering"
 
 type Registry
@@ -2830,7 +2697,6 @@ end 'main'
 
 <!-- test: a-clone-of-a-record-holding-an-immutable-name-is-sent-to-an-async-worker -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -2839,7 +2705,6 @@ Cloning a record shares the `immutable` name it holds instead of copying it, so 
 async worker finds no owner outside the graph it moves.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Label = b"alpha"
 
 type Tok

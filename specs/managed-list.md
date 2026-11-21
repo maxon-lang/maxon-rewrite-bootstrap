@@ -568,7 +568,6 @@ end 'main'
 ```
 
 <!-- test: core.head-empty-throws -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -576,7 +575,6 @@ typealias IntManagedList = __ManagedList with Integer
 
 function main() returns ExitCode
 	let list = IntManagedList.create()
-	// TODO: if try is not supported in minimaxon
 	if let node = try list.head() 'try'
 		print("{node.value()}\n")
 		return 1
@@ -594,7 +592,6 @@ caught
 ```
 
 <!-- test: core.tail-empty-throws -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -602,7 +599,6 @@ typealias IntManagedList = __ManagedList with Integer
 
 function main() returns ExitCode
 	let list = IntManagedList.create()
-	// TODO: if try is not supported in minimaxon
 	if let node = try list.tail() 'try'
 		print("{node.value()}\n")
 		return 1
@@ -620,7 +616,6 @@ caught
 ```
 
 <!-- test: node.next-end-throws -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -635,7 +630,6 @@ function main() returns ExitCode
 		return 1
 	end 'err'
 	// Try to go past end
-	// TODO: if try is not supported in minimaxon
 	if let after = try h.next() 'try'
 		print("{after.value()}\n")
 		return 1
@@ -654,7 +648,6 @@ caught
 ```
 
 <!-- test: node.prev-begin-throws -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -669,7 +662,6 @@ function main() returns ExitCode
 		return 1
 	end 'err'
 	// Try to go before beginning
-	// TODO: if try is not supported in minimaxon
 	if let before = try h.prev() 'try'
 		print("{before.value()}\n")
 		return 1

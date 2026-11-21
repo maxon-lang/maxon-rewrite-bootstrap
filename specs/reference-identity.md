@@ -318,20 +318,16 @@ error E3068: specs/reference-identity/primitive-error.maxon:5:7: 'is' requires r
 
 <!-- test: byte-array-constant-identity -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A module-level `let` holding a byte string is image data, not a heap object: the whole program reads ONE
 `.rdata` record for it, and the record table pools by bytes. So `is` answers the same way it does for the
 interned string literals above — a constant is itself, and two constants with the same bytes are one
 object. An INLINE `b"…"` is image data of the same class, pooled by its bytes with the constants, so
 `A is b"hi"` is true.
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let A = b"hi"
 
-// TODO: byte string literals are not supported in minimaxon
 let B = b"hi"
 
-// TODO: byte string literals are not supported in minimaxon
 let C = b"ho"
 
 function main() returns ExitCode
@@ -349,7 +345,6 @@ function main() returns ExitCode
 		result = result + 4
 	end 'otherBytes'
 	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
-	// TODO: byte string literals are not supported in minimaxon
 	if A is b"hi" 'inlineIsPooled'
 		result = result + 8
 	end 'inlineIsPooled'

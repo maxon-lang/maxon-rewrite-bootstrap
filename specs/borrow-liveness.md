@@ -55,7 +55,7 @@ end 'main'
 the first trip's `clear()` and `push`. It reads the element it was bound to.
 ```maxon
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("first {3} long enough for the heap")
 	arr.push("second {4} long enough for the heap")
 	let first = try arr.get(0) otherwise "none"
@@ -94,7 +94,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	let s = try b.items.get(0) otherwise ""
 	b.items.clear()
 	print("[{s}] {b.items.count()}\n")
@@ -121,7 +121,7 @@ type Bag
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}"]}
 	end 'create'
 
-	function peek() returns ExitCode
+	function peek(mutates self) returns ExitCode
 		let s = try items.get(0) otherwise ""
 		items.clear()
 		print("[{s}] {items.count()}\n")
@@ -130,7 +130,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.peek()
 end 'main'
 ```
@@ -181,7 +181,7 @@ The clear reaches the caller's record; the element keeps its own reference.
 ```maxon
 typealias StringArray = Array with String
 
-function look(arr StringArray) returns ExitCode
+function look(mutates arr StringArray) returns ExitCode
 	let s = try arr.get(0) otherwise ""
 	arr.clear()
 	print("[{s}] {arr.count()}\n")
@@ -189,7 +189,7 @@ function look(arr StringArray) returns ExitCode
 end 'look'
 
 function main() returns ExitCode
-	let a = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var a = ["hello world this is a long string for heap allocation {40 + 2}"]
 	return look(a)
 end 'main'
 ```
@@ -206,12 +206,12 @@ The callee empties the caller's array; the element `s` read before the call is s
 ```maxon
 typealias StringArray = Array with String
 
-function grow(dest StringArray)
+function grow(mutates dest StringArray)
 	dest.clear()
 end 'grow'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise ""
 	grow(arr)
 	print("[{s}] {arr.count()}\n")
@@ -233,13 +233,13 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias StringArray = Array with String
 
-function grow(n Integer, other StringArray, dest StringArray) returns Integer
+function grow(n Integer, other StringArray, mutates dest StringArray) returns Integer
 	dest.clear()
-	return n + (other.count() as Integer)
+	return try n + (other.count() as Integer) otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let spare = StringArray.create(0)
 	let s = try arr.get(0) otherwise ""
 	let k = grow(1, dest: arr, other: spare)
@@ -312,7 +312,7 @@ end 'main'
 The pushes reallocate the array's buffer; `s` holds the element itself, not a slot of the buffer.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.first() otherwise ""
 	for i in 0 upto 40 'grow'
 		arr.push("another long string for the heap allocation path {i}")
@@ -334,7 +334,7 @@ end 'main'
 The caller owns the element `pop()` returns outright.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
+	var arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	let s = try arr.pop() otherwise ""
 	arr.clear()
 	print("[{s}]\n")
@@ -352,7 +352,7 @@ end 'main'
 ### `remove()` moves out too
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
+	var arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	let s = try arr.remove(0) otherwise ""
 	arr.clear()
 	print("[{s}]\n")
@@ -373,11 +373,11 @@ The element is read and measured inside `inner`; the `clear()` after the block w
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation"]
+	var arr = ["hello world this is a long string for heap allocation"]
 	var n = 0 as Integer
 	if n == 0 'inner'
 		let s = try arr.get(0) otherwise ""
-		n = s.byteLength() as Integer
+		n = try s.byteLength() as Integer otherwise panic("out of range")
 	end 'inner'
 	arr.clear()
 	print("{n}\n")
@@ -428,17 +428,17 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(dest StringArray)
+function wipe(mutates dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	var total = 0 as Integer
 	for it in b.items 'scan'
 		wipe(b.items)
 		print("[{it}]\n")
-		total = total + (it.byteLength() as Integer)
+		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
 	end 'scan'
 	print("{total}\n")
 	return 0
@@ -468,15 +468,15 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(dest StringArray)
+function wipe(mutates dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	var total = 0 as Integer
 	for it in b.items 'scan'
-		total = total + (it.byteLength() as Integer)
+		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
 		wipe(b.items)
 	end 'scan'
 	print("{total}\n")
@@ -506,15 +506,15 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(dest StringArray)
+function wipe(mutates dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	var total = 0 as Integer
 	for it in b.items 'scan'
-		total = total + (it.byteLength() as Integer)
+		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
 	end 'scan'
 	wipe(b.items)
 	print("{total}\n")
@@ -545,16 +545,16 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(dest StringArray)
+function wipe(mutates dest StringArray)
 	dest.clear()
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	var total = 0 as Integer
 	for _ in b.items 'scan'
 		wipe(b.items)
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'scan'
 	print("{total}\n")
 	return 0
@@ -613,7 +613,7 @@ end 'main'
 `try arr.get(0) otherwise return 1` binds `s` to the element it read, which outlives the `clear()`.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise return 1
 	arr.clear()
 	print("[{s}] {arr.count()}\n")
@@ -631,7 +631,7 @@ end 'main'
 ### … and so does a diverging `otherwise` BLOCK
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise 'empty'
 		return 7
 	end 'empty'
@@ -654,11 +654,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function sizeOf(s String) returns Integer
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'sizeOf'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation"]
+	var arr = ["hello world this is a long string for heap allocation"]
 	let n = sizeOf(try arr.get(0) otherwise "")
 	arr.clear()
 	print("{n}\n")
@@ -680,15 +680,15 @@ reads.
 typealias Integer = int(i64.min to i64.max)
 
 function sizeOf(s String) returns Integer
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'sizeOf'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation"]
+	var arr = ["hello world this is a long string for heap allocation"]
 	var total = 0 as Integer
 	for i in 0 upto sizeOf(try arr.get(0) otherwise "") 'l'
 		arr.clear()
-		total = total + i
+		total = try total + i otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0
@@ -718,7 +718,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	let s = try b.items.get(0) otherwise ""
 	b.other.clear()
 	print("[{s}] {b.items.count()} {b.other.count()}\n")
@@ -739,7 +739,7 @@ The merge carries the counted element, not a slot of the array.
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let n = 0 as Integer
 	let s = (try arr.get(0) otherwise "") if n == 0 else "a fallback string long enough for the heap"
 	arr.clear()
@@ -763,7 +763,7 @@ enum Mode
 end 'Mode'
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let m = Mode.first
 	let s = match m 'pick'
 		first gives try arr.get(0) otherwise ""
@@ -791,8 +791,8 @@ enum Mode
 end 'Mode'
 
 function main() returns ExitCode
-	let a = ["alpha string long enough for the heap allocation path {40 + 2}"]
-	let b = ["beta string long enough for the heap allocation path {40 + 2}"]
+	var a = ["alpha string long enough for the heap allocation path {40 + 2}"]
+	var b = ["beta string long enough for the heap allocation path {40 + 2}"]
 	let m = Mode.first
 	let s = match m 'pick'
 		first gives try a.get(0) otherwise ""
@@ -816,7 +816,7 @@ end 'main'
 ```maxon
 typealias StringArray = Array with String
 
-function look(arr StringArray) returns ExitCode throws ArrayError
+function look(mutates arr StringArray) returns ExitCode throws ArrayError
 	let s = try arr.get(0)
 	arr.clear()
 	print("[{s}] {arr.count()}\n")
@@ -824,7 +824,7 @@ function look(arr StringArray) returns ExitCode throws ArrayError
 end 'look'
 
 function main() returns ExitCode
-	let a = ["hello world this is a long string for heap allocation {40 + 2}"]
+	var a = ["hello world this is a long string for heap allocation {40 + 2}"]
 	return try look(a) otherwise 9
 end 'main'
 ```
@@ -840,7 +840,7 @@ end 'main'
 `s` owns the value it was assigned, so clearing the array leaves it intact.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation"]
+	var arr = ["hello world this is a long string for heap allocation"]
 	var s = "an initial string long enough for the heap allocation"
 	s = try arr.get(0) otherwise ""
 	arr.clear()
@@ -861,7 +861,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
+	var arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	var s = "an initial string long enough for the heap allocation"
 	var i = 0 as Integer
 	while i < 2 'scan'
@@ -893,13 +893,13 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items.clear()
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	b.wipe()
@@ -926,13 +926,13 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		self.items.clear()
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	b.wipe()
@@ -996,20 +996,20 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items.clear()
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	b.items.push("beta string long enough for heap allocation {40 + 2}")
 	var total = 0 as Integer
 	for it in b.items 'scan'
 		b.wipe()
 		print("[{it}]\n")
-		total = total + (it.byteLength() as Integer)
+		total = try total + (it.byteLength() as Integer) otherwise panic("out of range")
 	end 'scan'
 	print("{total}\n")
 	return 0
@@ -1035,17 +1035,17 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		items.clear()
 	end 'reset'
 
-	function wipe()
+	function wipe(mutates self)
 		self.reset()
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	b.wipe()
@@ -1072,13 +1072,13 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items.truncate(0)
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	b.wipe()
@@ -1106,12 +1106,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(bag Bag)
+function wipe(mutates bag Bag)
 	bag.items.truncate(0)
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	wipe(b)
@@ -1213,17 +1213,17 @@ type Bag
 		return Self{items: StringArray.create(0), total: 0}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items.clear()
 	end 'wipe'
 
-	function add(v Integer)
-		total = total + v
+	function add(mutates self, v Integer)
+		total = try total + v otherwise panic("out of range")
 	end 'add'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(42)
 	b.wipe()
 	print("{b.total} {b.items.count()}\n")
@@ -1253,17 +1253,17 @@ type Bag
 		return Self{items: StringArray.create(0), total: 0}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items.clear()
 	end 'wipe'
 
-	function add(v Integer)
-		total = total + v
+	function add(mutates self, v Integer)
+		total = try total + v otherwise panic("out of range")
 	end 'add'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	b.add(42)
 	b.wipe()
@@ -1334,20 +1334,20 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		items.clear()
 	end 'reset'
 
-	function measure() returns Integer
+	function measure(mutates self) returns Integer
 		let s = try items.get(0) otherwise ""
 		self.reset()
 		print("[{s}]\n")
-		return s.byteLength()
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'measure'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	print("{b.measure()} {b.items.count()}\n")
 	return 0
@@ -1608,9 +1608,9 @@ end 'Holder'
 typealias HolderArray = Array with Holder
 
 function main() returns ExitCode
-	let arr = HolderArray.create(0)
+	var arr = HolderArray.create(0)
 	arr.push(Holder.create())
-	let p = try arr.get(0) otherwise Holder.create()
+	var p = try arr.get(0) otherwise Holder.create()
 	let s = try p.items.get(0) otherwise ""
 	p.items.clear()
 	print("[{s}] {p.items.count()}\n")
@@ -1933,7 +1933,7 @@ typealias Count = int(0 to 1000)
 
 typealias StringArray = Array with String
 
-function clobber(a StringArray, borrowed String) returns String
+function clobber(mutates a StringArray, borrowed String) returns String
 	a.clear()
 	return "[{borrowed}]"
 end 'clobber'
@@ -1947,7 +1947,7 @@ function build(n Count) returns String
 end 'build'
 
 function main() returns ExitCode
-	let a = StringArray.create(0)
+	var a = StringArray.create(0)
 	a.push(build(10))
 	let out = clobber(a, borrowed: try a.get(0) otherwise "")
 	print("{out} {a.count()}\n")
@@ -2393,7 +2393,7 @@ typealias Outers = Array with Outer
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	let xs = Outers.create(0)
+	var xs = Outers.create(0)
 	xs.push(b)
 	xs.clear()
 	print("{inner.label.byteLength()} {xs.count()} {b.inner.label.byteLength()}\n")
@@ -2667,10 +2667,10 @@ function choose(n Integer) returns Pick
 end 'choose'
 
 function main() returns ExitCode
-	let xs = Words.create(0)
+	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
 	let s = try xs.get(0) otherwise ""
-	let r = match choose(1) 'pick'
+	var r = match choose(1) 'pick'
 		first gives xs
 		second gives Words.create(0)
 	end 'pick'
@@ -2694,7 +2694,7 @@ holds its own.
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let xs = Words.create(0)
+	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
 	let s = try xs.get(0) otherwise ""
 	var c = Words.create(0)
@@ -3062,14 +3062,14 @@ type Holder
 	export var items as StringArray
 
 	static function create(items StringArray) returns Holder
-		return Holder{items: items}
+		return Holder{items: items.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let x = StringArray.create(0)
+	var x = StringArray.create(0)
 	x.push("hello {40 + 2} world, long enough for the heap")
-	let h = Holder.create(x)
+	var h = Holder.create(x)
 	let s = try x.get(0) otherwise ""
 	h.items.clear()
 	print("[{s}] {x.count()}\n")
@@ -3094,10 +3094,10 @@ type Holder
 	var items as Words
 
 	static function create(items Words) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
-	function grow()
+	function grow(mutates self)
 		for i in 0 upto 300 'g'
 			items.push("holder-filler-{i}-pppppppppppppppp")
 		end 'g'
@@ -3108,7 +3108,7 @@ end 'Holder'
 function main() returns ExitCode
 	let arr = ["first {1} padded out long enough for the heap", "second {2} padded out long enough for the heap"]
 	let s = try arr.get(0) otherwise "none"
-	let h = Holder.create(arr)
+	var h = Holder.create(arr)
 	h.grow()
 	print("[{s}] {s.byteLength()} {arr.count()}\n")
 	return 0
@@ -3745,25 +3745,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	function current() returns String
-		return name
+		return name.clone()
 	end 'current'
 
-	function swapName() returns String
+	function swapName(mutates self) returns String
 		self.name = "swapped {40 + 2} value long enough for a heap record"
 		return "returned {40 + 2} value long enough for a heap record"
 	end 'swapName'
 
-	function keptOriginal() returns bool
+	function keptOriginal(mutates self) returns bool
 		return self.name.equals(self.swapName())
 	end 'keptOriginal'
 end 'Person'
 
 function main() returns ExitCode
-	let p = Person.create("original {40 + 2} value long enough for a heap record")
+	var p = Person.create("original {40 + 2} value long enough for a heap record")
 	print("{p.keptOriginal()}\n")
 	let filler = "filler {1} value long enough for a heap record"
 	print("[{p.current()}] [{filler}]\n")
@@ -4505,7 +4505,7 @@ type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Holder'
 
@@ -4514,7 +4514,7 @@ function fresh() returns String
 end 'fresh'
 
 function pick(h Holder, c bool) returns String
-	return h.text if c else fresh()
+	return h.text.clone() if c else fresh()
 end 'pick'
 
 function main() returns ExitCode
@@ -4542,7 +4542,7 @@ type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Holder'
 
@@ -4575,7 +4575,7 @@ type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Holder'
 
@@ -4612,7 +4612,7 @@ type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Holder'
 

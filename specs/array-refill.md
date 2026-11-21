@@ -53,7 +53,7 @@ never given — and the count below would not be the length.
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(false)
 	arr.push(true)
 	arr.push(false)
@@ -61,10 +61,10 @@ function main() returns ExitCode
 	var lit = 0 as Count
 	for b in arr 'count'
 		if b 'set'
-			lit = lit + 1
+			lit = try lit + 1 otherwise panic("out of range")
 		end 'set'
 	end 'count'
-	return lit
+	return try lit as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -79,16 +79,16 @@ a fill that skipped the read-modify-write would leave one standing.
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.refill(9, value: true)
 	arr.refill(9, value: false)
 	var lit = 0 as Count
 	for b in arr 'count'
 		if b 'set'
-			lit = lit + 1
+			lit = try lit + 1 otherwise panic("out of range")
 		end 'set'
 	end 'count'
-	return lit + arr.count()
+	return try lit + arr.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -130,7 +130,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
@@ -140,7 +140,7 @@ function main() returns ExitCode
 	let v0 = try view.get(0) otherwise 0
 	let v1 = try view.get(1) otherwise 0
 	let a0 = try arr.get(0) otherwise 0
-	return v0 + v1 + a0
+	return try v0 + v1 + a0 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -158,11 +158,11 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.refill(3, value: 16909060)
 	var total = 0 as Integer
 	for v in arr 'sum'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'sum'
 	if total == 50727180 'everyByteSurvived'
 		return 7
@@ -184,11 +184,11 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(5)
 	arr.push(6)
 	arr.refill(0, value: 9)
-	return arr.count() + 7
+	return try arr.count() + 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -205,15 +205,15 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.growFilled(5, value: 9)
 	var total = 0 as Integer
 	for v in arr 'sum'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -230,15 +230,15 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(4)
 	arr.push(5)
 	arr.growFilled(2, value: 9)
 	var total = 0 as Integer
 	for v in arr 'sum'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'sum'
-	return total + arr.count() as Integer
+	return try total + arr.count() as Integer otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -255,13 +255,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.refill(4, value: 7)
 	arr.refill(2, value: 7)
 	arr.resize(4)
 	let a2 = try arr.get(2) otherwise -1
 	let a3 = try arr.get(3) otherwise -1
-	return a2 + a3 + 5
+	return try a2 + a3 + 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -277,7 +277,7 @@ short would hand the old bytes straight back to the grow. The case above is the 
 two 8-byte elements is sixteen bytes, two whole words and no tail at all.
 ```maxon
 function main() returns ExitCode
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	var i = 0 as Count
 	while i < 5 'fill'
 		b.push(9)
@@ -288,10 +288,10 @@ function main() returns ExitCode
 	var total = 0 as Count
 	var k = 2 as Count
 	while k < 5 'sum'
-		total = total + (try b.get(k) otherwise 99) as Count
+		total = try total + (try b.get(k) otherwise 99) as Count otherwise panic("out of range")
 		k = k + 1
 	end 'sum'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -307,17 +307,17 @@ double-frees.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("alpha")
 	arr.push("beta")
 	arr.refill(4, value: "zeta")
 	var hits = 0 as Count
 	for s in arr 'sum'
 		if s == "zeta" 'match'
-			hits = hits + 1
+			hits = try hits + 1 otherwise panic("out of range")
 		end 'match'
 	end 'sum'
-	return hits + arr.count()
+	return try hits + arr.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -342,14 +342,14 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let arr = SlotArray.create(0)
+	var arr = SlotArray.create(0)
 	arr.push(Slot.create(1))
 	arr.refill(3, value: Slot.create(4))
 	var total = 0 as Integer
 	for s in arr 'sum'
-		total = total + s.value
+		total = try total + s.value otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -364,20 +364,20 @@ already holds and only the added slots take new ones.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("ab")
 	arr.growFilled(4, value: "cde")
 	var hits = 0 as Count
 	for s in arr 'sum'
 		if s == "cde" 'match'
-			hits = hits + 1
+			hits = try hits + 1 otherwise panic("out of range")
 		end 'match'
 	end 'sum'
 	let first = try arr.get(0) otherwise "??"
 	if first == "ab" 'prefixKept'
-		hits = hits + 10
+		hits = try hits + 10 otherwise panic("out of range")
 	end 'prefixKept'
-	return hits
+	return try hits as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -402,14 +402,14 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let arr = SlotArray.create(0)
+	var arr = SlotArray.create(0)
 	arr.push(Slot.create(6))
 	arr.growFilled(3, value: Slot.create(7))
 	var total = 0 as Integer
 	for s in arr 'sum'
-		total = total + s.value
+		total = try total + s.value otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

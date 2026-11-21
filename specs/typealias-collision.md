@@ -482,7 +482,6 @@ end 'main'
 ```
 
 <!-- test: an-author-export-beside-the-librarys-alias-over-another-primitive-is-named-by-its-directory -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
@@ -495,7 +494,6 @@ export typealias Byte = float(0.0 to 1.0)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
 	// TODO: float literals are not supported in minimaxon

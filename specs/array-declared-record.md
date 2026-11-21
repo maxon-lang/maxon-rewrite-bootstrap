@@ -1368,7 +1368,6 @@ error E2015: <fragment>:22:14: Unsupported: `Array` member 'at' — this value's
 ```
 
 <!-- test: a-compiler-minted-literal-is-the-library-array -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **A LITERAL THE COMPILER MINTS IS THE LIBRARY'S RECORD, NOT THE PROGRAM'S — and the program never
 wrote a type for it to be read from.** `b"Hi!"` and `[4, 5]` name no declaration: the sweep interns their
@@ -1392,7 +1391,6 @@ public type Array uses Element implements BuiltinArrayLiteral
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"Hi!"
 	let nums = [4, 5]
 	print("{bytes.isEmpty()} {nums.isEmpty()}")

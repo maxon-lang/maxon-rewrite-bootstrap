@@ -31,7 +31,6 @@ examples.
 ## Tests
 
 <!-- test: aes.encrypt-block -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 FIPS 197 appendices B and C and the AESAVS GFSbox, KeySbox, VarKey and VarTxt known answers, for each key size.
@@ -91,7 +90,6 @@ function cipher(direction Direction, keyHex String, blockHex String) returns Byt
 end 'cipher'
 
 function report(id String, direction Direction, keyHex String, blockHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try cipher(direction, keyHex: keyHex, blockHex: blockHex) 'ciphered'
 		print("{id} [{toHex(output)}]\n")
 	end 'ciphered' else (failure) 'refused'
@@ -166,7 +164,6 @@ encrypt-028 [acdace8078a32b1a182bfa4987ca1347]
 ```
 
 <!-- test: aes.decrypt-block -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 FIPS 197 appendices B and C inverted, and the AESAVS known answers decrypted, for each key size.
@@ -226,7 +223,6 @@ function cipher(direction Direction, keyHex String, blockHex String) returns Byt
 end 'cipher'
 
 function report(id String, direction Direction, keyHex String, blockHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try cipher(direction, keyHex: keyHex, blockHex: blockHex) 'ciphered'
 		print("{id} [{toHex(output)}]\n")
 	end 'ciphered' else (failure) 'refused'
@@ -277,7 +273,6 @@ decrypt-016 [ffffffffffffffff8000000000000000]
 ```
 
 <!-- test: aes.refuses-invalid-lengths -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Keys of other lengths, blocks of other lengths, and both at once, which reports the key.
@@ -337,7 +332,6 @@ function cipher(direction Direction, keyHex String, blockHex String) returns Byt
 end 'cipher'
 
 function report(id String, direction Direction, keyHex String, blockHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try cipher(direction, keyHex: keyHex, blockHex: blockHex) 'ciphered'
 		print("{id} [{toHex(output)}]\n")
 	end 'ciphered' else (failure) 'refused'
@@ -392,7 +386,6 @@ aes-err-018 invalidKeyLength
 ```
 
 <!-- test: aes.xor-key-stream -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every vector of the Canra `aes-ctr` spec whose counter fits `AesCounter`: the NIST SP 800-38A CTR examples
@@ -450,9 +443,7 @@ function streamErrorName(failure AesKeyStreamError) returns String
 end 'streamErrorName'
 
 function report(id String, keyHex String, nonceHex String, counter AesCounter, dataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let aes = try Aes.create(fromHex(keyHex)) 'keyed'
-		// TODO: if try is not supported in minimaxon
 		if let output = try aes.xorKeyStream(fromHex(nonceHex), counter: counter, data: fromHex(dataHex)) 'streamed'
 			print("{id} [{toHex(output)}]\n")
 		end 'streamed' else (failure) 'refused'

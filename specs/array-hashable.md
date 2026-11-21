@@ -172,10 +172,10 @@ typealias ByteVal = int(0 to u8.max)
 typealias ByteArr = Array with ByteVal
 
 function main() returns ExitCode
-	let a = ByteArr.create(0)
+	var a = ByteArr.create(0)
 	a.push(65)
 	a.push(66)
-	let b = ByteArr.create(0)
+	var b = ByteArr.create(0)
 	b.push(65)
 	b.push(66)
 	if a.equals(b) 'eq'
@@ -285,8 +285,8 @@ typealias Val = int(i64.min to i64.max)
 typealias StrArr = Array with String
 
 function numbered(first Val, count Val) returns StrArr
-	let arr = StrArr.create(0)
-	for i in first upto first + count 'fill'
+	var arr = StrArr.create(0)
+	for i in first upto try first + count otherwise panic("out of range") 'fill'
 		arr.push("p{i}")
 	end 'fill'
 	return arr

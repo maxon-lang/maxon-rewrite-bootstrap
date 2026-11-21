@@ -815,6 +815,7 @@ Stack trace:
 ```
 
 <!-- test: mod-overflow-premise-enforced-at-the-callers-cast -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⭐ A runtime `-1` is refused before it reaches `remainder` — what the `i64.min mod -1` guarantee rests on
 
 The twin of the case above, and the one that says what the `i64.min mod -1` guarantee rests on: the
@@ -853,6 +854,7 @@ Stack trace:
 ```
 
 <!-- test: mod-overflow-premise-enforced-at-the-callee-entry -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⭐ A runtime `-1` that wears `BelowMinusOne` without proving it is refused AT `remainder`'S PARAMETER
 
 The callee-entry half of the case above. `a - a - a` is a difference of `BelowMinusOne`s, so it wears the alias and proves nothing about it; here it is `3`. No cast stands at the call, so the guard that refuses it is the one at `remainder`'s own entry, before the bare `idiv` the type licenses.
@@ -1003,6 +1005,7 @@ Stack trace:
 ```
 
 <!-- test: negative-range-cast-guard-fires-before-the-remainder -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⭐ The `i64.min mod -1` hazard through the same door — `int(i64.min to -2)` admitting a `-1`
 The remainder's own twin, and the reason this pair belongs beside the `i64.min mod -1` cases rather
 than only in `ranged-typealias.md`: `BelowMinusOne` rules out BOTH of `idiv`'s divisors, so `n mod d`
@@ -1797,6 +1800,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-array-grow-filled -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused as the `growFilled` value
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1829,6 +1833,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-array-refill -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused as the `refill` value
 ```maxon
 typealias Integer = int(i64.min to i64.max)

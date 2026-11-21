@@ -208,25 +208,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		let a = Labels.create(0)
+		var a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum() returns Tally
+	function sum(mutates self) returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			items.clear()
 			print("{it}\n")
-			total = total + (it.byteLength() as Tally)
+			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
 		end 'scan'
-		return total + (items.count() as Tally)
+		return try total + (items.count() as Tally) otherwise panic("out of range")
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -248,25 +248,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		let a = Labels.create(0)
+		var a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum() returns Tally
+	function sum(mutates self) returns Tally
 		var total = 0 as Tally
 		for it in items 'scan'
 			self.items.clear()
 			print("{it}\n")
-			total = total + (it.byteLength() as Tally)
+			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
 		end 'scan'
-		return total + (items.count() as Tally)
+		return try total + (items.count() as Tally) otherwise panic("out of range")
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -288,25 +288,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		let a = Labels.create(0)
+		var a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum() returns Tally
+	function sum(mutates self) returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			items.clear()
 			print("{it}\n")
-			total = total + (it.byteLength() as Tally)
+			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
 		end 'scan'
-		return total + (items.count() as Tally)
+		return try total + (items.count() as Tally) otherwise panic("out of range")
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -328,25 +328,25 @@ type Bag
 	export var items as Labels
 
 	static function create() returns Self
-		let a = Labels.create(0)
+		var a = Labels.create(0)
 		a.push("first heap element {40 + 2}")
 		a.push("second heap element {40 + 5}")
 		return Self{items: a}
 	end 'create'
 
-	function sum() returns Tally
+	function sum(mutates self) returns Tally
 		var total = 0 as Tally
 		for it in self.items 'scan'
 			self.items.clear()
 			print("{it}\n")
-			total = total + (it.byteLength() as Tally)
+			total = try total + (it.byteLength() as Tally) otherwise panic("out of range")
 		end 'scan'
-		return total + (items.count() as Tally)
+		return try total + (items.count() as Tally) otherwise panic("out of range")
 	end 'sum'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.sum() as ExitCode
 end 'main'
 ```
@@ -406,25 +406,25 @@ type Bag
 	export var items as IntArray
 
 	static function create() returns Self
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(5)
 		a.push(7)
 		return Self{items: a}
 	end 'create'
 
-	function sumThenClear() returns Int
+	function sumThenClear(mutates self) returns Int
 		var total = 0 as Int
 		for it in items 'scan'
-			total = total + it
+			total = try total + it otherwise panic("out of range")
 		end 'scan'
 		items.clear()
-		return total + items.count() as Int
+		return try total + items.count() as Int otherwise panic("out of range")
 	end 'sumThenClear'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
-	return b.sumThenClear() as ExitCode
+	var b = Bag.create()
+	return try b.sumThenClear() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

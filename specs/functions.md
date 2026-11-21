@@ -540,13 +540,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-under-if-try -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 An `if let … = try` over a method called on the result names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: if try is not supported in minimaxon
 	if let d = try c.describe() 'ok'
 		print("{d}\n")
 	end 'ok'
@@ -558,14 +555,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-under-bare-if-try -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 A bare `if try` over a method called on the result names the CALL. Whether the call produces a value
 is unknown, so the form is not refused for discarding one.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: if try is not supported in minimaxon
 	if try c.describe() 'ok'
 		print("ok\n")
 	end 'ok'
@@ -577,13 +571,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-under-bare-if-try -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 A bare `if try` over the undefined call itself names the CALL, not a discarded result it cannot know
 it has.
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try frobnicate(2) 'ok'
 		print("ok\n")
 	end 'ok'
@@ -595,13 +586,11 @@ error E3004: <fragment>:3:9: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-under-if-try-discarding-the-value -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 An `if let _ = try` over a method called on the result names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: if try is not supported in minimaxon
 	if let _ = try c.describe() 'ok'
 		print("ok\n")
 	end 'ok'
@@ -615,14 +604,12 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 <!-- test: unknown-function-awaited-under-bare-if-try -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- positions: moved -->
 A bare `if try await` over a promise of the undefined call names the CALL.
 ```maxon
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
-	// TODO: if try is not supported in minimaxon
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if try await p 'ok'
 		print("ok\n")
@@ -637,14 +624,12 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 <!-- test: unknown-function-awaited-under-if-try -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- positions: moved -->
 An `if let … = try await` over a promise of the undefined call names the CALL.
 ```maxon
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
-	// TODO: if try is not supported in minimaxon
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if let x = try await p 'ok'
 		print("{x}\n")

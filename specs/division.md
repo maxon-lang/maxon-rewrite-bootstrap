@@ -725,7 +725,7 @@ function refModNeg(n Word, d NegDivisor) returns Word
 end 'refModNeg'
 
 function dividends(d Word) returns WordArray
-	let ns = WordArray.create(0)
+	var ns = WordArray.create(0)
 	let m = i64.min as Word
 	let x = i64.max as Word
 	ns.push(0)
@@ -736,14 +736,14 @@ function dividends(d Word) returns WordArray
 	ns.push(x)
 	ns.push(x - 1)
 	ns.push(d)
-	ns.push(d - 1)
-	ns.push(d + 1)
-	ns.push(0 - d)
-	ns.push(1 - d)
+	ns.push(try d - 1 otherwise panic("out of range"))
+	ns.push(try d + 1 otherwise panic("out of range"))
+	ns.push(try 0 - d otherwise panic("out of range"))
+	ns.push(try 1 - d otherwise panic("out of range"))
 	ns.push(-1 - d)
-	ns.push(x - d)
-	ns.push(m + d)
-	ns.push(d + d)
+	ns.push(try x - d otherwise panic("out of range"))
+	ns.push(try m + d otherwise panic("out of range"))
+	ns.push(try d + d otherwise panic("out of range"))
 	ns.push(m / 2)
 	ns.push(x / 2)
 	return ns

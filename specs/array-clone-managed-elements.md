@@ -163,7 +163,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The refusal above answers for a COPY. The same element in an array that is only pushed to, walked and counted
 is legal.
@@ -181,7 +180,6 @@ typealias Holders = Array with Holder
 function main() returns ExitCode
 	let a = Holders.create(0)
 	print("{a.count()}\n")
-	// TODO: byte string literals are not supported in minimaxon
 	a.push(Holder.create(try __ManagedFile.openRead(b"no-such-file.bin".managed) otherwise return 3))
 	for _ in a 'each'
 		print("walked\n")
@@ -310,15 +308,15 @@ typealias StringArrayArray = Array with StringArray
 function firstOf(candidates StringArrayArray) returns String
 	for segments in candidates 'each'
 		for s in segments 'inner'
-			return s
+			return s.clone()
 		end 'inner'
 	end 'each'
 	return "none"
 end 'firstOf'
 
 function main() returns ExitCode
-	let outer = StringArrayArray.create(0)
-	let inner = StringArray.create(0)
+	var outer = StringArrayArray.create(0)
+	var inner = StringArray.create(0)
 	inner.push("a hit long enough to reach the heap")
 	outer.push(inner)
 	print("{firstOf(outer)}\n")
@@ -344,8 +342,8 @@ is a read of freed memory rather than a wrong number.
 typealias StringArrayArray = Array with StringArray
 
 function makeClone() returns StringArrayArray
-	let src = StringArrayArray.create(0)
-	let inner = StringArray.create(0)
+	var src = StringArrayArray.create(0)
+	var inner = StringArray.create(0)
 	inner.push("first inner string, long enough to need a heap record")
 	inner.push("second inner string, long enough to need a heap record")
 	src.push(inner)
@@ -425,10 +423,10 @@ lets the source be dropped while the slice is still read.
 typealias StringArrayArray = Array with StringArray
 
 function makeSlice() returns StringArrayArray
-	let src = StringArrayArray.create(0)
-	let first = StringArray.create(0)
+	var src = StringArrayArray.create(0)
+	var first = StringArray.create(0)
 	first.push("dropped inner string, long enough to need a heap record")
-	let second = StringArray.create(0)
+	var second = StringArray.create(0)
 	second.push("kept inner string, long enough to need a heap record")
 	src.push(first)
 	src.push(second)
@@ -462,9 +460,9 @@ typealias StringArrayArray = Array with StringArray
 typealias StringArrayArrayArray = Array with StringArrayArray
 
 function makeClone() returns StringArrayArrayArray
-	let src = StringArrayArrayArray.create(0)
-	let mid = StringArrayArray.create(0)
-	let leaf = StringArray.create(0)
+	var src = StringArrayArrayArray.create(0)
+	var mid = StringArrayArray.create(0)
+	var leaf = StringArray.create(0)
 	leaf.push("the deepest string, long enough to need a heap record")
 	mid.push(leaf)
 	src.push(mid)
@@ -542,12 +540,12 @@ inner array — and every String inside it — twice.
 typealias StringArrayArray = Array with StringArray
 
 function main() returns ExitCode
-	let dest = StringArrayArray.create(0)
-	let first = StringArray.create(0)
+	var dest = StringArrayArray.create(0)
+	var first = StringArray.create(0)
 	first.push("destination inner string, long enough to allocate")
 	dest.push(first)
-	let src = StringArrayArray.create(0)
-	let second = StringArray.create(0)
+	var src = StringArrayArray.create(0)
+	var second = StringArray.create(0)
 	second.push("appended inner string, long enough to allocate")
 	src.push(second)
 	dest.append(src)

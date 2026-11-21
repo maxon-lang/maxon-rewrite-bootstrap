@@ -138,16 +138,16 @@ type Pair
 	end 'create'
 end 'Pair'
 
-function stashLeft(p Pair, b Box)
-	p.left.push(b)
+function stashLeft(mutates p Pair, b Box)
+	p.left.push(b.clone())
 end 'stashLeft'
 
-function resetRight(p Pair)
+function resetRight(mutates p Pair)
 	p.right.clear()
 end 'resetRight'
 
 function main() returns ExitCode
-	let p = Pair.create()
+	var p = Pair.create()
 	let a = Box.create(2)
 	stashLeft(p, b: a)
 	resetRight(p)
@@ -864,11 +864,11 @@ type H
 	export var s as String
 
 	static function create(s String) returns Self
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'H'
 
-function grow(h H)
+function grow(mutates h H)
 	h.s.append("x")
 end 'grow'
 
@@ -878,7 +878,7 @@ end 'runtimeText'
 
 function main() returns ExitCode
 	let s = "a{runtimeText(7)}"
-	let h = H.create("")
+	var h = H.create("")
 	h.s = s.clone()
 	grow(h)
 	print("{s}\n")
@@ -3039,11 +3039,11 @@ type H
 	export var s as String
 
 	static function create(s String) returns Self
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'H'
 
-function grow(h H)
+function grow(mutates h H)
 	h.s.append("x")
 end 'grow'
 
@@ -3053,7 +3053,7 @@ end 'runtimeText'
 
 function main() returns ExitCode
 	let s = "a{runtimeText(7)}"
-	let h = H.create("")
+	var h = H.create("")
 	h.s = s
 	grow(h)
 	print("{s}\n")
@@ -5424,19 +5424,19 @@ type Stack
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function push(v Box)
-		self.items.push(v)
+	function push(mutates self, v Box)
+		self.items.push(v.clone())
 	end 'push'
 
-	function peekThenPush(extra Box) returns Box
+	function peekThenPush(mutates self, extra Box) returns Box
 		let v = try self.items.last() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'peekThenPush'
 end 'Stack'
 
 function main() returns ExitCode
-	let s = Stack.create()
+	var s = Stack.create()
 	s.push(Box.create(7))
 	let a = s.peekThenPush(Box.create(9))
 	print("{a.n}\n")

@@ -290,7 +290,7 @@ points at — so sharing it makes the clone and the original one string.
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let a = Words.create(0)
+	var a = Words.create(0)
 	a.push("original word long enough for a heap record")
 	let b = a.clone()
 	var cloned = try b.get(0) otherwise panic("no word")
@@ -1172,7 +1172,7 @@ function main() returns ExitCode
 	let boxed = Tagged.named("tag")
 	var grown = ""
 	match boxed 'grow'
-		named(n) then grown = n
+		named(n) then grown = n.clone()
 	end 'grow'
 	grown.append("!")
 	let untouched = "tag"
@@ -1201,7 +1201,7 @@ function main() returns ExitCode
 	let a = Word.spelled("head, long enough to be a real heap allocation")
 	var grown = ""
 	match a 'm'
-		spelled(text) then grown = text
+		spelled(text) then grown = text.clone()
 		blank then return 1
 	end 'm'
 	grown.append(" tail")

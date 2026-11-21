@@ -98,13 +98,13 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let arr = SlotArray.create(0)
+	var arr = SlotArray.create(0)
 	arr.growFilled(3, value: Slot.create(14))
 	var total = 0 as Integer
 	for s in arr 'sum'
-		total = total + s.value
+		total = try total + s.value otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -148,13 +148,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(0)
 	arr.push(5)
 	arr.resize(4)
 	let val = try arr.get(0) otherwise -1
 	let val2 = try arr.get(2) otherwise -1
-	return val + val2
+	return try val + val2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

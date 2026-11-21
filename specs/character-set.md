@@ -346,7 +346,7 @@ function main() returns ExitCode
 	while i < 50 'loop'
 		let padded = "  x  "
 		let t = padded.trim()
-		total = total + t.byteLength()
+		total = try total + t.byteLength() otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	print("{total}")

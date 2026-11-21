@@ -1481,7 +1481,7 @@ end 'Wrap'
 
 function main() returns ExitCode
 	let w = Wrap.make("the argument")
-	return w.v.count() as ExitCode
+	return try w.v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1505,13 +1505,13 @@ type Wrap
 		for p in 0 upto 2 'digits'
 			mark = mark + p
 		end 'digits'
-		return Wrap{v: p, mark: mark}
+		return Wrap{v: p.clone(), mark: mark}
 	end 'make'
 end 'Wrap'
 
 function main() returns ExitCode
 	let w = Wrap.make("outer")
-	return ((w.v.count() as Tally) + w.mark) as ExitCode
+	return try ((w.v.count() as Tally) + w.mark) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1583,7 +1583,7 @@ end 'Wrap'
 
 function main() returns ExitCode
 	let w = Wrap.make("the argument")
-	return w.v.count() as ExitCode
+	return try w.v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1607,10 +1607,10 @@ type Wrap
 
 	static function make(mutates p String, s Slot) returns Wrap
 		match s 'choose'
-			filled(p) then return Wrap{v: p}
+			filled(p) then return Wrap{v: p.clone()}
 			empty then p = "replaced"
 		end 'choose'
-		return Wrap{v: p}
+		return Wrap{v: p.clone()}
 	end 'make'
 end 'Wrap'
 
@@ -1618,7 +1618,7 @@ function main() returns ExitCode
 	var s = "outer"
 	let a = Wrap.make(s, s: Slot.filled("inner"))
 	let b = Wrap.make(s, s: Slot.empty)
-	return (a.v.count() + b.v.count() + s.count()) as ExitCode
+	return try (a.v.count() + b.v.count() + s.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1638,14 +1638,14 @@ type Wrap
 
 	static function make(mutates p String) returns Wrap
 		p = "replaced"
-		return Wrap{v: p}
+		return Wrap{v: p.clone()}
 	end 'make'
 end 'Wrap'
 
 function main() returns ExitCode
 	var s = "outer"
 	let w = Wrap.make(s)
-	return (w.v.count() + s.count()) as ExitCode
+	return try (w.v.count() + s.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1660,8 +1660,8 @@ type Wrap
 	export var v as String
 
 	static function make(mutates p String, q String) returns Wrap
-		p = q
-		return Wrap{v: p}
+		p = q.clone()
+		return Wrap{v: p.clone()}
 	end 'make'
 end 'Wrap'
 
@@ -1669,7 +1669,7 @@ function main() returns ExitCode
 	var s = "outer"
 	let t = "second"
 	let w = Wrap.make(s, q: t)
-	return (w.v.count() + s.count() + t.count()) as ExitCode
+	return try (w.v.count() + s.count() + t.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1688,14 +1688,14 @@ type Wrap
 		for i in 0 upto 3 'grow'
 			p = "{p}{i}"
 		end 'grow'
-		return Wrap{v: p}
+		return Wrap{v: p.clone()}
 	end 'make'
 end 'Wrap'
 
 function main() returns ExitCode
 	var s = "x"
 	let w = Wrap.make(s)
-	return (w.v.count() + s.count()) as ExitCode
+	return try (w.v.count() + s.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1712,7 +1712,7 @@ type Wrap
 
 	static function make(mutates p String) returns Wrap
 		p = "replaced"
-		return Wrap{v: p}
+		return Wrap{v: p.clone()}
 	end 'make'
 end 'Wrap'
 
@@ -1720,7 +1720,7 @@ function main() returns ExitCode
 	var s = "outer"
 	let w = Wrap.make(s)
 	s = "{s}-again"
-	return (w.v.count() + s.count()) as ExitCode
+	return try (w.v.count() + s.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

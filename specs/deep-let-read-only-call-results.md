@@ -61,7 +61,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -85,7 +84,6 @@ type Table
 
 	static function create() returns Self
 		let names = Names.create(0)
-		// TODO: byte string literals are not supported in minimaxon
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
@@ -103,7 +101,6 @@ end 'Table'
 
 function main() returns ExitCode
 	let table = Table.create()
-	// TODO: byte string literals are not supported in minimaxon
 	table.register(b"gamma")
 	let label = Label.create(table.nameOf(1))
 	return label.text.count() as ExitCode
@@ -114,7 +111,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field-as-a-clone -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -137,7 +133,6 @@ type Table
 
 	static function create() returns Self
 		let names = Names.create(0)
-		// TODO: byte string literals are not supported in minimaxon
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
@@ -155,7 +150,6 @@ end 'Table'
 
 function main() returns ExitCode
 	let table = Table.create()
-	// TODO: byte string literals are not supported in minimaxon
 	table.register(b"gamma")
 	let label = Label.create(table.nameOf(1).clone())
 	return label.text.count() as ExitCode
@@ -166,7 +160,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-pushed-into-a-immutable-container -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -181,7 +174,6 @@ type Table
 
 	static function create() returns Self
 		let names = Names.create(0)
-		// TODO: byte string literals are not supported in minimaxon
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
@@ -199,7 +191,6 @@ end 'Table'
 
 function main() returns ExitCode
 	let table = Table.create()
-	// TODO: byte string literals are not supported in minimaxon
 	table.register(b"gamma")
 	let roster = Names.create(0)
 	roster.push(table.nameOf(1))
@@ -253,14 +244,12 @@ error E3196: <fragment>:27:14: cannot store a mutable 'ByteArray' into 'an eleme
 ```
 
 <!-- test: a-module-let-returned-by-a-function-is-kept-by-a-let-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `banner` returns a module-level `let`, which is `immutable`, so its result and the label's `let` field are declared `immutable`.
 
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let Banner = b"banner"
 
 type Label
@@ -343,7 +332,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -351,13 +340,13 @@ type Table
 	var names as NameList
 
 	static function create() returns Self
-		let names = NameList.create(0)
+		var names = NameList.create(0)
 		names.push("alpha".toByteArray())
 		return Self{names: names}
 	end 'create'
 
-	function register(name ByteArray)
-		self.names.push(name)
+	function register(mutates self, name ByteArray)
+		self.names.push(name.clone())
 	end 'register'
 
 	function nameOf(index ElementIndex) returns ByteArray
@@ -366,10 +355,10 @@ type Table
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	table.register("gamma".toByteArray())
 	let label = Label.create(table.nameOf(1))
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -424,7 +413,6 @@ end 'main'
 ```
 
 <!-- test: a-lookup-or-the-argument-is-read-only-when-the-argument-is -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -470,7 +458,6 @@ end 'Names'
 function main() returns ExitCode
 	let names = Names.create()
 	let roster = Roster.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	roster.push(b"first")
 	let labelled = Labelled.create(names.spell(try roster.get(0) otherwise panic("the roster holds one name")))
 	return labelled.size() as ExitCode

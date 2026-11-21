@@ -59,12 +59,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
 	var t = "ab"
-	return grow(t) as ExitCode
+	return try grow(t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -337,19 +337,19 @@ type Buf
 		return Self{s: "ab"}
 	end 'create'
 
-	function grow()
+	function grow(mutates self)
 		s.append("XY")
 	end 'grow'
 
 	function size() returns Integer
-		return s.byteLength()
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Buf'
 
 function main() returns ExitCode
-	let b = Buf.create()
+	var b = Buf.create()
 	b.grow()
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -505,12 +505,12 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create("ab")
+	var h = Holder.create("ab")
 	h.name.append("XY")
 	print("{h.name}\n")
 	return 0

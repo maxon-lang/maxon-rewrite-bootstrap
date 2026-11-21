@@ -52,7 +52,6 @@ authentication.
 ## Tests
 
 <!-- test: tls-handshake-server.replay-openssl-transcripts -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -162,7 +161,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -217,7 +215,6 @@ server13-openssl-mtls-ecdsa-p256 {"state":"connected","version":772,"cipher_suit
 ```
 
 <!-- test: tls-handshake-server.handshakes-by-server-key -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -327,7 +324,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -382,7 +378,6 @@ server13-ed25519 {"state":"connected","version":772,"cipher_suite":4867,"group":
 ```
 
 <!-- test: tls-handshake-server.negotiated-handshakes -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -492,7 +487,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -556,7 +550,6 @@ server13-hello-only {"state":"handshaking","version":772,"cipher_suite":4867,"gr
 ```
 
 <!-- test: tls-handshake-server.client-authentication -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -666,7 +659,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -721,7 +713,6 @@ server13-mtls-certificate-authorities {"state":"connected","version":772,"cipher
 ```
 
 <!-- test: tls-handshake-server.negotiation-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -831,7 +822,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -940,7 +930,6 @@ server13-err-no-application-protocol noApplicationProtocol
 ```
 
 <!-- test: tls-handshake-server.hello-retry-request-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1050,7 +1039,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1078,7 +1066,6 @@ server13-err-second-client-hello-group illegalParameter
 ```
 
 <!-- test: tls-handshake-server.record-and-order-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1188,7 +1175,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1252,7 +1238,6 @@ server13-err-client-finished decryptError
 ```
 
 <!-- test: tls-handshake-server.client-authentication-errors -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1362,7 +1347,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1444,7 +1428,6 @@ server13-err-client-scheme-not-offered illegalParameter
 ```
 
 <!-- test: tls-handshake-server.client-alerts-before-the-finished -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1554,7 +1537,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1609,7 +1591,6 @@ server13-alert-plaintext-after-the-keys unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.message-length-limits -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1719,7 +1700,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1774,7 +1754,6 @@ server13-err-post-handshake-message-too-long internalError
 ```
 
 <!-- test: tls-handshake-server.no-record-inside-a-handshake-message -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1884,7 +1863,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -1912,7 +1890,6 @@ server13-err-application-data-inside-a-handshake-message unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.useless-records -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2022,7 +1999,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2050,7 +2026,6 @@ server13-err-too-many-change-cipher-specs unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.reference-signatures-and-preferences -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2160,7 +2135,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2251,7 +2225,6 @@ reference13-no-alpn-when-the-server-has-none {"state":"connected","version":772,
 ```
 
 <!-- test: tls-handshake-server.reference-hello-and-record-shapes -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2361,7 +2334,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2443,7 +2415,6 @@ reference13-client-hello-split-over-two-records {"state":"connected","version":7
 ```
 
 <!-- test: tls-handshake-server.reference-client-authentication -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2553,7 +2524,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2599,7 +2569,6 @@ reference13-mtls-hello-retry-request {"state":"connected","version":772,"cipher_
 ```
 
 <!-- test: tls-handshake-server.reference-hello-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2709,7 +2678,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -2854,7 +2822,6 @@ reference13-err-p256-share-not-on-the-curve illegalParameter
 ```
 
 <!-- test: tls-handshake-server.reference-second-client-hello-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2964,7 +2931,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -3028,7 +2994,6 @@ reference13-err-second-client-hello-is-not-a-client-hello unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.reference-handshake-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -3138,7 +3103,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -3229,7 +3193,6 @@ reference13-err-alert-of-three-bytes decodeError
 ```
 
 <!-- test: tls-handshake-server.reference-post-handshake-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -3339,7 +3302,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -3394,7 +3356,6 @@ reference13-err-fatal-alert-after-the-handshake alertReceived
 ```
 
 <!-- test: tls-handshake-server.reference-client-authentication-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -3504,7 +3465,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -3595,7 +3555,6 @@ reference13-err-certificate-authorities-do-not-change-the-verdict unknownCa
 ```
 
 <!-- test: tls-handshake-server.reference-useless-records -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -3705,7 +3664,6 @@ function renderTrace(trace TlsReplayTrace) returns String
 end 'renderTrace'
 
 function report(id String, config TlsServerConfig, entropy TlsServerEntropy, peer TlsPeerAuthenticator, inbound ByteArrays, writes ByteArrays, closeNotify bool)
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsServerReplay.run(config, entropy: entropy, peer: peer, inbound: inbound, writes: writes, closeNotify: closeNotify) 'replayed'
 		print("{id} {renderTrace(trace)}\n")
 	end 'replayed' else (failure) 'refused'
@@ -3880,7 +3838,7 @@ queued=0
 ```
 
 <!-- test: tls-handshake-server.production-entropy-is-fresh-and-consistent -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 <!-- tier: stdlib/helpers/tls -->
 `TlsServerEntropy.fresh` draws a 32-byte random, a 64-byte PSS salt and one private key per group the config lists, 32 bytes each, with the public key the group derives from it; two draws share nothing; a group without a key is `internalError`; a server started from it has sent nothing.
 ```maxon
@@ -3908,7 +3866,6 @@ function main() returns ExitCode
 	print("p256-private-differs={not p256First.privateKey.equals(p256Second.privateKey)}\n")
 	print("x25519-public-matches={derivedX25519.equals(x25519First.publicKey)}\n")
 	print("p256-public-matches={derivedP256.equals(p256First.publicKey)}\n")
-	// TODO: if try is not supported in minimaxon
 	if let unexpected = try first.secret(24) 'found'
 		print("unknown-group found {unexpected.group}\n")
 	end 'found' else (failure) 'refused'
@@ -3938,7 +3895,6 @@ connected=false drained=0
 ```
 
 <!-- test: tls-handshake-server.a-configuration-the-machine-refuses -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib/helpers/tls -->
 A server needs a certificate chain and a 32-byte random, and refuses to be built without them (`internalError`). A CertificateRequest cannot list only RSA PKCS #1 schemes, which TLS 1.3 forbids: a configuration that would send one fails when it answers the ClientHello, with the alert it sends. Enabling TLS 1.3 alone changes nothing about a TLS 1.3 handshake.
@@ -3990,7 +3946,6 @@ end 'bytes'
 
 function created(label String, config TlsServerConfig, random ByteArray)
 	let entropy = TlsServerEntropy.create(random, keySecrets: TlsKeySecretArray.create(0), pssSalt: bytes(64))
-	// TODO: if try is not supported in minimaxon
 	if let server = try TlsServerHandshake.create(config, entropy: entropy, peer: peer()) 'made'
 		print("{label} created connected={server.session().isConnected()}\n")
 	end 'made' else (failure) 'refused'
@@ -4120,7 +4075,6 @@ records=1 prefix=1703030013 type=21 plaintext=0214
 ```
 
 <!-- test: tls-handshake-server.our-client-handshakes-with-our-server -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -4365,7 +4319,6 @@ function scenario(label String, serverKind ServerKind, clientKind ClientKind, se
 	let client = try TlsClientHandshake.create(clientConfig, entropy: clientEntropy, peer: clientPeer, helloSource: OptionalExtendedMasterSecret.create(tweak == Tweak.withoutExtendedMasterSecret)) otherwise panic("no client")
 	let request = fromHex("474554202f20485454502f312e310d0a0d0a")
 	let response = fromHex("485454502f312e3120323030204f4b0d0a0d0a6f6b")
-	// TODO: if try is not supported in minimaxon
 	if let trace = try TlsLoopback.run(client, server: server, clientWrites: ByteArrays from [request], serverWrites: ByteArrays from [response], closeNotify: true) 'looped'
 		let extended = serverHelloOffersExtendedMasterSecret(try trace.server.outbound.first() otherwise panic("a server sent its flight"))
 		print("{label} client {renderSide(trace.client)}\n")

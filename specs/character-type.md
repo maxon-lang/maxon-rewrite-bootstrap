@@ -822,14 +822,12 @@ end 'main'
 
 <!-- test: ascii-value-non-ascii -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 ### ASCII Value for Non-ASCII Returns Error
 
 ```maxon
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let c = 'é'
-	// TODO: if try is not supported in minimaxon
 	if let ascii = try c.asciiValue() 'hasAscii'
 		return ascii
 	end 'hasAscii'
@@ -842,14 +840,12 @@ end 'main'
 
 <!-- test: ascii-value-emoji -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 ### ASCII Value for Emoji Returns Error
 
 ```maxon
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let c = '🎉'
-	// TODO: if try is not supported in minimaxon
 	if let ascii = try c.asciiValue() 'hasAscii'
 		return ascii
 	end 'hasAscii'

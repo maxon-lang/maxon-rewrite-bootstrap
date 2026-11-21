@@ -21,7 +21,6 @@ immutable data is refused at, directly, through a call result, or through a merg
 ## Tests
 
 <!-- test: a-parameter-kept-only-in-a-let-field-of-a-pushed-record-takes-an-immutable-argument -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `Entry` keeps `name` in a `let` field and `weight` in a `var` field. The entry goes into a mutable array, and `source.title`, itself `immutable`, is accepted as the argument for `name`, a parameter declared `immutable`.
@@ -47,7 +46,6 @@ type Source
 	export let title as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{title: b"title"}
 	end 'create'
 end 'Source'
@@ -81,7 +79,6 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-kept-in-a-var-field-of-a-pushed-record-refuses-an-immutable-argument -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `name` is a `var` field here, so the pushed entry holds a mutable `ByteArray`, and the `immutable` `source.title` is refused for it.
@@ -105,7 +102,6 @@ type Source
 	export let title as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{title: b"title"}
 	end 'create'
 end 'Source'
@@ -169,7 +165,7 @@ type Registry
 		return Self{entries: EntryArray.create(0)}
 	end 'create'
 
-	function add(id Integer)
+	function add(mutates self, id Integer)
 		self.entries.push(Entry.create(id))
 	end 'add'
 
@@ -179,10 +175,10 @@ type Registry
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	let source = Source.create()
 	registry.add(source.size)
-	return registry.total() as ExitCode
+	return try registry.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -238,7 +234,6 @@ end 'main'
 ```
 
 <!-- test: error.a-union-case-with-a-payload-in-a-module-let-is-refused-at-every-door -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same three doors as the case above with a module-level `let` that holds a case with a payload. `Target` has a plain `ByteArray` payload, but the value is `immutable` image data, so the case is refused where it is built, the `immutable` result that returns it is refused, and the pass to a `var` field that would keep it as a second holder is refused.
@@ -249,7 +244,6 @@ union Target
 	named(label ByteArray)
 end 'Target'
 
-// TODO: byte string literals are not supported in minimaxon
 let Named = Target.named(b"x")
 
 type Walker

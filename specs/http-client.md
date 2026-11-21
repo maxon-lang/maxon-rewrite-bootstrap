@@ -65,10 +65,8 @@ as the server name and the name the certificate must match, ALPN `http/1.1`, the
 ### Invalid URL
 
 <!-- test: http-client.invalid-url -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let response = try HttpClient.get("not a url") 'ok'
 		return 1
 	end 'ok' else 'err'

@@ -345,7 +345,6 @@ ok=2 blocked=true
 <!-- test: netpoll-socket.a-read-the-kernel-finished-keeps-its-bytes-past-its-deadline -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- procs: 1 -->
 **A RECEIVE THE KERNEL FINISHED IS ANSWERED WITH ITS BYTES, WHATEVER ITS DEADLINE SAYS.** On the
 completion-port lane a deadline that ends the wait while a receive is outstanding cancels the receive and
@@ -382,7 +381,6 @@ function main() returns ExitCode
 	var timeouts = 0 as Count
 	var open = true
 	while open 'reading'
-		// TODO: if try is not supported in minimaxon
 		if let chunk = try client.readSome(1024) 'got'
 			heard = "{heard}{String.from(chunk)}"
 			open = not chunk.isEmpty()

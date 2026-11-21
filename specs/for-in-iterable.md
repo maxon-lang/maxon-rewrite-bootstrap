@@ -57,18 +57,18 @@ type IntCursor
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
 	function current() returns Integer
 		return try self.items.get(self.pos as ElementIndex) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= (self.items.count() as Integer) 'atEnd'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= (try self.items.count() as Integer otherwise panic("out of range")) 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'IntCursor'
 
@@ -76,7 +76,7 @@ type IntSeq
 	var items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function createIterator() returns IntCursor throws IterationError
@@ -85,16 +85,16 @@ type IntSeq
 end 'IntSeq'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(10)
 	a.push(20)
 	a.push(30)
 	let s = IntSeq.create(a)
 	var sum = 0 as Integer
 	for v in s 'each'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -118,18 +118,18 @@ type IntCursor
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
 	function current() returns Integer
 		return try self.items.get(self.pos as ElementIndex) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= (self.items.count() as Integer) 'atEnd'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= (try self.items.count() as Integer otherwise panic("out of range")) 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'IntCursor'
 
@@ -137,7 +137,7 @@ type IntSeq
 	var items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function createIterator() returns IntCursor throws IterationError
@@ -148,7 +148,7 @@ end 'IntSeq'
 function total(s IntSeq) returns Integer
 	var sum = 7 as Integer
 	for v in s 'each'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
 	return sum
 end 'total'
@@ -156,7 +156,7 @@ end 'total'
 function main() returns ExitCode
 	let empty = IntSeq.create(IntArray.create(0))
 	print("empty={total(empty)}\n")
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(1)
 	a.push(2)
 	print("filled={total(IntSeq.create(a))}\n")
@@ -187,18 +187,18 @@ type IntCursor
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
 	function current() returns Integer
 		return try self.items.get(self.pos as ElementIndex) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= (self.items.count() as Integer) 'atEnd'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= (try self.items.count() as Integer otherwise panic("out of range")) 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'IntCursor'
 
@@ -206,7 +206,7 @@ type IntSeq
 	var items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function createIterator() returns IntCursor throws IterationError
@@ -233,7 +233,7 @@ function earlyReturn(s IntSeq) returns Integer
 end 'earlyReturn'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(10)
 	a.push(20)
 	a.push(30)
@@ -316,18 +316,18 @@ type Resumable
 	var pos as Integer
 
 	static function create(items IntArray) returns Self
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
 	function current() returns Integer
 		return try self.items.get(self.pos as ElementIndex) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= (self.items.count() as Integer) 'atEnd'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= (try self.items.count() as Integer otherwise panic("out of range")) 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 
 	function createIterator() returns Resumable
@@ -336,19 +336,19 @@ type Resumable
 end 'Resumable'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(10)
 	a.push(20)
 	a.push(30)
 	a.push(40)
-	let it = Resumable.create(a)
+	var it = Resumable.create(a)
 	try it.advance() otherwise panic("advance")
 	try it.advance() otherwise panic("advance")
 	var sum = 0 as Integer
 	for v in it 'each'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

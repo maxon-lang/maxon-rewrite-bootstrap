@@ -839,7 +839,7 @@ the binding copies it at run time (`__str_unshare`): `out.append("XY")` appends 
 The record is shared only while the result is not written.
 ```maxon
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 function main() returns ExitCode
@@ -870,7 +870,7 @@ function make() returns String
 end 'make'
 
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 function main() returns ExitCode
@@ -901,7 +901,7 @@ function make() returns String
 end 'make'
 
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 function main() returns ExitCode
@@ -934,21 +934,21 @@ function make() returns String
 end 'make'
 
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 type Holder
 	var text as String
 
 	static function create(text String) returns Holder
-		return Holder{text: text}
+		return Holder{text: text.clone()}
 	end 'create'
 
-	function adopt(src String)
+	function adopt(mutates self, src String)
 		self.text = relay(src)
 	end 'adopt'
 
-	function grow()
+	function grow(mutates self)
 		self.text.append("XY")
 	end 'grow'
 
@@ -959,7 +959,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let v = make()
-	let h = Holder.create("zz")
+	var h = Holder.create("zz")
 	h.adopt(v)
 	h.grow()
 	h.show(v)
@@ -985,7 +985,7 @@ function make() returns String
 end 'make'
 
 function relay(s String) returns String
-	return s
+	return s.clone()
 end 'relay'
 
 type Holder
@@ -995,7 +995,7 @@ type Holder
 		return Holder{text: relay(src)}
 	end 'adopting'
 
-	function grow()
+	function grow(mutates self)
 		self.text.append("XY")
 	end 'grow'
 
@@ -1006,7 +1006,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let v = make()
-	let h = Holder.adopting(v)
+	var h = Holder.adopting(v)
 	h.grow()
 	h.show(v)
 	return 0
@@ -1034,14 +1034,14 @@ type Holder
 	var text as String
 
 	static function create(text String) returns Holder
-		return Holder{text: text}
+		return Holder{text: text.clone()}
 	end 'create'
 
-	function adopt(src String)
-		self.text = src
+	function adopt(mutates self, src String)
+		self.text = src.clone()
 	end 'adopt'
 
-	function grow()
+	function grow(mutates self)
 		self.text.append("XY")
 	end 'grow'
 
@@ -1052,11 +1052,11 @@ end 'Holder'
 
 function main() returns ExitCode
 	let v = make()
-	let h = Holder.create("zz")
+	var h = Holder.create("zz")
 	h.adopt(v)
 	h.grow()
 	h.show(v)
-	let g = Holder.create(v)
+	var g = Holder.create(v)
 	g.grow()
 	g.show(v)
 	return 0

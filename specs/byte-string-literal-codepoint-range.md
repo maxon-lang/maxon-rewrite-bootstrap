@@ -27,11 +27,9 @@ so the input is rejected instead and this whole spec is marked
 ## Tests
 
 <!-- test: error.byte-string-literal.codepoint-literal-latin-extended -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Codepoint U+0100 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"Ā"
 	return bytes.count()
 end 'main'
@@ -41,11 +39,9 @@ error E1004: <fragment>:3:14: Codepoint U+0100 exceeds the byte range 0-255 in b
 ```
 
 <!-- test: error.byte-string-literal.codepoint-uni-escape -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Codepoint U+0100 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\u0100"
 	return bytes.count()
 end 'main'
@@ -55,11 +51,9 @@ error E1004: <fragment>:3:14: Codepoint U+0100 exceeds the byte range 0-255 in b
 ```
 
 <!-- test: error.byte-string-literal.codepoint-emoji -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Codepoint U+1f600 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"😀"
 	return bytes.count()
 end 'main'

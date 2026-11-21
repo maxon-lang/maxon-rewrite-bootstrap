@@ -3851,7 +3851,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3861,8 +3861,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	let n = "x".count()
 	if n > 5 'rebind'
 		h = Holder.create()
@@ -3884,6 +3884,7 @@ a replaced
 ```
 
 <!-- test: error.let-alias-of-a-var-rebound-on-one-path-is-moved-after-the-branch -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let h2 = h` moves `h`, so rebinding `h` in only one branch leaves it moved on the path that skipped the branch.
 
@@ -4048,7 +4049,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4058,8 +4059,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	let n = "x".count()
 	h = h2 if n < 5 else Holder.create()
 	let p = PA.build(h2.f, second: put(h.f))
@@ -4204,7 +4205,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4214,8 +4215,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	let n = "x".count()
 	h = h if n < 5 else Holder.create()
 	let p = PA.build(h2.f, second: put(h.f))
@@ -4254,7 +4255,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -5549,7 +5550,7 @@ end 'main'
 ```
 
 <!-- test: else-if-try-after-the-first-condition -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'if' -->
 A catching `else if` condition begins after the first condition has finished, so it does not overlap the first condition's reads.
 
 ```maxon
@@ -5572,7 +5573,6 @@ end 'fill'
 
 function main() returns ExitCode
 	var s = "original"
-	// TODO: if try is not supported in minimaxon
 	if try probe(s) 'first'
 		print("first\n")
 	end 'first' else if try fill(s) 'second'

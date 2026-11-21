@@ -26,14 +26,14 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
 function makeSlice() returns ItemArray throws ArrayError
-	let src = ItemArray.create(0)
+	var src = ItemArray.create(0)
 	src.push(Item.create("first item long enough for heap allocation", value: 10))
 	src.push(Item.create("second item long enough for heap allocation", value: 20))
 	src.push(Item.create("third item long enough for heap allocation", value: 30))
@@ -47,7 +47,7 @@ function main() returns ExitCode
 		return 99
 	end 'badCount'
 	let item = try sliced.get(0) otherwise Item.create("", value: 0)
-	return item.value
+	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -68,7 +68,7 @@ end 'Op'
 typealias OpArray = Array with Op
 
 function makeSlice() returns OpArray throws ArrayError
-	let src = OpArray.create(0)
+	var src = OpArray.create(0)
 	src.push(Op.add(10))
 	src.push(Op.sub(20))
 	src.push(Op.add(30))
@@ -82,7 +82,7 @@ function main() returns ExitCode
 	end 'badCount'
 	let op = try sliced.get(0) otherwise Op.nop
 	match op 'check'
-		sub(v) then return v
+		sub(v) then return try v as ExitCode otherwise panic("out of range")
 		add then return 98
 		nop then return 97
 	end 'check'
@@ -104,14 +104,14 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let src = ItemArray.create(0)
+	var src = ItemArray.create(0)
 	src.push(Item.create("alpha item long enough for heap alloc", value: 10))
 	src.push(Item.create("beta item long enough for heap alloc", value: 20))
 	src.push(Item.create("gamma item long enough for heap alloc", value: 30))
@@ -125,7 +125,7 @@ function main() returns ExitCode
 		return 96
 	end 'badSrcCount'
 	let item = try sub.get(1) otherwise Item.create("", value: 0)
-	return item.value
+	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -155,7 +155,7 @@ function checkLeaf(n String) returns ExitCode
 end 'checkLeaf'
 
 function makeSlice() returns NodeArray throws ArrayError
-	let src = NodeArray.create(0)
+	var src = NodeArray.create(0)
 	src.push(Node.leaf("first leaf node name long enough for heap"))
 	src.push(Node.branch(42))
 	src.push(Node.leaf("third leaf node name long enough for heap"))
@@ -191,7 +191,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let src = IntArray.create(0)
+	var src = IntArray.create(0)
 	src.push(10)
 	src.push(20)
 	src.push(30)
@@ -199,7 +199,7 @@ function main() returns ExitCode
 	if sub.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	return try sub.get(0) otherwise 97
+	return try (try sub.get(0) otherwise 97) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

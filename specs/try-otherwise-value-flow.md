@@ -170,7 +170,7 @@ receiver's try-merge block unterminated (assertAllBlocksTerminated panic).
 Two such statements in one block expose it — the second try would overwrite the
 entry block's terminator, orphaning the first try's merge.
 ```maxon
-function swapFirstTwo(rows StringArray, doSwap bool)
+function swapFirstTwo(mutates rows StringArray, doSwap bool)
 	if doSwap 'swap'
 		let tmp = (try rows.get(0) otherwise panic("oob")).clone()
 		try rows.set(0, value: try rows.get(1) otherwise panic("oob")) otherwise panic("oob")
@@ -179,12 +179,12 @@ function swapFirstTwo(rows StringArray, doSwap bool)
 end 'swapFirstTwo'
 
 function main() returns ExitCode
-	let rows = StringArray.create(0)
+	var rows = StringArray.create(0)
 	rows.push("a")
 	rows.push("b")
 	swapFirstTwo(rows, doSwap: true)
 	let first = try rows.get(0) otherwise panic("oob")
-	return first.byteLength() as ExitCode
+	return try first.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -254,7 +254,7 @@ function check(bytes OctetArray, i Octet) returns ExitCode
 end 'check'
 
 function main() returns ExitCode
-	let a = OctetArray.create(0)
+	var a = OctetArray.create(0)
 	a.push(200)
 	return check(a, i: 0)
 end 'main'
@@ -374,8 +374,8 @@ function risky(ok bool) returns String throws Fail
 end 'risky'
 
 function choose(base String, ok bool) returns Len
-	let got = try risky(ok) otherwise base
-	return got.count()
+	let got = try risky(ok) otherwise base.clone()
+	return try got.count() as Len otherwise panic("out of range")
 end 'choose'
 
 function main() returns ExitCode

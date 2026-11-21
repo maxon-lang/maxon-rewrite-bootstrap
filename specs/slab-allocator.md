@@ -111,7 +111,7 @@ typealias Bufs = Array with ByteArray
 typealias Len = int(0 to 4096)
 
 function build(n Len) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto n 'fill'
 		b.push(((i + n) mod 251) as Byte)
@@ -120,7 +120,7 @@ function build(n Len) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for n in 1 upto 261 'alloc'
 		bufs.push(build(n as Len))
 	end 'alloc'
@@ -167,7 +167,7 @@ typealias Bufs = Array with ByteArray
 typealias Index = int(0 to 65536)
 
 function build(seed Index) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(24)
 	for i in 0 upto 24 'fill'
 		b.push(((seed + i) mod 251) as Byte)
@@ -176,7 +176,7 @@ function build(seed Index) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for k in 0 upto 3000 'alloc'
 		bufs.push(build(k as Index))
 	end 'alloc'
@@ -224,7 +224,7 @@ typealias ByteArray = Array with Byte
 typealias Round = int(0 to 255)
 
 function roundTrip(r Round) returns Integer
-	let big = ByteArray.create(0)
+	var big = ByteArray.create(0)
 	big.reserve(300000)
 	for i in 0 upto 512 'fill'
 		big.push(((r + i) mod 251) as Byte)
@@ -242,7 +242,7 @@ end 'roundTrip'
 function main() returns ExitCode
 	var bad = 0 as Integer
 	for r in 0 upto 64 'rounds'
-		bad = bad + roundTrip(r as Round)
+		bad = try bad + roundTrip(r as Round) otherwise panic("out of range")
 	end 'rounds'
 	if bad != 0 'corrupted'
 		return 3
@@ -274,7 +274,7 @@ typealias Bufs = Array with ByteArray
 typealias Index = int(0 to 255)
 
 function build(k Index) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve((280000 + k * 4096) as ElementIndex)
 	for i in 0 upto 64 'fill'
 		b.push(((k * 7 + i) mod 251) as Byte)
@@ -283,7 +283,7 @@ function build(k Index) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for k in 0 upto 40 'alloc'
 		bufs.push(build(k as Index))
 	end 'alloc'
@@ -378,7 +378,7 @@ typealias Bufs = Array with ByteArray
 typealias Len = int(0 to 4096)
 
 function build(n Len, seed Len) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto n 'fill'
 		b.push(((i + seed) mod 251) as Byte)
@@ -387,7 +387,7 @@ function build(n Len, seed Len) returns ByteArray
 end 'build'
 
 function verify(b ByteArray, n Len, seed Len) returns Integer
-	if (b.count() as Len) != n 'length'
+	if (try b.count() as Len otherwise panic("out of range")) != n 'length'
 		return 1
 	end 'length'
 	var wrong = 0 as Integer
@@ -401,14 +401,14 @@ function verify(b ByteArray, n Len, seed Len) returns Integer
 end 'verify'
 
 function main() returns ExitCode
-	let keep = Bufs.create(0)
+	var keep = Bufs.create(0)
 	for k in 0 upto 120 'survivors'
 		keep.push(build((k + 8) as Len, seed: k as Len))
 	end 'survivors'
 	// Four waves of churn. Each wave builds and drops its own population, so the slots it takes come
 	// from — and go back to — the same spans and buckets the survivors were cut from.
 	for wave in 0 upto 4 'waves'
-		let churn = Bufs.create(0)
+		var churn = Bufs.create(0)
 		for k in 0 upto 200 'build'
 			churn.push(build(((k mod 97) + wave * 13 + 1) as Len, seed: (k + wave) as Len))
 		end 'build'
@@ -416,7 +416,7 @@ function main() returns ExitCode
 	var bad = 0 as Integer
 	for k in 0 upto 120 'check'
 		let b = try keep.get(k) otherwise return 1
-		bad = bad + verify(b, n: (k + 8) as Len, seed: k as Len)
+		bad = try bad + verify(b, n: (k + 8) as Len, seed: k as Len) otherwise panic("out of range")
 	end 'check'
 	if bad != 0 'corrupted'
 		return 3
@@ -431,7 +431,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: slab-allocator.empty-buffers-go-back-to-their-span -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 **THE SPAN FREE LIST, AT THE SMALLEST BOX THERE IS.** An EMPTY element buffer is a box with a ZERO
 payload — 16 bytes of header and nothing else — so it lands in the smallest class a box reaches, and its
 death pushes that slot back onto its span's free list. Two thousand of them are built and dropped
@@ -460,10 +459,9 @@ typealias Bufs = Array with ByteArray
 typealias Len = int(0 to 256)
 
 function emptyThenGrow(n Len) returns ByteArray
-	// TODO: byte string literals are not supported in minimaxon
 	let b = b"".clone()
 	for i in 0 upto n 'fill'
-		b.push(((i + n) mod 251) as Byte)
+		b.push(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((i + n) mod 251) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte)
 	end 'fill'
 	return b
 end 'emptyThenGrow'
@@ -474,7 +472,6 @@ function main() returns ExitCode
 		keep.push(emptyThenGrow((k + 1) as Len))
 	end 'survivors'
 	for _ in 0 upto 2000 'churn'
-		// TODO: byte string literals are not supported in minimaxon
 		let scratch = b"".clone()
 		scratch.push(1)
 	end 'churn'
@@ -533,7 +530,7 @@ let LenStep = 4
 let SweepCount = 26
 
 function build(n Len) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto n 'fill'
 		b.push(((i + n) mod 251) as Byte)
@@ -542,7 +539,7 @@ function build(n Len) returns ByteArray
 end 'build'
 
 function sweep() returns Integer
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for k in 0 upto SweepCount 'alloc'
 		bufs.push(build((FirstLen + k * LenStep) as Len))
 	end 'alloc'
@@ -601,7 +598,7 @@ typealias Bufs = Array with ByteArray
 typealias Len = int(0 to 65536)
 
 function build(n Len, seed Len) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto 32 'fill'
 		b.push(((i + seed) mod 251) as Byte)
@@ -610,7 +607,7 @@ function build(n Len, seed Len) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for k in 0 upto 96 'alloc'
 		bufs.push(build((9000 + k * 220) as Len, seed: k as Len))
 	end 'alloc'
@@ -654,7 +651,7 @@ typealias Bufs = Array with ByteArray
 typealias Len = int(0 to 65536)
 
 function build(n Len, seed Len) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto 16 'fill'
 		b.push(((i + seed) mod 251) as Byte)
@@ -663,7 +660,7 @@ function build(n Len, seed Len) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	// Sixteen sizes spread across the ladder, forty spans' worth of each: the arena serves a run per
 	// span, and the runs are of sixteen different lengths.
 	for k in 0 upto 640 'alloc'

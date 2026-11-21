@@ -557,7 +557,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.read-appending-past-the-capacity-is-refused -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A `readAppending` whose bytes would run past the buffer's capacity is `readFailed`, and reads nothing.
 ```maxon
@@ -570,7 +569,6 @@ function main() returns ExitCode
 	let buffer = try __ManagedMemory.create(4, 1) otherwise return 4
 	let first = try r.readAppending(buffer, 3) otherwise return 5
 	var answer = 6 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let over = try r.readAppending(buffer, 2) 'read'
 		answer = (10 + over) as ExitCode
 	end 'read' else (e) 'refused'
@@ -645,7 +643,6 @@ error E3005: <fragment>:5:18: argument type mismatch for 'managed': expected '__
 ```
 
 <!-- test: managed-file.a-file-held-open-for-reading-can-be-rewritten-and-deleted -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A read handle shares the file with every other open: while one is held, the same path can be opened for
 writing, written, and deleted.
@@ -657,7 +654,6 @@ function main() returns ExitCode
 	first.close()
 	let held = try __ManagedFile.openRead(path.toByteArray().managed) otherwise return 3
 	var answer = 42 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let rewrite = try __ManagedFile.openWrite(path.toByteArray().managed) 'rewritten'
 		let w = rewrite
 		try w.write("rewritten".toByteArray().managed) otherwise 'unwritten'

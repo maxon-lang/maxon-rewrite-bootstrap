@@ -149,15 +149,15 @@ operation outright would disagree with `lea`/`sub`/`imul` on exactly these input
 typealias Word = int(i64.min to i64.max)
 
 function add(a Word, b Word) returns Word
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function sub(a Word, b Word) returns Word
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'sub'
 
 function mul(a Word, b Word) returns Word
-	return a * b
+	return try a * b otherwise panic("out of range")
 end 'mul'
 
 function main() returns ExitCode
@@ -238,11 +238,11 @@ these, because a negative count ABORTS THE PROGRAM — see
 typealias Word = int(i64.min to i64.max)
 
 function shiftLeft(v Word, n Word) returns Word
-	return v shl n
+	return try v shl n otherwise panic("out of range")
 end 'shiftLeft'
 
 function shiftRight(v Word, n Word) returns Word
-	return v shr n
+	return try v shr n otherwise panic("out of range")
 end 'shiftRight'
 
 function main() returns ExitCode

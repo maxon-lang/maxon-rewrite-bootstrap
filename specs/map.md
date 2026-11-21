@@ -1250,11 +1250,9 @@ half after the call is a use-after-free: the first case below would print `0 0` 
 keys having been freed the instant they were stored) and then **segfault**, where it prints `1 2`.
 
 <!-- test: top-level-literal.managed-value-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 Both columns managed, and the map is read only AFTER `main` has allocated over whatever the init freed —
 so a released key or value is a wrong answer here rather than a lucky one.
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let m = [b"alpha": "one", b"beta": "two"]
 
 function main() returns ExitCode
@@ -1264,9 +1262,7 @@ function main() returns ExitCode
 		churn.push(65)
 		i = i + 1
 	end 'allocate'
-	// TODO: byte string literals are not supported in minimaxon
 	let a = try m.get(b"alpha") otherwise panic("the file-scope literal lost a key")
-	// TODO: byte string literals are not supported in minimaxon
 	let b = try m.get(b"beta") otherwise panic("the file-scope literal lost a key")
 	print("{a}/{b} count {m.count()} churn {churn.count()}")
 	return 0
@@ -1280,11 +1276,8 @@ one/two count 2 churn 64
 ```
 
 <!-- test: error.body-literal-mixed-value-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let m = [b"a": 1, b"b": "two"]
 	return m.count() as ExitCode
 end 'main'
@@ -1294,12 +1287,9 @@ error E2015: <fragment>:3:26: Unsupported: this `Map`'s value is an int — got 
 ```
 
 <!-- test: error.top-level-literal-mixed-value-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The first pair fixes both columns. A later pair whose half has another type is refused where it is
 written, in the words a body's literal gets.
 ```maxon
-// TODO: byte string literals are not supported in minimaxon
 let m = [b"a": 1, b"b": "two"]
 
 function main() returns ExitCode
@@ -1311,7 +1301,6 @@ error E2015: <fragment>:2:25: Unsupported: this `Map`'s value is an int — got 
 ```
 
 <!-- test: body-literal.enum-value-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ```maxon
 enum Kind
 	one
@@ -1319,9 +1308,7 @@ enum Kind
 end 'Kind'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let m = [b"a": Kind.one, b"b": Kind.two]
-	// TODO: byte string literals are not supported in minimaxon
 	let k = try m.get(b"b") otherwise Kind.one
 	print("{k.name}\n")
 	return m.count() as ExitCode
@@ -1335,7 +1322,6 @@ two
 ```
 
 <!-- test: top-level-literal.enum-value-column -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 An enum case is a column value at file scope as it is in a body, and the column is the enum: what `m.get`
 hands back is a `Kind`.
 ```maxon
@@ -1344,14 +1330,11 @@ enum Kind
 	two
 end 'Kind'
 
-// TODO: byte string literals are not supported in minimaxon
 let m = [b"a": Kind.one, b"b": Kind.two]
 
 function main() returns ExitCode
 	let grown = m.clone()
-	// TODO: byte string literals are not supported in minimaxon
 	grown.upsert(b"c", value: Kind.one)
-	// TODO: byte string literals are not supported in minimaxon
 	let k = try m.get(b"b") otherwise Kind.one
 	print("{k.name}\n")
 	return grown.count() as ExitCode

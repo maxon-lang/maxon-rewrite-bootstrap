@@ -300,7 +300,6 @@ true true true
 ```
 
 <!-- test: aes-hardware.a-literal-array-is-copied-before-it-is-written -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An output array copied from a literal is the program's own buffer, so the block is stored into the copy and
 the literal it started from is unchanged.
@@ -313,11 +312,8 @@ function main() returns ExitCode
 	end 'eachKeyByte'
 	schedule.resize(352)
 	__Builtins.aesExpandKey(schedule, key)
-	// TODO: byte string literals are not supported in minimaxon
 	let original = b"0123456789abcdef0123456789abcdef"
-	// TODO: byte string literals are not supported in minimaxon
 	let output = b"0123456789abcdef0123456789abcdef".clone()
-	// TODO: byte string literals are not supported in minimaxon
 	let plain = b"00112233445566778899aabbccddeeff"
 	__Builtins.aesEncryptBlock(output, 3, schedule, plain, 0)
 	var changed = false
@@ -344,7 +340,6 @@ true true 51
 ```
 
 <!-- test: aes-hardware.error.a-literal-array-is-refused-as-an-output -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A `var` bound to a literal still names the program's constant data, so the block cannot be stored into it.
@@ -357,9 +352,7 @@ function main() returns ExitCode
 	end 'eachKeyByte'
 	schedule.resize(352)
 	__Builtins.aesExpandKey(schedule, key)
-	// TODO: byte string literals are not supported in minimaxon
 	var output = b"0123456789abcdef0123456789abcdef"
-	// TODO: byte string literals are not supported in minimaxon
 	let plain = b"00112233445566778899aabbccddeeff"
 	__Builtins.aesEncryptBlock(output, 3, schedule, plain, 0)
 	return 0
@@ -526,7 +519,6 @@ error E3104: <fragment>:20:13: this construct lowers to the runtime entry '__cpu
 ```
 
 <!-- test: aes-hardware.ctr-groups-match-the-bitsliced-cipher -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -588,10 +580,8 @@ function mismatches(keyBytes Count) returns Count
 				let counter = counterFor(mode, span: first + group)
 				let region = bytesFor(keyBytes + group + first * 3 + mode, count: group * 16)
 				let buffer = ByteArray.create(0)
-				// TODO: byte string literals are not supported in minimaxon
 				buffer.append(b"abcde")
 				buffer.append(region)
-				// TODO: byte string literals are not supported in minimaxon
 				buffer.append(b"xyz")
 				__Builtins.aesCtrXor(buffer, 5, schedule, counterBlock(nonce, counter: counter), first, group)
 				let shifted = (counter + first) as AesCounter
@@ -1322,7 +1312,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.gcm-literal-arrays-are-copied-before-they-are-written -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A key block or an output copied from a literal is the program's own buffer, so the calls write the copies and leave the
 literals they started from unchanged.
@@ -1335,9 +1324,7 @@ function main() returns ExitCode
 	end 'eachKeyByte'
 	schedule.resize(352)
 	__Builtins.aesExpandKey(schedule, key)
-	// TODO: byte string literals are not supported in minimaxon
 	let originalKeys = b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	// TODO: byte string literals are not supported in minimaxon
 	let keyBlock = b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".clone()
 	__Builtins.aesGcmInit(keyBlock, schedule)
 	var keysChanged = false
@@ -1346,13 +1333,9 @@ function main() returns ExitCode
 			keysChanged = true
 		end 'differs'
 	end 'eachKeyBlockByte'
-	// TODO: byte string literals are not supported in minimaxon
 	let plain = b"0123456789abcdef"
-	// TODO: byte string literals are not supported in minimaxon
 	let originalBuffer = b"0123456789abcdef0123456789abcdef"
-	// TODO: byte string literals are not supported in minimaxon
 	let buffer = b"0123456789abcdef0123456789abcdef".clone()
-	// TODO: byte string literals are not supported in minimaxon
 	__Builtins.aesGcmSeal(buffer, 0, keyBlock, b"0123456789ab", b"hello", plain)
 	print("{keysChanged} {buffer.equals(originalBuffer)} {try originalBuffer.get(31) otherwise 0}\n")
 	return 0
@@ -1366,7 +1349,6 @@ true false 102
 ```
 
 <!-- test: aes-hardware.error.a-literal-key-block-is-refused-as-the-gcm-init-target -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A key block that names a literal cannot be filled by `aesGcmInit`.
@@ -1379,7 +1361,6 @@ function main() returns ExitCode
 	end 'eachKeyByte'
 	schedule.resize(352)
 	__Builtins.aesExpandKey(schedule, key)
-	// TODO: byte string literals are not supported in minimaxon
 	var keyBlock = b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	__Builtins.aesGcmInit(keyBlock, schedule)
 	return 0

@@ -91,7 +91,6 @@ The error is bound to `e` and available within the else-block.
 ## Tests
 
 <!-- test: if-try-boolean-success -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 enum MyError implements Error
@@ -106,7 +105,6 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(true) 'check'
 		result = 1
 	end 'check'
@@ -118,7 +116,6 @@ end 'main'
 ```
 
 <!-- test: if-try-boolean-failure -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 enum MyError implements Error
@@ -133,7 +130,6 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(false) 'check'
 		result = 1
 	end 'check'
@@ -145,7 +141,6 @@ end 'main'
 ```
 
 <!-- test: if-try-binding-success -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -162,9 +157,8 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let value = try mayFail(true) 'check'
-		return value
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'
@@ -174,7 +168,6 @@ end 'main'
 ```
 
 <!-- test: if-try-binding-failure -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -191,9 +184,8 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let value = try mayFail(false) 'check'
-		return value
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 99
 end 'main'
@@ -203,7 +195,6 @@ end 'main'
 ```
 
 <!-- test: if-try-else-block -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 enum MyError implements Error
@@ -218,7 +209,6 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(false) 'check'
 		result = 1
 	end 'check' else 'err'
@@ -232,7 +222,6 @@ end 'main'
 ```
 
 <!-- test: if-try-else-success -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 enum MyError implements Error
@@ -247,7 +236,6 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(true) 'check'
 		result = 1
 	end 'check' else 'err'
@@ -261,7 +249,6 @@ end 'main'
 ```
 
 <!-- test: if-try-binding-with-else -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -278,9 +265,8 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let value = try mayFail(false) 'check'
-		return value
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check' else 'err'
 		return 77
 	end 'err'
@@ -291,7 +277,6 @@ end 'main'
 ```
 
 <!-- test: if-try-binding-with-else-success -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -308,9 +293,8 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let value = try mayFail(true) 'check'
-		return value
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check' else 'err'
 		return 77
 	end 'err'
@@ -321,7 +305,6 @@ end 'main'
 ```
 
 <!-- test: if-try-var-binding-reassign -->
-<!-- skip: if try is not supported in minimaxon -->
 The `if var` form produces a mutable binding that can be reassigned inside the then-block.
 ```maxon
 
@@ -339,10 +322,9 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if var value = try mayFail(true) 'check'
-		value = value + 10
-		return value
+		value = try value + 10 otherwise panic("out of range")
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'
@@ -352,7 +334,6 @@ end 'main'
 ```
 
 <!-- test: if-try-var-binding-failure -->
-<!-- skip: if try is not supported in minimaxon -->
 The `var` keyword does not change failure dispatch — the then-block is still skipped on error.
 ```maxon
 
@@ -370,10 +351,9 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if var value = try mayFail(false) 'check'
-		value = value + 10
-		return value
+		value = try value + 10 otherwise panic("out of range")
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 99
 end 'main'
@@ -383,7 +363,6 @@ end 'main'
 ```
 
 <!-- test: if-try-var-binding-managed-struct -->
-<!-- skip: if try is not supported in minimaxon -->
 A mutable binding to a managed type (String) can be mutated via append; the binding is cleaned up
 correctly at end-of-then-block.
 ```maxon
@@ -400,7 +379,6 @@ function makeGreeting(succeed bool) returns String throws MyError
 end 'makeGreeting'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if var s = try makeGreeting(true) 'check'
 		s.append(" world")
 		return s.bytes().count()
@@ -413,7 +391,6 @@ end 'main'
 ```
 
 <!-- test: if-try-else-with-error-binding -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -434,7 +411,6 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(1) 'check'
 		result = 100
 	end 'check' else (e) 'err'
@@ -451,7 +427,6 @@ end 'main'
 ```
 
 <!-- test: if-try-nested -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 enum MyError implements Error
@@ -466,9 +441,7 @@ end 'runStep'
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try runStep(true) 'outer'
-		// TODO: if try is not supported in minimaxon
 		if try runStep(true) 'inner'
 			result = 3
 		end 'inner'
@@ -481,7 +454,6 @@ end 'main'
 ```
 
 <!-- test: if-try-in-loop -->
-<!-- skip: if try is not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -501,13 +473,12 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 5 'loop'
-		// TODO: if try is not supported in minimaxon
 		if let val = try mayFail(i) 'check'
-			sum = sum + val
+			sum = try sum + val otherwise panic("out of range")
 		end 'check'
 		i = i + 1
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -573,8 +544,6 @@ error E3087: specs/if-try/error.if-try-redundant-contains-get-field-receiver.max
 ```
 
 <!-- test: error.if-try-non-throwing -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 Using `if try` with a non-throwing function is a compile-time error.
 
 ```maxon
@@ -586,7 +555,6 @@ function noThrow() returns Integer
 end 'noThrow'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try noThrow() 'check'
 		return 1
 	end 'check'
@@ -598,7 +566,6 @@ error E3055: specs/if-try/error.if-try-non-throwing.maxon:10:5: try requires a t
 ```
 
 <!-- test: if-try-binding-struct-multiple-managed-fields -->
-<!-- skip: if try is not supported in minimaxon -->
 When using if-let with a struct that has multiple managed fields (like Array and String fields),
 all managed fields must be properly cleaned up when the binding goes out of scope.
 
@@ -617,7 +584,7 @@ type MultiManaged
 	export var tag as String
 
 	static function create(numbers IntArray, text String, tag String) returns Self
-		return Self{numbers: numbers, text: text, tag: tag}
+		return Self{numbers: numbers.clone(), text: text.clone(), tag: tag.clone()}
 	end 'create'
 end 'MultiManaged'
 
@@ -625,7 +592,7 @@ function mayFail(succeed bool) returns MultiManaged throws MyError
 	if not succeed 'check'
 		throw MyError.failed
 	end 'check'
-	let nums = IntArray.create(0)
+	var nums = IntArray.create(0)
 	nums.push(10)
 	nums.push(20)
 	return MultiManaged.create(nums, text: "hello", tag: "world")
@@ -635,13 +602,12 @@ function main() returns ExitCode
 	var result = 0 as Int
 	var i = 0 as Count
 	while i < 3 'loop'
-		// TODO: if try is not supported in minimaxon
 		if let item = try mayFail(true) 'check'
-			result = result + (try item.numbers.get(0) otherwise 0)
+			result = try result + (try item.numbers.get(0) otherwise 0) otherwise panic("out of range")
 		end 'check'
 		i = i + 1
 	end 'loop'
-	return result as ExitCode
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -732,7 +698,7 @@ end 'main'
 ```
 
 <!-- test: if-try-else-if-let -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'if' -->
 Chained `if let = try ... end 'a' else if let = try ... end 'b'`. The else
 branch must accept a new `if`/`if let` as its body without requiring a label.
 
@@ -757,7 +723,6 @@ end 'tryB'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: if try is not supported in minimaxon
 	if let a = try tryA() 'a'
 		result = a
 	end 'a' else if let b = try tryB(42) 'b'
@@ -771,7 +736,7 @@ end 'main'
 ```
 
 <!-- test: if-try-else-if-let-three-way -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'if' -->
 Three-way `if let / else if let / else` chain.
 
 ```maxon
@@ -792,7 +757,6 @@ end 'tryB'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: if try is not supported in minimaxon
 	if let a = try tryA() 'a'
 		result = a
 	end 'a' else if let b = try tryB() 'b'
@@ -808,7 +772,7 @@ end 'main'
 ```
 
 <!-- test: if-try-else-if-plain-after-binding -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'if' -->
 `else if <plain-expr>` after an `if let = try`.
 
 ```maxon
@@ -826,7 +790,6 @@ end 'mayFail'
 function main() returns ExitCode
 	let x = 2
 	var result = 0 as Integer
-	// TODO: if try is not supported in minimaxon
 	if let v = try mayFail() 'check'
 		result = v
 	end 'check' else if x == 2 'two'
@@ -843,7 +806,6 @@ end 'main'
 
 <!-- test: if-try-fn-typed-result -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: if try is not supported in minimaxon -->
 A throwing function that returns a FUNCTION must bind through `if let` with its
 signature intact, exactly as `let f = try pick(...) otherwise ...` does. The two
 forms are one rewrite of the call into a try-call, and they were once two copies
@@ -875,7 +837,6 @@ end 'pick'
 function main() returns ExitCode
 	let f = try pick(true) otherwise panic("pick(true) cannot fail")
 	let a = f(3)
-	// TODO: if try is not supported in minimaxon
 	if let g = try pick(true) 'ok'
 		let b = g(4)
 		return a + b
@@ -889,8 +850,6 @@ end 'main'
 ```
 
 <!-- test: error.if-try-discards-a-result -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 `if try` is a THROW test, not a value test: the then-block runs whenever the call did not throw,
 whatever it produced. So a callee with a result has that result silently dropped while the source
 reads as though the result were what is being tested. Without this refusal this exact program would
@@ -910,7 +869,6 @@ function answer(succeed bool) returns bool throws MyError
 end 'answer'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try answer(true) 'check'
 		return 7
 	end 'check'
@@ -922,8 +880,6 @@ error E3124: specs/if-try/error.if-try-discards-a-result.maxon:15:5: 'if try' di
 ```
 
 <!-- test: error.if-try-discards-a-non-bool-result -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 ONE law, not a type-keyed one. `bool` is only where the misreading is loudest; the refusal is on
 "the call produces a value", so an `Integer` result is dropped exactly as silently and is refused
 exactly the same way.
@@ -944,7 +900,6 @@ function mayFail(succeed bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if try mayFail(true) 'check'
 		return 1
 	end 'check'
@@ -956,7 +911,6 @@ error E3124: specs/if-try/error.if-try-discards-a-non-bool-result.maxon:17:5: 'i
 ```
 
 <!-- test: if-try-void-callee-runs-its-effect -->
-<!-- skip: if try is not supported in minimaxon -->
 The form the rule leaves standing: "run this, branch on whether it worked". The callee's effect
 happens on the success path and is skipped on the throwing one, and nothing is dropped because
 there is nothing to drop.
@@ -973,17 +927,15 @@ function recordVisit(succeed bool, mutates visits Integer) throws MyError
 	if not succeed 'check'
 		throw MyError.failed
 	end 'check'
-	visits = visits + 1
+	visits = try visits + 1 otherwise panic("out of range")
 end 'recordVisit'
 
 function main() returns ExitCode
 	var visits = 0 as Integer
 	var taken = 0 as Count
-	// TODO: if try is not supported in minimaxon
 	if try recordVisit(true, visits: visits) 'ok'
 		taken = taken + 1
 	end 'ok'
-	// TODO: if try is not supported in minimaxon
 	if try recordVisit(false, visits: visits) 'bad'
 		taken = taken + 10
 	end 'bad'
@@ -999,7 +951,7 @@ end 'main'
 ```
 
 <!-- test: if-try-impure-result-may-be-discarded -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 An IMPURE callee's result may be dropped, provided the program SAYS so: `_` is the discard
 identifier, and writing it is the whole of what the rule asks for. The call still runs — the
 counter it bumps proves it — and the then-block still tests only whether it threw.
@@ -1023,11 +975,9 @@ end 'impureFail'
 function main() returns ExitCode
 	var calls = 0 as Integer
 	var taken = 0 as Count
-	// TODO: if try is not supported in minimaxon
 	if let _ = try impureFail(true, calls: calls) 'ok'
 		taken = taken + 1
 	end 'ok'
-	// TODO: if try is not supported in minimaxon
 	if let _ = try impureFail(false, calls: calls) 'bad'
 		taken = taken + 10
 	end 'bad'
@@ -1043,8 +993,7 @@ end 'main'
 ```
 
 <!-- test: error.if-try-pure-result-is-not-saved-by-discard -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 `_` does not save a PURE callee, and that is the rule's point rather than a gap in it: a pure call
 whose answer nobody wants is the wrong call. The site has to bind the result and USE it, or ask a
 function that answers the question it actually has — `s.contains(x)` rather than a discarded
@@ -1066,7 +1015,6 @@ function pureFail(succeed bool) returns Integer throws MyError
 end 'pureFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let _ = try pureFail(true) 'check'
 		return 1
 	end 'check'
@@ -1078,7 +1026,6 @@ error E3064: specs/if-try/error.if-try-pure-result-is-not-saved-by-discard.maxon
 ```
 
 <!-- test: if-try-binding-uses-the-result -->
-<!-- skip: if try is not supported in minimaxon -->
 The cure for a pure callee, spelled out: the result is bound and used, and the branch still turns
 only on whether the call threw.
 
@@ -1098,9 +1045,8 @@ function pureFail(succeed bool) returns Integer throws MyError
 end 'pureFail'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let value = try pureFail(true) 'check'
-		return value
+		return try value as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'
@@ -1110,8 +1056,6 @@ end 'main'
 ```
 
 <!-- test: error.if-try-binds-a-void-result -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
 The DUAL of the rule above, and the same question from the other side: a binding is a value
 position, so `if let x = try runStep()` asks for a value the call does not produce. It is the fault
 the expression `try` already refuses (`let x = try runStep() otherwise …`), with the same code, the
@@ -1132,7 +1076,6 @@ function runStep(succeed bool) throws MyError
 end 'runStep'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let x = try runStep(true) 'v'
 		print("{x}\n")
 		return 4
@@ -1145,8 +1088,7 @@ error E3059: specs/if-try/error.if-try-binds-a-void-result.maxon:14:13: type mis
 ```
 
 <!-- test: error.if-try-discards-a-void-result -->
-<!-- skip: if try is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 `_` is exempt from the unused checks, not from arithmetic: it discards a result, and a void call has
 no result to discard. Refused on the same code as its named-binding sibling, because it is the same
 mistake with a different spelling — and it compiled clean before, binding nothing from nothing.
@@ -1164,7 +1106,6 @@ function runStep(succeed bool) throws MyError
 end 'runStep'
 
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let _ = try runStep(true) 'v'
 		return 4
 	end 'v'

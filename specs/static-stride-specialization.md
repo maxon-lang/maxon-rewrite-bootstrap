@@ -146,21 +146,21 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function fill(a WordArray, n Word)
+function fill(mutates a WordArray, n Word)
 	for i in 0 upto n 'each'
 		try a.set(i as ElementIndex, value: i * 3 + 1) otherwise panic("set: index out of range")
 	end 'each'
 end 'fill'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(0)
 	end 'seed'
 	fill(a, n: 5)
 	var seen = 0 as Word
 	for i in 0 upto 5 'check'
-		seen = seen + (try a.get(i) otherwise panic("get: index out of range"))
+		seen = try seen + (try a.get(i) otherwise panic("get: index out of range")) otherwise panic("out of range")
 	end 'check'
 	if seen != 35 'sum'
 		return 1

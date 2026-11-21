@@ -403,11 +403,9 @@ end 'main'
 ```
 
 <!-- test: cursor-peek-packed-byte-elements -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 Peek over a byte-string-backed array, whose buffer is genuinely byte-packed (element size 1, unlike a pushed `Array with Byte`, which stores 8-byte slots). A fixed-width qword load in peek's lowering read 7 bytes of adjacent buffer state past the element, so the peeked values carried garbage high bytes — the self-hosted compiler's own lexer tripped over this when `peek(1)` for the `0x` hex prefix returned a huge value that matched neither `x` nor `0`, splitting every hex literal into `0` + identifier.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"0xFF"
 	let it = try bytes.createIterator() otherwise 'fail'
 		return 99

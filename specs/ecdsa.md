@@ -43,7 +43,6 @@ implementation, as each case states.
 ## Tests
 
 <!-- test: ecdsa.verify-1 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `Ecdsa.verify` on well-formed inputs against the canra ecdsa-verify vectors: NIST CAVP, Wycheproof and constructed. Vectors verify-001 to verify-074 (74).
 ```maxon
@@ -78,7 +77,6 @@ function errorName(failure EcdsaError) returns String
 end 'errorName'
 
 function report(id String, curve EcdsaCurve, publicKeyHex String, messageHex String, signatureHex String)
-	// TODO: if try is not supported in minimaxon
 	if let valid = try Ecdsa.verify(curve, publicKey: fromHex(publicKeyHex), message: fromHex(messageHex), signature: fromHex(signatureHex)) 'checked'
 		print("{id} {valid}\n")
 	end 'checked' else (failure) 'refused'
@@ -245,7 +243,6 @@ verify-074 true
 ```
 
 <!-- test: ecdsa.verify-2 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `Ecdsa.verify` on well-formed inputs against the canra ecdsa-verify vectors: NIST CAVP, Wycheproof and constructed. Vectors verify-075 to verify-148 (74).
 ```maxon
@@ -280,7 +277,6 @@ function errorName(failure EcdsaError) returns String
 end 'errorName'
 
 function report(id String, curve EcdsaCurve, publicKeyHex String, messageHex String, signatureHex String)
-	// TODO: if try is not supported in minimaxon
 	if let valid = try Ecdsa.verify(curve, publicKey: fromHex(publicKeyHex), message: fromHex(messageHex), signature: fromHex(signatureHex)) 'checked'
 		print("{id} {valid}\n")
 	end 'checked' else (failure) 'refused'
@@ -447,7 +443,6 @@ verify-148 false
 ```
 
 <!-- test: ecdsa.verify-refusals -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `Ecdsa.verify` refusing a public key or a signature encoding, from the canra ecdsa-verify vectors. Vectors verify-err-001 to verify-err-081 (75).
 ```maxon
@@ -482,7 +477,6 @@ function errorName(failure EcdsaError) returns String
 end 'errorName'
 
 function report(id String, curve EcdsaCurve, publicKeyHex String, messageHex String, signatureHex String)
-	// TODO: if try is not supported in minimaxon
 	if let valid = try Ecdsa.verify(curve, publicKey: fromHex(publicKeyHex), message: fromHex(messageHex), signature: fromHex(signatureHex)) 'checked'
 		print("{id} {valid}\n")
 	end 'checked' else (failure) 'refused'
@@ -651,7 +645,6 @@ verify-err-081 invalidSignatureEncoding
 ```
 
 <!-- test: ecdsa.sign-p256 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `EcdsaP256.sign` against the canra ecdsa-sign-p256 vectors: RFC 6979 A.2.5, computed signatures and refused keys. Vectors sign-001 to sign-err-007 (33).
@@ -696,7 +689,6 @@ function errorName(failure EcdsaSignError) returns String
 end 'errorName'
 
 function report(id String, privateKeyHex String, messageHex String)
-	// TODO: if try is not supported in minimaxon
 	if let signature = try EcdsaP256.sign(fromHex(privateKeyHex), message: fromHex(messageHex)) 'signed'
 		print("{id} {toHex(signature)}\n")
 	end 'signed' else (failure) 'refused'
@@ -781,7 +773,6 @@ sign-err-007 invalidPrivateKey
 ```
 
 <!-- test: ecdsa.sign-p384 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `EcdsaP384.sign` against the canra ecdsa-sign-p384 vectors: RFC 6979 A.2.6, computed signatures and refused keys. Vectors sign-001 to sign-err-008 (25).
@@ -826,7 +817,6 @@ function errorName(failure EcdsaSignError) returns String
 end 'errorName'
 
 function report(id String, privateKeyHex String, messageHex String)
-	// TODO: if try is not supported in minimaxon
 	if let signature = try EcdsaP384.sign(fromHex(privateKeyHex), message: fromHex(messageHex)) 'signed'
 		print("{id} {toHex(signature)}\n")
 	end 'signed' else (failure) 'refused'
@@ -895,7 +885,6 @@ sign-err-008 invalidPrivateKey
 ```
 
 <!-- test: ecdsa.verify-joint-multiply-edges -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `Ecdsa.verify` when the joint multiplication `u1·G + u2·Q` meets its degenerate sums. Each vector is constructed for a fixed message and `s`: `doubling` takes `r = x(2·(z/s)·G)` and `Q = (z/r)·G`, so `u1·G` and `u2·Q` are the same point and the final addition is a doubling (`doubling-high-s` is the same signature with `s` replaced by `n - s`); `infinity` takes `Q = -(z/r)·G`, so the sum is the point at infinity and the answer is `false`, never an error. Each expectation was checked by Python `cryptography` (OpenSSL) verifying the DER signature under the same key. Vectors edge-doubling-p256 to edge-infinity-p384 (6).
 ```maxon
@@ -930,7 +919,6 @@ function errorName(failure EcdsaError) returns String
 end 'errorName'
 
 function report(id String, curve EcdsaCurve, publicKeyHex String, messageHex String, signatureHex String)
-	// TODO: if try is not supported in minimaxon
 	if let valid = try Ecdsa.verify(curve, publicKey: fromHex(publicKeyHex), message: fromHex(messageHex), signature: fromHex(signatureHex)) 'checked'
 		print("{id} {valid}\n")
 	end 'checked' else (failure) 'refused'
@@ -1102,7 +1090,6 @@ round-trip-009 3065023030ee67b44ff564902a6c3768f639ccc340570f717c5d6898636f307bc
 ```
 
 <!-- test: ecdsa.verify-p384-openssl -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `Ecdsa.verify` on P-384 with SHA-384 against signatures produced by Python `cryptography` (OpenSSL) under three fresh keys, each followed by the same signature checked against an altered message (`false`). Vectors openssl-p384-001 to openssl-p384-006 (6).
 ```maxon
@@ -1137,7 +1124,6 @@ function errorName(failure EcdsaError) returns String
 end 'errorName'
 
 function report(id String, curve EcdsaCurve, publicKeyHex String, messageHex String, signatureHex String)
-	// TODO: if try is not supported in minimaxon
 	if let valid = try Ecdsa.verify(curve, publicKey: fromHex(publicKeyHex), message: fromHex(messageHex), signature: fromHex(signatureHex)) 'checked'
 		print("{id} {valid}\n")
 	end 'checked' else (failure) 'refused'

@@ -49,7 +49,6 @@ in the case and compared byte for byte. Every one of the 115 canra vectors has a
 ## Tests
 
 <!-- test: tls-handshake-codec.decode-rfc8448 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -241,10 +240,8 @@ function render(message TlsHandshakeMessage) returns String
 end 'render'
 
 function report(id String, protocol TlsProtocol, hex String)
-	// TODO: if try is not supported in minimaxon
 	if let message = try TlsHandshakeCodec.decode(fromHex(hex), protocol: protocol) 'decoded'
 		print("{id} {render(message)}\n")
-		// TODO: if try is not supported in minimaxon
 		if let encoded = try TlsHandshakeCodec.encode(message) 'encoded'
 			if toHex(encoded) != hex 'differs'
 				print("{id} re-encoding differs\n")
@@ -308,7 +305,6 @@ decode-rfc8448-4-client-client-hello-psk {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-openssl-and-generated -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -500,10 +496,8 @@ function render(message TlsHandshakeMessage) returns String
 end 'render'
 
 function report(id String, protocol TlsProtocol, hex String)
-	// TODO: if try is not supported in minimaxon
 	if let message = try TlsHandshakeCodec.decode(fromHex(hex), protocol: protocol) 'decoded'
 		print("{id} {render(message)}\n")
-		// TODO: if try is not supported in minimaxon
 		if let encoded = try TlsHandshakeCodec.encode(message) 'encoded'
 			if toHex(encoded) != hex 'differs'
 				print("{id} re-encoding differs\n")
@@ -585,7 +579,6 @@ decode-unknown-extension-in-client-hello {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-1 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -777,7 +770,6 @@ function render(message TlsHandshakeMessage) returns String
 end 'render'
 
 function report(id String, protocol TlsProtocol, hex String)
-	// TODO: if try is not supported in minimaxon
 	if let message = try TlsHandshakeCodec.decode(fromHex(hex), protocol: protocol) 'decoded'
 		print("{id} accepted {render(message)}\n")
 	end 'decoded' else (failure) 'refused'
@@ -854,7 +846,6 @@ decode-err-029 decodeError 50
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-2 -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -1046,7 +1037,6 @@ function render(message TlsHandshakeMessage) returns String
 end 'render'
 
 function report(id String, protocol TlsProtocol, hex String)
-	// TODO: if try is not supported in minimaxon
 	if let message = try TlsHandshakeCodec.decode(fromHex(hex), protocol: protocol) 'decoded'
 		print("{id} accepted {render(message)}\n")
 	end 'decoded' else (failure) 'refused'
@@ -1123,7 +1113,6 @@ decode-err-058 illegalParameter 47
 ```
 
 <!-- test: tls-handshake-codec.encode -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.encode` of 8 messages built with the typed constructors. A line prints the encoded message.
@@ -1162,7 +1151,6 @@ function toHex(bytes ByteArray) returns String
 end 'toHex'
 
 function report(id String, message TlsHandshakeMessage)
-	// TODO: if try is not supported in minimaxon
 	if let encoded = try TlsHandshakeCodec.encode(message) 'encoded'
 		print("{id} {toHex(encoded)}\n")
 	end 'encoded' else (failure) 'refused'
@@ -1197,7 +1185,6 @@ encode-008 010000e203038be81568b6b7b19ae406c4652cbadf27ca911c78ce5956d2be42a2d8a
 ```
 
 <!-- test: tls-handshake-codec.a-server-hello-with-the-retry-random-is-a-hello-retry-request -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A ServerHello whose `random` is the RFC 8446 section 4.1.3 HelloRetryRequest value decodes to `helloRetryRequest`; any other ServerHello, TLS 1.3 or TLS 1.2, to `serverHello`.
 ```maxon
@@ -1225,7 +1212,6 @@ function fromHex(hex String) returns ByteArray
 end 'fromHex'
 
 function report(id String, protocol TlsProtocol, hex String)
-	// TODO: if try is not supported in minimaxon
 	if let message = try TlsHandshakeCodec.decode(fromHex(hex), protocol: protocol) 'decoded'
 		let kind = match message 'kind'
 			helloRetryRequest gives "helloRetryRequest"
@@ -1320,7 +1306,7 @@ noApplicationProtocol 120
 ```
 
 <!-- test: tls-handshake-codec.a-field-longer-than-its-length-prefix-is-refused-when-encoding -->
-<!-- skip: if try is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 `TlsHandshakeCodec.encode` throws `TlsEncodeError.vectorTooLong` for a field that does not fit its length prefix (uint8 session id, uint16 ticket and extension block, uint24 handshake body) and writes the largest one that fits. A line prints the encoded length.
 ```maxon
 function filled(count Count) returns ByteArray
@@ -1330,7 +1316,6 @@ function filled(count Count) returns ByteArray
 end 'filled'
 
 function report(id String, message TlsHandshakeMessage)
-	// TODO: if try is not supported in minimaxon
 	if let encoded = try TlsHandshakeCodec.encode(message) 'encoded'
 		print("{id} {encoded.count()}\n")
 	end 'encoded' else (failure) 'refused'

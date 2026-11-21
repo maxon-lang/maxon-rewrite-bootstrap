@@ -226,7 +226,7 @@ typealias Word = int(i64.min to i64.max)
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(3)
 	a.push(2)
 	a.push(1)
@@ -234,8 +234,8 @@ function main() returns ExitCode
 	var i = 0 as ElementIndex
 	var steps = 0 as Word
 	while (try a.get(i) otherwise panic("main: i stays below count()")) > 0 'walk'
-		steps = steps + 1
-		i = i + 1
+		steps = try steps + 1 otherwise panic("out of range")
+		i = try i + 1 otherwise panic("out of range")
 	end 'walk'
 	if steps != 3 'count'
 		return 1

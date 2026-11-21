@@ -25,7 +25,6 @@ The vectors are RFC 8439 sections 2.3.2 and 2.4.2 and appendices A.1 and A.2.
 ## Tests
 
 <!-- test: chacha20.xor-key-stream -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 RFC 8439 sections 2.3.2 and 2.4.2 and appendices A.1 and A.2, prefixes across block boundaries, and the last block counter.
@@ -72,7 +71,6 @@ function errorName(failure ChaCha20Error) returns String
 end 'errorName'
 
 function report(id String, keyHex String, nonceHex String, counter ChaCha20Counter, dataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try ChaCha20.xorKeyStream(fromHex(keyHex), nonce: fromHex(nonceHex), counter: counter, data: fromHex(dataHex)) 'streamed'
 		print("{id} [{toHex(output)}]\n")
 	end 'streamed' else (failure) 'refused'
@@ -131,7 +129,6 @@ xor-key-stream-020 []
 ```
 
 <!-- test: chacha20.refuses-invalid-inputs -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Keys and nonces of other lengths, data running past block `2^32 - 1`, and two faults at once, which report the earlier check.
@@ -178,7 +175,6 @@ function errorName(failure ChaCha20Error) returns String
 end 'errorName'
 
 function report(id String, keyHex String, nonceHex String, counter ChaCha20Counter, dataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try ChaCha20.xorKeyStream(fromHex(keyHex), nonce: fromHex(nonceHex), counter: counter, data: fromHex(dataHex)) 'streamed'
 		print("{id} [{toHex(output)}]\n")
 	end 'streamed' else (failure) 'refused'

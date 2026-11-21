@@ -990,7 +990,6 @@ end 'main'
 ```
 
 <!-- test: error.contested-generic-alias-at-the-opaque-copy-gate -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The twin of the case above at the OTHER reader-free classifier: `typeSupportsDeepClone` carries the identical
@@ -1044,7 +1043,6 @@ typealias NestedContainer = Container with Bag
 
 export function useHandles() returns Integer
 	var sa = Bag.create(0)
-	// TODO: byte string literals are not supported in minimaxon
 	sa.push(Handle.create(try __ManagedFile.openRead(b"DATA.BIN".managed) otherwise return 0))
 	var nc = NestedContainer.create()
 	nc.push(sa)

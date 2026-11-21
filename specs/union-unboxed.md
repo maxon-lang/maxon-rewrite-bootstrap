@@ -867,28 +867,28 @@ union Trio
 end 'Trio'
 
 function bytesOf(count Integer) returns ByteArray
-	let data = ByteArray.create(0)
-	data.resize(count as ElementIndex)
+	var data = ByteArray.create(0)
+	data.resize(try count as ElementIndex otherwise panic("out of range"))
 	return data
 end 'bytesOf'
 
 function weighWide(w Wide) returns Integer
 	return match w 'wide'
 		empty gives 0
-		text(value) gives value.byteLength() as Integer
-		point(at) gives at.x + at.y
-		bytes(data) gives data.count() as Integer
-		label(value) gives value.byteLength() as Integer + 100
-		spot(at) gives at.x * at.y
-		blob(data) gives data.count() as Integer + 200
+		text(value) gives try value.byteLength() as Integer otherwise panic("out of range")
+		point(at) gives try at.x + at.y otherwise panic("out of range")
+		bytes(data) gives try data.count() as Integer otherwise panic("out of range")
+		label(value) gives try value.byteLength() as Integer + 100 otherwise panic("out of range")
+		spot(at) gives try at.x * at.y otherwise panic("out of range")
+		blob(data) gives try data.count() as Integer + 200 otherwise panic("out of range")
 	end 'wide'
 end 'weighWide'
 
 function weighTrio(t Trio) returns Integer
 	return match t 'trio'
-		first(value) gives value.byteLength() as Integer
-		second(at) gives at.x * 10 + at.y
-		third(data) gives data.count() as Integer
+		first(value) gives try value.byteLength() as Integer otherwise panic("out of range")
+		second(at) gives try at.x * 10 + at.y otherwise panic("out of range")
+		third(data) gives try data.count() as Integer otherwise panic("out of range")
 	end 'trio'
 end 'weighTrio'
 

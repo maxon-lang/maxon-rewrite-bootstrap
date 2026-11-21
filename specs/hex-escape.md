@@ -34,16 +34,14 @@ let max_byte = b"\xFF"        // Byte 255
 ## Tests
 
 <!-- test: hex-escape.byte-string-basic -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\x41\x42"
 	let a = try bytes.get(0) otherwise 0
 	let b = try bytes.get(1) otherwise 0
 	print("{a} {b}")
-	return bytes.count()
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -54,15 +52,13 @@ end 'main'
 ```
 
 <!-- test: hex-escape.byte-string-ff -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\xFF"
 	let v = try bytes.get(0) otherwise 0
 	print("{v}")
-	return bytes.count()
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -73,17 +69,15 @@ end 'main'
 ```
 
 <!-- test: hex-escape.mixed-content -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"A\x42C"
 	let a = try bytes.get(0) otherwise 0
 	let b = try bytes.get(1) otherwise 0
 	let c = try bytes.get(2) otherwise 0
 	print("{a} {b} {c}")
-	return bytes.count()
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -128,11 +122,9 @@ Hi
 ```
 
 <!-- test: hex-escape.lowercase-digits -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\x0a"
 	let v = try bytes.get(0) otherwise 0
 	print("{v}")
@@ -147,12 +139,11 @@ end 'main'
 ```
 
 <!-- test: hex-escape.invalid-short -->
-<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 <!-- positions: moved -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\xG0"
 	return 0
 end 'main'
@@ -162,12 +153,11 @@ error E1004: specs/hex-escape/hex-escape.invalid-short.maxon:3:15: Invalid hex e
 ```
 
 <!-- test: hex-escape.invalid-truncated -->
-<!-- skip: byte string literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 <!-- positions: moved -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"\x4"
 	return 0
 end 'main'

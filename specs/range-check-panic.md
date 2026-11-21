@@ -2090,7 +2090,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for r in 0 to i64.max 'forever'
 		let g = r as NonNeg
-		total = total + (g as Integer)
+		total = try total + (g as Integer) otherwise panic("out of range")
 		break
 	end 'forever'
 	print("total={total}\n")
@@ -3084,6 +3084,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.an-addition-past-the-unsigned-top-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `+` is checked for a carry out of bit 63: `u64.max + 1` is `0` as a pattern and `2^64` as a number, and the alias holds numbers.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3166,15 +3167,15 @@ The control for the four panics above: each operator at the very edge of the ran
 typealias Slot = int(0 to u64.max)
 
 function grow(base Slot, by Slot) returns Slot
-	return base + by
+	return try base + by otherwise panic("out of range")
 end 'grow'
 
 function shrink(base Slot, by Slot) returns Slot
-	return base - by
+	return try base - by otherwise panic("out of range")
 end 'shrink'
 
 function scale(base Slot, by Slot) returns Slot
-	return base * by
+	return try base * by otherwise panic("out of range")
 end 'scale'
 
 function main() returns ExitCode
@@ -3196,6 +3197,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-merged-operand-plus-a-value-wraps-and-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⛔⛔ **THE OPERATION'S CHECK DOES NOT DEPEND ON WHAT THE COMPILER KNOWS ABOUT ITS OPERANDS.** A value that merges two `Slot`s through a conditional is a `Slot` by name only, so it is not recorded as unsigned; the sum is still tested for a carry out of bit 63, and a sum that wraps to a small number panics.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3228,7 +3230,7 @@ typealias Slot = int(0 to u64.max)
 
 function lowerPlus(a Slot, b Slot, c Slot) returns Slot
 	let lower = a if a < b else b
-	return lower + c
+	return try lower + c otherwise panic("out of range")
 end 'lowerPlus'
 
 function main() returns ExitCode
@@ -3271,6 +3273,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-counted-difference-plus-the-top-wraps-and-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `(i as Slot) - 1` over a counted loop's counter has a proven interval, so the subtraction carries no check; the sum with `u64.max` has no proof, and it panics on the trip where it carries.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3303,15 +3306,15 @@ The same operand pairs through both paths: folded constants in `main`, and runti
 typealias Slot = int(0 to u64.max)
 
 function plus(a Slot, b Slot) returns Slot
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'plus'
 
 function minus(a Slot, b Slot) returns Slot
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'minus'
 
 function times(a Slot, b Slot) returns Slot
-	return a * b
+	return try a * b otherwise panic("out of range")
 end 'times'
 
 function main() returns ExitCode
@@ -3438,6 +3441,7 @@ error E3005: <fragment>:7:25: The result of 9223372036854775807 - 92233720368547
 ```
 
 <!-- test: range-check-panic.zero-minus-the-top-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `0 - u64.max` borrows although the right operand is a negative pattern.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3468,19 +3472,19 @@ A multiplication by a constant is a comparison of the other operand with `floor(
 typealias Slot = int(0 to u64.max)
 
 function timesThree(x Slot) returns Slot
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'timesThree'
 
 function threeTimes(x Slot) returns Slot
-	return 3 * x
+	return try 3 * x otherwise panic("out of range")
 end 'threeTimes'
 
 function timesTop(x Slot) returns Slot
-	return x * u64.max
+	return try x * u64.max otherwise panic("out of range")
 end 'timesTop'
 
 function timesWord(x Slot) returns Slot
-	return x * 4294967296
+	return try x * 4294967296 otherwise panic("out of range")
 end 'timesWord'
 
 function main() returns ExitCode
@@ -3558,6 +3562,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-negative-pattern-factor-admits-only-zero-and-one -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The constant `u64.max` is the negative pattern `-1`: its limit is `1`, and the unsigned comparison is what keeps `2` from reading as below it.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3661,6 +3666,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.the-product-of-the-top-with-itself-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `u64.max * u64.max`, the largest high word there is.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3870,7 +3876,7 @@ function afterNonZero(n Slot) returns Slot
 end 'afterNonZero'
 
 function selfDifference(a Slot) returns Slot
-	return a - a
+	return try a - a otherwise panic("out of range")
 end 'selfDifference'
 
 function main() returns ExitCode
@@ -4008,6 +4014,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-sum-under-a-non-strict-bound-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `i <= n` leaves `i` free to equal `u64.max`, so `i + 1` keeps its carry check.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4089,7 +4096,7 @@ function narrowed(now Instant, since Instant) returns Small
 	if now < since 'skew'
 		return 0
 	end 'skew'
-	return (now - since) as Small
+	return try (now - since) as Small otherwise panic("out of range")
 end 'narrowed'
 
 function main() returns ExitCode
@@ -4107,6 +4114,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-difference-under-its-order-too-wide-for-a-narrow-alias-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The order removes the borrow check, not the range check of the alias the difference lands in: a difference above the narrow alias's top still panics at its door.
 ```maxon
 typealias Instant = int(0 to u64.max)
@@ -4336,6 +4344,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-sum-of-two-under-a-strict-bound-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `i < n` leaves room for `1`, not for `2`: at `i = u64.max - 1` the sum `i + 2` carries and panics.
 ```maxon
 typealias Slot = int(0 to u64.max)

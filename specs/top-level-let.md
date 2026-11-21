@@ -421,7 +421,6 @@ end 'main'
 ```
 
 <!-- test: error.file-private-same-name-three-directories-every-kind -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Tag.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -432,7 +431,6 @@ let derived = base * 2
 
 let name = "first"
 
-// TODO: byte string literals are not supported in minimaxon
 let label = b"alpha"
 
 let table = [base, derived, 3]
@@ -462,7 +460,6 @@ let derived = base * 3
 
 let name = "second"
 
-// TODO: byte string literals are not supported in minimaxon
 let label = b"beta"
 
 let table = [base, derived, 3, 4]

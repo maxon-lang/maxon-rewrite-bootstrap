@@ -33,7 +33,6 @@ such as a constant byte string is stored only into a payload declared `immutable
 ## Tests
 
 <!-- test: a-read-only-value-stored-into-a-let-payload -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The immutable `source.title` is stored into the `let` payload `callee`, which is declared `immutable` to take it.
@@ -52,7 +51,6 @@ type Source
 	export let title as immutable ByteArray
 
 	static function create() returns Self
-		// TODO: byte string literals are not supported in minimaxon
 		return Self{title: b"title"}
 	end 'create'
 end 'Source'

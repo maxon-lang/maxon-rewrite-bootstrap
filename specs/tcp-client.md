@@ -67,13 +67,11 @@ Hello Maxon
 ```
 
 <!-- test: tcp-client.connect-error -->
-<!-- skip: if try is not supported in minimaxon -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here is silently discarded —
 and with a payload-carrying error it leaks the box (`exit 101`). E3059 refuses it.
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let client = try TcpClient.connect("192.0.2.1", port: 1) 'ok'
 		return 1
 	end 'ok' else (e) 'err'
@@ -89,13 +87,11 @@ end 'main'
 ```
 
 <!-- test: tcp-client.resolve-error -->
-<!-- skip: if try is not supported in minimaxon -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here is silently discarded —
 and with a payload-carrying error it leaks the box (`exit 101`). E3059 refuses it.
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let client = try TcpClient.connect("this.host.does.not.exist.invalid", port: 1) 'ok'
 		return 1
 	end 'ok' else (e) 'err'
@@ -111,14 +107,12 @@ end 'main'
 ```
 
 <!-- test: tcp-client.a-host-holding-a-nul-resolves-to-nothing-not-its-prefix -->
-<!-- skip: if try is not supported in minimaxon -->
 A host holding a NUL names no host on any lane: the connect fails to resolve rather than reaching the host
 the bytes before the NUL name, or the local machine an empty name means to some resolvers. The listener
 the prefix names is live, so a connect that reached it would answer `connected`.
 ```maxon
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 2
-	// TODO: if try is not supported in minimaxon
 	if let client = try TcpClient.connect("127.0.0.1\0junk", port: listener.port()) 'ok'
 		print("connected\n")
 	end 'ok' else (e) 'err'
@@ -135,12 +129,10 @@ refused resolveFailed
 ```
 
 <!-- test: tcp-client.a-listener-host-holding-a-nul-resolves-to-nothing-not-its-prefix -->
-<!-- skip: if try is not supported in minimaxon -->
 A listener's host holding a NUL names no address on any lane: the bind fails to resolve rather than binding
 the address the bytes before the NUL name, or every local address an empty name means to some resolvers.
 ```maxon
 function main() returns ExitCode
-	// TODO: if try is not supported in minimaxon
 	if let listener = try TcpListener.bind("127.0.0.1\0junk", port: 0) 'ok'
 		print("bound {listener.port() > 0}\n")
 	end 'ok' else (e) 'err'
@@ -219,7 +211,6 @@ end 'main'
 ```
 
 <!-- test: tcp-client.an-ipv6-literal-is-read-to-the-address-grammar -->
-<!-- skip: if try is not supported in minimaxon -->
 A host holding a colon is an IPv6 literal or nothing: a spelling outside the grammar fails to resolve without ever
 being handed to a name resolver, and a well-formed one that no local interface owns is a bind failure, so the two
 verdicts tell a rejected spelling from an accepted one. The accepted spellings mix hex case, drop leading zeros,
@@ -227,7 +218,6 @@ compress at either end and embed a dotted quad; the rejected ones are two `::`, 
 over four digits, a stray single colon, a bad or misplaced dotted quad, a zone, brackets and a name.
 ```maxon
 function verdict(host String) returns String
-	// TODO: if try is not supported in minimaxon
 	if let listener = try TcpListener.bind(host, port: 0) 'bound'
 		return "bound {listener.port() > 0}"
 	end 'bound' else (e) 'refused'
@@ -275,7 +265,6 @@ host:80 -> resolveFailed
 ```
 
 <!-- test: tcp-client.a-non-ascii-host-name-resolves-through-its-unicode-form -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- network: live -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos -->
 A host name holding non-ASCII characters reaches the Windows resolver as the characters it spells, so
@@ -286,7 +275,6 @@ applies IDNA, so the case is about the Windows code-page boundary.
 let ConnectDeadlineMs = 10000 as SocketDeadlineMs
 
 function report(label String, host String)
-	// TODO: if try is not supported in minimaxon
 	if let client = try TcpClient.connect(host, port: 80, deadlineMs: ConnectDeadlineMs) 'ok'
 		client.close()
 		print("{label}: connected\n")

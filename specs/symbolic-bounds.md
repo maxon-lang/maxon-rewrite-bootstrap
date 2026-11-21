@@ -246,6 +246,7 @@ end 'main'
 ```
 
 <!-- test: an-index-below-zero-keeps-its-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control for non-negativity. `last` is `a.count()` read as a signed word, less one: it is bounded by
 `length − 1` exactly, and on an empty array it is `−1`; the numeric interval does not prove it
 non-negative, so the `ElementIndex` range check stays — and a negative index is refused at the door, uncatchably, before any bound.

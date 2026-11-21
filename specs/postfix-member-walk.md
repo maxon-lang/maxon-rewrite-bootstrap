@@ -235,7 +235,7 @@ answer.
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
-	return "ab".toUpper().byteLength() + s.clone().byteLength()
+	return try "ab".toUpper().byteLength() + s.clone().byteLength() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -587,7 +587,7 @@ then dropped at statement end, so a leak here is exit 101 and the untouched `s` 
 function main() returns ExitCode
 	let s = "abc"
 	s.clone().append("XYZ")
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

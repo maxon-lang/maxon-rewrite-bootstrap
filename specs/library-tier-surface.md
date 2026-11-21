@@ -753,11 +753,8 @@ declared
 ```
 
 <!-- test: error.a-managed-file-static-is-refused-outside-the-library-tiers -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let there = __ManagedFile.exists(b"no-such-file-for-this-case.bin".managed)
 	print("{there}\n")
 	return 0
@@ -768,12 +765,10 @@ error E3185: <fragment>:3:14: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: a-managed-file-static-compiles-in-the-library-tier -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let there = __ManagedFile.exists(b"no-such-file-for-this-case.bin".managed)
 	print("{there}\n")
 	return 0
@@ -787,7 +782,6 @@ end 'main'
 ```
 
 <!-- test: error.the-managed-file-type-is-refused-outside-the-library-tiers -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '"..."' -->
 A field of the handle type is refused at the field's type, the first door in the file.
 ```maxon
 type Reader
@@ -813,7 +807,6 @@ error E3185: <fragment>:3:14: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: the-managed-file-type-compiles-in-the-library-tier -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '"..."' -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -843,11 +836,8 @@ false
 ```
 
 <!-- test: error.a-managed-socket-static-is-refused-outside-the-library-tiers -->
-<!-- skip: byte string literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let listener = try __ManagedSocket.bindListener(b"127.0.0.1".managed, port: 0) otherwise return 1
 	let port = try listener.boundPort() otherwise return 2
 	print("{port > 0}\n")
@@ -859,12 +849,10 @@ error E3185: <fragment>:3:21: '__ManagedSocket' named outside the library tiers:
 ```
 
 <!-- test: a-managed-socket-static-compiles-in-the-library-tier -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier: it binds a listener on a port the kernel picks.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let listener = try __ManagedSocket.bindListener(b"127.0.0.1".managed, port: 0) otherwise return 1
 	let port = try listener.boundPort() otherwise return 2
 	print("{port > 0}\n")
@@ -915,7 +903,6 @@ declared
 
 <!-- test: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 An `extension Array` in a program file is not the standard library: `self.managed` is the raw buffer, and the refusal
@@ -932,7 +919,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hello".clone()
 	return 1 if bytes.probe() else 0
 end 'main'
@@ -943,7 +929,6 @@ error E3185: <fragment>:4:16: '.managed' read from outside the library tiers: a 
 
 <!-- test: a-self-managed-read-in-an-array-extension-compiles-in-the-library-tier -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier.
@@ -959,7 +944,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hello".clone()
 	return 1 if bytes.probe() else 0
 end 'main'
@@ -969,7 +953,6 @@ end 'main'
 ```
 
 <!-- test: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A member call on `self.managed` is refused at `managed`, the first raw door in source order, and not at the member.
@@ -983,7 +966,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hello".clone()
 	return bytes.rawLength() as ExitCode
 end 'main'
@@ -993,7 +975,6 @@ error E3185: <fragment>:4:15: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-bare-managed-read-in-an-array-extension-is-refused-at-the-field -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The bare spelling of the same field.
@@ -1008,7 +989,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"hello".clone()
 	return bytes.rawLength() as ExitCode
 end 'main'

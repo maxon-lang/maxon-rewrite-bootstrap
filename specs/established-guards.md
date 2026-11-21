@@ -97,19 +97,19 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function carry(count WordArray, n ElementIndex) returns Word
+function carry(mutates count WordArray, n ElementIndex) returns Word
 	try count.set(1, value: 0) otherwise panic("carry: n >= 2")
 	var carried = 0 as Word
 	for i in 1 upto n 'each'
 		let digit = try count.get(i) otherwise panic("carry: i < n = count.count()")
-		carried = carried + digit + 1
+		carried = try carried + digit + 1 otherwise panic("out of range")
 		try count.set(i, value: digit + 1) otherwise panic("carry: i < n = count.count()")
 	end 'each'
 	return carried
 end 'carry'
 
 function main() returns ExitCode
-	let count = WordArray.create(0)
+	var count = WordArray.create(0)
 	count.resize(6)
 	if carry(count, n: 6) != 5 'firstPass'
 		return 1
@@ -161,7 +161,7 @@ typealias Word = int(i64.min to i64.max)
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	a.push(3)
@@ -321,13 +321,13 @@ A store that skipped the release leaks the first string, and a leak is exit 101.
 ```maxon
 typealias StringArray = Array with String
 
-function rewrite(a StringArray)
+function rewrite(mutates a StringArray)
 	try a.set(0, value: "first heap string with enough bytes to be allocated") otherwise panic("rewrite: a holds an element")
 	try a.set(0, value: "second heap string with enough bytes to be allocated") otherwise panic("rewrite: a holds an element")
 end 'rewrite'
 
 function main() returns ExitCode
-	let a = StringArray.create(0)
+	var a = StringArray.create(0)
 	a.push("seed")
 	rewrite(a)
 	let kept = try a.get(0) otherwise ""

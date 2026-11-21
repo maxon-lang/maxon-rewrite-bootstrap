@@ -256,10 +256,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.reserve(5)
 	arr.push(42)
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -274,10 +274,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.resize(5)
 	try arr.set(0, value: 99) otherwise panic("test invariant: set OOB")
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -725,7 +725,7 @@ end 'main'
 function main() returns ExitCode
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(0, endIndex: 10) otherwise return 42
-	return sub.count()
+	return try sub.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -737,7 +737,7 @@ end 'main'
 function main() returns ExitCode
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(2, endIndex: 1) otherwise return 42
-	return sub.count()
+	return try sub.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -749,7 +749,7 @@ end 'main'
 function main() returns ExitCode
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(5, endIndex: 5) otherwise return 42
-	return sub.count()
+	return try sub.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1348,7 +1348,7 @@ error E3207: <fragment>:4:2: 'insert' writes its receiver (line 265: `self.resiz
 <!-- test: insert-keeps-an-element-read-before-it -->
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.insert(0, value: "a second long string that also lives on the heap")
 	let head = try arr.first() otherwise ""
@@ -1387,7 +1387,7 @@ error E3207: <fragment>:4:10: 'set' needs a writable receiver; 'arr' is immutabl
 `set` releases the slot's occupant, and `s` still holds its own reference to it.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	try arr.set(0, value: "a second long string that also lives on the heap") otherwise 'oob'
 		return 9
@@ -1424,7 +1424,7 @@ error E3207: <fragment>:4:2: 'reserve' writes its receiver (line 318: `try manag
 buffer.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.reserve(64)
 	print("[{s}]\n")
@@ -1462,7 +1462,7 @@ error E3207: <fragment>:4:2: 'clear' writes its receiver (line 306: `managed.cle
 `clear` releases every element; the one `s` read keeps its own reference and outlives the clear.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.clear()
 	print("[{s}]\n")
@@ -1492,12 +1492,12 @@ which is exactly the range the element-destroy walk covers, so nothing ever rele
 <!-- test: set-past-the-live-length-is-refused -->
 ```maxon
 function main() returns ExitCode
-	let arr = ["one long heap allocated string value here"]
+	var arr = ["one long heap allocated string value here"]
 	arr.reserve(8)
 	try arr.set(2, value: "two long heap allocated string value here") otherwise 'pastLength'
 		return 42
 	end 'pastLength'
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1636,7 +1636,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function makeParent() returns IntArray
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(10)
 	a.push(20)
 	a.push(30)
@@ -1653,7 +1653,7 @@ function main() returns ExitCode
 	let a = try sub.get(0) otherwise 0
 	let b = try sub.get(1) otherwise 0
 	let c = try sub.get(2) otherwise 0
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1739,10 +1739,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function build() returns IntArray
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	var i = 0 as Integer
 	while i < 10 'fill'
-		a.push(i * 10)
+		a.push(try i * 10 otherwise panic("out of range"))
 		i = i + 1
 	end 'fill'
 	return a
@@ -1758,7 +1758,7 @@ function main() returns ExitCode
 	let a = try inner.get(0) otherwise 0
 	let b = try inner.get(1) otherwise 0
 	let c = try inner.get(2) otherwise 0
-	return (a + b + c) / 10
+	return try (a + b + c) / 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1870,7 +1870,7 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	let empty = IntArray.create(0)
-	let e = try empty.slice(0, endIndex: 0) otherwise return 1
+	var e = try empty.slice(0, endIndex: 0) otherwise return 1
 	e.push(5)
 	let v = try e.get(0) otherwise 0
 	if v == 5 and e.count() == 1 and empty.count() == 0 'ok'
@@ -1896,7 +1896,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function emptyViewOfAnArrayThatGrew() returns IntArray
-	let src = IntArray.create(0)
+	var src = IntArray.create(0)
 	let view = try src.slice(0, endIndex: 0) otherwise panic("an empty slice of an empty array is in bounds")
 	src.push(1)
 	src.push(2)
@@ -1917,14 +1917,12 @@ end 'main'
 ```
 
 <!-- test: slice-of-byte-string-literal -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 A slice of a `b"…"` literal views the immortal `.rdata` blob — nothing is owed and nothing is freed — and
 writing to it copies the window out first.
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let lit = b"hello"
-	let mid = try lit.slice(1, endIndex: 4) otherwise return 1
+	var mid = try lit.slice(1, endIndex: 4) otherwise return 1
 	try mid.set(0, value: 88) otherwise panic("index 0 is in bounds")
 	let m0 = try mid.get(0) otherwise 0
 	let m1 = try mid.get(1) otherwise 0
@@ -2003,7 +2001,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function make() returns IntArray
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	var i = 0 as Integer
 	while i < 8 'fill'
 		a.push(i)
@@ -2014,17 +2012,17 @@ end 'make'
 
 function main() returns ExitCode
 	let src = make()
-	let vClear = try src.slice(1, endIndex: 5) otherwise return 1
+	var vClear = try src.slice(1, endIndex: 5) otherwise return 1
 	vClear.clear()
-	let vPop = try src.slice(1, endIndex: 5) otherwise return 2
+	var vPop = try src.slice(1, endIndex: 5) otherwise return 2
 	let popped = try vPop.pop() otherwise -1
-	let vRemove = try src.slice(2, endIndex: 6) otherwise return 3
+	var vRemove = try src.slice(2, endIndex: 6) otherwise return 3
 	let removed = try vRemove.remove(0) otherwise -1
-	let vInsert = try src.slice(0, endIndex: 3) otherwise return 4
+	var vInsert = try src.slice(0, endIndex: 3) otherwise return 4
 	vInsert.insert(1, value: 99)
-	let vResize = try src.slice(0, endIndex: 4) otherwise return 5
+	var vResize = try src.slice(0, endIndex: 4) otherwise return 5
 	vResize.resize(2)
-	let vGrow = try src.slice(0, endIndex: 2) otherwise return 6
+	var vGrow = try src.slice(0, endIndex: 2) otherwise return 6
 	vGrow.reserve(64)
 	vGrow.push(1000)
 	// Not one of those writes may have reached the shared source.
@@ -2044,12 +2042,10 @@ end 'main'
 ```
 
 <!-- test: clone-of-byte-string-literal -->
-<!-- skip: byte string literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: byte string literals are not supported in minimaxon
 	let lit = b"abc"
-	let copy = lit.clone()
+	var copy = lit.clone()
 	try copy.set(0, value: 90) otherwise panic("index 0 is in bounds")
 	let c0 = try copy.get(0) otherwise 0
 	let l0 = try lit.get(0) otherwise 0
@@ -3877,6 +3873,7 @@ error E3005: <fragment>:12:12: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: reserve-past-the-signed-range-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A reservation no allocation can satisfy is an error, never a no-op: `reserve(u64.max)` reaches the growth door and its capacity overflow, exactly as `reserve(1 shl 62)` does.
 ```maxon
 function main() returns ExitCode
@@ -3897,6 +3894,7 @@ Stack trace:
 ```
 
 <!-- test: reserve-a-byte-array-whose-bit-total-wraps-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The refusal is on the capacity times the element's BITS, so a one-byte element wraps at `1 shl 60` (eight bits each, `2^63` in all) long before the byte count itself would overflow. That is the first count the signed bit total cannot hold, and it is refused the way `reserve(1 shl 62)` of a word-sized element is.
 ```maxon
 function main() returns ExitCode
@@ -3917,6 +3915,7 @@ Stack trace:
 ```
 
 <!-- test: reserve-a-word-array-past-the-bit-total-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A word-sized element is 64 bits, so `1 shl 62` of them is `2^68` bits: the wrapped total is refused, and the array keeps the buffer it had.
 ```maxon
 function main() returns ExitCode
@@ -4193,7 +4192,7 @@ typealias Percent = int(1 to 100)
 typealias PercentArray = Array with Percent
 
 function main() returns ExitCode
-	let xs = PercentArray.create(0)
+	var xs = PercentArray.create(0)
 	xs.growFilled(3, value: 7)
 	return (try xs.get(2) otherwise 1) as ExitCode
 end 'main'
@@ -5964,13 +5963,13 @@ error E3005: <fragment>:6:8: argument type mismatch for 'minCapacity': expected 
 <!-- test: create-with-a-capacity-proven-by-a-cast-runs -->
 ```maxon
 function sized(wanted FullRangeInt) returns Count
-	let size = wanted as ElementIndex
+	let size = try wanted as ElementIndex otherwise panic("out of range")
 	let bytes = ByteArray.create(size)
 	return bytes.count()
 end 'sized'
 
 function main() returns ExitCode
-	return sized(12) as ExitCode
+	return try sized(12) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

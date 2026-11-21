@@ -20,7 +20,7 @@ collection while values read from it are still in use.
 The element read by `get` stays readable after the source grows and is cleared.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello {40 + 2} world, long enough for the heap"]
+	var arr = ["hello {40 + 2} world, long enough for the heap"]
 	let s = try arr.get(0) otherwise ""
 	arr.push("world")
 	arr.clear()

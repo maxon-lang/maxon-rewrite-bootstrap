@@ -910,7 +910,6 @@ A case that only asserted the server half would leave the client free to go on d
 <!-- test: http-server.a-header-line-without-a-colon-is-malformed -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -960,7 +959,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let clientPeer = async answerWithABadHeaderLine(listener)
 	var clientSaw = "accepted-a-bad-header-line"
-	// TODO: if try is not supported in minimaxon
 	if let response = try HttpClient.get("http://127.0.0.1:{listenerPort}/") 'answered'
 		clientSaw = "status {response.statusCode().number()}"
 	end 'answered' else (e) 'refused'
@@ -1515,7 +1513,6 @@ status=200 accept=served post /form [hi]
 <!-- test: http-server.a-head-response-carries-no-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- procs: 1 -->
 ```maxon
@@ -1533,7 +1530,6 @@ function everythingFrom(client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
-		// TODO: if try is not supported in minimaxon
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
 			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
@@ -2162,7 +2158,6 @@ hands no exchange to the caller; the asterisk with any other method is malformed
 <!-- test: http-server.absolute-form-and-options-asterisk -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2171,7 +2166,6 @@ function everythingFrom(client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
-		// TODO: if try is not supported in minimaxon
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
 			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
@@ -2321,7 +2315,6 @@ may carry no CR, LF or other control, or one response could be read as two.
 <!-- test: http-server.a-response-is-held-to-what-its-status-and-fields-allow -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2330,7 +2323,6 @@ function everythingFrom(client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
-		// TODO: if try is not supported in minimaxon
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
 			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
@@ -2411,7 +2403,6 @@ before it closes.
 <!-- test: http-server.bytes-past-the-request-are-drained-before-the-close -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2422,7 +2413,6 @@ function everythingFrom(client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
-		// TODO: if try is not supported in minimaxon
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
 			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()

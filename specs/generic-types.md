@@ -5130,7 +5130,6 @@ v=9
 ```
 
 <!-- test: condition-form-try-over-a-substituted-return -->
-<!-- skip: if try is not supported in minimaxon -->
 ⚠ **THE SIBLING DOOR.** `if let x = try …` does not
 go through `parseTry` at all — `parseCatchingCondition` runs the same three steps and lets the `if` own the
 fork — but it takes the target's VALUE through the identical `parseTryCallTarget`. Its ok edge is the
@@ -5154,7 +5153,7 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -5170,7 +5169,6 @@ typealias AlphaBox = Box with Alpha
 
 function main() returns ExitCode
 	let bx = AlphaBox.create(Alpha.create(9))
-	// TODO: if try is not supported in minimaxon
 	if let got = try bx.fetch(false) 'ok'
 		print("v={got.a}\n")
 	end 'ok' else 'bad'
@@ -5308,7 +5306,6 @@ ok=11 err=1
 ```
 
 <!-- test: condition-form-try-over-a-substituted-return-whose-receiver-is-a-fork-temporary -->
-<!-- skip: if try is not supported in minimaxon -->
 ⛔⛔ **THE SIBLING DOOR'S FORK TEMPORARY.** A catching `if` releases its condition's temporaries PER EDGE
 (`takeCatchingForkTemps`), at the head of its then block and of its else block. One release in the ENTRY
 block, dominating both edges, is right for every plain condition and wrong for exactly this one:
@@ -5336,7 +5333,7 @@ type Box uses T
 	export var value as T
 	export var fail as bool
 
-	static function create(v T, f bool) returns Self
+	static function create(consumes v T, f bool) returns Self
 		return Self{value: v, fail: f}
 	end 'create'
 
@@ -5355,7 +5352,6 @@ function make(f bool) returns AlphaBox
 end 'make'
 
 function forkTemp(f bool) returns Integer
-	// TODO: if try is not supported in minimaxon
 	if let got = try make(f).fetch() 'ok'
 		return got.a
 	end 'ok' else 'bad'
@@ -5582,14 +5578,14 @@ type HoldConcrete
 	export var items as NumArray
 
 	static function create(seed Num) returns Self
-		let arr = NumArray.create(0)
+		var arr = NumArray.create(0)
 		arr.resize(1)
 		try arr.set(0, value: seed) otherwise panic("seeded slot 0 must exist after resize(1)")
 		return Self{items: arr}
 	end 'create'
 
-	function adopt(other NumArray)
-		self.items = other
+	function adopt(mutates self, other NumArray)
+		self.items = other.clone()
 	end 'adopt'
 
 	function isSingle() returns bool
@@ -5599,7 +5595,7 @@ end 'HoldConcrete'
 
 function main() returns ExitCode
 	let b = HoldConcrete.create(7)
-	let a = HoldConcrete.create(1)
+	var a = HoldConcrete.create(1)
 	a.adopt(b.items)
 	if a.isSingle() 'ok'
 		print("ok\n")

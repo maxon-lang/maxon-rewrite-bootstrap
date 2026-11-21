@@ -34,7 +34,6 @@ Wycheproof's AES-GCM cases. An output longer than 64 bytes is pinned by its leng
 ## Tests
 
 <!-- test: aes-gcm.seal -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every `seal` vector whose output is pinned in full, through the `Aead` interface.
@@ -101,7 +100,6 @@ function performWithKey(operation Operation, keyHex String, nonceHex String, inp
 end 'performWithKey'
 
 function report(id String, operation Operation, keyHex String, nonceHex String, inputHex String, additionalDataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try performWithKey(operation, keyHex: keyHex, nonceHex: nonceHex, inputHex: inputHex, additionalDataHex: additionalDataHex) 'done'
 		print("{id} [{toHex(output)}]\n")
 	end 'done' else (failure) 'refused'
@@ -350,7 +348,6 @@ seal-151 [ce757369429c011d2a11e55466851b2e6a5b47f6fa027166454b18b9a44703b1bd6784
 ```
 
 <!-- test: aes-gcm.seal-long-outputs -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every `seal` vector whose output is longer than 64 bytes, pinned by its length and SHA-256 digest, through the `Aead` interface.
@@ -417,7 +414,6 @@ function performWithKey(operation Operation, keyHex String, nonceHex String, inp
 end 'performWithKey'
 
 function report(id String, operation Operation, keyHex String, nonceHex String, inputHex String, additionalDataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try performWithKey(operation, keyHex: keyHex, nonceHex: nonceHex, inputHex: inputHex, additionalDataHex: additionalDataHex) 'done'
 		print("{id} {output.count()} [{toHex(sha256(output))}]\n")
 	end 'done' else (failure) 'refused'
@@ -516,7 +512,6 @@ seal-155 80 [a788e05a73c5462007e4c8800617eda965157e2ca0f0b3dcb4be0c0de173e644]
 ```
 
 <!-- test: aes-gcm.open -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every `open` vector that authenticates, through the `Aead` interface.
@@ -583,7 +578,6 @@ function performWithKey(operation Operation, keyHex String, nonceHex String, inp
 end 'performWithKey'
 
 function report(id String, operation Operation, keyHex String, nonceHex String, inputHex String, additionalDataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try performWithKey(operation, keyHex: keyHex, nonceHex: nonceHex, inputHex: inputHex, additionalDataHex: additionalDataHex) 'done'
 		print("{id} [{toHex(output)}]\n")
 	end 'done' else (failure) 'refused'
@@ -732,7 +726,6 @@ open-065 [13181d22272c31363b40454a4f54595e63686d72777c81868b90959a9fa4a9aeb3b8bd
 ```
 
 <!-- test: aes-gcm.open-refuses-forgeries -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Modified tags, ciphertexts, additional data, nonces and keys, and sealed inputs too short to hold a tag.
@@ -799,7 +792,6 @@ function performWithKey(operation Operation, keyHex String, nonceHex String, inp
 end 'performWithKey'
 
 function report(id String, operation Operation, keyHex String, nonceHex String, inputHex String, additionalDataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try performWithKey(operation, keyHex: keyHex, nonceHex: nonceHex, inputHex: inputHex, additionalDataHex: additionalDataHex) 'done'
 		print("{id} [{toHex(output)}]\n")
 	end 'done' else (failure) 'refused'
@@ -1018,7 +1010,6 @@ aes-gcm-err-107 authenticationFailed
 ```
 
 <!-- test: aes-gcm.refuses-invalid-lengths -->
-<!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Keys and nonces of other lengths for `seal` and `open`, and both at once, which reports the key.
@@ -1085,7 +1076,6 @@ function performWithKey(operation Operation, keyHex String, nonceHex String, inp
 end 'performWithKey'
 
 function report(id String, operation Operation, keyHex String, nonceHex String, inputHex String, additionalDataHex String)
-	// TODO: if try is not supported in minimaxon
 	if let output = try performWithKey(operation, keyHex: keyHex, nonceHex: nonceHex, inputHex: inputHex, additionalDataHex: additionalDataHex) 'done'
 		print("{id} [{toHex(output)}]\n")
 	end 'done' else (failure) 'refused'

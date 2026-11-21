@@ -116,19 +116,19 @@ function grid(a WordArray, rows Word, width Word) returns Word
 	for r in 0 upto rows 'row'
 		var line = 0 as Word
 		for c in 0 upto width 'col'
-			line = line + (try a.get((r * width + c) as ElementIndex) otherwise 100)
+			line = try line + (try a.get((r * width + c) as ElementIndex) otherwise 100) otherwise panic("out of range")
 		end 'col'
-		t = t + line * (r + 1)
+		t = try t + line * (r + 1) otherwise panic("out of range")
 	end 'row'
 	return t
 end 'grid'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 7 'seed'
 		a.push(i)
 	end 'seed'
-	return grid(a, rows: 3, width: 3) - 600
+	return try grid(a, rows: 3, width: 3) - 600 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -136,6 +136,7 @@ end 'main'
 ```
 
 <!-- test: a-sunk-range-check-still-fires -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control. The counter walks below zero, so the range check's sunk panic block runs.
 ```maxon
 typealias Word = int(i64.min to i64.max)

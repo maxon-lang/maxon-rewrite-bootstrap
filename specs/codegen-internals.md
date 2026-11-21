@@ -169,7 +169,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
