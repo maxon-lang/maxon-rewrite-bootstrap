@@ -156,9 +156,6 @@ func emitRoutines(routines []typeRoutine) *CodeUnit {
 	return u
 }
 
-// stringLengthOffset is where a string holds its length, the word before its bytes.
-const stringLengthOffset = 0
-
 // Frame offsets of the routines: the argument is above the return address, and the locals below the frame pointer.
 const (
 	routineArg    = 2 * wordBytes
@@ -417,7 +414,7 @@ func (e *routineEmitter) dropBytes() {
 	e.prologue(0)
 	e.returnIfEmpty(done)
 	e.a.Load(Rcx, Rbp, routineArg)
-	e.a.Load(Rax, Rcx, bytesDataOffset)
+	e.a.Load(Rax, Rcx, arrayDataOffset)
 	e.callWithRax(e.free)
 	e.freeArgument()
 	e.a.Bind(done)
@@ -575,10 +572,10 @@ func (e *routineEmitter) copyBytes() {
 	)
 	done := NewLabel()
 	e.prologue(3)
-	e.allocate(bytesHeaderBytes)
+	e.allocate(arrayHeaderBytes)
 	a.Store(Rbp, header, Rax)
 	a.Load(Rcx, Rbp, routineArg)
-	a.Load(Rax, Rcx, bytesLengthOffset)
+	a.Load(Rax, Rcx, arrayLengthOffset)
 	a.Store(Rbp, length, Rax)
 	a.Test(Rax, Rax)
 	a.Jcc(CcE, done)
@@ -586,13 +583,13 @@ func (e *routineEmitter) copyBytes() {
 	a.Store(Rbp, buffer, Rax)
 	a.Load(Rcx, Rbp, header)
 	a.Load(Rax, Rbp, length)
-	a.Store(Rcx, bytesLengthOffset, Rax)
-	a.Store(Rcx, bytesCapacityOffset, Rax)
+	a.Store(Rcx, arrayLengthOffset, Rax)
+	a.Store(Rcx, arrayCapacityOffset, Rax)
 	a.Load(Rdx, Rbp, buffer)
-	a.Store(Rcx, bytesDataOffset, Rdx)
+	a.Store(Rcx, arrayDataOffset, Rdx)
 	a.Mov(Rdi, Rdx)
 	a.Load(Rsi, Rbp, routineArg)
-	a.Load(Rsi, Rsi, bytesDataOffset)
+	a.Load(Rsi, Rsi, arrayDataOffset)
 	a.Mov(Rcx, Rax)
 	a.RepMovsb()
 	a.Bind(done)

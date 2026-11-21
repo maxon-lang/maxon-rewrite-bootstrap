@@ -1,0 +1,125 @@
+// The array entries, and the routines that arrays and byte arrays share. A byte array's box is an array's box
+// (layout_gen.maxon): the length, the capacity and the address of a buffer, whose elements are a number of bytes each, so
+// one set of routines takes the size of an element and the entries of each kind are thin functions over them. The
+// elements of an array are words that the caller owns once they are moved out; the routines only ever move bytes, and
+// never free an element.
+
+// arrayNew is a new empty array: no buffer yet.
+function arrayNew() returns Count
+	return alloc(arrayHeaderBytes)
+end 'arrayNew'
+
+function arrayLength(array Count) returns Count
+	return collectionLength(array)
+end 'arrayLength'
+
+// arrayElem is the address of the element at an index, which panics past the end. It is a borrow, valid until the next
+// call that changes the array.
+function arrayElem(array Count, index Count) returns Count
+	return collectionElementAddress(array, index: index, elementBytes: wordBytes)
+end 'arrayElem'
+
+// arrayInsert moves an element in at an index, which may be the length, after what follows moves up by one.
+function arrayInsert(array Count, index Count, element Count)
+	let at = collectionOpenGap(array, index: index, elementBytes: wordBytes, firstCapacity: arrayFirstCapacity)
+	__Raw.storeWord(at, offset: 0, value: element)
+end 'arrayInsert'
+
+// arrayRemove moves the element at an index out, after what follows moves down by one: the caller owns it.
+function arrayRemove(array Count, index Count) returns Count
+	let at = collectionElementAddress(array, index: index, elementBytes: wordBytes)
+	let element = __Raw.loadWord(at, offset: 0)
+	collectionCloseGap(array, index: index, elementBytes: wordBytes)
+	return element
+end 'arrayRemove'
+
+function collectionLength(box Count) returns Count
+	return __Raw.loadWord(box, offset: arrayLengthOffset)
+end 'collectionLength'
+
+function collectionData(box Count) returns Count
+	return __Raw.loadWord(box, offset: arrayDataOffset)
+end 'collectionData'
+
+// collectionElementAddress is where the element at an index is, which panics past the end.
+function collectionElementAddress(box Count, index Count, elementBytes Count) returns Count
+	if index >= collectionLength(box) 'outside'
+		panicIndex()
+	end 'outside'
+	return collectionPlace(box, index: index, elementBytes: elementBytes)
+end 'collectionElementAddress'
+
+// collectionPlace is where the element at an index is, or would be: the index may be the length.
+function collectionPlace(box Count, index Count, elementBytes Count) returns Count
+	return __Raw.wrappingAdd(collectionData(box), right: collectionBytes(index, elementBytes: elementBytes))
+end 'collectionPlace'
+
+// collectionBytes is the size of a number of elements, which panics when no word holds it.
+function collectionBytes(count Count, elementBytes Count) returns Count
+	return try count * elementBytes otherwise panic("array size overflows")
+end 'collectionBytes'
+
+// collectionReserve makes the buffer hold a number of elements. It grows by doubling from firstCapacity, and frees the
+// buffer it leaves: the elements moved to the new one, so only the buffer goes.
+function collectionReserve(box Count, needed Count, elementBytes Count, firstCapacity Count)
+	let capacity = __Raw.loadWord(box, offset: arrayCapacityOffset)
+	if needed <= capacity 'room'
+		return
+	end 'room'
+	var grown = capacity
+	if grown == 0 'first'
+		grown = firstCapacity
+	end 'first'
+	while grown < needed 'double'
+		grown = try grown + grown otherwise panic("array size overflows")
+	end 'double'
+	let buffer = alloc(collectionBytes(grown, elementBytes: elementBytes))
+	let old = collectionData(box)
+	copyBytes(old, target: buffer, count: collectionBytes(collectionLength(box), elementBytes: elementBytes))
+	__Raw.storeWord(box, offset: arrayDataOffset, value: buffer)
+	__Raw.storeWord(box, offset: arrayCapacityOffset, value: grown)
+	free(old)
+end 'collectionReserve'
+
+// collectionExtend adds room for a number of elements after the last and gives the address of the room, which the
+// caller fills.
+function collectionExtend(box Count, count Count, elementBytes Count, firstCapacity Count) returns Count
+	let length = collectionLength(box)
+	let total = try length + count otherwise panic("array size overflows")
+	collectionReserve(box, needed: total, elementBytes: elementBytes, firstCapacity: firstCapacity)
+	__Raw.storeWord(box, offset: arrayLengthOffset, value: total)
+	return collectionPlace(box, index: length, elementBytes: elementBytes)
+end 'collectionExtend'
+
+// collectionOpenGap makes room for one element at an index, which may be the length and panics past it, by moving what
+// follows up by one, and gives the address of the room. The index is
+// not past the length, so its subtraction does not wrap.
+function collectionOpenGap(box Count, index Count, elementBytes Count, firstCapacity Count) returns Count
+	let length = collectionLength(box)
+	if index > length 'outside'
+		panicIndex()
+	end 'outside'
+	_ = collectionExtend(box, count: 1, elementBytes: elementBytes, firstCapacity: firstCapacity)
+	let at = collectionPlace(box, index: index, elementBytes: elementBytes)
+	copyBackward(at, target: __Raw.wrappingAdd(at, right: elementBytes), count: collectionBytes(__Raw.wrappingSub(length, right: index), elementBytes: elementBytes))
+	return at
+end 'collectionOpenGap'
+
+// collectionCloseGap takes the element at an index out of the buffer by moving what follows down by one. The index is
+// in range, which collectionElementAddress has checked, so its subtractions do not wrap.
+function collectionCloseGap(box Count, index Count, elementBytes Count)
+	let length = collectionLength(box)
+	let at = collectionPlace(box, index: index, elementBytes: elementBytes)
+	let following = __Raw.wrappingSub(__Raw.wrappingSub(length, right: index), right: 1)
+	copyBytes(__Raw.wrappingAdd(at, right: elementBytes), target: at, count: collectionBytes(following, elementBytes: elementBytes))
+	__Raw.storeWord(box, offset: arrayLengthOffset, value: __Raw.wrappingSub(length, right: 1))
+end 'collectionCloseGap'
+
+// copyBackward copies bytes last first, so that a target above the source may overlap it.
+function copyBackward(source Count, target Count, count Count)
+	var left = count
+	while left != 0 'bytes'
+		left = __Raw.wrappingSub(left, right: 1)
+		__Raw.storeByte(target, offset: left, value: __Raw.loadByte(source, offset: left))
+	end 'bytes'
+end 'copyBackward'

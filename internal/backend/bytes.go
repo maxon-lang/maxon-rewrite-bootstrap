@@ -1,14 +1,8 @@
 package backend
 
-// A byte array, an array that packs bytes (ast.BuiltinTy.PacksBytes), is a box of three words: its length, its capacity
-// and the address of its buffer, which holds one byte to an element. It starts empty with no buffer, and grows by doubling from bytesFirstCapacity; the old buffer is freed.
-const (
-	bytesHeaderBytes    = 3 * wordBytes
-	bytesLengthOffset   = 0
-	bytesCapacityOffset = wordBytes
-	bytesDataOffset     = 2 * wordBytes
-	bytesFirstCapacity  = 16
-)
+// A byte array, an array that packs bytes (ast.BuiltinTy.PacksBytes), has the array's box (layout_gen.go) with a buffer
+// of one byte to an element. It starts empty with no buffer, and grows by doubling from bytesFirstCapacity; the old
+// buffer is freed.
 
 // EmitBytesRuntime is the unit with the byte array's runtime entries. It is linked only into a program that calls one.
 func EmitBytesRuntime() *CodeUnit {
@@ -34,7 +28,7 @@ func (g *bytesUnit) emitHelpers() {
 	room := NewLabel()
 	growLoop := NewLabel()
 	sized := NewLabel()
-	a.Load(Rax, Rbx, bytesCapacityOffset)
+	a.Load(Rax, Rbx, arrayCapacityOffset)
 	a.Cmp(R15, Rax)
 	a.Jcc(CcBE, room)
 	a.Test(Rax, Rax)
@@ -50,13 +44,13 @@ func (g *bytesUnit) emitHelpers() {
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
 	a.Mov(Rdi, Rax)
-	a.Load(Rsi, Rbx, bytesDataOffset)
+	a.Load(Rsi, Rbx, arrayDataOffset)
 	a.Mov(Rcx, R14)
 	a.RepMovsb()
-	a.Load(Rcx, Rbx, bytesDataOffset)
-	a.Store(Rbx, bytesDataOffset, Rax)
+	a.Load(Rcx, Rbx, arrayDataOffset)
+	a.Store(Rbx, arrayDataOffset, Rax)
 	a.Pop(Rax)
-	a.Store(Rbx, bytesCapacityOffset, Rax)
+	a.Store(Rbx, arrayCapacityOffset, Rax)
 	a.Push(Rcx)
 	g.callRuntime(g.rtFree, 1)
 	a.Bind(room)
@@ -71,7 +65,7 @@ func (g *bytesUnit) emitHelpers() {
 func (g *bytesUnit) emitBytesNew() {
 	a := g.asm
 	g.prologue(0, false)
-	a.MovImm(Rax, bytesHeaderBytes)
+	a.MovImm(Rax, arrayHeaderBytes)
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
 	g.epilogue()
@@ -81,7 +75,7 @@ func (g *bytesUnit) emitBytesLen() {
 	a := g.asm
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 16)
-	a.Load(Rax, Rax, bytesLengthOffset)
+	a.Load(Rax, Rax, arrayLengthOffset)
 	g.epilogue()
 }
 
@@ -90,10 +84,10 @@ func (g *bytesUnit) emitBytesGet() {
 	g.prologue(0, false)
 	a.Load(Rax, Rbp, 24)
 	a.Load(Rcx, Rbp, 16)
-	a.Load(Rdx, Rax, bytesLengthOffset)
+	a.Load(Rdx, Rax, arrayLengthOffset)
 	a.Cmp(Rcx, Rdx)
 	a.Jcc(CcAE, g.outOfRange)
-	a.Load(Rax, Rax, bytesDataOffset)
+	a.Load(Rax, Rax, arrayDataOffset)
 	a.Add(Rax, Rcx)
 	a.LoadByte(Rax, Rax, 0)
 	g.epilogue()
@@ -105,10 +99,10 @@ func (g *bytesUnit) emitBytesSet() {
 	a.Load(Rax, Rbp, 32)
 	a.Load(Rcx, Rbp, 24)
 	a.Load(R8, Rbp, 16)
-	a.Load(Rdx, Rax, bytesLengthOffset)
+	a.Load(Rdx, Rax, arrayLengthOffset)
 	a.Cmp(Rcx, Rdx)
 	a.Jcc(CcAE, g.outOfRange)
-	a.Load(Rax, Rax, bytesDataOffset)
+	a.Load(Rax, Rax, arrayDataOffset)
 	a.Add(Rax, Rcx)
 	a.StoreByte(Rax, 0, R8)
 	g.epilogue()
@@ -123,12 +117,12 @@ func (g *bytesUnit) emitBytesInsert() {
 	a.Load(Rbx, Rbp, 32)
 	a.Load(R12, Rbp, 24)
 	a.Load(R13, Rbp, 16)
-	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Cmp(R12, R14)
 	a.Jcc(CcA, g.outOfRange)
 	a.Lea(R15, R14, 1)
 	a.Call(g.ensureCap)
-	a.Load(Rdx, Rbx, bytesDataOffset)
+	a.Load(Rdx, Rbx, arrayDataOffset)
 	a.Mov(Rcx, R14)
 	a.Bind(shift)
 	a.Cmp(Rcx, R12)
@@ -143,7 +137,7 @@ func (g *bytesUnit) emitBytesInsert() {
 	a.Mov(R8, Rdx)
 	a.Add(R8, R12)
 	a.StoreByte(R8, 0, R13)
-	a.Store(Rbx, bytesLengthOffset, R15)
+	a.Store(Rbx, arrayLengthOffset, R15)
 	g.epilogue()
 }
 
@@ -155,10 +149,10 @@ func (g *bytesUnit) emitBytesRemove() {
 	closed := NewLabel()
 	a.Load(Rbx, Rbp, 24)
 	a.Load(R12, Rbp, 16)
-	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Cmp(R12, R14)
 	a.Jcc(CcAE, g.outOfRange)
-	a.Load(Rdx, Rbx, bytesDataOffset)
+	a.Load(Rdx, Rbx, arrayDataOffset)
 	a.Mov(R8, Rdx)
 	a.Add(R8, R12)
 	a.LoadByte(R13, R8, 0)
@@ -174,7 +168,7 @@ func (g *bytesUnit) emitBytesRemove() {
 	a.Jmp(closeUp)
 	a.Bind(closed)
 	a.SubImm(R14, 1)
-	a.Store(Rbx, bytesLengthOffset, R14)
+	a.Store(Rbx, arrayLengthOffset, R14)
 	a.Mov(Rax, R13)
 	g.epilogue()
 }
@@ -185,19 +179,19 @@ func (g *bytesUnit) emitBytesAppend() {
 	appendDone := NewLabel()
 	a.Load(Rbx, Rbp, 24)
 	a.Load(R12, Rbp, 16)
-	a.Load(R13, R12, bytesLengthOffset)
+	a.Load(R13, R12, arrayLengthOffset)
 	a.Test(R13, R13)
 	a.Jcc(CcE, appendDone)
-	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Mov(R15, R14)
 	a.Add(R15, R13)
 	a.Call(g.ensureCap)
-	a.Load(Rdi, Rbx, bytesDataOffset)
+	a.Load(Rdi, Rbx, arrayDataOffset)
 	a.Add(Rdi, R14)
-	a.Load(Rsi, R12, bytesDataOffset)
+	a.Load(Rsi, R12, arrayDataOffset)
 	a.Mov(Rcx, R13)
 	a.RepMovsb()
-	a.Store(Rbx, bytesLengthOffset, R15)
+	a.Store(Rbx, arrayLengthOffset, R15)
 	a.Bind(appendDone)
 	g.epilogue()
 }
@@ -211,16 +205,16 @@ func (g *bytesUnit) emitBytesAppendStr() {
 	a.Load(R13, R12, stringLengthOffset)
 	a.Test(R13, R13)
 	a.Jcc(CcE, appendStrDone)
-	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Mov(R15, R14)
 	a.Add(R15, R13)
 	a.Call(g.ensureCap)
-	a.Load(Rdi, Rbx, bytesDataOffset)
+	a.Load(Rdi, Rbx, arrayDataOffset)
 	a.Add(Rdi, R14)
 	a.Lea(Rsi, R12, wordBytes)
 	a.Mov(Rcx, R13)
 	a.RepMovsb()
-	a.Store(Rbx, bytesLengthOffset, R15)
+	a.Store(Rbx, arrayLengthOffset, R15)
 	a.Bind(appendStrDone)
 	g.epilogue()
 }
@@ -230,7 +224,7 @@ func (g *bytesUnit) emitBytesToString() {
 	g.prologue(0, false)
 	toStrEmpty := NewLabel()
 	a.Load(Rbx, Rbp, 16)
-	a.Load(R14, Rbx, bytesLengthOffset)
+	a.Load(R14, Rbx, arrayLengthOffset)
 	a.Lea(Rax, R14, wordBytes)
 	a.Push(Rax)
 	g.callRuntime(g.rtAlloc, 1)
@@ -239,7 +233,7 @@ func (g *bytesUnit) emitBytesToString() {
 	a.Test(R14, R14)
 	a.Jcc(CcE, toStrEmpty)
 	a.Lea(Rdi, R12, wordBytes)
-	a.Load(Rsi, Rbx, bytesDataOffset)
+	a.Load(Rsi, Rbx, arrayDataOffset)
 	a.Mov(Rcx, R14)
 	a.RepMovsb()
 	a.Bind(toStrEmpty)

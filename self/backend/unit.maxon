@@ -2,8 +2,6 @@
 // linker reads. The encoder is x64_gen.maxon; this is what the encoder leaves to the backend: labels, the fixups that the
 // linker patches, and the symbols a unit defines.
 
-export let wordBytes = 8
-
 export let rax = X64Register.rax
 
 export let rcx = X64Register.rcx

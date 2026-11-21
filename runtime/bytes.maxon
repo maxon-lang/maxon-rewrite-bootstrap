@@ -1,0 +1,66 @@
+// The byte array entries: the array's routines (arrays.maxon) with an element of one byte, and a buffer that starts at
+// bytesFirstCapacity.
+
+// bytesNew is a new empty byte array: no buffer yet.
+function bytesNew() returns Count
+	return alloc(arrayHeaderBytes)
+end 'bytesNew'
+
+function bytesLength(array Count) returns Count
+	return collectionLength(array)
+end 'bytesLength'
+
+// bytesGet is the byte at an index, which panics past the end.
+function bytesGet(array Count, index Count) returns Byte
+	let at = collectionElementAddress(array, index: index, elementBytes: byteBytes)
+	return __Raw.loadByte(at, offset: 0)
+end 'bytesGet'
+
+// bytesSet replaces the byte at an index, which panics past the end.
+function bytesSet(array Count, index Count, value Byte)
+	let at = collectionElementAddress(array, index: index, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: value)
+end 'bytesSet'
+
+// bytesInsert puts a byte in at an index, which may be the length, after what follows moves up by one.
+function bytesInsert(array Count, index Count, value Byte)
+	let at = collectionOpenGap(array, index: index, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	__Raw.storeByte(at, offset: 0, value: value)
+end 'bytesInsert'
+
+// bytesRemove is the byte at an index, after what follows moves down by one.
+function bytesRemove(array Count, index Count) returns Byte
+	let at = collectionElementAddress(array, index: index, elementBytes: byteBytes)
+	let value = __Raw.loadByte(at, offset: 0)
+	collectionCloseGap(array, index: index, elementBytes: byteBytes)
+	return value
+end 'bytesRemove'
+
+// bytesAppend adds the bytes of another byte array, which may be the same one, after the array's own. Nothing is
+// reserved for an empty one. The source's buffer is read after the room is made, since making it can move that buffer.
+function bytesAppend(array Count, other Count)
+	let count = collectionLength(other)
+	if count == 0 'empty'
+		return
+	end 'empty'
+	let tail = collectionExtend(array, count: count, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	copyBytes(collectionData(other), target: tail, count: count)
+end 'bytesAppend'
+
+// bytesAppendStr adds the bytes of a string after the array's own. Nothing is reserved for an empty one.
+function bytesAppendStr(array Count, text String)
+	let count = stringLength(text)
+	if count == 0 'empty'
+		return
+	end 'empty'
+	let tail = collectionExtend(array, count: count, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	copyBytes(bytesOf(__Raw.stringAddress(text)), target: tail, count: count)
+end 'bytesAppendStr'
+
+// bytesToString is a new string of the bytes of the array, which the caller owns.
+function bytesToString(array Count) returns String
+	let length = collectionLength(array)
+	let box = newStringBox(length)
+	copyBytes(collectionData(array), target: bytesOf(box), count: length)
+	return __Raw.stringAt(box)
+end 'bytesToString'

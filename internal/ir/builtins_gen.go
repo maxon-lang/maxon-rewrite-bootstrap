@@ -286,18 +286,32 @@ type RtParam struct {
 }
 
 var rtFunctions = [...]*RtFunction{
-	RtAlloc:      {Name: "alloc", Symbol: "runtime::alloc", Params: []RtParam{{Conv: ast.ConvLet, Name: "bytes", Type: "Count"}}, Result: "Count"},
-	RtFree:       {Name: "free", Symbol: "runtime::free", Params: []RtParam{{Conv: ast.ConvLet, Name: "box", Type: "Count"}}, Result: "Void"},
-	RtWrite:      {Name: "write", Symbol: "runtime::write", Params: []RtParam{{Conv: ast.ConvLet, Name: "handle", Type: "Count"}, {Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Void"},
-	RtPanic:      {Name: "panicWith", Symbol: "runtime::panicWith", Params: []RtParam{{Conv: ast.ConvLet, Name: "message", Type: "String"}}, Result: "Void"},
-	RtConcat:     {Name: "concat", Symbol: "runtime::concat", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "String"},
-	RtItoa:       {Name: "itoa", Symbol: "runtime::itoa", Params: []RtParam{{Conv: ast.ConvLet, Name: "n", Type: "Count"}, {Conv: ast.ConvLet, Name: "unsigned", Type: "Bool"}}, Result: "String"},
-	RtStreq:      {Name: "streq", Symbol: "runtime::streq", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "Bool"},
-	RtStrLen:     {Name: "stringLength", Symbol: "runtime::stringLength", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Count"},
-	RtStrByteAt:  {Name: "stringByteAt", Symbol: "runtime::stringByteAt", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Byte"},
-	RtStrSlice:   {Name: "stringSlice", Symbol: "runtime::stringSlice", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "from", Type: "Count"}, {Conv: ast.ConvLet, Name: "until", Type: "Count"}}, Result: "String"},
-	RtPanicIndex: {Name: "panicIndex", Symbol: "runtime::panicIndex", Params: []RtParam{}, Result: "Void"},
-	RtCheckLeaks: {Name: "checkLeaks", Symbol: "runtime::checkLeaks", Params: []RtParam{{Conv: ast.ConvLet, Name: "code", Type: "Count"}}, Result: "Count"},
+	RtAlloc:          {Name: "alloc", Symbol: "runtime::alloc", Params: []RtParam{{Conv: ast.ConvLet, Name: "bytes", Type: "Count"}}, Result: "Count"},
+	RtFree:           {Name: "free", Symbol: "runtime::free", Params: []RtParam{{Conv: ast.ConvLet, Name: "box", Type: "Count"}}, Result: "Void"},
+	RtWrite:          {Name: "write", Symbol: "runtime::write", Params: []RtParam{{Conv: ast.ConvLet, Name: "handle", Type: "Count"}, {Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Void"},
+	RtPanic:          {Name: "panicWith", Symbol: "runtime::panicWith", Params: []RtParam{{Conv: ast.ConvLet, Name: "message", Type: "String"}}, Result: "Void"},
+	RtConcat:         {Name: "concat", Symbol: "runtime::concat", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "String"},
+	RtItoa:           {Name: "itoa", Symbol: "runtime::itoa", Params: []RtParam{{Conv: ast.ConvLet, Name: "n", Type: "Count"}, {Conv: ast.ConvLet, Name: "unsigned", Type: "Bool"}}, Result: "String"},
+	RtStreq:          {Name: "streq", Symbol: "runtime::streq", Params: []RtParam{{Conv: ast.ConvLet, Name: "left", Type: "String"}, {Conv: ast.ConvLet, Name: "right", Type: "String"}}, Result: "Bool"},
+	RtStrLen:         {Name: "stringLength", Symbol: "runtime::stringLength", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Count"},
+	RtStrByteAt:      {Name: "stringByteAt", Symbol: "runtime::stringByteAt", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Byte"},
+	RtStrSlice:       {Name: "stringSlice", Symbol: "runtime::stringSlice", Params: []RtParam{{Conv: ast.ConvLet, Name: "text", Type: "String"}, {Conv: ast.ConvLet, Name: "from", Type: "Count"}, {Conv: ast.ConvLet, Name: "until", Type: "Count"}}, Result: "String"},
+	RtPanicIndex:     {Name: "panicIndex", Symbol: "runtime::panicIndex", Params: []RtParam{}, Result: "Void"},
+	RtCheckLeaks:     {Name: "checkLeaks", Symbol: "runtime::checkLeaks", Params: []RtParam{{Conv: ast.ConvLet, Name: "code", Type: "Count"}}, Result: "Count"},
+	RtArrayNew:       {Name: "arrayNew", Symbol: "runtime::arrayNew", Params: []RtParam{}, Result: "Count"},
+	RtArrayLen:       {Name: "arrayLength", Symbol: "runtime::arrayLength", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}}, Result: "Count"},
+	RtArrayElem:      {Name: "arrayElem", Symbol: "runtime::arrayElem", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Count"},
+	RtArrayInsert:    {Name: "arrayInsert", Symbol: "runtime::arrayInsert", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}, {Conv: ast.ConvLet, Name: "element", Type: "Count"}}, Result: "Void"},
+	RtArrayRemove:    {Name: "arrayRemove", Symbol: "runtime::arrayRemove", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Count"},
+	RtBytesNew:       {Name: "bytesNew", Symbol: "runtime::bytesNew", Params: []RtParam{}, Result: "Count"},
+	RtBytesLen:       {Name: "bytesLength", Symbol: "runtime::bytesLength", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}}, Result: "Count"},
+	RtBytesGet:       {Name: "bytesGet", Symbol: "runtime::bytesGet", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Byte"},
+	RtBytesSet:       {Name: "bytesSet", Symbol: "runtime::bytesSet", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}, {Conv: ast.ConvLet, Name: "value", Type: "Byte"}}, Result: "Void"},
+	RtBytesInsert:    {Name: "bytesInsert", Symbol: "runtime::bytesInsert", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}, {Conv: ast.ConvLet, Name: "value", Type: "Byte"}}, Result: "Void"},
+	RtBytesRemove:    {Name: "bytesRemove", Symbol: "runtime::bytesRemove", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "index", Type: "Count"}}, Result: "Byte"},
+	RtBytesAppend:    {Name: "bytesAppend", Symbol: "runtime::bytesAppend", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "other", Type: "Count"}}, Result: "Void"},
+	RtBytesAppendStr: {Name: "bytesAppendStr", Symbol: "runtime::bytesAppendStr", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}, {Conv: ast.ConvLet, Name: "text", Type: "String"}}, Result: "Void"},
+	RtBytesToString:  {Name: "bytesToString", Symbol: "runtime::bytesToString", Params: []RtParam{{Conv: ast.ConvLet, Name: "array", Type: "Count"}}, Result: "String"},
 }
 
 // Function is the function of the runtime's source that defines the entry, when one does: self links a call of the
@@ -310,7 +324,7 @@ func (r Rt) Function() (*RtFunction, bool) {
 }
 
 // RtFunctions are the entries that the runtime's source defines, in the table's order.
-var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks}
+var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks, RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove, RtBytesNew, RtBytesLen, RtBytesGet, RtBytesSet, RtBytesInsert, RtBytesRemove, RtBytesAppend, RtBytesAppendStr, RtBytesToString}
 
 // intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.
 func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {

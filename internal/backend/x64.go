@@ -48,7 +48,6 @@ const (
 )
 
 const (
-	wordBytes     = 8
 	rexBase       = 0x40
 	rexWide       = 8
 	modRegister   = 0xC0

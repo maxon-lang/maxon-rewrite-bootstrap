@@ -2,17 +2,9 @@ package backend
 
 import "minimaxon/internal/ir"
 
-// An array is a box of three words: its length, its capacity and the address of its elements, which are words of 8
-// bytes each (a scalar, or the address of a box). It starts empty with no elements, and grows by doubling; the buffer it
-// leaves is freed, and the elements are not, because they moved to the new one.
-const (
-	arrayHeaderBytes    = 3 * wordBytes
-	arrayLengthOffset   = 0
-	arrayCapacityOffset = wordBytes
-	arrayDataOffset     = 2 * wordBytes
-	arrayFirstCapacity  = 4
-	indexOutOfRange     = "index out of range"
-)
+// An array's box (layout_gen.go) starts empty with no elements, and grows by doubling; the buffer it leaves is freed, and
+// the elements are not, because they moved to the new one.
+const indexOutOfRange = "index out of range"
 
 // EmitArrayRuntime is the unit with the array's runtime entries. It is linked only into a program that calls one, so
 // the executable of any other program does not hold it.

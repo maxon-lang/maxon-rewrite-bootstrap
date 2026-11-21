@@ -143,19 +143,19 @@ export function rtSymbol(r Rt) returns String
 		return "runtime::checkLeaks"
 	end 'rtCheckLeaks'
 	if r == Rt.rtArrayNew 'rtArrayNew'
-		return "rt.array.new"
+		return "runtime::arrayNew"
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return "rt.array.len"
+		return "runtime::arrayLength"
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return "rt.array.elem"
+		return "runtime::arrayElem"
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return "rt.array.insert"
+		return "runtime::arrayInsert"
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return "rt.array.remove"
+		return "runtime::arrayRemove"
 	end 'rtArrayRemove'
 	if r == Rt.rtMapNew 'rtMapNew'
 		return "rt.map.new"
@@ -257,31 +257,31 @@ export function rtSymbol(r Rt) returns String
 		return "rt.cown.new"
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return "rt.bytes.new"
+		return "runtime::bytesNew"
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return "rt.bytes.len"
+		return "runtime::bytesLength"
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return "rt.bytes.get"
+		return "runtime::bytesGet"
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return "rt.bytes.set"
+		return "runtime::bytesSet"
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return "rt.bytes.insert"
+		return "runtime::bytesInsert"
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return "rt.bytes.remove"
+		return "runtime::bytesRemove"
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return "rt.bytes.append"
+		return "runtime::bytesAppend"
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return "rt.bytes.appendStr"
+		return "runtime::bytesAppendStr"
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return "rt.bytes.toString"
+		return "runtime::bytesToString"
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
 		return "rt.os.args"

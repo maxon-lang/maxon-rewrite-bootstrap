@@ -1,5 +1,5 @@
 // The string entries: joining, formatting an integer, comparing, and reading a string's bytes. A string these make is a
-// new box on the heap (layout.maxon), which the caller owns.
+// new box on the heap (layout_gen.maxon), which the caller owns.
 
 let decimalBase = 10 as Count
 

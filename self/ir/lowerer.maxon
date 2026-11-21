@@ -1,10 +1,3 @@
-// wordBytes is the size of every value the IR holds, and of each field of a box: a scalar, or the address of a box, a
-// string or an array.
-export let wordBytes = 8 as Count
-
-// tagOffset is where a union box holds its case index; the payload follows it.
-export let tagOffset = 0 as Count
-
 // noSlot is the owner slot of a value that no slot owns.
 export let noSlot = -1 as Index
 

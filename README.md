@@ -171,7 +171,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: discovers the project and runs every module's stages, parse to generate, as one scheduled phase (the modules phase), with the build cache's export summaries, keys and entries, then the routines and the link; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/irgen` the one that generates the IR's records and what reads them from the table of IR operations, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/irgen` the one that generates the IR's records and what reads them from the table of IR operations, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, `internal/abigen` the one that generates the ABI layout constants from their table, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -257,6 +257,20 @@ tables of `self/ast/tables.maxon` that the checker fills), entered by `ir.lowerM
 intrinsic to its `lower<Intrinsic>` and `rtUnit` are generated (`self/ir/intrinsics_gen.maxon`, `self/ir/runtime_gen.maxon`). Maxon has no closures,
 so what Go passes a function for (a scope, the branches of a conditional, the body of a counted loop, what to drop when a check
 fails) is a begin and an end call around the code in `self/ir/`, which emits the same instructions in the same order.
+
+The ABI layouts (what a box of each kind holds, at which offset) are generated from one table, `internal/abigen/table.go`,
+so the runtime, the backends and the lowering cannot disagree. Each row is a name, its value (in words or plain), and
+which of the files below get it:
+
+| File | Holds |
+|---|---|
+| `runtime/layout_gen.maxon` | the word, the empty box, the string, array and byte array boxes, and the first capacity of each buffer, as `Count` constants |
+| `self/ir/layout_gen.maxon` | `wordBytes` and `tagOffset`, which lowering sizes records and unions with |
+| `self/backend/layout_gen.maxon` | `wordBytes`, the string length offset and the array box, which the drop and copy routines read |
+| `internal/ir/layout_gen.go`, `internal/backend/layout_gen.go` | the same numbers for the Go compiler |
+
+A byte array's box is an array's box (length, capacity, buffer address), so one set of offsets serves both. `go generate
+./internal/abigen` writes them and `go test ./internal/abigen` fails when one is stale.
 
 The x64 encoder is generated from an instruction table, `internal/x64gen/table.go`, into `self/backend/x64_gen.maxon`. The
 Go compiler's own backend (`internal/backend/x64.go`) is not generated and goes when `self/` compiles itself; the table
@@ -1159,11 +1173,14 @@ calls `free`, so no free comes back into the code that started it. It uses none 
 which the runtime implements, and throws nothing. Runtime collections are not generic: an array entry takes a
 descriptor of its element's size and layout, and only a thin typed wrapper is per type.
 
-**Layouts.** `runtime/layout.maxon` holds, as named constants, the layouts that the compiler's code and the runtime
-share: the word, the string box (its length at 0, its bytes at 8) and the empty box. It is the start of the ABI layouts
-table: when the array and byte array layouts join it, a generator (plain Go, as `internal/builtingen`) writes this file,
-`self/backend`'s layout constants and the DLL import list (`rtImports`) from one table, so the runtime, codegen and the
-import table cannot disagree.
+**Layouts.** `runtime/layout_gen.maxon` holds, as named constants, the layouts that the compiler's code and the runtime
+share: the word, the string box (its length at 0, its bytes at 8), the array and byte array box (its length, its
+capacity and the address of its buffer, with a buffer of 8-byte words or of bytes), the first capacities and the empty
+box. A generator (`internal/abigen`, plain Go, see "Generated code") writes it, `self/backend`'s and `self/ir`'s layout
+constants and the Go compiler's from one table, so the runtime and codegen cannot disagree. The array entries
+(`runtime/arrays.maxon`, `bytes.maxon`) are thin functions over one set of routines that take the size of an element
+as a word (`collectionReserve`, `collectionExtend`, `collectionOpenGap`, `collectionCloseGap`), as the plan's
+"collections over layout descriptors" says.
 
 **Compiled once.** The runtime reads no build option, so one compiled runtime serves every program a compiler builds.
 When the unit cache lands, the runtime's units are kept under a key of the compiler's own hash and the hash of every file

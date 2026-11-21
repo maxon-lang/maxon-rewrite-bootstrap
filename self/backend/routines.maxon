@@ -10,27 +10,6 @@
 // known only once every module has been generated. Which they are, and in what order, comes from the modules in source
 // order and from each routine's own parts in field order.
 
-// The layout of an array and of a byte array, which the runtime's array and byte array code must keep: the length, the
-// capacity and the address of the elements, which are words of 8 bytes each, or one byte each in a byte array.
-let arrayHeaderBytes = 24
-
-let arrayLengthOffset = 0
-
-let arrayCapacityOffset = 8
-
-let arrayDataOffset = 16
-
-let bytesHeaderBytes = 24
-
-let bytesLengthOffset = 0
-
-let bytesCapacityOffset = 8
-
-let bytesDataOffset = 16
-
-// stringLengthOffset is where a string holds its length, the word before its bytes.
-let stringLengthOffset = 0
-
 // routinesPerUnit is how many routines go into one unit.
 let routinesPerUnit = 256
 
@@ -506,7 +485,7 @@ function dropBytes(mutates u CodeUnit)
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
 	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: bytesDataOffset)
+	u.asm.load(rax, base: rcx, disp: arrayDataOffset)
 	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
 	freeArgument(u)
 	u.asm.bind(done)
@@ -658,10 +637,10 @@ function copyBytes(mutates u CodeUnit)
 	let buffer = routineLocal2
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 3)
-	allocate(u, bytes: bytesHeaderBytes)
+	allocate(u, bytes: arrayHeaderBytes)
 	u.asm.store(rbp, disp: header, src: rax)
 	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: bytesLengthOffset)
+	u.asm.load(rax, base: rcx, disp: arrayLengthOffset)
 	u.asm.store(rbp, disp: length, src: rax)
 	u.asm.test(rax, right: rax)
 	u.asm.jcc(X64CondCode.equal, label: done)
@@ -669,13 +648,13 @@ function copyBytes(mutates u CodeUnit)
 	u.asm.store(rbp, disp: buffer, src: rax)
 	u.asm.load(rcx, base: rbp, disp: header)
 	u.asm.load(rax, base: rbp, disp: length)
-	u.asm.store(rcx, disp: bytesLengthOffset, src: rax)
-	u.asm.store(rcx, disp: bytesCapacityOffset, src: rax)
+	u.asm.store(rcx, disp: arrayLengthOffset, src: rax)
+	u.asm.store(rcx, disp: arrayCapacityOffset, src: rax)
 	u.asm.load(rdx, base: rbp, disp: buffer)
-	u.asm.store(rcx, disp: bytesDataOffset, src: rdx)
+	u.asm.store(rcx, disp: arrayDataOffset, src: rdx)
 	u.asm.mov(rdi, src: rdx)
 	u.asm.load(rsi, base: rbp, disp: routineArg)
-	u.asm.load(rsi, base: rsi, disp: bytesDataOffset)
+	u.asm.load(rsi, base: rsi, disp: arrayDataOffset)
 	u.asm.mov(rcx, src: rax)
 	u.asm.repMovsb()
 	u.asm.bind(done)

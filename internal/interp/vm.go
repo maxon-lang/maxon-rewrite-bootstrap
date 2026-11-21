@@ -34,7 +34,7 @@ const (
 	stdoutHandle = 1
 	stderrHandle = 2
 	heapHandle   = 3
-	wordBytes    = 8
+	wordBytes    = ir.WordBytes
 )
 
 // Program is the lowered IR of a whole program.

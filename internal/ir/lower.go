@@ -7,13 +7,6 @@ import (
 	"strings"
 )
 
-// WordBytes is the size of every value the IR holds, and of each field of a box: a scalar, or the address of a box, a
-// string or an array.
-const WordBytes = 8
-
-// TagOffset is where a union box holds its case index; the payload follows it.
-const TagOffset = 0
-
 // jumpTargets are where a break and a continue of a loop or a match go.
 type jumpTargets struct {
 	brk  BlockID

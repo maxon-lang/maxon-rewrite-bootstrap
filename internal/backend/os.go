@@ -752,8 +752,8 @@ func (g *osUnit) emitOsWriteBinary() {
 	g.startWinFrame(0)
 	a.Load(Rbx, Rbp, osArg(0, 3))
 	a.Load(Rax, Rbp, osArg(1, 3))
-	a.Load(R13, Rax, bytesLengthOffset)
-	a.Load(R12, Rax, bytesDataOffset)
+	a.Load(R13, Rax, arrayLengthOffset)
+	a.Load(R12, Rax, arrayDataOffset)
 	g.writeEntry()
 }
 
