@@ -1517,9 +1517,10 @@ func hasToken(toks []token, text string) bool {
 }
 
 // unsupportedIterations are the methods and members whose result a for loop cannot walk in minimaxon, which iterates
-// arrays only: a string's views and pieces, a map's parts, an enum's cases and maxon's cursors.
+// arrays, cursors and the views of a string's bytes, code points and UTF-16 units: a string's other views and pieces, a
+// map's parts, an enum's cases and maxon's cursors.
 var unsupportedIterations = map[string]bool{
-	"bytes": true, "codepoints": true, "utf16": true, "graphemes": true, "characters": true, "split": true, "lines": true,
+	"graphemes": true, "characters": true, "split": true, "lines": true,
 	"allCases": true, "allCaseNames": true, "keys": true, "values": true, "entries": true, "withIterator": true,
 	"cursor": true, "createIterator": true,
 }

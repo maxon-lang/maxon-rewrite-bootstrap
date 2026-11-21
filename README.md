@@ -228,6 +228,7 @@ run.
 | `internal/irgen` | `internal/irgen/table.go` | `self/ir/ir_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/table.go` | `self/backend/x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go` | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon` |
+| `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 
 **The grammar.** `Maxon.g4` is a subset of ANTLR 4 notation that its header explains. It says how each construct is written
 and which AST node it builds: a label such as `cond=expr` is a field of the node, `@ast::Node { ... }` adds the fields later
@@ -1649,7 +1650,8 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   over a collection calls `createIterator()` once and owns the cursor. Each `current()` is a value of its own, owned by
   `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a map, a list, a pool. A map has no way to
-  walk its keys yet.
+  walk its keys yet. A string's `bytes()`, `codepoints()` and `utf16()` views are such collections; a loop over the
+  string itself waits for `Character`.
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
@@ -1671,11 +1673,19 @@ maxon's do, and `s.append(t)` joins `t` to the string in `s`'s place (a new stri
 Their code is `runtime/textops.maxon`, which the executable links and `builtingen` copies to `self/interp/textops_gen.maxon`
 for the interpreter, so one text says what each means; a search gives its position plus 1 so that 0 is no match.
 
-Clusters follow the rules of UAX #29 on the classes that the languages in common use occupy (the Extend ranges of the
-combining marks and the variation selectors, the zero width joiner and the pictograph sequences it joins, the pairs of
-regional indicators, Hangul syllables, CR LF) with no Unicode table, so a mark outside those ranges is a cluster of its own
-where maxon's tables join it. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash`, `charAt`,
-`codepoints`, `bytes()` or `utf16()` yet.
+Clusters follow the rules of UAX #29 (GB1 to GB9b, GB11, GB12 and GB13) from the Grapheme_Cluster_Break and
+Extended_Pictographic values of Unicode 16.0.0, which `internal/textgen` writes from the data files in its `ucd/`
+directory to `runtime/unicode_gen.maxon` and `self/interp/unicode_gen.maxon`: a string of the first code point of each run
+of one class and its class, searched by halves, with the Hangul syllables computed from their place in the block. Maxon
+joins only the marks in a few ranges; here every Extend, SpacingMark and Prepend code point joins. The Indic conjunct rule
+GB9c is not implemented. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash`, `charAt` or
+`Character` yet.
+
+`bytes()`, `codepoints()` and `utf16()` give maxon's views `ByteView`, `CodepointView` and `UTF16View`, whose elements are
+a `Byte`, a `Codepoint` (`int(0 to 1114111)`) and a `CodeUnit16` (`int(0 to 65535)`). A view has `count()` and walks with
+the iteration protocol (see "Iteration"): a `for` over it, or `createIterator()` and an iterator's `current()` and
+`advance()` as maxon's. Unlike maxon's they are not lazy: a view and an iterator each hold a copy of the string, so
+changing the string leaves them as they were. A view is no `Array`, as in maxon.
 ### The OS
 
 The OS functions are maxon's stdlib, names, labels, results and errors, declared as static functions of built-in
@@ -1855,6 +1865,9 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   the name of a method in the body of a type of another module is `E3006` at the extension's method, reported when
   the modules are verified, and two extensions of different modules adding one name is not an error: the call's own
   module first, then the modules it names in module order, decide.
+- Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
+  marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
+  of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   `HeapFree` and no reference counting; Maxon counts references. There is no green thread, scheduler or atomic count, so
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules

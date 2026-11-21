@@ -5,26 +5,6 @@
 // interpolation and integers; a position is a byte position in a string, and a search gives its position plus 1, so that
 // 0 is no match.
 
-// StrGraphemeClass is what a code point is to the grapheme cluster rules of UAX #29. A string is cut at a position unless
-// a rule joins the two sides: this is the part of the rules that needs no Unicode table (the classes are given by the
-// ranges the languages in common use occupy), so a mark outside those ranges is a cluster of its own.
-enum StrGraphemeClass
-	classOther
-	classCarriageReturn
-	classLineFeed
-	classControl
-	classExtend
-	classZeroWidthJoiner
-	classRegionalIndicator
-	classSpacingMark
-	classHangulL
-	classHangulV
-	classHangulT
-	classHangulLV
-	classHangulLVT
-	classPictographic
-end 'StrGraphemeClass'
-
 let strAsciiLimit = 0x80 as Byte
 
 let strCarriageReturn = 13 as Byte
@@ -115,79 +95,68 @@ function strCodePoint(text String, at Count, length Count) returns Count
 	return code
 end 'strCodePoint'
 
-function strIn(code Count, first Count, last Count) returns bool
-	return code >= first and code <= last
-end 'strIn'
+let strAsciiCodeLimit = 0x80 as Count
+
+let strCarriageReturnCode = 13 as Count
+
+let strLineFeedCode = 10 as Count
+
+let strControlLimit = 32 as Count
+
+let strDeleteCode = 0x7F as Count
+
+// strTableDigit is the value of the character of the table at a position.
+function strTableDigit(at Count) returns Count
+	let character = strGraphemeTable.byteAt(at) as Count
+	if character > strTableDigitEscape 'afterEscape'
+		return strSub(strSub(character, right: strTableDigitFirst), right: 1)
+	end 'afterEscape'
+	return strSub(character, right: strTableDigitFirst)
+end 'strTableDigit'
+
+// strTableEntry is the number of the entry of the table at an index: the first code point of a run of one class, shifted up
+// by strTableClassBits, and the class.
+function strTableEntry(index Count) returns Count
+	let first = try index * strTableDigits otherwise panic("a table position overflows")
+	var value = 0 as Count
+	for i in 0 upto strTableDigits 'digits'
+		value = strAdd(try value shl strTableDigitBits otherwise panic("a table entry overflows"), right: strTableDigit(strAdd(first, right: i)))
+	end 'digits'
+	return value
+end 'strTableEntry'
 
 // strGraphemeClass is the class of a code point.
 function strGraphemeClass(code Count) returns StrGraphemeClass
-	if code < 0x300 'basic'
-		if code == 13 'carriageReturn'
+	if code < strAsciiCodeLimit 'ascii'
+		if code == strCarriageReturnCode 'carriageReturn'
 			return StrGraphemeClass.classCarriageReturn
 		end 'carriageReturn'
-		if code == 10 'lineFeed'
+		if code == strLineFeedCode 'lineFeed'
 			return StrGraphemeClass.classLineFeed
 		end 'lineFeed'
-		if code < 32 or strIn(code, first: 0x7F, last: 0x9F) or code == 0xAD 'control'
+		if code < strControlLimit or code == strDeleteCode 'control'
 			return StrGraphemeClass.classControl
 		end 'control'
-		if code == 0xA9 or code == 0xAE 'pictographic'
-			return StrGraphemeClass.classPictographic
-		end 'pictographic'
 		return StrGraphemeClass.classOther
-	end 'basic'
-	if strIn(code, first: 0x300, last: 0x36F) or strIn(code, first: 0x483, last: 0x489) or strIn(code, first: 0x591, last: 0x5BD) or strIn(code, first: 0x5BF, last: 0x5C7) 'extendA'
-		return StrGraphemeClass.classExtend
-	end 'extendA'
-	if strIn(code, first: 0x610, last: 0x61A) or strIn(code, first: 0x64B, last: 0x65F) or code == 0x670 or strIn(code, first: 0x6D6, last: 0x6ED) or code == 0x711 or strIn(code, first: 0x730, last: 0x74A) 'extendB'
-		return StrGraphemeClass.classExtend
-	end 'extendB'
-	if strIn(code, first: 0x900, last: 0x902) or code == 0x93A or code == 0x93C or strIn(code, first: 0x941, last: 0x948) or code == 0x94D or strIn(code, first: 0x951, last: 0x957) or strIn(code, first: 0x962, last: 0x963) 'extendC'
-		return StrGraphemeClass.classExtend
-	end 'extendC'
-	if code == 0xE31 or strIn(code, first: 0xE34, last: 0xE3A) or strIn(code, first: 0xE47, last: 0xE4E) or strIn(code, first: 0x1AB0, last: 0x1AFF) or strIn(code, first: 0x1DC0, last: 0x1DFF) 'extendD'
-		return StrGraphemeClass.classExtend
-	end 'extendD'
-	if code == 0x200C or strIn(code, first: 0x20D0, last: 0x20FF) or strIn(code, first: 0x302A, last: 0x302F) or strIn(code, first: 0x3099, last: 0x309A) or strIn(code, first: 0xFE00, last: 0xFE0F) or strIn(code, first: 0xFE20, last: 0xFE2F) 'extendE'
-		return StrGraphemeClass.classExtend
-	end 'extendE'
-	if strIn(code, first: 0x1F3FB, last: 0x1F3FF) or strIn(code, first: 0xE0020, last: 0xE007F) or strIn(code, first: 0xE0100, last: 0xE01EF) 'extendF'
-		return StrGraphemeClass.classExtend
-	end 'extendF'
-	if code == strZeroWidthJoiner 'joiner'
-		return StrGraphemeClass.classZeroWidthJoiner
-	end 'joiner'
-	if code == 0x903 or code == 0x93B or strIn(code, first: 0x93E, last: 0x940) or strIn(code, first: 0x949, last: 0x94C) or strIn(code, first: 0x94E, last: 0x94F) or code == 0xE33 or code == 0xEB3 'spacing'
-		return StrGraphemeClass.classSpacingMark
-	end 'spacing'
-	if strIn(code, first: 0x1100, last: 0x115F) or strIn(code, first: 0xA960, last: 0xA97C) 'hangulL'
-		return StrGraphemeClass.classHangulL
-	end 'hangulL'
-	if strIn(code, first: 0x1160, last: 0x11A7) or strIn(code, first: 0xD7B0, last: 0xD7C6) 'hangulV'
-		return StrGraphemeClass.classHangulV
-	end 'hangulV'
-	if strIn(code, first: 0x11A8, last: 0x11FF) or strIn(code, first: 0xD7CB, last: 0xD7FB) 'hangulT'
-		return StrGraphemeClass.classHangulT
-	end 'hangulT'
-	if strIn(code, first: strHangulSyllableFirst, last: strHangulSyllableLast) 'syllable'
+	end 'ascii'
+	if code >= strHangulSyllableFirst and code <= strHangulSyllableLast 'syllable'
 		if strSub(code, right: strHangulSyllableFirst) mod strHangulTailCount == 0 'open'
 			return StrGraphemeClass.classHangulLV
 		end 'open'
 		return StrGraphemeClass.classHangulLVT
 	end 'syllable'
-	if strIn(code, first: 0x1F1E6, last: 0x1F1FF) 'indicator'
-		return StrGraphemeClass.classRegionalIndicator
-	end 'indicator'
-	if code == 0x200B or strIn(code, first: 0x200E, last: 0x200F) or strIn(code, first: 0x2028, last: 0x202E) or strIn(code, first: 0x2060, last: 0x206F) or code == 0xFEFF 'format'
-		return StrGraphemeClass.classControl
-	end 'format'
-	if code == 0x203C or code == 0x2049 or code == 0x2122 or code == 0x2139 or strIn(code, first: 0x2194, last: 0x21AA) or strIn(code, first: 0x231A, last: 0x23FA) or code == 0x24C2 or strIn(code, first: 0x25AA, last: 0x25FE) or strIn(code, first: 0x2600, last: 0x27BF) 'symbols'
-		return StrGraphemeClass.classPictographic
-	end 'symbols'
-	if strIn(code, first: 0x2934, last: 0x2935) or strIn(code, first: 0x2B05, last: 0x2B07) or strIn(code, first: 0x2B1B, last: 0x2B1C) or code == 0x2B50 or code == 0x2B55 or code == 0x3030 or code == 0x303D or code == 0x3297 or code == 0x3299 or strIn(code, first: 0x1F000, last: 0x1FAFF) 'pictures'
-		return StrGraphemeClass.classPictographic
-	end 'pictures'
-	return StrGraphemeClass.classOther
+	// The last entry whose first code point is at most the code point: the entry at 0 is the first, so one always is.
+	var low = 0 as Count
+	var high = strTableEntryCount
+	while strSub(high, right: low) > 1 'search'
+		let middle = strAdd(low, right: strSub(high, right: low) / 2)
+		if strTableEntry(middle) shr strTableClassBits <= code 'right'
+			low = middle
+		end 'right' else 'left'
+			high = middle
+		end 'left'
+	end 'search'
+	return strGraphemeClassOfNumber(strTableEntry(low) and strTableClassMask)
 end 'strGraphemeClass'
 
 // strIsBreakClass is whether a class is one that a cluster ends before and after: a control or a line break.
@@ -249,7 +218,7 @@ function strGraphemeEnd(text String, start Count) returns Count
 		if strIsBreakClass(before) or strIsBreakClass(after) 'broken'
 			return next
 		end 'broken'
-		var joined = strHangulJoins(before, after: after) or after == StrGraphemeClass.classExtend or after == StrGraphemeClass.classZeroWidthJoiner or after == StrGraphemeClass.classSpacingMark
+		var joined = strHangulJoins(before, after: after) or after == StrGraphemeClass.classExtend or after == StrGraphemeClass.classZeroWidthJoiner or after == StrGraphemeClass.classSpacingMark or before == StrGraphemeClass.classPrepend
 		if after == StrGraphemeClass.classPictographic and pictures == 2 'emoji'
 			joined = true
 		end 'emoji'
@@ -312,6 +281,94 @@ function stringGraphemeBytePos(text String, from Count, count Count) returns Cou
 	end 'each'
 	return at
 end 'stringGraphemeBytePos'
+
+// strSequenceLengthAt is how many bytes the sequence that starts at a position has, which a string that ends inside it cuts.
+function strSequenceLengthAt(text String, at Count) returns Count
+	var length = strSequenceLength(text.byteAt(at))
+	let left = strSub(text.byteLength(), right: at)
+	if length > left 'cut'
+		length = left
+	end 'cut'
+	return length
+end 'strSequenceLengthAt'
+
+// stringCodePointAt is the code point that starts at a byte position.
+function stringCodePointAt(text String, bytePos Count) returns Count
+	return strCodePoint(text, at: bytePos, length: strSequenceLengthAt(text, at: bytePos))
+end 'stringCodePointAt'
+
+// stringCodePointNext is the byte position of the code point after the one at a position, plus 1, or 0 where there is none.
+function stringCodePointNext(text String, bytePos Count) returns Count
+	let next = strAdd(bytePos, right: strSequenceLengthAt(text, at: bytePos))
+	if next >= text.byteLength() 'last'
+		return 0
+	end 'last'
+	return strAdd(next, right: 1)
+end 'stringCodePointNext'
+
+// stringCodePointCount is the number of code points of a string.
+function stringCodePointCount(text String) returns Count
+	let size = text.byteLength()
+	var at = 0 as Count
+	var count = 0 as Count
+	while at < size 'each'
+		at = strAdd(at, right: strSequenceLengthAt(text, at: at))
+		count = strAdd(count, right: 1)
+	end 'each'
+	return count
+end 'stringCodePointCount'
+
+// A UTF-16 state is where a code unit is: twice the byte position of its code point, plus 1 at the second unit of a pair.
+let strUnitsPerStateStep = 2 as Count
+
+let strSupplementaryFirst = 0x10000 as Count
+
+let strLeadSurrogateFirst = 0xD800 as Count
+
+let strTrailSurrogateFirst = 0xDC00 as Count
+
+let strSurrogateSpan = 0x400 as Count
+
+// stringUtf16Unit is the UTF-16 code unit at a state.
+function stringUtf16Unit(text String, state Count) returns Count
+	let code = stringCodePointAt(text, bytePos: state / strUnitsPerStateStep)
+	if code < strSupplementaryFirst 'single'
+		return code
+	end 'single'
+	let offset = strSub(code, right: strSupplementaryFirst)
+	if state mod strUnitsPerStateStep == 0 'lead'
+		return strAdd(strLeadSurrogateFirst, right: offset / strSurrogateSpan)
+	end 'lead'
+	return strAdd(strTrailSurrogateFirst, right: offset mod strSurrogateSpan)
+end 'stringUtf16Unit'
+
+// stringUtf16Next is the state of the code unit after the one at a state, plus 1, or 0 where there is none.
+function stringUtf16Next(text String, state Count) returns Count
+	let bytePos = state / strUnitsPerStateStep
+	if stringCodePointAt(text, bytePos: bytePos) >= strSupplementaryFirst and state mod strUnitsPerStateStep == 0 'pair'
+		return strAdd(state, right: 2)
+	end 'pair'
+	let next = stringCodePointNext(text, bytePos: bytePos)
+	if next == 0 'last'
+		return 0
+	end 'last'
+	return strAdd(try strSub(next, right: 1) * strUnitsPerStateStep otherwise panic("a text position overflows"), right: 1)
+end 'stringUtf16Next'
+
+// stringUtf16Count is the number of UTF-16 code units of a string.
+function stringUtf16Count(text String) returns Count
+	let size = text.byteLength()
+	var at = 0 as Count
+	var count = 0 as Count
+	while at < size 'each'
+		count = strAdd(count, right: 1)
+		if stringCodePointAt(text, bytePos: at) >= strSupplementaryFirst 'pair'
+			count = strAdd(count, right: 1)
+		end 'pair'
+		at = strAdd(at, right: strSequenceLengthAt(text, at: at))
+	end 'each'
+	return count
+end 'stringUtf16Count'
 
 // strMatchesAt is whether the bytes of needle are the ones of text from a position, which the text has room for.
 function strMatchesAt(text String, at Count, needle String) returns bool
@@ -409,6 +466,10 @@ function stringReplace(text String, old String, replacement String, all bool) re
 	end 'searching'
 	return "{result}{text.sliceBytes(done, endPos: size)}"
 end 'stringReplace'
+
+function strIn(code Count, first Count, last Count) returns bool
+	return code >= first and code <= last
+end 'strIn'
 
 // strIsSpace is whether a code point is one of the whitespace and newline characters that trim removes.
 function strIsSpace(code Count) returns bool

@@ -1,0 +1,35 @@
+// The views of a string: its bytes, code points and UTF-16 code units, which a for walks and whose count they know.
+function main() returns ExitCode
+	let text = "Aé€😀B"
+	print("{text.bytes().count()} {text.codepoints().count()} {text.utf16().count()} {"".bytes().count()}\n")
+	var bytes = 0 as Count
+	for b in text.bytes() 'bytes'
+		bytes = try bytes + (b as Count) otherwise panic("a sum of bytes overflows")
+	end 'bytes'
+	print("{bytes}\n")
+	var points = ""
+	for cp in text.codepoints() 'points'
+		points = "{points},{cp}"
+	end 'points'
+	print("{points}\n")
+	var units = ""
+	for u in text.utf16() 'units'
+		units = "{units},{u}"
+	end 'units'
+	print("{units}\n")
+	var none = 0 as Count
+	for b in "".bytes() 'none'
+		none = try none + 1 otherwise panic("a count overflows")
+	end 'none'
+	for cp in "".codepoints() 'noPoints'
+		none = try none + 1 otherwise panic("a count overflows")
+	end 'noPoints'
+	print("{none}\n")
+	return 0
+end 'main'
+
+//> 11 5 6 0
+//> 1702
+//> ,65,233,8364,128512,66
+//> ,65,233,8364,55357,56832,66
+//> 0

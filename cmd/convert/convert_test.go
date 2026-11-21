@@ -365,7 +365,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		},
 		{
 			name:     "for loop over a string's view",
-			in:       "function f(s String)\n\tfor b in s.bytes() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
+			in:       "function f(s String)\n\tfor b in s.lines() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
 			wantTodo: "iterator-based for loops over a string",
 		},
 		{

@@ -506,8 +506,8 @@ function visitForCursor(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	let exit = l.b.newBlock()
 	let collection = lowerRead(l, p: p, e: source)
 	if info.hasFactory 'factory'
-		let made = newReg(l, kind: IrKind.kindManaged)
-		protocolCall(l, p: p, s: s, info: info.factory, recv: collection, dst: made, exit: exit)
+		let fresh = newReg(l, kind: IrKind.kindManaged)
+		let made = protocolCall(l, p: p, s: s, info: info.factory, recv: collection, dst: fresh, resultTy: info.cursorTy, exit: exit)
 		emit(l, i: newStoreSlot(cursor, src: made, borrow: false))
 		let top = pred(l.scopes.count())
 		let ty = dropType(l, p: p, t: info.cursorTy)
@@ -519,8 +519,8 @@ function visitForCursor(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	pushJumps(l, node: s, brk: exit, cont: cont)
 	pushScope(l, block: true)
 	let reading = load(l, slot: cursor)
-	let elem = newReg(l, kind: kindOf(l, p: p, t: sym.ty))
-	protocolCall(l, p: p, s: s, info: info.current, recv: reading, dst: elem, exit: exit)
+	let slotValue = newReg(l, kind: kindOf(l, p: p, t: sym.ty))
+	let elem = protocolCall(l, p: p, s: s, info: info.current, recv: reading, dst: slotValue, resultTy: sym.ty, exit: exit)
 	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: false))
 	ownLocal(l, p: p, slot: slotOf(sym), t: sym.ty)
 	lowerBlock(l, p: p, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
@@ -528,19 +528,24 @@ function visitForCursor(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	goTo(l, target: cont)
 	popJumps(l)
 	let moving = load(l, slot: cursor)
-	protocolCall(l, p: p, s: s, info: info.advance, recv: moving, dst: noReg, exit: exit)
+	_ = protocolCall(l, p: p, s: s, info: info.advance, recv: moving, dst: noReg, resultTy: ast.noType, exit: exit)
 	goTo(l, target: body)
 	l.cur = exit
 end 'visitForCursor'
 
-// protocolCall calls a method of the iteration protocol on recv. One that throws goes to exit when it fails: the error
-// is IterationError, which carries nothing to drop.
-function protocolCall(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, exit BlockID)
+// protocolCall calls a method of the iteration protocol on recv and gives the register that has its result: dst, or the
+// register of an operation that a built-in iterator's method lowers to in place. One that throws goes to exit when it
+// fails: the error is IterationError, which carries nothing to drop. resultTy is the type of the value the method gives.
+function protocolCall(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, resultTy ast.TypeID, exit BlockID) returns Reg
+	let op = p.funcs.entries[info.fn as Count].intrinsic
+	if op != ast.Intrinsic.intrNone 'intrinsic'
+		return lowerViewMethod(l, p: p, op: op, site: siteOf(l, p: p, node: s), t: resultTy, recv: recv, exit: exit)
+	end 'intrinsic'
 	let target = callee(l, p: p, node: s, info: info, receiver: 0 as ast.NodeID)
 	let args = argsOf1(recv)
 	if p.funcs.entries[target as Count].errTy == ast.noType 'plain'
 		emitCall(l, dst: dst, target: target, args: args)
-		return
+		return dst
 	end 'plain'
 	let err = newReg(l, kind: IrKind.kindScalar)
 	emitThrowingCall(l, dst: dst, target: target, args: args, err: err)
@@ -549,6 +554,7 @@ function protocolCall(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, in
 	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: exit, ifFalse: ok))
 	l.cur = ok
+	return dst
 end 'protocolCall'
 
 // lowerFunction is the IR of a function, or of an instance of a generic one. instances are the ones the function's module

@@ -1,0 +1,14 @@
+// The grapheme clusters of UAX #29, from the Unicode tables: combining marks of any script, Hangul syllables and jamo,
+// regional indicator pairs, emoji sequences and the carriage return and line feed.
+function main() returns ExitCode
+	print("{"e\u0301".count()} {"\u0915\u093F".count()} {"\u0E01\u0E33".count()} {"\u0E01\u0E34".count()}\n")
+	print("{"\u1100\u1161\u11A8".count()} {"\uAC00\u11A8".count()} {"\uAC01\uAC01".count()} {"\uD55C\uAE00".count()}\n")
+	print("{"🇩🇪🇫🇷🇺".count()} {"👨\u200D👩\u200D👧\u200D👦".count()} {"👍🏽".count()} {"\u2764\uFE0F".count()} {"\u00A9\u200D\u00A9".count()}\n")
+	print("{"\r\n".count()} {"\r\r\n".count()} {"a\u200Bb".count()} {"\u0600a".count()} {"a\u064Bb\u0301".count()}\n")
+	return 0
+end 'main'
+
+//> 1 1 1 1
+//> 1 1 2 2
+//> 3 1 1 1 1
+//> 1 2 3 1 2

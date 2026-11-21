@@ -49,6 +49,14 @@ export type Builtins
 	export var iterationErrorTy as TypeID
 	export var stringErrorTy as TypeID
 	export var stringIndexTy as TypeID
+	export var byteViewTy as TypeID
+	export var byteIteratorTy as TypeID
+	export var codepointViewTy as TypeID
+	export var codepointIteratorTy as TypeID
+	export var utf16ViewTy as TypeID
+	export var utf16IteratorTy as TypeID
+	export var codepointTy as TypeID
+	export var codeUnit16Ty as TypeID
 	export var copyableTy as TypeID
 	export var droppableTy as TypeID
 	export var errorTy as TypeID
@@ -63,7 +71,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, fullRangeFloatTy: noType, anonFloatTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, fullRangeFloatTy: noType, anonFloatTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, codepointTy: noType, codeUnit16Ty: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool
@@ -281,6 +289,8 @@ export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates
 	let byteTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "Byte", lo: I128.zero(), hi: I128.fromCount(255 as Count))
 	b.fullRangeFloatTy = registerStdFloatAlias(tt, std: std, typeMap: typeMap, name: "FullRangeFloat", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
 	b.anonFloatTy = internFloatRange(tt, aliasName: "", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
+	b.codepointTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "Codepoint", lo: I128.zero(), hi: I128.fromCount(1114111 as Count))
+	b.codeUnit16Ty = registerStdAlias(tt, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.exitCodeTy = exitTy
 	b.countTy = countTy
 	b.elementIndexTy = elementIndexTy

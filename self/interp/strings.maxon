@@ -69,3 +69,33 @@ function entryStrMapCase(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string case")
 	giveText(vm, x: x, text: stringMapCase(text, upper: argNum(vm, f: f, x: x, i: 1) != 0))
 end 'entryStrMapCase'
+
+function entryStrCodePointAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a code point read")
+	giveCount(vm, x: x, n: stringCodePointAt(text, bytePos: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrCodePointAt'
+
+function entryStrCodePointNext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a code point step")
+	giveCount(vm, x: x, n: stringCodePointNext(text, bytePos: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrCodePointNext'
+
+function entryStrCodePointCount(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a code point count")
+	giveCount(vm, x: x, n: stringCodePointCount(text))
+end 'entryStrCodePointCount'
+
+function entryStrUtf16Unit(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a UTF-16 unit read")
+	giveCount(vm, x: x, n: stringUtf16Unit(text, state: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrUtf16Unit'
+
+function entryStrUtf16Next(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a UTF-16 step")
+	giveCount(vm, x: x, n: stringUtf16Next(text, state: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrUtf16Next'
+
+function entryStrUtf16Count(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a UTF-16 count")
+	giveCount(vm, x: x, n: stringUtf16Count(text))
+end 'entryStrUtf16Count'

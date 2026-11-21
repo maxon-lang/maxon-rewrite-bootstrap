@@ -182,6 +182,51 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return lowerStringFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringBytes 'intrStringBytes'
+		return lowerStringBytes(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringBytes'
+	if op == ast.Intrinsic.intrStringCodepoints 'intrStringCodepoints'
+		return lowerStringCodepoints(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringCodepoints'
+	if op == ast.Intrinsic.intrStringUtf16 'intrStringUtf16'
+		return lowerStringUtf16(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringUtf16'
+	if op == ast.Intrinsic.intrByteViewCreateIterator 'intrByteViewCreateIterator'
+		return lowerByteViewCreateIterator(l, p: p, c: c, recv: recv, args: args)
+	end 'intrByteViewCreateIterator'
+	if op == ast.Intrinsic.intrByteViewCount 'intrByteViewCount'
+		return lowerByteViewCount(l, p: p, c: c, recv: recv, args: args)
+	end 'intrByteViewCount'
+	if op == ast.Intrinsic.intrByteIteratorCurrent 'intrByteIteratorCurrent'
+		return lowerByteIteratorCurrent(l, p: p, c: c, recv: recv, args: args)
+	end 'intrByteIteratorCurrent'
+	if op == ast.Intrinsic.intrByteIteratorAdvance 'intrByteIteratorAdvance'
+		return lowerByteIteratorAdvance(l, p: p, c: c, recv: recv, args: args)
+	end 'intrByteIteratorAdvance'
+	if op == ast.Intrinsic.intrCodepointViewCreateIterator 'intrCodepointViewCreateIterator'
+		return lowerCodepointViewCreateIterator(l, p: p, c: c, recv: recv, args: args)
+	end 'intrCodepointViewCreateIterator'
+	if op == ast.Intrinsic.intrCodepointViewCount 'intrCodepointViewCount'
+		return lowerCodepointViewCount(l, p: p, c: c, recv: recv, args: args)
+	end 'intrCodepointViewCount'
+	if op == ast.Intrinsic.intrCodepointIteratorCurrent 'intrCodepointIteratorCurrent'
+		return lowerCodepointIteratorCurrent(l, p: p, c: c, recv: recv, args: args)
+	end 'intrCodepointIteratorCurrent'
+	if op == ast.Intrinsic.intrCodepointIteratorAdvance 'intrCodepointIteratorAdvance'
+		return lowerCodepointIteratorAdvance(l, p: p, c: c, recv: recv, args: args)
+	end 'intrCodepointIteratorAdvance'
+	if op == ast.Intrinsic.intrUtf16ViewCreateIterator 'intrUtf16ViewCreateIterator'
+		return lowerUtf16ViewCreateIterator(l, p: p, c: c, recv: recv, args: args)
+	end 'intrUtf16ViewCreateIterator'
+	if op == ast.Intrinsic.intrUtf16ViewCount 'intrUtf16ViewCount'
+		return lowerUtf16ViewCount(l, p: p, c: c, recv: recv, args: args)
+	end 'intrUtf16ViewCount'
+	if op == ast.Intrinsic.intrUtf16IteratorCurrent 'intrUtf16IteratorCurrent'
+		return lowerUtf16IteratorCurrent(l, p: p, c: c, recv: recv, args: args)
+	end 'intrUtf16IteratorCurrent'
+	if op == ast.Intrinsic.intrUtf16IteratorAdvance 'intrUtf16IteratorAdvance'
+		return lowerUtf16IteratorAdvance(l, p: p, c: c, recv: recv, args: args)
+	end 'intrUtf16IteratorAdvance'
 	if op == ast.Intrinsic.intrStringIsEmpty 'intrStringIsEmpty'
 		return lowerStringIsEmpty(l, p: p, c: c, recv: recv, args: args)
 	end 'intrStringIsEmpty'
@@ -586,6 +631,51 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return false
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringBytes 'intrStringBytes'
+		return false
+	end 'intrStringBytes'
+	if op == ast.Intrinsic.intrStringCodepoints 'intrStringCodepoints'
+		return false
+	end 'intrStringCodepoints'
+	if op == ast.Intrinsic.intrStringUtf16 'intrStringUtf16'
+		return false
+	end 'intrStringUtf16'
+	if op == ast.Intrinsic.intrByteViewCreateIterator 'intrByteViewCreateIterator'
+		return false
+	end 'intrByteViewCreateIterator'
+	if op == ast.Intrinsic.intrByteViewCount 'intrByteViewCount'
+		return false
+	end 'intrByteViewCount'
+	if op == ast.Intrinsic.intrByteIteratorCurrent 'intrByteIteratorCurrent'
+		return false
+	end 'intrByteIteratorCurrent'
+	if op == ast.Intrinsic.intrByteIteratorAdvance 'intrByteIteratorAdvance'
+		return false
+	end 'intrByteIteratorAdvance'
+	if op == ast.Intrinsic.intrCodepointViewCreateIterator 'intrCodepointViewCreateIterator'
+		return false
+	end 'intrCodepointViewCreateIterator'
+	if op == ast.Intrinsic.intrCodepointViewCount 'intrCodepointViewCount'
+		return false
+	end 'intrCodepointViewCount'
+	if op == ast.Intrinsic.intrCodepointIteratorCurrent 'intrCodepointIteratorCurrent'
+		return false
+	end 'intrCodepointIteratorCurrent'
+	if op == ast.Intrinsic.intrCodepointIteratorAdvance 'intrCodepointIteratorAdvance'
+		return false
+	end 'intrCodepointIteratorAdvance'
+	if op == ast.Intrinsic.intrUtf16ViewCreateIterator 'intrUtf16ViewCreateIterator'
+		return false
+	end 'intrUtf16ViewCreateIterator'
+	if op == ast.Intrinsic.intrUtf16ViewCount 'intrUtf16ViewCount'
+		return false
+	end 'intrUtf16ViewCount'
+	if op == ast.Intrinsic.intrUtf16IteratorCurrent 'intrUtf16IteratorCurrent'
+		return false
+	end 'intrUtf16IteratorCurrent'
+	if op == ast.Intrinsic.intrUtf16IteratorAdvance 'intrUtf16IteratorAdvance'
+		return false
+	end 'intrUtf16IteratorAdvance'
 	if op == ast.Intrinsic.intrStringIsEmpty 'intrStringIsEmpty'
 		return false
 	end 'intrStringIsEmpty'

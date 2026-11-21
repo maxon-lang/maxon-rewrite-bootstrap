@@ -75,6 +75,30 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrMapCase(vm, f: f, x: x)
 		return
 	end 'rtStrMapCase'
+	if symbol == ir.Rt.rtStrCodePointAt 'rtStrCodePointAt'
+		try entryStrCodePointAt(vm, f: f, x: x)
+		return
+	end 'rtStrCodePointAt'
+	if symbol == ir.Rt.rtStrCodePointNext 'rtStrCodePointNext'
+		try entryStrCodePointNext(vm, f: f, x: x)
+		return
+	end 'rtStrCodePointNext'
+	if symbol == ir.Rt.rtStrCodePointCount 'rtStrCodePointCount'
+		try entryStrCodePointCount(vm, f: f, x: x)
+		return
+	end 'rtStrCodePointCount'
+	if symbol == ir.Rt.rtStrUtf16Unit 'rtStrUtf16Unit'
+		try entryStrUtf16Unit(vm, f: f, x: x)
+		return
+	end 'rtStrUtf16Unit'
+	if symbol == ir.Rt.rtStrUtf16Next 'rtStrUtf16Next'
+		try entryStrUtf16Next(vm, f: f, x: x)
+		return
+	end 'rtStrUtf16Next'
+	if symbol == ir.Rt.rtStrUtf16Count 'rtStrUtf16Count'
+		try entryStrUtf16Count(vm, f: f, x: x)
+		return
+	end 'rtStrUtf16Count'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
 		try entryArrayNew(vm, f: f, x: x)
 		return
