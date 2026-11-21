@@ -623,11 +623,11 @@ type Cell implements Source with String
 	var text as String
 
 	static function of(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'of'
 
 	function first() returns String
-		return text
+		return text.clone()
 	end 'first'
 end 'Cell'
 
@@ -664,11 +664,11 @@ type Cell implements Source with Items
 	var n as Items
 
 	static function of(n Items) returns Self
-		return Self{n: n}
+		return Self{n: n.clone()}
 	end 'of'
 
 	function first() returns Items
-		return n
+		return n.clone()
 	end 'first'
 end 'Cell'
 
@@ -681,7 +681,7 @@ end 'makeSource'
 function firstOf(s ItemsSource) returns ExitCode
 	let v = s.first()
 	let first = try v.get(0) otherwise 0
-	return (first - 400) as ExitCode
+	return try (first - 400) as ExitCode otherwise panic("out of range")
 end 'firstOf'
 
 function main() returns ExitCode

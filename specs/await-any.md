@@ -577,7 +577,7 @@ end 'main'
 
 <!-- test: await-any.replies-racing-the-registration-across-many-rounds -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT WHOSE SLOTS COMPLETE ON OTHER PROCESSORS WHILE IT REGISTERS.** Each round sends one message to
@@ -631,12 +631,12 @@ function main() returns ExitCode
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot.index() as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -658,7 +658,7 @@ picks=300 sum=719400
 
 <!-- test: await-any.replies-racing-the-registration-at-one-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -703,12 +703,12 @@ function main() returns ExitCode
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot.index() as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -730,7 +730,7 @@ picks=300 sum=719400
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-across-many-rounds -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT OVER SIXTEEN SLOTS LOCKS ALL SIXTEEN IN ONE ADDRESS ORDER, WHATEVER ORDER THE ARRAY HOLDS
@@ -793,14 +793,14 @@ function main() returns ExitCode
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			let s = slot.index() as Integer
 			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
 			replies.push(try echo.value((r as Integer) * services + s, spins: spins) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -822,7 +822,7 @@ picks=400 sum=20476800
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-at-one-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -874,14 +874,14 @@ function main() returns ExitCode
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			let s = slot.index() as Integer
 			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
 			replies.push(try echo.value((r as Integer) * services + s, spins: spins) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1

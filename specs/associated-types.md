@@ -1117,7 +1117,7 @@ type Sack implements Bag
 	let n as Integer
 
 	function take(xs IntArray) returns Integer
-		return n + (xs.count() as Integer)
+		return try n + (xs.count() as Integer) otherwise panic("out of range")
 	end 'take'
 
 	static function create() returns Self
@@ -1127,9 +1127,9 @@ end 'Sack'
 
 function main() returns ExitCode
 	let s = Sack.create()
-	let f = AlsoIntArray.create(0)
+	var f = AlsoIntArray.create(0)
 	f.push(7)
-	return s.take(f as IntArray) as ExitCode
+	return try s.take(f as IntArray) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1989,7 +1989,7 @@ export type A implements Taker with Integer
 end 'A'
 
 // --- file: beta/impl.maxon
-export type B implements Taker with alpha.Integer
+export type B implements alpha.Taker with alpha.Integer
 	let base as alpha.Integer
 
 	export function take(e alpha.Integer) returns alpha.Integer
@@ -2002,7 +2002,7 @@ export type B implements Taker with alpha.Integer
 end 'B'
 
 // --- file: main.maxon
-function useIt(t Taker) returns Integer
+function useIt(t alpha.Taker) returns Integer
 	return t.take(10)
 end 'useIt'
 
@@ -2030,7 +2030,7 @@ export type A implements Taker with Integer
 	let base as Integer
 
 	export function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	export static function create(base Integer) returns Self
@@ -2039,14 +2039,14 @@ export type A implements Taker with Integer
 end 'A'
 
 // --- file: main.maxon
-typealias IntTaker = Taker with alpha.Integer
+typealias IntTaker = alpha.Taker with alpha.Integer
 
 function useIt(t IntTaker, c alpha.Integer) returns alpha.Integer
 	return t.take(c)
 end 'useIt'
 
 function main() returns ExitCode
-	return useIt(A.create(20), c: 11) as ExitCode
+	return try useIt(alpha.A.create(20), c: 11) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2635,7 +2635,7 @@ end 'Gauge'
 type W uses S where S implements Cursor with Level
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
@@ -2648,7 +2648,7 @@ typealias GaugeW = W with Gauge
 
 function main() returns ExitCode
 	let w = GaugeW.create(Gauge.create())
-	if smallOk() 'ok'
+	if z.smallOk() 'ok'
 		return w.read()
 	end 'ok'
 	return 1
@@ -2742,7 +2742,7 @@ end 'wideOk'
 // --- file: z.maxon
 typealias Level = int(0 to 3)
 
-type Tick implements Cursor with Level
+type Tick implements a.Cursor with Level
 	var v as Level
 
 	static function create() returns Self
@@ -2754,14 +2754,14 @@ type Tick implements Cursor with Level
 	end 'current'
 end 'Tick'
 
-typealias LevelCursor = Cursor with Level
+typealias LevelCursor = a.Cursor with Level
 
 function read(c LevelCursor) returns Level
-	return c.current() + (1 as Level)
+	return try c.current() + (1 as Level) otherwise panic("out of range")
 end 'read'
 
 function main() returns ExitCode
-	if wideOk() 'ok'
+	if a.wideOk() 'ok'
 		return read(Tick.create())
 	end 'ok'
 	return 0
@@ -2964,7 +2964,7 @@ type Runner implements Taker with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -2977,7 +2977,7 @@ type Box uses T
 	let seed as Integer
 
 	function run(t TakerOfT, c T) returns Integer
-		return t.take(c) + self.seed
+		return try t.take(c) + self.seed otherwise panic("out of range")
 	end 'run'
 
 	static function create(seed Integer) returns Self
@@ -2988,7 +2988,7 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	return IntBox.create(0).run(Runner.create(20), c: 11) as ExitCode
+	return try IntBox.create(0).run(Runner.create(20), c: 11) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3065,7 +3065,7 @@ type Runner implements Taker with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -3080,7 +3080,7 @@ function useIt(t IntTaker, c Integer) returns Integer
 end 'useIt'
 
 function main() returns ExitCode
-	return useIt(Runner.create(20), c: 11) as ExitCode
+	return try useIt(Runner.create(20), c: 11) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3160,7 +3160,7 @@ type Runner implements Taker with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	function label() returns Integer
@@ -3180,7 +3180,7 @@ type Box uses T
 		return self.t.label()
 	end 'run'
 
-	static function create(t TakerOfT) returns Self
+	static function create(consumes t TakerOfT) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Box'
@@ -3188,7 +3188,7 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	return IntBox.create(Runner.create(31)).run() as ExitCode
+	return try IntBox.create(Runner.create(31)).run() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3266,7 +3266,7 @@ type Runner implements Taker with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -3278,7 +3278,7 @@ type Box uses T
 	typealias TakerOfT = Taker with T
 	export var t as TakerOfT
 
-	static function create(t TakerOfT) returns Self
+	static function create(consumes t TakerOfT) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Box'
@@ -3286,9 +3286,9 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	let box = IntBox.create(Runner.create(1))
+	var box = IntBox.create(Runner.create(1))
 	box.t = Runner.create(21)
-	return box.t.take(10) as ExitCode
+	return try box.t.take(10) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3434,7 +3434,7 @@ type Holder uses E implements Taker with E
 		return self.base
 	end 'label'
 
-	static function create(base Integer, seed E) returns Self
+	static function create(base Integer, consumes seed E) returns Self
 		return Self{base: base, seed: seed}
 	end 'create'
 end 'Holder'
@@ -3444,7 +3444,7 @@ type Box uses T
 	let extra as Integer
 
 	function run(t TakerOfT) returns Integer
-		return t.label() + self.extra
+		return try t.label() + self.extra otherwise panic("out of range")
 	end 'run'
 
 	static function create(extra Integer) returns Self
@@ -3457,7 +3457,7 @@ typealias IntHolder = Holder with Integer
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	return IntBox.create(11).run(IntHolder.create(20, seed: 0)) as ExitCode
+	return try IntBox.create(11).run(IntHolder.create(20, seed: 0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3693,7 +3693,7 @@ type IntRunner implements Taker with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -3705,7 +3705,7 @@ type TextRunner implements Taker with String
 	let base as Integer
 
 	function take(e String) returns Integer
-		return base + (e.byteLength() as Integer)
+		return try base + (e.byteLength() as Integer) otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -3722,7 +3722,7 @@ function useText(t TextTaker) returns Integer
 end 'useText'
 
 function main() returns ExitCode
-	return (useInt(IntRunner.create(20)) + useText(TextRunner.create(11))) as ExitCode
+	return try (useInt(IntRunner.create(20)) + useText(TextRunner.create(11))) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4399,12 +4399,10 @@ diagnostic naming a type its program never wrote.
 ⚖ **USER RULING: conformance is decided on the UNDERLYING TYPE.**
 
 <!-- test: w61.interface-scoped-alias-in-a-requirement -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 public interface Holder uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	export typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'
@@ -4448,12 +4446,10 @@ right-hand-side expansion — it is what the ruling requires — so it is also
 the case a regression toward name-matching would land on first.
 
 <!-- test: w61.conformer-names-the-alias-differently -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 interface Holder uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'
@@ -4503,12 +4499,10 @@ fast path asks two questions rather than one (`collectInterfaceMethods`). The co
 the requirement names (`nominal-generic-alias.md`). `single` hands `main` a `Bytes` under that brand.
 
 <!-- test: w61.interface-alias-over-a-concrete-type -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Byte = int(0 to 255)
 
 interface Sink
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	export typealias Bytes = Array with Byte
 	function write(mutates self, data Bytes)
 end 'Sink'
@@ -4558,12 +4552,10 @@ recurses through the inner instance rather than stopping at the outer one. It is
 expansion works on the alias's TYPE and not on a one-level spelling.
 
 <!-- test: w61.expansion-descends-into-a-nested-instance-argument -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 interface Holder uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Nested = Array with (Array with Element)
 	function absorb(mutates self, value Nested)
 end 'Holder'
@@ -4616,15 +4608,12 @@ The refusal below is committed so that a change which makes this shape legal has
 deliberately rather than discover it as a hang.
 
 <!-- test: error.w61.interface-alias-naming-another-interface-alias -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 interface Holder uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Nested = Array with ElementArray
 	function absorb(mutates self, value Nested)
 end 'Holder'
@@ -4657,7 +4646,6 @@ message would leave this program correctly rejected while telling its author the
 `Holder.ElementArray` — a type their program cannot write, and one no positive case can see.
 
 <!-- test: error.w61.wrong-signature-under-an-expanded-alias-names-the-expanded-type -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 1000)
@@ -4665,7 +4653,6 @@ typealias Num = int(0 to 1000)
 typealias Other = int(0 to 7)
 
 interface Holder uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'
@@ -4710,7 +4697,7 @@ type A implements Sink with Integer
 	end 'create'
 
 	function put(x Integer) returns Integer
-		return x + self.base
+		return try x + self.base otherwise panic("out of range")
 	end 'put'
 end 'A'
 
@@ -4722,7 +4709,7 @@ type B implements Sink with String
 	end 'create'
 
 	function put(x String) returns Integer
-		return (x.count() as Integer) + self.base
+		return try (x.count() as Integer) + self.base otherwise panic("out of range")
 	end 'put'
 end 'B'
 
@@ -4739,7 +4726,7 @@ function useB(s StringSink) returns Integer
 end 'useB'
 
 function main() returns ExitCode
-	print("{useA(A.create()) + useB(B.create())}\n")
+	print("{try useA(A.create()) + useB(B.create()) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```

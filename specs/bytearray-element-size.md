@@ -565,13 +565,13 @@ export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 typealias Byte = int(0 to 100)
 
-function narrow(b Byte) returns Integer
+function narrow(b Byte) returns wide.Integer
 	return b
 end 'narrow'
 
 function main() returns ExitCode
 	let mine = b"\x41"
-	return anyByte(narrow(try mine.get(0) otherwise 0)) as ExitCode
+	return wide.anyByte(narrow((try mine.get(0) otherwise 0) as Byte)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -579,6 +579,7 @@ end 'main'
 ```
 
 <!-- test: the-narrow-files-own-byte-literal-is-still-refused -->
+<!-- positions: moved -->
 ### …and the identical literal moved into the NARROW file meets its own declaration's wall
 The half that proves the case above is not simply a lost refusal. One program, two files, two answers.
 ```maxon
@@ -594,13 +595,13 @@ export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 typealias Byte = int(0 to 100)
 
-function narrow(b Byte) returns Integer
+function narrow(b Byte) returns wide.Integer
 	return b
 end 'narrow'
 
 function main() returns ExitCode
 	var mine = b"\xdf"
-	return anyByte(narrow(try mine.get(0) otherwise 0)) as ExitCode
+	return wide.anyByte(narrow(try mine.get(0) otherwise 0)) as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -1037,7 +1038,7 @@ typealias Integer = int(i64.min to i64.max)
 // --- file: app/main.maxon
 typealias Byte = int(0 to 1000)
 
-function widen(b Byte) returns Integer
+function widen(b Byte) returns export.Integer
 	return b
 end 'widen'
 

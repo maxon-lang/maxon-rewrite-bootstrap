@@ -327,7 +327,7 @@ end 'fromB'
 // --- file: lib/main.maxon
 function main() returns ExitCode
 	let boxed = Box.create(3)
-	return fromB() + (boxed.v as ExitCode)
+	return export.fromB() + (boxed.v as ExitCode)
 end 'main'
 ```
 ```exitcode
@@ -404,7 +404,7 @@ type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
+	static function create(consumes a A, consumes b B) returns Self
 		return Self{first: a, second: b}
 	end 'create'
 end 'Pair'
@@ -435,8 +435,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -570,7 +570,6 @@ end 'main'
 ```
 
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
 `extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
@@ -608,8 +607,8 @@ end 'Box'
 
 // --- file: a/ext.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function all() returns Items
 		var result = Items{}
 		result.push(self.first())
@@ -619,8 +618,8 @@ end 'Seq'
 
 // --- file: b/ext.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function twice() returns Items
 		var result = Items{}
 		result.push(self.first())
@@ -675,8 +674,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -872,7 +871,7 @@ function zero() returns Integer
 end 'zero'
 
 function runIt(h Handler) returns ExitCode
-	return h() as ExitCode
+	return try h() as ExitCode otherwise panic("out of range")
 end 'runIt'
 
 export function useB() returns ExitCode
@@ -881,7 +880,7 @@ end 'useB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return useA() + useB()
+	return try alpha.useA() + beta.useB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -898,7 +897,7 @@ directory-local case, the same as two ranged aliases, and it is legal.
 export type Box uses T
 	export var value as T
 
-	export static function create(v T) returns Self
+	export static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -910,26 +909,26 @@ end 'Box'
 // --- file: a/a.maxon
 typealias Integer = int(i64.min to i64.max)
 
-typealias IntBox = Box with Integer
+typealias IntBox = base.Box with Integer
 
 export function fromA() returns ExitCode
 	let b = IntBox.create(20)
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'fromA'
 
 // --- file: b/b.maxon
 typealias Integer = int(i64.min to i64.max)
 
-typealias IntBox = Box with Integer
+typealias IntBox = base.Box with Integer
 
 export function fromB() returns ExitCode
 	let b = IntBox.create(22)
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -963,13 +962,13 @@ export function fromB() returns ExitCode
 	let own = ByteArray.create(0)
 	own.push("ab")
 	print("{try own.get(0) otherwise ""}\n")
-	let t = makeA()
-	return take(t)
+	let t = export.makeA()
+	return export.take(t)
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromB()
+	return b.fromB()
 end 'main'
 ```
 ```exitcode
@@ -2514,7 +2513,7 @@ end 'fromB'
 // --- file: lib/main.maxon
 function main() returns ExitCode
 	let boxed = fromB()
-	return fromA() + (boxed.value as ExitCode)
+	return export.fromA() + (boxed.value as ExitCode)
 end 'main'
 ```
 ```exitcode
@@ -2555,7 +2554,7 @@ end 'fromB'
 // --- file: lib/main.maxon
 function main() returns ExitCode
 	let p = fromB()
-	return fromA() + p.0 + p.1
+	return export.fromA() + p.0 + p.1
 end 'main'
 ```
 ```exitcode
@@ -2620,12 +2619,12 @@ enum Status
 end 'Status'
 
 export function widest() returns ExitCode
-	return Status.big.rawValue as ExitCode
+	return try Status.big.rawValue as ExitCode otherwise panic("out of range")
 end 'widest'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return widest() - clamped()
+	return try b.widest() - a.clamped() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2742,7 +2741,7 @@ end 'rankOf'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
-	return fromA() + rankOf(fromB())
+	return export.fromA() + rankOf(fromB())
 end 'main'
 ```
 ```exitcode
@@ -2789,7 +2788,7 @@ end 'widthOf'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
-	return fromA() + widthOf(makeB())
+	return export.fromA() + widthOf(makeB())
 end 'main'
 ```
 ```exitcode
@@ -2829,7 +2828,7 @@ end 'rankOf'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
-	return scaledA() + rankOf(fromB())
+	return export.scaledA() + rankOf(fromB())
 end 'main'
 ```
 ```exitcode
@@ -2855,7 +2854,7 @@ function three() returns Token
 end 'three'
 
 export function goA() returns ExitCode
-	return callIt(three)
+	return lib.callIt(three)
 end 'goA'
 
 // --- file: lib/b.maxon
@@ -2874,14 +2873,14 @@ function fromB() returns lib.Token
 end 'fromB'
 
 // --- file: lib/c.maxon
-export function callIt(f Cb) returns ExitCode
+export function callIt(f ext.Cb) returns ExitCode
 	return f()
 end 'callIt'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
 	let boxed = fromB()
-	return goA() + (boxed.value as ExitCode)
+	return ext.goA() + (boxed.value as ExitCode)
 end 'main'
 ```
 ```exitcode
@@ -2939,7 +2938,7 @@ function main() returns ExitCode
 	_ = relay
 	var fromBCalls = 0 as Count
 	_ = fromB(fromBCalls)
-	return 5 + fromA()
+	return 5 + export.fromA()
 end 'main'
 ```
 ```exitcode
@@ -2975,8 +2974,8 @@ end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	_ = goA()
-	_ = fromB()
+	_ = a.goA()
+	_ = b.fromB()
 	return 0
 end 'main'
 ```
@@ -3067,9 +3066,9 @@ function main() returns ExitCode
 	let blank = b.Container.empty
 	let held = match blank 'k'
 		empty gives 0
-		holds(s) gives s.byteLength() as ExitCode
+		holds(s) gives try s.byteLength() as ExitCode otherwise panic("out of range")
 	end 'k'
-	return useA() + fromB() + held
+	return try a.useA() + b.fromB() + held otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3205,7 +3204,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unused-alias-beside-an-enum-used-through-a-field-is-reported -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same audit when the only use is the element type of a field. `levels/` exports `enum Level` and `tags/`
 exports `typealias Level`. `Journal`, beside the enum, holds an `Array with levels.Level`, and `main.maxon`
@@ -3233,7 +3231,6 @@ export typealias Level = int(0 to 9)
 // --- file: main.maxon
 function main() returns ExitCode
 	var n = 0 as FullRangeInt
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in Journal.make().entries 'each'
 		match e 'pick'
 			high then n = n + 40
@@ -3781,7 +3778,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	return Box.create().v + runSub()
+	return try Box.create().v + sub.runSub() otherwise panic("out of range")
 end 'main'
 
 // --- file: sub/box.maxon
@@ -3862,10 +3859,10 @@ end 'failB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	try failA() otherwise (e) 'caughtA'
+	try a.failA() otherwise (e) 'caughtA'
 		print("a {e}\n")
 	end 'caughtA'
-	try failB() otherwise (e) 'caughtB'
+	try b.failB() otherwise (e) 'caughtB'
 		print("b {e}\n")
 	end 'caughtB'
 	return 0
@@ -3880,9 +3877,6 @@ b missing
 ```
 
 <!-- test: error.extension-alias-pair-compiling-to-one-name -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ The same non-injective `_` join as `error.two-instantiations-compile-to-one-name`, reached through the
 door that case cannot reach: a `typealias` declared INSIDE an `extension`, minted once per conforming
 type rather than once where it is written. `Both = Pair with (K, V)` is one line of source, and
@@ -3947,10 +3941,9 @@ interface Duo uses K, V
 	function second() returns V
 end 'Duo'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Duo
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Both = Pair with (K, V)
+
 	function packedSecond() returns Num
 		let p = Both.make(first(), y: second())
 		return p.y.only
@@ -4044,7 +4037,7 @@ export interface Parsable
 end 'Parsable'
 
 // --- file: app/main.maxon
-type Doc implements Parsable
+type Doc implements lib.Parsable
 	export function parse() returns bool
 		return true
 	end 'parse'
@@ -4068,7 +4061,7 @@ export interface Parsable
 end 'Parsable'
 
 // --- file: app/main.maxon
-type Doc implements Parsable
+type Doc implements lib.Parsable
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -4078,7 +4071,7 @@ type Doc implements Parsable
 	end 'parse'
 end 'Doc'
 
-function parsed(x T) uses T returns bool where T implements Parsable
+function parsed(x T) uses T returns bool where T implements lib.Parsable
 	return x.parse()
 end 'parsed'
 
@@ -4099,7 +4092,7 @@ export interface Parsable
 end 'Parsable'
 
 // --- file: app/main.maxon
-interface Fancy extends Parsable
+interface Fancy extends lib.Parsable
 	function shine() returns bool
 end 'Fancy'
 
@@ -4578,7 +4571,7 @@ export enum ParseError implements Error
 end 'ParseError'
 
 // --- file: app/main.maxon
-let e = ParseError.malformed
+let e = lib.ParseError.malformed
 
 function main() returns ExitCode
 	let n = match e 'which'
@@ -4632,7 +4625,7 @@ export enum CivilMonth
 end 'CivilMonth'
 
 // --- file: app/main.maxon
-let first = CivilMonth.january
+let first = lib.CivilMonth.january
 
 function main() returns ExitCode
 	let n = match first 'which'
@@ -4724,7 +4717,7 @@ export union ParseError
 end 'ParseError'
 
 // --- file: app/main.maxon
-let u = ParseError.quiet
+let u = lib.ParseError.quiet
 
 function main() returns ExitCode
 	match u 'which'
@@ -5124,7 +5117,7 @@ type Bytes implements Packer
 end 'Bytes'
 
 function count(p Packer) returns ExitCode
-	return p.packed().count() as ExitCode
+	return try p.packed().count() as ExitCode otherwise panic("out of range")
 end 'count'
 
 function main() returns ExitCode
@@ -5226,10 +5219,10 @@ end 'Box'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let holder = Holder.make()
+	let holder = a.Holder.make()
 	let box = a.Box.make()
 	let other = b.Box.make()
-	return holder.Box + weigh(box) + other.w - 5
+	return try holder.Box + a.weigh(box) + other.w - 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

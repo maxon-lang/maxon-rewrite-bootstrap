@@ -728,12 +728,12 @@ end 'Gauge'
 // --- file: app/main.maxon
 typealias Narrow = int(0 to 5)
 
-function widen(mutates n Wide)
+function widen(mutates n a.Wide)
 	n = 50
 end 'widen'
 
 function main() returns ExitCode
-	var gauge = Gauge.create()
+	var gauge = a.Gauge.create()
 	var other = 2 as Narrow
 	widen(gauge.level)
 	print("{gauge.level} {other}\n")
@@ -887,17 +887,17 @@ export function callA() returns Wide
 end 'callA'
 
 // --- file: b/b.maxon
-export function bump(mutates n Wide, amount Wide)
+export function bump(mutates n a.Wide, amount a.Wide)
 	n = amount
 end 'bump'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	var y = 4 as Wide
+	var y = 4 as a.Wide
 	b.bump(y, amount: 7)
-	var z = 1 as Wide
+	var z = 1 as a.Wide
 	a.bump(z, other: 9)
-	print("{y} {callA()} {z}\n")
+	print("{y} {a.callA()} {z}\n")
 	return 0
 end 'main'
 ```

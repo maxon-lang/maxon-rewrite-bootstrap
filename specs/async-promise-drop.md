@@ -2740,7 +2740,7 @@ end 'main'
 <!-- test: async-promise-drop.error.a-whole-pair-from-withIterator-over-promises -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- positions: moved -->
 A `withIterator` pair bound WHOLE carries the promise its array still holds, and a pair can be passed anywhere,
 so no slot follows it. Only the destructuring spelling moves the promise back to its array slot; this one is
@@ -2762,7 +2762,7 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	s.push(async plain(7))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for pair in s.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await pair.1)

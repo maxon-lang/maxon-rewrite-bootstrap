@@ -196,12 +196,12 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 
@@ -255,19 +255,19 @@ type Twig implements Sized
 	end 'create'
 
 	function size() returns Integer
-		return self.n * 10
+		return try self.n * 10 otherwise panic("out of range")
 	end 'size'
 end 'Twig'
 
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 

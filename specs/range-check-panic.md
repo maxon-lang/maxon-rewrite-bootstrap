@@ -409,7 +409,7 @@ function addNine(acc IntAccumulator) returns Integer
 end 'addNine'
 
 function main() returns ExitCode
-	if isEmpty() 'empty'
+	if b.isEmpty() 'empty'
 		return addNine(IntSum.create(0))
 	end 'empty'
 	return 1
@@ -466,7 +466,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	if holder.stock() == 50 and tiny() 'stocked'
+	if holder.stock() == 50 and z.tiny() 'stocked'
 		return 0
 	end 'stocked'
 	return 1
@@ -569,6 +569,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.an-interface-result-crossing-into-another-files-alias-is-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 An interface call's result is typed by the interface file's alias, so returning it where another file's alias is declared converts between two aliases and carries that alias's guard.
 ```maxon
 // --- file: a.maxon
@@ -617,6 +618,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.an-alias-beside-a-same-named-type-is-named-as-its-file-spells-it -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A file's own alias that shares its name with another directory's unmarked type is named in the panic exactly
 as the file writes it.
 ```maxon
@@ -721,7 +723,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.error.literal-cast-to-inner-alias -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 A literal cast to an alias declared inside an extension body is checked against that alias's range.
 ```maxon
@@ -730,8 +732,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	typealias Level = int(0 to 64)
+
 	function topLevel() returns Level
 		let top = 100 as Level
 		return top
@@ -748,7 +751,6 @@ error E3005: <fragment>:9:19: Value 100 is outside the range of 'Level' (int(0 t
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-admits-its-top-value -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A full-unsigned alias declared inside an extension body admits `u64.max` at a direct call, as a file-scope one does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -766,8 +768,8 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Wide = int(0 to u64.max)
+
 	function take(w Wide) returns bool
 		return w == u64.max
 	end 'take'
@@ -786,7 +788,6 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-through-an-interface-takes-a-large-unsigned-word -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A large unsigned word reaches a full-unsigned nested-alias parameter through an interface: the call site checks the argument, and the conformer takes no sign test at its entry.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -804,7 +805,6 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Wide = int(0 to u64.max)
 end 'Meter'
 
@@ -875,7 +875,7 @@ error E3005: <fragment>:27:17: Value -1 is outside the range of 'Idx' (int(0 to 
 ```
 
 <!-- test: range-check-panic.inner-alias-cast-guard -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A runtime value cast to an alias declared inside an extension body carries that alias's guard.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -893,8 +893,8 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 64)
+
 	function level() returns Level
 		return self.scaleOf() as Level
 	end 'level'

@@ -200,7 +200,7 @@ end 'Config'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return Config.used + Config.MAX_SIZE
+	return api.Config.used + Config.MAX_SIZE
 end 'main'
 ```
 ```exitcode
@@ -208,7 +208,6 @@ end 'main'
 ```
 
 <!-- test: error.static-binding-in-an-extension -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: static fields are supported in minimaxon only as 'static let' in a type body -->
 <!-- positions: moved -->
 An `extension` body declares no storage. Its members are re-parsed once per conforming type, so a binding
@@ -225,7 +224,6 @@ type Widget implements Tagged
 	export var v as Integer
 end 'Widget'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
 	// TODO: static fields are supported in minimaxon only as 'static let' in a type body
 	static let LIMIT = 4
@@ -634,7 +632,7 @@ export enum CpuArch
 end 'CpuArch'
 
 // --- file: app/main.maxon
-let currentCpu = CpuArch.x64
+let currentCpu = api.CpuArch.x64
 
 function main() returns ExitCode
 	let result = match currentCpu 'check'

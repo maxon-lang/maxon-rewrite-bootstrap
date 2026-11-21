@@ -209,11 +209,11 @@ type Stepper implements Advances
 
 	function advance(mutates cells TallyArray) returns TallyArray
 		cells.push(self.bump)
-		return cells
+		return cells.clone()
 	end 'advance'
 end 'Stepper'
 
-function throughTheInterface(advancer Advances, cells TallyArray) returns TallyArray
+function throughTheInterface(advancer Advances, mutates cells TallyArray) returns TallyArray
 	return advancer.advance(cells)
 end 'throughTheInterface'
 

@@ -77,7 +77,7 @@ file can name: the argument resolves from the instantiating file, so the program
 export type Box uses T
 	export var value as T
 
-	export static function create(v T) returns Self
+	export static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -88,7 +88,7 @@ end 'Box'
 // --- file: main.maxon
 typealias Small = int(0 to 100)
 
-typealias SmallBox = Box with Small
+typealias SmallBox = lib.Box with Small
 
 function main() returns ExitCode
 	let b = SmallBox.create(7 as Small)
@@ -1935,14 +1935,14 @@ type Leaf
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'Leaf'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2164,14 +2164,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2222,14 +2222,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -6020,8 +6020,6 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 ```
 
 <!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
 own member of that name and so the extension's alias is never what a conformer reads.
@@ -6037,9 +6035,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Container
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 
@@ -6066,9 +6062,6 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 ```
 
 <!-- test: error.a-wrong-arity-alias-in-a-conditional-extension-no-conformer-meets-reports-the-arity-error -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when the alias sits in a conditional extension whose `where` clause no conformer meets: the alias is
 judged where it is written, whether or not any conformer ever reads it.
@@ -6084,10 +6077,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extensions of an interface are not supported in minimaxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Item implements Comparable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 
@@ -6121,9 +6111,6 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 ```
 
 <!-- test: error.a-wrong-arity-alias-in-an-extension-of-an-interface-nothing-implements-reports-the-arity-error -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 The same refusal when nothing implements the extended interface at all.
 ```maxon
 type Pair uses A, B
@@ -6135,9 +6122,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Container
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 

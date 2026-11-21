@@ -6539,7 +6539,7 @@ type Plain implements Looker
 	end 'create'
 
 	function look(mutates a String, b String) returns Tally
-		return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+		return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 	end 'look'
 end 'Plain'
 

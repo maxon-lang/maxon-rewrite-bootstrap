@@ -34,11 +34,11 @@ Iterators are first-class values. Pass a half-consumed iterator into a function 
 ## Tests
 
 <!-- test: withIterator.basic -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in arr.withIterator() 'loop'
 		print("{iter.index()}:{value}\n")
 	end 'loop'
@@ -99,12 +99,12 @@ end 'main'
 ```
 
 <!-- test: withIterator.body-advance-skips-element -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 Calling `iter.advance()` inside the for-loop body skips the next element. Body runs on 10, advances to 20, header advances again to 30; so 20 is skipped.
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30, 40]
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in arr.withIterator() 'loop'
 		print("{value}\n")
 		try iter.advance() otherwise break
@@ -121,14 +121,14 @@ end 'main'
 ```
 
 <!-- test: withIterator.body-retreat-revisits-element -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 Calling `iter.retreat()` inside the body causes the next iteration to re-visit the current element. Without the guard, this would loop forever — we stop after a fixed count.
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
 	var visits = 0 as FullRangeInt
 	var retreated = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in arr.withIterator() 'loop'
 		visits = visits + 1
 		if visits >= 5 'stop'
@@ -184,7 +184,7 @@ d
 <!-- test: withIterator.awaits-every-promise-of-an-array -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 Each element a `withIterator` loop binds out of an array of promises is awaited exactly once in the body, so
 every coroutine is consumed by the time the loop ends and the array drops nothing still owed an await.
 ```maxon
@@ -212,7 +212,7 @@ function main() returns ExitCode
 	promises.push(async slowTally(1))
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, promise) in promises.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let value = try await promise otherwise 0
@@ -231,7 +231,7 @@ end 'main'
 
 <!-- test: withIterator.awaits-every-service-reply-of-an-array -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same loop over replies to a service's throwing message, whose promise type names the handler's own error
 type, `MathError`.
@@ -268,7 +268,7 @@ function main() returns ExitCode
 	let replies = ReplyPromiseArray.create(0)
 	replies.push(try calc.divide(10, by: 2) otherwise panic("an open mailbox with room takes the send"))
 	replies.push(try calc.divide(10, by: 0) otherwise panic("an open mailbox with room takes the send"))
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, reply) in replies.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let value = try await reply otherwise 0
@@ -288,7 +288,7 @@ end 'main'
 
 <!-- test: withIterator.a-promise-array-it-never-awaits-is-dropped-once -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 A loop that walks an array of promises and awaits none leaves every one owned by the array, so each coroutine is
 cancelled once, when the array drops, and never a second time by the loop's own element binding.
 ```maxon
@@ -310,7 +310,7 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
 	var seen = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, _) in promises.withIterator() 'each'
 		seen = seen + 1 + position.index() as Tally
 	end 'each'
@@ -324,7 +324,7 @@ end 'main'
 <!-- test: withIterator.awaits-only-some-promises-of-an-array -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 A named promise the body awaits on one iteration and not the others is the array's until it is awaited: the
 awaited one empties its slot, and the array drops the rest once.
 ```maxon
@@ -348,7 +348,7 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(4))
 	var total = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, promise) in promises.withIterator() 'each'
 		if position.index() == 1 'second'
 			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -365,7 +365,7 @@ end 'main'
 <!-- test: withIterator.a-loop-that-breaks-before-awaiting-drops-every-promise-once -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -385,7 +385,7 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
 	var total = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, promise) in promises.withIterator() 'each'
 		if position.index() == 1 'second'
 			break
@@ -403,7 +403,7 @@ end 'main'
 <!-- test: withIterator.nested-loops-over-two-promise-arrays -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -428,11 +428,11 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	inner.push(async slowTally(20))
 	var total = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (_, o) in outer.withIterator() 'eachOuter'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await o)
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 		for (position, i) in inner.withIterator() 'eachInner'
 			if position.index() as Tally == total - 1 'matching'
 				// TODO: 'await' is not supported in minimaxon; use cown/when concurrency

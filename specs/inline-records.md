@@ -231,7 +231,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.map-key-survives-rehash -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An inline record on the primitive road is a `Map` key that is copied rather than retained, and
 building 500 of them allocates nothing — boxing each key would exit 2. The keys are
 built into a reserved holder and measured there, apart from the inserts, because the map's own columns
@@ -269,12 +268,10 @@ function main() returns ExitCode
 	end 'build'
 	let after = HeapStats.allocationsLive()
 	let m = PointMap.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for k in keys 'insert'
 		m.upsert(k, value: k.x)
 	end 'insert'
 	var found = 0 as Count
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for k in keys 'lookup'
 		if m.contains(k) 'hit'
 			found = found + 1
@@ -940,7 +937,7 @@ typealias Wide = int(i64.min to i64.max)
 
 export function widest(v ExitCode) returns ExitCode
 	let w = v as Wide
-	return (w - 1) as ExitCode
+	return try (w - 1) as ExitCode otherwise panic("out of range")
 end 'widest'
 
 // --- file: packed/packed.maxon
@@ -951,7 +948,7 @@ export type Packed
 	let hi as Wide
 
 	export static function create(lo Count, hi Count) returns Self
-		return Self{lo: lo as Wide, hi: hi as Wide}
+		return Self{lo: try lo as Wide otherwise panic("out of range"), hi: try hi as Wide otherwise panic("out of range")}
 	end 'create'
 end 'Packed'
 
@@ -971,15 +968,15 @@ end 'packedFault'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let p = Packed.create(4294967295, hi: 7)
-	let fault = packedFault(p)
+	let p = packed.Packed.create(4294967295, hi: 7)
+	let fault = packed.packedFault(p)
 	if fault != 0 'fault'
 		return fault
 	end 'fault'
-	if widest(100) != 99 'wide'
+	if wide.widest(100) != 99 'wide'
 		return 3
 	end 'wide'
-	return packedSize()
+	return packed.packedSize()
 end 'main'
 ```
 ```exitcode

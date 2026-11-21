@@ -214,13 +214,11 @@ every conformer and its `Item` is the conformer's associated type. The value it 
 the same reason it is owned in a generic type's own method.
 
 <!-- test: opaque-owned-return-from-an-interface-extension -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Holder
 	function remade() returns Item
 		return fresh()

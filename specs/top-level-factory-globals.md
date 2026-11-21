@@ -274,6 +274,7 @@ error E3220: bin/<fragment>:16:9: the initializer of 'b' calls 'Box.create': a m
 ```
 
 <!-- test: error.cross-file-file-private-generic-create-in-a-function-body -->
+<!-- positions: moved -->
 The byte-identical call in a function body, reported at the same token.
 ```maxon
 // --- file: api/box.maxon
@@ -291,7 +292,7 @@ export typealias IntBox = Box with Count
 
 // --- file: bin/main.maxon
 function main() returns ExitCode
-	let b = IntBox.create()
+	let b = api.IntBox.create()
 	return b.n
 end 'main'
 ```
@@ -685,6 +686,7 @@ error E3220: bin/<fragment>:13:10: the initializer of 'db' calls 'Database.creat
 ```
 
 <!-- test: error.cross-file-file-private-factory-in-a-function-body -->
+<!-- positions: moved -->
 ```maxon
 // --- file: api/db.maxon
 export type Database
@@ -698,7 +700,7 @@ end 'Database'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: bin/main.maxon
 function main() returns ExitCode
-	let db = Database.create()
+	let db = api.Database.create()
 	return db.n
 end 'main'
 ```

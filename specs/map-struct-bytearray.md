@@ -135,12 +135,12 @@ export type Database
 	export var sourcePaths as EntryPaths
 
 	export static function create(sourceFiles EntryMap, sourcePaths EntryPaths) returns Self
-		return Self{sourceFiles: sourceFiles, sourcePaths: sourcePaths}
+		return Self{sourceFiles: sourceFiles.clone(), sourcePaths: sourcePaths.clone()}
 	end 'create'
 end 'Database'
 
 // --- file: app/1-Logic.maxon
-export function storeAndCheck(db Database, key String, data EntryBytes)
+export function storeAndCheck(db api.Database, key String, data api.EntryBytes)
 	if db.sourceFiles.contains(key) 'exists'
 		let existingCount = db.sourceFiles.count()
 		print("existing: {existingCount}\n")
@@ -152,12 +152,12 @@ end 'storeAndCheck'
 
 // --- file: bin/main.maxon
 function main() returns ExitCode
-	let arr = EntryBytes.create(0)
+	var arr = api.EntryBytes.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
-	let db = Database.create(EntryMap.create(), sourcePaths: EntryPaths.create(0))
-	storeAndCheck(db, key: "hello", data: arr)
+	let db = api.Database.create(api.EntryMap.create(), sourcePaths: api.EntryPaths.create(0))
+	app.storeAndCheck(db, key: "hello", data: arr)
 	return 0
 end 'main'
 ```

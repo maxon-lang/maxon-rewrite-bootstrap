@@ -215,9 +215,9 @@ function main() returns ExitCode
 	let m = ["a": 10, "b": 32]
 	var sum = 0 as FullRangeInt
 	for (_, value) in m 'loop'
-		sum = sum + value
+		sum = try sum + value otherwise panic("out of range")
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2933,7 +2933,7 @@ end 'main'
 ```
 
 <!-- test: an-iterator-pair-keeps-the-elements-unsigned-alias -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 The element of a `withIterator` pair over an unsigned alias keeps its alias.
 ```maxon
 typealias Wide = int(0 to u64.max)
@@ -2942,7 +2942,7 @@ typealias WideArray = Array with Wide
 
 function top(values WideArray) returns Wide
 	var best = 0 as Wide
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (_, item) in values.withIterator() 'each'
 		if item > best 'bigger'
 			best = item
@@ -3815,7 +3815,7 @@ end 'second'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return first() + second()
+	return first.first() + second.second()
 end 'main'
 ```
 ```exitcode
@@ -4515,7 +4515,7 @@ typealias MyTriple = (MyWord, MyWord, MyWord)
 
 function sumOf(triple MyTriple) returns MyWord
 	let (a, b, c) = triple
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sumOf'
 
 function main() returns ExitCode
@@ -4683,6 +4683,7 @@ error E3005: <fragment>:6:27: Value 200000 is outside the range of 'MyWord' (int
 ```
 
 <!-- test: a-tuple-cast-panics-on-an-element-outside-its-target-at-run-time -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias MyWord = int(0 to 100000)
 
@@ -4711,6 +4712,7 @@ Stack trace:
 ```
 
 <!-- test: a-nested-tuple-cast-panics-on-an-inner-element-outside-its-target -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias MyWord = int(0 to 100000)
 
@@ -4797,7 +4799,7 @@ function main() returns ExitCode
 	let wide = pairOf(1, b: 2)
 	let real = wide as RealPair
 	print("{real.0} {real.1}\n")
-	let direct = (launder(3), 4) as RealPair
+	let direct = (launder(3) as Real, 4) as RealPair
 	print("{direct.0} {direct.1}\n")
 	return 0
 end 'main'
@@ -4923,7 +4925,7 @@ function launder(n Wide) returns Wide
 end 'launder'
 
 function main() returns ExitCode
-	let t = ((launder(1), "a{launder(2)}"), launder(3)) as Target
+	let t = ((launder(1), "a{launder(2)}"), launder(3) as Real) as Target
 	print("{t.0.1} {t.1}\n")
 	return 0
 end 'main'
@@ -5124,14 +5126,14 @@ typealias XPair = (Xs, Item)
 typealias YPair = (Ys, Item)
 
 function pairOf(n Item) returns XPair
-	let xs = Xs.create(0)
+	var xs = Xs.create(0)
 	xs.push(n)
 	return (xs, n)
 end 'pairOf'
 
 function main() returns ExitCode
-	let source = pairOf(7)
-	let result = source as YPair
+	var source = pairOf(7)
+	var result = source as YPair
 	source.1 = 8
 	result.1 = 9
 	print("{source.1} {result.1}\n")

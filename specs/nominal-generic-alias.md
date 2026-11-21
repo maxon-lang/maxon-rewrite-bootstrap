@@ -636,7 +636,7 @@ export typealias Integer = int(0 to 1000)
 export typealias Rows = Array with Integer
 
 export function makeRows() returns Rows
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	rows.push(7)
 	return rows
 end 'makeRows'
@@ -645,7 +645,7 @@ end 'makeRows'
 typealias Mine = Array with alpha.Integer
 
 function main() returns ExitCode
-	let m = makeRows() as Mine
+	let m = alpha.makeRows() as Mine
 	print("{m.count()}")
 	return (try m.get(0) otherwise 0) as ExitCode
 end 'main'
@@ -722,11 +722,11 @@ export typealias Score = function(Integer) returns Integer
 export typealias Scores = Array with api.Score
 
 function addOne(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 export function makeScores() returns Scores
-	let scores = Scores.create(0)
+	var scores = Scores.create(0)
 	scores.push(addOne)
 	return scores
 end 'makeScores'
@@ -738,11 +738,11 @@ export typealias Score = int(0 to 100)
 typealias Mine = Array with api.Score
 
 function main() returns ExitCode
-	let m = makeScores() as Mine
+	let m = api.makeScores() as Mine
 	let h = try m.get(0) otherwise panic("makeScores pushed one score")
 	let rank = 7 as legacy.Score
 	print("{m.count()} {rank}")
-	return h(6) as ExitCode
+	return try h(6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1000,7 +1000,7 @@ typealias Ys = Array with Integer
 function sumXs(xs Xs) returns Integer
 	var t = 0 as Integer
 	for x in xs 'each'
-		t = t + x
+		t = try t + x otherwise panic("out of range")
 	end 'each'
 	return t
 end 'sumXs'
@@ -1008,13 +1008,13 @@ end 'sumXs'
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
 	for y in ys 'each'
-		t = t + y
+		t = try t + y otherwise panic("out of range")
 	end 'each'
 	return t
 end 'sumYs'
 
 function main() returns ExitCode
-	let xs = Xs.create(0)
+	var xs = Xs.create(0)
 	xs.push(20)
 	xs.push(22)
 	let ys = xs as Ys
@@ -1041,7 +1041,7 @@ export typealias Integer = int(0 to 1000)
 export typealias Grid = Array with (Array with Integer)
 
 export function makeGrid() returns Grid
-	let grid = Grid.create(0)
+	var grid = Grid.create(0)
 	grid.push([7])
 	return grid
 end 'makeGrid'
@@ -1050,7 +1050,7 @@ end 'makeGrid'
 typealias Mine = Array with (Array with alpha.Integer)
 
 function main() returns ExitCode
-	let m = makeGrid() as Mine
+	let m = alpha.makeGrid() as Mine
 	let row = try m.get(0) otherwise panic("makeGrid pushed one row")
 	print("{m.count()}")
 	return (try row.get(0) otherwise 0) as ExitCode
@@ -1142,12 +1142,12 @@ function firstOf(xs Counts) returns Count
 end 'firstOf'
 
 function main() returns ExitCode
-	let theirs = LibCounts.create(0)
+	var theirs = LibCounts.create(0)
 	theirs.push(3)
 	theirs.push(4)
 	let mine = theirs as Counts
 	print("{mine.count()} {firstOf(mine)}")
-	return mine.count() as ExitCode
+	return try mine.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1793,8 +1793,8 @@ end 'makeSeq'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	var sum = 0 as Integer
-	for item in makeSeq(4) 'walk'
+	var sum = 0 as alpha.Integer
+	for item in alpha.makeSeq(4) 'walk'
 		sum = sum + item
 	end 'walk'
 	return sum as ExitCode

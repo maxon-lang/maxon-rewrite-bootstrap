@@ -521,8 +521,6 @@ it runs (`arr.withIterator()` prints `0:10 1:20 2:30`). The stdlib is the witnes
 language means here, and the compiler answers it uniformly at every declaration site.
 
 <!-- test: extension-body-user-generic-inner-alias-create -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -542,10 +540,9 @@ interface Tagged uses Tag
 	function tag() returns Tag
 end 'Tagged'
 
-// TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias WrappedTag = Wrapped with Tag
+
 	function wrapped() returns WrappedTag
 		return WrappedTag.create(self.tag())
 	end 'wrapped'
@@ -953,8 +950,6 @@ literal has an interned instance to build. The program answers **6**.
 `var result = ElementArray{}`.
 
 <!-- test: extension-body-inner-alias-builds-the-container -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -964,10 +959,9 @@ interface Tagged
 	function tag() returns ExitCode
 end 'Tagged'
 
-// TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias TagArray = Array with ExitCode
+
 	function tags() returns Count
 		let result = TagArray{}
 		result.push(self.tag())

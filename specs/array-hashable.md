@@ -885,7 +885,6 @@ true
 ### A user `Byte` declared as a float compares and hashes element-wise
 
 <!-- test: a-user-byte-declared-as-a-float-compares-element-wise -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An element type named `Byte` that is a float is not a byte: the array compares element by element and hashes
 as the chain of its elements' hashes, never as raw bytes.
 ```maxon
@@ -895,7 +894,6 @@ typealias Bs = Array with Byte
 
 function fold(values Bs) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -1008,7 +1006,6 @@ end 'main'
 ### An int array hashes as the bytes of its storage
 
 <!-- test: an-int-array-hashes-as-the-bytes-of-its-storage -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An array of `int(i64.min to i64.max)` hashes as one run over its storage, each element its eight bytes
 little-endian: a `Hasher` that folds `storage` with `combineBytes`, which is the hash of a
 `ByteArray` holding those bytes. The run is ordered, so `[1, 2]` and `[2, 1]` differ, and an empty array hashes
@@ -1020,7 +1017,6 @@ typealias WideArray = Array with Wide
 
 function storageOf(values WideArray) returns ByteArray
 	let bytes = ByteArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		for index in 0 upto 8 'eachByte'
 			bytes.push(((item shr (index * 8)) and 0xFF) as Byte)
@@ -1319,7 +1315,6 @@ changed: true true
 ### An enum that declares its own hash chains it
 
 <!-- test: an-enum-array-chains-the-enum-s-own-hash -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An enum that declares its own `hash()` is hashed by it, so its array chains each element's `hash()` from
 a `Hasher.create()`, called directly and through a `Hashable` field alike. Two
 cases this `hash()` maps to one value give arrays that differ and hash equal.
@@ -1352,7 +1347,6 @@ end 'Holder'
 
 function chained(values ParityArray) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -1380,7 +1374,6 @@ own hash decides: true true
 ### A float array hashes as its element chain
 
 <!-- test: a-float-array-hashes-as-its-element-chain -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A float's equality is not bitwise (`0.0 == -0.0`), so a float array hashes as the chain
 `hasher.combine(element.hash())` over a `Hasher.create()`, finalized —
 called directly and through a `Hashable` field alike — and arrays holding `0.0` and `-0.0` are equal and hash
@@ -1398,7 +1391,6 @@ end 'Holder'
 
 function chained(values Reals) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'

@@ -271,7 +271,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -287,7 +287,7 @@ type Drawer implements Keeper
 	end 'create'
 
 	function note() returns Note
-		return self.held
+		return self.held.clone()
 	end 'note'
 end 'Drawer'
 

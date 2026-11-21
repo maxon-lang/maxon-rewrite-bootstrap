@@ -643,7 +643,6 @@ end 'main'
 ```
 
 <!-- test: control-flow-shapes.array-walk-with-continue-and-break -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -651,7 +650,6 @@ typealias IntArray = Array with Integer
 
 function arrayWalk(values IntArray) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		if v < 0 'skip'
 			continue
@@ -659,20 +657,20 @@ function arrayWalk(values IntArray) returns Integer
 		if v > 90 'stop'
 			break
 		end 'stop'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'each'
 	return total
 end 'arrayWalk'
 
 function main() returns ExitCode
-	let first = IntArray.create(0)
+	var first = IntArray.create(0)
 	first.push(3)
 	first.push(-1)
 	first.push(4)
 	first.push(100)
 	first.push(9)
 	first.push(8)
-	let second = IntArray.create(0)
+	var second = IntArray.create(0)
 	second.push(1)
 	second.push(2)
 	second.push(3)

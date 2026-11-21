@@ -867,8 +867,8 @@ type W implements Sums
 
 	function total(u Ut, t Tk) returns Num
 		return match u 'inner'
-			none gives self.k + t.n
-			have(x) gives self.k + t.n + x.n
+			none gives try self.k + t.n otherwise panic("out of range")
+			have(x) gives try self.k + t.n + x.n otherwise panic("out of range")
 		end 'inner'
 	end 'total'
 end 'W'

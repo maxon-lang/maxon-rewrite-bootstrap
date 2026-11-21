@@ -140,12 +140,12 @@ end 'main'
 ```
 
 <!-- test: http-client.a-caller-set-connection-header-is-sent -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 function connectionLines(request HttpRequest) returns String
 	var found = ""
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
 		var lowered = line
 		lowered = lowered.toLower()
@@ -172,7 +172,7 @@ default=[connection: close] chosen=[connection: keep-alive]
 ```
 
 <!-- test: http-client.the-default-port-follows-the-scheme -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 An `https` URL without a port dials 443 and an `http` one dials 80, and the `Host` header leaves out the port only
 when it is the default of the URL's own scheme: `:443` is kept on an `http` URL and `:80` on an `https` one.
 ```maxon
@@ -180,7 +180,7 @@ function hostLine(url String) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "no-request"
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
 	var found = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
 			found.append("[{line}]")
@@ -212,7 +212,7 @@ example.com:443 [Host: example.com:443]
 ```
 
 <!-- test: http-client.an-ipv6-url-dials-the-bare-address-and-names-itself-in-brackets -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 An IPv6 literal in a URL is bracketed to keep its colons apart from the port, and the brackets are the URL's, not the
 address's: the connect target and the TLS server name are the bare address, and the `Host` header, which is an authority,
 keeps the brackets and drops the port only when it is the scheme's default.
@@ -221,7 +221,7 @@ function hostLine(url String) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "no-request"
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
 	var found = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
 			found.append("[{line}]")
@@ -253,7 +253,7 @@ v1.fe 81 [Host: [v1.fe]:81]
 <!-- test: http-client.an-ipv6-loopback-server-is-reached-by-its-bracketed-url -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- procs: 1 -->
 `http://[::1]:<port>/` reaches a server listening on the IPv6 loopback: the client connects to `::1` and sends the
 authority `[::1]:<port>` as `Host`. The peer is a raw listener so the case reads the `Host` line the client wrote.
@@ -265,7 +265,7 @@ function answer(listener TcpListener) returns String
 	let request = String.from(try conn.readSome(RequestBytes) otherwise return "recv-failed")
 	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi") otherwise return "send-failed"
 	var hostLine = "no-host-line"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in request.split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
 			hostLine = line
@@ -841,7 +841,7 @@ client=invalidResponse peer=stoppedEarly=true
 ```
 
 <!-- test: http-client.repeated-response-headers-are-combined -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 function finalResponseOf(head String) returns HttpResponse throws HttpError
 	match try httpResponseStatusOf(head) 'status'
@@ -857,7 +857,7 @@ function main() returns ExitCode
 	let length = try response.header("content-length") otherwise "absent"
 	print("vary={vary}\n")
 	print("cookies={cookies.split("\n").count()}\n")
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for cookie in cookies.split("\n") 'eachCookie'
 		print("cookie={cookie}\n")
 	end 'eachCookie'

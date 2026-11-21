@@ -329,7 +329,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-index-is-not-a-count -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- positions: moved -->
 A position is an `ElementIndex`, and an `ElementIndex` is not a `Count`.
 ```maxon
@@ -344,7 +344,7 @@ end 'takesCount'
 function main() returns ExitCode
 	var arr = NarrowArray.create(0)
 	arr.push(4)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (position, _) in arr.withIterator() 'eachElement'
 		print("{takesCount(position.index())}\n")
 	end 'eachElement'
@@ -1091,7 +1091,7 @@ end 'checkB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return checkA() + checkB()
+	return try a.checkA() + b.checkB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2451,6 +2451,7 @@ end 'main'
 ```
 
 <!-- test: error.same-name-and-range-across-three-files-is-three-types -->
+<!-- positions: moved -->
 Declarations of `MyInt = int(0 to 1000)` in different files are different types however many there are.
 `alpha/` and `beta/` each export one and name their own through their directory, because each sees the
 other's export too; `main.maxon` declares none, since a third of its own would leave its bare `MyInt`
@@ -2460,19 +2461,19 @@ ambiguous. `alpha.doubleIt`'s result does not pass to `beta.tripleIt`: the cross
 export typealias MyInt = int(0 to 1000)
 
 export function doubleIt(x alpha.MyInt) returns alpha.MyInt
-	return x + x
+	return try x + x otherwise panic("out of range")
 end 'doubleIt'
 
 // --- file: beta/b.maxon
 export typealias MyInt = int(0 to 1000)
 
 export function tripleIt(x beta.MyInt) returns beta.MyInt
-	return x + x + x
+	return try x + x + x otherwise panic("out of range")
 end 'tripleIt'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{tripleIt(doubleIt(4))}")
+	print("{beta.tripleIt(alpha.doubleIt(4))}")
 	return 0
 end 'main'
 ```

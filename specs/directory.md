@@ -211,7 +211,6 @@ it: they assert membership and `count() >= 1`, which stay true while two bogus e
 along. **Only an exact count catches this.**
 
 <!-- test: list-filters-dot-entries -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let oneFile = FilePath from "test_dots_one"
@@ -219,7 +218,6 @@ function main() returns ExitCode
 	let onlyFile = FilePath from "test_dots_one/only.txt"
 	try File.writeText(onlyFile, content: "x") otherwise return 1
 	let entries = try Directory.list(oneFile) otherwise return 3
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in entries 'each'
 		let name = e.filename()
 		if name == "." or name == ".." 'dot'

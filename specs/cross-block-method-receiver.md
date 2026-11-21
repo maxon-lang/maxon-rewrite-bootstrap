@@ -142,7 +142,7 @@ type Box implements Shower
 	end 'create'
 end 'Box'
 
-function run(s Shower, again Shower)
+function run(consumes s Shower, consumes again Shower)
 	var t = s
 	if 2 > 1 'grow'
 		t = again

@@ -3121,7 +3121,6 @@ error E2015: specs/where-clauses/where-clauses.error.a-closure-in-an-instance-me
 ### A static calling a conditional extension method on a type-parameter instance
 
 <!-- test: where-clauses.a-static-calling-a-conditional-extension-method-on-a-type-parameter-instance -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -3139,7 +3138,6 @@ extension Box
 	end 'plain'
 end 'Box'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Box where Item implements Hashable
 	function describe(salt HashValue) returns HashValue
 		return item.hash() + salt

@@ -341,10 +341,10 @@ type Cursor
 	var items as TallyArray
 
 	static function create(items TallyArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
-	function grow()
+	function grow(mutates self)
 		self.items.push(1)
 	end 'grow'
 end 'Cursor'
@@ -370,14 +370,14 @@ type Bag implements Cursors
 end 'Bag'
 
 function poke(source Cursors)
-	let c = source.open()
+	var c = source.open()
 	c.grow()
 end 'poke'
 
 function main() returns ExitCode
 	let bag = Bag.create()
 	poke(bag)
-	return bag.size() as ExitCode
+	return try bag.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -492,10 +492,10 @@ type Cursor
 	var items as TallyArray
 
 	static function create(items TallyArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
-	function grow()
+	function grow(mutates self)
 		self.items.push(1)
 	end 'grow'
 
@@ -526,9 +526,9 @@ end 'first'
 
 function main() returns ExitCode
 	let bag = Bag.create()
-	let c = first(bag)
+	var c = first(bag)
 	c.grow()
-	return c.size() as ExitCode
+	return try c.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

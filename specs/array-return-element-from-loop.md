@@ -19,7 +19,6 @@ When the body executes `return e`, the scope cleanup must skip BOTH aliases — 
 ## Tests
 
 <!-- test: return-loop-var-with-string-field -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Return Loop Variable with String Field
 Returning a for-loop iteration variable whose struct has a managed `String` field must not double-decref the allocation.
 ```maxon
@@ -27,24 +26,23 @@ type Entry
 	export var key as String
 
 	static function create(key String) returns Entry
-		return Self{key: key}
+		return Self{key: key.clone()}
 	end 'create'
 end 'Entry'
 
 typealias EntryArray = Array with Entry
 
 function findEntry(entries EntryArray, key String) returns Entry
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in entries 'search'
 		if e.key == key 'found'
-			return e
+			return e.clone()
 		end 'found'
 	end 'search'
 	return Entry.create("")
 end 'findEntry'
 
 function main() returns ExitCode
-	let arr = EntryArray.create(0)
+	var arr = EntryArray.create(0)
 	arr.push(Entry.create("apple"))
 	arr.push(Entry.create("banana"))
 	let found = findEntry(arr, key: "banana")

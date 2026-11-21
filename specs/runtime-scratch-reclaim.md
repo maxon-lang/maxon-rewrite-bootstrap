@@ -152,7 +152,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: runtime-scratch-reclaim.every-spawn-door-returns-its-scratch -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 **THE PUBLIC SPAWN DOORS, AND EVERY ROAD OUT OF THEM.** A `Subprocess.run` takes scratch in three
 places the program cannot see: the stdlib's `PATH` walk (its state, the variables it reads and the
@@ -245,7 +244,6 @@ function reportScratch(door Door)
 end 'reportScratch'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for door in Door.allCases 'door'
 		reportScratch(door)
 	end 'door'

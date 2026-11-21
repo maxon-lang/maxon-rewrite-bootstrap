@@ -636,7 +636,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Tally
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -676,7 +676,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Tally
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -699,13 +699,13 @@ type Holder
 		return Self{shape: Square.create(side)}
 	end 'create'
 
-	function useStrip(length Tally)
+	function useStrip(mutates self, length Tally)
 		self.shape = Strip.create(length)
 	end 'useStrip'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create(3)
+	var holder = Holder.create(3)
 	print("{holder.shape.area()}\n")
 	holder.useStrip(5)
 	print("{holder.shape.area()}\n")

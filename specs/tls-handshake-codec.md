@@ -49,7 +49,7 @@ in the case and compared byte for byte. Every one of the 115 canra vectors has a
 ## Tests
 
 <!-- test: tls-handshake-codec.decode-rfc8448 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the 20 handshake messages printed in RFC 8448. A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -86,7 +86,7 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -193,7 +193,6 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -299,7 +298,7 @@ decode-rfc8448-4-client-client-hello-psk {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-openssl-and-generated -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the messages OpenSSL 3.0.13 produced, the reference client's and server's messages and the short messages built by hand (29 vectors). A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -336,7 +335,7 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -443,7 +442,6 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -567,7 +565,7 @@ decode-unknown-extension-in-client-hello {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-1 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the first 29 malformed messages, each a single defect in an otherwise valid message. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -604,7 +602,7 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -711,7 +709,6 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -828,7 +825,7 @@ decode-err-029 decodeError 50
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-2 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the remaining 29 malformed messages. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -865,7 +862,7 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -972,7 +969,6 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -1229,11 +1225,9 @@ decode-openssl-ecdsa-aes128-server-hello serverHello
 ```
 
 <!-- test: tls-handshake-codec.alerts -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `TlsAlert` is every alert description of RFC 8446 section 6 with its code point, in the order of the canra alert table.
 ```maxon
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for alert in TlsAlert.allCases 'eachAlert'
 		print("{alert.name} {alert.rawValue}\n")
 	end 'eachAlert'

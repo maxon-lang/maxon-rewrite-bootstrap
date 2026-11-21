@@ -632,7 +632,7 @@ error E3010: <fragment>:9:12: unneeded cast: the literal 5 already fits in 'Real
 ```
 
 <!-- test: error.unneeded.literal-cast-to-nested-alias -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 The destination's type may be an alias declared inside an extension body.
 ```maxon
@@ -641,8 +641,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	typealias Level = int(0 to 64)
+
 	function topLevel() returns Level
 		return 64 as Level
 	end 'topLevel'
@@ -827,7 +828,7 @@ end 'main'
 ```
 
 <!-- test: distinct-nested-aliases-with-one-member-name-are-not-unneeded -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 Two inner aliases that share a member name are still two aliases, so a cast from one to the other is real work.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -847,16 +848,17 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 10)
+
 	function level() returns Level
 		return self.raw() as Level
 	end 'level'
 end 'Meter'
 
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	typealias Level = int(0 to 64)
+
 	function levelOf(meter Meter) returns Level
 		return meter.level() as Level
 	end 'levelOf'
@@ -872,7 +874,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-alias-and-a-file-scope-alias-of-one-name-are-not-unneeded -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An alias declared inside an extension body is a different alias from a file-scope one that shares its member name.
 ```maxon
 typealias Level = int(0 to 64)
@@ -892,16 +893,16 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 10)
+
 	function level() returns Level
-		return self.raw() as Level
+		return try self.raw() as Level otherwise panic("out of range")
 	end 'level'
 end 'Meter'
 
 function main() returns ExitCode
 	let meter = Meter.create()
-	let narrow = meter.raw() as Meter.Level
+	let narrow = try meter.raw() as Meter.Level otherwise panic("out of range")
 	let wide = narrow as Level
 	return wide
 end 'main'
@@ -911,7 +912,6 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.same-alias-name-with-a-contested-range -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 Two files declaring one alias name with different ranges still leave each file's alias its own, so a cast to it repeats it.
 ```maxon
@@ -926,7 +926,6 @@ function main() returns ExitCode
 	if atLimit() 'limit'
 		return 1
 	end 'limit'
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in values 'each'
 		let c = b as Byte
 		return c
@@ -947,8 +946,6 @@ error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
 ```
 
 <!-- test: error.unneeded.same-nested-alias -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -966,8 +963,8 @@ type Meter
 end 'Meter'
 
 extension Meter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Idx = int(0 to 9)
+
 	function index() returns Idx
 		let x = self.raw() as Idx
 		let y = x as Idx

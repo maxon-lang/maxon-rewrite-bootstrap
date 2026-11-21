@@ -1422,7 +1422,6 @@ error E3210: <fragment>:67:15: function value for 'Array.SortComparator' writes 
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-come-out-sorted -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `sort()` on arrays of 100 to 400 elements drawn from 2 to 40 distinct values. The
 stable quicksort that builds driftsort's runs keeps hitting a partition whose pivot
 is the smallest value of its range, so nothing lands in the `< pivot` class; every
@@ -1470,7 +1469,6 @@ function main() returns ExitCode
 			values.sort()
 			var previous = 0 as SortKey
 			var ordered = values.count() == n
-			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for v in values 'walk'
 				if v < previous 'outOfOrder'
 					ordered = false
@@ -1496,7 +1494,7 @@ unsorted arrays: 0
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-keep-equal-keys-in-arrival-order -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 The same duplicate-heavy shapes as records sorted by key with `sortBy(cmp)`. Each
 record carries its arrival position, so a stable sort leaves every run of equal
 keys in ascending arrival order; the arrivals must also all survive the sort.
@@ -1554,7 +1552,7 @@ function main() returns ExitCode
 			var arrivals = 0 as Tally
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
-			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+			// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'
 					if entry.key < previousKey 'outOfOrder'
@@ -1591,7 +1589,7 @@ unstable arrays: 0
 ```
 
 <!-- test: sort-small-arrays-keep-equal-keys-in-arrival-order -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 Stability on the short slices the stable sort handles without partitioning:
 records of 2 to 64 elements over three keys, forty arrays of each length, every
 one checked for order and for equal keys left in arrival order.
@@ -1639,7 +1637,7 @@ function main() returns ExitCode
 			var stable = entries.count() == n
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
-			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+			// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'
 					if entry.key < previousKey 'outOfOrder'

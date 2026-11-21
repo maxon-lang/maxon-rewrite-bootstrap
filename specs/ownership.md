@@ -1430,7 +1430,7 @@ end 'Plain'
 type Cell
 	var back as Backref
 
-	static function create(b Backref) returns Self
+	static function create(consumes b Backref) returns Self
 		return Self{back: b}
 	end 'create'
 

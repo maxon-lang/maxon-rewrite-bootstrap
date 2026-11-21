@@ -207,7 +207,6 @@ earth#2
 ```
 
 <!-- test: a-method-of-an-enum-extension-is-a-method-of-the-enum-for-every-case-of-a-loop -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Every case of `allCases` has the extension's method.
 ```maxon
 enum Level
@@ -218,15 +217,14 @@ end 'Level'
 
 extension Level
 	function twice() returns ExitCode
-		return (self.rawValue * 2) as ExitCode
+		return try (self.rawValue * 2) as ExitCode otherwise panic("out of range")
 	end 'twice'
 end 'Level'
 
 function main() returns ExitCode
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for level in Level.allCases 'eachLevel'
-		total = total + level.twice()
+		total = try total + level.twice() otherwise panic("out of range")
 	end 'eachLevel'
 	return total
 end 'main'
@@ -396,11 +394,11 @@ function viaGeneric(item T) uses T returns ExitCode where T implements Describab
 end 'viaGeneric'
 
 function viaInterface(item Describable) returns ExitCode
-	return item.describe() + 1
+	return try item.describe() + 1 otherwise panic("out of range")
 end 'viaInterface'
 
 function main() returns ExitCode
-	return viaGeneric(Suite.hearts) + viaInterface(Suite.spades)
+	return try viaGeneric(Suite.hearts) + viaInterface(Suite.spades) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -436,7 +434,7 @@ function viaInterface(item Describable) returns ExitCode
 end 'viaInterface'
 
 function main() returns ExitCode
-	return viaGeneric(Reading.value(30)) + viaInterface(Reading.value(12)) + viaInterface(Reading.absent)
+	return try viaGeneric(Reading.value(30)) + viaInterface(Reading.value(12)) + viaInterface(Reading.absent) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -478,7 +476,7 @@ function measure(s Sizer) returns ExitCode
 end 'measure'
 
 function main() returns ExitCode
-	return display(Mode.fast) + measure(Mode.slow)
+	return try display(Mode.fast) + measure(Mode.slow) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -642,7 +640,6 @@ error E2015: <fragment>:7:2: Unsupported: a `var` declaration in an `extension` 
 ```
 
 <!-- test: error.an-enum-extension-takes-no-where-clause -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- positions: moved -->
 An enum declares no `uses` list, so there is no parameter for a `where` clause to constrain.
 ```maxon
@@ -650,7 +647,6 @@ enum Color
 	red
 end 'Color'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Color where T implements Hashable
 	function code() returns ExitCode
 		return 1
@@ -723,7 +719,7 @@ extension Note implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
 			blank gives 0
-			text(body) gives body.byteLength() as ExitCode
+			text(body) gives try body.byteLength() as ExitCode otherwise panic("out of range")
 		end 'which'
 	end 'describe'
 end 'Note'
@@ -733,7 +729,7 @@ function measure(item Describable) returns ExitCode
 end 'measure'
 
 function main() returns ExitCode
-	return measure(Note.text("hello")) + measure(Note.blank)
+	return try measure(Note.text("hello")) + measure(Note.blank) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -758,7 +754,7 @@ extension Note implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
 			blank gives 0
-			text(body) gives body.byteLength() as ExitCode
+			text(body) gives try body.byteLength() as ExitCode otherwise panic("out of range")
 		end 'which'
 	end 'describe'
 end 'Note'
@@ -769,7 +765,7 @@ function measure(item Describable) returns ExitCode
 end 'measure'
 
 function main() returns ExitCode
-	return measure(Note.text("hello")) + measure(Note.blank)
+	return try measure(Note.text("hello")) + measure(Note.blank) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -838,14 +834,14 @@ extension Step implements Grower
 	end 'grow'
 end 'Step'
 
-function through(g Grower, dest IntArray)
+function through(g Grower, mutates dest IntArray)
 	g.grow(dest)
 end 'through'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	through(Step.one, dest: a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -874,14 +870,14 @@ extension Step implements Grower
 	end 'grow'
 end 'Step'
 
-function through(g Grower, dest IntArray)
+function through(g Grower, mutates dest IntArray)
 	g.grow(dest)
 end 'through'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	through(Step.one, dest: a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -925,7 +921,6 @@ error E3210: <fragment>:21:11: 'Slot.take' writes its parameter 'item', but 'Tak
 ```
 
 <!-- test: an-enum-extension-conformance-satisfies-a-conditional-type-extension -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 `extension Container where Element is Sizer` is available on `Container with Suite` because
 `extension Suite implements Sizer` makes `Suite` a `Sizer`.
 ```maxon
@@ -950,15 +945,14 @@ end 'Suite'
 type Container uses Element
 	var item as Element
 
-	static function create(item Element) returns Self
+	static function create(consumes item Element) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Container'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Element implements Sizer
 	function total() returns ExitCode
-		return self.item.size() + 2
+		return try self.item.size() + 2 otherwise panic("out of range")
 	end 'total'
 end 'Container'
 
@@ -974,8 +968,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-conformance-satisfies-a-conditional-interface-extension -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 `extension HasItems where Element is Sizer` is available on a conformer that binds `Element` to `Suite`, an
 enum whose `Sizer` conformance an extension declares.
 ```maxon
@@ -1001,8 +993,6 @@ interface HasItems uses Element
 	function current() returns Element
 end 'HasItems'
 
-// TODO: extensions of an interface are not supported in minimaxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension HasItems where Element implements Sizer
 	function currentSize() returns ExitCode
 		return self.current().size()
@@ -1083,8 +1073,6 @@ error E3006: <fragment>:13:18: Duplicate method 'opposite' in type 'Direction'
 ```
 
 <!-- test: error.a-nested-typealias-in-an-enum-extension-is-refused -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 An enum body declares cases and methods and no nested `typealias`, so the extension of one declares no more.
 ```maxon
 enum Color
@@ -1092,8 +1080,8 @@ enum Color
 end 'Color'
 
 extension Color
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Tint = int(0 to 3)
+
 	function tinted(tint Tint) returns ExitCode
 		return 1
 	end 'tinted'

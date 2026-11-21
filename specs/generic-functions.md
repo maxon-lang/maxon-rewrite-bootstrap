@@ -769,7 +769,6 @@ end 'main'
 ```
 
 <!-- test: an-instance-calls-an-extension-method-of-its-constraint-on-a-type-its-file-may-not-name -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 An `extension` of the constraining interface is that interface's surface too, so a copy calls its methods on a
 type it may not name.
 ```maxon
@@ -780,7 +779,6 @@ interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function doubledRank() returns Score
 		return self.rank() * 2
@@ -792,14 +790,14 @@ function doubled(a T) uses T returns Score where T implements Ranked
 end 'doubled'
 
 // --- file: app/main.maxon
-type Point implements Ranked
+type Point implements export.Ranked
 	var value as Score
 
-	static function make(value Score) returns Self
+	static function make(value export.Score) returns Self
 		return Self{value: value}
 	end 'make'
 
-	function rank() returns Score
+	function rank() returns export.Score
 		return self.value
 	end 'rank'
 end 'Point'
@@ -814,7 +812,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-method-calls-an-unmarked-requirement-of-a-conformer-in-a-subdirectory -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 An `extension` body calls a requirement through the interface's surface, so the conformer's implementation may be
 unmarked in a directory the extension cannot see.
 ```maxon
@@ -825,7 +822,6 @@ interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function doubledRank() returns Score
 		return self.rank() * 2
@@ -833,14 +829,14 @@ extension Ranked
 end 'Ranked'
 
 // --- file: app/main.maxon
-type Point implements Ranked
+type Point implements export.Ranked
 	var value as Score
 
-	static function make(value Score) returns Self
+	static function make(value export.Score) returns Self
 		return Self{value: value}
 	end 'make'
 
-	function rank() returns Score
+	function rank() returns export.Score
 		return self.value
 	end 'rank'
 end 'Point'
@@ -855,7 +851,6 @@ end 'main'
 ```
 
 <!-- test: error.an-instance-cannot-read-a-field-named-like-a-method-of-its-constraint -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- positions: moved -->
 What a constraint grants is its methods. A field of the same name is a member of the type, and is hidden with it.
 ```maxon
@@ -866,7 +861,6 @@ export interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function tally() returns Score
 		return self.rank()
@@ -1500,7 +1494,7 @@ enum Shade
 end 'Shade'
 
 function main() returns ExitCode
-	print("{describe(Shade.dark)}\n")
+	print("{export.describe(Shade.dark)}\n")
 	return 0
 end 'main'
 ```
@@ -1546,6 +1540,7 @@ tag7
 ```
 
 <!-- test: error.a-generic-in-another-file-matching-the-callers-file-private-enum-cases-is-refused -->
+<!-- positions: moved -->
 The case names in `code`'s `match` are written by the generic's author, in `l.maxon`, outside the directory
 `Shade` is visible in: they are names crossing the directory boundary, and they stay refused.
 ```maxon
@@ -1564,7 +1559,7 @@ enum Shade
 end 'Shade'
 
 function main() returns ExitCode
-	return code(Shade.dark)
+	return export.code(Shade.dark)
 end 'main'
 ```
 ```maxoncstderr

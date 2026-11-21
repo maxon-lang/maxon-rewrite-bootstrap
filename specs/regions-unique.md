@@ -499,7 +499,7 @@ function report(token Token, fault Fault) returns Tally
 	return token.peek()
 end 'report'
 
-function dispatch(token Token, handler Handler) returns Tally
+function dispatch(mutates token Token, handler Handler) returns Tally
 	try handler.handle(token) otherwise (fault) 'threw'
 		return report(token, fault: fault)
 	end 'threw'

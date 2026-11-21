@@ -509,7 +509,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.cross-file-extension-typealias-param -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A function-typed parameter must work even when its typealias is declared
 inside an `extension` block in a SEPARATE file that the loader hasn't reached
 yet. The stdlib loader walks `stdlib/` in whatever order the OS returns from
@@ -527,7 +526,6 @@ project has been parsed.
 ```maxon
 // --- file: aaa_alias.maxon
 extension Sorter
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Comparator = function(Element, Element) returns Element
 end 'Sorter'
 
@@ -572,7 +570,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.type-extension-alias-over-a-type-parameter-at-two-instantiations -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The case above proves ONE instantiation, and one instantiation cannot tell an alias that is genuinely
 per-instantiation from one the compiler resolved against whichever instantiation it happened to meet first.
 `Transform` is `function(Element) returns Element` and `Predicate` is `function(Element) returns bool`, both
@@ -587,19 +584,19 @@ typealias Integer = int(i64.min to i64.max)
 type Holder uses Element
 	export var value as Element
 
-	static function create(v Element) returns Self
+	static function create(consumes v Element) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Holder'
 
 export extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Predicate = function(Element) returns bool
+
 	function apply(f Transform) returns Element
 		return f(self.value)
 	end 'apply'
+
 	function check(p Predicate) returns bool
 		return p(self.value)
 	end 'check'
@@ -612,7 +609,7 @@ typealias FlagHolder = Holder with bool
 typealias TextHolder = Holder with String
 
 function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function flip(b bool) returns bool
@@ -677,7 +674,6 @@ picked
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-bound-to-an-enum -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An ENUM type argument is the one binding that turns a slot with NO pre-erasure identity into one that HAS
 one: `Element` carries none where the alias is written, `Shade` erases to a bare `int` at resolution, and
 what tells one erased `int` from another is the identity column beside it. The declared side's column is
@@ -693,14 +689,14 @@ end 'Shade'
 type Holder uses Element
 	export var value as Element
 
-	static function create(v Element) returns Self
+	static function create(consumes v Element) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Holder'
 
 export extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
+
 	function apply(f Transform) returns Element
 		return f(self.value)
 	end 'apply'
@@ -732,8 +728,6 @@ dark
 ```
 
 <!-- test: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same alias reached through an INTERFACE extension, which is the shape `stdlib/Interfaces.maxon`'s
 `extension Iterable` wears: `ItemPredicate` names the interface's ASSOCIATED type `Item`, and the conformer
 binds that associated type to its OWN type parameter (`implements Container with Element`). Keying the
@@ -747,10 +741,9 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Container
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ItemPredicate = function(Item) returns bool
+
 	function checkOnly(p ItemPredicate) returns bool
 		return p(self.only())
 	end 'checkOnly'
@@ -795,8 +788,6 @@ true false
 ```
 
 <!-- test: first-class-function.error.alias-over-a-type-parameter-named-outside-an-instantiation -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 The over-acceptance guard, and the one thing about this alias that stays unrepresentable. A nested
 `typealias` is published under its BARE name as well as under `<Type>.<member>`, so `Transform` can be
 written at FILE SCOPE — where there is no receiver, no instantiation and therefore nothing to bind `Element`
@@ -814,8 +805,8 @@ type Holder uses Element
 end 'Holder'
 
 export extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
+
 	function apply(f Transform) returns Element
 		return f(self.value)
 	end 'apply'
@@ -844,21 +835,20 @@ error E3005: <fragment>:33:21: argument type mismatch for 'f': expected 'fn(type
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-returning-a-MANAGED-element -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Holder uses Element
 	export var value as Element
 
-	static function create(v Element) returns Self
+	static function create(consumes v Element) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Holder'
 
 export extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
+
 	function apply(f Transform) returns Element
 		return f(self.value)
 	end 'apply'
@@ -869,7 +859,7 @@ typealias IntHolder = Holder with Integer
 typealias TextHolder = Holder with String
 
 function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function shout(s String) returns String
@@ -5971,7 +5961,7 @@ function viaAlias(t Thunk, s Thunk) returns ExitCode
 	let d = s()
 	print("literalMul={v * 2}\n")
 	print("valueMul={try v * d otherwise panic("out of range")}\n")
-	print("bitNot={try not v otherwise panic("out of range")}\n")
+	print("bitNot={not v}\n")
 	print("shl={try v shl 1 otherwise panic("out of range")}\n")
 	print("literalCmp={1 if v > 100 else 0}\n")
 	print("valueCmp={1 if v > d else 0}\n")
@@ -6348,7 +6338,6 @@ error E3005: <fragment>:31:9: argument type mismatch for 'f': expected 'fn(Integ
 ```
 
 <!-- test: first-class-function.generic-instance-returned-through-an-extension-body-alias-is-identified-by-type-not-by-intern-order -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ⭐⭐ **THE SAME LOSS AT THE ONE POPULATION WHOSE STORED ID IS ALREADY LIVE WHEN THE WHOLE-PROGRAM INDEX
 RECORDS IT — an `extension` body's nested function typealias.** The four cases above declare their alias at
 FILE SCOPE, and a file-scope alias is folded into the index by the declaration sweep, which runs ABOVE
@@ -6391,8 +6380,8 @@ end 'Field'
 typealias FieldArray = Array with Field
 
 extension Field
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
+
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
 		let first = try produced.get(0) otherwise panic("runIt: empty array")
@@ -6418,7 +6407,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.generic-instance-through-an-extension-body-alias-refuses-a-different-instance -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **THE NEGATIVE TWIN OF THE CASE ABOVE, so the extension-body population is pinned in BOTH polarities
 exactly as the file-scope one is.** `buildSmalls` returns `Array with Small` where `Builder` promises
@@ -6444,8 +6432,8 @@ end 'Field'
 typealias FieldArray = Array with Field
 
 extension Field
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
+
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
 		let first = try produced.get(0) otherwise panic("runIt: empty array")

@@ -561,7 +561,6 @@ end 'main'
 ```
 
 <!-- test: assign-self-field-and-iterator -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A `self` field assignment and a `for`-loop iterator binding are assignments too, and are governed
 by the same rule.
 ```maxon
@@ -578,7 +577,6 @@ type Counter
 	end 'create'
 
 	function addAll(values IntArray) returns Integer
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for v in values 'each'
 			self.total = self.total + v
 		end 'each'

@@ -37,12 +37,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -53,11 +53,11 @@ end 'Gen'
 typealias StringGen = Gen with String
 
 function widen(label String) returns Sink
-	return StringGen.create(label)
+	return StringGen.create(label.clone())
 end 'widen'
 
 function main() returns ExitCode
-	let sink = widen("alpha beta gamma delta epsilon zeta")
+	var sink = widen("alpha beta gamma delta epsilon zeta")
 	sink.take(2)
 	print("{sink.total()}\n")
 	return 0
@@ -84,7 +84,7 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
@@ -92,12 +92,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -112,7 +112,7 @@ function widen(label String) returns Sink
 end 'widen'
 
 function main() returns ExitCode
-	let sink = widen("alpha beta gamma delta epsilon zeta")
+	var sink = widen("alpha beta gamma delta epsilon zeta")
 	sink.take(2)
 	print("{sink.total()}\n")
 	return 0
@@ -141,12 +141,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -157,13 +157,13 @@ end 'Gen'
 typealias NamesGen = Gen with NameArray
 
 function widen(label String) returns Sink
-	let names = NameArray.create(0)
-	names.push(label)
+	var names = NameArray.create(0)
+	names.push(label.clone())
 	return NamesGen.create(names)
 end 'widen'
 
 function main() returns ExitCode
-	let sink = widen("alpha beta gamma delta epsilon zeta")
+	var sink = widen("alpha beta gamma delta epsilon zeta")
 	sink.take(2)
 	print("{sink.total()}\n")
 	return 0
@@ -190,12 +190,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -208,18 +208,18 @@ typealias StringGen = Gen with String
 type Shelf
 	var sink as Sink
 
-	static function create(sink Sink) returns Self
+	static function create(consumes sink Sink) returns Self
 		return Self{sink: sink}
 	end 'create'
 
-	function poke() returns Tally
+	function poke(mutates self) returns Tally
 		self.sink.take(2)
 		return self.sink.total()
 	end 'poke'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create(StringGen.create("alpha beta gamma delta epsilon zeta"))
+	var shelf = Shelf.create(StringGen.create("alpha beta gamma delta epsilon zeta"))
 	print("{shelf.poke()}\n")
 	return 0
 end 'main'
@@ -245,7 +245,7 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
@@ -253,12 +253,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -271,18 +271,18 @@ typealias PadGen = Gen with Pad
 type Shelf
 	var sink as Sink
 
-	static function create(sink Sink) returns Self
+	static function create(consumes sink Sink) returns Self
 		return Self{sink: sink}
 	end 'create'
 
-	function poke() returns Tally
+	function poke(mutates self) returns Tally
 		self.sink.take(2)
 		return self.sink.total()
 	end 'poke'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create(PadGen.create(Pad.create("alpha beta gamma delta epsilon zeta")))
+	var shelf = Shelf.create(PadGen.create(Pad.create("alpha beta gamma delta epsilon zeta")))
 	print("{shelf.poke()}\n")
 	return 0
 end 'main'
@@ -310,12 +310,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -328,20 +328,20 @@ typealias NamesGen = Gen with NameArray
 type Shelf
 	var sink as Sink
 
-	static function create(sink Sink) returns Self
+	static function create(consumes sink Sink) returns Self
 		return Self{sink: sink}
 	end 'create'
 
-	function poke() returns Tally
+	function poke(mutates self) returns Tally
 		self.sink.take(2)
 		return self.sink.total()
 	end 'poke'
 end 'Shelf'
 
 function main() returns ExitCode
-	let names = NameArray.create(0)
+	var names = NameArray.create(0)
 	names.push("alpha beta gamma delta epsilon zeta")
-	let shelf = Shelf.create(NamesGen.create(names))
+	var shelf = Shelf.create(NamesGen.create(names))
 	print("{shelf.poke()}\n")
 	return 0
 end 'main'
@@ -367,12 +367,12 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 
 	function total() returns Tally
@@ -386,17 +386,17 @@ type Shelf
 	var sink as Sink
 
 	static function create(label String) returns Self
-		return Self{sink: StringGen.create(label)}
+		return Self{sink: StringGen.create(label.clone())}
 	end 'create'
 
-	function poke() returns Tally
+	function poke(mutates self) returns Tally
 		self.sink.take(2)
 		return self.sink.total()
 	end 'poke'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("alpha beta gamma delta epsilon zeta")
+	var shelf = Shelf.create("alpha beta gamma delta epsilon zeta")
 	print("{shelf.poke()}\n")
 	return 0
 end 'main'

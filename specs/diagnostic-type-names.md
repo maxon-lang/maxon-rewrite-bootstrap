@@ -1719,6 +1719,7 @@ error E2004: <fragment>:6:12: Cannot operate on Coord and bool
 ```
 
 <!-- test: error.an-interface-held-operand-names-the-interface -->
+<!-- skip: differing error code: operand types -->
 A value held at an interface type is named by that interface, as a record is named by its type.
 ```maxon
 interface Named

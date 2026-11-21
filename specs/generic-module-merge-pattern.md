@@ -16,7 +16,6 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 ### Generic module merge with ops and list iteration
 
 <!-- test: generic-module-merge -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -61,7 +60,6 @@ interface Mergeable uses Func
 	function cloneFunc(src Func) returns Func
 end 'Mergeable'
 
-// TODO: extensions of an interface are not supported in minimaxon
 export extension Mergeable
 	function merge(source Self)
 		self.appendOps(source)

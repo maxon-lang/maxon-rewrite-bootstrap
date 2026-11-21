@@ -1206,18 +1206,18 @@ function main() returns ExitCode
 	let never = ValMap.create()
 	var trips = 0 as Val
 	for (_, v) in never 'neverPopulated'
-		trips = trips + 1 + v
+		trips = try trips + 1 + v otherwise panic("out of range")
 	end 'neverPopulated'
-	let emptied = ValMap.create()
+	var emptied = ValMap.create()
 	emptied.upsert(1, value: 10)
 	emptied.upsert(2, value: 20)
 	_ = emptied.remove(1)
 	_ = emptied.remove(2)
 	for (_, v) in emptied 'allRemoved'
-		trips = trips + 1 + v
+		trips = try trips + 1 + v otherwise panic("out of range")
 	end 'allRemoved'
 	print("trips {trips} counts {never.count()} {emptied.count()}")
-	return trips as ExitCode
+	return try trips as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout

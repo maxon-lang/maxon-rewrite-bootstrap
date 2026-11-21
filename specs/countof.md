@@ -466,7 +466,6 @@ error E2015: <fragment>:13:10: Unsupported: countof of a type that states no ele
 ```
 
 <!-- test: error.an-extension-alias-stating-no-count-is-a-runtime-sized-fixed-array -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 `FixedArray with Element` states no count, so inside an extension it is the runtime-sized fixed
 array over `Element`, whose length belongs to a value. `countof` of it is refused at its position,
@@ -477,8 +476,8 @@ typealias Int = int(i64.min to i64.max)
 typealias Vec3 = FixedArray with 3 Int
 
 extension FixedArray
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Me = FixedArray with Element
+
 	function viaAlias() returns Int
 		return countof(Me)
 	end 'viaAlias'

@@ -2868,6 +2868,7 @@ file and the error belongs to the other, and conflating them reported a caller's
 the callee's path.
 
 <!-- test: error.crossfile-call-argument-uses-callee-range -->
+<!-- positions: moved -->
 ```maxon
 // --- file: lib/lib.maxon
 export typealias Limit = int(0 to 10)
@@ -2886,7 +2887,7 @@ end 'wide'
 function main() returns ExitCode
 	let w = wide(500)
 	if w == 500 'ok'
-		return narrow(500)
+		return lib.narrow(500)
 	end 'ok'
 	return 1
 end 'main'

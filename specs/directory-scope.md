@@ -112,7 +112,7 @@ end 'bridge'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return bridge()
+	return feature.sub.bridge()
 end 'main'
 ```
 ```exitcode
@@ -184,6 +184,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-field-is-not-readable-outside-the-subtree -->
+<!-- positions: moved -->
 The TYPE is exported and the FIELD is unmarked, so the reader may name `Box` and may not read `v`.
 ```maxon
 // --- file: feature/box.maxon
@@ -199,7 +200,7 @@ end 'Box'
 
 // --- file: other/main.maxon
 function main() returns ExitCode
-	let b = Box.create(42)
+	let b = feature.Box.create(42)
 	return b.v
 end 'main'
 ```
@@ -220,7 +221,7 @@ end 'Box'
 
 // --- file: feature/sub/main.maxon
 function main() returns ExitCode
-	let b = Box.create(42)
+	let b = feature.Box.create(42)
 	return b.v
 end 'main'
 ```
@@ -651,7 +652,7 @@ end 'helper'
 
 // --- file: sub/main.maxon
 function main() returns ExitCode
-	return helper()
+	return export.helper()
 end 'main'
 ```
 ```exitcode
@@ -827,7 +828,7 @@ end 'tiny'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return pick() + tiny()
+	return try lib.pick() + z.tiny() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

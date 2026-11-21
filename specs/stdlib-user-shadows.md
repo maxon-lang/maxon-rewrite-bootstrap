@@ -778,13 +778,13 @@ compiles and serves `toByteArray`, because a library file never sees an author d
 export typealias Byte = float(0.0 to 1.0)
 
 export function half(b Byte) returns Byte
-	return b / 2.0
+	return try (b / 2.0) as Byte otherwise panic("out of range")
 end 'half'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let bytes = "hi".toByteArray()
-	let quarter = half(0.5)
+	let quarter = wide.half(0.5)
 	return ((try bytes.get(1) otherwise 0) + (1 if quarter < 0.5 else 0)) as ExitCode
 end 'main'
 ```
@@ -817,7 +817,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A program declares its own `type Array` and an `extension Array` whose nested alias `SortComparator` the library's
 `stdlib/helpers/sort/insertionSort.maxon` also declares. The program sweeps first, so the only `SortComparator` filed
 when `stdlib/Array.maxon` reads the name is the author's, which a library file never sees: the library keeps its own
@@ -836,8 +835,8 @@ typealias Digit = int(0 to 9)
 
 // --- file: ext.maxon
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SortComparator = function(Digit, Digit) returns Ordering
+
 	function ordered(cmp SortComparator) returns bool
 		return cmp(self.n, self.n) == Ordering.equalTo
 	end 'ordered'
@@ -1026,8 +1025,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -1066,8 +1065,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	print("main {trunc(round(3.7))}\n")
 	return 0
 end 'main'
@@ -1537,7 +1536,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-extension-reads-the-librarys-alias-past-an-authors-member-alias-of-that-name -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 A program extends `Array` with a member typealias named `ElementIndex`, the name of an alias the library's own `Array`
 extensions spell bare. A library file never sees an author's declaration, so the library's sort keeps indexing with
 the library's `ElementIndex` and sorts an array longer than the program's alias could index.
@@ -1547,7 +1546,7 @@ typealias Tally = int(0 to 1000)
 typealias TallyArray = Array with Tally
 
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	public typealias ElementIndex = int(0 to 5)
 end 'Array'
 

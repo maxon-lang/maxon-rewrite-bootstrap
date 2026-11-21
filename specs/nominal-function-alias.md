@@ -580,11 +580,11 @@ export typealias Handler = function(Integer) returns Integer
 export typealias Handlers = Array with Handler
 
 function addOne(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 export function makeHandlers() returns Handlers
-	let handlers = Handlers.create(0)
+	var handlers = Handlers.create(0)
 	handlers.push(addOne)
 	return handlers
 end 'makeHandlers'
@@ -593,7 +593,7 @@ end 'makeHandlers'
 typealias Mine = Array with alpha.Handler
 
 function main() returns ExitCode
-	let m = makeHandlers() as Mine
+	let m = alpha.makeHandlers() as Mine
 	let h = try m.get(0) otherwise panic("makeHandlers pushed one handler")
 	print("{m.count()}")
 	return h(6) as ExitCode

@@ -751,7 +751,7 @@ end 'main'
 ```
 
 <!-- test: bytes-assembled-in-a-loop-fill-an-unsigned-quantity-word -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ### Bytes assembled in a loop fill an unsigned-quantity word, top byte included
 The shape any code building a machine word out of bytes has: a loop-carried accumulator, a shift by a
 computed count, and a last byte at or above 0x80.
@@ -760,7 +760,7 @@ typealias Word = int(0 to u64.max)
 
 function packed(bytes ByteArray) returns Word
 	var word = 0 as Word
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in bytes.withIterator() 'eachByte'
 		word = word or ((value as Word) shl ((iter.index() as Word) * 8))
 	end 'eachByte'
@@ -1043,6 +1043,7 @@ error E3005: <fragment>:24:13: Value -2 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-count-difference-through-an-interface-panics-at-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and the run-time twin: the call through an interface checks a difference it cannot evaluate
 ```maxon
 typealias Count = int(0 to u64.max)

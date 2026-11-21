@@ -149,7 +149,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-inside-an-interface-extension-reaches-a-non-requirement-of-the-conformer -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 The same rule where the enclosing declaration is an INTERFACE extension. An interface's own requirements
 already reach this body — they are added to the sibling map from the requirement list — so the case that
 distinguishes the two readers is a conformer method the interface does **not** require: `Five.bonus`.
@@ -160,7 +159,6 @@ interface Tagged
 	function tag() returns Integer
 end 'Tagged'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
 	function score() returns Integer
 		return tag() + bonus()
@@ -264,7 +262,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-reaches-the-conformers-own-body-where-it-shadows-an-extensions -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 The shadow rule, seen from the bare-call door. `Bag` declares its own `has`, so `extension Holder`'s
 `has` is never published onto it and its body is never emitted — a bare `has()` inside a sibling
 extension body must therefore reach `Bag.has`, the only declaration there is. `40 + 3`.
@@ -275,14 +272,13 @@ interface Holder
 	function only() returns Integer
 end 'Holder'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Holder
 	function has() returns Integer
 		return 1
 	end 'has'
 
 	function report() returns Integer
-		return has() + only()
+		return try has() + only() otherwise panic("out of range")
 	end 'report'
 end 'Holder'
 
@@ -302,7 +298,7 @@ end 'Bag'
 
 function main() returns ExitCode
 	let b = Bag.make()
-	return b.report() as ExitCode
+	return try b.report() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -402,7 +398,7 @@ type Thing implements Shower
 	end 'create'
 
 	function show() returns Integer
-		return value * 10
+		return try value * 10 otherwise panic("out of range")
 	end 'show'
 end 'Thing'
 
@@ -422,7 +418,7 @@ end 'measure'
 
 function main() returns ExitCode
 	let t = Thing.create(3)
-	return (display(t) + measure(t)) as ExitCode
+	return try (display(t) + measure(t)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -460,7 +456,7 @@ type Thing implements Shower
 	end 'create'
 
 	function show() returns Integer
-		return value * 10
+		return try value * 10 otherwise panic("out of range")
 	end 'show'
 end 'Thing'
 
@@ -474,7 +470,7 @@ end 'measure'
 
 function main() returns ExitCode
 	let t = Thing.create(4)
-	return (display(t) + measure(t)) as ExitCode
+	return try (display(t) + measure(t)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -547,7 +543,6 @@ end 'main'
 ```
 
 <!-- test: a-type-extension-conformance-satisfies-a-conditional-type-extension -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 `extension Container where Element is Sizer` is available on `Container with Tag` when
 `extension Tag implements Sizer` is what makes `Tag` a `Sizer`.
 ```maxon
@@ -572,15 +567,14 @@ end 'Tag'
 type Container uses Element
 	var item as Element
 
-	static function create(item Element) returns Self
+	static function create(consumes item Element) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Container'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Element implements Sizer
 	function total() returns ExitCode
-		return self.item.size() + 2
+		return try self.item.size() + 2 otherwise panic("out of range")
 	end 'total'
 end 'Container'
 
@@ -596,8 +590,6 @@ end 'main'
 ```
 
 <!-- test: a-type-extension-conformance-satisfies-a-conditional-interface-extension -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 `extension HasItems where Element is Sizer` is available on a conformer that binds `Element` to `Tag`.
 ```maxon
 interface Sizer
@@ -622,8 +614,6 @@ interface HasItems uses Element
 	function current() returns Element
 end 'HasItems'
 
-// TODO: extensions of an interface are not supported in minimaxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension HasItems where Element implements Sizer
 	function currentSize() returns ExitCode
 		return self.current().size()
@@ -634,11 +624,11 @@ type TagList implements HasItems with Tag
 	let first as Tag
 
 	static function create(first Tag) returns Self
-		return Self{first: first}
+		return Self{first: first.clone()}
 	end 'create'
 
 	function current() returns Tag
-		return self.first
+		return self.first.clone()
 	end 'current'
 end 'TagList'
 
@@ -678,14 +668,14 @@ extension Step implements Grower
 	end 'grow'
 end 'Step'
 
-function through(g Grower, dest IntArray)
+function through(g Grower, mutates dest IntArray)
 	g.grow(dest)
 end 'through'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	through(Step.create(), dest: a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

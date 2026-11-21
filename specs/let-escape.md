@@ -3204,7 +3204,7 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{item: v}
 	end 'create'
 end 'Box'
@@ -3216,12 +3216,12 @@ typealias ViaAlias = Box with N0
 typealias Holder = Array with ViaAlias
 
 function clobber(mutates holder Holder)
-	let w = try holder.get(0) otherwise return
+	var w = try holder.get(0) otherwise return
 	w.item.item.n = 5
 end 'clobber'
 
 function main() returns ExitCode
-	let holder = Holder.create(0)
+	var holder = Holder.create(0)
 	let b = Box.create(Box.create(S0.create(1)))
 	let k = b as ViaAlias
 	holder.push(k)
@@ -4802,7 +4802,7 @@ type Holder implements Sized
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout}
+		return Self{layout: layout.clone()}
 	end 'create'
 
 	function size() returns Count
@@ -4827,18 +4827,18 @@ type World
 	end 'create'
 end 'World'
 
-function sizedOf(world World) returns Sized
+function sizedOf(mutates world World) returns Sized
 	let made = Holder.create(world.layout)
 	world.memo.sized = made
 	return made
 end 'sizedOf'
 
-function measure(world World)
+function measure(mutates world World)
 	world.layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	let world = World.create()
+	var world = World.create()
 	let sized = sizedOf(world)
 	measure(world)
 	print("{sized.size()}\n")
@@ -4962,7 +4962,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout}
+		return Self{layout: layout.clone()}
 	end 'create'
 end 'Decl'
 
@@ -4970,7 +4970,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		let made = Layouts.create(0)
+		var made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4984,7 +4984,7 @@ type Sigs implements Counted
 	export var decls as Decls
 
 	function count() returns Count
-		return self.decls.count() as Count
+		return try self.decls.count() as Count otherwise panic("out of range")
 	end 'count'
 
 	static function create() returns Self
@@ -5009,8 +5009,8 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(world World) returns Counted
-	let made = Sigs.create()
+function sigsOf(mutates world World) returns Counted
+	var made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -5019,12 +5019,12 @@ function sigsOf(world World) returns Counted
 end 'sigsOf'
 
 function measure(world World)
-	let layout = try world.artifact.layouts.get(0) otherwise return
+	var layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	let world = World.create()
+	var world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.count()}\n")

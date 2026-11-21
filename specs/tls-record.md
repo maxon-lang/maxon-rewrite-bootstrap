@@ -186,7 +186,7 @@ tls13-open-gen-2-1 23 474554202f20485454502f312e310d0a0d0a
 ```
 
 <!-- test: tls-record.open-tls13-2 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `Tls13RecordProtection.open`: every protected record of RFC 8448 sections 3 to 7, OpenSSL's TLS 1.3 records, padding, every suite, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the inner content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-open-gen-2-255 to record-err-019 (25).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -264,7 +264,7 @@ end 'bigEndian'
 function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 	let sequenceBytes = bigEndian(sequenceNumber)
 	let nonce = ByteArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, byte) in iv.withIterator() 'eachByte'
 		if iter.index() < 4 'prefix'
 			nonce.push(byte)
@@ -374,7 +374,7 @@ record-err-019 invalidIvLength
 ```
 
 <!-- test: tls-record.open-tls12 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `Tls12RecordProtection.open`: OpenSSL's TLS 1.2 records under AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, an explicit nonce taken as sent, the largest record and every refusal. A line prints the content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls12-open-openssl-ecdsa-aes128-0 to record-err-033 (16).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -452,7 +452,7 @@ end 'bigEndian'
 function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 	let sequenceBytes = bigEndian(sequenceNumber)
 	let nonce = ByteArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, byte) in iv.withIterator() 'eachByte'
 		if iter.index() < 4 'prefix'
 			nonce.push(byte)

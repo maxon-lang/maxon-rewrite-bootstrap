@@ -95,8 +95,8 @@ type Store
 		return Self{saved: Chunk.create(0)}
 	end 'create'
 
-	function populate(maker ChunkMaker)
-		let transient = ChunkArray.create(0)
+	function populate(mutates self, maker ChunkMaker)
+		var transient = ChunkArray.create(0)
 		let chunk = maker.makeChunk()
 		self.saved = chunk
 		transient.push(chunk)
@@ -115,7 +115,7 @@ function obtainMaker(seed Payload) returns ChunkMaker
 end 'obtainMaker'
 
 function main() returns ExitCode
-	let store = Store.create()
+	var store = Store.create()
 	let maker = obtainMaker(42)
 	store.populate(maker)
 	print("{store.readSaved()}\n")
@@ -171,7 +171,7 @@ type Store
 		return Self{saved: Chunk.create(0)}
 	end 'create'
 
-	function refresh(maker ChunkMaker)
+	function refresh(mutates self, maker ChunkMaker)
 		self.saved = maker.makeChunk()
 	end 'refresh'
 
@@ -185,7 +185,7 @@ function obtainMaker(seed Payload) returns ChunkMaker
 end 'obtainMaker'
 
 function main() returns ExitCode
-	let store = Store.create()
+	var store = Store.create()
 	let maker = obtainMaker(40)
 	var i = 1 as Payload
 	while i <= 4 'loop'

@@ -114,7 +114,7 @@ is proof that it resolved. Under-compiling is the failure mode a passing suite c
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
-	return contributed()
+	return helpers.contributed()
 end 'main'
 
 // --- file: fixtures/.maxonignore

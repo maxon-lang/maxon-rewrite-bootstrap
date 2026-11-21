@@ -556,8 +556,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```

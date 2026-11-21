@@ -572,13 +572,12 @@ error E3210: <fragment>:23:11: 'Counter.take' takes its parameter 'box' without 
 ```
 
 <!-- test: mutable-function-alias-declared-in-an-extension-is-called-with-two-arguments -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Joiner` is a `mutable function` alias declared inside an extension, and `join(first, second)` calls it with two arguments through the alias's function type like any other function value.
 
 ```maxon
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Joiner = function(Element, Element) returns Ordering mutates captures
+
 	function best(join Joiner) returns Ordering
 		return join(try self.get(0) otherwise panic("first"), try self.get(1) otherwise panic("second"))
 	end 'best'

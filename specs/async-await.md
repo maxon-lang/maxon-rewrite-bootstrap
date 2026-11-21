@@ -5252,7 +5252,6 @@ error E3207: <fragment>:20:27: 'poke' writes 'p' (line 14: `p.n = 99`); 'b' is i
 
 <!-- test: async-await.error.a-closure-body-spanning-lines-takes-a-cell-resident-string -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The closure's body continues onto a second line inside an array literal, and still captures `word`, so handing
 `word` to the coroutine afterwards is a use after move.
@@ -5269,7 +5268,6 @@ end 'shout'
 
 function total(values Integers) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		sum = sum + v
 	end 'each'

@@ -12,7 +12,6 @@ category: type-system
 ### Generic module with merge extension
 
 <!-- test: generic-module-merge -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max) implements ElementIndex
 
@@ -27,7 +26,6 @@ interface Mergeable uses Func
 	function cloneItem(src Func) returns Func
 end 'Mergeable'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Mergeable
 	function merge(source Self)
 		self.appendOps(source)

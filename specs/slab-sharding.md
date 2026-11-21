@@ -85,7 +85,7 @@ excludes*). `sched-processor.md` carries the identical restriction for the ident
 <!-- test: slab-sharding.a-green-thread-program-allocates-through-its-processor-row -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 **THE P-OWNED ROW, HAMMERED.** A green thread's allocations run with `main` adopted as P[0], so every
 span they touch is cut, stamped, cached, drained, evicted and returned against a real owner. This builds
 and drops thousands of short-lived Strings inside green threads and then verifies a population built the
@@ -146,7 +146,7 @@ function main() returns ExitCode
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		strings.push(await p)
 	end 'awaitKeep'
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, s) in strings.withIterator() 'check'
 		let idx = iter.index()
 		if s != "keep-{idx}-{idx}" 'corrupted'
@@ -163,7 +163,7 @@ end 'main'
 <!-- test: slab-sharding.a-slot-allocated-before-the-scheduler-is-freed-after-it -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 **THE RAW ROW, AND THE ONE ARM OF THE RAW-ROW LOCK A SINGLE-THREADED PROGRAM REACHES.** Everything allocated
 before the first `async` is allocated with NO processor: the P read answers "none", the spans
 land on the dedicated raw row and are stamped as owned by nobody. Once the scheduler exists those same
@@ -226,7 +226,7 @@ function main() returns ExitCode
 	// Read the pre-scheduler population back, THEN drop it — every one of these frees is of a
 	// slot on a span that no processor owns, with a scheduler running.
 	var bad = 0 as FullRangeInt
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, b) in early.withIterator() 'check'
 		let seed = iter.index()
 		if b.count() != 48 'length'
@@ -253,7 +253,7 @@ end 'main'
 <!-- test: slab-sharding.a-parked-span-is-taken-back-and-re-owned -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 **THE UNCACHED SENTINELS, ROUND-TRIPPED.** A span whose last slot is handed OUT is unlinked from its
 owner's mcache row and stamped with an owner that is neither a processor nor "no processor"; the first
 free back into it lists it on mcentral, and the next refill takes it back and re-stamps it. This case
@@ -320,7 +320,7 @@ function main() returns ExitCode
 		keep.push(build((k + 900) as Seed))
 	end 'survivors'
 	var bad = 0 as FullRangeInt
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, b) in keep.withIterator() 'check'
 		let seed = iter.index() + 900
 		if b.count() != 80 'length'

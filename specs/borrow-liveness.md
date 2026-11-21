@@ -3969,13 +3969,13 @@ type Tag
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Tag'
 
 extension Tag implements Named
 	function name() returns String
-		return self.text
+		return self.text.clone()
 	end 'name'
 end 'Tag'
 
@@ -3987,12 +3987,12 @@ type Holder
 		return Self{shown: Tag.create(text), note: "unset"}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.shown = Tag.create("replacement {7} padded out long enough for the heap")
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 
-	function snapshot() returns Self
+	function snapshot(mutates self) returns Self
 		return Self{shown: self.shown, note: self.reset()}
 	end 'snapshot'
 
@@ -4002,7 +4002,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let copy = x.snapshot()
 	let filler = Tag.create("filler {1} padded out long enough for the heap")
 	print("{copy.describe()} {x.describe()} [{filler.name()}]\n")
@@ -5090,27 +5090,27 @@ type Tag implements Labeled
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 
 	function label() returns String
-		return self.text
+		return self.text.clone()
 	end 'label'
 end 'Tag'
 
 type Holder
 	export var item as Labeled
 
-	static function create(item Labeled) returns Self
+	static function create(consumes item Labeled) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function reset() returns Integer
+	function reset(mutates self) returns Integer
 		item = Tag.create("short")
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(item, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5122,17 +5122,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return b.byteLength() as Integer
+	return try b.byteLength() as Integer otherwise panic("out of range")
 end 'churn'
 
 function use(i Labeled, k Integer) returns Integer
 	let c = churn(7)
-	let len = i.label().byteLength() as Integer
-	return len * 1000 + c + k
+	let len = try i.label().byteLength() as Integer otherwise panic("out of range")
+	return try len * 1000 + c + k otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
-	let h = Holder.create(Tag.create(text(5)))
+	var h = Holder.create(Tag.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0
@@ -5163,11 +5163,11 @@ type Tag implements Labeled
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 
 	function label() returns String
-		return self.text
+		return self.text.clone()
 	end 'label'
 end 'Tag'
 
@@ -5186,16 +5186,16 @@ end 'Plain'
 type Holder
 	export var item as Labeled
 
-	static function create(item Labeled) returns Self
+	static function create(consumes item Labeled) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function reset() returns Integer
+	function reset(mutates self) returns Integer
 		item = Plain.create(1)
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(item, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5207,17 +5207,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return b.byteLength() as Integer
+	return try b.byteLength() as Integer otherwise panic("out of range")
 end 'churn'
 
 function use(i Labeled, k Integer) returns Integer
 	let c = churn(7)
-	let len = i.label().byteLength() as Integer
-	return len * 1000 + c + k
+	let len = try i.label().byteLength() as Integer otherwise panic("out of range")
+	return try len * 1000 + c + k otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
-	let h = Holder.create(Tag.create(text(5)))
+	var h = Holder.create(Tag.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0

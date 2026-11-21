@@ -2309,7 +2309,6 @@ FIRST, in declaration order, then the extension's extras — so `self.firstIs(x)
 the type's, forwards slots 0 and 1 and finds them index-aligned by construction.
 
 <!-- test: extension-clause-disjoint-from-the-types-own -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2326,7 +2325,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Comparable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2366,11 +2364,9 @@ This case is the twin of the disjoint-clause case above with the two declaration
 case that fails first if the union is ever computed from a partially folded registry.
 
 <!-- test: extension-declared-before-the-type-it-extends -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Comparable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2419,7 +2415,6 @@ The one shape a replace-rule would be right for, kept as a control on the union:
 copy of itself is the identity, and so is unioning it with itself.
 
 <!-- test: extension-clause-equal-to-the-types-own -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2436,7 +2431,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Equatable, B implements Equatable
 	function bothAre(x A) returns bool
 		return self.firstIs(x)
@@ -2476,7 +2470,6 @@ dereferences slot 0, so the wrong table at slot 1 would never be followed and th
 the union the body carries `[A is Equatable, B is Equatable, A is Comparable]` and every prefix aligns.
 
 <!-- test: extension-clause-superset-of-the-types-own -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2493,7 +2486,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Equatable and Comparable, B implements Equatable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2591,7 +2583,6 @@ need is a WHOLE-PROGRAM fixpoint keyed by qualified method name, and `Bag.absorb
 to `Bag.absorb` is an edge like any other.
 
 <!-- test: interface-extension-body-forwards-a-descriptor -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
@@ -2602,7 +2593,6 @@ interface Appendable uses Func
 	function absorb(mutates self, other Func)
 end 'Appendable'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Appendable
 	function absorbTwice(a Func, b Func)
 		self.absorb(a)
@@ -2775,8 +2765,6 @@ and there is no diagnostic anywhere between the two names colliding and the comp
 VERDICT: a conformer the extension is withheld from is not scanned, because those methods are not its.
 
 <!-- test: a-withheld-conditional-extension-scans-no-descriptor-site -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2784,8 +2772,6 @@ interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extensions of an interface are not supported in minimaxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Holder where Item implements Comparable
 	function slotSize() returns Num
 		return 1
@@ -3543,30 +3529,29 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-before-another -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Two types each extended with a `Transform` of their own, the one that spells `Count` first and the one that spells `Level` last. Each default fills its own extension's alias.
 ```maxon
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Plain uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Plain'
 
 extension Plain
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
+
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3575,14 +3560,14 @@ end 'Plain'
 type Leveled uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Leveled'
 
 extension Leveled
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
+
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3595,7 +3580,7 @@ typealias LevelPlain = Plain with Level
 function main() returns ExitCode
 	let l = LevelLeveled.create(3)
 	let p = LevelPlain.create(3)
-	print("{p.twice(2)} {p.twice(2, f: function(x) gives x + 1)} {l.run(5)}\n")
+	print("{p.twice(2)} {p.twice(2, f: function(x) gives try x + 1 otherwise panic("out of range"))} {l.run(5)}\n")
 	return 0
 end 'main'
 ```
@@ -3607,23 +3592,22 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-after-another -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same two extensions with the order swapped, so the one that spells `Count` is declared last.
 ```maxon
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Plain uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Plain'
@@ -3631,22 +3615,22 @@ end 'Plain'
 type Leveled uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Leveled'
 
 extension Leveled
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
+
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
 end 'Leveled'
 
 extension Plain
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
+
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3659,7 +3643,7 @@ typealias LevelPlain = Plain with Level
 function main() returns ExitCode
 	let l = LevelLeveled.create(3)
 	let p = LevelPlain.create(3)
-	print("{p.twice(2)} {p.twice(2, f: function(x) gives x + 1)} {l.run(5)}\n")
+	print("{p.twice(2)} {p.twice(2, f: function(x) gives try x + 1 otherwise panic("out of range"))} {l.run(5)}\n")
 	return 0
 end 'main'
 ```
@@ -3787,7 +3771,6 @@ end 'main'
 ```
 
 <!-- test: three-directories-each-declare-a-transform-and-the-last-declares-it-in-an-extension -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
@@ -3797,7 +3780,7 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3807,14 +3790,14 @@ type Other uses U
 end 'Other'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3830,7 +3813,7 @@ typealias LevelOther = Other with Level
 export function runOne() returns ExitCode
 	let b = LevelBox.create(3)
 	let o = LevelOther.create(3)
-	print("{b.run(5)} {b.run(5, f: function(x) gives x + 2)} {o.twice(function(x) gives x * 3, n: 2)}\n")
+	print("{b.run(5)} {b.run(5, f: function(x) gives try x + 2 otherwise panic("out of range"))} {o.twice(function(x) gives try x * 3 otherwise panic("out of range"), n: 2)}\n")
 	return 0
 end 'runOne'
 
@@ -3838,13 +3821,13 @@ end 'runOne'
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 type Late uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3855,14 +3838,14 @@ type Late uses U
 end 'Late'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Early uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3886,24 +3869,24 @@ end 'runTwo'
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Plain uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Plain'
 
 extension Plain
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
+
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3912,14 +3895,14 @@ end 'Plain'
 type Leveled uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Leveled'
 
 extension Leveled
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
+
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3932,7 +3915,7 @@ typealias LevelPlain = Plain with Level
 export function runThree() returns ExitCode
 	let l = LevelLeveled.create(3)
 	let p = LevelPlain.create(3)
-	print("{p.twice(2)} {p.twice(2, f: function(x) gives x + 1)} {l.run(5)}\n")
+	print("{p.twice(2)} {p.twice(2, f: function(x) gives try x + 1 otherwise panic("out of range"))} {l.run(5)}\n")
 	return 0
 end 'runThree'
 
@@ -3954,21 +3937,20 @@ end 'main'
 ```
 
 <!-- test: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
 typealias Level = int(0 to 125)
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3987,20 +3969,20 @@ end 'runA'
 
 // --- file: b/main.maxon
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 type Plain uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Plain'
 
 extension Plain
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
+
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -4881,7 +4863,6 @@ c 6
 ```
 
 <!-- test: a-member-array-of-self-declared-by-an-extension-of-the-generic-type -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The member alias may be declared in an `extension` of the generic type.
 ```maxon
 type Box uses T
@@ -4889,10 +4870,10 @@ type Box uses T
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Peers = Array with Self
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
+
+	static function peers(consumes v T) returns Peers
+		var out = Peers.create(0)
 		out.push(Self{v: v})
 		return out
 	end 'peers'

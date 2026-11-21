@@ -51,7 +51,6 @@ has no process spawning (E3074) and is excluded.
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls13 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsClient` handshakes with a live `openssl s_server` over loopback in TLS 1.3 under each of the three suites, the server restricted to one with `-ciphersuites`. The client sends `ping`, the server (`-rev`) answers the line reversed, and the client ends the stream with `shutdownWrite`. A line prints the answer, what the client negotiated and what the server's own output reports: its protocol and cipher suite, the client's close_notify (`-msg` prints the alert it read) and its exit code. The server listens on a port the kernel chose and the client dials once the server has printed it on its `ACCEPT` line. `MAXON_OPENSSL` names the `openssl` binary when it is not the one on `PATH`; the case fails when OpenSSL cannot be started.
 ```maxon
@@ -203,7 +202,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -279,7 +277,6 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -381,7 +378,6 @@ TLS_CHACHA20_POLY1305_SHA256: reply=gnip protocol=tls13 suite=tls13/chaCha20Poly
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls12 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same against `openssl s_server` in TLS 1.2 under each of the six suites the client offers: ECDHE with an ECDSA certificate (P-256) for AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, and with an RSA certificate for the same three.
 ```maxon
@@ -533,7 +529,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -609,7 +604,6 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -724,7 +718,6 @@ ECDHE-RSA-CHACHA20-POLY1305: reply=gnip protocol=tls12 suite=tls12/ecdheRsaChaCh
 
 <!-- test: tls-interop.client-against-openssl-s_server-mutual-tls -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS against `openssl s_server -Verify 1`: the server requires a client certificate under the client root, verified at the case's fixed time (`-attime`), and the client presents its P-256 leaf in TLS 1.3 and in TLS 1.2. The server reports the certificate it received.
 ```maxon
@@ -882,7 +875,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -958,7 +950,6 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -1040,7 +1031,6 @@ end 'run'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let client = trustedClient(rootHex)
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
@@ -1061,7 +1051,6 @@ tls12: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sha256 th
 
 <!-- test: tls-interop.openssl-s_server-sees-close-notify-only-from-close -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 `shutdownWrite` sends close_notify, which `openssl s_server -msg` reports as the alert it read; a client that drops its stream without closing sends none and the server reports none. The assertion that the first reaches the server is meaningful because the second does not.
 ```maxon
@@ -1213,7 +1202,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1289,7 +1277,6 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -1371,7 +1358,6 @@ end 'run'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let closing = trustedClient(rootHex)
 		try closing.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
@@ -1399,7 +1385,7 @@ tls12 dropped: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305S
 <!-- test: tls-interop.listener-against-openssl-s_client-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsListener` accepts a live `openssl s_client` over loopback in TLS 1.3 under each of the three suites, the client restricted to one with `-ciphersuites`. `s_client` verifies the server's chain and name (`-verify_return_error`, `-verify_hostname`, at the case's fixed time), sends `ping` and prints the answer; the listener ends its stream with `shutdownWrite` and reads the client's close_notify as the end of the stream. A line prints what the listener negotiated, how its stream ended, and the client's exit code, verification, negotiated suite and answer.
 ```maxon
@@ -1554,7 +1540,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1628,7 +1613,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1684,7 +1669,7 @@ TLS_CHACHA20_POLY1305_SHA256: server[heard=ping protocol=tls13 suite=tls13/chaCh
 <!-- test: tls-interop.listener-against-openssl-s_client-tls12 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same in TLS 1.2 under each of the six suites: the listener holds the P-256 identity for the ECDSA suites and the RSA identity for the RSA ones.
 ```maxon
@@ -1839,7 +1824,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1913,7 +1897,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1982,7 +1966,7 @@ ECDHE-RSA-CHACHA20-POLY1305: server[heard=ping protocol=tls12 suite=tls12/ecdheR
 <!-- test: tls-interop.listener-against-openssl-s_client-mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS with the listener requiring a client certificate under the client root and `openssl s_client` presenting its P-256 leaf (`-cert`, `-key`), in TLS 1.3 and in TLS 1.2: the listener sees one peer certificate.
 ```maxon
@@ -2137,7 +2121,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2211,7 +2194,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2246,7 +2229,6 @@ end 'exchange'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		try server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
@@ -2273,7 +2255,7 @@ tls12: server[heard=ping protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sh
 
 <!-- test: tls-interop.http-client-against-openssl-s_server -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpClient` fetches `https://localhost:<port>/` from a live `openssl s_server`, verifying its chain (the case's root, the name `localhost` taken from the URL) in TLS 1.3 and in TLS 1.2. `-www` answers with its status page, which has no `Content-Length` and ends with the connection, so the body is read to the server's close_notify; `-WWW` serves a staged file the same way and the body must arrive byte for byte. A client that trusts another root refuses the chain with the typed `HttpError.tlsFailed`.
@@ -2435,7 +2417,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2500,7 +2481,6 @@ function sentCloseNotify(server OpensslServer) returns bool throws InteropError
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
 	server.child.release()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(">>>") and line.contains("close_notify") 'announced'
 			return true
@@ -2511,7 +2491,7 @@ end 'sentCloseNotify'
 
 function negotiatedProtocol(body String) returns String
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in body.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2601,7 +2581,7 @@ untrusted root: error tlsFailed(certificateRejected(unknownAuthority))
 
 <!-- test: tls-interop.http-server-against-openssl-s_client -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpServer.bindTls` answers a live `openssl s_client` that sends a raw request, in TLS 1.3 and TLS 1.2, with a POST, with and without ALPN `http/1.1`, and with a client that offers only `h2` (the handshake is refused and the server goes on). A server that requires client certificates reads the chain `s_client` presents from `exchange.security()`, refuses the client that has none, and serves the next one. `s_client` verifies the server's chain and the name `localhost`.
@@ -2755,7 +2735,6 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2812,7 +2791,6 @@ function serveInterop(server HttpServer) returns HttpServeEnd
 end 'serveInterop'
 
 function lineContaining(lines StringArray, text String) returns String
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.contains(text) 'found'
 			return line
@@ -2839,7 +2817,7 @@ function attemptClient(directory String, port NetworkPort, request String, optio
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'

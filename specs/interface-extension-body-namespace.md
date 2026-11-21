@@ -170,8 +170,6 @@ and no storage at all, so a body relying on `n` is one a second conformer would 
 the extension author's own line, which is where the fix belongs.
 
 <!-- test: error.an-extension-body-cannot-name-a-conformers-field -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -179,7 +177,6 @@ interface Tagged
 	function tag() returns Int
 end 'Tagged'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
 	function doubled() returns Int
 		return n * 2
@@ -208,8 +205,6 @@ error E2004: <fragment>:10:10: Undefined variable 'n'
 ```
 
 <!-- test: error.an-extension-method-refused-only-by-the-second-conformer-is-reported-once -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- positions: moved -->
 An extension method that only the second conformer refuses is abandoned for both conformers and reported once. `Square0` has the field `bad` reads, `Square1` does not, and `good` is still read for both.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -243,7 +238,6 @@ type Square1 implements Shape
 	end 'side'
 end 'Square1'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Shape
 	function good() returns Int
 		return self.side()
@@ -264,8 +258,6 @@ error E3018: <fragment>:39:15: type 'Square1' has no field named 'spare'
 ```
 
 <!-- test: error.an-extension-method-refused-only-by-the-first-conformer-is-reported-once -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- positions: moved -->
 The same with the refusing conformer read first: the method is reported once, for `Square1`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -299,7 +291,6 @@ type Square0 implements Shape
 	end 'side'
 end 'Square0'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Shape
 	function good() returns Int
 		return self.side()

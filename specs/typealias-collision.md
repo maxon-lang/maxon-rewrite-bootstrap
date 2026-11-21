@@ -129,7 +129,7 @@ export typealias Score = int(0 to 100)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let x = 42 as Score
+	let x = 42 as api.Score
 	return x
 end 'main'
 ```
@@ -632,7 +632,7 @@ end 'Clock'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Clock.make()
+	let c = lib.Clock.make()
 	return c.ticks
 end 'main'
 ```

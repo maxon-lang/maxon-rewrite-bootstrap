@@ -472,7 +472,6 @@ by passes that both run after every extension's members are known
 ### A ranged member declared in another file's extension body
 
 <!-- test: cross-file-extension-declares-the-ranged-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `a.maxon`'s `extension Holder` declares `Idx`; `b.maxon`'s `extension Holder` names it bare in a
 parameter. Before this rule the second file answered `E3011 Unknown type 'Idx'`.
 ```maxon
@@ -488,17 +487,17 @@ type Holder
 end 'Holder'
 
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Idx = int(0 to 100)
+
 	function fromA(i Idx) returns Num
-		return self.v + (i as Num)
+		return try self.v + (i as Num) otherwise panic("out of range")
 	end 'fromA'
 end 'Holder'
 
 // --- file: b.maxon
 extension Holder
 	function fromB(i Idx) returns Num
-		return self.v + (i as Num)
+		return try self.v + (i as Num) otherwise panic("out of range")
 	end 'fromB'
 end 'Holder'
 
@@ -519,7 +518,6 @@ end 'main'
 ### A generic-instance member declared in another file's extension body
 
 <!-- test: cross-file-extension-declares-the-generic-instance-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `MergeScratchArray = Array with Element` is `stdlib/helpers/sort/mergeSort.maxon:8`'s shape, spelled
 from sibling files. Here `Bag = Array with Num` is declared in `a.maxon`'s extension body and
 named from `b.maxon`'s — a different registry from the ranged case above
@@ -537,10 +535,10 @@ type Holder
 end 'Holder'
 
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Bag = Array with Num
+
 	function fill() returns Bag
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push(self.v)
 		b.push(self.v)
 		return b
@@ -571,8 +569,6 @@ end 'main'
 ### The member is the ENCLOSING TYPE's, and an extension over ANOTHER type does not see it
 
 <!-- test: error.a-nested-member-does-not-leak-to-another-types-extension -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 The whole point of the `<Type>.<member>` key, and the control the widening above owes: `Idx` is a
 member of `Holder`, so an `extension Other` naming it bare is still refused. Under either reference
 compiler's flat bare-name table this program compiles.
@@ -589,8 +585,8 @@ export type Other
 end 'Other'
 
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Idx = int(0 to 100)
+
 	export function fromA(i Idx) returns Num
 		return self.v + (i as Num)
 	end 'fromA'
@@ -635,7 +631,7 @@ end 'Holder'
 // --- file: b.maxon
 extension Holder
 	function fromB(i Idx) returns Num
-		return self.v + (i as Num)
+		return try self.v + (i as Num) otherwise panic("out of range")
 	end 'fromB'
 end 'Holder'
 
@@ -667,7 +663,7 @@ home of "does this written name denote an inner alias here", so the check and th
 disagree.
 
 <!-- test: error.an-extension-bodys-inner-alias-is-per-instance -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 The alias and its user are in ONE file, in two `extension` bodies.
 ```maxon
@@ -684,8 +680,9 @@ export type Wrapper uses T
 end 'Wrapper'
 
 extension Wrapper
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 100)
+
 	export function getTag() returns Idx
 		return 1
 	end 'getTag'
@@ -716,7 +713,7 @@ error E3005: <fragment>:37:11: argument type mismatch for 't': expected 'WB.Idx'
 ```
 
 <!-- test: error.a-cross-file-extension-inner-alias-is-per-instance -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 The same program with the second `extension Wrapper` moved to its own file — the shape
 `stdlib/helpers/sort/` has six times over. It is the construct the cross-file rule above admits, so it
@@ -735,8 +732,9 @@ export type Wrapper uses T
 end 'Wrapper'
 
 extension Wrapper
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 100)
+
 	export function getTag() returns Idx
 		return 1
 	end 'getTag'
@@ -780,8 +778,6 @@ byte by byte, and then the one written first in the file.
 ### Two extensions in two files declare different instances of one member
 
 <!-- test: error.two-extensions-declare-different-instances-of-one-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 `Box implements Seq`, and `a.maxon`'s and `b.maxon`'s `extension Seq` each declare `Items` — an `Array`
 and a `List`. `Box.Items` has no single meaning, and a reader of it was handed whichever site folded last.
 ```maxon
@@ -807,8 +803,8 @@ end 'Box'
 
 // --- file: a.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function all() returns Items
 		return Items.create(0)
 	end 'all'
@@ -816,8 +812,8 @@ end 'Seq'
 
 // --- file: b.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = List with Item
+
 	export function listed() returns Items
 		return Items.create()
 	end 'listed'
@@ -838,8 +834,6 @@ error E3061: <fragment>:33:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### Two extensions in two files declare the SAME instance of one member
 
 <!-- test: error.two-extensions-declare-the-same-instance-of-one-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 The same program with both sites declaring `Array with Item`. The two spellings denote one instance, but
 each declaration is its own, and a type has one member of each name: the duplicate is refused exactly as
 a different instance is.
@@ -866,8 +860,8 @@ end 'Box'
 
 // --- file: a.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function all() returns Items
 		return Items.create(0)
 	end 'all'
@@ -875,8 +869,8 @@ end 'Seq'
 
 // --- file: b.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function again() returns Items
 		return Items.create(0)
 	end 'again'
@@ -897,8 +891,6 @@ error E3061: <fragment>:33:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### Two extensions in ONE file declare one member
 
 <!-- test: error.two-extensions-in-one-file-declare-one-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 The refusal does not depend on the sites being in different files: the later `extension Seq` is the
 duplicate, and the message names the file the earlier one is in, which is this one.
 ```maxon
@@ -924,16 +916,16 @@ end 'Box'
 
 // --- file: ext.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
+
 	export function all() returns Items
 		return Items.create(0)
 	end 'all'
 end 'Seq'
 
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = List with Item
+
 	export function listed() returns Items
 		return Items.create()
 	end 'listed'
@@ -954,8 +946,6 @@ error E3061: <fragment>:32:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### One extension body declares a member twice
 
 <!-- test: error.one-extension-body-declares-a-member-twice -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: seq.maxon
 export typealias Digit = int(0 to 9)
@@ -979,10 +969,9 @@ end 'Box'
 
 // --- file: ext.maxon
 export extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = List with Item
+
 	export function all() returns Items
 		return Items.create()
 	end 'all'
@@ -1002,8 +991,6 @@ error E3061: <fragment>:25:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ### The refusal covers the ranged, function and tuple forms too
 
 <!-- test: error.two-extensions-declare-a-ranged-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 A ranged `typealias Idx` is a different registry from the generic-instance forms above, and a
 type extension (`extension Holder`) reaches one type rather than every conformer of an interface.
 ```maxon
@@ -1020,8 +1007,8 @@ end 'Holder'
 
 // --- file: a.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Idx = int(0 to 100)
+
 	export function fromA(i Idx) returns Num
 		return self.v + (i as Num)
 	end 'fromA'
@@ -1029,8 +1016,8 @@ end 'Holder'
 
 // --- file: b.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Idx = int(0 to 50)
+
 	export function fromB(i Idx) returns Num
 		return self.v + (i as Num)
 	end 'fromB'
@@ -1047,8 +1034,6 @@ error E3061: <fragment>:24:19: Duplicate typealias 'Idx': `Holder.Idx` is alread
 ```
 
 <!-- test: error.two-extensions-declare-a-function-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: holder.maxon
 export typealias Num = int(0 to 200)
@@ -1063,8 +1048,8 @@ end 'Holder'
 
 // --- file: a.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Step = function(Num) returns Num
+
 	export function fromA(step Step) returns Num
 		return step(self.v)
 	end 'fromA'
@@ -1072,8 +1057,8 @@ end 'Holder'
 
 // --- file: b.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Step = function(Num, Num) returns Num
+
 	export function fromB(step Step) returns Num
 		return step(self.v, 1)
 	end 'fromB'
@@ -1090,8 +1075,6 @@ error E3061: <fragment>:24:19: Duplicate typealias 'Step': `Holder.Step` is alre
 ```
 
 <!-- test: error.two-extensions-declare-a-tuple-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: holder.maxon
 export typealias Num = int(0 to 200)
@@ -1106,8 +1089,8 @@ end 'Holder'
 
 // --- file: a.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pair = (Num, Num)
+
 	export function fromA() returns Pair
 		return (self.v, self.v)
 	end 'fromA'
@@ -1115,8 +1098,8 @@ end 'Holder'
 
 // --- file: b.maxon
 extension Holder
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pair = (Num, String)
+
 	export function fromB() returns Pair
 		return (self.v, "b")
 	end 'fromB'
@@ -1136,7 +1119,6 @@ error E3061: <fragment>:24:19: Duplicate typealias 'Pair': `Holder.Pair` is alre
 ### What the refusal leaves alone
 
 <!-- test: extensions-declare-members-of-different-names-and-conformers-keep-their-own -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Two `extension Seq` bodies declaring DIFFERENT members, and two conformers each receiving the same member
 through ONE extension: the key is `<Type>.<member>`, so neither is a duplicate.
 ```maxon
@@ -1174,8 +1156,8 @@ end 'Crate'
 
 // --- file: a.maxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function all() returns Items
 		return Items.create(0)
 	end 'all'
@@ -1183,8 +1165,8 @@ end 'Seq'
 
 // --- file: b.maxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Chain = List with Item
+
 	function chained() returns Chain
 		return Chain.create()
 	end 'chained'
@@ -1208,8 +1190,6 @@ end 'main'
 ```
 
 <!-- test: conditional-extensions-withheld-from-a-conformer-declare-one-member -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Two CONDITIONAL extensions declaring `Items`, each withheld from the conformer the other reaches: a
 withheld extension gives its conformer no members, so `Flagged.Items` and `Ranked.Items` each have ONE
 declaration.
@@ -1264,20 +1244,18 @@ type Ranked implements Seq with Rank
 end 'Ranked'
 
 // --- file: a.maxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Seq where Item implements Hashable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function hashedItems() returns Items
 		return Items.create(0)
 	end 'hashedItems'
 end 'Seq'
 
 // --- file: b.maxon
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Seq where Item implements Comparable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = List with Item
+
 	function rankedItems() returns Items
 		return Items.create()
 	end 'rankedItems'
@@ -1414,15 +1392,11 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Pair': `Box.Pair` is already 
 ```
 
 <!-- test: error.an-interface-body-declares-a-member-twice -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 interface Seq uses Item
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = Array with Item
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = List with Item
 	function first() returns Item
 end 'Seq'
@@ -1497,7 +1471,6 @@ end 'main'
 ```
 
 <!-- test: two-types-each-get-an-extension-member-of-one-name -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The key is `<Type>.<member>` for an `extension` body too, so an `extension Box` declaring `Items` as a `List` and
 an `extension Crate` declaring `Items` as an `Array` are not duplicates, and each body reads its own
 declaration whichever file is folded first.
@@ -1523,10 +1496,10 @@ end 'Crate'
 
 // --- file: box.maxon
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = List with Digit
+
 	function items() returns Items
-		let made = Items.create()
+		var made = Items.create()
 		made.append(self.n)
 		return made
 	end 'items'
@@ -1534,10 +1507,10 @@ end 'Box'
 
 // --- file: crate.maxon
 extension Crate
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
+
 	function items() returns Items
-		let made = Items.create(0)
+		var made = Items.create(0)
 		made.push(self.n)
 		return made
 	end 'items'
@@ -1549,7 +1522,7 @@ function main() returns ExitCode
 	let crate = Crate.create(4)
 	let listed = box.items()
 	let arrayed = crate.items()
-	return (listed.count() + arrayed.count()) as ExitCode
+	return try (listed.count() + arrayed.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1571,8 +1544,6 @@ by an extension is resolved the way two methods of that name are (`interface-ext
 ### A type extension may not declare a member the type's body declares
 
 <!-- test: error.a-type-extension-declares-a-generic-member-the-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -1586,8 +1557,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
+
 	function all() returns Items
 		return Items.create()
 	end 'all'
@@ -1605,8 +1576,6 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Items': `Box.Items` is alrea
 ```
 
 <!-- test: error.a-type-extension-declares-a-ranged-member-the-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Box
 	typealias Idx = int(0 to 9)
@@ -1618,8 +1587,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Idx = int(0 to 99)
+
 	function wide(i Idx) returns Idx
 		return i
 	end 'wide'
@@ -1635,8 +1604,6 @@ error E3061: <fragment>:12:12: Duplicate typealias 'Idx': `Box.Idx` is already d
 ```
 
 <!-- test: error.a-type-extension-declares-a-function-member-the-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
@@ -1650,8 +1617,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Op = function(Number, Number) returns Number
+
 	function apply(op Op) returns Number
 		return op(self.n, 2)
 	end 'apply'
@@ -1667,8 +1634,6 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Op': `Box.Op` is already dec
 ```
 
 <!-- test: error.a-type-extension-declares-a-tuple-member-the-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
@@ -1682,8 +1647,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Pair = (Number, Number, Number)
+
 	function triple() returns Pair
 		return (self.n, self.n, self.n)
 	end 'triple'
@@ -1700,8 +1665,6 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Pair': `Box.Pair` is already
 ```
 
 <!-- test: error.a-type-extension-in-another-file-declares-a-member-the-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: box.maxon
 export typealias Digit = int(0 to 9)
@@ -1717,8 +1680,8 @@ end 'Box'
 
 // --- file: ext.maxon
 export extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Digit
+
 	export function all() returns Items
 		return Items.create()
 	end 'all'
@@ -1737,14 +1700,12 @@ error E3061: <fragment>:16:19: Duplicate typealias 'Items': `Box.Items` is alrea
 ```
 
 <!-- test: error.a-program-extension-of-a-library-type-declares-a-member-the-library-types-body-declares -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 `stdlib/List.maxon`'s body declares `ElementArray`, so a program's `extension List` writing the name is held
 to the same rule as its extension of `FilePath` writing `stem`.
 ```maxon
 extension List
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ElementArray = List with Element
+
 	function chain() returns ElementArray
 		return ElementArray.create()
 	end 'chain'
@@ -1761,8 +1722,6 @@ error E3061: <fragment>:3:12: Duplicate typealias 'ElementArray': `List.ElementA
 ### An interface extension's member is a default the conformer's own declaration overrides
 
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Box` declares `Items` over a `List`, and `extension Seq` declares it over an `Array`. The extension's
 `items`, compiled for `Box`, returns `Box`'s `List`.
 ```maxon
@@ -1785,10 +1744,9 @@ type Box implements Seq with Digit
 	end 'first'
 end 'Box'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function items() returns Items
 		return Items.create()
 	end 'items'
@@ -1806,8 +1764,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own-in-any-file-order -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The extension sits in a file that sorts before the type's. A second extension declares a different member,
 which the conformer still receives.
 ```maxon
@@ -1818,10 +1774,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function items() returns Items
 		return Items.create()
 	end 'items'
@@ -1843,8 +1798,8 @@ end 'Box'
 
 // --- file: c.maxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Wrapped = Array with Item
+
 	function wrapped() returns Wrapped
 		return Wrapped.create(0)
 	end 'wrapped'
@@ -1865,8 +1820,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-function-member-yields-to-the-conformers-own -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
 
@@ -1887,10 +1840,9 @@ type Box implements Seq with Number
 	end 'first'
 end 'Box'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Op = function(Item, Item) returns Item
+
 	function apply(op Op) returns Item
 		return op(first())
 	end 'apply'
@@ -1906,8 +1858,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-tuple-member-yields-to-the-conformers-own -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
 
@@ -1928,10 +1878,9 @@ type Box implements Seq with Number
 	end 'first'
 end 'Box'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Pair = (Item, Item, Item)
+
 	function pair() returns Pair
 		return (first(), first())
 	end 'pair'
@@ -1948,9 +1897,6 @@ end 'main'
 ```
 
 <!-- test: error.an-interface-extension-ranged-member-yields-to-the-conformers-own -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 `Box.Idx` is `int(0 to 9)`, so the extension's `widen`, compiled for `Box`, refuses the `50` that the
 extension's own `int(0 to 99)` would take.
 ```maxon
@@ -1973,10 +1919,9 @@ type Box implements Seq with Number
 	end 'first'
 end 'Box'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Idx = int(0 to 99)
+
 	function widen(i Idx) returns Idx
 		return i
 	end 'widen'
@@ -1992,8 +1937,6 @@ error E3005: <fragment>:31:13: Value 50 is outside the range of 'Idx' (int(0 to 
 ```
 
 <!-- test: a-conformer-without-its-own-member-receives-the-interface-extensions -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The control: `Plain` declares no `Items`, so it receives the extension's `Array`.
 ```maxon
 typealias Digit = int(0 to 9)
@@ -2029,10 +1972,9 @@ type Plain implements Seq with Digit
 	end 'first'
 end 'Plain'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function items() returns Items
 		return Items.create(0)
 	end 'items'
@@ -2072,15 +2014,14 @@ The rule holds for the generic-instance, function, ranged and tuple forms and fo
 extension (`extension Iterable`) publishes to each conformer.
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-generic-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Array.ElementArray` is `Array with Element` in the library. The program's `extension Array` declares it over
 a `List`: `firstTwo` returns a `List`, the sibling extension in `second.maxon` spells the same member, and the
 library's `map` result is still an `Array`.
 ```maxon
 // --- file: ext.maxon
 export extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ElementArray = List with Element
+
 	export function firstTwo() returns ElementArray
 		return ElementArray.create()
 	end 'firstTwo'
@@ -2121,14 +2062,13 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-function-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Array.SortComparator` is `function(Element, Element) returns Ordering` in the library. The program's member
 takes one parameter, and `sort` still takes the library's two.
 ```maxon
 // --- file: ext.maxon
 export extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias SortComparator = function(Element) returns Ordering
+
 	export function rank(key SortComparator) returns Ordering throws ArrayError
 		return key(try self.get(0))
 	end 'rank'
@@ -2155,15 +2095,16 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-ranged-member -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 `Array.NodePower` is `int(0 to 64)` in the library's sort helpers. The program's member is `int(0 to 9)`, and
 sorting a hundred elements still runs the library's code over the library's range. The program's own `Byte`
 declares a name the library declares, so the library is folded after the program.
 ```maxon
 // --- file: ext.maxon
 export extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias NodePower = int(0 to 9)
+
 	export function power(n NodePower) returns NodePower
 		return n
 	end 'power'
@@ -2195,15 +2136,16 @@ end 'main'
 ```
 
 <!-- test: error.a-ranged-member-of-the-programs-is-held-to-its-own-range -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 The program's `NodePower` is `int(0 to 9)`, so the `50` that a sibling extension's `narrow` is handed is held to
 the program's range and not to the library's `int(0 to 64)`.
 ```maxon
 // --- file: ext.maxon
 export extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias NodePower = int(0 to 9)
+
 	export function power(n NodePower) returns NodePower
 		return n
 	end 'power'
@@ -2233,15 +2175,14 @@ error E3005: <fragment>:25:12: Value 50 is outside the range of 'NodePower' (int
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys -->
 <!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `extension Iterable` declares `ElementTransform` in the library. The program's `extension Iterable` declares it
 with two parameters: `combine` takes the program's, and the library's `map` keeps its own.
 ```maxon
 // --- file: ext.maxon
 // TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
+
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
 		for item in self 'each'
@@ -2276,7 +2217,6 @@ end 'main'
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys-on-the-programs-own-conformer -->
 <!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Zebra` is a generic conformer of the program's own whose name sorts after every library conformer's, so the
 bare `ElementTransform` key holds its element in both declarations. `map` still takes the library's one parameter
 and `combine` the program's two.
@@ -2284,8 +2224,8 @@ and `combine` the program's two.
 // --- file: ext.maxon
 // TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
+
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
 		for item in self 'each'
@@ -2338,15 +2278,14 @@ end 'main'
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-for-a-plain-array-beside-a-conformer-that-sorts-last -->
 <!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same declarations with the receivers swapped for the original shape: the program's `Zebra` still sorts after
 every library conformer, and a plain `Array` is the receiver of `map` and of `combine`.
 ```maxon
 // --- file: ext.maxon
 // TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
+
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
 		for item in self 'each'
@@ -2428,15 +2367,13 @@ end 'main'
 ```
 
 <!-- test: error.another-files-extension-naming-a-private-member-of-the-programs -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 `ext/ext.maxon` declares `ElementArray` without a visibility modifier, so it is spelled from `ext/` and its
 subdirectories only; the extension in `second.maxon`, outside `ext/`, naming it is refused rather than reading the library's.
 ```maxon
 // --- file: ext/ext.maxon
 extension Array
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ElementArray = List with Element
+
 	function firstTwo() returns ElementArray
 		return ElementArray.create()
 	end 'firstTwo'
@@ -2686,17 +2623,17 @@ export type HolderB
 	end 'create'
 end 'HolderB'
 
-export function fromB() returns Num
+export function fromB() returns export.Num
 	let b = Bag.create(0)
 	b.push("xx")
 	let first = try b.get(0) otherwise ""
-	return first.count() as Num
+	return first.count() as export.Num
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let a = HolderA.create(1)
-	let b = HolderB.create("y")
+	let b = b.HolderB.create("y")
 	if a.v == 1 and b.w.count() == 1 'constructed'
 		return (fromA() + fromB()) as ExitCode
 	end 'constructed'

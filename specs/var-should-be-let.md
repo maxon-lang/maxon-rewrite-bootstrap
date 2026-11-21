@@ -459,11 +459,11 @@ type Tag implements Named
 	export let label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
 	function name() returns String
-		return self.label
+		return self.label.clone()
 	end 'name'
 end 'Tag'
 

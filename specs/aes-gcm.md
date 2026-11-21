@@ -1198,7 +1198,6 @@ end 'main'
 ```
 
 <!-- test: aes-gcm.seal-into-the-plaintext-array-itself -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `sealInto` reads its plaintext, nonce and additional data as they were when the call began even when `output` is one of
 those arrays: the array ends up holding that input's first `at` bytes followed by what `seal` answers for the whole
 inputs, for plaintexts of 0 to 300 bytes at offsets 0, 5 and 40, and `open` takes the sealed bytes back.
@@ -1283,7 +1282,6 @@ function main() returns ExitCode
 	var wrong = 0 as Count
 	for dataBytes in 0 to 300 'eachLength'
 		for at in [0, 5, 40] 'eachOffset'
-			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for aliased in Aliased.allCases 'eachAlias'
 				if aliasedWrong(aead, nonce: nonce, additional: additional, plain: bytesFor(dataBytes + 5, count: dataBytes), at: at, aliased: aliased) 'aliasedDiffers'
 					wrong = wrong + 1

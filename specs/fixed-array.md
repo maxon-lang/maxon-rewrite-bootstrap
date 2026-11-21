@@ -827,9 +827,9 @@ function first(v Vec3) returns Int
 end 'first'
 
 function main() returns ExitCode
-	let t = Triple.create()
+	var t = Triple.create()
 	t.set(0, value: 21)
-	return (first(t as Vec3) + (t.count() as Int)) as ExitCode
+	return try (first(t as Vec3) + (t.count() as Int)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1667,8 +1667,6 @@ error E3106: <fragment>:19:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: a-fixed-array-in-an-extension-body-over-an-associated-type -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 The construct reached from its third position, which sources its layout
 descriptor differently from the other two: an `extension` body has no `uses` clause of its own and is
 scanned in its target's scope, so the descriptor a `Slot.create()` reads there is reserved through the
@@ -1679,12 +1677,10 @@ above do not stand in.
 typealias Int = int(i64.min to i64.max)
 
 interface Sized uses Element
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	function tally() returns Int
 end 'Sized'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Sized
 	function tallyTwice() returns Int
 		let v = Slot.create()
@@ -2411,7 +2407,7 @@ end 'main'
 ```
 
 <!-- test: with-iterator-walks-a-managed-fixed-array -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -2429,7 +2425,7 @@ function main() returns ExitCode
 	let names = Names.create(launder(3), value: label(1))
 	try names.set(2, value: label(3)) otherwise panic("set")
 	var joined = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, name) in names.withIterator() 'each'
 		joined.append("{iter.index()}={name} ")
 	end 'each'
@@ -3364,7 +3360,6 @@ tiers. A user extension cannot read `managed` or name the raw buffer type, so ea
 at its first raw door by **E3185**, before any value of the record exists to carry.
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-push-it-into-a-container -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE F — THE RECORD AS A CONTAINER'S ELEMENT.** `Array with ElementMemory` would hold the record, and
 `get` would hand it back with no mark. The first raw door is the element type in the extension's
@@ -3375,8 +3370,8 @@ typealias Int = int(i64.min to i64.max)
 typealias Vec3 = FixedArray with 3 Int
 
 extension FixedArray
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Bufs = Array with ElementMemory
+
 	function bust() returns Int
 		var b = Bufs.create(0)
 		b.push(managed)
@@ -3423,7 +3418,6 @@ error E3185: <fragment>:7:12: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-store-it-in-a-field -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE H — THE RECORD ASSIGNED INTO A GROWABLE `Array`'s OWN `managed` FIELD.** The growable record's
 buffer carries no sized mark, so every length writer would be served on it. The first raw door is the
@@ -3434,8 +3428,8 @@ typealias Int = int(i64.min to i64.max)
 typealias Vec3 = FixedArray with 3 Int
 
 extension FixedArray
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Arr = Array with Element
+
 	function bust() returns Int
 		var a = Arr.create(0)
 		a.managed = managed
@@ -3454,7 +3448,6 @@ error E3185: <fragment>:10:5: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-hand-it-to-a-generic -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ROUTE I — THE RECORD THROUGH A USER'S OWN GENERIC.** A nine-line `Box uses T` would take the record
 in and hand it straight back out with no mark on it. From a user file the extension cannot spell the
@@ -3477,8 +3470,8 @@ type Box uses T
 end 'Box'
 
 extension FixedArray
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias BufBox = Box with ElementMemory
+
 	function bust() returns Int
 		let b = BufBox.create(managed)
 		let got = b.get()
@@ -3497,7 +3490,6 @@ error E3185: <fragment>:18:30: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: a-slice-may-be-stored-passed-and-returned-freely -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **EVERY ROUTE ABOVE IS LEGAL ON A `slice`, IN THE LIBRARY TIER.** A view's `length@8` is its own, so no
 answer about it can contradict the fixed array's type. The slice here is stored into a container, put in a
@@ -3521,10 +3513,9 @@ type Box uses T
 end 'Box'
 
 extension FixedArray
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Bufs = Array with ElementMemory
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias BufBox = Box with ElementMemory
+
 	function survey() returns Int
 		let b = Bufs.create(0)
 		b.push(try managed.slice(0, 2) otherwise panic("slice"))

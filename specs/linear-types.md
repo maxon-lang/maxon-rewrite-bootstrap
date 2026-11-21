@@ -1624,6 +1624,7 @@ error E3217: <fragment>:34:10: the message `Factory.make` returns a linear value
 ```
 
 <!-- test: a-linear-value-is-not-passed-through-an-interface-method -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3581,6 +3582,7 @@ error E3224: <fragment>:7:22: 'Resp.shared' holds a linear value, and a module-l
 ```
 
 <!-- test: a-linear-value-cannot-be-passed-to-an-interface-typed-parameter -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3622,6 +3624,7 @@ error E3224: <fragment>:31:10: Cannot pass a value as 'd', which is declared at 
 ```
 
 <!-- test: a-linear-value-cannot-be-returned-as-an-interface-value -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon

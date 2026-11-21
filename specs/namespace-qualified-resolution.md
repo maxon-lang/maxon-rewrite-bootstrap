@@ -201,9 +201,9 @@ end 'make'
 
 // --- file: app/main.maxon
 public type Point
-	export var x as Integer
+	export var x as Point.Integer
 
-	export static function make() returns Integer
+	export static function make() returns Point.Integer
 		return 22
 	end 'make'
 end 'Point'
@@ -375,7 +375,7 @@ end 'take'
 
 function main() returns ExitCode
 	let n = seed()
-	return take(n) + take(lib.Type.make().v)
+	return try take(n) + take(lib.Type.make().v) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -812,7 +812,7 @@ export function pick() returns Integer
 end 'pick'
 
 // --- file: beta/b.maxon
-export function pick() returns Integer
+export function pick() returns alpha.Integer
 	return 5
 end 'pick'
 
@@ -846,11 +846,11 @@ export function localCaller() returns Integer
 end 'localCaller'
 
 // --- file: beta/b.maxon
-public function pick() returns Integer
+public function pick() returns alpha.Integer
 	return 5
 end 'pick'
 
-export function localCaller() returns Integer
+export function localCaller() returns alpha.Integer
 	return pick()
 end 'localCaller'
 
@@ -1031,7 +1031,7 @@ export function pick(n Integer = 3) returns Integer
 end 'pick'
 
 // --- file: beta/b.maxon
-export function pick(n Integer = 5) returns Integer
+export function pick(n alpha.Integer = 5) returns alpha.Integer
 	return n
 end 'pick'
 
@@ -1092,12 +1092,12 @@ export function pick() returns Integer
 end 'pick'
 
 // --- file: beta/f.maxon
-export function pick() returns Integer
+export function pick() returns alpha.Integer
 	return 2
 end 'pick'
 
 // --- file: gamma/f.maxon
-export function pick() returns Integer
+export function pick() returns alpha.Integer
 	return 4
 end 'pick'
 
@@ -1126,13 +1126,13 @@ public function pick() returns Integer
 end 'pick'
 
 // --- file: beta/b.maxon
-export function pick() returns Integer
+export function pick() returns export.Integer
 	return 5
 end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (pick() * 10 + beta.pick()) as ExitCode
+	return (export.pick() * 10 + beta.pick()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1190,13 +1190,13 @@ export function useAlpha() returns Integer
 end 'useAlpha'
 
 // --- file: beta/b.maxon
-export function helper() returns Integer
+export function helper() returns alpha.Integer
 	return 7
 end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (useAlpha() * 10 + helper()) as ExitCode
+	return (alpha.useAlpha() * 10 + beta.helper()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1212,7 +1212,7 @@ a front-end worker that keeps its index. alpha's helper answers 3 and beta's the
 ```maxon
 // --- file: alpha/a.maxon
 function helper(s String) returns alpha.Integer
-	return (s.byteLength() + 2) as alpha.Integer
+	return try (s.byteLength() + 2) as alpha.Integer otherwise panic("out of range")
 end 'helper'
 
 // --- file: alpha/use.maxon
@@ -1223,8 +1223,8 @@ export function useAlpha() returns Integer
 end 'useAlpha'
 
 // --- file: beta/b.maxon
-export function helper(s String) returns Integer
-	return s.byteLength() as Integer
+export function helper(s String) returns alpha.Integer
+	return try s.byteLength() as alpha.Integer otherwise panic("out of range")
 end 'helper'
 
 // --- file: app/main.maxon
@@ -1234,7 +1234,7 @@ type Cell
 	export let s as String
 
 	static function create(s String) returns Cell
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1243,15 +1243,15 @@ typealias Cells = Array with Cell
 function total(cells Cells) returns Count
 	var sum = 0 as Count
 	for cell in cells 'each'
-		sum = helper(cell.s) as Count
+		sum = beta.helper(cell.s) as Count
 	end 'each'
 	return sum
 end 'total'
 
 function main() returns ExitCode
-	let cells = Cells.create(0)
+	var cells = Cells.create(0)
 	cells.push(Cell.create("hello"))
-	return (useAlpha() as Count + total(cells)) as ExitCode
+	return (alpha.useAlpha() as Count + total(cells)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1266,7 +1266,7 @@ unmarked one would be refused at the cast rather than merely answer differently;
 reachable with each call reaching its own declaration.
 ```maxon
 // --- file: alpha/a.maxon
-function helper(raw Integer) returns bool
+function helper(raw beta.Integer) returns bool
 	return raw > 3
 end 'helper'
 
@@ -1278,13 +1278,13 @@ end 'useAlpha'
 export typealias Integer = int(0 to 125)
 
 export function helper(raw Integer) returns Integer
-	return raw + 7
+	return try raw + 7 otherwise panic("out of range")
 end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let flag = useAlpha()
-	let n = helper(1)
+	let flag = alpha.useAlpha()
+	let n = beta.helper(1)
 	print("{flag} {n}\n")
 	return n as ExitCode
 end 'main'
@@ -1305,11 +1305,11 @@ answer.
 export typealias Integer = int(0 to 125)
 
 export function helper(raw Integer) returns Integer
-	return raw + 7
+	return try raw + 7 otherwise panic("out of range")
 end 'helper'
 
 // --- file: zeta/a.maxon
-function helper(raw Integer) returns bool
+function helper(raw alpha.Integer) returns bool
 	return raw > 3
 end 'helper'
 
@@ -1319,8 +1319,8 @@ end 'useZeta'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let flag = useZeta()
-	let n = helper(1)
+	let flag = zeta.useZeta()
+	let n = alpha.helper(1)
 	print("{flag} {n}\n")
 	return n as ExitCode
 end 'main'
@@ -1337,7 +1337,7 @@ true 8
 The same pair with identical signatures: `b/`'s exported `larger` returns the smaller argument, so `a 7 main 2` is only reachable with each call reaching its own declaration.
 ```maxon
 // --- file: a/a.maxon
-function larger(a Tally, b Tally) returns Tally
+function larger(a b.Tally, b b.Tally) returns b.Tally
 	if a > b 'first'
 		return a
 	end 'first'
@@ -1360,8 +1360,8 @@ end 'larger'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	print("main {larger(10, b: 2)}\n")
+	a.runA()
+	print("main {b.larger(10, b: 2)}\n")
 	return 0
 end 'main'
 ```
@@ -1390,13 +1390,13 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: beta/b.maxon
-public function helper() returns Integer
+public function helper() returns export.Integer
 	return 7
 end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (useRoot() * 10 + helper()) as ExitCode
+	return (export.useRoot() * 10 + export.helper()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1420,7 +1420,7 @@ public type Box
 end 'Box'
 
 function make(n Integer) returns Box
-	return Box.create(n + 2)
+	return Box.create(try n + 2 otherwise panic("out of range"))
 end 'make'
 
 public function useRoot() returns Integer
@@ -1428,14 +1428,14 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: beta/b.maxon
-export function make(n Integer) returns Box
-	return Box.create(n)
+export function make(n gamma.Integer) returns gamma.Box
+	return gamma.Box.create(n)
 end 'make'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let G = make(7)
-	return (useRoot() * 10 + G.n) as ExitCode
+	let G = beta.make(7)
+	return (gamma.useRoot() * 10 + G.n) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1459,23 +1459,23 @@ public type Box
 end 'Box'
 
 // --- file: alpha/a.maxon
-function make(n Integer) returns Box
-	return Box.create(n + 2)
+function make(n export.Integer) returns export.Box
+	return export.Box.create(try n + 2 otherwise panic("out of range"))
 end 'make'
 
-export function useAlpha() returns Integer
+export function useAlpha() returns export.Integer
 	return make(1).n
 end 'useAlpha'
 
 // --- file: beta/b.maxon
-export function make(n Integer) returns Box
-	return Box.create(n)
+export function make(n export.Integer) returns export.Box
+	return export.Box.create(n)
 end 'make'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let G = make(7)
-	return (useAlpha() * 10 + G.n) as ExitCode
+	let G = beta.make(7)
+	return (alpha.useAlpha() * 10 + G.n) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1498,13 +1498,13 @@ public type Box
 end 'Box'
 
 // --- file: alpha/a.maxon
-export function make(n Integer) returns Box
-	return Box.create(n + 2)
+export function make(n export.Integer) returns export.Box
+	return export.Box.create(try n + 2 otherwise panic("out of range"))
 end 'make'
 
 // --- file: beta/b.maxon
-export function make(n Integer) returns Box
-	return Box.create(n)
+export function make(n export.Integer) returns export.Box
+	return export.Box.create(n)
 end 'make'
 
 // --- file: app/main.maxon
@@ -1568,6 +1568,7 @@ error E3004: <fragment>:5:10: call to undefined function 'nothere'
 
 
 <!-- test: error.a-let-initializer-call-to-a-name-only-invisible-declarations-carry -->
+<!-- positions: moved -->
 `gamma`'s and `alpha`'s `make` are both unmarked, so `app/` can name neither; the `let` initializer is
 refused as a body call naming it is.
 ```maxon
@@ -1583,11 +1584,11 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: alpha/a.maxon
-function make(n Integer) returns Integer
+function make(n gamma.Integer) returns gamma.Integer
 	return n + 2
 end 'make'
 
-export function useAlpha() returns Integer
+export function useAlpha() returns gamma.Integer
 	return make(1)
 end 'useAlpha'
 
@@ -1618,7 +1619,7 @@ function useOther() returns Integer
 end 'useOther'
 
 // --- file: beta/b.maxon
-public function helper() returns Integer
+public function helper() returns app.Integer
 	return 7
 end 'helper'
 
@@ -1637,7 +1638,7 @@ A bare name READ as a function value answers the same question a bare call does:
 the file may name, here beta's, whose return type the value's calls carry.
 ```maxon
 // --- file: alpha/a.maxon
-function helper(raw Integer) returns bool
+function helper(raw beta.Integer) returns bool
 	return raw > 3
 end 'helper'
 
@@ -1649,13 +1650,13 @@ end 'useAlpha'
 export typealias Integer = int(0 to 125)
 
 export function helper(raw Integer) returns Integer
-	return raw + 7
+	return try raw + 7 otherwise panic("out of range")
 end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let flag = useAlpha()
-	let f = helper
+	let flag = alpha.useAlpha()
+	let f = beta.helper
 	let n = f(1)
 	print("{flag} {n}\n")
 	return n as ExitCode
@@ -1704,12 +1705,12 @@ declaration that directory holds, exactly as a qualified call does.
 export typealias Integer = int(0 to 125)
 
 export function helper(raw Integer) returns Integer
-	return raw + 3
+	return try raw + 3 otherwise panic("out of range")
 end 'helper'
 
 // --- file: beta/b.maxon
-export function helper(raw Integer) returns Integer
-	return raw + 7
+export function helper(raw alpha.Integer) returns alpha.Integer
+	return try raw + 7 otherwise panic("out of range")
 end 'helper'
 
 // --- file: app/main.maxon
@@ -1761,7 +1762,7 @@ export enum Oops implements Error
 	bad
 end 'Oops'
 
-export function risky(raw Integer) returns Integer throws Oops
+export function risky(raw alpha.Integer) returns alpha.Integer throws Oops
 	if raw > 100 'tooBig'
 		throw Oops.bad
 	end 'tooBig'
@@ -1795,18 +1796,18 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: alpha/f.maxon
-public function pick() returns Integer
+public function pick() returns export.Integer
 	return 2
 end 'pick'
 
 // --- file: zulu/f.maxon
-public function pick() returns Integer
+public function pick() returns export.Integer
 	return 4
 end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (pick() + useRoot()) as ExitCode
+	return (export.pick() + useRoot()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2161,7 +2162,7 @@ method: 9, never 3 or 5.
 ```maxon
 // --- file: app/main.maxon
 public type Point
-	public var x as Integer
+	public var x as Point.Integer
 
 	public static function create() returns Self
 		return Self{x: 9}
@@ -2181,7 +2182,7 @@ public function create() returns Integer
 end 'create'
 
 // --- file: other/o.maxon
-public function create() returns Integer
+public function create() returns Point.Integer
 	return 5
 end 'create'
 ```
@@ -2202,7 +2203,7 @@ end 'create'
 
 // --- file: app/main.maxon
 public type Point
-	public var x as Integer
+	public var x as Point.Integer
 
 	public static function create() returns Self
 		return Self{x: 9}
@@ -2215,7 +2216,7 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: other/o.maxon
-public function create() returns Integer
+public function create() returns Point.Integer
 	return 5
 end 'create'
 ```
@@ -2243,12 +2244,12 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: Point/p.maxon
-public function create() returns Integer
+public function create() returns app.Integer
 	return 3
 end 'create'
 
 // --- file: other/o.maxon
-public function create() returns Integer
+public function create() returns app.Integer
 	return 5
 end 'create'
 ```
@@ -2263,7 +2264,7 @@ and its `helper` is still contested with `other/`'s — but `type Point` declare
 static-call door, the directory's `helper` through the namespace door, in one expression. 9*10+3.
 ```maxon
 // --- file: Point/p.maxon
-export function helper() returns Integer
+export function helper() returns other.Integer
 	return 3
 end 'helper'
 
@@ -2276,9 +2277,9 @@ end 'helper'
 
 // --- file: app/main.maxon
 public type Point
-	export var x as Integer
+	export var x as other.Integer
 
-	export static function create() returns Integer
+	export static function create() returns other.Integer
 		return 9
 	end 'create'
 end 'Point'
@@ -2306,9 +2307,9 @@ end 'helper'
 
 // --- file: app/main.maxon
 public type Point
-	export var x as Integer
+	export var x as Point.Integer
 
-	export static function create() returns Integer
+	export static function create() returns Point.Integer
 		return 9
 	end 'create'
 end 'Point'
@@ -2393,6 +2394,7 @@ error E3036: app/specs/namespace-qualified-resolution/error.contested-free-funct
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-default -->
+<!-- positions: moved -->
 ⛔⛔ **THE CASE ABOVE WITH THE SECOND CONTESTANT AT THE *ROOT*, AND THAT IS A DIFFERENT KEY.**
 Above, `beta/` has a qualified key of its own and never looks at
 the bare name, so leaving a stale fact there is harmless. A ROOT declaration has no qualified spelling:
@@ -2409,19 +2411,19 @@ incumbent is the root's own declaration and there is nothing stale to inherit.
 export typealias Num = int(-1000 to 1000)
 
 export function pick(a Num, b Num = 5) returns Num
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'pick'
 
 // --- file: rootpick.maxon
 export typealias Small = int(-1000 to 1000)
 
 export function pick(a Small, b Small) returns Small
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (pick(2) as ExitCode) + (alpha.pick(1) as ExitCode)
+	return (export.pick(2) as ExitCode) + (alpha.pick(1) as ExitCode)
 end 'main'
 ```
 ```maxoncstderr
@@ -2616,10 +2618,10 @@ export typealias Integer = int(i64.min to i64.max)
 export typealias Score = function(Integer) returns Integer
 
 // --- file: legacy/types.maxon
-export typealias Score = function(Integer) returns Integer
+export typealias Score = function(api.Integer) returns api.Integer
 
 // --- file: app/main.maxon
-function addOne(n Integer) returns Integer
+function addOne(n api.Integer) returns api.Integer
 	return n + 1
 end 'addOne'
 
@@ -2627,7 +2629,7 @@ function pickLegacy() returns legacy.Score
 	return addOne
 end 'pickLegacy'
 
-function runApi(f api.Score) returns Integer
+function runApi(f api.Score) returns api.Integer
 	return f(20)
 end 'runApi'
 

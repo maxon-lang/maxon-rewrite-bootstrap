@@ -384,7 +384,7 @@ end 'publicEntry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return publicEntry()
+	return api.publicEntry()
 end 'main'
 ```
 ```exitcode

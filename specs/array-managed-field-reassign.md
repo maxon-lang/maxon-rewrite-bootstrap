@@ -133,7 +133,6 @@ end 'main'
 ```
 
 <!-- test: reassign-array-field-multiple-times -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Reassign Array Field Multiple Times
 Repeatedly filter and reassign an array field to stress destructor cleanup.
 ```maxon
@@ -149,7 +148,7 @@ type Entry
 	export var tag as Tag
 
 	static function create(tag Tag) returns Self
-		return Self{tag: tag}
+		return Self{tag: tag.clone()}
 	end 'create'
 end 'Entry'
 
@@ -159,36 +158,35 @@ type Store
 	export var entries as EntryArray
 
 	static function create(entries EntryArray) returns Self
-		return Self{entries: entries}
+		return Self{entries: entries.clone()}
 	end 'create'
 end 'Store'
 
-function removeNone(store Store)
-	let kept = EntryArray.create(0)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+function removeNone(mutates store Store)
+	var kept = EntryArray.create(0)
 	for e in store.entries 'scan'
 		match e.tag 'check'
 			none then continue
-			name then kept.push(e)
-			id then kept.push(e)
+			name then kept.push(e.clone())
+			id then kept.push(e.clone())
 		end 'check'
 	end 'scan'
 	store.entries = kept
 end 'removeNone'
 
 function main() returns ExitCode
-	let entries = EntryArray.create(0)
+	var entries = EntryArray.create(0)
 	entries.push(Entry.create(Tag.name("first long string for heap allocation purposes")))
 	entries.push(Entry.create(Tag.none))
 	entries.push(Entry.create(Tag.id(42)))
 	entries.push(Entry.create(Tag.none))
 	entries.push(Entry.create(Tag.name("second long string for heap allocation purposes")))
 	entries.push(Entry.create(Tag.none))
-	let store = Store.create(entries)
+	var store = Store.create(entries)
 	removeNone(store)
 	removeNone(store)
 	removeNone(store)
-	return store.entries.count()
+	return try store.entries.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

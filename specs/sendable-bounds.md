@@ -2519,9 +2519,7 @@ error E3215: <fragment>:22:11: 'Outer.Items' is not sendable, so it cannot be 'T
 ```
 
 <!-- test: a-sendable-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 `Digits.Items` is the `Array with Tally` that `extension Seq` declares for `Digits`, a container instance.
 
@@ -2553,10 +2551,9 @@ type Digits implements Seq with Tally
 	end 'first'
 end 'Digits'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function all() returns Items
 		return Items.create(0)
 	end 'all'
@@ -3491,7 +3488,6 @@ error E3011: <fragment>:23:33: Unknown type 'TallyWrapper.Items'
 
 <!-- test: a-sendable-bound-names-an-interface-function-alias-as-unknown -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface body declares no alias of a function type, and `Shape.Step` names no type: each is reported once.
 
@@ -3508,7 +3504,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 interface Shape
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Step = function(Tally) returns Tally
 	function area() returns Tally
 end 'Shape'
@@ -3527,7 +3522,6 @@ error E3011: <fragment>:17:32: Unknown type 'Shape.Step'
 
 <!-- test: a-sendable-bound-names-an-interface-container-alias-as-unknown -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias an interface declares is not named through the interface from outside it: `Shape.Items` names no type,
 and is reported once, as an unknown type.
@@ -3545,7 +3539,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 interface Shape
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = Array with Tally
 	function area() returns Tally
 end 'Shape'
@@ -3562,9 +3555,7 @@ error E3011: <fragment>:17:33: Unknown type 'Shape.Items'
 ```
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-in-an-extension-of-an-interface-bound-to-a-value -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `extension Seq` writes `Pool with Item`, and `Jobs` binds `Item` to a `Tally`, which is a value. The alias is judged as `Pool with Tally` for that conformer, and it meets the bound.
 
 ```maxon
@@ -3583,10 +3574,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -3620,9 +3610,7 @@ end 'main'
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-bound-to-a-plain-record -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface's associated type is not a type parameter: `extension Seq` declares `SP` once per conformer, with `Item` replaced by that conformer's binding. `Tasks` binds `Item` to a plain record `Job`, so its `SP` is `Pool with Job`, refused where the extension writes the alias.
 
@@ -3650,10 +3638,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -3684,9 +3671,7 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-once-for-the-conformer-that-fails -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The same `extension Seq` with two conformers: `Jobs` binds `Item` to a `Tally` and meets the bound, `Tasks` binds it to a plain record `Job` and does not. The refusal is reported once, for the conformer that fails.
 
@@ -3714,10 +3699,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -3760,9 +3744,7 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 `Box` binds `Item` to its own parameter `T` and declares no `where` clause, so the alias in `extension Seq` is judged from `Box`'s clause alone, and `T` is not bounded `sendable`. It is reported once, although `Box` is never instantiated.
 
@@ -3782,10 +3764,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -3816,9 +3797,7 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter-once-for-two-instantiations -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The same unbounded `Box`, instantiated at `Tally` and at `String` and used. The refusal comes from `Box`'s own clause, so it is reported once, whatever the instantiations.
 
@@ -3838,10 +3817,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -3876,9 +3854,7 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-bound-to-a-generic-conformers-bounded-parameter -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 `Box` binds `Item` to its parameter `T` and declares `where T is sendable`, so the alias in `extension Seq` is judged from that clause and meets the bound; `Box with Tally` runs.
 
 ```maxon
@@ -3897,10 +3873,9 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SP = Pool with Item
+
 	function pooled() returns Tally
 		let p = SP.create(self.first())
 		_ = p
@@ -5396,9 +5371,7 @@ hello
 ```
 
 <!-- test: an-isolated-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 `Digits.Items` is the `Array with Tally` that `extension Seq` declares for `Digits`, which is not `unique`.
 
@@ -5430,10 +5403,9 @@ type Digits implements Seq with Tally
 	end 'first'
 end 'Digits'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Item
+
 	function all() returns Items
 		return Items.create(0)
 	end 'all'

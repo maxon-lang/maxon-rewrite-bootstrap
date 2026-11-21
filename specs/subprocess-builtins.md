@@ -622,7 +622,7 @@ kind=0 code=0 echoed=true outLen=7
 
 <!-- test: subprocess-builtins.stdin-bytes-holding-a-nul-are-delivered-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `StdinKind.bytes` takes the payload's length from `stdinLength`, so a zero byte is one of its bytes and
@@ -650,7 +650,7 @@ function readAllStdin() returns String
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	let received = merge read
 	var line = "{received.count()} bytes ["
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in received.withIterator() 'each'
 		if iter.index() > 0 'separator'
 			line = "{line} "

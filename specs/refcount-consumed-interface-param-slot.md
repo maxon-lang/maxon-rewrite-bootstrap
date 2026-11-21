@@ -80,7 +80,7 @@ end 'Desc'
 type Holder
 	export var p as Payload
 
-	static function create(p Payload) returns Holder
+	static function create(consumes p Payload) returns Holder
 		return Holder{p: p}
 	end 'create'
 
@@ -93,29 +93,29 @@ end 'Holder'
 function borrowCount(p Payload, base Integer) returns Integer
 	var acc = base
 	for _ in 0 upto 2 'r'
-		acc = acc + p.tag()
+		acc = try acc + p.tag() otherwise panic("out of range")
 	end 'r'
 	return acc
 end 'borrowCount'
 
 // Consumes `p` (mirrors allocateRegistersForFunc storing into FunctionRegAllocator).
-function forFunc(item Integer, p Payload) returns Integer
+function forFunc(item Integer, consumes p Payload) returns Integer
 	let h = Holder.create(p)
-	return h.run() + item
+	return try h.run() + item otherwise panic("out of range")
 end 'forFunc'
 
 // Pre-loop borrow + early-return guard + per-item loop consume
 // (mirrors allocateRegistersWithTarget).
-function withTarget(items ItemArray, p Payload) returns Integer
-	let n = borrowCount(p, base: items.count() as Integer)
+function withTarget(items ItemArray, consumes p Payload) returns Integer
+	let n = borrowCount(p, base: try items.count() as Integer otherwise panic("out of range"))
 	if n == 0 'empty'
 		return 0
 	end 'empty'
 	var total = 0 as Integer
 	for item in items 'each'
-		total = total + forFunc(item, p: p)
+		total = try total + forFunc(item, p: p) otherwise panic("out of range")
 	end 'each'
-	return total + n
+	return try total + n otherwise panic("out of range")
 end 'withTarget'
 
 function withX64(items ItemArray) returns Integer
@@ -124,11 +124,11 @@ function withX64(items ItemArray) returns Integer
 end 'withX64'
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(1)
 	items.push(2)
 	items.push(3)
-	return withX64(items)
+	return try withX64(items) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -161,7 +161,7 @@ end 'Desc'
 type Holder
 	export var p as Payload
 
-	static function create(p Payload) returns Holder
+	static function create(consumes p Payload) returns Holder
 		return Holder{p: p}
 	end 'create'
 
@@ -170,12 +170,12 @@ type Holder
 	end 'run'
 end 'Holder'
 
-function twice(item Integer, p Payload) returns Integer
+function twice(item Integer, consumes p Payload) returns Integer
 	let h1 = Holder.create(p)
 	let a = h1.run()
 	let h2 = Holder.create(p)
 	let b = h2.run()
-	return a + b + item
+	return try a + b + item otherwise panic("out of range")
 end 'twice'
 
 function driver() returns Integer
@@ -184,7 +184,7 @@ function driver() returns Integer
 end 'driver'
 
 function main() returns ExitCode
-	return driver()
+	return try driver() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

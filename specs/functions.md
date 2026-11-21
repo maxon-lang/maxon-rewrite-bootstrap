@@ -1835,7 +1835,7 @@ type Doubler implements Scaler
 	end 'create'
 
 	function scale(factor Integer, offset Integer) returns Integer
-		return self.base * factor + offset
+		return try self.base * factor + offset otherwise panic("out of range")
 	end 'scale'
 end 'Doubler'
 
@@ -1845,7 +1845,7 @@ end 'run'
 
 function main() returns ExitCode
 	let d = Doubler.create()
-	return run(d) as ExitCode
+	return try run(d) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

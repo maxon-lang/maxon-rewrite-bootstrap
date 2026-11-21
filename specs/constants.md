@@ -502,8 +502,8 @@ end 'Permission'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let p = Permission.read
-	if p == Permission.read 'check'
+	let p = defs.Permission.read
+	if p == defs.Permission.read 'check'
 		return 1
 	end 'check'
 	return 0

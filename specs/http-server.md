@@ -1513,7 +1513,7 @@ status=200 accept=served post /form [hi]
 <!-- test: http-server.a-head-response-carries-no-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1561,7 +1561,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let head = try parts.get(0) otherwise "no-head"
 	let body = try parts.get(1) otherwise "no-body"
 	var length = "absent"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in head.split("\r\n") 'eachLine'
 		if line.toLower().startsWith("content-length:") 'theLength'
 			length = line

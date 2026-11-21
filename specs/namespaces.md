@@ -138,7 +138,7 @@ end 'bareHelper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return bareHelper()
+	return try utils.bareHelper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -178,12 +178,12 @@ end 'siblingProducer'
 export typealias Integer = int(i64.min to i64.max)
 
 export function siblingConsumer() returns Integer
-	return siblingProducer() + siblingProducer()
+	return try siblingProducer() + siblingProducer() otherwise panic("out of range")
 end 'siblingConsumer'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return siblingConsumer()
+	return try utils.siblingConsumer() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -290,7 +290,7 @@ value:, sentinel:)` free function coexisting with the `Array.set` method.
 export typealias Code = int(0 to 125)
 
 export function store(base Code, offset Code, scale Code) returns Code
-	return base + offset + scale
+	return try base + offset + scale otherwise panic("out of range")
 end 'store'
 
 // --- file: lib/cache.maxon
@@ -301,15 +301,15 @@ export type Cache
 		return Cache{last: 0}
 	end 'make'
 
-	export function store(key Code)
+	export function store(mutates self, key Code)
 		self.last = key
 	end 'store'
 end 'Cache'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let viaFree = store(2, offset: 3, scale: 4)
-	let c = Cache.make()
+	let viaFree = lib.store(2, offset: 3, scale: 4)
+	var c = lib.Cache.make()
 	c.store(99)
 	return viaFree
 end 'main'

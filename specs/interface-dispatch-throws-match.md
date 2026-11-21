@@ -38,7 +38,7 @@ type AlphaBackend implements Backend
 	export let tag as Integer
 
 	function compute(x Integer) returns Integer
-		return x + 1
+		return try x + 1 otherwise panic("out of range")
 	end 'compute'
 
 	static function create() returns Self
@@ -50,7 +50,7 @@ type BetaBackend implements Backend
 	export let tag as Integer
 
 	function compute(x Integer) returns Integer
-		return x + 2
+		return try x + 2 otherwise panic("out of range")
 	end 'compute'
 
 	static function create() returns Self
@@ -76,7 +76,7 @@ end 'dispatchWithReturnTry'
 function main() returns ExitCode
 	let a = try dispatchWithReturnTry(Kind.alpha, value: 40) otherwise 0
 	let b = try dispatchWithReturnTry(Kind.beta, value: 40) otherwise 0
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

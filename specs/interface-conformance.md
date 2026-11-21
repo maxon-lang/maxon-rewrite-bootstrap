@@ -398,14 +398,14 @@ end 'Rater'
 // --- file: b/judge.maxon
 export typealias Score = int(0 to 100)
 
-export type Judge implements Rater
-	var bias as Integer
+export type Judge implements a.Rater
+	var bias as a.Integer
 
 	export static function create() returns Judge
 		return Judge{bias: 1}
 	end 'create'
 
-	export function rate(s b.Score) returns Integer
+	export function rate(s b.Score) returns a.Integer
 		return self.bias + (s as Integer)
 	end 'rate'
 end 'Judge'
@@ -474,25 +474,25 @@ export interface Sink
 end 'Sink'
 
 // --- file: beta/impl.maxon
-export type Store implements Sink
-	var total as Integer
+export type Store implements alpha.Sink
+	var total as alpha.Integer
 
 	export static function create() returns Store
 		return Store{total: 0}
 	end 'create'
 
-	export function put(b alpha.Bag) returns Integer
-		return self.total + (b.count() as Integer)
+	export function put(b alpha.Bag) returns alpha.Integer
+		return try self.total + (b.count() as alpha.Integer) otherwise panic("out of range")
 	end 'put'
 end 'Store'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let store = Store.create()
-	let bag = Bag.create(0)
+	let store = beta.Store.create()
+	var bag = alpha.Bag.create(0)
 	bag.push(3)
 	bag.push(4)
-	return store.put(bag) as ExitCode
+	return try store.put(bag) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -627,7 +627,7 @@ end 'callGreet'
 
 function main() returns ExitCode
 	let s = Silent.create(42)
-	return callGreet(s)
+	return try callGreet(s) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -656,7 +656,7 @@ type Impl implements Extended
 	end 'ping'
 
 	function other() returns Integer
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'other'
 
 	static function create(n Integer) returns Self
@@ -670,7 +670,7 @@ end 'callPing'
 
 function main() returns ExitCode
 	let i = Impl.create(5)
-	return callPing(i)
+	return try callPing(i) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1697,12 +1697,12 @@ type K implements Both
 	end 'base'
 
 	function more() returns ExitCode
-		return self.v + 1
+		return try self.v + 1 otherwise panic("out of range")
 	end 'more'
 end 'K'
 
 function call(b Both) returns ExitCode
-	return b.base() + b.more()
+	return try b.base() + b.more() otherwise panic("out of range")
 end 'call'
 
 function main() returns ExitCode

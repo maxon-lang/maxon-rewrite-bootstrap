@@ -1814,7 +1814,7 @@ typealias Small = int(0 to 100)
 typealias Num = int(i64.min to i64.max)
 
 function complementHalf(b Small) returns Num
-	return try (not b) / 2 otherwise panic("out of range")
+	return (not b) / 2
 end 'complementHalf'
 
 function complementShift(b Small) returns Num
@@ -2021,7 +2021,7 @@ function fetch(b Small) returns Small throws ArrayError
 end 'fetch'
 
 function half(b Small) returns Num
-	let d = try fetch(b) otherwise try b - 10 otherwise panic("out of range")
+	let d = try fetch(b) otherwise b - 10
 	return (d / 2) as Num
 end 'half'
 

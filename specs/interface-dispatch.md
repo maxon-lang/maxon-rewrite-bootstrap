@@ -60,7 +60,7 @@ type Hello implements Greeter
 	let value as Integer
 
 	function greet() returns Integer
-		return value + 1
+		return try value + 1 otherwise panic("out of range")
 	end 'greet'
 
 	static function create(value Integer) returns Self
@@ -74,7 +74,7 @@ end 'callGreet'
 
 function main() returns ExitCode
 	let h = Hello.create(41)
-	return callGreet(h)
+	return try callGreet(h) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -95,7 +95,7 @@ type Alpha implements Scorer
 	let n as Integer
 
 	function score() returns Integer
-		return n * 2
+		return try n * 2 otherwise panic("out of range")
 	end 'score'
 
 	static function create(n Integer) returns Self
@@ -107,7 +107,7 @@ type Beta implements Scorer
 	let n as Integer
 
 	function score() returns Integer
-		return n * 3
+		return try n * 3 otherwise panic("out of range")
 	end 'score'
 
 	static function create(n Integer) returns Self
@@ -122,7 +122,7 @@ end 'getScore'
 function main() returns ExitCode
 	let a = Alpha.create(10)
 	let b = Beta.create(10)
-	return getScore(a) + getScore(b)
+	return try getScore(a) + getScore(b) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -182,7 +182,7 @@ type Accumulator implements Adder
 	let total as Integer
 
 	function add(n Integer) returns Integer
-		return total + n
+		return try total + n otherwise panic("out of range")
 	end 'add'
 
 	static function create(total Integer) returns Self
@@ -196,7 +196,7 @@ end 'addVia'
 
 function main() returns ExitCode
 	let acc = Accumulator.create(30)
-	return addVia(acc, n: 12)
+	return try addVia(acc, n: 12) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -383,11 +383,11 @@ type Rect implements Shape
 	let h as Integer
 
 	function area() returns Integer
-		return w * h
+		return try w * h otherwise panic("out of range")
 	end 'area'
 
 	function perimeter() returns Integer
-		return 2 * (w + h)
+		return try 2 * (w + h) otherwise panic("out of range")
 	end 'perimeter'
 
 	static function create(w Integer, h Integer) returns Self
@@ -396,12 +396,12 @@ type Rect implements Shape
 end 'Rect'
 
 function measure(s Shape) returns Integer
-	return s.area() + s.perimeter()
+	return try s.area() + s.perimeter() otherwise panic("out of range")
 end 'measure'
 
 function main() returns ExitCode
 	let r = Rect.create(3, h: 4)
-	return measure(r)
+	return try measure(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -434,7 +434,7 @@ type Gadget implements Describable
 	let id as Integer
 
 	function describe() returns Integer
-		return id * 10
+		return try id * 10 otherwise panic("out of range")
 	end 'describe'
 
 	static function create(id Integer) returns Self
@@ -657,7 +657,7 @@ type Safe implements Risky
 	end 'create'
 
 	function risk(n Integer) returns Integer throws Boom
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'risk'
 end 'Safe'
 
@@ -740,7 +740,7 @@ type Impl implements Derived
 	end 'base'
 
 	function derived() returns Integer
-		return n * 2
+		return try n * 2 otherwise panic("out of range")
 	end 'derived'
 
 	static function create(n Integer) returns Self
@@ -758,7 +758,7 @@ end 'callDerived'
 
 function main() returns ExitCode
 	let i = Impl.create(10)
-	return callBase(i) + callDerived(i)
+	return try callBase(i) + callDerived(i) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -794,7 +794,7 @@ end 'getCount'
 function main() returns ExitCode
 	let c1 = SimpleCounter.create(17)
 	let c2 = SimpleCounter.create(25)
-	return getCount(c1) + getCount(c2)
+	return try getCount(c1) + getCount(c2) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -849,7 +849,7 @@ function main() returns ExitCode
 	let a = One.create()
 	let b = Two.create()
 	let c = Three.create()
-	return getValue(a) + getValue(b) + getValue(c)
+	return try getValue(a) + getValue(b) + getValue(c) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -908,7 +908,7 @@ end 'consume'
 function main() returns ExitCode
 	let f = Factory.create(42)
 	let p = f.make()
-	return consume(p)
+	return try consume(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -940,7 +940,7 @@ type Widget implements Producer
 	end 'create'
 end 'Widget'
 
-function passThrough(p Producer) returns Producer
+function passThrough(consumes p Producer) returns Producer
 	return p
 end 'passThrough'
 
@@ -951,7 +951,7 @@ end 'consume'
 function main() returns ExitCode
 	let w = Widget.create(42)
 	let p = passThrough(w)
-	return consume(p) as ExitCode
+	return try consume(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -989,19 +989,19 @@ type Holder
 		return inner
 	end 'get'
 
-	static function create(inner Producer) returns Self
+	static function create(consumes inner Producer) returns Self
 		return Self{inner: inner}
 	end 'create'
 end 'Holder'
 
-function wrap(p Producer) returns Holder
+function wrap(consumes p Producer) returns Holder
 	return Holder.create(p)
 end 'wrap'
 
 function main() returns ExitCode
 	let h = wrap(Widget.create(42))
 	let g = h.get()
-	return g.produce() as ExitCode
+	return try g.produce() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1037,7 +1037,7 @@ type Gizmo implements Producer
 	let value as Integer
 
 	function produce() returns Integer
-		return value * 2
+		return try value * 2 otherwise panic("out of range")
 	end 'produce'
 
 	static function create(value Integer) returns Self
@@ -1059,7 +1059,7 @@ end 'consume'
 function main() returns ExitCode
 	let a = make(true, seed: 10)
 	let b = make(false, seed: 16)
-	return (consume(a) + consume(b)) as ExitCode
+	return try (consume(a) + consume(b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1101,7 +1101,7 @@ end 'consume'
 function main() returns ExitCode
 	var p = make(10)
 	p = make(42)
-	return consume(p) as ExitCode
+	return try consume(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1125,7 +1125,7 @@ type English implements Greeter
 	end 'greet'
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'English'
 
@@ -1137,7 +1137,7 @@ type French implements Greeter
 	end 'greet'
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'French'
 
@@ -1411,7 +1411,7 @@ type SumWorker implements Worker
 		var i = 0 as Count
 		while i < values.count() 'loop'
 			let v = try values.get(i as ElementIndex) otherwise 0
-			total = total + v
+			total = try total + v otherwise panic("out of range")
 			i = i + 1
 		end 'loop'
 		return total
@@ -1424,7 +1424,7 @@ end 'SumWorker'
 
 // Level 3: leaf function that uses the interface and creates temporaries
 function processOne(w Worker, value Integer) returns Integer
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(value)
 	return w.process(arr)
 end 'processOne'
@@ -1433,7 +1433,7 @@ end 'processOne'
 function processTwo(w Worker, a Integer, b Integer) returns Integer
 	let r1 = processOne(w, value: a)
 	let r2 = processOne(w, value: b)
-	return r1 + r2
+	return try r1 + r2 otherwise panic("out of range")
 end 'processTwo'
 
 // Level 1: entry point that creates the concrete type and passes through
@@ -1443,7 +1443,7 @@ end 'doWork'
 
 function main() returns ExitCode
 	let worker = SumWorker.create()
-	return doWork(worker)
+	return try doWork(worker) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1494,7 +1494,7 @@ end 'Marker'
 type Holder
 	export let t as Tagged
 
-	static function create(t Tagged) returns Self
+	static function create(consumes t Tagged) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Holder'
@@ -1506,7 +1506,7 @@ end 'callTag'
 function main() returns ExitCode
 	let m = Marker.create(42)
 	let h = Holder.create(m)
-	return callTag(h.t)
+	return try callTag(h.t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1547,7 +1547,7 @@ end 'Fixed'
 // Innermost: dispatches the interface method on a value whose static type is
 // the interface, reached only after two forwarding hops.
 function deepest(c Counter) returns Tick
-	return c.value() + c.value()
+	return try c.value() + c.value() otherwise panic("out of range")
 end 'deepest'
 
 function middle(c Counter) returns Tick
@@ -1649,14 +1649,14 @@ type Holder
 		return callTag(tagged)
 	end 'dispatch'
 
-	static function create(tagged Tagged) returns Self
+	static function create(consumes tagged Tagged) returns Self
 		return Self{tagged: tagged}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(Marker.create(9))
-	return h.dispatch()
+	return try h.dispatch() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1703,7 +1703,7 @@ type Allocator
 	export var f4 as StrArray
 	export var f5 as StrArray
 
-	static function create(query Query) returns Allocator
+	static function create(consumes query Query) returns Allocator
 		return Self{query: query, f0: StrArray.create(0), f1: StrArray.create(0), f2: StrArray.create(0), f3: StrArray.create(0), f4: StrArray.create(0), f5: StrArray.create(0)}
 	end 'create'
 
@@ -1712,7 +1712,7 @@ type Allocator
 	end 'run'
 end 'Allocator'
 
-function allocateFor(query Query) returns bool
+function allocateFor(consumes query Query) returns bool
 	let allocator = Allocator.create(query)
 	return allocator.run()
 end 'allocateFor'
@@ -1723,11 +1723,11 @@ function main() returns ExitCode
 	var i = 0 as Count
 	while i < 4 'loop'
 		if allocateFor(concrete) 'ok'
-			trueCount = trueCount + 1
+			trueCount = try trueCount + 1 otherwise panic("out of range")
 		end 'ok'
 		i = i + 1
 	end 'loop'
-	return trueCount as ExitCode
+	return try trueCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1755,7 +1755,7 @@ type Marker implements Tagged
 	let n as Integer
 
 	function tag() returns Integer
-		return n + (self.s.byteLength() as Integer)
+		return try n + (self.s.byteLength() as Integer) otherwise panic("out of range")
 	end 'tag'
 
 	static function create(n Integer) returns Self
@@ -1768,7 +1768,7 @@ type Holder
 	export let t as Tagged
 	export let extra as Integer
 
-	static function create(t Tagged) returns Self
+	static function create(consumes t Tagged) returns Self
 		return Self{label: "hi", t: t, extra: 5}
 	end 'create'
 end 'Holder'
@@ -1780,7 +1780,7 @@ end 'callTag'
 function main() returns ExitCode
 	let h = Holder.create(Marker.create(3))
 	print("size={sizeof(Holder)} label={h.label} extra={h.extra}\n")
-	return callTag(h.t)
+	return try callTag(h.t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1821,7 +1821,7 @@ type Box uses T
 	export let t as Tagged
 	export let v as T
 
-	static function create(t Tagged, v T) returns Self
+	static function create(consumes t Tagged, consumes v T) returns Self
 		return Self{t: t, v: v}
 	end 'create'
 
@@ -1832,7 +1832,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = IntBox.create(Marker.create(8), v: 1)
-	return b.score()
+	return try b.score() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1867,19 +1867,19 @@ end 'Marker'
 type Holder
 	export var t as Tagged
 
-	static function create(t Tagged) returns Self
+	static function create(consumes t Tagged) returns Self
 		return Self{t: t}
 	end 'create'
 
-	function replace(other Tagged) returns Integer
+	function replace(mutates self, consumes other Tagged) returns Integer
 		self.t = other
 		return self.t.tag()
 	end 'replace'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Marker.create(3))
-	return h.replace(Marker.create(9))
+	var h = Holder.create(Marker.create(3))
+	return try h.replace(Marker.create(9)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2069,19 +2069,19 @@ type Pair
 	let second as Tagged
 
 	static function create(m Marker) returns Self
-		return Self{first: m, second: m}
+		return Self{first: m.clone(), second: m.clone()}
 	end 'create'
 
-	function total() returns Integer
+	function total(mutates self) returns Integer
 		self.first = Marker.create(9)
-		return self.second.tag() + self.first.tag()
+		return try self.second.tag() + self.first.tag() otherwise panic("out of range")
 	end 'total'
 end 'Pair'
 
 function main() returns ExitCode
 	let m = Marker.create(3)
-	let p = Pair.create(m)
-	return p.total()
+	var p = Pair.create(m)
+	return try p.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2186,7 +2186,7 @@ type Alpha implements Scorer
 	let n as Integer
 
 	function score() returns Integer
-		return n * 2
+		return try n * 2 otherwise panic("out of range")
 	end 'score'
 
 	static function create(n Integer) returns Self
@@ -2205,7 +2205,7 @@ end 'ratioVia'
 
 function main() returns ExitCode
 	let a = Alpha.create(21)
-	return ratioVia(a, d: opaque(3)) as ExitCode
+	return try ratioVia(a, d: opaque(3)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2295,7 +2295,7 @@ type B implements Shower
 	end 'create'
 end 'B'
 
-function run(s Shower, again Shower, pick Integer) returns Integer
+function run(consumes s Shower, consumes again Shower, pick Integer) returns Integer
 	var t = s
 	if pick > 0 'grow'
 		t = again
@@ -2304,7 +2304,7 @@ function run(s Shower, again Shower, pick Integer) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	return run(A.create(), again: B.create(), pick: 0) as ExitCode
+	return try run(A.create(), again: B.create(), pick: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2337,7 +2337,7 @@ type Runner implements Exiter
 	let base as Integer
 
 	function take(c ExitCode) returns Integer
-		return base + (c as Integer)
+		return try base + (c as Integer) otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -2350,7 +2350,7 @@ function useExiter(e Exiter) returns Integer
 end 'useExiter'
 
 function main() returns ExitCode
-	return useExiter(Runner.create(20)) as ExitCode
+	return try useExiter(Runner.create(20)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2794,14 +2794,14 @@ type Sq implements Shape
 end 'Sq'
 
 function takeShape(c Shape, base Integer) returns Integer
-	return base + c.area()
+	return try base + c.area() otherwise panic("out of range")
 end 'takeShape'
 
 type Holder
 	let base as Integer
 
 	function measure(c Shape) returns Integer
-		return self.base + c.area()
+		return try self.base + c.area() otherwise panic("out of range")
 	end 'measure'
 
 	static function create(base Integer) returns Self
@@ -2811,12 +2811,12 @@ end 'Holder'
 
 type Helper
 	static function measure(c Shape, base Integer) returns Integer
-		return base + c.area()
+		return try base + c.area() otherwise panic("out of range")
 	end 'measure'
 end 'Helper'
 
 function main() returns ExitCode
-	return (takeShape(Sq.create(11), base: 20) - Holder.create(20).measure(Sq.create(11)) + Helper.measure(Sq.create(11), base: 31)) as ExitCode
+	return try (takeShape(Sq.create(11), base: 20) - Holder.create(20).measure(Sq.create(11)) + Helper.measure(Sq.create(11), base: 31)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3356,7 +3356,7 @@ type Holder
 	export let p as Printer
 	export let n as ExitCode
 
-	static function create(p Printer, n ExitCode) returns Self
+	static function create(consumes p Printer, n ExitCode) returns Self
 		return Self{p: p, n: n}
 	end 'create'
 end 'Holder'
@@ -3402,7 +3402,7 @@ type Holder
 	let p as Printer
 	export let n as ExitCode
 
-	static function create(p Printer, n ExitCode) returns Self
+	static function create(consumes p Printer, n ExitCode) returns Self
 		return Self{p: p, n: n}
 	end 'create'
 end 'Holder'
@@ -3444,7 +3444,7 @@ end 'Thing'
 
 // The discard is the shape under test, so `box` must have an effect — see `discarded-results.md`.
 function box(mutates boxes Tag) returns Printer
-	boxes = boxes + 1
+	boxes = try boxes + 1 otherwise panic("out of range")
 	return Thing.create(7)
 end 'box'
 
@@ -3584,7 +3584,7 @@ type Counter implements Sink
 
 	function take(m Msg) returns Integer
 		match m 'which'
-			ping(n) then return self.base + n
+			ping(n) then return try self.base + n otherwise panic("out of range")
 			quit then return self.base
 		end 'which'
 	end 'take'
@@ -3604,7 +3604,7 @@ end 'Post'
 
 function main() returns ExitCode
 	let post = Post.create()
-	if post.send() == 1 and bothWays() 'sent'
+	if post.send() == 1 and z.bothWays() 'sent'
 		return 1
 	end 'sent'
 	return 0
@@ -3634,7 +3634,7 @@ type Thing implements Sized
 	let label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
 	function size() returns Tag
@@ -3646,14 +3646,14 @@ type Holder
 	export let p as Sized
 	export let n as ExitCode
 
-	static function create(p Sized, n ExitCode) returns Self
+	static function create(consumes p Sized, n ExitCode) returns Self
 		return Self{p: p, n: n}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(Thing.create("a label"), n: 3)
-	return h.n + (h.p.size() as ExitCode)
+	return try h.n + (h.p.size() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3679,7 +3679,7 @@ end 'Color'
 type Holder
 	export let named as Named
 
-	static function create(named Named) returns Self
+	static function create(consumes named Named) returns Self
 		return Self{named: named}
 	end 'create'
 end 'Holder'
@@ -3758,7 +3758,7 @@ end 'Mood'
 type Holder
 	export let speaker as Speaker
 
-	static function create(speaker Speaker) returns Self
+	static function create(consumes speaker Speaker) returns Self
 		return Self{speaker: speaker}
 	end 'create'
 end 'Holder'
@@ -3795,7 +3795,7 @@ type Welsh implements Herald
 	end 'announce'
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Welsh'
 
@@ -3807,7 +3807,7 @@ type Dutch implements Herald
 	end 'announce'
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Dutch'
 
@@ -3869,7 +3869,7 @@ type Doubler implements Transform
 		if data.count() > self.limit 'big'
 			throw ProbeError.refused
 		end 'big'
-		let out = ByteArray.create(0)
+		var out = ByteArray.create(0)
 		for b in data 'each'
 			out.push(b)
 			out.push(b)
@@ -3889,7 +3889,7 @@ type Reverser implements Transform
 		if data.count() > self.limit 'big'
 			throw ProbeError.refused
 		end 'big'
-		let out = ByteArray.create(0)
+		var out = ByteArray.create(0)
 		for b in data 'each'
 			out.insert(0, value: b)
 		end 'each'
@@ -3959,9 +3959,9 @@ type Counting implements Source
 	end 'create'
 
 	function nums(n Integer) returns Numbers
-		let out = Numbers.create(0)
+		var out = Numbers.create(0)
 		for i in 0 upto n 'each'
-			out.push(self.start + i)
+			out.push(try self.start + i otherwise panic("out of range"))
 		end 'each'
 		return out
 	end 'nums'
@@ -3975,9 +3975,9 @@ type Squares implements Source
 	end 'create'
 
 	function nums(n Integer) returns Numbers
-		let out = Numbers.create(0)
+		var out = Numbers.create(0)
 		for i in 0 upto n 'each'
-			out.push(i * i * self.scale)
+			out.push(try i * i * self.scale otherwise panic("out of range"))
 		end 'each'
 		return out
 	end 'nums'
@@ -4369,12 +4369,12 @@ type Dog implements Speaker
 end 'Dog'
 
 function adopt(volume Signed, count Signed) returns Speaker
-	return Dog.create(volume shl count)
+	return Dog.create(try volume shl count otherwise panic("out of range"))
 end 'adopt'
 
 function main() returns ExitCode
 	let speaker = adopt(3, count: 2)
-	return speaker.speak() as ExitCode
+	return try speaker.speak() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4419,7 +4419,7 @@ type Cat implements Speaker
 	end 'create'
 
 	function speak() returns ExitCode
-		return self.volume + 1
+		return try self.volume + 1 otherwise panic("out of range")
 	end 'speak'
 end 'Cat'
 
@@ -4438,7 +4438,7 @@ end 'adopt'
 function main() returns ExitCode
 	let first = adopt(Kind.dog, volume: 10)
 	let second = adopt(Kind.cat, volume: 20)
-	return first.speak() + second.speak()
+	return try first.speak() + second.speak() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

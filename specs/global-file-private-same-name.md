@@ -136,7 +136,7 @@ directory's.
 let LIMIT = 40
 
 function main() returns ExitCode
-	return fromOther()
+	return other.fromOther()
 end 'main'
 
 // --- file: sub/s.maxon
@@ -144,7 +144,7 @@ export let LIMIT = 2
 
 // --- file: other/o.maxon
 export function fromOther() returns ExitCode
-	return LIMIT + sub.LIMIT
+	return export.LIMIT + sub.LIMIT
 end 'fromOther'
 ```
 ```exitcode
@@ -209,7 +209,7 @@ name from the last declaration the sweep read (`app/main.maxon`'s, returning a `
 ```maxon
 // --- file: lib/a.maxon
 function pick(s String) returns String
-	return s
+	return s.clone()
 end 'pick'
 
 export function useA(s String) returns String
@@ -224,7 +224,7 @@ function pick(n Cnt) returns Cnt
 end 'pick'
 
 function main() returns ExitCode
-	print("{useA("hi")}\n")
+	print("{lib.useA("hi")}\n")
 	print("{pick(1)}\n")
 	return 0
 end 'main'
@@ -247,20 +247,20 @@ callee never wrote in the other, which is why the pair is pinned by `exitcode` a
 export typealias Integer = int(i64.min to i64.max)
 
 function stripTrailingCR(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'stripTrailingCR'
 
 export function byteCount(b ByteArray) returns Integer
-	return stripTrailingCR(b).count()
+	return try stripTrailingCR(b).count() as Integer otherwise panic("out of range")
 end 'byteCount'
 
 // --- file: app/main.maxon
 function stripTrailingCR(line String) returns String
-	return line
+	return line.clone()
 end 'stripTrailingCR'
 
 function main() returns ExitCode
-	print("{byteCount(b"ab\r")}\n")
+	print("{lib.byteCount(b"ab\r")}\n")
 	print("{stripTrailingCR("xy")}\n")
 	return 0
 end 'main'
@@ -288,8 +288,8 @@ export type Cell
 		return Cell{counter: 5}
 	end 'make'
 
-	export function bump()
-		self.counter = self.counter + 1
+	export function bump(mutates self)
+		self.counter = try self.counter + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Cell'
 
@@ -298,9 +298,9 @@ export let counter = 10
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let cell = Cell.make()
+	var cell = alpha.Cell.make()
 	cell.bump()
-	return cell.counter + alpha.counter + beta.counter
+	return try cell.counter + alpha.counter + beta.counter otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -322,7 +322,7 @@ export type Meter
 	end 'make'
 
 	export function counter() returns ExitCode
-		return self.base + 1
+		return try self.base + 1 otherwise panic("out of range")
 	end 'counter'
 end 'Meter'
 
@@ -331,8 +331,8 @@ export let counter = 10
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let meter = Meter.make()
-	return meter.counter() + alpha.counter + beta.counter + 10
+	let meter = alpha.Meter.make()
+	return try meter.counter() + alpha.counter + beta.counter + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -347,7 +347,7 @@ so the call's `counter:` label in `app/main.maxon` still names it.
 export let counter = 1
 
 export function seed(counter ExitCode = 3, step ExitCode = 1) returns ExitCode
-	return counter * 10 + step
+	return try counter * 10 + step otherwise panic("out of range")
 end 'seed'
 
 // --- file: beta/count.maxon
@@ -355,7 +355,7 @@ export let counter = 10
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return seed(counter: 4, step: 2) + alpha.counter + beta.counter - 11
+	return alpha.seed(counter: 4, step: 2) + alpha.counter + beta.counter - 11
 end 'main'
 ```
 ```exitcode
@@ -412,7 +412,7 @@ export let limit = 100
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return viaValue() + alpha.limit() + beta.limit - 72
+	return try alpha.viaValue() + alpha.limit() + beta.limit - 72 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -441,7 +441,7 @@ export let limit = 3
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return viaValue() + alpha.limit() + beta.limit + gamma.limit - 75
+	return try alpha.viaValue() + alpha.limit() + beta.limit + gamma.limit - 75 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -467,7 +467,7 @@ function main() returns ExitCode
 	xs.sort()
 	let first = try xs.get(0) otherwise 0
 	let last = try xs.get(39) otherwise 0
-	return first + SmallSortThreshold + last - 7
+	return first + lib.SmallSortThreshold + last - 7
 end 'main'
 ```
 ```exitcode
@@ -503,7 +503,7 @@ end 'viaLoop'
 
 export function viaClosure() returns ExitCode
 	let add = function(counter ExitCode) gives counter + 10
-	return add(5) + counter
+	return try add(5) + counter otherwise panic("out of range")
 end 'viaClosure'
 
 export function viaMatch() returns ExitCode
@@ -512,7 +512,7 @@ export function viaMatch() returns ExitCode
 		one(counter) gives counter * 2
 		empty gives 0
 	end 'arm'
-	return doubled + counter
+	return try doubled + counter otherwise panic("out of range")
 end 'viaMatch'
 
 export function viaTuple() returns ExitCode
@@ -535,7 +535,7 @@ export let counter = 10
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return viaLoop() + viaClosure() + viaMatch() + viaTuple() + viaCase() + alpha.counter + beta.counter
+	return try alpha.viaLoop() + alpha.viaClosure() + alpha.viaMatch() + alpha.viaTuple() + alpha.viaCase() + alpha.counter + beta.counter otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

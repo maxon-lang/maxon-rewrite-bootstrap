@@ -35,7 +35,6 @@ For simple enums without associated values, prefer `.allCases` when you need the
 ### Simple Enum
 
 <!-- test: enum-allcasenames.simple -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum Color
 	red
@@ -44,7 +43,6 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for name in Color.allCaseNames 'loop'
 		print("{name}\n")
 	end 'loop'
@@ -85,7 +83,6 @@ end 'main'
 ### Int-Backed Enum
 
 <!-- test: enum-allcasenames.int-backed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum HttpStatus
 	ok = 200
@@ -94,7 +91,6 @@ enum HttpStatus
 end 'HttpStatus'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for name in HttpStatus.allCaseNames 'loop'
 		print("{name}\n")
 	end 'loop'
@@ -113,7 +109,6 @@ serverError
 ### String-Backed Enum
 
 <!-- test: enum-allcasenames.string-backed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum ContentType
 	json = "application/json"
@@ -122,7 +117,6 @@ enum ContentType
 end 'ContentType'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for name in ContentType.allCaseNames 'loop'
 		print("{name}\n")
 	end 'loop'
@@ -141,7 +135,6 @@ plain
 ### Union Without Associated Values
 
 <!-- test: enum-allcasenames.union-simple -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 union Signal
 	start
@@ -150,7 +143,6 @@ union Signal
 end 'Signal'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for name in Signal.allCaseNames 'loop'
 		print("{name}\n")
 	end 'loop'
@@ -169,7 +161,6 @@ pause
 ### Union With Associated Values
 
 <!-- test: enum-allcasenames.union-associated -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -180,7 +171,6 @@ union Container
 end 'Container'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for name in Container.allCaseNames 'loop'
 		print("{name}\n")
 	end 'loop'

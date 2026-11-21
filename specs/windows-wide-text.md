@@ -45,7 +45,7 @@ has, and the UTF-16 boundary they cross is Windows' own.
 ## Tests
 
 <!-- test: an-argument-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument `日本`, and `CommandLine.args()` hands it over as the
 six bytes of its UTF-8 spelling.
@@ -62,7 +62,7 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -109,7 +109,7 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell sets `MAXON_WIDE_TEXT` to `日本` and starts the program, and `Process.environmentVariable`
 hands the value over as the six bytes of its UTF-8 spelling.
@@ -126,7 +126,7 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -173,12 +173,12 @@ end 'main'
 ```
 
 <!-- test: an-argument-handed-to-a-child-reaches-it-in-utf16 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program hands PowerShell the argument `'日本'`, and PowerShell reads the two characters U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -207,7 +207,7 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-handed-to-a-child-reaches-it-in-utf16 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -215,7 +215,7 @@ The program starts PowerShell with `MAXON_WIDE_TEXT` set to `日本` through `En
 and PowerShell reads the two characters U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -246,12 +246,12 @@ end 'main'
 ```
 
 <!-- test: a-file-maxon-names-is-so-named-on-disk -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program writes `日本.txt`, and PowerShell finds a file of exactly that name in the directory.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -302,14 +302,14 @@ end 'main'
 ```
 
 <!-- test: a-file-named-on-disk-is-listed-and-opened-in-utf8 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell makes a directory `日本` and a file `日本.txt` holding `ok`. `Directory.list` names both in
 UTF-8, `File.exists`, `Directory.exists` and `File.readText` find them by their UTF-8 names, and
 `File.delete` and `Directory.delete` remove them.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -345,7 +345,6 @@ function main() returns ExitCode
 	removeTree(base)
 	printLines(powershell("$w = [string]([char]0x65E5) + [char]0x672C; New-Item -ItemType Directory -Force -Path (Join-Path '{base.path}' $w) | Out-Null; Set-Content -LiteralPath (Join-Path '{base.path}' ($w + '.txt')) -Value 'ok' -NoNewline"))
 	let entries = try Directory.list(base) otherwise return 2
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		let name = entry.filename()
 		print("{name} {name.byteLength()}\n")
@@ -380,14 +379,14 @@ content ok
 ```
 
 <!-- test: a-directory-maxon-creates-renames-and-removes-is-named-so-on-disk -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program makes a directory `日本`, writes `日本.txt` inside it and renames that to `本日.txt`, and
 PowerShell finds exactly those names on disk. The program then removes both, and PowerShell finds
 nothing left.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -453,7 +452,7 @@ end 'main'
 ```
 
 <!-- test: the-current-directory-and-the-executable-path-come-back-in-utf8 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` and runs the copy from inside it.
 `Directory.currentPath()` and `Process.executablePath()` both name that directory in UTF-8.
@@ -470,7 +469,7 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -531,7 +530,7 @@ current directory 26085,26412 6
 ```
 
 <!-- test: a-child-started-in-a-utf8-working-directory-sees-it-in-utf16 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -539,7 +538,7 @@ PowerShell makes a directory `日本`, and the program starts PowerShell again w
 working directory. PowerShell finds itself in a directory named U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -588,7 +587,7 @@ end 'main'
 ```
 
 <!-- test: a-supplementary-plane-argument-arrives-as-utf8 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument U+1F600, which UTF-16 spells as the surrogate pair
 D83D DE00. `CommandLine.args()` hands it over as one code point in four UTF-8 bytes.
@@ -605,7 +604,7 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -652,7 +651,7 @@ end 'main'
 ```
 
 <!-- test: a-file-name-with-a-lone-surrogate-is-listed-as-the-replacement-character -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS stores a name as UTF-16 units without checking that they pair, so PowerShell can make a file named
 `a`, a lone high surrogate D800, then `b.txt`. UTF-8 has no spelling for a lone surrogate, so
@@ -670,7 +669,7 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -706,7 +705,6 @@ function main() returns ExitCode
 	removeTree(base)
 	printLines(powershell("New-Item -ItemType Directory -Force -Path '{base.path}' | Out-Null; [System.IO.File]::WriteAllText((Join-Path '{base.path}' ('a' + [char]0xD800 + 'b.txt')), 'ok')"))
 	let entries = try Directory.list(base) otherwise return 2
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		let name = entry.filename()
 		print("{codepointsOf(name)} {name.byteLength()}\n")
@@ -723,7 +721,7 @@ end 'main'
 ```
 
 <!-- test: a-name-of-the-longest-component-is-listed-whole -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS allows a name component of 255 UTF-16 units. PowerShell makes a file named with 255 of U+65E5, and
 `Directory.list` names it whole: 255 code points in 765 UTF-8 bytes. The full path is longer than
@@ -731,7 +729,7 @@ NTFS allows a name component of 255 UTF-16 units. PowerShell makes a file named 
 short.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -767,7 +765,6 @@ function main() returns ExitCode
 	removeTree(base)
 	printLines(powershell("New-Item -ItemType Directory -Force -Path '{base.path}' | Out-Null; [System.IO.File]::WriteAllText('\\\\?\\{base.path}\\' + ([string][char]0x65E5 * 255), 'ok')"))
 	let entries = try Directory.list(base) otherwise return 2
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		let name = entry.filename()
 		var units = 0 as FullRangeInt
@@ -788,14 +785,14 @@ end 'main'
 ```
 
 <!-- test: a-program-in-a-utf8-path-directory-is-found-by-name -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` as `maxon-wide-probe.exe`. The program starts
 itself with that directory at the head of `PATH`, and that child starts `maxon-wide-probe` by its bare
 name: the `PATH` search walks the `日本` directory and finds it.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -877,7 +874,7 @@ found
 ```
 
 <!-- test: a-redirect-file-with-a-utf8-name-is-written-and-read -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -887,7 +884,7 @@ read from `本日.txt` (`InputSource.file`) and its standard output written to `
 disk, and `ping` in `日本.txt`.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -951,7 +948,7 @@ ping
 ```
 
 <!-- test: a-redirect-to-a-utf8-name-that-cannot-open-reports-the-failure -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -961,7 +958,7 @@ stream can open: the spawn fails as `spawnFailed`, carrying the access-denied co
 for a directory opened as a file, and launches nothing.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -1026,14 +1023,14 @@ stdout spawn failed: os error 5
 ```
 
 <!-- test: a-shared-memory-segment-named-in-utf8-is-adopted-under-that-name -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell publishes a named section `maxon-wide-日本` through .NET's `MemoryMappedFile`, writes 42 into
 its first word and starts the program. `SharedSegment.create` under the UTF-8 name adopts that section:
 it reads the 42 and writes 7 into the second word, which PowerShell reads back once the program exits.
 ```maxon
 function printLines(text String)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'

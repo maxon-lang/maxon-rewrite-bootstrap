@@ -275,7 +275,7 @@ end 'publicEntry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return publicEntry()
+	return try api.publicEntry() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -296,7 +296,7 @@ public type LocalPoint
 	end 'origin'
 
 	export function sum() returns Integer
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'sum'
 end 'LocalPoint'
 
@@ -307,7 +307,7 @@ end 'entry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return entry()
+	return try api.entry() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -331,7 +331,7 @@ end 'entry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return entry()
+	return try api.entry() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -351,7 +351,7 @@ end 'readMax'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return readMax()
+	return try api.readMax() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -371,7 +371,7 @@ end 'readCounter'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return readCounter()
+	return try api.readCounter() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -395,7 +395,7 @@ end 'publicEntry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return publicEntry()
+	return try api.publicEntry() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -417,7 +417,7 @@ export let MAX_USED = 7
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return MAX_USED
+	return api.MAX_USED
 end 'main'
 ```
 ```exitcode
@@ -430,14 +430,14 @@ which is folded during the declaration sweep rather than read at a use site. Hoo
 would report every link of a cross-file chain as unreferenced.
 ```maxon
 // --- file: app/main.maxon
-let FINAL = MIDDLE + 2
+let FINAL = api.MIDDLE + 2
 
 function main() returns ExitCode
 	return FINAL
 end 'main'
 
 // --- file: api/middle.maxon
-export let MIDDLE = ROOT * 4
+export let MIDDLE = root.ROOT * 4
 
 // --- file: root/root.maxon
 export let ROOT = 10
@@ -460,11 +460,11 @@ export function widen(v ColumnWidth) returns ColumnWidth
 end 'widen'
 
 // --- file: app/main.maxon
-let PAD = 7 as ColumnWidth
+let PAD = 7 as api.ColumnWidth
 
 function main() returns ExitCode
 	var width = PAD
-	width = widen(width)
+	width = api.widen(width)
 	return width
 end 'main'
 ```
@@ -479,7 +479,7 @@ export let usedCounter = 9 as FullRangeInt
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return usedCounter
+	return api.usedCounter
 end 'main'
 ```
 ```exitcode
@@ -501,7 +501,7 @@ end 'UsedPoint'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let p = UsedPoint.origin()
+	let p = api.UsedPoint.origin()
 	return p.x
 end 'main'
 ```
@@ -518,7 +518,7 @@ in a type position — the same set E3062 is answered from.
 export typealias Score = int(0 to 100)
 
 // --- file: app/main.maxon
-function scoreOf(s Score) returns Score
+function scoreOf(s api.Score) returns api.Score
 	return s
 end 'scoreOf'
 
@@ -543,7 +543,7 @@ end 'Color'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Color.blue
+	let c = api.Color.blue
 	match c 'check'
 		blue then return 42
 		red then return 0
@@ -580,12 +580,12 @@ export type Holder
 	export let items as ItemArray
 
 	export static function create(items ItemArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Holder'
 
 export function makeHolder() returns Holder
-	let xs = ItemArray.create(0)
+	var xs = ItemArray.create(0)
 	xs.push(Item.create(7))
 	return Holder.create(xs)
 end 'makeHolder'
@@ -593,16 +593,16 @@ end 'makeHolder'
 // --- file: app/main.maxon
 typealias Count = int(i64.min to i64.max)
 
-function total(h Holder) returns Count
+function total(h api.Holder) returns Count
 	var t = 0 as Count
 	for it in h.items 'each'
-		t = t + it.n as Count
+		t = try t + it.n as Count otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	return total(makeHolder())
+	return try total(api.makeHolder()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -631,8 +631,8 @@ end 'build'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let a = build()
-	return a.n
+	let a = api.build()
+	return try a.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -665,7 +665,7 @@ end 'classify'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return match classify(42) 'a'
+	return match api.classify(42) 'a'
 		small gives 1
 		big(n) gives n
 	end 'a'
@@ -698,7 +698,7 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return match pick(7) 'c'
+	return match api.pick(7) 'c'
 		dim gives 1
 		bright gives 9
 	end 'c'
@@ -729,8 +729,8 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let s = pick(7)
-	return s.ordinal as ExitCode
+	let s = api.pick(7)
+	return try s.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -896,21 +896,21 @@ end 'Holder'
 
 export function makeHolder() returns Holder
 	let xs = ItemArray.create(0)
-	xs.push(Item.create(itemValue(Item.create(7)) as Integer))
+	xs.push(Item.create(pkg.sub.itemValue(Item.create(7)) as Integer))
 	return Holder.create(xs)
 end 'makeHolder'
 
 // --- file: pkg/sub/user.maxon
 export typealias Num = int(i64.min to i64.max)
 
-export function itemValue(i Item) returns Num
+export function itemValue(i pkg.Item) returns Num
 	return i.n
 end 'itemValue'
 
 // --- file: main.maxon
 typealias Count = int(i64.min to i64.max)
 
-function total(h Holder) returns Count
+function total(h pkg.Holder) returns Count
 	var t = 0 as Count
 	for it in h.items 'each'
 		t = t + it.n as Count
@@ -919,7 +919,7 @@ function total(h Holder) returns Count
 end 'total'
 
 function main() returns ExitCode
-	return total(makeHolder())
+	return total(pkg.makeHolder())
 end 'main'
 ```
 ```exitcode

@@ -37,7 +37,7 @@ so the declaring file reads its unmarked alias bare and reaches the other with i
 typealias MyInt = int(0 to 1000)
 
 function doubleIt(x MyInt) returns MyInt
-	return x + x
+	return try x + x otherwise panic("out of range")
 end 'doubleIt'
 
 export function doubledFive() returns ExitCode
@@ -48,7 +48,7 @@ end 'doubledFive'
 typealias MyInt = int(0 to 1000)
 
 function tripleIt(x MyInt) returns MyInt
-	return x + x + x
+	return try x + x + x otherwise panic("out of range")
 end 'tripleIt'
 
 export function tripledThree() returns ExitCode
@@ -57,9 +57,9 @@ end 'tripledThree'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = doubledFive()
-	let b = tripledThree()
-	return a + b
+	let a = a.doubledFive()
+	let b = b.tripledThree()
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -92,9 +92,9 @@ end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = fromA()
-	let b = fromB()
-	return a + b
+	let a = a.fromA()
+	let b = b.fromB()
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -114,7 +114,7 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function runA() returns ExitCode
-	return foldA(1, step: function(acc, more) gives acc + more) as ExitCode
+	return foldA(1, step: function(acc, more) gives try acc + more otherwise panic("out of range")) as ExitCode
 end 'runA'
 
 // --- file: b/b.maxon
@@ -130,8 +130,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let n = runA()
-	let s = runB("go")
+	let n = a.runA()
+	let s = b.runB("go")
 	print("{n} {s}\n")
 	return 0
 end 'main'
@@ -156,7 +156,7 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function runA() returns ExitCode
-	return foldA(1, step: function(acc, more) gives acc + more) as ExitCode
+	return foldA(1, step: function(acc, more) gives try acc + more otherwise panic("out of range")) as ExitCode
 end 'runA'
 
 // --- file: b/b.maxon
@@ -169,14 +169,14 @@ function foldB(start Tally, step Step) returns Tally
 end 'foldB'
 
 export function runB() returns ExitCode
-	return foldB(1, step: function(acc, more) gives acc * more) as ExitCode
+	return foldB(1, step: function(acc, more) gives try acc * more otherwise panic("out of range")) as ExitCode
 end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = runA()
-	let b = runB()
-	return a + b
+	let a = a.runA()
+	let b = b.runB()
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -358,8 +358,8 @@ typealias Step = function(Tally, Tally) returns Tally
 typealias Steps = Array with Step
 
 function runA(start Tally) returns Tally
-	let steps = Steps.create(0)
-	steps.push(function(acc Tally, more Tally) gives acc + more)
+	var steps = Steps.create(0)
+	steps.push(function(acc Tally, more Tally) gives try acc + more otherwise panic("out of range"))
 	let step = try steps.get(0) otherwise panic("no step")
 	return step(start, 3)
 end 'runA'
@@ -374,7 +374,7 @@ typealias Step = function(String) returns String
 typealias Steps = Array with Step
 
 export function runB(label String) returns String
-	let steps = Steps.create(0)
+	var steps = Steps.create(0)
 	steps.push(function(text String) gives "{text}!")
 	let step = try steps.get(0) otherwise panic("no step")
 	return step(label)
@@ -382,8 +382,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let n = goA()
-	let s = runB("go")
+	let n = a.goA()
+	let s = b.runB("go")
 	print("{n} {s}\n")
 	return 0
 end 'main'
@@ -455,7 +455,7 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function goA() returns ExitCode
-	return foldA(7, step: function(n) gives n + 1) as ExitCode
+	return foldA(7, step: function(n) gives try n + 1 otherwise panic("out of range")) as ExitCode
 end 'goA'
 
 // --- file: b/b.maxon
@@ -468,13 +468,13 @@ function foldB(start Tally, step Step) returns Tally
 end 'foldB'
 
 export function goB() returns ExitCode
-	return foldB(2, step: function(n) gives n * 2) as ExitCode
+	return foldB(2, step: function(n) gives try n * 2 otherwise panic("out of range")) as ExitCode
 end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = goA()
-	let b = goB()
+	let a = a.goA()
+	let b = b.goB()
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -497,7 +497,7 @@ typealias Step = function(Tally) returns Tally
 typealias Outer = function(Step) returns Tally
 
 function applyA(outer Outer) returns Tally
-	return outer(function(n Tally) gives n + 1)
+	return outer(function(n Tally) gives try n + 1 otherwise panic("out of range"))
 end 'applyA'
 
 export function goA() returns ExitCode
@@ -512,7 +512,7 @@ typealias Step = function(Tally) returns Tally
 typealias Outer = function(Step) returns Tally
 
 function applyB(outer Outer) returns Tally
-	return outer(function(n Tally) gives n * 2)
+	return outer(function(n Tally) gives try n * 2 otherwise panic("out of range"))
 end 'applyB'
 
 export function goB() returns ExitCode
@@ -521,8 +521,8 @@ end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = goA()
-	let b = goB()
+	let a = a.goA()
+	let b = b.goB()
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -545,16 +545,16 @@ typealias Step = function(Tally) returns Tally
 export type Holder
 	var op as Step
 
-	static function create(op Step) returns Self
+	static function create(consumes op Step) returns Self
 		return Self{op: op}
 	end 'create'
 
 	export static function incrementing() returns Holder
-		return Holder.create(function(n Tally) gives n + 1)
+		return Holder.create(function(n Tally) gives try n + 1 otherwise panic("out of range"))
 	end 'incrementing'
 
 	export function run(start ExitCode) returns ExitCode
-		return self.op(start as Tally) as ExitCode
+		return self.op(try start as Tally otherwise panic("out of range")) as ExitCode
 	end 'run'
 end 'Holder'
 
@@ -571,9 +571,9 @@ end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let holder = Holder.incrementing()
+	let holder = a.Holder.incrementing()
 	let n = holder.run(1)
-	let s = goB("go")
+	let s = b.goB("go")
 	print("{n} {s}\n")
 	return 0
 end 'main'
@@ -594,7 +594,7 @@ typealias Tally = int(0 to 1000)
 typealias Step = function(Tally) returns Tally
 
 function pick() returns Step
-	return function(n Tally) gives n + 1
+	return function(n Tally) gives try n + 1 otherwise panic("out of range")
 end 'pick'
 
 export function goA() returns ExitCode
@@ -611,8 +611,8 @@ end 'foldB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{foldB("go", step: function(text) gives "{text}!")}\n")
-	return goA()
+	print("{beta.foldB("go", step: function(text) gives "{text}!")}\n")
+	return alpha.goA()
 end 'main'
 ```
 ```exitcode
@@ -637,7 +637,7 @@ function foldA(step Step) returns Tally
 end 'foldA'
 
 export function goA() returns String
-	return "{foldA(function(pair) gives pair.0 + 1)}"
+	return "{foldA(function(pair) gives try pair.0 + 1 otherwise panic("out of range"))}"
 end 'goA'
 
 // --- file: b/b.maxon
@@ -652,12 +652,12 @@ function foldB(step Step) returns Tally
 end 'foldB'
 
 export function goB() returns String
-	return "{foldB(function(pair) gives pair.1 + 1)}"
+	return "{foldB(function(pair) gives try pair.1 + 1 otherwise panic("out of range"))}"
 end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{goA()} {goB()}\n")
+	print("{a.goA()} {b.goB()}\n")
 	return 0
 end 'main'
 ```
@@ -679,13 +679,13 @@ typealias Tallies = Array with Tally
 typealias Step = function(Tallies) returns Tally
 
 function foldA(step Step) returns Tally
-	let xs = Tallies.create(0)
+	var xs = Tallies.create(0)
 	xs.push(700)
 	return step(xs)
 end 'foldA'
 
 export function goA() returns String
-	return "{foldA(function(xs) gives (try xs.get(0) otherwise 0) + 1)}"
+	return "{foldA(function(xs) gives try (try xs.get(0) otherwise 0) + 1 otherwise panic("out of range"))}"
 end 'goA'
 
 // --- file: b/b.maxon
@@ -696,18 +696,18 @@ typealias Tallies = Array with Tally
 typealias Step = function(Tallies) returns Tally
 
 function foldB(step Step) returns Tally
-	let xs = Tallies.create(0)
+	var xs = Tallies.create(0)
 	xs.push(3)
 	return step(xs)
 end 'foldB'
 
 export function goB() returns String
-	return "{foldB(function(xs) gives (try xs.get(0) otherwise 0) + 1)}"
+	return "{foldB(function(xs) gives try (try xs.get(0) otherwise 0) + 1 otherwise panic("out of range"))}"
 end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{goA()} {goB()}\n")
+	print("{a.goA()} {b.goB()}\n")
 	return 0
 end 'main'
 ```
@@ -725,7 +725,7 @@ The RANGED form of the same rule. `alpha/a.maxon`'s unmarked `Tally` and `beta/b
 typealias Tally = int(0 to 1000)
 
 function bump(n Tally) returns Tally
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'bump'
 
 export function goA() returns ExitCode
@@ -741,7 +741,7 @@ end 'capB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return goA() + (capB(3) as ExitCode) - 112
+	return try alpha.goA() + (beta.capB(3) as ExitCode) - 112 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -787,7 +787,7 @@ end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{goA()} {goB()}\n")
+	print("{a.goA()} {b.goB()}\n")
 	return 0
 end 'main'
 ```
@@ -807,23 +807,23 @@ export typealias Integer = int(i64.min to i64.max)
 export typealias Tallies = Array with Integer
 
 export function countA(xs Tallies) returns Integer
-	return xs.count()
+	return try xs.count() as Integer otherwise panic("out of range")
 end 'countA'
 
 // --- file: beta/b.maxon
-typealias Tallies = List with Integer
+typealias Tallies = List with alpha.Integer
 
 export function goB() returns ExitCode
-	let xs = Tallies.create()
+	var xs = Tallies.create()
 	xs.append(3)
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'goB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let xs = alpha.Tallies.create(0)
+	var xs = alpha.Tallies.create(0)
 	xs.push(1)
-	return goB() + (countA(xs) as ExitCode)
+	return try beta.goB() + (alpha.countA(xs) as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -852,14 +852,14 @@ export typealias Tiny = int(0 to 5)
 
 export typealias Tallies = Array with Tiny
 
-export function sizeB(t beta.Tallies) returns Integer
+export function sizeB(t beta.Tallies) returns alpha.Integer
 	return t.count()
 end 'sizeB'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let pick = true
-	let f = sizeA if pick else sizeB
+	let f = alpha.sizeA if pick else beta.sizeB
 	_ = f
 	return 0
 end 'main'

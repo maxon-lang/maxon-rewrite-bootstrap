@@ -370,7 +370,7 @@ export let OFFSET = -10
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return MAGIC + OFFSET
+	return api.MAGIC + api.OFFSET
 end 'main'
 ```
 ```exitcode
@@ -396,7 +396,7 @@ end 'getB'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return getA() - getB()
+	return try featA.getA() - featB.getB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -523,7 +523,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-literal-of-three-tuples -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A tuple element of three fields, one of them a string, takes the same module-scope form.
 ```maxon
 typealias Index = int(0 to 100)
@@ -536,7 +535,6 @@ let entries = Entries from [(1, "one", true), (2, "two", false)]
 
 function main() returns ExitCode
 	print("{entries.count()}")
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		print(" {entry.0} {entry.1} {entry.2}")
 	end 'eachEntry'
@@ -908,7 +906,7 @@ export let origin = (0, "origin")
 let here = (9, "here")
 
 function main() returns ExitCode
-	print("{origin.0} {origin.1} {here.0} {here.1}\n")
+	print("{api.origin.0} {api.origin.1} {here.0} {here.1}\n")
 	return 0
 end 'main'
 ```
@@ -993,7 +991,7 @@ file here is fed to the compiler LAST, after the file that reads it — resoluti
 not by the order the files happen to arrive, so the reference resolves either way.
 ```maxon
 // --- file: app/main.maxon
-let TOTAL = BASE * 2
+let TOTAL = api.BASE * 2
 
 function main() returns ExitCode
 	return TOTAL
@@ -1013,7 +1011,7 @@ The same program with the declaring file fed FIRST. Both orders must produce the
 export let BASE = 21
 
 // --- file: app/main.maxon
-let TOTAL = BASE * 2
+let TOTAL = api.BASE * 2
 
 function main() returns ExitCode
 	return TOTAL
@@ -1028,7 +1026,7 @@ A cross-file constant chain folds transitively, in either direction, regardless 
 declares which link.
 ```maxon
 // --- file: app/main.maxon
-let FINAL = MIDDLE + 2
+let FINAL = api.MIDDLE + 2
 
 function main() returns ExitCode
 	return FINAL
@@ -1045,6 +1043,7 @@ let ROOT = 10
 ```
 
 <!-- test: error.circular-dependency-cross-file -->
+<!-- positions: moved -->
 A cycle among top-level constants is reported as a circular dependency even when the cycle spans
 files.
 
@@ -1054,14 +1053,14 @@ is parsed (`ProgramSignatures.evaluateInitializers`), so there is one walk to fi
 to report it. A per-file folder would find the same cycle once per file it participates in.
 ```maxon
 // --- file: app/main.maxon
-export let A = B + 1
+export let A = api.B + 1
 
 function main() returns ExitCode
 	return 0
 end 'main'
 
 // --- file: api/b.maxon
-export let B = A + 1
+export let B = app.A + 1
 ```
 ```maxoncstderr
 error E2012: app/<fragment>:3:12: Circular dependency detected among global constants: B, A
@@ -1116,7 +1115,7 @@ that constant is visible, not in the demander's. The declaring file is fed LAST 
 the same result as when fed first (below).
 ```maxon
 // --- file: app/main.maxon
-let TOTAL = BASE * 2
+let TOTAL = api.BASE * 2
 
 function main() returns ExitCode
 	return TOTAL
@@ -1141,7 +1140,7 @@ let SECRET = 20
 export let BASE = SECRET + 1
 
 // --- file: app/main.maxon
-let TOTAL = BASE * 2
+let TOTAL = api.BASE * 2
 
 function main() returns ExitCode
 	return TOTAL
@@ -1158,7 +1157,7 @@ would see it, not the demander. The alias is `export` because a constant's type 
 than the constant (E3167). Declaring file fed LAST.
 ```maxon
 // --- file: app/main.maxon
-let VALUE = BASE
+let VALUE = api.BASE
 
 function main() returns ExitCode
 	return VALUE
@@ -1182,7 +1181,7 @@ export typealias Small = int(0 to 100)
 export let BASE = 21 as Small
 
 // --- file: app/main.maxon
-let VALUE = BASE
+let VALUE = api.BASE
 
 function main() returns ExitCode
 	return VALUE
@@ -1199,7 +1198,7 @@ the fold memo keys by declaration identity, not by bare name. A name-keyed memo 
 first `SECRET` folded (20) for the second, making BVAL 21 and the total 42 instead of 122.
 ```maxon
 // --- file: app/main.maxon
-let RESULT = AVAL + BVAL
+let RESULT = api.AVAL + lib.BVAL
 
 function main() returns ExitCode
 	return RESULT
@@ -1560,11 +1559,11 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: a/a.maxon
-function sqrt(x Real) returns Real
+function sqrt(x export.Real) returns export.Real
 	return x
 end 'sqrt'
 
-export function useSqrt() returns Real
+export function useSqrt() returns export.Real
 	return sqrt(1.0)
 end 'useSqrt'
 ```
@@ -1580,18 +1579,18 @@ public typealias Real = float(0.0 to 10.0)
 
 function main() returns ExitCode
 	let r = sqrt(4.0)
-	if r > useSqrt() 'big'
+	if r > a.useSqrt() 'big'
 		return 1
 	end 'big'
 	return 0
 end 'main'
 
 // --- file: a/a.maxon
-function sqrt(x Real) returns Real
+function sqrt(x export.Real) returns export.Real
 	return x
 end 'sqrt'
 
-export function useSqrt() returns Real
+export function useSqrt() returns export.Real
 	return sqrt(1.0)
 end 'useSqrt'
 ```
@@ -2958,7 +2957,7 @@ the closure's shape reaches the reader through the declaration sweep.
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{triple(14)} {apply(triple, n: 5)}\n")
+	print("{steps.triple(14)} {steps.apply(steps.triple, n: 5)}\n")
 	return 0
 end 'main'
 
@@ -4019,7 +4018,6 @@ error E3004: <fragment>:27:14: call to undefined function 'Bar.missing'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-method-miss-on-a-list-not-built-from-the-extended-type -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4036,8 +4034,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
+
 	function all() returns Items
 		return Items.create()
 	end 'all'
@@ -4055,8 +4053,6 @@ error E4006: <fragment>:24:5: Type 'List' has no method named 'pushh'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-missing-static-method-whose-argument-came-from-the-refused-producer -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: lib/token.maxon
 export type Token
@@ -4080,8 +4076,8 @@ type Box
 end 'Box'
 
 extension Box
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
+
 	function all() returns Items
 		return Items.create()
 	end 'all'
@@ -4178,8 +4174,6 @@ error E2015: <fragment>:13:19: Unsupported: parameter 'amount' with no type — 
 ```
 
 <!-- test: error.a-refused-interface-extension-hides-a-call-to-its-member-on-a-conformer -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4199,7 +4193,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Named
 	function shouted(amount) returns Digit
 		return label()

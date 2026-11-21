@@ -1636,7 +1636,7 @@ type Square implements Shape
 	let label as String
 
 	function area() returns Integer
-		return self.side * self.side + (self.label.byteLength() as Integer)
+		return try self.side * self.side + (self.label.byteLength() as Integer) otherwise panic("out of range")
 	end 'area'
 
 	static function create(side Integer) returns Self
@@ -1654,7 +1654,7 @@ end 'makeShape'
 
 function main() returns ExitCode
 	let local = makeShape(2)
-	let fromLocal = function() gives local.area() + 1
+	let fromLocal = function() gives try local.area() + 1 otherwise panic("out of range")
 	let fromParam = measurer(Square.create(3))
 	print("{fromLocal()} {fromParam()}\n")
 	return 0

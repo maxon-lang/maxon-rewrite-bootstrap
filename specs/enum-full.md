@@ -737,7 +737,7 @@ end 'Signal'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let s = Signal.on
+	let s = signal.Signal.on
 	if s.isOn() 'check'
 		return 1
 	end 'check'
@@ -749,6 +749,7 @@ end 'main'
 ```
 
 <!-- test: error.enum-method-non-exported-cross-file -->
+<!-- positions: moved -->
 ```maxon
 // --- file: signal/signal.maxon
 export enum Signal
@@ -765,7 +766,7 @@ end 'Signal'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let s = Signal.on
+	let s = signal.Signal.on
 	if s.isOn() 'check'
 		return 1
 	end 'check'
@@ -850,7 +851,7 @@ end 'Outcome'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let o = Outcome.failure(7)
+	let o = outcome.Outcome.failure(7)
 	return o.statusCode()
 end 'main'
 ```

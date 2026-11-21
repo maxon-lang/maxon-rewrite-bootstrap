@@ -62,7 +62,7 @@ end 'answer'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return answer()
+	return try api.answer() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -83,14 +83,14 @@ public type Point
 	end 'origin'
 
 	public function sum() returns Integer
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'sum'
 end 'Point'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let p = Point.origin()
-	return p.sum()
+	let p = api.Point.origin()
+	return try p.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -103,7 +103,7 @@ end 'main'
 public typealias Score = int(0 to 100)
 
 // --- file: app/main.maxon
-function scoreOf(s Score) returns Score
+function scoreOf(s api.Score) returns api.Score
 	return s
 end 'scoreOf'
 
@@ -126,7 +126,7 @@ end 'Color'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Color.blue
+	let c = api.Color.blue
 	match c 'check'
 		blue then return 7
 		red then return 0
@@ -147,7 +147,7 @@ public let START = 5 as ExitCode
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return START + BASE
+	return api.START + api.BASE
 end 'main'
 ```
 ```exitcode
@@ -172,7 +172,7 @@ end 'entry'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return entry()
+	return try api.entry() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

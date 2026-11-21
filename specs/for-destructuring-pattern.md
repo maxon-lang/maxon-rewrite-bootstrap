@@ -97,7 +97,7 @@ function main() returns ExitCode
 	let m = [1: 10, 2: 20]
 	var total = 0 as ExitCode
 	for (_, v) in m 'each'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'each'
 	return total
 end 'main'

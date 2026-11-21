@@ -68,7 +68,7 @@ point=2
 ### allCases iteration
 
 <!-- test: union-cases.allcases-iteration -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -79,7 +79,7 @@ union Shape
 end 'Shape'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for kase in Shape.unionCases.allCases 'loop'
 		print("{kase.name}\n")
 	end 'loop'

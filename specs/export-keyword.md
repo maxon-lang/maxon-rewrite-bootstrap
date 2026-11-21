@@ -115,7 +115,7 @@ end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return helper() + helper()
+	return try api.helper() + api.helper() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -132,7 +132,7 @@ export type Point
 	var y as Integer
 
 	export function sum() returns Integer
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'sum'
 
 	export static function create(x Integer, y Integer) returns Self
@@ -142,8 +142,8 @@ end 'Point'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let p = Point.create(20, y: 22)
-	return p.sum()
+	let p = api.Point.create(20, y: 22)
+	return try p.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -173,7 +173,7 @@ end 'main'
 export typealias Integer = int(i64.min to i64.max)
 
 export function publicFunc() returns Integer
-	return privateFunc() + 20
+	return try privateFunc() + 20 otherwise panic("out of range")
 end 'publicFunc'
 
 function privateFunc() returns Integer
@@ -182,7 +182,7 @@ end 'privateFunc'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return publicFunc()
+	return try api.publicFunc() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -202,9 +202,9 @@ export typealias IntArray = Array with Integer
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = api.IntArray.create(0)
 	arr.push(42)
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -225,14 +225,14 @@ export type Container
 		return Container{items: IntArray.create(0)}
 	end 'create'
 
-	export function add(n Integer)
+	export function add(mutates self, n Integer)
 		items.push(n)
 	end 'add'
 
 	export function sum() returns Integer
 		var total = 0 as Integer
 		for item in items 'loop'
-			total = total + item
+			total = try total + item otherwise panic("out of range")
 		end 'loop'
 		return total
 	end 'sum'
@@ -240,10 +240,10 @@ end 'Container'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Container.create()
+	var c = api.Container.create()
 	c.add(20)
 	c.add(22)
-	return c.sum()
+	return try c.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -261,15 +261,15 @@ export typealias Integer = int(i64.min to i64.max)
 export typealias IntArray = Array with Integer
 
 export function makeArray() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
 	return arr
 end 'makeArray'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let arr = makeArray()
-	return try arr.get(0) otherwise 0
+	let arr = api.makeArray()
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -303,7 +303,7 @@ end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return helper()
+	return try api.helper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -377,8 +377,8 @@ end 'Point'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let p = Point.create(20, y: 22)
-	return p.x + p.y
+	let p = api.Point.create(20, y: 22)
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -731,7 +731,7 @@ end 'pick'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = pick()
+	let a = lib.pick()
 	print("{a.answer()}\n")
 	return 0
 end 'main'
@@ -1140,7 +1140,7 @@ end 'Color'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Color.blue
+	let c = api.Color.blue
 	match c 'check'
 		blue then return 42
 		red then return 0
@@ -1228,7 +1228,7 @@ export typealias Score = int(0 to 100)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let s = 42 as Score
+	let s = 42 as api.Score
 	return s
 end 'main'
 ```
@@ -1298,7 +1298,7 @@ export let counter = 10 as ExitCode
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return counter
+	return api.counter
 end 'main'
 ```
 ```exitcode
@@ -1315,7 +1315,7 @@ export let shared = [42 as SmallInt]
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return try shared.get(0) otherwise 0
+	return try api.shared.get(0) otherwise 0
 end 'main'
 ```
 ```exitcode
@@ -1643,9 +1643,9 @@ end 'Holder'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let h = Holder.make(3, s: 4)
+	let h = lib.Holder.make(3, s: 4)
 	let c = h.clone()
-	return c.count + c.scale
+	return try c.count + c.scale otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

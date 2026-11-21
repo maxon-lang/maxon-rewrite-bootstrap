@@ -648,7 +648,7 @@ Stack trace:
 ```
 
 <!-- test: a-panic-inside-a-body-spliced-twice-names-every-frame -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `clampPct` is a leaf spliced into `doubled`; `doubled` then holds no call, is taken for a leaf in the next round and is spliced into `main`'s two sites. The `Percent` guard of `clampPct` fires in the twice-spliced copy, and the trace still names `clampPct`, `doubled` and `main`, exactly as the calls did.
 
 ```maxon
@@ -665,7 +665,6 @@ end 'doubled'
 function main() returns ExitCode
 	let values = [20 as Percent, 30 as Percent, 60 as Percent]
 	var last = 0 as Percent
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		last = doubled(v)
 	end 'each'

@@ -225,6 +225,7 @@ end 'main'
 ```
 
 <!-- test: error.unexported-field-write-from-another-directory -->
+<!-- positions: moved -->
 A write from a file outside the type's directory is refused at the field token.
 ```maxon
 // --- file: lib/value.maxon
@@ -240,7 +241,7 @@ end 'Value'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	var v = Value.create()
+	var v = lib.Value.create()
 	v.private = 42
 	return 0
 end 'main'

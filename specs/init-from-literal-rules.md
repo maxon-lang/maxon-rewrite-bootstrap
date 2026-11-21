@@ -537,8 +537,6 @@ typealias Reading = int(0 to 1000)
 ```
 
 <!-- test: an-alias-declared-in-an-extension-body-takes-from-an-array-literal -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
@@ -546,10 +544,9 @@ interface Tagged
 	function tag() returns ExitCode
 end 'Tagged'
 
-// TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
-	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias TagArray = Array with ExitCode
+
 	function tags() returns Count
 		let result = TagArray from [self.tag(), self.tag()]
 		return result.count()

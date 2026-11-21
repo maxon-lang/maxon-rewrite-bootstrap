@@ -530,7 +530,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 <!-- test: tls-stream.server-key-types -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Every private key type a server presents completes both versions: P-384 and Ed25519 (TLS 1.3 signs with the scheme of the key; TLS 1.2 needs the matching ECDHE_ECDSA suite) and RSA (RSA-PSS in TLS 1.3, TLS 1.2 ECDHE_RSA suites).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -694,7 +693,6 @@ function line(label String, leafHex String, keyHex String, protocol TlsProtocol)
 end 'line'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		print("{line("p384", leafHex: leafP384Hex, keyHex: keyP384Hex, protocol: protocol)}\n")
 		print("{line("ed25519", leafHex: leafEd25519Hex, keyHex: keyEd25519Hex, protocol: protocol)}\n")
@@ -718,7 +716,6 @@ rsa tls12: client[echo:ping tls12 tls12/ecdheRsaChaCha20Poly1305Sha256 alpn=none
 <!-- test: tls-stream.mtls-required-accepted -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Mutual TLS in both versions: the server requires a client certificate under the client root, the client presents the leaf that root signed, and the server reports one peer certificate.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -882,7 +879,6 @@ function line(protocol TlsProtocol) returns String
 end 'line'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		print("{line(protocol)}\n")
 	end 'eachProtocol'
@@ -900,7 +896,6 @@ tls12: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] 
 <!-- test: tls-stream.mtls-requested-accepts-anonymous -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 With client certificates requested rather than required, a client that presents none is accepted and the server sees no peer certificate; a client that presents one is verified like a required one.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1066,7 +1061,6 @@ function line(protocol TlsProtocol, presents bool) returns String
 end 'line'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		print("{line(protocol, presents: false)}\n")
 		print("{line(protocol, presents: true)}\n")
@@ -1487,7 +1481,6 @@ tls12: client[connect: peerAlert(unknownCa)] server[recv: certificateRejected(un
 <!-- test: tls-stream.hostname-mismatch-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The name the client verifies is the host it dialled unless `setServerName` says otherwise. A certificate for `example.com` is refused for `other.example`, and for the IP literal the client dialled, with `hostnameMismatch`, and the server reads bad_certificate from the client.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1636,7 +1629,6 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 end 'exchange'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		let client = trustedClient(rootHex)
@@ -1664,7 +1656,6 @@ dialled 127.0.0.1: client[connect: certificateRejected(hostnameMismatch)] server
 <!-- test: tls-stream.untrusted-and-expired-certificates-are-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A client that trusts a different root refuses the server with `unknownAuthority` and the server reads unknown_ca; an expired leaf is refused with `expired` and the server reads certificate_expired.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1817,7 +1808,6 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 end 'exchange'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		let client = trustedClient(otherRootHex)
@@ -1996,7 +1986,6 @@ server saw 0 client certificate(s)
 
 <!-- test: tls-stream.close-notify-is-observed-by-the-peer -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `close` sends close_notify: the peer reads everything sent before it, then an empty `readSome`, the end of the stream. A client that drops its stream without closing leaves the TCP connection ending with no close_notify, which the peer's read throws as `StreamError.secure(truncated)`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2134,7 +2123,6 @@ function exchangeOver(listener TlsListener, client TlsClientOptions, protocol Tl
 end 'exchangeOver'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let client = trustedClient(rootHex)
@@ -2157,7 +2145,6 @@ tls12 dropped: server heard [vanished] then secure(truncated)
 <!-- test: tls-stream.shutdown-write-half-closes -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `shutdownWrite` sends close_notify and half-closes the transport: the peer reads the request and the end of the stream, and still answers on its own half.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2298,7 +2285,6 @@ function exchangeOver(listener TlsListener, options TlsClientOptions, protocol T
 end 'exchangeOver'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let options = trustedClient(rootHex)
@@ -2837,7 +2823,6 @@ tls13 server, tls12 client: client[connect: peerAlert(protocolVersion)] server[r
 
 <!-- test: tls-stream.a-listener-survives-a-failed-handshake -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A handshake that fails ends that `accept` with the error and nothing else: the listener takes the next client, in TLS 1.3 and in TLS 1.2.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2951,7 +2936,6 @@ function failure(options TlsClientOptions, port NetworkPort) returns TlsError
 end 'failure'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let port = listener.port()
@@ -2995,7 +2979,6 @@ tls12 server: [recv 1: peerAlert(unknownCa)][served 2: second client]
 <!-- test: tls-stream.large-transfers-fragment-into-many-records -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- runs: alone -->
 A 4 MiB upload in one `send` (256 full records), a 3 MiB download, and 2000 writes of 50 bytes, in both versions: every byte arrives in order, so record framing off the socket, fragmentation and the sequence numbers hold over many records and many reads.
 ```maxon
@@ -3153,7 +3136,6 @@ function clientBulk(options TlsClientOptions, port NetworkPort) returns String
 end 'clientBulk'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let client = trustedClient(rootHex)

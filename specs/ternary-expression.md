@@ -400,7 +400,6 @@ key1
 ```
 
 <!-- test: ternary-expression.in-extension-method-before-sibling -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
 
 Regression: a postfix ternary on a `let` binding inside an extension method
 must not confuse the parser's extension-block scanner. The scanner walks
@@ -417,7 +416,6 @@ interface Bounded
 	function hi() returns Small
 end 'Bounded'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Bounded
 	function pickSmaller() returns Small
 		let smaller = self.lo() if self.lo() < self.hi() else self.hi()
@@ -425,7 +423,7 @@ extension Bounded
 	end 'pickSmaller'
 
 	function describe() returns Small
-		return self.hi() - self.lo()
+		return try self.hi() - self.lo() otherwise panic("out of range")
 	end 'describe'
 end 'Bounded'
 

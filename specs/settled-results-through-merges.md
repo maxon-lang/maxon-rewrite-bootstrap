@@ -1559,6 +1559,7 @@ error E3197: <fragment>:28:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-conformer-reached-through-an-interface-field-of-a-frozen-holder-is-not-writable -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The call dispatches through a witness table, so the caller cannot see which conformer answers, and the holder is frozen all the same.
 

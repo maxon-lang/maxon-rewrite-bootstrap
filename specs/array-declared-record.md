@@ -505,7 +505,7 @@ beta
 ```
 
 <!-- test: a-conformer-of-another-name-and-the-library-array-are-two-records-in-one-program -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 ⭐⭐ **TWO RECORDS, TWO GIDS, ONE PROGRAM — which is what the fold being per-DECLARATION rather than
 per-compile buys.** `Bag with String` is `Bag`'s own instance and `"a,bb,ccc".split(",")` is the corpus
@@ -531,7 +531,7 @@ function main() returns ExitCode
 	let mine = StringBag.create()
 	mine.push("xy")
 	var total = mine.count()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for part in "a,bb,ccc".split(",") 'librarysLoop'
 		total = total + part.byteLength()
 	end 'librarysLoop'
@@ -1251,7 +1251,7 @@ Hi!
 ```
 
 <!-- test: for-in-walks-both-arrays-in-one-program -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 ⭐ **`for … in` ADMITS BOTH, AND BY DIFFERENT ROUTES.** The library's array declares `createIterator()`,
 so it is rewritten to its `ArrayIterator` and walked as a cursor; the program's own declares none, so it
@@ -1283,7 +1283,7 @@ function main() returns ExitCode
 	for n in mine 'ownLoop'
 		total = total + n as Count
 	end 'ownLoop'
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for part in "a,bb,ccc".split(",") 'librarysLoop'
 		total = total + part.byteLength()
 	end 'librarysLoop'

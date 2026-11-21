@@ -203,7 +203,7 @@ end 'wideVal'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return unitVal() + wideVal()
+	return try narrow.unitVal() + wide.wideVal() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -290,7 +290,7 @@ end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -313,12 +313,12 @@ export typealias Integer = int(i64.min to i64.max)
 // --- file: app/main.maxon
 typealias Codepoint = int(0 to 100)
 
-function narrow(c Codepoint) returns Integer
+function narrow(c Codepoint) returns lib.Integer
 	return c
 end 'narrow'
 
 function main() returns ExitCode
-	return (widen(70000) - narrow(28)) as ExitCode
+	return try (lib.widen(70000) - narrow(28)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -339,7 +339,7 @@ declaration. `Integer` is `lib.maxon`'s alone, and `main.maxon` names it bare.
 export typealias Integer = int(i64.min to i64.max)
 
 export function lift(n Integer) returns Codepoint
-	return n as Codepoint
+	return try n as Codepoint otherwise panic("out of range")
 end 'lift'
 
 export function widen(c Codepoint) returns Codepoint
@@ -349,17 +349,17 @@ end 'widen'
 // --- file: app/main.maxon
 typealias Codepoint = int(0 to 100)
 
-function opaque(n Integer) returns Integer
+function opaque(n lib.Integer) returns lib.Integer
 	return n
 end 'opaque'
 
-function narrow(c Codepoint) returns Integer
+function narrow(c Codepoint) returns lib.Integer
 	return c
 end 'narrow'
 
 function main() returns ExitCode
 	let big = opaque(70000)
-	return (((widen(lift(big)) / 1000) as Integer) - narrow(28)) as ExitCode
+	return try (((lib.widen(lib.lift(big)) / 1000) as lib.Integer) - narrow(28)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -368,6 +368,7 @@ end 'main'
 
 
 <!-- test: error.file-private-alias-still-binds-in-its-own-file -->
+<!-- positions: moved -->
 The direction the rule must not overreach into: an author declaration beats the library's. `main.maxon`
 declares `Codepoint` unmarked and sees no other author `Codepoint`, so `narrow`'s parameter means
 `int(0 to 100)` **in `main.maxon`** — the library's declaration does not widen it. Only a file that sees
@@ -382,12 +383,12 @@ export typealias Integer = int(i64.min to i64.max)
 // --- file: app/main.maxon
 typealias Codepoint = int(0 to 100)
 
-function narrow(c Codepoint) returns Integer
+function narrow(c Codepoint) returns lib.Integer
 	return c
 end 'narrow'
 
 function main() returns ExitCode
-	return (widen(70000) + narrow(150)) as ExitCode
+	return (lib.widen(70000) + narrow(150)) as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -433,10 +434,10 @@ function ownClamp(i ElementIndex) returns ElementIndex
 end 'ownClamp'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.resize(20)
 	try a.set(9, value: 42) otherwise ignore
-	print("{try a.get(9) otherwise 0} {ownClamp(3)} {libClamp()}\n")
+	print("{try a.get(9) otherwise 0} {ownClamp(3)} {lib.libClamp()}\n")
 	return 0
 end 'main'
 ```
@@ -490,7 +491,7 @@ export typealias High = int(1000 to 2000)
 typealias Slots = Array with High
 
 export function fromHigh() returns High
-	let w = Slots.create(0)
+	var w = Slots.create(0)
 	w.push(1500)
 	return try w.get(0) otherwise 1000
 end 'fromHigh'
@@ -501,9 +502,9 @@ typealias Low = int(0 to 100)
 typealias Slots = Array with Low
 
 function main() returns ExitCode
-	let w = Slots.create(0)
+	var w = Slots.create(0)
 	w.push(40)
-	return (((fromHigh() / 100) as Low) + (try w.get(0) otherwise 0)) as ExitCode
+	return (((high.fromHigh() / 100) as Low) + (try w.get(0) otherwise 0)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -527,8 +528,8 @@ typealias Byte = int(300 to 1000)
 typealias Bytes = Array with Byte
 
 export function wide(v Integer) returns Integer
-	let b = Bytes.create(0)
-	b.push(v as Byte)
+	var b = Bytes.create(0)
+	b.push(try v as Byte otherwise panic("out of range"))
 	return try b.get(0) otherwise 300
 end 'wide'
 
@@ -540,10 +541,10 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let b = Bytes.create(0)
+	var b = Bytes.create(0)
 	let two = 200 as Byte
 	b.push(two)
-	return (try b.get(0) otherwise 0) + ((wide(900) / 100) as Byte)
+	return try (try b.get(0) otherwise 0) + ((wide.wide(900) / 100) as Byte) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -566,7 +567,7 @@ type Words
 	export var items as Bag
 
 	static function create() returns Words
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push("hi")
 		return Words{items: b}
 	end 'create'
@@ -586,7 +587,7 @@ type Nums
 	export var items as Bag
 
 	static function create() returns Nums
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push(7)
 		return Nums{items: b}
 	end 'create'
@@ -594,7 +595,7 @@ end 'Nums'
 
 function main() returns ExitCode
 	let n = Nums.create()
-	return ((try n.items.get(0) otherwise 0) + (wordCount() as Num)) as ExitCode
+	return try ((try n.items.get(0) otherwise 0) + (words.wordCount() as Num)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -614,18 +615,18 @@ export typealias Tally = int(0 to 1000)
 typealias Counts = Array with Tally
 
 export function fromA() returns Tally
-	let c = Counts.create(0)
+	var c = Counts.create(0)
 	c.push(40)
 	return try c.get(0) otherwise 0
 end 'fromA'
 
 // --- file: main.maxon
-typealias Counts = Array with Tally
+typealias Counts = Array with a.Tally
 
 function main() returns ExitCode
-	let c = Counts.create(0)
+	var c = Counts.create(0)
 	c.push(2)
-	return fromA() + (try c.get(0) otherwise 0)
+	return a.fromA() + (try c.get(0) otherwise 0)
 end 'main'
 ```
 ```exitcode
@@ -648,8 +649,8 @@ typealias Slots = Array with High
 typealias Grid = Array with Slots
 
 export function fromHigh() returns High
-	let g = Grid.create(0)
-	let row = Slots.create(0)
+	var g = Grid.create(0)
+	var row = Slots.create(0)
 	row.push(1500)
 	g.push(row)
 	let back = try g.get(0) otherwise Slots.create(0)
@@ -664,12 +665,12 @@ typealias Slots = Array with Low
 typealias Grid = Array with Slots
 
 function main() returns ExitCode
-	let g = Grid.create(0)
-	let row = Slots.create(0)
+	var g = Grid.create(0)
+	var row = Slots.create(0)
 	row.push(40)
 	g.push(row)
 	let back = try g.get(0) otherwise Slots.create(0)
-	return (((fromHigh() / 100) as Low) + (try back.get(0) otherwise 0)) as ExitCode
+	return (((high.fromHigh() / 100) as Low) + (try back.get(0) otherwise 0)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -732,7 +733,7 @@ union WordBox
 end 'WordBox'
 
 export function words() returns ExitCode
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push("hi")
 	let w = WordBox.filled(b)
 	return match w 'm'
@@ -752,14 +753,14 @@ union NumBox
 end 'NumBox'
 
 function main() returns ExitCode
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push(7)
 	let n = NumBox.filled(b)
 	let mine = match n 'm'
 		empty gives 0
 		filled gives 7
 	end 'm'
-	return mine + words()
+	return try mine + words.words() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -795,7 +796,7 @@ function main() returns ExitCode
 	let w = Slots.create(0)
 	w.push(1500)
 	let high = (try w.get(0) otherwise 1000) / 100
-	return (high as ExitCode) + fromPriv()
+	return (high as ExitCode) + export.fromPriv()
 end 'main'
 ```
 ```exitcode
@@ -936,11 +937,11 @@ program's, and the run exits clean.
 export type Box uses T
 	export var value as T
 
-	export static function create(v T) returns Self
+	export static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	export function swap(v T)
+	export function swap(mutates self, consumes v T)
 		self.value = v
 	end 'swap'
 end 'Box'
@@ -950,10 +951,10 @@ typealias High = int(1000 to 2000)
 
 typealias Bag = Array with High
 
-typealias BB = Box with Bag
+typealias BB = aboxdef.Box with Bag
 
 export function fromHigh() returns Integer
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push(1500)
 	let box = BB.create(b)
 	return 1 if box.value.count() == 1 else 0
@@ -965,14 +966,14 @@ typealias Low = int(0 to 100)
 
 typealias Bag = Array with Low
 
-typealias BB = Box with Bag
+typealias BB = aboxdef.Box with Bag
 
 function main() returns ExitCode
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push(40)
-	let box = BB.create(b)
+	var box = BB.create(b)
 	box.swap(Bag.create(0))
-	return fromHigh() - 1
+	return try bhigh.fromHigh() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1074,7 +1075,7 @@ export type S0
 	export var s as String
 
 	export static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
@@ -1082,44 +1083,44 @@ export type S1
 	export var s as String
 
 	export static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S1'
 
 export type Box uses T
 	export var value as T
 
-	export static function create(v T) returns Self
+	export static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	export function swap(v T)
+	export function swap(mutates self, consumes v T)
 		self.value = v
 	end 'swap'
 end 'Box'
 
 // --- file: bother/bother.maxon
-typealias N0 = Box with S1
+typealias N0 = adef.Box with adef.S1
 
-typealias N1 = Box with N0
+typealias N1 = adef.Box with N0
 
 export function useOther() returns Integer
-	let w1 = N1.create(N0.create(S1.make("other")))
-	w1.swap(N0.create(S1.make("other2")))
+	var w1 = N1.create(N0.create(adef.S1.make("other")))
+	w1.swap(N0.create(adef.S1.make("other2")))
 	return 1
 end 'useOther'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: cmain.maxon
-typealias N0 = Box with S0
+typealias N0 = adef.Box with adef.S0
 
-typealias N1 = Box with N0
+typealias N1 = adef.Box with N0
 
 function main() returns ExitCode
-	let v0 = N0.create(S0.make("x"))
-	let v1 = N1.create(v0)
-	v1.swap(N0.create(S0.make("y")))
-	return useOther() - 1
+	let v0 = N0.create(adef.S0.make("x"))
+	var v1 = N1.create(v0)
+	v1.swap(N0.create(adef.S0.make("y")))
+	return try bother.useOther() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1137,7 +1138,7 @@ export type S0
 	export var s as String
 
 	export static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
@@ -1145,43 +1146,43 @@ export type S1
 	export var s as String
 
 	export static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S1'
 
 export type Box uses T
 	export var value as T
 
-	export static function create(v T) returns Self
+	export static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	export function swap(v T)
+	export function swap(mutates self, consumes v T)
 		self.value = v
 	end 'swap'
 end 'Box'
 
 // --- file: bother/bother.maxon
-typealias N0 = Box with S1
+typealias N0 = adef.Box with adef.S1
 
-typealias N1 = Box with (Box with S1)
+typealias N1 = adef.Box with (adef.Box with adef.S1)
 
 export function useOther() returns Integer
-	let w1 = N1.create(N0.create(S1.make("other")))
-	w1.swap(N0.create(S1.make("other2")))
+	var w1 = N1.create(N0.create(adef.S1.make("other")))
+	w1.swap(N0.create(adef.S1.make("other2")))
 	return 1
 end 'useOther'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: cmain.maxon
-typealias N0 = Box with S0
+typealias N0 = adef.Box with adef.S0
 
-typealias N1 = Box with (Box with S0)
+typealias N1 = adef.Box with (adef.Box with adef.S0)
 
 function main() returns ExitCode
-	let v1 = N1.create(N0.create(S0.make("x")))
-	v1.swap(N0.create(S0.make("y")))
-	return useOther() - 1
+	var v1 = N1.create(N0.create(adef.S0.make("x")))
+	v1.swap(N0.create(adef.S0.make("y")))
+	return try bother.useOther() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1211,7 +1212,7 @@ public type Keeper
 	var p as Pair
 
 	export static function make() returns Self
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push(7)
 		return Self{p: (b, 1)}
 	end 'make'
@@ -1229,15 +1230,15 @@ end 'useA'
 typealias Bag = Array with String
 
 export function useB() returns Integer
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push("x")
-	return b.count()
+	return try b.count() as Integer otherwise panic("out of range")
 end 'useB'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: cmain.maxon
 function main() returns ExitCode
-	return ((useA() as Integer) + useB()) as ExitCode
+	return try ((adef.useA() as bother.Integer) + bother.useB()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1274,7 +1275,7 @@ typealias StringArray = Array with Num
 function main() returns ExitCode
 	let mine = StringArray.create(0)
 	mine.push(4)
-	let theirs = makeBag()
+	let theirs = export.makeBag()
 	let word = try theirs.get(1) otherwise ""
 	return (word.byteLength() * 20 + mine.count() * 11) as ExitCode
 end 'main'
@@ -1293,7 +1294,7 @@ export typealias Num = int(0 to 125)
 export typealias Bag = Array with Num
 
 export function makeBag() returns Bag
-	let b = Bag.create(0)
+	var b = Bag.create(0)
 	b.push(4)
 	b.push(9)
 	return b
@@ -1303,10 +1304,10 @@ end 'makeBag'
 typealias Bag = Array with String
 
 function main() returns ExitCode
-	let mine = Bag.create(0)
+	var mine = Bag.create(0)
 	mine.push("x")
-	let theirs = makeBag()
-	return ((try theirs.get(1) otherwise 0) * 10 + (mine.count() as Num)) as ExitCode
+	let theirs = adef.makeBag()
+	return try ((try theirs.get(1) otherwise 0) * 10 + (mine.count() as adef.Num)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1339,7 +1340,7 @@ public type Holder
 	var q as Pair
 
 	export static function make() returns Self
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push("xy")
 		return Self{q: (b, 1)}
 	end 'make'
@@ -1350,13 +1351,13 @@ public type Holder
 end 'Holder'
 
 export function useB() returns Integer
-	return Holder.make().first().count()
+	return try Holder.make().first().count() as Integer otherwise panic("out of range")
 end 'useB'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: cmain.maxon
 function main() returns ExitCode
-	return (useA() * 10 + useB()) as ExitCode
+	return try (zdef.useA() * 10 + abother.useB()) as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: zdef/zdef.maxon
@@ -1370,7 +1371,7 @@ public type Keeper
 	var p as Pair
 
 	export static function make() returns Self
-		let b = Bag.create(0)
+		var b = Bag.create(0)
 		b.push(7)
 		return Self{p: (b, 1)}
 	end 'make'
@@ -1380,7 +1381,7 @@ public type Keeper
 	end 'first'
 end 'Keeper'
 
-export function useA() returns Integer
+export function useA() returns abother.Integer
 	return Keeper.make().first()
 end 'useA'
 ```
@@ -1408,9 +1409,9 @@ Each use resolves `Pair` in its own file, whichever file folds last, so `a` is `
 ```maxon
 // --- file: a/a-main.maxon
 function main() returns ExitCode
-	useGamma()
+	z.useGamma()
 	let a = relayA()
-	print("alpha {a.0 - a.1}\n")
+	print("alpha {try a.0 - a.1 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 
@@ -1455,13 +1456,13 @@ The literal `(4, 1)` is what discriminates: `p.0 - p.1` is arithmetic only if `P
 ```maxon
 // --- file: a/a-main.maxon
 function main() returns ExitCode
-	useGamma()
+	z.useGamma()
 	return relayA((4, 1))
 end 'main'
 
 // --- file: a/m-alpha.maxon
 function relayA(p Pair) returns ExitCode
-	return (p.0 - p.1) as ExitCode
+	return try (p.0 - p.1) as ExitCode otherwise panic("out of range")
 end 'relayA'
 
 typealias Pair = (int, int)
@@ -1501,9 +1502,9 @@ Both orders give the same answer: each file's `Pair` means its own tuple, whiche
 ```maxon
 // --- file: z/a-main.maxon
 function main() returns ExitCode
-	useGamma()
+	m.useGamma()
 	let a = relayA()
-	print("alpha {a.0 - a.1}\n")
+	print("alpha {try a.0 - a.1 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 
@@ -1631,7 +1632,7 @@ typealias Pair = (Count, Count)
 
 typealias PairsA = Array with Pair
 
-typealias BoxA = Box with Pair
+typealias BoxA = bbox.Box with Pair
 
 // --- file: zgamma/z-gamma.maxon
 type HolderG
@@ -1668,7 +1669,7 @@ typealias Pair = (String, String)
 
 typealias PairsG = Array with Pair
 
-typealias BoxG = Box with Pair
+typealias BoxG = bbox.Box with Pair
 ```
 ```exitcode
 0
@@ -1738,7 +1739,7 @@ typealias Pair = (String, String)
 
 typealias PairsG = Array with Pair
 
-typealias BoxG = Box with Pair
+typealias BoxG = bbox.Box with Pair
 
 // --- file: zalpha/z-alpha.maxon
 type HolderA
@@ -1775,7 +1776,7 @@ typealias Pair = (Count, Count)
 
 typealias PairsA = Array with Pair
 
-typealias BoxA = Box with Pair
+typealias BoxA = bbox.Box with Pair
 ```
 ```exitcode
 0
@@ -1838,9 +1839,9 @@ export function alphaSide() returns ExitCode
 	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
 end 'alphaSide'
 
-typealias BoxA = Box with Pair
+typealias BoxA = bbox.Box with Pair
 
-typealias Pair = (Integer, Integer, Integer)
+typealias Pair = (bbox.Integer, bbox.Integer, bbox.Integer)
 
 // --- file: zgamma/z-gamma.maxon
 export function gammaSide()
@@ -1848,7 +1849,7 @@ export function gammaSide()
 	print("{b.item.0}{b.item.1} {b.size()}\n")
 end 'gammaSide'
 
-typealias BoxG = Box with Pair
+typealias BoxG = bbox.Box with Pair
 
 typealias Pair = (String, String)
 ```
@@ -1893,7 +1894,7 @@ export function gammaSide()
 	print("{b.item.0}{b.item.1} {b.size()}\n")
 end 'gammaSide'
 
-typealias BoxG = Box with Pair
+typealias BoxG = bbox.Box with Pair
 
 typealias Pair = (String, String)
 
@@ -1903,9 +1904,9 @@ export function alphaSide() returns ExitCode
 	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
 end 'alphaSide'
 
-typealias BoxA = Box with Pair
+typealias BoxA = bbox.Box with Pair
 
-typealias Pair = (Integer, Integer, Integer)
+typealias Pair = (bbox.Integer, bbox.Integer, bbox.Integer)
 ```
 ```exitcode
 28
@@ -1933,14 +1934,14 @@ twin below swaps the files' sort order, and the answer does not move.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	useGamma()
-	return alphaSide() + nominalQ()
+	zgamma.useGamma()
+	return try malpha.alphaSide() + nnominal.nominalQ() otherwise panic("out of range")
 end 'main'
 
 // --- file: malpha/m-alpha.maxon
 export function alphaSide() returns ExitCode
 	let p = makeA()
-	return (p.0 - p.1) as ExitCode
+	return try (p.0 - p.1) as ExitCode otherwise panic("out of range")
 end 'alphaSide'
 
 function makeA() returns Pair
@@ -1990,8 +1991,8 @@ claim whichever the fold reaches first, so the program's meaning does not depend
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	useGamma()
-	return alphaSide() + nominalQ()
+	mgamma.useGamma()
+	return try zalpha.alphaSide() + nnominal.nominalQ() otherwise panic("out of range")
 end 'main'
 
 // --- file: mgamma/m-gamma.maxon
@@ -2024,7 +2025,7 @@ end 'nominalQ'
 // --- file: zalpha/z-alpha.maxon
 export function alphaSide() returns ExitCode
 	let p = makeA()
-	return (p.0 - p.1) as ExitCode
+	return try (p.0 - p.1) as ExitCode otherwise panic("out of range")
 end 'alphaSide'
 
 function makeA() returns Pair
@@ -2115,11 +2116,11 @@ typealias WVec = FixedArray with 8 W
 
 export function wideCount() returns Wide
 	let v = WVec.create()
-	return v.count()
+	return try v.count() as Wide otherwise panic("out of range")
 end 'wideCount'
 
 export function wideSlot() returns Wide
-	let v = WVec.create()
+	var v = WVec.create()
 	v.set(7, value: 1779033703)
 	return v.get(7)
 end 'wideSlot'
@@ -2130,11 +2131,11 @@ export typealias Wide = int(i64.min to i64.max)
 typealias W = int(0 to 100)
 
 function double(w W) returns W
-	return w * 2
+	return try w * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
-	print("{double(21)} {wideCount()} {wideSlot()}\n")
+	print("{double(21)} {lib.wideCount()} {lib.wideSlot()}\n")
 	return 0
 end 'main'
 ```
@@ -2179,13 +2180,13 @@ end 'fromA'
 typealias Measure = float(0.0 to 1.0)
 
 export function fromB() returns ExitCode
-	let m = 0.5 as Measure
-	return trunc(m * 2.0)
+	let m = try 0.5 as Measure otherwise panic("out of range")
+	return try trunc(m * 2.0) as ExitCode otherwise panic("out of range")
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2200,12 +2201,12 @@ typealias Measure = int(0 to 100)
 typealias IntMeasures = Array with Measure
 
 export function sumA() returns ExitCode
-	let xs = IntMeasures.create(0)
+	var xs = IntMeasures.create(0)
 	xs.push(40 as Measure)
 	xs.push(2 as Measure)
 	var total = 0 as Measure
 	for x in xs 'each'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'each'
 	return total
 end 'sumA'
@@ -2216,19 +2217,19 @@ typealias Measure = float(0.0 to 1.0)
 typealias FloatMeasures = Array with Measure
 
 export function sumB() returns ExitCode
-	let xs = FloatMeasures.create(0)
-	xs.push(0.25 as Measure)
-	xs.push(0.25 as Measure)
-	var total = 0.0 as Measure
+	var xs = FloatMeasures.create(0)
+	xs.push(try 0.25 as Measure otherwise panic("out of range"))
+	xs.push(try 0.25 as Measure otherwise panic("out of range"))
+	var total = try 0.0 as Measure otherwise panic("out of range")
 	for x in xs 'each'
-		total = (total + x) as Measure
+		total = try (total + x) as Measure otherwise panic("out of range")
 	end 'each'
-	return trunc(total * 2.0)
+	return try trunc(total * 2.0) as ExitCode otherwise panic("out of range")
 end 'sumB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return sumA() + sumB()
+	return try a.sumA() + b.sumB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2266,12 +2267,12 @@ end 'FloatBox'
 
 export function fromB() returns ExitCode
 	let b = FloatBox.of(0.5)
-	return trunc(b.m * 2.0)
+	return try trunc(b.m * 2.0) as ExitCode otherwise panic("out of range")
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2295,14 +2296,14 @@ type IntCell implements IntScaled
 	end 'of'
 
 	function scale(k Measure) returns Measure
-		return n + k
+		return try n + k otherwise panic("out of range")
 	end 'scale'
 end 'IntCell'
 
 type IntRunner uses T where T implements IntScaled
 	let item as T
 
-	static function of(item T) returns Self
+	static function of(consumes item T) returns Self
 		return Self{item: item}
 	end 'of'
 
@@ -2332,14 +2333,14 @@ type FloatCell implements FloatScaled
 	end 'of'
 
 	function scale(k Measure) returns Measure
-		return n * k
+		return try (n * k) as Measure otherwise panic("out of range")
 	end 'scale'
 end 'FloatCell'
 
 type FloatRunner uses T where T implements FloatScaled
 	let item as T
 
-	static function of(item T) returns Self
+	static function of(consumes item T) returns Self
 		return Self{item: item}
 	end 'of'
 
@@ -2351,12 +2352,12 @@ end 'FloatRunner'
 typealias FloatCellRunner = FloatRunner with FloatCell
 
 export function fromB() returns ExitCode
-	return trunc(FloatCellRunner.of(FloatCell.of(1.0)).run() * 2.0)
+	return try trunc(FloatCellRunner.of(FloatCell.of(1.0)).run() * 2.0) as ExitCode otherwise panic("out of range")
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2418,12 +2419,12 @@ function takeFloat(s FloatCell) returns Measure
 end 'takeFloat'
 
 export function fromB() returns ExitCode
-	return trunc(takeFloat(FloatCell.of(0.5)) * 2.0)
+	return try trunc(takeFloat(FloatCell.of(0.5)) * 2.0) as ExitCode otherwise panic("out of range")
 end 'fromB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return fromA() + fromB()
+	return try a.fromA() + b.fromB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2622,7 +2623,7 @@ export type Holder
 end 'Holder'
 
 // --- file: main.maxon
-extension Holder
+extension holder.Holder
 	function apply(f Step) returns ExitCode
 		return f(self.base)
 	end 'apply'
@@ -2644,6 +2645,7 @@ two types: they meet only through a cast. Each declaring file sees the other dir
 names the other through its directory (`beta.Integer`); its bare `Integer` is its own.
 
 <!-- test: error.two-same-range-declarations-are-two-types-at-an-operator -->
+<!-- positions: moved -->
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)
@@ -2661,7 +2663,7 @@ end 'pickB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let sum = pickA() + pickB()
+	let sum = alpha.pickA() + beta.pickB()
 	print("{sum}\n")
 	return 0
 end 'main'
@@ -2671,6 +2673,7 @@ error E3005: <fragment>:18:20: operator '+' requires both operands to be the sam
 ```
 
 <!-- test: error.two-same-range-declarations-are-two-types-at-an-argument -->
+<!-- positions: moved -->
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)
@@ -2683,13 +2686,13 @@ end 'pickA'
 export typealias Integer = int(0 to 1000)
 
 export function settle(v beta.Integer) returns beta.Integer
-	return v + 2
+	return try v + 2 otherwise panic("out of range")
 end 'settle'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = pickA()
-	print("{settle(a)}\n")
+	let a = alpha.pickA()
+	print("{beta.settle(a)}\n")
 	return 0
 end 'main'
 ```
@@ -2713,16 +2716,16 @@ end 'pickA'
 export typealias Integer = int(0 to 1000)
 
 export function settle(v beta.Integer) returns beta.Integer
-	return v + 2
+	return try v + 2 otherwise panic("out of range")
 end 'settle'
 
 // --- file: main.maxon
 function asBeta() returns beta.Integer
-	return pickA()
+	return alpha.pickA()
 end 'asBeta'
 
 function main() returns ExitCode
-	print("{settle(asBeta())}\n")
+	print("{beta.settle(asBeta())}\n")
 	return 0
 end 'main'
 ```
@@ -2734,6 +2737,7 @@ end 'main'
 ```
 
 <!-- test: error.two-same-range-declarations-do-not-join -->
+<!-- positions: moved -->
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)
@@ -2751,7 +2755,7 @@ end 'pickB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let v = pickA() if true else pickB()
+	let v = alpha.pickA() if true else beta.pickB()
 	print("{v}\n")
 	return 0
 end 'main'
@@ -2800,6 +2804,7 @@ error E3005: <fragment>:23:10: match arms give incompatible types: 'beta.Integer
 ```
 
 <!-- test: error.two-same-range-declarations-are-two-types-at-a-field-store -->
+<!-- positions: moved -->
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)
@@ -2820,11 +2825,11 @@ type Holder
 	var v as beta.Integer
 
 	static function make() returns Holder
-		return Holder{v: pickB()}
+		return Holder{v: beta.pickB()}
 	end 'make'
 
 	function settle() returns ExitCode
-		self.v = pickA()
+		self.v = alpha.pickA()
 		return self.v as ExitCode
 	end 'settle'
 end 'Holder'
@@ -2853,12 +2858,12 @@ end 'pickA'
 export typealias Integer = int(0 to 1000)
 
 export function settle(v beta.Integer) returns beta.Integer
-	return v + 2
+	return try v + 2 otherwise panic("out of range")
 end 'settle'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	print("{settle(pickA() as beta.Integer)}\n")
+	print("{beta.settle(alpha.pickA() as beta.Integer)}\n")
 	return 0
 end 'main'
 ```
@@ -2870,6 +2875,7 @@ end 'main'
 ```
 
 <!-- test: error.a-files-own-declaration-is-another-type-than-the-visible-one -->
+<!-- positions: moved -->
 `main.maxon` declares its own `Integer` and sees `alpha`'s exported one. Its own wins the bare name, so
 `2 as Integer` is `main.maxon`'s, a type of its own that `alpha`'s `pickA` result does not meet at `+`.
 ```maxon
@@ -2884,7 +2890,7 @@ end 'pickA'
 typealias Integer = int(0 to 1000)
 
 function main() returns ExitCode
-	let n = pickA() + (2 as Integer)
+	let n = alpha.pickA() + (2 as Integer)
 	print("{n}\n")
 	return 0
 end 'main'
@@ -2902,15 +2908,15 @@ sees.
 export typealias StringArray = Array with String
 
 export function countAll(xs StringArray) returns ExitCode
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'countAll'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let xs = StringArray.create(0)
+	var xs = StringArray.create(0)
 	xs.push("a")
 	xs.push("b")
-	print("{countAll(xs)}\n")
+	print("{alpha.countAll(xs)}\n")
 	return 0
 end 'main'
 ```
@@ -2959,7 +2965,7 @@ argument is a `Small` of the alias and never the sibling's struct.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	return cellValue() + nominalQ()
+	return try malpha.cellValue() + nnominal.nominalQ() otherwise panic("out of range")
 end 'main'
 
 // --- file: malpha/m-alpha.maxon
@@ -3005,7 +3011,7 @@ The same factory call in a function body.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	return cellValue() + nominalQ()
+	return try malpha.cellValue() + nnominal.nominalQ() otherwise panic("out of range")
 end 'main'
 
 // --- file: malpha/m-alpha.maxon

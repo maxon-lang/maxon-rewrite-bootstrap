@@ -277,8 +277,6 @@ error E2015: <fragment>:6:10: Unsupported: a field access through `self` in a me
 ```
 
 <!-- test: error.an-interface-extension-publishes-nothing-onto-a-primitive -->
-<!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **THE BOUNDARY OF PRIMITIVE EXTENSIONS, PINNED SO IT CANNOT DRIFT INTO A WRONG ANSWER.** A
 primitive may be an extension TARGET, and this case's `extension int implements Doubler` is accepted and
 conformance-checked. It may NOT be an interface CONFORMER: `ProgramSignatures.conformersOf` builds its
@@ -300,7 +298,6 @@ extension int implements Doubler
 	end 'doubled'
 end 'int'
 
-// TODO: extensions of an interface are not supported in minimaxon
 extension Doubler
 	function quadrupled() returns Integer
 		return self.doubled() * 2

@@ -73,11 +73,11 @@ enum Step implements Greeter
 end 'Step'
 
 function callGreet(g Greeter) returns Integer
-	return g.greet() + 1
+	return try g.greet() + 1 otherwise panic("out of range")
 end 'callGreet'
 
 function main() returns ExitCode
-	return callGreet(Step.one)
+	return try callGreet(Step.one) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,12 +111,12 @@ function make() returns Greeter
 end 'make'
 
 function callGreet(g Greeter) returns Integer
-	return g.greet() + 1
+	return try g.greet() + 1 otherwise panic("out of range")
 end 'callGreet'
 
 function main() returns ExitCode
 	let g = make()
-	return callGreet(g)
+	return try callGreet(g) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -159,7 +159,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(Step.one)
-	return h.greetThrough()
+	return try h.greetThrough() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -228,11 +228,11 @@ union Signal implements Greeter
 end 'Signal'
 
 function callGreet(g Greeter) returns Integer
-	return g.greet() + 1
+	return try g.greet() + 1 otherwise panic("out of range")
 end 'callGreet'
 
 function main() returns ExitCode
-	return callGreet(Signal.high(9))
+	return try callGreet(Signal.high(9)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -370,14 +370,14 @@ enum Step implements Grower
 	end 'grow'
 end 'Step'
 
-function through(g Grower, dest IntArray)
+function through(g Grower, mutates dest IntArray)
 	g.grow(dest)
 end 'through'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	through(Step.one, dest: a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -407,14 +407,14 @@ enum Step implements Grower
 	end 'grow'
 end 'Step'
 
-function through(g Grower, dest IntArray)
+function through(g Grower, mutates dest IntArray)
 	g.grow(dest)
 end 'through'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	through(Step.one, dest: a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

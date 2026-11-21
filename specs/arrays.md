@@ -2889,9 +2889,9 @@ typealias As = Array with A
 typealias Bs = Array with A
 
 function main() returns ExitCode
-	let a = As.create(0)
+	var a = As.create(0)
 	a.push(7)
-	let b = Bs.create(0)
+	var b = Bs.create(0)
 	b.push(9)
 	a.append(b as As)
 	return ((try a.get(0) otherwise 0) + (try a.get(1) otherwise 0)) as ExitCode
@@ -5894,7 +5894,7 @@ function main() returns ExitCode
 	let ns = ws as Nums
 	ws = Words.create(0)
 	ws.push(9)
-	let other = Words.create(0)
+	var other = Words.create(0)
 	other.push(7)
 	other.push(8)
 	other.push(6)

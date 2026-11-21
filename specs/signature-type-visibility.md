@@ -485,8 +485,6 @@ error E3167: api/<fragment>:7:11: exported function 'api.Keeper.keep' names unex
 ```
 
 <!-- test: error.an-interface-inner-alias-over-a-file-private-type-is-refused -->
-<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
-<!-- positions: moved -->
 An alias declared inside an interface body is as visible as its right-hand side, not as its interface.
 `ElementArray` sits inside the `export` interface `Keeper`, but it carries the unmarked `Foo`, and a
 conformer's caller hands `keep` an array of them.
@@ -495,7 +493,6 @@ conformer's caller hands `keep` an array of them.
 typealias Foo = int(0 to 9)
 
 export interface Keeper
-	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Foo
 	function keep(xs ElementArray) returns ExitCode
 end 'Keeper'
@@ -607,12 +604,12 @@ public type Holder
 end 'Holder'
 
 // --- file: app/main.maxon
-function scoreOf(h Holder) returns Score
+function scoreOf(h api.Holder) returns api.Score
 	return h.score
 end 'scoreOf'
 
 function main() returns ExitCode
-	return scoreOf(Holder.create(11)) as ExitCode
+	return scoreOf(api.Holder.create(11)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -630,7 +627,7 @@ export typealias Tally = int(0 to 100)
 export type Box uses T
 	export var item as T
 
-	export static function create(item T) returns Self
+	export static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -640,7 +637,7 @@ export type Box uses T
 end 'Box'
 
 // --- file: app/main.maxon
-typealias TallyBox = Box with Tally
+typealias TallyBox = api.Box with api.Tally
 
 function main() returns ExitCode
 	let b = TallyBox.create(11)
@@ -667,7 +664,7 @@ end 'Item'
 export type Bag uses Item
 	export var held as Item
 
-	export static function create(held Item) returns Self
+	export static function create(consumes held Item) returns Self
 		return Self{held: held}
 	end 'create'
 
@@ -683,11 +680,11 @@ end 'seed'
 // --- file: app/main.maxon
 typealias Tally = int(0 to 100)
 
-typealias TallyBag = Bag with Tally
+typealias TallyBag = api.Bag with Tally
 
 function main() returns ExitCode
 	let b = TallyBag.create(7)
-	return (b.first() as ExitCode) + seed()
+	return try (b.first() as ExitCode) + api.seed() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -815,9 +812,9 @@ end 'base'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let n = Wrapper.make().at(7) + base()
+	let n = api.Wrapper.make().at(7) + api.base()
 	print("{n}\n")
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1004,9 +1001,9 @@ function main() returns ExitCode
 	let s = "hi"
 	var n = 0 as ExitCode
 	for b in s.bytes() 'each'
-		n = n + (b as ExitCode)
+		n = try n + (b as ExitCode) otherwise panic("out of range")
 	end 'each'
-	return (n + ((widen(400) - 400) as ExitCode)) as ExitCode
+	return try (n + ((api.widen(400) - 400) as ExitCode)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1038,7 +1035,7 @@ function main() returns ExitCode
 	let digest = sha256("hi".toByteArray())
 	let tallies = api.ByteArray.create(0)
 	tallies.push(900)
-	return ((widest(tallies) - 900) + (digest.count() as Tally)) as ExitCode
+	return ((api.widest(tallies) - 900) + (digest.count() as api.Tally)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1480,7 +1477,7 @@ export let BIG = Status.big
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return match BIG 'which'
+	return match api.BIG 'which'
 		big gives 7
 		small gives 1
 	end 'which'
@@ -1511,7 +1508,7 @@ end 'code'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return code()
+	return api.code()
 end 'main'
 ```
 ```exitcode
@@ -1530,8 +1527,8 @@ export let PRIMES = [2, 3, 5]
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	print("{GREETING}{PRIMES.count()}")
-	return LIMIT
+	print("{api.GREETING}{api.PRIMES.count()}")
+	return api.LIMIT
 end 'main'
 ```
 ```exitcode
@@ -1825,7 +1822,7 @@ end 'modeCode'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return modeCode(Holder.create())
+	return api.modeCode(api.Holder.create())
 end 'main'
 ```
 ```exitcode
@@ -1890,7 +1887,7 @@ end 'Holder'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return Holder.create().code()
+	return api.Holder.create().code()
 end 'main'
 ```
 ```exitcode
@@ -1924,7 +1921,7 @@ end 'Holder'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let h = Holder.create()
+	let h = api.Holder.create()
 	return h.code()
 end 'main'
 ```
@@ -1959,7 +1956,7 @@ end 'code'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return code()
+	return api.code()
 end 'main'
 ```
 ```exitcode
@@ -2017,7 +2014,7 @@ end 'sample'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return match sample() 'which'
+	return match api.sample() 'which'
 		ok(v) gives 7 if v == v else 0
 		failed gives 1
 	end 'which'
@@ -2049,7 +2046,7 @@ end 'code'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return code()
+	return api.code()
 end 'main'
 ```
 ```exitcode
@@ -2127,8 +2124,8 @@ export typealias ModeArray = Array with Mode
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let modes = ModeArray.create(0)
-	return (modes.count() as ExitCode) + 7
+	let modes = api.ModeArray.create(0)
+	return try (modes.count() as ExitCode) + 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2167,12 +2164,12 @@ typealias ModeArray = Array with Mode
 
 export function code() returns ExitCode
 	let modes = ModeArray.create(0)
-	return (modes.count() as ExitCode) + 7
+	return try (modes.count() as ExitCode) + 7 otherwise panic("out of range")
 end 'code'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return code()
+	return api.code()
 end 'main'
 ```
 ```exitcode
@@ -2336,12 +2333,12 @@ export type Holder implements Marker
 end 'Holder'
 
 // --- file: app/main.maxon
-function report(m Marker) returns ExitCode
+function report(m api.Marker) returns ExitCode
 	return m.code()
 end 'report'
 
 function main() returns ExitCode
-	return report(Holder.create())
+	return report(api.Holder.create())
 end 'main'
 ```
 ```exitcode
@@ -2379,7 +2376,7 @@ end 'Holder'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return Holder.create().code()
+	return api.Holder.create().code()
 end 'main'
 ```
 ```exitcode
@@ -2409,7 +2406,7 @@ end 'code'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return code()
+	return api.code()
 end 'main'
 ```
 ```exitcode
@@ -2430,13 +2427,13 @@ export type Box uses T where T implements Marker
 		return self.item.code()
 	end 'run'
 
-	export static function create(item T) returns Self
+	export static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
 
 // --- file: app/main.maxon
-type Item implements Marker
+type Item implements api.Marker
 	function code() returns ExitCode
 		return 7
 	end 'code'
@@ -2446,7 +2443,7 @@ type Item implements Marker
 	end 'create'
 end 'Item'
 
-typealias ItemBox = Box with Item
+typealias ItemBox = api.Box with Item
 
 function main() returns ExitCode
 	return ItemBox.create(Item.create()).run()
@@ -2467,7 +2464,7 @@ export interface Outer extends Inner
 end 'Outer'
 
 // --- file: app/main.maxon
-type Impl implements Outer
+type Impl implements api.Outer
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2481,8 +2478,8 @@ type Impl implements Outer
 	end 'more'
 end 'Impl'
 
-function use(o Outer) returns ExitCode
-	return o.code() + o.more()
+function use(o api.Outer) returns ExitCode
+	return try o.code() + o.more() otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
@@ -2668,8 +2665,8 @@ end 'seed'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let rows = ItemRows.create(0)
-	return seed() + (rows.count() as ExitCode)
+	let rows = api.ItemRows.create(0)
+	return try api.seed() + (rows.count() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2693,7 +2690,7 @@ export type Middle
 	export let leaf as Leaf
 
 	static function create(leaf Leaf) returns Self
-		return Self{leaf: leaf}
+		return Self{leaf: leaf.clone()}
 	end 'create'
 end 'Middle'
 
@@ -2711,7 +2708,7 @@ end 'Root'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return Root.make().total()
+	return api.Root.make().total()
 end 'main'
 ```
 ```exitcode
@@ -2748,12 +2745,12 @@ export interface Marker
 	function code() returns ExitCode
 end 'Marker'
 
-export function bigger(a T, b T) uses T returns T where T implements Marker
+export function bigger(consumes a T, consumes b T) uses T returns T where T implements Marker
 	return a if a.code() > b.code() else b
 end 'bigger'
 
 // --- file: app/main.maxon
-type Item implements Marker
+type Item implements api.Marker
 	let n as ExitCode
 
 	function code() returns ExitCode
@@ -2766,7 +2763,7 @@ type Item implements Marker
 end 'Item'
 
 function main() returns ExitCode
-	return bigger(Item.create(3), b: Item.create(7)).code()
+	return api.bigger(Item.create(3), b: Item.create(7)).code()
 end 'main'
 ```
 ```exitcode
@@ -2774,7 +2771,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-extension-method-constrained-by-a-file-private-interface-is-refused -->
-<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- positions: moved -->
 The conditional extension's `where` clause is part of every method's contract: only a conformer of `Marker` has
 the method, so whoever can call it has to be able to name `Marker`.
@@ -2784,7 +2780,6 @@ interface Marker
 	function code() returns ExitCode
 end 'Marker'
 
-// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Array where Element implements Marker
 	export function total() returns ExitCode
 		var sum = 0 as ExitCode

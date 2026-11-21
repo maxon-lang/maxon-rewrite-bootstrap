@@ -1384,7 +1384,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-environment-names-fold-case-on-windows -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **ON WINDOWS AN OVERRIDE REPLACES THE INHERITED VARIABLE UNDER ANY SPELLING.** Windows reads an
 environment variable name without regard to case, so `MAXON_SPEC_ENV_FOLD` and `Maxon_Spec_Env_Fold` are
@@ -1417,7 +1416,6 @@ end 'outcomeOf'
 
 function printFoldedEntries() returns ExitCode
 	let entries = try Process.currentEnvironmentEntries() otherwise return 2
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		if Process.envEntryName(entry).toLower() == "maxon_spec_env_fold" 'folded'
 			print("{entry}\n")
@@ -1518,7 +1516,6 @@ name with another extension: executable not found: maxon-spec-pathext-shim.bat
 ```
 
 <!-- test: subprocess-a-bare-name-is-searched-in-createprocess-order-on-windows -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐⭐ **ON WINDOWS A BARE NAME IS SEARCHED IN `CreateProcessW`'s ORDER, AND THE ANSWER IS AN ABSOLUTE PATH TO
@@ -1600,7 +1597,6 @@ function childEnvironment(pathDir FilePath) returns Environment
 	let pathKey = Process.envNameKey("PATH")
 	let noCwdSearchKey = Process.envNameKey("NoDefaultCurrentDirectoryInExePath")
 	let vars = EnvMap.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		let name = Process.envEntryName(entry)
 		let key = Process.envNameKey(name)
@@ -2635,7 +2631,7 @@ errline len=4 [119 0 120 121]
 ```
 
 <!-- test: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 An argument holding a NUL cannot reach a child intact on any OS, so the spawn is refused as `spawnFailed`
 before anything starts, and the child never runs. The child is this case's own executable, which prints
@@ -2644,7 +2640,7 @@ every argument it was given, so a spawn that went ahead shows exactly how the ar
 function runChild()
 	let args = CommandLine.args()
 	var line = "child ran"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, arg) in args.withIterator() 'each'
 		if iter.index() > 0 'afterProgram'
 			line = "{line} [{arg}]"
@@ -2849,7 +2845,7 @@ prefix holds x
 
 <!-- test: subprocess-stdin-bytes-holding-a-nul-reach-the-child-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 A stdin payload is bytes, and a zero byte is one of them: every door that feeds a child's stdin delivers a
 payload holding a NUL whole, never cut at the NUL. The child is this case's own executable, which reads its
@@ -2863,7 +2859,7 @@ function readAllStdin() returns String
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	let received = merge read
 	var line = "{received.count()} bytes ["
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (iter, value) in received.withIterator() 'each'
 		if iter.index() > 0 'separator'
 			line = "{line} "

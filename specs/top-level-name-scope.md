@@ -193,7 +193,7 @@ typealias Total = int(0 to 100)
 let step = 3
 
 function bump(n Total) returns Total
-	return n + step
+	return try n + step otherwise panic("out of range")
 end 'bump'
 
 export function runA() returns ExitCode
@@ -206,7 +206,7 @@ typealias Total = int(0 to 50)
 let step = 10
 
 function bump(n Total) returns Total
-	return n + step
+	return try n + step otherwise panic("out of range")
 end 'bump'
 
 export function runB() returns ExitCode
@@ -215,7 +215,7 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return runA() + runB()
+	return try a.runA() + b.runB() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -286,7 +286,7 @@ end 'readB'
 function main() returns ExitCode
 	let fromA = a.Box.make()
 	let fromB = b.Box.make()
-	return readA() + readB() + fromA.v - fromB.w
+	return try a.readA() + b.readB() + fromA.v - fromB.w otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -325,7 +325,7 @@ end 'describeB'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return describeA(a.Mode.slow) + describeB(b.Mode.busy(30))
+	return try a.describeA(a.Mode.slow) + b.describeB(b.Mode.busy(30)) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -361,7 +361,7 @@ function seedB() returns b.Score
 end 'seedB'
 
 function main() returns ExitCode
-	return (keepA(seedA()) as ExitCode) + (keepB(seedB()) as ExitCode) - 158
+	return try (a.keepA(seedA()) as ExitCode) + (b.keepB(seedB()) as ExitCode) - 158 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -384,7 +384,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let inSub = sub.Box.make()
-	return fromOther() + fromSub() + inSub.w
+	return other.fromOther() + fromSub() + inSub.w
 end 'main'
 
 // --- file: sub/box.maxon
@@ -402,7 +402,7 @@ end 'fromSub'
 
 // --- file: other/o.maxon
 export function fromOther() returns ExitCode
-	return Box.make().v
+	return export.Box.make().v
 end 'fromOther'
 ```
 ```exitcode
