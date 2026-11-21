@@ -38,6 +38,42 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrArrayDropEmpty 'intrArrayDropEmpty'
 		return lowerArrayDropEmpty(l, p: p, c: c, recv: recv, args: args)
 	end 'intrArrayDropEmpty'
+	if op == ast.Intrinsic.intrArrayClear 'intrArrayClear'
+		return lowerArrayClear(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayClear'
+	if op == ast.Intrinsic.intrArrayTruncate 'intrArrayTruncate'
+		return lowerArrayTruncate(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayTruncate'
+	if op == ast.Intrinsic.intrArrayReserve 'intrArrayReserve'
+		return lowerArrayReserve(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayReserve'
+	if op == ast.Intrinsic.intrArrayResize 'intrArrayResize'
+		return lowerArrayResize(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayResize'
+	if op == ast.Intrinsic.intrArraySlice 'intrArraySlice'
+		return lowerArraySlice(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArraySlice'
+	if op == ast.Intrinsic.intrArrayGrowFilled 'intrArrayGrowFilled'
+		return lowerArrayGrowFilled(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayGrowFilled'
+	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
+		return lowerArrayRefill(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
+		return lowerArrayContains(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayContains'
+	if op == ast.Intrinsic.intrArrayContainsSequence 'intrArrayContainsSequence'
+		return lowerArrayContainsSequence(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayContainsSequence'
+	if op == ast.Intrinsic.intrArrayEquals 'intrArrayEquals'
+		return lowerArrayEquals(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayEquals'
+	if op == ast.Intrinsic.intrArrayFirst 'intrArrayFirst'
+		return lowerArrayFirst(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayFirst'
+	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
+		return lowerArrayLast(l, p: p, c: c, recv: recv, args: args)
+	end 'intrArrayLast'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return lowerMapCreate(l, p: p, c: c, recv: recv, args: args)
 	end 'intrMapCreate'
@@ -146,6 +182,72 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return lowerStringFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringIsEmpty 'intrStringIsEmpty'
+		return lowerStringIsEmpty(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringIsEmpty'
+	if op == ast.Intrinsic.intrStringEquals 'intrStringEquals'
+		return lowerStringEquals(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringEquals'
+	if op == ast.Intrinsic.intrStringAppend 'intrStringAppend'
+		return lowerStringAppend(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringAppend'
+	if op == ast.Intrinsic.intrStringCount 'intrStringCount'
+		return lowerStringCount(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringCount'
+	if op == ast.Intrinsic.intrStringContains 'intrStringContains'
+		return lowerStringContains(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringContains'
+	if op == ast.Intrinsic.intrStringStartsWith 'intrStringStartsWith'
+		return lowerStringStartsWith(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringStartsWith'
+	if op == ast.Intrinsic.intrStringEndsWith 'intrStringEndsWith'
+		return lowerStringEndsWith(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringEndsWith'
+	if op == ast.Intrinsic.intrStringFindFirst 'intrStringFindFirst'
+		return lowerStringFindFirst(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringFindFirst'
+	if op == ast.Intrinsic.intrStringFindLast 'intrStringFindLast'
+		return lowerStringFindLast(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringFindLast'
+	if op == ast.Intrinsic.intrStringStartIndex 'intrStringStartIndex'
+		return lowerStringStartIndex(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringStartIndex'
+	if op == ast.Intrinsic.intrStringEndIndex 'intrStringEndIndex'
+		return lowerStringEndIndex(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringEndIndex'
+	if op == ast.Intrinsic.intrStringSlice 'intrStringSlice'
+		return lowerStringSlice(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringSlice'
+	if op == ast.Intrinsic.intrStringSliceLength 'intrStringSliceLength'
+		return lowerStringSliceLength(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringSliceLength'
+	if op == ast.Intrinsic.intrStringReplace 'intrStringReplace'
+		return lowerStringReplace(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringReplace'
+	if op == ast.Intrinsic.intrStringReplaceFirst 'intrStringReplaceFirst'
+		return lowerStringReplaceFirst(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringReplaceFirst'
+	if op == ast.Intrinsic.intrStringTrim 'intrStringTrim'
+		return lowerStringTrim(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringTrim'
+	if op == ast.Intrinsic.intrStringTrimStart 'intrStringTrimStart'
+		return lowerStringTrimStart(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringTrimStart'
+	if op == ast.Intrinsic.intrStringTrimEnd 'intrStringTrimEnd'
+		return lowerStringTrimEnd(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringTrimEnd'
+	if op == ast.Intrinsic.intrStringToLower 'intrStringToLower'
+		return lowerStringToLower(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringToLower'
+	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
+		return lowerStringToUpper(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringToUpper'
+	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
+		return lowerStringIndexCharIndex(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringIndexCharIndex'
+	if op == ast.Intrinsic.intrStringIndexBytePos 'intrStringIndexBytePos'
+		return lowerStringIndexBytePos(l, p: p, c: c, recv: recv, args: args)
+	end 'intrStringIndexBytePos'
 	if op == ast.Intrinsic.intrFreeze 'intrFreeze'
 		return lowerFreeze(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFreeze'
@@ -313,6 +415,42 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayDropEmpty 'intrArrayDropEmpty'
 		return false
 	end 'intrArrayDropEmpty'
+	if op == ast.Intrinsic.intrArrayClear 'intrArrayClear'
+		return false
+	end 'intrArrayClear'
+	if op == ast.Intrinsic.intrArrayTruncate 'intrArrayTruncate'
+		return false
+	end 'intrArrayTruncate'
+	if op == ast.Intrinsic.intrArrayReserve 'intrArrayReserve'
+		return false
+	end 'intrArrayReserve'
+	if op == ast.Intrinsic.intrArrayResize 'intrArrayResize'
+		return false
+	end 'intrArrayResize'
+	if op == ast.Intrinsic.intrArraySlice 'intrArraySlice'
+		return false
+	end 'intrArraySlice'
+	if op == ast.Intrinsic.intrArrayGrowFilled 'intrArrayGrowFilled'
+		return false
+	end 'intrArrayGrowFilled'
+	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
+		return false
+	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
+		return false
+	end 'intrArrayContains'
+	if op == ast.Intrinsic.intrArrayContainsSequence 'intrArrayContainsSequence'
+		return false
+	end 'intrArrayContainsSequence'
+	if op == ast.Intrinsic.intrArrayEquals 'intrArrayEquals'
+		return false
+	end 'intrArrayEquals'
+	if op == ast.Intrinsic.intrArrayFirst 'intrArrayFirst'
+		return false
+	end 'intrArrayFirst'
+	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
+		return false
+	end 'intrArrayLast'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return false
 	end 'intrMapCreate'
@@ -421,6 +559,72 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return false
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringIsEmpty 'intrStringIsEmpty'
+		return false
+	end 'intrStringIsEmpty'
+	if op == ast.Intrinsic.intrStringEquals 'intrStringEquals'
+		return false
+	end 'intrStringEquals'
+	if op == ast.Intrinsic.intrStringAppend 'intrStringAppend'
+		return true
+	end 'intrStringAppend'
+	if op == ast.Intrinsic.intrStringCount 'intrStringCount'
+		return false
+	end 'intrStringCount'
+	if op == ast.Intrinsic.intrStringContains 'intrStringContains'
+		return false
+	end 'intrStringContains'
+	if op == ast.Intrinsic.intrStringStartsWith 'intrStringStartsWith'
+		return false
+	end 'intrStringStartsWith'
+	if op == ast.Intrinsic.intrStringEndsWith 'intrStringEndsWith'
+		return false
+	end 'intrStringEndsWith'
+	if op == ast.Intrinsic.intrStringFindFirst 'intrStringFindFirst'
+		return false
+	end 'intrStringFindFirst'
+	if op == ast.Intrinsic.intrStringFindLast 'intrStringFindLast'
+		return false
+	end 'intrStringFindLast'
+	if op == ast.Intrinsic.intrStringStartIndex 'intrStringStartIndex'
+		return false
+	end 'intrStringStartIndex'
+	if op == ast.Intrinsic.intrStringEndIndex 'intrStringEndIndex'
+		return false
+	end 'intrStringEndIndex'
+	if op == ast.Intrinsic.intrStringSlice 'intrStringSlice'
+		return false
+	end 'intrStringSlice'
+	if op == ast.Intrinsic.intrStringSliceLength 'intrStringSliceLength'
+		return false
+	end 'intrStringSliceLength'
+	if op == ast.Intrinsic.intrStringReplace 'intrStringReplace'
+		return false
+	end 'intrStringReplace'
+	if op == ast.Intrinsic.intrStringReplaceFirst 'intrStringReplaceFirst'
+		return false
+	end 'intrStringReplaceFirst'
+	if op == ast.Intrinsic.intrStringTrim 'intrStringTrim'
+		return false
+	end 'intrStringTrim'
+	if op == ast.Intrinsic.intrStringTrimStart 'intrStringTrimStart'
+		return false
+	end 'intrStringTrimStart'
+	if op == ast.Intrinsic.intrStringTrimEnd 'intrStringTrimEnd'
+		return false
+	end 'intrStringTrimEnd'
+	if op == ast.Intrinsic.intrStringToLower 'intrStringToLower'
+		return false
+	end 'intrStringToLower'
+	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
+		return false
+	end 'intrStringToUpper'
+	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
+		return false
+	end 'intrStringIndexCharIndex'
+	if op == ast.Intrinsic.intrStringIndexBytePos 'intrStringIndexBytePos'
+		return false
+	end 'intrStringIndexBytePos'
 	if op == ast.Intrinsic.intrFreeze 'intrFreeze'
 		return false
 	end 'intrFreeze'

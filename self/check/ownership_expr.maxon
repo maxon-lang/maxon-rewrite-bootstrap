@@ -472,7 +472,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 	for i in 0 upto call.paramSpecs.count() 'specs'
 		exclusive = exclusive or call.paramSpecs[i].conv != ast.Convention.convLet
 	end 'specs'
-	if exclusive 'exclusive'
+	if exclusive and not ast.intrinsicMayOverlap(call.intrinsic) 'exclusive'
 		requireExclusive(o, p: p, call: call, receiver: receiver)
 	end 'exclusive'
 	let held = o.projections.count()
@@ -670,7 +670,7 @@ end 'subscript'
 
 function memberExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let kind = ownMember(o, node: e).kind
-	if kind == ast.MemberKind.memberEnumCase or kind == ast.MemberKind.memberUnionCase 'case'
+	if kind == ast.MemberKind.memberEnumCase or kind == ast.MemberKind.memberUnionCase or kind == ast.MemberKind.memberLimit 'case'
 		return s
 	end 'case'
 	if o.partials > 0 and kind == ast.MemberKind.memberField and readPart(o, p: p, e: e, s: s) 'part'

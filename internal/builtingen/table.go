@@ -24,6 +24,7 @@ var primTypes = []primType{
 	{"String", "b.stringTy"},
 	{"Void", "b.voidTy"},
 	{"Count", "b.countTy"},
+	{"ElementIndex", "b.elementIndexTy"},
 	{"Byte", "b.byteTy"},
 	{"ExitCode", "b.exitCodeTy"},
 }
@@ -57,6 +58,8 @@ type typeAlias struct {
 var typeAliases = []typeAlias{
 	// ByteArray is maxon's name for an array of bytes, whose box holds one byte to an element (ast.BuiltinTy.PacksBytes).
 	{Name: "ByteArray", Type: "Array with Byte"},
+	// StringArray is maxon's name for an array of strings (stdlib/Json.maxon declares it, but programs use it everywhere).
+	{Name: "StringArray", Type: "Array with String"},
 }
 
 // recordType is a built-in record: a type whose fields a program reads as it reads its own record's, with the methods
@@ -75,6 +78,8 @@ var recordTypes = []recordType{
 	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}},
 	{Key: "File", Name: "File"},
 	{Key: "Directory", Name: "Directory"},
+	// StringIndex is where a position in a string is: the grapheme cluster it is the start of and the byte it is at.
+	{Key: "StringIndex", Name: "StringIndex", Fields: []string{"private let charIdx Count", "private let bytePosition Count"}},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
 	{Key: "Subprocess", Name: "Subprocess"},
 	// Raw is maxon's __Raw: the closed set of raw machine and OS operations the runtime's source is written on, which
@@ -191,6 +196,10 @@ var enumTypes = []enumType{
 		{"inputTooLarge", "ErrorInputTooLarge"},
 		{"statusLost", "ErrorStatusLost"},
 	}},
+	{Key: "StringError", Name: "StringError", Cases: []enumCase{
+		{"notFound", "ErrorStringNotFound"},
+		{"invalidIndex", "ErrorStringInvalidIndex"},
+	}},
 	// IterationError is what a type's iteration protocol throws (`createIterator()` on an empty collection, `advance()`
 	// past the last element), which a for loop takes as its end.
 	{Key: "IterationError", Name: "IterationError", Cases: []enumCase{
@@ -231,6 +240,9 @@ type function struct {
 	Checked bool
 	// OwnsOperands is whether the lowering evaluates the receiver and arguments itself rather than being given them.
 	OwnsOperands bool
+	// MayOverlap is whether an argument of a call may name the receiver's place (E3186 otherwise): the lowering takes the
+	// arguments' values before it writes the place.
+	MayOverlap bool
 	// RuntimeOnly is whether only the runtime module may call it (E3152): a raw operation with no runtime between it and
 	// the machine.
 	RuntimeOnly bool
@@ -286,18 +298,33 @@ func rawFunctions() []function {
 }
 
 var tableFunctions = []function{
-	{Owner: "Array", Name: "create", Static: true, Params: []string{"count Count"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
-	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count Count", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
+	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
+	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
-	{Owner: "Array", Name: "get", Params: []string{"index Count"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
-	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index Count", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
+	{Owner: "Array", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
+	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
 	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
 	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend"},
-	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at Count", "consumes value T"}, Intrinsic: "ArrayInsert"},
-	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at Count"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove"},
+	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayInsert"},
+	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove"},
 	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop"},
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
+	// clear and truncate drop the elements they remove; reserve does nothing, since an array's capacity is no part of its value; resize
+	// grows with zero elements, which the checker holds to an element that has one.
+	{Owner: "Array", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
+	{Owner: "Array", Name: "truncate", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayTruncate"},
+	{Owner: "Array", Name: "reserve", Self: "mutates", Params: []string{"minCapacity ElementIndex"}, Intrinsic: "ArrayReserve"},
+	{Owner: "Array", Name: "resize", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayResize", Checked: true},
+	{Owner: "Array", Name: "slice", Params: []string{"start ElementIndex", "endIndex ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArraySlice"},
+	{Owner: "Array", Name: "growFilled", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGrowFilled"},
+	{Owner: "Array", Name: "refill", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayRefill"},
+	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
+	// elements this compiler compares itself (checkElementsComparable).
+	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
+	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
+	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},
+	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
 
 	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
 	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},
@@ -339,6 +366,31 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Intrinsic: "StringSliceBytes"},
 	{Owner: "String", Name: "toByteArray", Result: "Array with Byte", Intrinsic: "StringToByteArray"},
 	{Owner: "String", Name: "from", Static: true, Params: []string{"bytes Array with Byte"}, Result: "String", Intrinsic: "StringFrom"},
+	{Owner: "String", Name: "isEmpty", Result: "Bool", Intrinsic: "StringIsEmpty"},
+	{Owner: "String", Name: "equals", Params: []string{"other String"}, Result: "Bool", Intrinsic: "StringEquals"},
+	// append moves the string to a new one, joined, and stores that in the receiver's place.
+	{Owner: "String", Name: "append", Self: "mutates", Params: []string{"other String"}, Intrinsic: "StringAppend", OwnsOperands: true, MayOverlap: true},
+	// count and every position in a string are of grapheme clusters; startIndex, endIndex and the searches give a StringIndex.
+	{Owner: "String", Name: "count", Result: "Count", Intrinsic: "StringCount"},
+	{Owner: "String", Name: "contains", Params: []string{"needle String"}, Result: "Bool", Intrinsic: "StringContains"},
+	{Owner: "String", Name: "startsWith", Params: []string{"prefix String"}, Result: "Bool", Intrinsic: "StringStartsWith"},
+	{Owner: "String", Name: "endsWith", Params: []string{"suffix String"}, Result: "Bool", Intrinsic: "StringEndsWith"},
+	{Owner: "String", Name: "findFirst", Params: []string{"needle String"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringFindFirst"},
+	{Owner: "String", Name: "findLast", Params: []string{"needle String"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringFindLast"},
+	{Owner: "String", Name: "startIndex", Result: "StringIndex", Intrinsic: "StringStartIndex"},
+	{Owner: "String", Name: "endIndex", Result: "StringIndex", Intrinsic: "StringEndIndex"},
+	{Owner: "String", Name: "slice", Params: []string{"start StringIndex", "endIndex StringIndex"}, Result: "String", Intrinsic: "StringSlice"},
+	{Owner: "String", Name: "sliceLength", Params: []string{"start StringIndex", "length Count"}, Result: "String", Intrinsic: "StringSliceLength"},
+	{Owner: "String", Name: "replace", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplace"},
+	{Owner: "String", Name: "replaceFirst", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplaceFirst"},
+	// trim takes no CharacterSet: it removes whitespace and newlines, maxon's default.
+	{Owner: "String", Name: "trim", Result: "String", Intrinsic: "StringTrim"},
+	{Owner: "String", Name: "trimStart", Result: "String", Intrinsic: "StringTrimStart"},
+	{Owner: "String", Name: "trimEnd", Result: "String", Intrinsic: "StringTrimEnd"},
+	{Owner: "String", Name: "toLower", Result: "String", Intrinsic: "StringToLower"},
+	{Owner: "String", Name: "toUpper", Result: "String", Intrinsic: "StringToUpper"},
+	{Owner: "StringIndex", Name: "charIndex", Result: "Count", Intrinsic: "StringIndexCharIndex"},
+	{Owner: "StringIndex", Name: "bytePos", Result: "Count", Intrinsic: "StringIndexBytePos"},
 
 	// freeze takes a value and gives an immutable frozen value, which the last owner drops; share gives another owner
 	// of the same frozen value or cown, and is declared over any type because it takes either; thaw gives an owned
@@ -431,6 +483,15 @@ var entries = []entry{
 	{"StrLen", "rt.str.len", "Runtime", roleCall, "(String) -> count of bytes"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
 	{"StrSlice", "rt.str.slice", "Runtime", roleCall, "(String, from, until) -> String"},
+	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
+	{"StrGraphemeIndex", "rt.str.graphemeIndex", "Runtime", roleCall, "(String, byte position) -> count of the clusters that start before it"},
+	{"StrGraphemeBytePos", "rt.str.graphemeBytePos", "Runtime", roleCall, "(String, from, count) -> the byte position that count clusters after from end at, or the end"},
+	{"StrFind", "rt.str.find", "Runtime", roleCall, "(String, needle String, from) -> the position of the first match at or after from, plus 1, or 0"},
+	{"StrFindLast", "rt.str.findLast", "Runtime", roleCall, "(String, needle String) -> the position of the last match, plus 1, or 0"},
+	{"StrHasAffix", "rt.str.hasAffix", "Runtime", roleCall, "(String, affix String, atEnd) -> whether it starts with the affix, or ends with it where atEnd"},
+	{"StrReplace", "rt.str.replace", "Runtime", roleCall, "(String, old String, replacement String, all) -> String with the first match, or each, replaced"},
+	{"StrTrim", "rt.str.trim", "Runtime", roleCall, "(String, trimStart, trimEnd) -> String without the whitespace at those ends"},
+	{"StrMapCase", "rt.str.mapCase", "Runtime", roleCall, "(String, upper) -> String with its ASCII letters in that case"},
 	{"PanicIndex", "rt.panicIndex", "Arrays", roleInternal, "panics with an index out of range"},
 	{"Heap", "g.heap", "Runtime", roleGlobal, "the process heap"},
 	{"Stdout", "g.stdout", "Runtime", roleGlobal, "the handle of standard output"},
@@ -533,6 +594,15 @@ var runtimeFunctions = []runtimeFunction{
 	{"StrLen", "stringLength(text String) Count"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
 	{"StrSlice", "stringSlice(text String, from Count, until Count) String"},
+	{"StrCount", "stringCount(text String) Count"},
+	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},
+	{"StrGraphemeBytePos", "stringGraphemeBytePos(text String, from Count, count Count) Count"},
+	{"StrFind", "stringFind(text String, needle String, from Count) Count"},
+	{"StrFindLast", "stringFindLast(text String, needle String) Count"},
+	{"StrHasAffix", "stringHasAffix(text String, affix String, atEnd Bool) Bool"},
+	{"StrReplace", "stringReplace(text String, old String, replacement String, all Bool) String"},
+	{"StrTrim", "stringTrim(text String, trimStart Bool, trimEnd Bool) String"},
+	{"StrMapCase", "stringMapCase(text String, upper Bool) String"},
 	{"PanicIndex", "panicIndex()"},
 	{"CheckLeaks", "checkLeaks(code Count) Count"},
 	{"ArrayNew", "arrayNew() Count"},

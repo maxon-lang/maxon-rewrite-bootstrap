@@ -139,12 +139,24 @@ function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 	if named != ast.noType 'typeMember'
 		return checkTypeMember(c, p: p, e: e, obj: obj, nt: named, errs: errs)
 	end 'typeMember'
+	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsSized'
+		match consumes ast.sizedLimitValue(ast.nameExprName(p.modules[c.modIdx].tree, id: obj), member: ast.memberExprName(p.modules[c.modIdx].tree, id: e)) 'limit'
+			some(v) then return checkLimitMember(c, p: p, e: e, value: v)
+			none then _ = 0
+		end 'limit'
+	end 'headIsSized'
 	let typed = checkExpr(c, p: p, e: obj, errs: errs)
 	if typed == ast.noType 'badObj'
 		return ast.noType
 	end 'badObj'
 	return checkValueMember(c, p: p, e: e, t: typed, errs: errs)
 end 'checkMember'
+
+// checkLimitMember types `u64.max` and its like, the constant that a sized integer's limit is.
+function checkLimitMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes value ast.I128) returns ast.TypeID
+	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(ast.MemberKind.memberLimit, ownerTy: ast.noType))
+	return ast.internConstInt(p.types, val: value)
+end 'checkLimitMember'
 
 // checkTypeMember types a case of an enum or a union written after the type's name.
 function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID

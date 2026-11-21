@@ -39,6 +39,7 @@ export enum MemberKind
 	memberEnumRaw
 	memberUnionName
 	memberUnionOrdinal
+	memberLimit
 end 'MemberKind'
 
 export let failNone = 0 as Byte

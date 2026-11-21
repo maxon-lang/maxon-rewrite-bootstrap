@@ -1,0 +1,71 @@
+// The interpreter's entries of the text operations. The operations themselves are the runtime's source (textops_gen.maxon),
+// run over the strings the interpreter holds.
+
+// stringArg is the contents of a string that an entry is given.
+function stringArg(mutates vm Vm, f ir.IrFunction, x ir.Instr, i Count, what String) returns String throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: i), what: what)
+	return vm.h.texts[at].clone()
+end 'stringArg'
+
+function countArg(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns Count
+	return bitsOf(argNum(vm, f: f, x: x, i: i))
+end 'countArg'
+
+function giveCount(mutates vm Vm, x ir.Instr, n Count)
+	giveNum(vm, x: x, n: try n as ir.Word otherwise panic("interp: a count past a word"))
+end 'giveCount'
+
+function giveText(mutates vm Vm, x ir.Instr, consumes text String)
+	let made = newString(vm, text: text)
+	giveRef(vm, x: x, o: made)
+end 'giveText'
+
+function entryStrCount(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string count")
+	giveCount(vm, x: x, n: stringCount(text))
+end 'entryStrCount'
+
+function entryStrGraphemeIndex(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string index")
+	giveCount(vm, x: x, n: stringGraphemeIndex(text, bytePos: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrGraphemeIndex'
+
+function entryStrGraphemeBytePos(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string slice")
+	giveCount(vm, x: x, n: stringGraphemeBytePos(text, from: countArg(vm, f: f, x: x, i: 1), count: countArg(vm, f: f, x: x, i: 2)))
+end 'entryStrGraphemeBytePos'
+
+function entryStrFind(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string search")
+	let needle = try stringArg(vm, f: f, x: x, i: 1, what: "a string search")
+	giveCount(vm, x: x, n: stringFind(text, needle: needle, from: countArg(vm, f: f, x: x, i: 2)))
+end 'entryStrFind'
+
+function entryStrFindLast(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string search")
+	let needle = try stringArg(vm, f: f, x: x, i: 1, what: "a string search")
+	giveCount(vm, x: x, n: stringFindLast(text, needle: needle))
+end 'entryStrFindLast'
+
+function entryStrHasAffix(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string affix")
+	let affix = try stringArg(vm, f: f, x: x, i: 1, what: "a string affix")
+	giveFlag(vm, x: x, b: stringHasAffix(text, affix: affix, atEnd: argNum(vm, f: f, x: x, i: 2) != 0))
+end 'entryStrHasAffix'
+
+function entryStrReplace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string replace")
+	let old = try stringArg(vm, f: f, x: x, i: 1, what: "a string replace")
+	let replacement = try stringArg(vm, f: f, x: x, i: 2, what: "a string replace")
+	giveText(vm, x: x, text: stringReplace(text, old: old, replacement: replacement, all: argNum(vm, f: f, x: x, i: 3) != 0))
+end 'entryStrReplace'
+
+function entryStrTrim(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string trim")
+	giveText(vm, x: x, text: stringTrim(text, trimStart: argNum(vm, f: f, x: x, i: 1) != 0, trimEnd: argNum(vm, f: f, x: x, i: 2) != 0))
+end 'entryStrTrim'
+
+function entryStrMapCase(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string case")
+	giveText(vm, x: x, text: stringMapCase(text, upper: argNum(vm, f: f, x: x, i: 1) != 0))
+end 'entryStrMapCase'

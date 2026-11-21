@@ -301,6 +301,9 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 	if sameType(p.types, a: src, b: dst) or src == p.builtins.neverTy 'sameOrNever'
 		return true
 	end 'sameOrNever'
+	if src == p.builtins.countTy and dst == p.builtins.elementIndexTy 'countIsAnIndex'
+		return true
+	end 'countIsAnIndex'
 	let dk = p.types.entries[dst as Count].kind
 	if dk == ast.TypeKind.intRange 'dstInt'
 		let sk = p.types.entries[src as Count].kind

@@ -35,6 +35,42 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrSlice(vm, f: f, x: x)
 		return
 	end 'rtStrSlice'
+	if symbol == ir.Rt.rtStrCount 'rtStrCount'
+		try entryStrCount(vm, f: f, x: x)
+		return
+	end 'rtStrCount'
+	if symbol == ir.Rt.rtStrGraphemeIndex 'rtStrGraphemeIndex'
+		try entryStrGraphemeIndex(vm, f: f, x: x)
+		return
+	end 'rtStrGraphemeIndex'
+	if symbol == ir.Rt.rtStrGraphemeBytePos 'rtStrGraphemeBytePos'
+		try entryStrGraphemeBytePos(vm, f: f, x: x)
+		return
+	end 'rtStrGraphemeBytePos'
+	if symbol == ir.Rt.rtStrFind 'rtStrFind'
+		try entryStrFind(vm, f: f, x: x)
+		return
+	end 'rtStrFind'
+	if symbol == ir.Rt.rtStrFindLast 'rtStrFindLast'
+		try entryStrFindLast(vm, f: f, x: x)
+		return
+	end 'rtStrFindLast'
+	if symbol == ir.Rt.rtStrHasAffix 'rtStrHasAffix'
+		try entryStrHasAffix(vm, f: f, x: x)
+		return
+	end 'rtStrHasAffix'
+	if symbol == ir.Rt.rtStrReplace 'rtStrReplace'
+		try entryStrReplace(vm, f: f, x: x)
+		return
+	end 'rtStrReplace'
+	if symbol == ir.Rt.rtStrTrim 'rtStrTrim'
+		try entryStrTrim(vm, f: f, x: x)
+		return
+	end 'rtStrTrim'
+	if symbol == ir.Rt.rtStrMapCase 'rtStrMapCase'
+		try entryStrMapCase(vm, f: f, x: x)
+		return
+	end 'rtStrMapCase'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
 		try entryArrayNew(vm, f: f, x: x)
 		return

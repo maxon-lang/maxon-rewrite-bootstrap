@@ -343,9 +343,7 @@ end 'lowerArrayIsEmpty'
 // lowerArrayGet is a copy of the element at index, which fails with indexOutOfBounds past the end, as maxon's get does.
 function lowerArrayGet(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, c: c)
-	arrayInBounds(l, p: p, box: a, arr: recv, index: args[0])
-	let v = arrayLoad(l, p: p, box: a, arr: recv, index: args[0])
-	return copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: v, t: arrayElem(p, box: a))
+	return arrayCopyAt(l, p: p, box: a, arr: recv, index: args[0])
 end 'lowerArrayGet'
 
 // lowerArraySet replaces the element at index, and fails with indexOutOfBounds past the end, dropping the value it was
@@ -412,6 +410,84 @@ function lowerArrayPop(mutates l Lowerer, mutates p ast.Project, c CallSite, rec
 	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
 	return arrayRemove(l, p: p, box: a, arr: recv, index: last)
 end 'lowerArrayPop'
+
+// lowerArrayClear drops every element.
+function lowerArrayClear(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	arrayDropLast(l, p: p, box: a, arr: recv, n: n)
+	return konst(l, value: 0 as Word)
+end 'lowerArrayClear'
+
+// lowerArrayTruncate drops the elements at and above the new length.
+function lowerArrayTruncate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayTruncate(l, p: p, box: a, arr: recv, newLength: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayTruncate'
+
+// lowerArrayReserve does nothing: the capacity of an array is no part of its value.
+function lowerArrayReserve(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return konst(l, value: 0 as Word)
+end 'lowerArrayReserve'
+
+// lowerArrayResize makes the array newLength elements long: it drops the ones above and pushes zeros below.
+function lowerArrayResize(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayTruncate(l, p: p, box: a, arr: recv, newLength: args[0])
+	arrayGrowZero(l, p: p, box: a, arr: recv, newLength: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayResize'
+
+function lowerArraySlice(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	return arraySlice(l, p: p, box: a, arr: recv, start: args[0], endIndex: args[1])
+end 'lowerArraySlice'
+
+function lowerArrayFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let first = konst(l, value: 0 as Word)
+	return arrayCopyAt(l, p: p, box: a, arr: recv, index: first)
+end 'lowerArrayFirst'
+
+// lowerArrayLast is a copy of the last element; the index of an empty array wraps above its length, so it fails with indexOutOfBounds.
+function lowerArrayLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	let last = newReg(l, kind: IrKind.kindScalar)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
+	return arrayCopyAt(l, p: p, box: a, arr: recv, index: last)
+end 'lowerArrayLast'
+
+function lowerArrayContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	return arrayContains(l, p: p, box: a, arr: recv, value: args[0])
+end 'lowerArrayContains'
+
+function lowerArrayContainsSequence(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	return arrayContainsSequence(l, p: p, box: a, arr: recv, sequence: args[0])
+end 'lowerArrayContainsSequence'
+
+function lowerArrayEquals(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	return arrayEquals(l, p: p, box: a, arr: recv, other: args[0])
+end 'lowerArrayEquals'
+
+// lowerArrayGrowFilled pushes copies of the value up to the new length.
+function lowerArrayGrowFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayGrowFilled(l, p: p, box: a, arr: recv, newLength: args[0], value: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayGrowFilled'
+
+// lowerArrayRefill makes the array copies of the value, as many as the new length.
+function lowerArrayRefill(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayRefill(l, p: p, box: a, arr: recv, newLength: args[0], value: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayRefill'
 
 function lowerMapCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapNew, kind: IrKind.kindManaged, args: RegList.create(0))

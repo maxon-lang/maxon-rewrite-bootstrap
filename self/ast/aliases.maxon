@@ -34,12 +34,10 @@ function sizedLimit(modID diag.ModuleID, off diag.U32, b Bound, mutates errs dia
 end 'sizedLimit'
 
 function sizedLimitOf(modID diag.ModuleID, off diag.U32, b Bound, r I128Pair, mutates errs diag.ErrorList) returns table.Option with I128
-	if b.limit == "min" 'min'
-		return table.Option.some(r.lo.clone())
-	end 'min'
-	if b.limit == "max" 'max'
-		return table.Option.some(r.hi.clone())
-	end 'max'
+	match consumes limitOf(r, member: b.limit) 'limit'
+		some(v) then return table.Option.some(v)
+		none then _ = 0
+	end 'limit'
 	diag.pushSiteError(errs, code: diag.errUnknownField, message: "'{b.sized}.{b.limit}' is not a bound; write '{b.sized}.min' or '{b.sized}.max'", module: modID, offset: off)
 	return table.Option.none
 end 'sizedLimitOf'
@@ -205,3 +203,23 @@ export function nestedAliasOwner(name String) returns table.Option with String
 		none then return table.Option.none
 	end 'dot'
 end 'nestedAliasOwner'
+
+// sizedLimitValue is the value that `name.member` is in an expression, as in `u64.max`, or none when name is no sized
+// integer or member is neither of its limits.
+export function sizedLimitValue(name String, member String) returns table.Option with I128
+	match consumes sizedBounds(name) 'range'
+		some(r) then return limitOf(r, member: member)
+		none then return table.Option.none
+	end 'range'
+	return table.Option.none
+end 'sizedLimitValue'
+
+function limitOf(r I128Pair, member String) returns table.Option with I128
+	if member == "min" 'min'
+		return table.Option.some(r.lo.clone())
+	end 'min'
+	if member == "max" 'max'
+		return table.Option.some(r.hi.clone())
+	end 'max'
+	return table.Option.none
+end 'limitOf'

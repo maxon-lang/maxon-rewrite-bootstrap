@@ -1,0 +1,100 @@
+// The Array methods that maxon's stdlib has beyond the basic ones: clear and truncate drop elements, resize grows with
+// zeros and shrinks, slice copies a range and throws ArrayError, first and last read the ends, and reserve is a no-op.
+typealias CountArray = Array with Count
+
+typealias NameArray = Array with String
+
+function show(a CountArray) returns String
+	var text = ""
+	for i in 0 upto a.count() 'each'
+		text = "{text}{a[i]};"
+	end 'each'
+	return text
+end 'show'
+
+function names(a NameArray) returns String
+	var text = ""
+	for i in 0 upto a.count() 'each'
+		text = "{text}{a[i]};"
+	end 'each'
+	return text
+end 'names'
+
+function main() returns ExitCode
+	var a = CountArray.filled(4, value: 7)
+	a.push(9)
+	a.reserve(100)
+	print("{show(a)} first {try a.first() otherwise 0} last {try a.last() otherwise 0}\n")
+	a.truncate(3)
+	print("{show(a)}\n")
+	a.truncate(8)
+	print("{show(a)}\n")
+	a.resize(5)
+	print("{show(a)}\n")
+	a.resize(2)
+	print("{show(a)}\n")
+	let mid = try a.slice(0, endIndex: 1) otherwise CountArray.create(0)
+	print("{show(mid)} {mid.count()}\n")
+	let bad = try a.slice(1, endIndex: 5) otherwise CountArray.create(3)
+	let inverted = try a.slice(2, endIndex: 1) otherwise CountArray.create(4)
+	print("{bad.count()} {inverted.count()}\n")
+	a.clear()
+	print("{a.count()} {try a.first() otherwise 99} {try a.last() otherwise 98}\n")
+	var people = NameArray.create(0)
+	people.push("ada")
+	people.push("bob")
+	people.push("cy")
+	let part = try people.slice(1, endIndex: 3) otherwise NameArray.create(0)
+	print("{names(part)} {try people.first() otherwise "?"} {try people.last() otherwise "?"}\n")
+	people.truncate(1)
+	print("{names(people)}\n")
+	people.clear()
+	print("{people.count()}\n")
+	var bytes = ByteArray.create(2)
+	bytes.resize(4)
+	bytes.push(3)
+	bytes.truncate(4)
+	let tail = try bytes.slice(1, endIndex: 4) otherwise ByteArray.create(0)
+	print("{bytes.count()} {tail.count()} {try bytes.last() otherwise 255}\n")
+	var grown = CountArray.create(1)
+	grown.growFilled(4, value: 5)
+	grown.growFilled(2, value: 6)
+	print("{show(grown)}")
+	grown.refill(2, value: 8)
+	print("{show(grown)}")
+	grown.refill(0, value: 1)
+	print("{show(grown)}|\n")
+	var letters = NameArray.create(0)
+	letters.growFilled(2, value: "ab")
+	letters.refill(3, value: "cd")
+	print("{names(letters)}\n")
+	let haystack = CountArray.filled(3, value: 4)
+	var needle = CountArray.create(0)
+	needle.push(4)
+	needle.push(5)
+	var more = CountArray.filled(2, value: 4)
+	more.push(5)
+	print("{haystack.contains(4)} {haystack.contains(5)} {more.containsSequence(needle)} {haystack.containsSequence(needle)} {haystack.containsSequence(CountArray.create(0))} {CountArray.create(0).containsSequence(needle)}\n")
+	print("{haystack.equals(CountArray.filled(3, value: 4))} {haystack.equals(more)} {more.equals(CountArray.filled(2, value: 4))} {letters.contains("cd")} {letters.contains("ab")} {letters.equals(letters.clone())}\n")
+	let index = 2 as ElementIndex
+	print("{u8.max} {i32.min} {try bytes.get(index) otherwise 7}\n")
+	return 0
+end 'main'
+
+//> 7;7;7;7;9; first 7 last 9
+//> 7;7;7;
+//> 7;7;7;
+//> 7;7;7;0;0;
+//> 7;7;
+//> 7; 1
+//> 3 4
+//> 0 99 98
+//> bob;cy; ada cy
+//> ada;
+//> 0
+//> 4 3 0
+//> 0;5;5;5;8;8;|
+//> cd;cd;cd;
+//> true false true false true false
+//> true false false true false true
+//> 255 -2147483648 0

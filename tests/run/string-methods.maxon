@@ -1,0 +1,54 @@
+// The String methods of maxon's stdlib beyond the byte operations: append, count of grapheme clusters, the searches that
+// give a StringIndex (and StringError where there is no match), slices by StringIndex, replace, trim and case.
+function showIndex(index StringIndex) returns String
+	return "{index.charIndex()}/{index.bytePos()}"
+end 'showIndex'
+
+function find(text String, needle String) returns String
+	let first = try text.findFirst(needle) otherwise text.endIndex()
+	let last = try text.findLast(needle) otherwise text.startIndex()
+	return "{showIndex(first)} {showIndex(last)}"
+end 'find'
+
+function main() returns ExitCode
+	var s = "ab"
+	s.append("cd")
+	s.append(s.clone())
+	print("{s} {s.count()} {s.isEmpty()} {"".isEmpty()}\n")
+	var twice = "xy"
+	twice.append(twice)
+	print("{twice}\n")
+	let accents = "e\u0301a🇩🇪👨‍👩x\r\ny"
+	print("{accents.count()} {accents.byteLength()} {"".count()}\n")
+	print("{"hello world".contains("o w")} {"hello".contains("xyz")} {"hello".contains("")}\n")
+	print("{"hello".startsWith("he")} {"hello".startsWith("hello!")} {"hello".endsWith("llo")} {"hello".endsWith("hel")}\n")
+	print("{"abc".equals("abc")} {"abc".equals("abd")}\n")
+	print("{find("one two one", needle: "one")} {find("one two", needle: "two")} {find("one", needle: "zzz")} {find("héllo wörld", needle: "ö")}\n")
+	let text = "hello world"
+	let first = try text.findFirst("o") otherwise text.startIndex()
+	print("{text.slice(text.startIndex(), endIndex: first)}|{text.slice(first, endIndex: text.endIndex())}|{text.sliceLength(first, length: 4)}|{text.sliceLength(first, length: 99)}\n")
+	let uni = "naïve café"
+	let space = try uni.findFirst(" ") otherwise uni.endIndex()
+	print("{uni.sliceLength(uni.startIndex(), length: 3)}|{uni.slice(space, endIndex: uni.endIndex())}|{showIndex(space)}\n")
+	print("{"a-b-c".replace("-", with: "+")}|{"a-b-c".replaceFirst("-", with: "+")}|{"aaa".replace("a", with: "bb")}|{"abc".replace("", with: "x")}|{"abc".replace("z", with: "x")}\n")
+	print("[{"  \t hi there \r\n".trim()}][{"  hi  ".trimStart()}][{"  hi  ".trimEnd()}][{"   ".trim()}][{"".trim()}][{"a".trim()}]\n")
+	print("{"Hello, World 42".toLower()} {"Hello, World 42".toUpper()} {"".toUpper().count()}\n")
+	var bytes = "no match".replace("o", with: "0")
+	bytes.append("!")
+	print("{bytes} {bytes.count()}\n")
+	return 0
+end 'main'
+
+//> abcdabcd 8 false true
+//> xyxy
+//> 7 27 0
+//> true false true
+//> true false true false
+//> true false
+//> 0/0 8/8 4/4 4/4 3/3 0/0 7/8 7/8
+//> hell|o world|o wo|o world
+//> naï| café|5/6
+//> a+b+c|a+b-c|bbbbbb|abc|abc
+//> [hi there][hi  ][  hi][][][a]
+//> hello, world 42 HELLO, WORLD 42 0
+//> n0 match! 9

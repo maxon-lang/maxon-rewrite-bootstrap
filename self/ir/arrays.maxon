@@ -168,3 +168,194 @@ function arrayInBounds(mutates l Lowerer, mutates p ast.Project, box ArrayBox, a
 	let ok = arrayBoundsBegin(l, p: p, box: box, arr: arr, index: index)
 	failUnlessEnd(l, p: p, errorCase: ast.errorIndexOutOfBounds, ok: ok)
 end 'arrayInBounds'
+
+// saturatingSub is a - b, or 0 when b is above a.
+function saturatingSub(mutates l Lowerer, a Reg, b Reg) returns Reg
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(result, src: zero, borrow: false))
+	let above = l.b.newBlock()
+	let join = l.b.newBlock()
+	let higher = compare(l, op: CmpOp.cmpGt, a: a, b: b, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(higher, ifTrue: above, ifFalse: join))
+	l.cur = above
+	let difference = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(difference, op: BinOp.binSub, left: a, right: b, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(result, src: difference, borrow: false))
+	goTo(l, target: join)
+	return load(l, slot: result)
+end 'saturatingSub'
+
+// arrayDropLast removes the last n elements, n at most the length, and drops them.
+function arrayDropLast(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, n Reg)
+	let loop = countedLoopBegin(l, limit: n)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let one = konst(l, value: 1 as Word)
+	let last = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(last, op: BinOp.binSub, left: length, right: one, unsigned: true, fail: noBlock))
+	let element = arrayRemove(l, p: p, box: box, arr: arr, index: last)
+	dropValue(l, p: p, v: element, t: arrayElem(p, box: box))
+	countedLoopEnd(l, loop: loop)
+end 'arrayDropLast'
+
+// arrayTruncate drops the elements at and above newLength, and does nothing for a newLength that is not below the length.
+function arrayTruncate(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let extra = saturatingSub(l, a: length, b: newLength)
+	arrayDropLast(l, p: p, box: box, arr: arr, n: extra)
+end 'arrayTruncate'
+
+// arrayGrowZero pushes zero elements until the array has newLength of them, which the checker has held to an element that has a zero.
+function arrayGrowZero(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let missing = saturatingSub(l, a: newLength, b: length)
+	let loop = countedLoopBegin(l, limit: missing)
+	let zero = konst(l, value: 0 as Word)
+	arrayPush(l, p: p, box: box, arr: arr, v: zero)
+	countedLoopEnd(l, loop: loop)
+end 'arrayGrowZero'
+
+// arraySlice is a new array of copies of the elements from start to below endIndex, which fails with indexOutOfBounds unless
+// start is not above endIndex and endIndex is not above the length, as maxon's slice does.
+function arraySlice(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, start Reg, endIndex Reg) returns Reg
+	let ordered = compare(l, op: CmpOp.cmpLe, a: start, b: endIndex, unsigned: true)
+	failUnless(l, p: p, cond: ordered, errorCase: ast.errorIndexOutOfBounds)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let within = compare(l, op: CmpOp.cmpLe, a: endIndex, b: length, unsigned: true)
+	failUnless(l, p: p, cond: within, errorCase: ast.errorIndexOutOfBounds)
+	let out = arrayNew(l, p: p, box: box)
+	let span = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(span, op: BinOp.binSub, left: endIndex, right: start, unsigned: true, fail: noBlock))
+	let loop = countedLoopBegin(l, limit: span)
+	let offset = countedLoopIndex(l, loop: loop)
+	let index = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
+	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
+	let copy = copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
+	arrayPush(l, p: p, box: box, arr: out, v: copy)
+	countedLoopEnd(l, loop: loop)
+	return out
+end 'arraySlice'
+
+// arrayCopyAt is a copy of the element at index, which fails with indexOutOfBounds past the end.
+function arrayCopyAt(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
+	arrayInBounds(l, p: p, box: box, arr: arr, index: index)
+	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
+	return copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
+end 'arrayCopyAt'
+
+// arrayPushCopies pushes n copies of value, which the call only reads.
+function arrayPushCopies(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, n Reg, value Reg)
+	let loop = countedLoopBegin(l, limit: n)
+	let copy = copyValue(l, p: p, site: box.site, v: value, t: arrayElem(p, box: box))
+	arrayPush(l, p: p, box: box, arr: arr, v: copy)
+	countedLoopEnd(l, loop: loop)
+end 'arrayPushCopies'
+
+// arrayGrowFilled pushes copies of value until the array has newLength elements, and does nothing for a newLength that is
+// not above the length.
+function arrayGrowFilled(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg, value Reg)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let missing = saturatingSub(l, a: newLength, b: length)
+	arrayPushCopies(l, p: p, box: box, arr: arr, n: missing, value: value)
+end 'arrayGrowFilled'
+
+// arrayRefill makes the array newLength copies of value: every element it held is dropped.
+function arrayRefill(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg, value Reg)
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	arrayDropLast(l, p: p, box: box, arr: arr, n: length)
+	arrayPushCopies(l, p: p, box: box, arr: arr, n: newLength, value: value)
+end 'arrayRefill'
+
+// elementsEqual is whether two values of the element type are equal: strings by their bytes, anything else that the checker
+// lets through (checkElementsComparable) by its word.
+function elementsEqual(mutates l Lowerer, mutates p ast.Project, box ArrayBox, a Reg, b Reg) returns Reg
+	if arrayElem(p, box: box) == p.builtins.stringTy 'string'
+		return runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(a, b: b))
+	end 'string'
+	return compare(l, op: CmpOp.cmpEq, a: a, b: b, unsigned: false)
+end 'elementsEqual'
+
+// storeIf stores value in a slot where cond holds.
+function storeIf(mutates l Lowerer, slot Count, cond Reg, value Word)
+	let set = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: set, ifFalse: join))
+	l.cur = set
+	let v = konst(l, value: value)
+	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+	goTo(l, target: join)
+end 'storeIf'
+
+// arrayContains is whether some element equals value.
+function arrayContains(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, value Reg) returns Reg
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let none = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(result, src: none, borrow: false))
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let loop = countedLoopBegin(l, limit: length)
+	let i = countedLoopIndex(l, loop: loop)
+	let element = arrayLoad(l, p: p, box: box, arr: arr, index: i)
+	let same = elementsEqual(l, p: p, box: box, a: element, b: value)
+	storeIf(l, slot: result, cond: same, value: 1 as Word)
+	countedLoopEnd(l, loop: loop)
+	return load(l, slot: result)
+end 'arrayContains'
+
+// arrayRunMatches is whether the elements of the sequence are the ones of the array from index on, which the array has room
+// for.
+function arrayRunMatches(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, sequence Reg, index Reg, length Reg) returns Reg
+	let matched = l.b.f.newSlot(IrKind.kindScalar)
+	let yes = konst(l, value: 1 as Word)
+	emit(l, i: newStoreSlot(matched, src: yes, borrow: false))
+	let loop = countedLoopBegin(l, limit: length)
+	let j = countedLoopIndex(l, loop: loop)
+	let at = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(at, op: BinOp.binAdd, left: index, right: j, unsigned: true, fail: noBlock))
+	let ours = arrayLoad(l, p: p, box: box, arr: arr, index: at)
+	let theirs = arrayLoad(l, p: p, box: box, arr: sequence, index: j)
+	let same = elementsEqual(l, p: p, box: box, a: ours, b: theirs)
+	let differ = isZero(l, v: same)
+	storeIf(l, slot: matched, cond: differ, value: 0 as Word)
+	countedLoopEnd(l, loop: loop)
+	return load(l, slot: matched)
+end 'arrayRunMatches'
+
+// arrayContainsSequence is whether the elements of the sequence follow one another somewhere in the array; the empty sequence
+// always does.
+function arrayContainsSequence(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, sequence Reg) returns Reg
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let none = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(result, src: none, borrow: false))
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let wanted = arrayLength(l, p: p, box: box, arr: sequence)
+	let one = konst(l, value: 1 as Word)
+	let room = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(room, op: BinOp.binAdd, left: length, right: one, unsigned: true, fail: noBlock))
+	let starts = saturatingSub(l, a: room, b: wanted)
+	let loop = countedLoopBegin(l, limit: starts)
+	let i = countedLoopIndex(l, loop: loop)
+	let found = arrayRunMatches(l, p: p, box: box, arr: arr, sequence: sequence, index: i, length: wanted)
+	storeIf(l, slot: result, cond: found, value: 1 as Word)
+	countedLoopEnd(l, loop: loop)
+	return load(l, slot: result)
+end 'arrayContainsSequence'
+
+// arrayEquals is whether the arrays have the same length and equal elements in order.
+function arrayEquals(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, other Reg) returns Reg
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let none = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(result, src: none, borrow: false))
+	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let otherLength = arrayLength(l, p: p, box: box, arr: other)
+	let sameLength = compare(l, op: CmpOp.cmpEq, a: length, b: otherLength, unsigned: true)
+	let compared = l.b.newBlock()
+	let done = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(sameLength, ifTrue: compared, ifFalse: done))
+	l.cur = compared
+	let zero = konst(l, value: 0 as Word)
+	let equal = arrayRunMatches(l, p: p, box: box, arr: arr, sequence: other, index: zero, length: length)
+	emit(l, i: newStoreSlot(result, src: equal, borrow: false))
+	goTo(l, target: done)
+	return load(l, slot: result)
+end 'arrayEquals'

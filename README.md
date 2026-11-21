@@ -923,7 +923,7 @@ and nothing else.
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
+  `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
   program that wants one declares a generic union (`union Option uses T`).
 
@@ -1508,6 +1508,24 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   that contains itself through an array (`var kids as Array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
+### Text
+
+A `String` is its UTF-8 bytes. Besides the byte operations, it has maxon's methods that read it by grapheme cluster: `count()`
+is the number of clusters, a `StringIndex` (built-in record; `charIndex()` and `bytePos()` give its two parts) names the
+start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLast(needle)` give them, the searches throwing
+`StringError.notFound` where the needle is not there; `slice(start, endIndex: end)` and `sliceLength(start, length: n)` cut by
+them, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask, `replace(old, with: new)` and `replaceFirst` leave a
+string with an empty or absent `old` as it was, `trim`, `trimStart` and `trimEnd` remove the whitespace and newline clusters of
+maxon's `CharacterSet.whitespacesAndNewlines` (they take no set), `toLower` and `toUpper` map the ASCII letters only, as
+maxon's do, and `s.append(t)` joins `t` to the string in `s`'s place (a new string, so a loop of appends is quadratic).
+Their code is `runtime/textops.maxon`, which the executable links and `builtingen` copies to `self/interp/textops_gen.maxon`
+for the interpreter, so one text says what each means; a search gives its position plus 1 so that 0 is no match.
+
+Clusters follow the rules of UAX #29 on the classes that the languages in common use occupy (the Extend ranges of the
+combining marks and the variation selectors, the zero width joiner and the pictograph sequences it joins, the pairs of
+regional indicators, Hangul syllables, CR LF) with no Unicode table, so a mark outside those ranges is a cluster of its own
+where maxon's tables join it. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash`, `charAt`,
+`codepoints`, `bytes()` or `utf16()` yet.
 ### The OS
 
 The OS functions are maxon's stdlib, names, labels, results and errors, declared as static functions of built-in
@@ -1712,11 +1730,9 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array is walked
   by `for x in` (a `String`, a `Map`'s entries, a `List`, a range value and `withIterator()` are not), and the loop holds
   the array, so a body that pushes to it or reassigns it is refused (`E3186`) where maxon re-reads the live count; the
-  iteration protocol is found on the concrete type, never through an interface; there is no `slice`, `clear`,
-  `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
-  zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has only
-  `byteLength`, `byteAt`, `sliceBytes`, `toByteArray` and the static `String.from(bytes)`, whose names leave `slice` and
-  `count` for maxon's graphemes. There is no built-in `Option`, which maxon's stdlib has no more of either: an
+  iteration protocol is found on the concrete type, never through an interface; there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
+  zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
+  There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.
 - `ByteArray` is a built-in typealias rather than maxon's in `stdlib/File.maxon`, and the minimaxon `Bytes` buffer is
   gone for it. Only an array of an integer type that fits in a byte packs its elements; maxon sizes an enum's and a

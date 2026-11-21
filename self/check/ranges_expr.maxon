@@ -318,7 +318,7 @@ end 'rangeNameExpr'
 
 function rangeMemberExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	let kind = memberInfoOf(r, e: e).kind
-	if kind != ast.MemberKind.memberEnumCase and kind != ast.MemberKind.memberUnionCase 'value'
+	if kind != ast.MemberKind.memberEnumCase and kind != ast.MemberKind.memberUnionCase and kind != ast.MemberKind.memberLimit 'value'
 		_ = rangeEval(r, p: p, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e))
 	end 'value'
 	let t = typeOf(r, e: e)
