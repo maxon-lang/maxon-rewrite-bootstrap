@@ -96,6 +96,9 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.castExpr 'castExpr'
 		return visitCastExpr(l, p: p, e: e)
 	end 'castExpr'
+	if k == ast.NodeKind.fromExpr 'fromExpr'
+		return visitFromExpr(l, p: p, e: e)
+	end 'fromExpr'
 	if k == ast.NodeKind.memberExpr 'memberExpr'
 		return visitMemberExpr(l, p: p, e: e)
 	end 'memberExpr'
@@ -374,8 +377,66 @@ function argsSince(l Lowerer, base Count) returns RegList
 	return out
 end 'argsSince'
 
-function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) returns Reg
+// lowerCall lowers a call of a function, a static function or a method, whose failure goes to the try around it.
+function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
 	let mark = l.pending.count()
+	let node = c.node
+	let kind = c.info.kind
+	if kind != ast.CallKind.callBound and p.funcs.entries[c.info.fn as Count].intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+		return lowerIntrinsic(l, p: p, c: c)
+	end 'intrinsic'
+	let target = callee(l, p: p, node: node, info: c.info, receiver: c.receiver)
+	let base = l.args.count()
+	let places = l.writeBacks.count()
+	if c.receiver != 0 'receiver'
+		let recv = lowerRead(l, p: p, e: c.receiver)
+		pushArg(l, v: recv)
+	end 'receiver'
+	for i in 0 upto c.ordered.count() 'each'
+		if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
+			let addr = address(l, p: p, e: c.ordered[i])
+			pushArg(l, v: addr)
+		end 'address' else 'value'
+			let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+			pushArg(l, v: v)
+		end 'value'
+	end 'each'
+	var dst = noReg
+	let callTy = exprType(p, module: l.module, node: node)
+	if callTy != p.builtins.voidTy 'value'
+		dst = newReg(l, kind: kindOf(l, p: p, t: callTy))
+	end 'value'
+	var errTy = p.funcs.entries[target as Count].errTy
+	if kind == ast.CallKind.callBound 'bound'
+		errTy = p.funcs.entries[c.info.method as Count].errTy
+	end 'bound'
+	if errTy == ast.noType 'plain'
+		emitCall(l, dst: dst, target: target, args: argsSince(l, base: base))
+		popArgs(l, n: base)
+		writeBack(l, p: p, mark: places)
+	end 'plain' else 'throwing'
+		let err = newReg(l, kind: IrKind.kindScalar)
+		emitThrowingCall(l, dst: dst, target: target, args: argsSince(l, base: base), err: err)
+		popArgs(l, n: base)
+		// What the callee wrote to an element before it failed stays written, as it would through the element's own
+		// address.
+		writeBack(l, p: p, mark: places)
+		// The callee has the arguments now, and drops them itself when it fails.
+		popPending(l, n: mark)
+		let ok = l.b.newBlock()
+		let zero = konst(l, value: 0 as Word)
+		let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+		let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+		l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
+		l.cur = ok
+	end 'throwing'
+	if dst == noReg 'none'
+		return konst(l, value: 0 as Word)
+	end 'none'
+	return dst
+end 'lowerCall'
+
+function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) returns Reg
 	let c = callSite(l, p: p, node: node)
 	let kind = c.info.kind
 	if kind == ast.CallKind.callPrint or kind == ast.CallKind.callPrintError 'print'
@@ -390,58 +451,7 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 		return konst(l, value: 0 as Word)
 	end 'print'
 	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
-		if kind != ast.CallKind.callBound and p.funcs.entries[c.info.fn as Count].intrinsic != ast.Intrinsic.intrNone 'intrinsic'
-			return lowerIntrinsic(l, p: p, c: c)
-		end 'intrinsic'
-		let target = callee(l, p: p, node: node, info: c.info, receiver: c.receiver)
-		let base = l.args.count()
-		let places = l.writeBacks.count()
-		if c.receiver != 0 'receiver'
-			let recv = lowerRead(l, p: p, e: c.receiver)
-			pushArg(l, v: recv)
-		end 'receiver'
-		for i in 0 upto c.ordered.count() 'each'
-			if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
-				let addr = address(l, p: p, e: c.ordered[i])
-				pushArg(l, v: addr)
-			end 'address' else 'value'
-				let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
-				pushArg(l, v: v)
-			end 'value'
-		end 'each'
-		var dst = noReg
-		let callTy = exprType(p, module: l.module, node: node)
-		if callTy != p.builtins.voidTy 'value'
-			dst = newReg(l, kind: kindOf(l, p: p, t: callTy))
-		end 'value'
-		var errTy = p.funcs.entries[target as Count].errTy
-		if kind == ast.CallKind.callBound 'bound'
-			errTy = p.funcs.entries[c.info.method as Count].errTy
-		end 'bound'
-		if errTy == ast.noType 'plain'
-			emitCall(l, dst: dst, target: target, args: argsSince(l, base: base))
-			popArgs(l, n: base)
-			writeBack(l, p: p, mark: places)
-		end 'plain' else 'throwing'
-			let err = newReg(l, kind: IrKind.kindScalar)
-			emitThrowingCall(l, dst: dst, target: target, args: argsSince(l, base: base), err: err)
-			popArgs(l, n: base)
-			// What the callee wrote to an element before it failed stays written, as it would through the element's own
-			// address.
-			writeBack(l, p: p, mark: places)
-			// The callee has the arguments now, and drops them itself when it fails.
-			popPending(l, n: mark)
-			let ok = l.b.newBlock()
-			let zero = konst(l, value: 0 as Word)
-			let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
-			let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
-			l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
-			l.cur = ok
-		end 'throwing'
-		if dst == noReg 'none'
-			return konst(l, value: 0 as Word)
-		end 'none'
-		return dst
+		return lowerCall(l, p: p, c: c)
 	end 'call'
 	if kind == ast.CallKind.callCopy 'copy'
 		let v = lowerExpr(l, p: p, e: c.receiver)

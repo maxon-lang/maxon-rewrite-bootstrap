@@ -919,7 +919,7 @@ and nothing else.
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
-- Integer, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]` and map literals `[k: v, k: w]` (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
+- Integer, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
@@ -1430,7 +1430,7 @@ An array of an integer type whose range fits in a `Byte` holds one byte to an el
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
 **Array and map literals.** `[a, b, c]` is an `Array` and `[k: v, l: w]` a `Map`, written on one line with at least one element:
-`[]` is `E2015`, as in maxon (its element type cannot be inferred), and there is no `Alias from [...]`. A literal is what the explicit code
+`[]` is `E2015`, as in maxon (its element type cannot be inferred). A literal is what the explicit code
 does: an empty collection, then a `push` or an `upsert` of each element in the order written, so each element is checked against
 `value` (and `key`) as that call's argument is, moved in under the same rules, and a later `upsert` of a key replaces its value. The
 element type is the one the context expects when it is an `Array with T` or a `Map with (K, V)` (an argument, a return, a field, an
@@ -1440,6 +1440,16 @@ no alias, so a literal of them keeps the range it spans, `[1, 2, 3]` being `Arra
 (`return try [10, 20, 30].get(0) otherwise 0` is an `ExitCode`); a literal inside another takes the whole word instead. A `var` cannot
 start from a collection of bare numbers, which could not take another later (`E2004`, as for `var x = 5`): `var xs = [5 as Count, 6]`. A
 module-level `let` of a literal is a constant that each use builds again.
+
+**`Type from value`.** `Alias from [a, b]` is the array literal written as the alias's array: its element type is the alias's
+(`Ages from [1, 2]` over `typealias Ages = Array with Age`), so each element must fit it, a `var` may hold it, and the
+elements are checked as an argument is. Over a `List` alias (or the bare `List`) it is the list that the literal builds, with
+each element appended in order; the bare `Array from [...]` and `List from [...]` take the element type from the elements, as
+a bare literal does. Any other type is written from a string literal, `Type from "text"`, which is `Type.init("text")`:
+the type says `implements InitableFromStringLiteral` (`E3005`, "Type 'T' does not conform to InitableFromStringLiteral",
+at the type's name, when it does not) and declares `static function init(value String) returns Self`. `FilePath` is one:
+`FilePath from "a/b"` is `FilePath.from` that stops the program with "FilePath: invalid path" where `FilePath.from` would
+throw.
 
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
 the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`.
@@ -1559,7 +1569,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Subprocess.runWithDeadline(executable, arguments: args, deadline: d)` | as `run`; a child still running when `d` (maxon's `WaitDeadline`: `WaitDeadline.none` or `WaitDeadline.within(ms)`) passes is terminated | `SubprocessError`, `timeout` for the deadline |
 
 - **`FilePath`** is a record holding the path's `String` (`path`), which every `File` and `Directory` function takes. It
-  is made with `FilePath.from`; a string literal does not convert to one.
+  is made with `FilePath.from`, or from a string literal with `FilePath from "text"`, which panics where `from` would throw.
 - **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
   `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
   `FileRenameError` (`failed`, `notFound`, `accessDenied`, `busy`, `alreadyExists`), `FileDeleteError` (`notFound`,
@@ -1730,8 +1740,8 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
-- Array and map literals (see "Primitives") are the maxon literals without `Alias from [...]`, `Type from [...]`, a literal spread over several
-  lines, or constant image data: a `let` literal is a fresh `Array` or `Map` like any other value, not an immutable image shared by its
+- Array and map literals (see "Primitives") are the maxon literals without a literal spread over several
+  lines or constant image data: a `let` literal is a fresh `Array` or `Map` like any other value, not an immutable image shared by its
   uses, and its bare numbers keep their range as the element type of that one array instead of fitting any alias at each use, so
   passing `let xs = [1, 2]` to a parameter of `Array with Count` is `E3005` until the literal is written where the parameter is.
 - `Array`, `Map` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
@@ -1777,6 +1787,14 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   value is already moved and never aliased here, so what is left of it is a value that cannot be copied or forgotten.
   `Copyable` and `Droppable` are structural bounds, not interfaces a declaration implements (see "Capabilities and
   destructors"). `exchange(place, value: v)` takes the label `value`.
+- `Type from value` (see "Primitives") is written from a literal only: an array literal for an `Array` or a `List`, a string
+  literal for a type with `init`. Not supported: `Set` and `FixedArray`, `List from <an array value>` and `Set from <an array
+  value>` (the elements are written as a literal), `Type from [...]` through `InitableFromArrayLiteral`, a map literal under an
+  alias, and `Type from 'c'`, since there are no character literals. The expression after `from` is a postfix expression,
+  where Maxon takes a literal whole: `Alias from [1, 2].count()` is `E3005`, since a call on the literal is not an array
+  literal, and the conversion is parenthesized to call on it: `(Alias from [1, 2]).count()`. `from` is still a name where a
+  name is required or an operand is (`function from()`, a parameter read as `from`, `String.from(bytes)`), as in Maxon, and
+  starts `Type from value` only after an expression.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
   reserved.

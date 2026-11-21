@@ -233,6 +233,9 @@ export function exprStart(t Tree, e NodeID) returns Count
 	if k == NodeKind.condExpr 'cond'
 		return exprStart(t, e: condExprThen(t, id: e))
 	end 'cond'
+	if k == NodeKind.fromExpr 'from'
+		return exprStart(t, e: fromExprHead(t, id: e))
+	end 'from'
 	return t.startOf(e) as Count
 end 'exprStart'
 
@@ -249,6 +252,9 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.condExpr 'cond'
 		return exprEnd(t, e: condExprElse(t, id: e))
 	end 'cond'
+	if k == NodeKind.fromExpr 'from'
+		return exprEnd(t, e: fromExprValue(t, id: e))
+	end 'from'
 	if k == NodeKind.castExpr 'cast'
 		return table.Option.some(typeEnd(t.text, at: wordEnd(t.text, at: start)))
 	end 'cast'

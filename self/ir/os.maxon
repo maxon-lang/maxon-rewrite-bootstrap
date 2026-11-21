@@ -186,6 +186,29 @@ function lowerFilePathFrom(mutates l Lowerer, mutates p ast.Project, c CallSite,
 	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerFilePathFrom'
 
+// invalidPathText is what the program says when a path written as `FilePath from "..."` is one the OS refuses.
+let invalidPathText = "FilePath: invalid path"
+
+// lowerFilePathInit is `FilePath from "text"`: FilePath.from, which stops the program where it would throw.
+function lowerFilePathInit(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let errSlot = l.b.f.newSlot(IrKind.kindScalar)
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	var all = argsOf1(args[0])
+	all.push(slotAddr(l, slot: errSlot))
+	emitEntry(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: all, routine: ast.noFunc)
+	let err = load(l, slot: errSlot)
+	let ok = l.b.newBlock()
+	let refused = l.b.newBlock()
+	let clear = isZero(l, v: err)
+	l.b.terminate(l.cur, t: newBranch(clear, ifTrue: ok, ifFalse: refused))
+	l.cur = refused
+	let message = strReg(l, value: invalidPathText.clone())
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(message), routine: ast.noFunc)
+	l.b.terminate(l.cur, t: newTrap())
+	l.cur = ok
+	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(dst))
+end 'lowerFilePathInit'
+
 function lowerFilePathToString(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	let text = pathText(l, path: recv)
 	let string = p.builtins.stringTy

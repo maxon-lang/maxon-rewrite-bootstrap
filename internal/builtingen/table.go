@@ -26,6 +26,7 @@ var primTypes = []primType{
 	{"Count", "b.countTy"},
 	{"ElementIndex", "b.elementIndexTy"},
 	{"Byte", "b.byteTy"},
+	{"FullRangeInt", "b.fullRangeIntTy"},
 	{"ExitCode", "b.exitCodeTy"},
 }
 
@@ -60,6 +61,9 @@ var typeAliases = []typeAlias{
 	{Name: "ByteArray", Type: "Array with Byte"},
 	// StringArray is maxon's name for an array of strings (stdlib/Json.maxon declares it, but programs use it everywhere).
 	{Name: "StringArray", Type: "Array with String"},
+	// FullRangeIntArray and FilePathArray are the stdlib's names for arrays of those elements.
+	{Name: "FullRangeIntArray", Type: "Array with FullRangeInt"},
+	{Name: "FilePathArray", Type: "Array with FilePath"},
 }
 
 // recordType is a built-in record: a type whose fields a program reads as it reads its own record's, with the methods
@@ -70,12 +74,14 @@ type recordType struct {
 	// Fields are "var name Type" or "let name Type", public as maxon's are, or "private let name Type" for a field
 	// only the lowering reads, each with the Go constant of its index Key+upper(name)+"Field".
 	Fields []string
+	// Implements are the marker interfaces the record conforms to.
+	Implements []string
 }
 
 var recordTypes = []recordType{
 	{Key: "CommandLine", Name: "CommandLine"},
 	{Key: "Process", Name: "Process"},
-	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}},
+	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}, Implements: []string{"InitableFromStringLiteral"}},
 	{Key: "File", Name: "File"},
 	{Key: "Directory", Name: "Directory"},
 	// StringIndex is where a position in a string is: the grapheme cluster it is the start of and the byte it is at.
@@ -211,8 +217,9 @@ var enumTypes = []enumType{
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.
 var capabilities = []string{"Copyable", "Droppable"}
 
-// markers are the interfaces with no methods that a declaration says it implements: Error, which an error enum does.
-var markers = []string{"Error"}
+// markers are the interfaces with no methods that a declaration says it implements: Error, which an error enum does, and
+// InitableFromStringLiteral, which a type with a static `init(value String)` does to be written `Type from "text"`.
+var markers = []string{"Error", "InitableFromStringLiteral"}
 
 // function is a built-in function or method.
 type function struct {
@@ -411,6 +418,7 @@ var tableFunctions = []function{
 	// id is maxon's Process.id, whose Pid is an unsigned 64-bit integer, which Count is.
 	{Owner: "Process", Name: "id", Static: true, Result: "Count", Intrinsic: "ProcessId"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
+	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
 	{Owner: "File", Name: "readText", Static: true, Params: []string{"path FilePath"}, Result: "String", Throws: "FileReadError", Intrinsic: "FileReadText"},
 	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},

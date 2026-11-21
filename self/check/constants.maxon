@@ -81,7 +81,9 @@ function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.No
 		constRefs(p, modIdx: modIdx, e: ast.condExprElse(p.modules[modIdx].tree, id: e), out: out)
 	end 'cond' else if k == ast.NodeKind.castExpr 'cast'
 		constRefs(p, modIdx: modIdx, e: ast.castExprE(p.modules[modIdx].tree, id: e), out: out)
-	end 'cast' else if k == ast.NodeKind.memberExpr 'member'
+	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
+		constRefs(p, modIdx: modIdx, e: ast.fromExprValue(p.modules[modIdx].tree, id: e), out: out)
+	end 'from' else if k == ast.NodeKind.memberExpr 'member'
 		constRefs(p, modIdx: modIdx, e: ast.memberExprObj(p.modules[modIdx].tree, id: e), out: out)
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		constRefs(p, modIdx: modIdx, e: ast.panicExprMessage(p.modules[modIdx].tree, id: e), out: out)

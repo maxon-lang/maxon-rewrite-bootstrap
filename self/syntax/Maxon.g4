@@ -97,7 +97,7 @@ typeDeclNode
 }
 
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=Name
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -132,7 +132,7 @@ param
     ;
 
 constDecl
-    : visibility=('export' | 'public')? 'let' name=Name '=' value=expr
+    : visibility=('export' | 'public')? 'let' name=(Name | 'from') '=' value=expr
     ;
 
 @ast::ConstDecl {
@@ -148,7 +148,7 @@ typeDecl
     ;
 
 fieldDecl
-    : visibility=('export' | 'public')? ('let' | isVar='var') name=Name ('as' type=typeRef | '=' default=expr)
+    : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from') ('as' type=typeRef | '=' default=expr)
     ;
 
 enumDecl
@@ -158,7 +158,7 @@ enumDecl
     ;
 
 enumCaseDecl
-    : name=Name ('=' raw=intLit)?
+    : name=(Name | 'from') ('=' raw=intLit)?
     ;
 
 unionDecl
@@ -168,7 +168,7 @@ unionDecl
     ;
 
 unionCaseDecl
-    : name=Name (^'(' (fields+=param (',' fields+=param)*)? ')')?
+    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')?
     ;
 
 aliasDecl
@@ -241,7 +241,7 @@ interfaceDecl
     ;
 
 funcSig
-    : 'function' name=Name
+    : 'function' name=(Name | 'from')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -285,8 +285,8 @@ stmt
     ;
 
 letStmt
-    : 'let' name=Name '=' init=expr
-    | isVar='var' name=Name ('=' init=expr | 'as' type=typeRef)
+    : 'let' name=(Name | 'from') '=' init=expr
+    | isVar='var' name=(Name | 'from') ('=' init=expr | 'as' type=typeRef)
     ;
 
 @ast::LetStmt {
@@ -340,7 +340,7 @@ whileStmt
     ;
 
 forStmt
-    : 'for' var=(Name | '_') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
+    : 'for' var=(Name | 'from' | '_') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;
@@ -353,7 +353,7 @@ tryStmt
     : 'try' label=Label
       body=block
       'end' end=endLabel?
-      ( hasOtherwise='otherwise' ('(' binding=Name ')')? handlerLabel=Label
+      ( hasOtherwise='otherwise' ('(' binding=(Name | 'from') ')')? handlerLabel=Label
         handler=block
         'end' handlerEnd=endLabel?
       )?
@@ -437,7 +437,7 @@ matchArm
 
 /** a pattern */
 pattern
-    : caseName=Name (hasBindings=^'(' (bindings+=(Name | '_') (',' bindings+=(Name | '_'))*)? ')')?
+    : caseName=(Name | 'from') (hasBindings=^'(' (bindings+=(Name | 'from' | '_') (',' bindings+=(Name | 'from' | '_'))*)? ')')?
     | value=patternValue ((inclusive='to' | 'upto') high=patternValue)?
     ;
 
@@ -467,9 +467,10 @@ expr
     | panicExpr
     | matchExpr
     | '(' expr ')'
-    | obj=expr '.' name=Name                                         # MemberExpr
+    | obj=expr '.' name=(Name | 'from')                              # MemberExpr
     | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
+    | head=expr 'from' value=expr                                    # FromExpr
     | op=('-'^ | 'not') e=expr                                       # UnaryExpr
     | e=expr 'as' target=typeRef                                     # CastExpr
     | l=expr op=('*' | '/' | 'mod') r=expr                           # BinaryExpr
@@ -537,7 +538,7 @@ boolLit
 
 // 'export' is a name only as the start of a qualified name, where it is the root module.
 nameExpr
-    : name=(Name | 'Self' | 'export')
+    : name=(Name | 'from' | 'Self' | 'export')
     ;
 
 @ast::NameExpr {
@@ -557,7 +558,7 @@ structLitExpr
 }
 
 structField
-    : name=Name ':' value=expr
+    : name=(Name | 'from') ':' value=expr
     ;
 
 // An array literal [a, b] or a map literal [k: v, k: v]: the first element's following token says which. The empty [] parses

@@ -162,11 +162,7 @@ func (g *pgen) describe(las []laSet) string {
 	for _, l := range las {
 		all = union(all, l)
 	}
-	var parts []string
-	for _, t := range firstTerminals(all) {
-		parts = append(parts, g.m.describeTerminal(t))
-	}
-	return joinOr(parts)
+	return joinOr(g.m.describeTerminals(firstTerminals(all)))
 }
 
 // choice emits a decision between alternatives with the given lookahead sets, calling branch for each.
@@ -300,15 +296,15 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 				terms = append(terms, g.m.terminal(a.elems[0]))
 			}
 			sort.Strings(terms)
-			var descs []string
+			var named []string
 			for _, t := range terms {
 				if e.anyKeyword && strings.HasPrefix(t, keywordPrefix) {
 					continue
 				}
-				descs = append(descs, g.m.describeTerminal(t))
+				named = append(named, t)
 			}
 			g.l.ifOpen(g.l.not(g.atAny(terms)))
-			g.l.refuse(joinOr(descs))
+			g.l.refuse(joinOr(g.m.describeTerminals(named)))
 			g.l.close()
 			// A ^ on one of the literals joins it, and only it, to its neighbour.
 			for _, a := range e.group {

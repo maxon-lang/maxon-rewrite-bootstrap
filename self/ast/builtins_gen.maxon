@@ -212,6 +212,7 @@ export enum Intrinsic
 	intrProcessExecutablePath
 	intrProcessId
 	intrFilePathFrom
+	intrFilePathInit
 	intrFilePathToString
 	intrFileReadText
 	intrFileWriteText
@@ -460,10 +461,16 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	b.copyableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Error")
+	b.initableFromStringLiteralTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
+	tt.entries[b.filePathTy as Count].conforms.push(b.initableFromStringLiteralTy)
 	let ty24 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
 	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty24)
 	let ty25 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
 	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty25)
+	let ty26 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty26)
+	let ty27 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty27)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -956,6 +963,10 @@ function declareFilePathMethods(mutates tt TypeTable, mutates ft FuncTable, muta
 	ps2.push(ParamSpec.make("path", ty: b.stringTy, conv: Convention.convLet))
 	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.filePathTy, op: Intrinsic.intrFilePathFrom, name: "from", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps2)
 	ft.entries[f3 as Count].errTy = b.filePathErrorTy
+	let ty4 = selfType(tt, declTy: b.filePathTy)
+	var ps5 = ParamSpecList.create(0)
+	ps5.push(ParamSpec.make("value", ty: b.stringTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.filePathTy, op: Intrinsic.intrFilePathInit, name: "init", isStatic: true, selfConv: Convention.convLet, ret: ty4, params: ps5)
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.filePathTy, op: Intrinsic.intrFilePathToString, name: "toString", isStatic: false, selfConv: Convention.convLet, ret: b.stringTy, params: ParamSpecList.create(0))
 end 'declareFilePathMethods'
 

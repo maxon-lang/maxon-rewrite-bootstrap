@@ -278,6 +278,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
+	if op == ast.Intrinsic.intrFilePathInit 'intrFilePathInit'
+		return lowerFilePathInit(l, p: p, c: c, recv: recv, args: args)
+	end 'intrFilePathInit'
 	if op == ast.Intrinsic.intrFilePathToString 'intrFilePathToString'
 		return lowerFilePathToString(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathToString'
@@ -655,6 +658,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'
+	if op == ast.Intrinsic.intrFilePathInit 'intrFilePathInit'
+		return false
+	end 'intrFilePathInit'
 	if op == ast.Intrinsic.intrFilePathToString 'intrFilePathToString'
 		return false
 	end 'intrFilePathToString'

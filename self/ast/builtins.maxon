@@ -50,6 +50,7 @@ export type Builtins
 	export var copyableTy as TypeID
 	export var droppableTy as TypeID
 	export var errorTy as TypeID
+	export var initableFromStringLiteralTy as TypeID
 	export var cownNewFunc as FuncID
 	export var cownNewDropWithFunc as FuncID
 	export var stringMethods as FuncIDMap
@@ -60,7 +61,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, elementIndexTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, iterationErrorTy: noType, stringErrorTy: noType, stringIndexTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool

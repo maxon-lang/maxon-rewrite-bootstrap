@@ -241,16 +241,24 @@ end 'assignElement'
 // upsert of each element in order. The collection is in flight while the elements are computed, and owns each one once it
 // is in.
 function visitCollectionLitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
-	let ty = exprType(p, module: l.module, node: e)
+	return lowerCollectionLit(l, p: p, e: e, ty: exprType(p, module: l.module, node: e))
+end 'visitCollectionLitExpr'
+
+// lowerCollectionLit builds the collection of type ty from the literal at e. A List takes the elements of an array
+// literal, appended in order.
+function lowerCollectionLit(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, ty ast.TypeID) returns Reg
 	let site = siteOf(l, p: p, node: e)
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[l.mi].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[l.mi].tree, id: e)
 	let isMap = p.modules[l.mi].tree.listLen(valuesRef) > 0
+	let isList = p.types.entries[ty as Count].kind == ast.TypeKind.builtinList
 	var collection = noReg
 	var box = ArrayBox.make(site.clone(), ty: ty)
 	if isMap 'map'
 		collection = entry(l, p: p, site: site, symbol: Rt.rtMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
-	end 'map' else 'array'
+	end 'map' else if isList 'list'
+		collection = entry(l, p: p, site: site, symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
+	end 'list' else 'array'
 		box = arrayOf(l, p: p, site: site, t: ty)
 		collection = arrayNew(l, p: p, box: box)
 	end 'array'
@@ -262,14 +270,33 @@ function visitCollectionLitExpr(mutates l Lowerer, mutates p ast.Project, e ast.
 		if isMap 'upsert'
 			let value = lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(valuesRef, index: i) as ast.NodeID)
 			entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(collection, b: first, c: value))
-		end 'upsert' else 'push'
+		end 'upsert' else if isList 'append'
+			_ = entry(l, p: p, site: site, symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(collection, b: first))
+		end 'append' else 'push'
 			arrayPush(l, p: p, box: box, arr: collection, v: first)
 		end 'push'
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)
 	return collection
-end 'visitCollectionLitExpr'
+end 'lowerCollectionLit'
+
+// visitFromExpr lowers `Type from value`: an array or a list is the literal built as that type, and any other type is
+// built by its `init`, which the check recorded as a static call with the literal as its one argument.
+function visitFromExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let value = ast.fromExprValue(p.modules[l.mi].tree, id: e)
+	let ty = exprType(p, module: l.module, node: e)
+	if p.modules[l.mi].tree.kindOf(value) == ast.NodeKind.collectionLitExpr 'literal'
+		return lowerCollectionLit(l, p: p, e: value, ty: ty)
+	end 'literal'
+	var info = callInfoAt(p, module: l.module, node: e)
+	info.paramSpecs = p.funcs.entries[info.fn as Count].params.clone()
+	var ordered = ast.NodeIDList.create(0)
+	ordered.push(value)
+	info.ordered = ordered.clone()
+	let c = CallSite.make(e, info: info, receiver: 0 as ast.NodeID, ordered: ordered)
+	return lowerCall(l, p: p, c: c)
+end 'visitFromExpr'
 
 // lowerIntrinsic lowers a call of a built-in method into the runtime entries of its primitive.
 function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg

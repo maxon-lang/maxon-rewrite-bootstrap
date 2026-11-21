@@ -102,28 +102,28 @@ function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.N
 	if op == ast.Intrinsic.intrProcessEnvironmentVariable or op == ast.Intrinsic.intrProcessExecutablePath or op == ast.Intrinsic.intrProcessId or op == ast.Intrinsic.intrFilePathFrom 'signature20'
 		return
 	end 'signature20'
-	if op == ast.Intrinsic.intrFilePathToString or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary 'signature21'
+	if op == ast.Intrinsic.intrFilePathInit or op == ast.Intrinsic.intrFilePathToString or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText 'signature21'
 		return
 	end 'signature21'
-	if op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate 'signature22'
+	if op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrDirectoryIsDirectory 'signature22'
 		return
 	end 'signature22'
-	if op == ast.Intrinsic.intrDirectoryCurrentPath or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline 'signature23'
+	if op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryCurrentPath or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun 'signature23'
 		return
 	end 'signature23'
-	if op == ast.Intrinsic.intrCollectedOutputExitCode or op == ast.Intrinsic.intrCollectedOutputSucceeded or op == ast.Intrinsic.intrRawLoad8 or op == ast.Intrinsic.intrRawLoad16 'signature24'
+	if op == ast.Intrinsic.intrSubprocessRunWithDeadline or op == ast.Intrinsic.intrCollectedOutputExitCode or op == ast.Intrinsic.intrCollectedOutputSucceeded or op == ast.Intrinsic.intrRawLoad8 'signature24'
 		return
 	end 'signature24'
-	if op == ast.Intrinsic.intrRawLoad32 or op == ast.Intrinsic.intrRawLoad64 or op == ast.Intrinsic.intrRawStore8 or op == ast.Intrinsic.intrRawStore16 'signature25'
+	if op == ast.Intrinsic.intrRawLoad16 or op == ast.Intrinsic.intrRawLoad32 or op == ast.Intrinsic.intrRawLoad64 or op == ast.Intrinsic.intrRawStore8 'signature25'
 		return
 	end 'signature25'
-	if op == ast.Intrinsic.intrRawStore32 or op == ast.Intrinsic.intrRawStore64 or op == ast.Intrinsic.intrRawWrappingAdd or op == ast.Intrinsic.intrRawWrappingSub 'signature26'
+	if op == ast.Intrinsic.intrRawStore16 or op == ast.Intrinsic.intrRawStore32 or op == ast.Intrinsic.intrRawStore64 or op == ast.Intrinsic.intrRawWrappingAdd 'signature26'
 		return
 	end 'signature26'
-	if op == ast.Intrinsic.intrRawAddressOf or op == ast.Intrinsic.intrRawStringAddress or op == ast.Intrinsic.intrRawStringAt or op == ast.Intrinsic.intrRawHeapAddress 'signature27'
+	if op == ast.Intrinsic.intrRawWrappingSub or op == ast.Intrinsic.intrRawAddressOf or op == ast.Intrinsic.intrRawStringAddress or op == ast.Intrinsic.intrRawStringAt 'signature27'
 		return
 	end 'signature27'
-	if op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawLiveAddress 'signature28'
+	if op == ast.Intrinsic.intrRawHeapAddress or op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawLiveAddress 'signature28'
 		return
 	end 'signature28'
 	panic("check: {op.name} is no intrinsic")

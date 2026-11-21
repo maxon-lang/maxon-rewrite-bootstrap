@@ -283,6 +283,11 @@ end 'make'
 			want: "function f(from Count) returns Count\n\tlet text = String.from(bytes)\n\tif (try values.get(0) otherwise panic(\"live\")) != from 'differs'\n\t\treturn from + 1\n\tend 'differs'\n\treturn 0\nend 'f'\n",
 		},
 		{
+			name: "a member named from and a literal after a from are not unsupported conversions",
+			in:   "function f() returns Count\n\tlet text = String.from (bytes)\n\tlet path = FilePath from \"a.txt\"\n\tlet xs = Ages from [1, 2]\n\treturn 0\nend 'f'\n",
+			want: "function f() returns Count\n\tlet text = String.from(bytes)\n\tlet path = FilePath from \"a.txt\"\n\tlet xs = Ages from [1, 2]\n\treturn 0\nend 'f'\n",
+		},
+		{
 			name: "a match arm that throws becomes an arm that runs a throw",
 			in:   "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred throws ColorError.unsupported\n\t\tdefault panic(\"the other colors are handled\")\n\tend 'which'\nend 'f'\n",
 			want: "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred then throw ColorError.unsupported\n\t\tdefault panic(\"the other colors are handled\")\n\tend 'which'\nend 'f'\n",
@@ -384,7 +389,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		{
 			name:     "Type from value",
 			in:       "function f(text String) returns Path\n\treturn Path from text\nend 'f'\n",
-			wantTodo: "'Type from value' conversions",
+			wantTodo: "'Type from value' takes an array literal or a string literal",
 		},
 		{
 			name:     "tuple value",

@@ -311,6 +311,9 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	if k == ast.NodeKind.collectionLitExpr 'collectionLit'
 		return collectionLitOwn(o, p: p, e: e, s: s)
 	end 'collectionLit'
+	if k == ast.NodeKind.fromExpr 'from'
+		return expr(o, p: p, e: ast.fromExprValue(p.modules[o.c.modIdx].tree, id: e), s: s)
+	end 'from'
 	if k == ast.NodeKind.matchExpr 'match'
 		return matchOwn(o, p: p, core: ast.matchExprMatch(p.modules[o.c.modIdx].tree, id: e), s: s)
 	end 'match'

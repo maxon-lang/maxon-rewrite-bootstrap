@@ -40,6 +40,7 @@ export enum NodeKind
 	memberExpr
 	indexExpr
 	callExpr
+	fromExpr
 	unaryExpr
 	castExpr
 	binaryExpr
@@ -65,6 +66,7 @@ export function isReserved(word String) returns bool
 		"public" or
 		"static" or
 		"function" or
+		"from" or
 		"mutates" or
 		"consumes" or
 		"destructs" or
@@ -1385,6 +1387,27 @@ end 'callExprArgsRef'
 export function setCallExprArgsRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].b = ref
 end 'setCallExprArgsRef'
+
+export function newFromExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.fromExpr, start: start)
+	return id
+end 'newFromExpr'
+
+export function fromExprHead(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'fromExprHead'
+
+export function setFromExprHead(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setFromExprHead'
+
+export function fromExprValue(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'fromExprValue'
+
+export function setFromExprValue(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setFromExprValue'
 
 export function newUnaryExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.unaryExpr, start: start)

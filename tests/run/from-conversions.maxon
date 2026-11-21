@@ -1,0 +1,25 @@
+//> 4 40 b 7 x.txt tagged
+
+typealias Age = int(0 to 150)
+
+typealias AgeArray = Array with Age
+
+typealias Words = Array with String
+
+type Tag implements InitableFromStringLiteral
+	export let text as String
+
+	static function init(consumes value String) returns Tag
+		return Tag{text: value}
+	end 'init'
+end 'Tag'
+
+function main() returns ExitCode
+	var ages = AgeArray from [36, 40, 7]
+	ages.push(1)
+	let words = Words from ["a", "b"]
+	let path = FilePath from "x.txt"
+	let tag = Tag from "tagged"
+	print("{ages.count()} {ages[1]} {words[1]} {ages[2]} {path.toString()} {tag.text}\n")
+	return 0
+end 'main'

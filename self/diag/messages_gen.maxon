@@ -474,3 +474,8 @@ end 'wrongSignatureMethods'
 export function undefinedReservedFunction(name String) returns String
 	return "call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists"
 end 'undefinedReservedFunction'
+
+// The text of errTypeMismatch for: Type '{typeName}' does not conform to {interfaceName}
+export function typeDoesNotConform(typeName String, interfaceName String) returns String
+	return "Type '{typeName}' does not conform to {interfaceName}"
+end 'typeDoesNotConform'

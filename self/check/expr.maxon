@@ -91,6 +91,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.castExpr 'castExpr'
 		return checkCast(c, p: p, e: e, errs: errs)
 	end 'castExpr'
+	if k == ast.NodeKind.fromExpr 'fromExpr'
+		return checkFromExpr(c, p: p, e: e, errs: errs)
+	end 'fromExpr'
 	if k == ast.NodeKind.memberExpr 'memberExpr'
 		return checkMember(c, p: p, e: e, errs: errs)
 	end 'memberExpr'

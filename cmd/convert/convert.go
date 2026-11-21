@@ -1146,8 +1146,11 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 					warn(line, fmt.Sprintf("%s(...) is not supported in minimaxon", t.text))
 				}
 			case "from":
-				if isTypeFromConversion(toks, i) {
-					warn(line, "'Type from value' conversions are not supported in minimaxon")
+				if isTypeFromValue(toks, i) {
+					warn(line, "'Type from value' takes an array literal or a string literal in minimaxon, not another value")
+				}
+				if i > 0 && (toks[i-1].text == "Set" || toks[i-1].text == "FixedArray") {
+					warn(line, fmt.Sprintf("'%s' is not supported in minimaxon", toks[i-1].text))
 				}
 			case "fallthrough":
 				if i > 0 && toks[i-1].text == "and" {
@@ -1372,10 +1375,10 @@ func handlerLabelIndex(toks []token, idx int) int {
 	return -1
 }
 
-// isTypeFromConversion reports whether the `from` at idx follows a type name and so reads as `Type from value`, not as a
-// variable named from. A `Type from [...]` literal is reported as the literal it is.
-func isTypeFromConversion(toks []token, idx int) bool {
-	if idx == 0 || toks[idx-1].kind != tokIdent || idx+1 >= len(toks) || toks[idx+1].text == "[" {
+// isTypeFromValue reports whether the `from` at idx follows a type name and is followed by anything but the array literal
+// or the string literal that minimaxon writes a type from.
+func isTypeFromValue(toks []token, idx int) bool {
+	if idx == 0 || toks[idx-1].kind != tokIdent || idx+1 >= len(toks) || toks[idx+1].text == "[" || toks[idx+1].kind == tokString {
 		return false
 	}
 	prev := toks[idx-1].text
@@ -1388,8 +1391,12 @@ func isCapabilityWord(word string) bool {
 
 // isKeywordName reports whether word is a keyword of minimaxon, other than the discard `_` that a declaration may name.
 func isKeywordName(word string) bool {
-	return word != "_" && reservedWords[word]
+	return word != "_" && word != nameKeyword && reservedWords[word]
 }
+
+// nameKeyword is the keyword that is still a name wherever a name is required, as it is in Maxon: `from` follows a type
+// only to write `Type from value`.
+const nameKeyword = "from"
 
 // keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not. A parameter may be
 // declared with one, but its body cannot read it.

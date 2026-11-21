@@ -1,0 +1,15 @@
+type Tag
+	export let text as String
+
+	static function init(consumes value String) returns Tag
+		return Tag{text: value}
+	end 'init'
+end 'Tag'
+
+function main() returns ExitCode
+	let tag = Tag from "tagged"
+	print("{tag.text}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 10:12

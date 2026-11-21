@@ -248,6 +248,10 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	if k == ast.NodeKind.callExpr 'call'
 		return rangeCallExpr(r, p: p, e: e)
 	end 'call'
+	if k == ast.NodeKind.fromExpr 'from'
+		_ = rangeEval(r, p: p, e: ast.fromExprValue(p.modules[r.modIdx].tree, id: e))
+		return noSpan()
+	end 'from'
 	if k == ast.NodeKind.condExpr 'cond'
 		return rangeCondExpr(r, p: p, e: e)
 	end 'cond'

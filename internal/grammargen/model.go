@@ -615,6 +615,24 @@ func (m *model) describeTerminal(id string) string {
 	return t.name
 }
 
+// nameKeyword is the keyword that is a name wherever a name is required, so a syntax error that asks for a name does not
+// list it.
+const nameKeyword = "from"
+
+// describeTerminals names the token kinds that a syntax error expects, leaving out the keyword that a name already
+// stands for.
+func (m *model) describeTerminals(ids []string) []string {
+	namesAllowed := slices.Contains(ids, "TName")
+	var parts []string
+	for _, id := range ids {
+		if namesAllowed && id == keywordConst(nameKeyword) {
+			continue
+		}
+		parts = append(parts, m.describeTerminal(id))
+	}
+	return parts
+}
+
 func joinOr(parts []string) string {
 	switch len(parts) {
 	case 0:

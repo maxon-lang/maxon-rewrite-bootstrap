@@ -1,0 +1,11 @@
+typealias Age = int(0 to 150)
+
+typealias Ages = List with Age
+
+function main() returns ExitCode
+	var counts = Ages from [5, 6]
+	let bare = List from [1, 2, 3]
+	_ = counts.append(7)
+	print("{counts.count()} {bare.count()}\n")
+	return 0
+end 'main'

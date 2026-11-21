@@ -207,6 +207,11 @@ func emitMaxon(t table) string {
 	for _, c := range slices.Concat(capabilities, markers) {
 		types.line("b.%s = registerInterfaceType(tt, std: std, typeMap: typeMap, name: %q)", maxonField(c, false), c)
 	}
+	for _, r := range recordTypes {
+		for _, iface := range r.Implements {
+			types.line("tt.entries[%s as Count].conforms.push(b.%s)", maxonOwner(r.Key), maxonField(iface, false))
+		}
+	}
 	for _, a := range typeAliases {
 		ty := types.ty(fn{}, "", parseType(a.Type))
 		types.line("registerStdInstanceAlias(std, typeMap: typeMap, name: %q, ty: %s)", a.Name, ty)

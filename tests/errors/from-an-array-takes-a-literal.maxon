@@ -1,0 +1,10 @@
+typealias Counts = Array with Count
+
+function main() returns ExitCode
+	let base = Counts.create(0)
+	_ = Counts from base
+	print("done\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 5:18

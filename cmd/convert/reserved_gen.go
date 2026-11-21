@@ -8,6 +8,7 @@ var reservedWords = map[string]bool{
 	"public":      true,
 	"static":      true,
 	"function":    true,
+	"from":        true,
 	"mutates":     true,
 	"consumes":    true,
 	"destructs":   true,

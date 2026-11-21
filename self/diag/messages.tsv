@@ -101,3 +101,4 @@ letFieldReassigned	ErrAssignToImmutable	'{name}' is a let field and cannot be re
 missingMethods	ErrConformance	Partial interface implementation: type '{typeName}' is missing {count} method(s):
 wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
 undefinedReservedFunction	ErrUnknownFunction	call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
+typeDoesNotConform	ErrTypeMismatch	Type '{typeName}' does not conform to {interfaceName}

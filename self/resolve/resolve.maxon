@@ -812,7 +812,10 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 	end 'coll' else if k == ast.NodeKind.castExpr 'cast'
 		resolveExpr(r, p: p, id: ast.castExprE(r.tree, id: id), errs: errs)
 		resolveTypeRef(r, p: p, tr: ast.castExprTarget(r.tree, id: id), errs: errs)
-	end 'cast' else if k == ast.NodeKind.matchExpr 'me'
+	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
+		resolveExpr(r, p: p, id: ast.fromExprHead(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.fromExprValue(r.tree, id: id), errs: errs)
+	end 'from' else if k == ast.NodeKind.matchExpr 'me'
 		resolveMatchCore(r, p: p, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
 	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
 		resolveExpr(r, p: p, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
