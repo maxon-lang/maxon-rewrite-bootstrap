@@ -3,30 +3,39 @@ export function blockIndex(b BlockID) returns Count
 	return try b as Count otherwise panic("ir: a block that does not exist is used")
 end 'blockIndex'
 
-// SuccessorVisitor collects the blocks that a terminator can go to, in the order of its operands.
+// SuccessorVisitor collects the edges of a terminator, in the order of its operands: the block each goes to, in out, and
+// the arguments it passes, args[argsStart[i]] on, argsCount[i] of them.
 export type SuccessorVisitor implements TermVisitor
 	export var out as BlockIDList
+	export var argsStart as Array with Count
+	export var argsCount as Array with Count
 
 	export static function new() returns SuccessorVisitor
-		return SuccessorVisitor{out: BlockIDList.create(0)}
+		return SuccessorVisitor{out: BlockIDList.create(0), argsStart: Array.create(0), argsCount: Array.create(0)}
 	end 'new'
 
+	function edge(mutates self, target BlockID, start Count, count Count)
+		out.push(target)
+		argsStart.push(start)
+		argsCount.push(count)
+	end 'edge'
+
 	export function visitJump(mutates self, f IrFunction, t Term)
-		out.push(jumpTarget(t))
+		self.edge(jumpTarget(t), start: jumpArgsStart(t), count: jumpArgsCount(t))
 	end 'visitJump'
 
 	export function visitBranch(mutates self, f IrFunction, t Term)
-		out.push(branchIfTrue(t))
-		out.push(branchIfFalse(t))
+		self.edge(branchIfTrue(t), start: branchTrueArgsStart(t), count: branchTrueArgsCount(t))
+		self.edge(branchIfFalse(t), start: branchFalseArgsStart(t), count: branchFalseArgsCount(t))
 	end 'visitBranch'
 
 	export function visitSwitch(mutates self, f IrFunction, t Term)
 		let start = switchCasesStart(t)
 		for i in 0 upto switchCasesCount(t) 'each'
 			let at = try start + i otherwise panic("ir: a case list is out of range")
-			out.push(f.cases[at].target)
+			self.edge(f.cases[at].target, start: f.cases[at].argsStart(), count: f.cases[at].argsCount())
 		end 'each'
-		out.push(switchFallback(t))
+		self.edge(switchFallback(t), start: switchFallbackArgsStart(t), count: switchFallbackArgsCount(t))
 	end 'visitSwitch'
 
 	export function visitRet(mutates self, f IrFunction, t Term)
@@ -103,9 +112,12 @@ export type Builder
 	export var instrs as InstrList
 	export var instrBlock as BlockIDList
 	export var terms as TermList
+	// paramRegs are the parameters of the blocks, in the order they were made, and paramBlock the block of each.
+	export var paramRegs as RegList
+	export var paramBlock as BlockIDList
 
 	export static function new() returns Builder
-		return Builder{f: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count), instrs: InstrList.create(0), instrBlock: BlockIDList.create(0), terms: TermList.create(0)}
+		return Builder{f: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count), instrs: InstrList.create(0), instrBlock: BlockIDList.create(0), terms: TermList.create(0), paramRegs: RegList.create(0), paramBlock: BlockIDList.create(0)}
 	end 'new'
 
 	// start begins a function, forgetting the one before it.
@@ -114,7 +126,17 @@ export type Builder
 		instrs = InstrList.create(0)
 		instrBlock = BlockIDList.create(0)
 		terms = TermList.create(0)
+		paramRegs = RegList.create(0)
+		paramBlock = BlockIDList.create(0)
 	end 'start'
+
+	// blockParam adds a parameter to the end of a block's parameters, a register that each edge into the block sets.
+	export function blockParam(mutates self, block BlockID, kind IrKind) returns Reg
+		let r = f.newReg(kind)
+		paramRegs.push(r)
+		paramBlock.push(block)
+		return r
+	end 'blockParam'
 
 	// newBlock makes a block, which comes after the blocks made before it.
 	export function newBlock(mutates self) returns BlockID
@@ -169,11 +191,28 @@ export type Builder
 	// arguments adds the registers of a call to the pool and gives where they start.
 	function arguments(mutates self, args RegList) returns Reg
 		let start = regOf(f.args.count())
-		for i in 0 upto args.count() 'each'
-			f.args.push(args[i])
-		end 'each'
+		f.args.append(args)
 		return start
 	end 'arguments'
+
+	// edgeArguments adds the arguments of an edge to the pool and gives where they start.
+	function edgeArguments(mutates self, args RegList) returns Index
+		let start = indexOf(f.args.count())
+		f.args.append(args)
+		return start
+	end 'edgeArguments'
+
+	// jumpWith is a jump to target that passes args to its parameters.
+	export function jumpWith(mutates self, target BlockID, args RegList) returns Term
+		return newJumpWith(target, argsStart: self.edgeArguments(args), argsCount: indexOf(args.count()))
+	end 'jumpWith'
+
+	// branchWith is a branch on cond to ifTrue, passing trueArgs, or to ifFalse, passing falseArgs.
+	export function branchWith(mutates self, cond Reg, ifTrue BlockID, trueArgs RegList, ifFalse BlockID, falseArgs RegList) returns Term
+		let start = self.edgeArguments(trueArgs)
+		_ = self.edgeArguments(falseArgs)
+		return newBranchWith(cond, ifTrue: ifTrue, trueArgsStart: start, trueArgsCount: indexOf(trueArgs.count()), ifFalse: ifFalse, falseArgsCount: indexOf(falseArgs.count()))
+	end 'branchWith'
 
 	function callee(mutates self, target ast.FuncID) returns Index
 		let n = f.callees.count()
@@ -307,14 +346,60 @@ export type Builder
 		return newCopy(dst, src: src, ty: self.typed(ty))
 	end 'copy'
 
-	// switch is a terminator that goes to the target of the value that matches, or to def.
+	// switch is a terminator that goes to the target of the value that matches, or to def, passing no arguments.
 	export function switch(mutates self, value Reg, values WordList, targets BlockIDList, def BlockID) returns Term
-		let first = f.cases.count()
-		for i in 0 upto values.count() 'each'
-			f.cases.push(SwitchCase.make(values[i], target: targets[i]))
-		end 'each'
-		return newSwitch(value, casesFirst: indexOf(first), casesCount: indexOf(values.count()), fallback: def)
+		var counts as Array with Count
+		counts = Array.create(values.count())
+		return self.switchWith(value, values: values, targets: targets, caseArgs: RegList.create(0), caseArgCounts: counts, def: def, defArgs: RegList.create(0))
 	end 'switch'
+
+	// switchWith is a switch whose case i passes the next caseArgCounts[i] of caseArgs to its target, and whose fallback
+	// passes defArgs to def.
+	export function switchWith(mutates self, value Reg, values WordList, targets BlockIDList, caseArgs RegList, caseArgCounts Array with Count, def BlockID, defArgs RegList) returns Term
+		let first = f.cases.count()
+		var at = self.edgeArguments(caseArgs)
+		for i in 0 upto values.count() 'each'
+			let count = indexOf(caseArgCounts[i])
+			f.cases.push(SwitchCase.make(values[i], target: targets[i], args: at, argCount: count))
+			at = try at + count otherwise panic("ir: a switch passes more arguments than an index can name")
+		end 'each'
+		let defStart = self.edgeArguments(defArgs)
+		return newSwitchWith(value, casesFirst: indexOf(first), casesCount: indexOf(values.count()), fallback: def, fallbackArgsStart: defStart, fallbackArgsCount: indexOf(defArgs.count()))
+	end 'switchWith'
+
+	// groupParams lists the parameters of the blocks block by block, in the order each block's were made: those of block b
+	// are out[start[b]] up to, not including, out[start[b + 1]].
+	function groupParams(start Array with Count) returns RegList
+		let n = terms.count()
+		var out = RegList.create(start[n])
+		var fill as Array with Count
+		fill = Array.create(0)
+		for blk in 0 upto n 'starts'
+			fill.push(start[blk])
+		end 'starts'
+		for i in 0 upto paramRegs.count() 'each'
+			let blk = blockIndex(paramBlock[i])
+			out[fill[blk]] = paramRegs[i]
+			fill[blk] = try fill[blk] + 1 otherwise panic("ir: a function has too many block parameters")
+		end 'each'
+		return out
+	end 'groupParams'
+
+	// paramStarts are where the parameters of each block start in the list groupParams makes, and how many there are in all
+	// at the end.
+	function paramStarts() returns Array with Count
+		let n = terms.count()
+		var start as Array with Count
+		start = Array.create(try n + 1 otherwise panic("ir: too many blocks"))
+		for i in 0 upto paramBlock.count() 'count'
+			let at = try blockIndex(paramBlock[i]) + 1 otherwise panic("ir: too many blocks")
+			start[at] = try start[at] + 1 otherwise panic("ir: a block has too many parameters")
+		end 'count'
+		for blk in 0 upto n 'sum'
+			start[blk + 1] = try start[blk + 1] + start[blk] otherwise panic("ir: a function has too many block parameters")
+		end 'sum'
+		return start
+	end 'paramStarts'
 
 	// failEdges lists, for each block, the blocks its instructions can fail to: those of block b are
 	// edges[edgeStart[b]] up to, not including, edges[edgeStart[b + 1]].
@@ -380,10 +465,62 @@ export type Builder
 		return reached
 	end 'markReachable'
 
-	// finish ends the function: the blocks that nothing reaches are dropped, the others keep their order and are
+	// edgesInto counts the edges into each block from the reached blocks, the entry's from the caller too.
+	function edgesInto(reached Array with bool) returns Array with Count
+		let n = terms.count()
+		var into as Array with Count
+		into = Array.create(n)
+		into[0] = 1
+		for blk in 0 upto n 'blocks'
+			if reached[blk] 'live'
+				var next = SuccessorVisitor.new()
+				visitTerm(next, f: f, t: terms[blk])
+				for e in 0 upto next.out.count() 'edges'
+					let target = blockIndex(next.out[e])
+					into[target] = try into[target] + 1 otherwise panic("ir: a block has too many edges in")
+				end 'edges'
+			end 'live'
+		end 'blocks'
+		for i in 0 upto instrs.count() 'fails'
+			let target = failTarget(instrs[i])
+			if target != noBlock 'fails'
+				if reached[blockIndex(instrBlock[i])] 'live'
+					let at = blockIndex(target)
+					into[at] = try into[at] + 1 otherwise panic("ir: a block has too many edges in")
+				end 'live'
+			end 'fails'
+		end 'fails'
+		return into
+	end 'edgesInto'
+
+	// splitSharedFailures gives each failure edge into a block that another edge also enters a block of its own that jumps
+	// there, since the block an instruction's failure goes to has that edge as its only one in (see verify.maxon), and
+	// gives which blocks are reached, the new ones too.
+	function splitSharedFailures(mutates self, reached Array with bool) returns Array with bool
+		let into = self.edgesInto(reached)
+		var live = reached.clone()
+		for i in 0 upto instrs.count() 'each'
+			let target = failTarget(instrs[i])
+			if target != noBlock 'fails'
+				if reached[blockIndex(instrBlock[i])] and into[blockIndex(target)] > 1 'shared'
+					let own = self.newBlock()
+					self.terminate(own, t: newJump(target))
+					var x = instrs[i].clone()
+					setFail(x, fail: own)
+					instrs[i] = x
+					live.push(true)
+				end 'shared'
+			end 'fails'
+		end 'each'
+		return live
+	end 'splitSharedFailures'
+
+	// finish ends the function: the blocks that nothing reaches are dropped, a failure edge into a block that another
+	// edge enters gets a block of its own (splitSharedFailures), and the blocks keep their order and are
 	// numbered from 0. The builder can start another function.
 	export function finish(mutates self) returns IrFunction
-		let reached = self.markReachable()
+		let found = self.markReachable()
+		let reached = self.splitSharedFailures(found)
 		let n = terms.count()
 		var counts as Array with Count
 		counts = Array.create(n)
@@ -404,13 +541,21 @@ export type Builder
 				total = try total + counts[blk] otherwise panic("ir: a function has too many instructions")
 			end 'live'
 		end 'number'
+		let paramStart = self.paramStarts()
+		let grouped = self.groupParams(paramStart)
+		var blockParams = RegList.create(0)
 		var blocks = BlockList.create(0)
 		for blk in 0 upto n 'blocks'
 			if reached[blk] 'live'
 				var renumber = RenumberVisitor.new(newID.clone(), t: terms[blk].clone())
 				visitTerm(renumber, f: f, t: terms[blk])
 				let stop = try places[blk] + counts[blk] otherwise panic("ir: a function has too many instructions")
-				blocks.push(Block.make(places[blk], endAt: stop, term: renumber.out.clone()))
+				let params = blockParams.count()
+				for at in paramStart[blk] upto paramStart[blk + 1] 'params'
+					blockParams.push(grouped[at])
+				end 'params'
+				let paramCount = try blockParams.count() - params otherwise panic("ir: a block has fewer parameters than none")
+				blocks.push(Block.make(places[blk], endAt: stop, params: params, paramCount: paramCount, term: renumber.out.clone()))
 			end 'live'
 		end 'blocks'
 		var order as Array with Count
@@ -434,6 +579,7 @@ export type Builder
 		var done = exchange(f, value: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count))
 		done.instrs = placed
 		done.blocks = blocks
+		done.blockParams = blockParams
 		renumberCases(done, newID: newID)
 		return done
 	end 'finish'

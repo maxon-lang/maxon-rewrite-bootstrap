@@ -346,6 +346,45 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		end 'jump'
 	end 'jumpUnlessNext'
 
+	// passArgs sets the parameters of target from the arguments of an edge, args[start] on, count of them. Every argument
+	// is pushed before any parameter is popped, so an argument that is a parameter the same edge sets is read first.
+	function passArgs(mutates self, f ir.IrFunction, target ir.BlockID, start Count, count Count)
+		let block = try target as Count otherwise panic("backend: an edge to no block")
+		if count != f.blocks[block].paramCount 'arity'
+			panic("backend: an edge passes {count} arguments to b{block}, which has {f.blocks[block].paramCount} parameters")
+		end 'arity'
+		for i in 0 upto count 'push'
+			self.get(f, r: rcx, v: f.args[try start + i otherwise panic("backend: an edge argument past the pool")])
+			u.asm.push(rcx)
+		end 'push'
+		var i = count
+		while i > 0 'pop'
+			i = try i - 1 otherwise panic("backend: an edge argument before the first")
+			u.asm.pop(rcx)
+			self.put(f, v: f.blockParam(block, i: i), r: rcx)
+		end 'pop'
+	end 'passArgs'
+
+	// edge goes to target, passing it the arguments args[start] on.
+	function edge(mutates self, f ir.IrFunction, target ir.BlockID, start Count, count Count)
+		self.passArgs(f, target: target, start: start, count: count)
+		self.jumpUnlessNext(target)
+	end 'edge'
+
+	// edgeIfEqual goes to target, passing it the arguments args[start] on, when the flags say equal, and otherwise falls
+	// through. rax is left as it is.
+	function edgeIfEqual(mutates self, f ir.IrFunction, target ir.BlockID, start Count, count Count)
+		if count == 0 'plain'
+			u.asm.jcc(X64CondCode.equal, label: blockLabel(target))
+			return
+		end 'plain'
+		let skip = u.asm.newLabel()
+		u.asm.jcc(X64CondCode.notEqual, label: skip)
+		self.passArgs(f, target: target, start: start, count: count)
+		u.asm.jmp(blockLabel(target))
+		u.asm.bind(skip)
+	end 'edgeIfEqual'
+
 	// The visit methods are codegen's ir.InstrVisitor and ir.TermVisitor: each writes the code of one operation.
 
 	function visitConst(mutates self, f ir.IrFunction, x ir.Instr)
@@ -993,14 +1032,14 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	end 'visitGuard'
 
 	function visitJump(mutates self, f ir.IrFunction, t ir.Term)
-		self.jumpUnlessNext(ir.jumpTarget(t))
+		self.edge(f, target: ir.jumpTarget(t), start: ir.jumpArgsStart(t), count: ir.jumpArgsCount(t))
 	end 'visitJump'
 
 	function visitBranch(mutates self, f ir.IrFunction, t ir.Term)
 		self.get(f, r: rax, v: ir.branchCond(t))
 		u.asm.test(rax, right: rax)
-		u.asm.jcc(X64CondCode.equal, label: blockLabel(ir.branchIfFalse(t)))
-		self.jumpUnlessNext(ir.branchIfTrue(t))
+		self.edgeIfEqual(f, target: ir.branchIfFalse(t), start: ir.branchFalseArgsStart(t), count: ir.branchFalseArgsCount(t))
+		self.edge(f, target: ir.branchIfTrue(t), start: ir.branchTrueArgsStart(t), count: ir.branchTrueArgsCount(t))
 	end 'visitBranch'
 
 	function visitSwitch(mutates self, f ir.IrFunction, t ir.Term)
@@ -1010,9 +1049,9 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 			let at = try start + i otherwise panic("backend: a case past the pool")
 			u.asm.movImm(rcx, imm: try f.cases[at].value as FullRangeInt otherwise panic("backend: a case value past the word"))
 			u.asm.cmp(rax, right: rcx)
-			u.asm.jcc(X64CondCode.equal, label: blockLabel(f.cases[at].target))
+			self.edgeIfEqual(f, target: f.cases[at].target, start: f.cases[at].argsStart(), count: f.cases[at].argsCount())
 		end 'cases'
-		self.jumpUnlessNext(ir.switchFallback(t))
+		self.edge(f, target: ir.switchFallback(t), start: ir.switchFallbackArgsStart(t), count: ir.switchFallbackArgsCount(t))
 	end 'visitSwitch'
 
 	function visitRet(mutates self, f ir.IrFunction, t ir.Term)

@@ -80,7 +80,8 @@ never edited by hand, except that the runner writes `specs/passed.txt` (see "Tes
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
-`--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
+`--verify-ir` checks the IR of every function with the IR verifier (see "The IR") before code is made, and stops the compile
+with an internal error naming the rules the first broken function breaks. `--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
 development, and `minimaxon test` always uses it. `--update-positions` makes `test` rewrite the `at L:C` of an
 `expect-error` whose code was reported at another place, and count the test as passed.
 
@@ -367,6 +368,8 @@ d:(loadField obj [off])                                   => (LoadRegBaseDisp d 
   operation that defines it, which `name:` binds the register of; every other operand is in brackets: `[_]`, a variable or a
   number in a pattern, a Maxon expression of the rule's variables in a result. Operands left off the end of a pattern match
   anything; a result leaves off only an optional one (a failure block, an error register, a routine), which is then absent.
+  A terminator's pattern names its targets and never its edge arguments (`jump`'s `Args`, `branch`'s `TrueArgs` and
+  `FalseArgs`, `switch`'s `FallbackArgs`): they are no operands of a rule, and follow the edge that the rule keeps.
 - A variable named twice matches only the same register or value. A condition is a Maxon expression of the variables that
   calls the helpers in `self/opt/rules.maxon`.
 - `bin` with add, mul, and, or or xor and `cmp` with eq or ne are commutative: each rule over them is also tried with the
@@ -642,7 +645,15 @@ what a later pass such as reference counting or an optimization changes.
 - A function (`ir.IrFunction`) is a list of basic blocks, each a run of instructions ending in one terminator (`jump`,
   `branch`, `switch`, `ret`, `trap`, `throw`). The instructions of every block are one list (`instrs`), block after block, and
   a block is the range of it that it holds (`Block.first`, `endAt`) with its terminator beside the range.
-- Instructions read and write virtual registers (`%3`). Locals and temporaries live in numbered slots (`s0`). It is not SSA.
+- Instructions read and write virtual registers (`%3`), each defined once: by one instruction, or as a parameter of a block.
+  A block's parameters are a range of the function's `blockParams` pool (`Block.params`, `paramCount`), printed after its
+  label (`b1(%2, %3):`); every edge into the block passes one argument for each, of the same kind, and sets them all at once,
+  so an edge that passes `(%3, %2)` to `b1(%2, %3)` swaps them. An edge's arguments are a range of `args`: a `jump`'s
+  (`jump b1(%0)`), a `branch`'s two (the true edge's `targetArgs` from `args` on, then the false edge's `otherArgs` right
+  after), a `switch`'s fallback in the terminator's record and each case's in its `SwitchCase`; `newJump`, `newBranch` and
+  `newSwitch` make edges that pass none, and `Builder.jumpWith`, `branchWith` and `switchWith` edges that pass some. Locals, and every
+  value that lowering carries from one block to another, still live in numbered slots (`s0`): lowering makes no block
+  parameters, which SSA construction will.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
   check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, and a `bin` or a
@@ -660,8 +671,20 @@ what a later pass such as reference counting or an optimization changes.
   `ir.TermVisitor` (`ir.visitInstr`, `ir.visitTerm`), so an opcode added to the table fails the build there.
 - A function's IR is made by an `ir.Builder`, which collects the instructions in the order they are emitted, whichever block
   they are for, and `finish` lays them out block after block (a block nothing reaches is dropped and the others are numbered
-  from 0). A `when` body and a closure's body are each an `IrFunction` of its own in `bodies` of the function around it.
+  from 0). A failure edge into a block that another edge also enters, such as the two guards of a cast that share one failure,
+  gets a block of its own at the end that jumps there, so the verifier's last rule holds of all lowered IR. A `when` body and a closure's body are each an `IrFunction` of its own in `bodies` of the function around it.
 - `--emit-ir` prints a module's IR (`ir.moduleIrText`).
+- The verifier (`ir.verifyIr`, `self/ir/verify.maxon`) checks the rules every pass must keep: each register is defined once;
+  every definition dominates its uses; an edge passes as many arguments as its target has parameters, each of the parameter's
+  kind, and the entry has none; and an edge that leaves its block before its end (an `else`) passes no arguments and is the
+  only edge into its target. Dominance is computed (Cooper, Harvey and Kennedy) over the blocks cut after each instruction that
+  can fail, whose result is defined only on the edge that did not fail. `selftest` runs it on IR built by hand
+  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers. The interpreter and codegen read every
+  argument of an edge before they set a parameter: codegen pushes the arguments' frame slots and pops them into the
+  parameters', which are the frame slots of their registers.
+- What an analysis asks of every operation is generated from the IR table: the registers it reads (`instrReads`, `termReads`,
+  the edges' arguments included) and writes (`instrWrites`, a call's error register included). `SuccessorVisitor` gives a
+  terminator's edges with their arguments.
 
 | Group | Instructions |
 |---|---|

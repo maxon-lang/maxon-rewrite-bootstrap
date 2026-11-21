@@ -209,32 +209,28 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 	end 'visitCopy'
 
 	function visitJump(mutates self, f ir.IrFunction, t ir.Term)
-		vm.curBlock = try ir.jumpTarget(t) as Count otherwise panic("interp: a jump to no block")
-		vm.curPc = 0
+		takeEdge(vm, f: f, target: ir.jumpTarget(t), start: ir.jumpArgsStart(t), count: ir.jumpArgsCount(t))
 	end 'visitJump'
 
 	function visitBranch(mutates self, f ir.IrFunction, t ir.Term)
-		var next = ir.branchIfFalse(t)
 		if vm.num(ir.branchCond(t)) != 0 'taken'
-			next = ir.branchIfTrue(t)
-		end 'taken'
-		vm.curBlock = try next as Count otherwise panic("interp: a branch to no block")
-		vm.curPc = 0
+			takeEdge(vm, f: f, target: ir.branchIfTrue(t), start: ir.branchTrueArgsStart(t), count: ir.branchTrueArgsCount(t))
+		end 'taken' else 'notTaken'
+			takeEdge(vm, f: f, target: ir.branchIfFalse(t), start: ir.branchFalseArgsStart(t), count: ir.branchFalseArgsCount(t))
+		end 'notTaken'
 	end 'visitBranch'
 
 	function visitSwitch(mutates self, f ir.IrFunction, t ir.Term)
-		var next = ir.switchFallback(t)
 		let v = vm.num(ir.switchValue(t))
 		let start = ir.switchCasesStart(t)
 		for i in 0 upto ir.switchCasesCount(t) 'cases'
 			let at = try start + i otherwise panic("interp: a case past the pool")
 			if f.cases[at].value == v 'match'
-				next = f.cases[at].target
-				break 'cases'
+				takeEdge(vm, f: f, target: f.cases[at].target, start: f.cases[at].argsStart(), count: f.cases[at].argsCount())
+				return
 			end 'match'
 		end 'cases'
-		vm.curBlock = try next as Count otherwise panic("interp: a switch to no block")
-		vm.curPc = 0
+		takeEdge(vm, f: f, target: ir.switchFallback(t), start: ir.switchFallbackArgsStart(t), count: ir.switchFallbackArgsCount(t))
 	end 'visitSwitch'
 
 	function visitRet(mutates self, f ir.IrFunction, t ir.Term)
@@ -250,6 +246,31 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		_ = exitWith(vm, code: illegalInstructionExitCode)
 	end 'visitTrap'
 end 'Machine'
+
+// takeEdge goes to the block target and sets its parameters from the arguments args[start] on, count of them. Every argument
+// is read before any parameter is set, since an argument may be a parameter of the same block that another one sets.
+function takeEdge(mutates vm Vm, f ir.IrFunction, target ir.BlockID, start Count, count Count)
+	let block = try target as Count otherwise panic("interp: an edge to no block")
+	if count != f.blocks[block].paramCount 'arity'
+		panic("interp: an edge passes {count} arguments to b{block}, which has {f.blocks[block].paramCount} parameters")
+	end 'arity'
+	if count > 0 'args'
+		var ns = ir.WordList.create(0)
+		var rs = ir.WordList.create(0)
+		for i in 0 upto count 'read'
+			let at = vm.regAt(f.args[try start + i otherwise panic("interp: an edge argument past the pool")])
+			ns.push(vm.regN[at])
+			rs.push(vm.regR[at])
+		end 'read'
+		for i in 0 upto count 'write'
+			let at = vm.regAt(f.blockParam(block, i: i))
+			vm.regN[at] = ns[i]
+			vm.regR[at] = rs[i]
+		end 'write'
+	end 'args'
+	vm.curBlock = block
+	vm.curPc = 0
+end 'takeEdge'
 
 // requireSlotsDropped is a violation for each slot that still owns a value when its function returns or fails.
 function requireSlotsDropped(mutates vm Vm, f ir.IrFunction) throws Halt

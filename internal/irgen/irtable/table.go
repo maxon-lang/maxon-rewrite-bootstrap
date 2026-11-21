@@ -26,8 +26,13 @@ const (
 	kRoutine              // a function of Callees that a runtime entry stores to call later, or none
 	kErrorReg             // the register that receives the error of a call of a function that throws
 	kBody                 // a body of the function's Bodies: a behaviour's or a closure's
-	kCases                // cases of the function's Cases, from the field to the count in Count
+	kCases                // cases of the function's Cases, from the field to the count in Count, each with the arguments it passes
 	kTable                // a table of the function's Tables: the table of an interface value
+	// kEdgeArgs are the registers in Args, from the field to the count in Count, that an edge passes to the parameters of
+	// the block it goes to; kMoreEdgeArgs are those of a later edge, right after the kEdgeArgs before it, as many as the
+	// field says. An edge that a terminator's plain constructor makes passes none.
+	kEdgeArgs
+	kMoreEdgeArgs
 )
 
 // field is a field of a record. An instruction has dst, a, b, c, imm, sub and flags; a terminator value, target, other,
@@ -48,6 +53,11 @@ const (
 	fElse  field = "other"
 	fFirst field = "first"
 	fCount field = "count"
+	// fArgs is where a terminator's edge arguments start in Args; fThenArgs and fElseArgs are how many its edges to
+	// target and to other pass.
+	fArgs     field = "args"
+	fThenArgs field = "targetArgs"
+	fElseArgs field = "otherArgs"
 )
 
 // operand is one operand of an operation.
@@ -308,15 +318,18 @@ var ops = []op{
 	{Name: "Copy", Doc: "Copy gives a deep copy of Src, of type Ty.", Result: valueResult,
 		Operands: []operand{reg("Src", fA), typeOp}, Effects: []effect{effReads, effCalls, effAllocates}, Text: "copy {Src} {Ty}"},
 
-	{Name: "Jump", Term: true, Doc: "Jump goes to Target.",
-		Operands: []operand{{Name: "Target", Kind: kBlock, Field: fThen}}, Text: "jump {Target}"},
-	{Name: "Branch", Term: true, Doc: "Branch goes to IfTrue when Cond is not 0, else to IfFalse.",
-		Operands: []operand{reg("Cond", fValue), {Name: "IfTrue", Kind: kBlock, Field: fThen}, {Name: "IfFalse", Kind: kBlock, Field: fElse}},
-		Text:     "branch {Cond}, {IfTrue}, {IfFalse}"},
-	{Name: "Switch", Term: true, Doc: "Switch goes to the target of the case that Value equals, else to Fallback.",
+	{Name: "Jump", Term: true, Doc: "Jump goes to Target, passing Args to its parameters.",
+		Operands: []operand{{Name: "Target", Kind: kBlock, Field: fThen}, {Name: "Args", Kind: kEdgeArgs, Field: fArgs, Count: fThenArgs}},
+		Text:     "jump {Target}{Args}"},
+	{Name: "Branch", Term: true, Doc: "Branch goes to IfTrue, passing TrueArgs, when Cond is not 0, else to IfFalse, passing FalseArgs.",
+		Operands: []operand{reg("Cond", fValue), {Name: "IfTrue", Kind: kBlock, Field: fThen},
+			{Name: "TrueArgs", Kind: kEdgeArgs, Field: fArgs, Count: fThenArgs}, {Name: "IfFalse", Kind: kBlock, Field: fElse},
+			{Name: "FalseArgs", Kind: kMoreEdgeArgs, Field: fElseArgs}},
+		Text: "branch {Cond}, {IfTrue}{TrueArgs}, {IfFalse}{FalseArgs}"},
+	{Name: "Switch", Term: true, Doc: "Switch goes to the target of the case that Value equals, passing the case's arguments, else to\n// Fallback, passing FallbackArgs.",
 		Operands: []operand{reg("Value", fValue), {Name: "Cases", Kind: kCases, Field: fFirst, Count: fCount},
-			{Name: "Fallback", Kind: kBlock, Field: fThen}},
-		Text: "switch {Value} [{Cases}] default {Fallback}"},
+			{Name: "Fallback", Kind: kBlock, Field: fThen}, {Name: "FallbackArgs", Kind: kEdgeArgs, Field: fArgs, Count: fThenArgs}},
+		Text: "switch {Value} [{Cases}] default {Fallback}{FallbackArgs}"},
 	{Name: "Ret", Term: true, Doc: "Ret returns Value.",
 		Operands: []operand{reg("Value", fValue)}, Effects: []effect{effExits}, Text: "ret {Value}"},
 	{Name: "Trap", Term: true, Doc: "Trap stops the program.", Effects: []effect{effExits}, Text: "trap"},

@@ -754,9 +754,12 @@ export type Term
 	export var other as BlockID
 	export var first as Index
 	export var count as Index
+	export var args as Index
+	export var targetArgs as Index
+	export var otherArgs as Index
 
 	export static function make(kind TermKind) returns Term
-		return Term{kind: kind, value: 0 as Reg, target: 0 as BlockID, other: 0 as BlockID, first: 0 as Index, count: 0 as Index}
+		return Term{kind: kind, value: 0 as Reg, target: 0 as BlockID, other: 0 as BlockID, first: 0 as Index, count: 0 as Index, args: 0 as Index, targetArgs: 0 as Index, otherArgs: 0 as Index}
 	end 'make'
 end 'Term'
 
@@ -1232,14 +1235,23 @@ export function newCopy(dst Reg, src Reg, ty Index) returns Instr
 	return r
 end 'newCopy'
 
-// Jump goes to Target.
+// Jump goes to Target, passing Args to its parameters. Its edges pass no arguments; newJumpWith takes them.
 export function newJump(target BlockID) returns Term
 	var r = Term.make(TermKind.termJump)
 	r.target = target
 	return r
 end 'newJump'
 
-// Branch goes to IfTrue when Cond is not 0, else to IfFalse.
+// Jump goes to Target, passing Args to its parameters.
+export function newJumpWith(target BlockID, argsStart Index, argsCount Index) returns Term
+	var r = Term.make(TermKind.termJump)
+	r.target = target
+	r.args = argsStart
+	r.targetArgs = argsCount
+	return r
+end 'newJumpWith'
+
+// Branch goes to IfTrue, passing TrueArgs, when Cond is not 0, else to IfFalse, passing FalseArgs. Its edges pass no arguments; newBranchWith takes them.
 export function newBranch(cond Reg, ifTrue BlockID, ifFalse BlockID) returns Term
 	var r = Term.make(TermKind.termBranch)
 	r.value = cond
@@ -1248,7 +1260,20 @@ export function newBranch(cond Reg, ifTrue BlockID, ifFalse BlockID) returns Ter
 	return r
 end 'newBranch'
 
-// Switch goes to the target of the case that Value equals, else to Fallback.
+// Branch goes to IfTrue, passing TrueArgs, when Cond is not 0, else to IfFalse, passing FalseArgs.
+export function newBranchWith(cond Reg, ifTrue BlockID, trueArgsStart Index, trueArgsCount Index, ifFalse BlockID, falseArgsCount Index) returns Term
+	var r = Term.make(TermKind.termBranch)
+	r.value = cond
+	r.target = ifTrue
+	r.args = trueArgsStart
+	r.targetArgs = trueArgsCount
+	r.other = ifFalse
+	r.otherArgs = falseArgsCount
+	return r
+end 'newBranchWith'
+
+// Switch goes to the target of the case that Value equals, passing the case's arguments, else to
+// Fallback, passing FallbackArgs. Its edges pass no arguments; newSwitchWith takes them.
 export function newSwitch(value Reg, casesFirst Index, casesCount Index, fallback BlockID) returns Term
 	var r = Term.make(TermKind.termSwitch)
 	r.value = value
@@ -1257,6 +1282,19 @@ export function newSwitch(value Reg, casesFirst Index, casesCount Index, fallbac
 	r.target = fallback
 	return r
 end 'newSwitch'
+
+// Switch goes to the target of the case that Value equals, passing the case's arguments, else to
+// Fallback, passing FallbackArgs.
+export function newSwitchWith(value Reg, casesFirst Index, casesCount Index, fallback BlockID, fallbackArgsStart Index, fallbackArgsCount Index) returns Term
+	var r = Term.make(TermKind.termSwitch)
+	r.value = value
+	r.first = casesFirst
+	r.count = casesCount
+	r.target = fallback
+	r.args = fallbackArgsStart
+	r.targetArgs = fallbackArgsCount
+	return r
+end 'newSwitchWith'
 
 // Ret returns Value.
 export function newRet(value Reg) returns Term
@@ -1758,6 +1796,16 @@ export function jumpTarget(t Term) returns BlockID
 	return t.target
 end 'jumpTarget'
 
+// jumpArgsStart is where the args of a Jump start in their pool.
+export function jumpArgsStart(t Term) returns Count
+	return try t.args as Count otherwise panic("ir: jump args is out of range")
+end 'jumpArgsStart'
+
+// jumpArgsCount is how many args a Jump has.
+export function jumpArgsCount(t Term) returns Count
+	return try t.targetArgs as Count otherwise panic("ir: jump args is out of range")
+end 'jumpArgsCount'
+
 export function branchCond(t Term) returns Reg
 	return t.value
 end 'branchCond'
@@ -1766,9 +1814,29 @@ export function branchIfTrue(t Term) returns BlockID
 	return t.target
 end 'branchIfTrue'
 
+// branchTrueArgsStart is where the trueArgs of a Branch start in their pool.
+export function branchTrueArgsStart(t Term) returns Count
+	return try t.args as Count otherwise panic("ir: branch trueArgs is out of range")
+end 'branchTrueArgsStart'
+
+// branchTrueArgsCount is how many trueArgs a Branch has.
+export function branchTrueArgsCount(t Term) returns Count
+	return try t.targetArgs as Count otherwise panic("ir: branch trueArgs is out of range")
+end 'branchTrueArgsCount'
+
 export function branchIfFalse(t Term) returns BlockID
 	return t.other
 end 'branchIfFalse'
+
+// branchFalseArgsStart is where the falseArgs of a Branch start in their pool.
+export function branchFalseArgsStart(t Term) returns Count
+	return try branchTrueArgsStart(t) + branchTrueArgsCount(t) otherwise panic("ir: branch falseArgs is out of range")
+end 'branchFalseArgsStart'
+
+// branchFalseArgsCount is how many falseArgs a Branch has.
+export function branchFalseArgsCount(t Term) returns Count
+	return try t.otherArgs as Count otherwise panic("ir: branch falseArgs is out of range")
+end 'branchFalseArgsCount'
 
 export function switchValue(t Term) returns Reg
 	return t.value
@@ -1787,6 +1855,16 @@ end 'switchCasesCount'
 export function switchFallback(t Term) returns BlockID
 	return t.target
 end 'switchFallback'
+
+// switchFallbackArgsStart is where the fallbackArgs of a Switch start in their pool.
+export function switchFallbackArgsStart(t Term) returns Count
+	return try t.args as Count otherwise panic("ir: switch fallbackArgs is out of range")
+end 'switchFallbackArgsStart'
+
+// switchFallbackArgsCount is how many fallbackArgs a Switch has.
+export function switchFallbackArgsCount(t Term) returns Count
+	return try t.targetArgs as Count otherwise panic("ir: switch fallbackArgs is out of range")
+end 'switchFallbackArgsCount'
 
 export function retValue(t Term) returns Reg
 	return t.value
@@ -2111,6 +2189,442 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	end 'opCopy'
 	panic("ir: an instruction has no opcode")
 end 'instrFail'
+
+// instrReads appends the registers an instruction reads to out, in the order of its operands.
+export function instrReads(f IrFunction, x Instr, mutates out RegList)
+	if x.op == Opcode.opConst 'opConst'
+		return
+	end 'opConst'
+	if x.op == Opcode.opStr 'opStr'
+		return
+	end 'opStr'
+	if x.op == Opcode.opLoadSlot 'opLoadSlot'
+		return
+	end 'opLoadSlot'
+	if x.op == Opcode.opStoreSlot 'opStoreSlot'
+		out.push(storeSlotSrc(x))
+		return
+	end 'opStoreSlot'
+	if x.op == Opcode.opSlotAddr 'opSlotAddr'
+		return
+	end 'opSlotAddr'
+	if x.op == Opcode.opLoadParam 'opLoadParam'
+		return
+	end 'opLoadParam'
+	if x.op == Opcode.opLoadField 'opLoadField'
+		out.push(loadFieldObj(x))
+		return
+	end 'opLoadField'
+	if x.op == Opcode.opStoreField 'opStoreField'
+		out.push(storeFieldObj(x))
+		out.push(storeFieldSrc(x))
+		return
+	end 'opStoreField'
+	if x.op == Opcode.opFieldAddr 'opFieldAddr'
+		out.push(fieldAddrObj(x))
+		return
+	end 'opFieldAddr'
+	if x.op == Opcode.opLoadAt 'opLoadAt'
+		out.push(loadAtAddr(x))
+		return
+	end 'opLoadAt'
+	if x.op == Opcode.opStoreAt 'opStoreAt'
+		out.push(storeAtAddr(x))
+		out.push(storeAtSrc(x))
+		return
+	end 'opStoreAt'
+	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
+		return
+	end 'opLoadGlobal'
+	if x.op == Opcode.opLoadRaw 'opLoadRaw'
+		out.push(loadRawAddr(x))
+		return
+	end 'opLoadRaw'
+	if x.op == Opcode.opStoreRaw 'opStoreRaw'
+		out.push(storeRawAddr(x))
+		out.push(storeRawSrc(x))
+		return
+	end 'opStoreRaw'
+	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
+		return
+	end 'opGlobalAddr'
+	if x.op == Opcode.opCallImport 'opCallImport'
+		f.regsInto(callImportArgsStart(x), count: callImportArgsCount(x), out: out)
+		return
+	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		out.push(atomicAddAddr(x))
+		out.push(atomicAddSrc(x))
+		return
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		out.push(atomicExchangeAddr(x))
+		out.push(atomicExchangeSrc(x))
+		return
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		f.regsInto(compareExchangeArgsStart(x), count: compareExchangeArgsCount(x), out: out)
+		return
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		return
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		f.regsInto(callCodeArgsStart(x), count: callCodeArgsCount(x), out: out)
+		return
+	end 'opCallCode'
+	if x.op == Opcode.opBin 'opBin'
+		out.push(binLeft(x))
+		out.push(binRight(x))
+		return
+	end 'opBin'
+	if x.op == Opcode.opCmp 'opCmp'
+		out.push(cmpLeft(x))
+		out.push(cmpRight(x))
+		return
+	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		out.push(fBinLeft(x))
+		out.push(fBinRight(x))
+		return
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		out.push(fCmpLeft(x))
+		out.push(fCmpRight(x))
+		return
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		out.push(fUnarySrc(x))
+		return
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		out.push(intToFloatSrc(x))
+		return
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		out.push(floatToIntSrc(x))
+		return
+	end 'opFloatToInt'
+	if x.op == Opcode.opNeg 'opNeg'
+		out.push(negSrc(x))
+		return
+	end 'opNeg'
+	if x.op == Opcode.opNot 'opNot'
+		out.push(notSrc(x))
+		return
+	end 'opNot'
+	if x.op == Opcode.opGuard 'opGuard'
+		out.push(guardSrc(x))
+		return
+	end 'opGuard'
+	if x.op == Opcode.opAlloc 'opAlloc'
+		return
+	end 'opAlloc'
+	if x.op == Opcode.opCall 'opCall'
+		f.regsInto(callArgsStart(x), count: callArgsCount(x), out: out)
+		return
+	end 'opCall'
+	if x.op == Opcode.opCallRuntime 'opCallRuntime'
+		f.regsInto(callRuntimeArgsStart(x), count: callRuntimeArgsCount(x), out: out)
+		return
+	end 'opCallRuntime'
+	if x.op == Opcode.opWhen 'opWhen'
+		f.regsInto(whenCownsStart(x), count: whenCownsCount(x), out: out)
+		f.regsInto(whenCapturesStart(x), count: whenCapturesCount(x), out: out)
+		return
+	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		f.regsInto(closureCapturesStart(x), count: closureCapturesCount(x), out: out)
+		return
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		return
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		f.regsInto(callValueArgsStart(x), count: callValueArgsCount(x), out: out)
+		return
+	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		out.push(boxValue(x))
+		return
+	end 'opBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		out.push(frameBoxValue(x))
+		return
+	end 'opFrameBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		f.regsInto(callWitnessArgsStart(x), count: callWitnessArgsCount(x), out: out)
+		return
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		out.push(isTypeSrc(x))
+		return
+	end 'opIsType'
+	if x.op == Opcode.opDrop 'opDrop'
+		out.push(dropSrc(x))
+		return
+	end 'opDrop'
+	if x.op == Opcode.opDropSlot 'opDropSlot'
+		return
+	end 'opDropSlot'
+	if x.op == Opcode.opDropAt 'opDropAt'
+		out.push(dropAtAddr(x))
+		return
+	end 'opDropAt'
+	if x.op == Opcode.opMoveSlot 'opMoveSlot'
+		return
+	end 'opMoveSlot'
+	if x.op == Opcode.opMoveAt 'opMoveAt'
+		out.push(moveAtAddr(x))
+		return
+	end 'opMoveAt'
+	if x.op == Opcode.opCopy 'opCopy'
+		out.push(copySrc(x))
+		return
+	end 'opCopy'
+	panic("ir: an instruction has no opcode")
+end 'instrReads'
+
+// termReads appends the registers a terminator reads to out, in the order of its operands: its value and the
+// arguments of its edges.
+export function termReads(f IrFunction, t Term, mutates out RegList)
+	if t.kind == TermKind.termJump 'termJump'
+		f.regsInto(jumpArgsStart(t), count: jumpArgsCount(t), out: out)
+		return
+	end 'termJump'
+	if t.kind == TermKind.termBranch 'termBranch'
+		out.push(branchCond(t))
+		f.regsInto(branchTrueArgsStart(t), count: branchTrueArgsCount(t), out: out)
+		f.regsInto(branchFalseArgsStart(t), count: branchFalseArgsCount(t), out: out)
+		return
+	end 'termBranch'
+	if t.kind == TermKind.termSwitch 'termSwitch'
+		out.push(switchValue(t))
+		f.caseArgsInto(switchCasesStart(t), count: switchCasesCount(t), out: out)
+		f.regsInto(switchFallbackArgsStart(t), count: switchFallbackArgsCount(t), out: out)
+		return
+	end 'termSwitch'
+	if t.kind == TermKind.termRet 'termRet'
+		out.push(retValue(t))
+		return
+	end 'termRet'
+	if t.kind == TermKind.termTrap 'termTrap'
+		return
+	end 'termTrap'
+	if t.kind == TermKind.termThrow 'termThrow'
+		out.push(throwErr(t))
+		return
+	end 'termThrow'
+	panic("ir: a block has no terminator")
+end 'termReads'
+
+// instrWrites appends the registers an instruction writes to out: its result, and the error of a call that throws.
+export function instrWrites(x Instr, mutates out RegList)
+	if x.op == Opcode.opConst 'opConst'
+		out.push(x.dst)
+		return
+	end 'opConst'
+	if x.op == Opcode.opStr 'opStr'
+		out.push(x.dst)
+		return
+	end 'opStr'
+	if x.op == Opcode.opLoadSlot 'opLoadSlot'
+		out.push(x.dst)
+		return
+	end 'opLoadSlot'
+	if x.op == Opcode.opStoreSlot 'opStoreSlot'
+		return
+	end 'opStoreSlot'
+	if x.op == Opcode.opSlotAddr 'opSlotAddr'
+		out.push(x.dst)
+		return
+	end 'opSlotAddr'
+	if x.op == Opcode.opLoadParam 'opLoadParam'
+		out.push(x.dst)
+		return
+	end 'opLoadParam'
+	if x.op == Opcode.opLoadField 'opLoadField'
+		out.push(x.dst)
+		return
+	end 'opLoadField'
+	if x.op == Opcode.opStoreField 'opStoreField'
+		return
+	end 'opStoreField'
+	if x.op == Opcode.opFieldAddr 'opFieldAddr'
+		out.push(x.dst)
+		return
+	end 'opFieldAddr'
+	if x.op == Opcode.opLoadAt 'opLoadAt'
+		out.push(x.dst)
+		return
+	end 'opLoadAt'
+	if x.op == Opcode.opStoreAt 'opStoreAt'
+		return
+	end 'opStoreAt'
+	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
+		out.push(x.dst)
+		return
+	end 'opLoadGlobal'
+	if x.op == Opcode.opLoadRaw 'opLoadRaw'
+		out.push(x.dst)
+		return
+	end 'opLoadRaw'
+	if x.op == Opcode.opStoreRaw 'opStoreRaw'
+		return
+	end 'opStoreRaw'
+	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
+		out.push(x.dst)
+		return
+	end 'opGlobalAddr'
+	if x.op == Opcode.opCallImport 'opCallImport'
+		out.push(x.dst)
+		return
+	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		out.push(x.dst)
+		return
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		out.push(x.dst)
+		return
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		out.push(x.dst)
+		return
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		out.push(x.dst)
+		return
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		out.push(x.dst)
+		return
+	end 'opCallCode'
+	if x.op == Opcode.opBin 'opBin'
+		out.push(x.dst)
+		return
+	end 'opBin'
+	if x.op == Opcode.opCmp 'opCmp'
+		out.push(x.dst)
+		return
+	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		out.push(x.dst)
+		return
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		out.push(x.dst)
+		return
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		out.push(x.dst)
+		return
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		out.push(x.dst)
+		return
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		out.push(x.dst)
+		return
+	end 'opFloatToInt'
+	if x.op == Opcode.opNeg 'opNeg'
+		out.push(x.dst)
+		return
+	end 'opNeg'
+	if x.op == Opcode.opNot 'opNot'
+		out.push(x.dst)
+		return
+	end 'opNot'
+	if x.op == Opcode.opGuard 'opGuard'
+		return
+	end 'opGuard'
+	if x.op == Opcode.opAlloc 'opAlloc'
+		out.push(x.dst)
+		return
+	end 'opAlloc'
+	if x.op == Opcode.opCall 'opCall'
+		if x.dst != noReg 'value'
+			out.push(x.dst)
+		end 'value'
+		if callHasErrReg(x) 'error'
+			out.push(callErrReg(x).unwrap())
+		end 'error'
+		return
+	end 'opCall'
+	if x.op == Opcode.opCallRuntime 'opCallRuntime'
+		if x.dst != noReg 'value'
+			out.push(x.dst)
+		end 'value'
+		return
+	end 'opCallRuntime'
+	if x.op == Opcode.opWhen 'opWhen'
+		return
+	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		out.push(x.dst)
+		return
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		out.push(x.dst)
+		return
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		if x.dst != noReg 'value'
+			out.push(x.dst)
+		end 'value'
+		return
+	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		out.push(x.dst)
+		return
+	end 'opBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		out.push(x.dst)
+		return
+	end 'opFrameBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		if x.dst != noReg 'value'
+			out.push(x.dst)
+		end 'value'
+		if callWitnessHasErrReg(x) 'error'
+			out.push(callWitnessErrReg(x).unwrap())
+		end 'error'
+		return
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		out.push(x.dst)
+		return
+	end 'opIsType'
+	if x.op == Opcode.opDrop 'opDrop'
+		return
+	end 'opDrop'
+	if x.op == Opcode.opDropSlot 'opDropSlot'
+		return
+	end 'opDropSlot'
+	if x.op == Opcode.opDropAt 'opDropAt'
+		return
+	end 'opDropAt'
+	if x.op == Opcode.opMoveSlot 'opMoveSlot'
+		out.push(x.dst)
+		return
+	end 'opMoveSlot'
+	if x.op == Opcode.opMoveAt 'opMoveAt'
+		out.push(x.dst)
+		return
+	end 'opMoveAt'
+	if x.op == Opcode.opCopy 'opCopy'
+		out.push(x.dst)
+		return
+	end 'opCopy'
+	panic("ir: an instruction has no opcode")
+end 'instrWrites'
 
 // InstrVisitor has a method for every kind of instr, so one added to the table fails the build where it is not handled yet.
 export interface InstrVisitor
@@ -2598,13 +3112,29 @@ end 'instrText'
 // termText is the text the printer gives a terminator, as Go's TermString does.
 export function termText(f IrFunction, t Term) returns String
 	if t.kind == TermKind.termJump 'termJump'
-		return "jump b{jumpTarget(t)}"
+		var text = "jump b{jumpTarget(t)}"
+		if jumpArgsCount(t) > 0 'args'
+			text = "{text}({f.regsText(jumpArgsStart(t), count: jumpArgsCount(t))})"
+		end 'args'
+		return text
 	end 'termJump'
 	if t.kind == TermKind.termBranch 'termBranch'
-		return "branch %{branchCond(t)}, b{branchIfTrue(t)}, b{branchIfFalse(t)}"
+		var text = "branch %{branchCond(t)}, b{branchIfTrue(t)}"
+		if branchTrueArgsCount(t) > 0 'trueArgs'
+			text = "{text}({f.regsText(branchTrueArgsStart(t), count: branchTrueArgsCount(t))})"
+		end 'trueArgs'
+		text = "{text}, b{branchIfFalse(t)}"
+		if branchFalseArgsCount(t) > 0 'falseArgs'
+			text = "{text}({f.regsText(branchFalseArgsStart(t), count: branchFalseArgsCount(t))})"
+		end 'falseArgs'
+		return text
 	end 'termBranch'
 	if t.kind == TermKind.termSwitch 'termSwitch'
-		return "switch %{switchValue(t)} [{f.casesText(switchCasesStart(t), count: switchCasesCount(t))}] default b{switchFallback(t)}"
+		var text = "switch %{switchValue(t)} [{f.casesText(switchCasesStart(t), count: switchCasesCount(t))}] default b{switchFallback(t)}"
+		if switchFallbackArgsCount(t) > 0 'fallbackArgs'
+			text = "{text}({f.regsText(switchFallbackArgsStart(t), count: switchFallbackArgsCount(t))})"
+		end 'fallbackArgs'
+		return text
 	end 'termSwitch'
 	if t.kind == TermKind.termRet 'termRet'
 		return "ret %{retValue(t)}"

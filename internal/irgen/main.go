@@ -65,7 +65,7 @@ func generate() (outs []output, err error) {
 // instrFields and termFields are the fields of the two records, in the order the codec writes them.
 var (
 	instrFields = []field{fDst, fA, fB, fC, fImm, fSub, fFlags}
-	termFields  = []field{fValue, fThen, fElse, fFirst, fCount}
+	termFields  = []field{fValue, fThen, fElse, fFirst, fCount, fArgs, fThenArgs, fElseArgs}
 )
 
 // kindFields are the fields an operand of each kind may be held in.
@@ -89,6 +89,9 @@ var kindFields = map[kind][]field{
 	kBody:     {fImm},
 	kCases:    {fFirst},
 	kTable:    {fC},
+
+	kEdgeArgs:     {fArgs},
+	kMoreEdgeArgs: {fElseArgs},
 }
 
 // check refuses a table that the generator cannot make consistent code of.
@@ -121,13 +124,19 @@ func check() {
 			}
 			used[x.Field] = x.Name
 			if x.Count != "" {
-				if x.Kind != kRegs && x.Kind != kCases {
+				if x.Kind != kRegs && x.Kind != kCases && x.Kind != kEdgeArgs {
 					fail("%s.%s has a count but is no list", o.Name, x.Name)
 				}
 				used[x.Count] = x.Name
 			}
 			if x.Kind == kMoreRegs && (i == 0 || o.Operands[i-1].Kind != kRegs) {
 				fail("%s.%s follows no list of registers", o.Name, x.Name)
+			}
+			if x.Kind == kMoreEdgeArgs && !slices.ContainsFunc(o.Operands[:i], func(y operand) bool { return y.Kind == kEdgeArgs }) {
+				fail("%s.%s follows no edge's arguments", o.Name, x.Name)
+			}
+			if (x.Kind == kEdgeArgs || x.Kind == kMoreEdgeArgs) && (i == 0 || o.Operands[i-1].Kind != kBlock) {
+				fail("%s.%s follows no block that its edge goes to", o.Name, x.Name)
 			}
 			if x.Kind == kEnum && enumOf(x.Enum) == nil {
 				fail("%s.%s is of the enum %s, which the table does not have", o.Name, x.Name, x.Enum)
@@ -167,7 +176,7 @@ func optional(x operand) bool {
 // usesPool is whether an operand indexes a pool of the function, which only the builder appends to.
 func usesPool(x operand) bool {
 	switch x.Kind {
-	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBody, kCases, kTable:
+	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBody, kCases, kTable, kEdgeArgs, kMoreEdgeArgs:
 		return true
 	}
 	return false
@@ -271,6 +280,25 @@ func operandOf(o op, name string) operand {
 	fail("%s has no operand %s", o.Name, name)
 	return operand{}
 }
+
+// listBefore is the list that a kMoreRegs or a kMoreEdgeArgs operand at index i continues: the nearest one before it
+// of the kind it follows.
+func listBefore(o op, i int) operand {
+	want := kRegs
+	if o.Operands[i].Kind == kMoreEdgeArgs {
+		want = kEdgeArgs
+	}
+	for j := i - 1; j >= 0; j-- {
+		if o.Operands[j].Kind == want {
+			return o.Operands[j]
+		}
+	}
+	fail("%s.%s continues no list", o.Name, o.Operands[i].Name)
+	return operand{}
+}
+
+// isEdgeArgs is whether an operand is the arguments of an edge.
+func isEdgeArgs(x operand) bool { return x.Kind == kEdgeArgs || x.Kind == kMoreEdgeArgs }
 
 func lowerFirst(s string) string { return strings.ToLower(s[:1]) + s[1:] }
 

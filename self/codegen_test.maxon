@@ -117,7 +117,7 @@ type FnBuilder
 	// finish ends the block that the instructions since the last one make.
 	function finish(mutates self, consumes term ir.Term)
 		let endAt = f.instrs.count()
-		f.blocks.push(ir.Block.make(blockStart, endAt: endAt, term: term))
+		f.blocks.push(ir.Block.make(blockStart, endAt: endAt, params: 0, paramCount: 0, term: term))
 		blockStart = endAt
 	end 'finish'
 end 'FnBuilder'
@@ -415,7 +415,7 @@ function callingMain(decl ast.FuncID, sum ast.FuncID, half ast.FuncID) returns i
 	b.finish(ir.newBranch(oddError, ifTrue: block(2), ifFalse: block(4)))
 	let combined = b.add(total, right: halved)
 	let first = try b.f.cases.count() as ir.Index otherwise panic("too many cases")
-	b.f.cases.push(ir.SwitchCase.make(49, target: block(3)))
+	b.f.cases.push(ir.SwitchCase.make(49, target: block(3), args: 0, argCount: 0))
 	b.finish(ir.newSwitch(combined, casesFirst: first, casesCount: 1, fallback: block(4)))
 	b.finish(ir.newRet(combined))
 	let wrong = b.constant(1)

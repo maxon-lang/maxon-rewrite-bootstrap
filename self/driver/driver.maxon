@@ -6,6 +6,8 @@ let emitIrFlag = "--emit-ir"
 
 let emitMapFlag = "--emit-map"
 
+let verifyIrFlag = "--verify-ir"
+
 let countAllocationsFlag = "--count-allocations"
 
 let outputFlag = "-o"
@@ -19,7 +21,7 @@ let mapExtension = ".map"
 typealias CommandNames = Array with String
 
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [--update-positions] [dir]       run the corpus of tests (default: the nearest tests directory)\n  test <specs> [--skip-passed] [--record-passed]\n                                        run maxon's spec tests, leaving out the tests of specs/passed.txt, and adding the new passes to it\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place.\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [--update-positions] [dir]       run the corpus of tests (default: the nearest tests directory)\n  test <specs> [--skip-passed] [--record-passed]\n                                        run maxon's spec tests, leaving out the tests of specs/passed.txt, and adding the new passes to it\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir; --verify-ir checks the IR of every function against the verifier's rules\nbefore code is made, and stops at the first function that breaks one; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place.\n"
 end 'usage'
 
 // absentFlagPrefixes start the flags that other compilers of the language have and this one does not.
@@ -58,13 +60,15 @@ end 'hasAbsentFlag'
 type Options
 	// emitIr writes the IR of every function beside the executable, as <output>.ir.
 	var emitIr as bool
+	// verifyIr checks the IR of every function with the verifier before any code is made.
+	var verifyIr as bool
 	// emitMap writes the map of the executable's code symbols beside it, as <output>.map.
 	var emitMap as bool
 	// countAllocations makes the executable count its live heap boxes and fail at exit if any is left.
 	var countAllocations as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, emitMap: false, countAllocations: false}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false}
 	end 'new'
 end 'Options'
 
@@ -79,7 +83,9 @@ export function run(args Array with String) returns ExitCode
 	for i in 1 upto args.count() 'flags'
 		if args[i] == emitIrFlag 'emitIr'
 			options.emitIr = true
-		end 'emitIr' else if args[i] == emitMapFlag 'emitMap'
+		end 'emitIr' else if args[i] == verifyIrFlag 'verifyIr'
+			options.verifyIr = true
+		end 'verifyIr' else if args[i] == emitMapFlag 'emitMap'
 			options.emitMap = true
 		end 'emitMap' else if args[i] == countAllocationsFlag 'count'
 			options.countAllocations = true

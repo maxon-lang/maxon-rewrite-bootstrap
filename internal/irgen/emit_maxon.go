@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -51,6 +52,7 @@ func maxonHas(o op, x operand) string { return lowerFirst(o.Name) + "Has" + x.Na
 var maxonFieldType = map[field]string{
 	fDst: "Reg", fA: "Reg", fB: "Reg", fC: "Index", fImm: "Word", fSub: "Byte", fFlags: "Byte",
 	fValue: "Reg", fThen: "BlockID", fElse: "BlockID", fFirst: "Index", fCount: "Index",
+	fArgs: "Index", fThenArgs: "Index", fElseArgs: "Index",
 }
 
 // maxonType is what a getter of an operand gives, and what its constructor takes, but for a list or a pool index.
@@ -83,7 +85,9 @@ func maxonType(x operand) string {
 	return ""
 }
 
-func isList(x operand) bool { return x.Kind == kRegs || x.Kind == kMoreRegs || x.Kind == kCases }
+func isList(x operand) bool {
+	return x.Kind == kRegs || x.Kind == kMoreRegs || x.Kind == kCases || isEdgeArgs(x)
+}
 
 func toCount(expr, what string) string {
 	return fmt.Sprintf("try %s as Count otherwise panic(\"ir: %s is out of range\")", expr, what)
@@ -147,6 +151,7 @@ func emitMaxon() string {
 	emitMaxonCtors(w)
 	emitMaxonGetters(w)
 	emitMaxonQueries(w)
+	emitMaxonRegisters(w)
 	emitMaxonVisitors(w)
 	emitMaxonPrinter(w)
 	return strings.TrimRight(w.b.String(), "\n") + "\n"
@@ -249,8 +254,10 @@ func maxonParams(x operand) []string {
 	switch x.Kind {
 	case kRegs:
 		return []string{n + "Start Reg", n + "Count Reg"}
-	case kMoreRegs:
+	case kMoreRegs, kMoreEdgeArgs:
 		return []string{n + "Count Index"}
+	case kEdgeArgs:
+		return []string{n + "Start Index", n + "Count Index"}
 	case kCases:
 		return []string{n + "First Index", n + "Count Index"}
 	case kText, kType, kCallee, kRoutine, kTable:
@@ -268,11 +275,11 @@ func maxonSets(w *writer, o op, x operand) {
 	switch x.Kind {
 	case kReg, kBlock, kWord, kText, kType, kCallee, kRoutine, kTable:
 		w.p("\tr.%s = %s\n", x.Field, n)
-	case kRegs:
+	case kRegs, kEdgeArgs:
 		w.p("\tr.%s = %sStart\n\tr.%s = %sCount\n", x.Field, n, x.Count, n)
 	case kCases:
 		w.p("\tr.%s = %sFirst\n\tr.%s = %sCount\n", x.Field, n, x.Count, n)
-	case kMoreRegs:
+	case kMoreRegs, kMoreEdgeArgs:
 		w.p("\tr.%s = %sCount\n", x.Field, n)
 	case kSlot, kInt, kBody:
 		w.p("\tr.%s = %s\n", x.Field, toField(x.Field, n, what))
@@ -294,25 +301,43 @@ func maxonSets(w *writer, o op, x operand) {
 	}
 }
 
+// emitMaxonCtors writes a constructor of each operation. One whose edges can pass arguments has two: newX, whose edges
+// pass none, as almost every edge does, and newXWith, which takes them.
 func emitMaxonCtors(w *writer) {
 	for _, o := range ops {
-		var params []string
-		if o.Result != noResult {
-			params = append(params, "dst Reg")
+		emitMaxonCtor(w, o, "new"+o.Name, false)
+		if slices.ContainsFunc(o.Operands, isEdgeArgs) {
+			emitMaxonCtor(w, o, "new"+o.Name+"With", true)
 		}
-		for _, x := range o.Operands {
-			params = append(params, maxonParams(x)...)
-		}
-		name := "new" + o.Name
-		w.p("// %s\nexport function %s(%s) returns %s\n\tvar r = %s.make(%s)\n", o.Doc, name, strings.Join(params, ", "), maxonRecord(o), maxonRecord(o), maxonConst(o))
-		if o.Result != noResult {
-			w.p("\tr.dst = dst\n")
-		}
-		for _, x := range o.Operands {
-			maxonSets(w, o, x)
-		}
-		w.p("\treturn r\nend '%s'\n\n", name)
 	}
+}
+
+func emitMaxonCtor(w *writer, o op, name string, withArgs bool) {
+	var params []string
+	if o.Result != noResult {
+		params = append(params, "dst Reg")
+	}
+	for _, x := range o.Operands {
+		if isEdgeArgs(x) && !withArgs {
+			continue
+		}
+		params = append(params, maxonParams(x)...)
+	}
+	doc := o.Doc
+	if slices.ContainsFunc(o.Operands, isEdgeArgs) && !withArgs {
+		doc += " Its edges pass no arguments; new" + o.Name + "With takes them."
+	}
+	w.p("// %s\nexport function %s(%s) returns %s\n\tvar r = %s.make(%s)\n", doc, name, strings.Join(params, ", "), maxonRecord(o), maxonRecord(o), maxonConst(o))
+	if o.Result != noResult {
+		w.p("\tr.dst = dst\n")
+	}
+	for _, x := range o.Operands {
+		if isEdgeArgs(x) && !withArgs {
+			continue
+		}
+		maxonSets(w, o, x)
+	}
+	w.p("\treturn r\nend '%s'\n\n", name)
 }
 
 func emitMaxonGetters(w *writer) {
@@ -323,15 +348,15 @@ func emitMaxonGetters(w *writer) {
 				startField, countField := string(x.Field), string(x.Count)
 				start := fmt.Sprintf("%s.%s", v, startField)
 				count := fmt.Sprintf("%s.%s", v, countField)
-				if x.Kind == kMoreRegs {
-					prev := o.Operands[i-1]
+				if x.Kind == kMoreRegs || x.Kind == kMoreEdgeArgs {
+					prev := listBefore(o, i)
 					start = fmt.Sprintf("%sStart(%s) + %sCount(%s)", maxonGetter(o, prev), v, maxonGetter(o, prev), v)
 					count = fmt.Sprintf("%s.%s", v, x.Field)
 				}
 				g := maxonGetter(o, x)
 				what := lowerFirst(o.Name) + " " + lowerFirst(x.Name)
 				w.p("// %sStart is where the %s of a%s %s start in their pool.\nexport function %sStart(%s %s) returns Count\n", g, lowerFirst(x.Name), article(o.Name), o.Name, g, v, rec)
-				if x.Kind == kMoreRegs {
+				if x.Kind == kMoreRegs || x.Kind == kMoreEdgeArgs {
 					w.p("\treturn try %s otherwise panic(\"ir: %s is out of range\")\nend '%sStart'\n\n", start, what, g)
 				} else {
 					w.p("\treturn %s\nend '%sStart'\n\n", toCount(start, what), g)
@@ -476,6 +501,9 @@ func maxonPrintOp(w *writer, o op) {
 		case optional(x):
 			flush()
 			w.p("\t\tif %s(%s) '%s'\n\t\t\ttext = \"{text}%s%s\"\n\t\tend '%s'\n", maxonHas(o, x), v, lowerFirst(x.Name), x.Text, maxonText(o, x, true), lowerFirst(x.Name))
+		case isEdgeArgs(x):
+			flush()
+			w.p("\t\tif %sCount(%s) > 0 '%s'\n\t\t\ttext = \"{text}(%s)\"\n\t\tend '%s'\n", maxonGetter(o, x), v, lowerFirst(x.Name), maxonText(o, x, false), lowerFirst(x.Name))
 		default:
 			pending.WriteString(maxonText(o, x, false))
 		}
@@ -501,7 +529,7 @@ func maxonText(o op, x operand, unwrap bool) string {
 	switch x.Kind {
 	case kReg, kErrorReg:
 		return "%{" + get + "}"
-	case kRegs, kMoreRegs:
+	case kRegs, kMoreRegs, kEdgeArgs, kMoreEdgeArgs:
 		g := maxonGetter(o, x)
 		return fmt.Sprintf("{f.regsText(%sStart(%s), count: %sCount(%s))}", g, v, g, v)
 	case kCases:
@@ -530,4 +558,64 @@ func maxonText(o op, x operand, unwrap bool) string {
 	}
 	fail("operand %s has no Maxon text", x.Name)
 	return ""
+}
+
+// emitMaxonRegisters writes what an analysis of registers asks of each operation: the registers it reads, in the order of
+// its operands, and the ones it writes.
+func emitMaxonRegisters(w *writer) {
+	for _, term := range []bool{false, true} {
+		fn, v, rec, what := "instrReads", "x", "Instr", "an instruction has no opcode"
+		doc := "// instrReads appends the registers an instruction reads to out, in the order of its operands.\n"
+		if term {
+			fn, v, rec, what = "termReads", "t", "Term", "a block has no terminator"
+			doc = "// termReads appends the registers a terminator reads to out, in the order of its operands: its value and the\n// arguments of its edges.\n"
+		}
+		w.p("%sexport function %s(f IrFunction, %s %s, mutates out RegList)\n", doc, fn, v, rec)
+		for _, o := range ops {
+			if o.Term != term {
+				continue
+			}
+			w.p("\tif %s.%s == %s '%s'\n", v, recordSelector(o), maxonConst(o), maxonCase(o))
+			for _, x := range o.Operands {
+				g := maxonGetter(o, x)
+				switch x.Kind {
+				case kReg:
+					w.p("\t\tout.push(%s(%s))\n", g, v)
+				case kRegs, kMoreRegs, kEdgeArgs, kMoreEdgeArgs:
+					w.p("\t\tf.regsInto(%sStart(%s), count: %sCount(%s), out: out)\n", g, v, g, v)
+				case kCases:
+					w.p("\t\tf.caseArgsInto(%sStart(%s), count: %sCount(%s), out: out)\n", g, v, g, v)
+				}
+			}
+			w.p("\t\treturn\n\tend '%s'\n", maxonCase(o))
+		}
+		w.p("\tpanic(\"ir: %s\")\nend '%s'\n\n", what, fn)
+	}
+
+	w.p("// instrWrites appends the registers an instruction writes to out: its result, and the error of a call that throws.\nexport function instrWrites(x Instr, mutates out RegList)\n")
+	for _, o := range instrOps() {
+		w.p("\tif x.op == %s '%s'\n", maxonConst(o), maxonCase(o))
+		switch o.Result {
+		case valueResult:
+			w.p("\t\tout.push(x.dst)\n")
+		case optionalResult:
+			w.p("\t\tif x.dst != noReg 'value'\n\t\t\tout.push(x.dst)\n\t\tend 'value'\n")
+		case noResult:
+		}
+		for _, x := range o.Operands {
+			if x.Kind == kErrorReg {
+				w.p("\t\tif %s(x) 'error'\n\t\t\tout.push(%s(x).unwrap())\n\t\tend 'error'\n", maxonHas(o, x), maxonGetter(o, x))
+			}
+		}
+		w.p("\t\treturn\n\tend '%s'\n", maxonCase(o))
+	}
+	w.p("\tpanic(\"ir: an instruction has no opcode\")\nend 'instrWrites'\n\n")
+}
+
+// recordSelector is the field of a record that says which operation it is.
+func recordSelector(o op) string {
+	if o.Term {
+		return "kind"
+	}
+	return "op"
 }

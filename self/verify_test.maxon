@@ -1,0 +1,409 @@
+// Block parameters and the IR verifier, on IR built by hand, since lowering makes no block parameters: each program is
+// printed, verified, run by the interpreter and compiled and run, and for each rule of the verifier there is IR that
+// breaks it.
+
+// BpFn builds the function main of a project with ir.Builder.
+type BpFn
+	var b as ir.Builder
+	var decl as ast.FuncID
+
+	static function new(mutates p ast.Project) returns BpFn
+		let decl = interpFunction(p, name: "main", convs: convs0())
+		var b = ir.Builder.new()
+		b.start(decl, name: "", paramCount: 0 as Count)
+		return BpFn{b: b, decl: decl}
+	end 'new'
+
+	function block(mutates self) returns ir.BlockID
+		return b.newBlock()
+	end 'block'
+
+	function param(mutates self, block ir.BlockID) returns ir.Reg
+		return b.blockParam(block, kind: ir.IrKind.kindScalar)
+	end 'param'
+
+	function konst(mutates self, block ir.BlockID, value ir.Word) returns ir.Reg
+		let r = b.f.newReg(ir.IrKind.kindScalar)
+		b.emit(block, i: ir.newConst(r, value: value))
+		return r
+	end 'konst'
+
+	function bin(mutates self, block ir.BlockID, op ir.BinOp, left ir.Reg, right ir.Reg, fail ir.BlockID) returns ir.Reg
+		let r = b.f.newReg(ir.IrKind.kindScalar)
+		b.emit(block, i: ir.newBin(r, op: op, left: left, right: right, unsigned: false, fail: fail))
+		return r
+	end 'bin'
+
+	function cmp(mutates self, block ir.BlockID, op ir.CmpOp, left ir.Reg, right ir.Reg) returns ir.Reg
+		let r = b.f.newReg(ir.IrKind.kindScalar)
+		b.emit(block, i: ir.newCmp(r, op: op, left: left, right: right, unsigned: false))
+		return r
+	end 'cmp'
+end 'BpFn'
+
+function bpRegs(a ir.Reg) returns ir.RegList
+	var list = ir.RegList.create(0)
+	list.push(a)
+	return list
+end 'bpRegs'
+
+// bpRun requires the function to print as want, to keep the verifier's rules, and to return exit both interpreted and
+// compiled.
+function bpRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.StringList, exit ExitCode)
+	expectIr(label, got: ir.irText(p, f: f), want: want)
+	let problems = ir.verifyIr(p, f: f)
+	if problems.count() > 0 'refused'
+		panic("{label}: the verifier refuses it: {problems[0]}")
+	end 'refused'
+	expectClean(label, out: runMain(p, main: f), exit: exit as ir.Word)
+	runIr(p, fns: oneFunction(f.clone()), entry: f.decl, count: false, name: "minimaxon_bp_{label}.exe", expectedCode: exit, expectedOutput: "")
+end 'bpRun'
+
+// bpRefused requires the verifier to refuse the function, first for the reason fragment names.
+function bpRefused(label String, p ast.Project, f ir.IrFunction, fragment String)
+	let problems = ir.verifyIr(p, f: f)
+	if problems.count() == 0 'accepted'
+		panic("{label}: the verifier accepts IR that breaks its rule")
+	end 'accepted'
+	if not contains(problems[0], fragment: fragment) 'other'
+		panic("{label}: the verifier says\n{problems[0]}\nand not '{fragment}'")
+	end 'other'
+end 'bpRefused'
+
+// A loop whose counter is a parameter of its header, set by the entry and by the back edge.
+function testALoopCarriesItsCounterInAParameter()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let header = b.block()
+	let body = b.block()
+	let exit = b.block()
+	let zero = b.konst(entry, value: 0)
+	let limit = b.konst(entry, value: 10)
+	let entryTerm = b.b.jumpWith(header, args: bpRegs(zero))
+	b.b.terminate(entry, t: entryTerm)
+	let i = b.param(header)
+	let more = b.cmp(header, op: ir.CmpOp.cmpLt, left: i, right: limit)
+	b.b.terminate(header, t: ir.newBranch(more, ifTrue: body, ifFalse: exit))
+	let one = b.konst(body, value: 1)
+	let next = b.bin(body, op: ir.BinOp.binAdd, left: i, right: one, fail: ir.noBlock)
+	let bodyTerm = b.b.jumpWith(header, args: bpRegs(next))
+	b.b.terminate(body, t: bodyTerm)
+	b.b.terminate(exit, t: ir.newRet(i))
+	var want = ast.StringList.create(0)
+	want.push("function main params 0")
+	want.push("b0:")
+	want.push("  %0 = const 0")
+	want.push("  %1 = const 10")
+	want.push("  jump b1(%0)")
+	want.push("b1(%2):")
+	want.push("  %3 = cmp.lt %2, %1")
+	want.push("  branch %3, b2, b3")
+	want.push("b2:")
+	want.push("  %4 = const 1")
+	want.push("  %5 = add %2, %4")
+	want.push("  jump b1(%5)")
+	want.push("b3:")
+	want.push("  ret %2")
+	want.push("")
+	bpRun("loop", p: p, f: b.b.finish(), want: want, exit: 10)
+end 'testALoopCarriesItsCounterInAParameter'
+
+// A diamond whose arms each pass their value to a parameter of the join.
+function testADiamondJoinsItsArmsInAParameter()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let left = b.block()
+	let right = b.block()
+	let join = b.block()
+	let yes = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: ir.newBranch(yes, ifTrue: left, ifFalse: right))
+	let forty = b.konst(left, value: 40)
+	let leftTerm = b.b.jumpWith(join, args: bpRegs(forty))
+	b.b.terminate(left, t: leftTerm)
+	let seven = b.konst(right, value: 7)
+	let rightTerm = b.b.jumpWith(join, args: bpRegs(seven))
+	b.b.terminate(right, t: rightTerm)
+	let joined = b.param(join)
+	let two = b.konst(join, value: 2)
+	let sum = b.bin(join, op: ir.BinOp.binAdd, left: joined, right: two, fail: ir.noBlock)
+	b.b.terminate(join, t: ir.newRet(sum))
+	var want = ast.StringList.create(0)
+	want.push("function main params 0")
+	want.push("b0:")
+	want.push("  %0 = const 1")
+	want.push("  branch %0, b1, b2")
+	want.push("b1:")
+	want.push("  %1 = const 40")
+	want.push("  jump b3(%1)")
+	want.push("b2:")
+	want.push("  %2 = const 7")
+	want.push("  jump b3(%2)")
+	want.push("b3(%3):")
+	want.push("  %4 = const 2")
+	want.push("  %5 = add %3, %4")
+	want.push("  ret %5")
+	want.push("")
+	bpRun("diamond", p: p, f: b.b.finish(), want: want, exit: 42)
+end 'testADiamondJoinsItsArmsInAParameter'
+
+// A loop that swaps two parameters on its back edge, a branch's false edge: every argument is read before a parameter is
+// set, so the swap does not see its own writes. Three swaps of (3, 5) leave (5, 3), which gives 53; copying one after
+// the other would give 55.
+function testAnEdgeSetsItsParametersAllAtOnce()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let header = b.block()
+	let exit = b.block()
+	let three = b.konst(entry, value: 3)
+	let five = b.konst(entry, value: 5)
+	let zero = b.konst(entry, value: 0)
+	var start = ir.RegList.create(0)
+	start.push(three)
+	start.push(five)
+	start.push(zero)
+	let entryTerm = b.b.jumpWith(header, args: start)
+	b.b.terminate(entry, t: entryTerm)
+	let x = b.param(header)
+	let y = b.param(header)
+	let i = b.param(header)
+	let limit = b.konst(header, value: 3)
+	let done = b.cmp(header, op: ir.CmpOp.cmpGe, left: i, right: limit)
+	let one = b.konst(header, value: 1)
+	let next = b.bin(header, op: ir.BinOp.binAdd, left: i, right: one, fail: ir.noBlock)
+	var swapped = ir.RegList.create(0)
+	swapped.push(y)
+	swapped.push(x)
+	swapped.push(next)
+	let headerTerm = b.b.branchWith(done, ifTrue: exit, trueArgs: ir.RegList.create(0), ifFalse: header, falseArgs: swapped)
+	b.b.terminate(header, t: headerTerm)
+	let ten = b.konst(exit, value: 10)
+	let tens = b.bin(exit, op: ir.BinOp.binMul, left: x, right: ten, fail: ir.noBlock)
+	let both = b.bin(exit, op: ir.BinOp.binAdd, left: tens, right: y, fail: ir.noBlock)
+	b.b.terminate(exit, t: ir.newRet(both))
+	var want = ast.StringList.create(0)
+	want.push("function main params 0")
+	want.push("b0:")
+	want.push("  %0 = const 3")
+	want.push("  %1 = const 5")
+	want.push("  %2 = const 0")
+	want.push("  jump b1(%0, %1, %2)")
+	want.push("b1(%3, %4, %5):")
+	want.push("  %6 = const 3")
+	want.push("  %7 = cmp.ge %5, %6")
+	want.push("  %8 = const 1")
+	want.push("  %9 = add %5, %8")
+	want.push("  branch %7, b2, b1(%4, %3, %9)")
+	want.push("b2:")
+	want.push("  %10 = const 10")
+	want.push("  %11 = mul %3, %10")
+	want.push("  %12 = add %11, %4")
+	want.push("  ret %12")
+	want.push("")
+	bpRun("swap", p: p, f: b.b.finish(), want: want, exit: 53)
+end 'testAnEdgeSetsItsParametersAllAtOnce'
+
+// A switch whose cases pass different values to one block.
+function testASwitchCasePassesArguments()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let target = b.block()
+	let other = b.block()
+	let two = b.konst(entry, value: 2)
+	let thirty = b.konst(entry, value: 30)
+	let twelve = b.konst(entry, value: 12)
+	var values = ir.WordList.create(0)
+	values.push(1)
+	values.push(2)
+	var targets = ir.BlockIDList.create(0)
+	targets.push(target)
+	targets.push(target)
+	var args = ir.RegList.create(0)
+	args.push(thirty)
+	args.push(twelve)
+	var counts as Array with Count
+	counts = Array.create(0)
+	counts.push(1)
+	counts.push(1)
+	let entryTerm = b.b.switchWith(two, values: values, targets: targets, caseArgs: args, caseArgCounts: counts, def: other, defArgs: ir.RegList.create(0))
+	b.b.terminate(entry, t: entryTerm)
+	let got = b.param(target)
+	b.b.terminate(target, t: ir.newRet(got))
+	let none = b.konst(other, value: 0)
+	b.b.terminate(other, t: ir.newRet(none))
+	var want = ast.StringList.create(0)
+	want.push("function main params 0")
+	want.push("b0:")
+	want.push("  %0 = const 2")
+	want.push("  %1 = const 30")
+	want.push("  %2 = const 12")
+	want.push("  switch %0 [1: b1(%1), 2: b1(%2)] default b2")
+	want.push("b1(%3):")
+	want.push("  ret %3")
+	want.push("b2:")
+	want.push("  %4 = const 0")
+	want.push("  ret %4")
+	want.push("")
+	bpRun("switch", p: p, f: b.b.finish(), want: want, exit: 12)
+end 'testASwitchCasePassesArguments'
+
+function testARegisterDefinedTwiceIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let r = b.konst(entry, value: 1)
+	b.b.emit(entry, i: ir.newConst(r, value: 2))
+	b.b.terminate(entry, t: ir.newRet(r))
+	bpRefused("twice", p: p, f: b.b.finish(), fragment: "%0 is defined in b0 and again in b0")
+end 'testARegisterDefinedTwiceIsRefused'
+
+function testAnUndefinedRegisterIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let r = b.b.f.newReg(ir.IrKind.kindScalar)
+	b.b.terminate(entry, t: ir.newRet(r))
+	bpRefused("nowhere", p: p, f: b.b.finish(), fragment: "%0 is used in b0 and defined nowhere")
+end 'testAnUndefinedRegisterIsRefused'
+
+function testAUseBeforeItsDefinitionIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let early = b.b.f.newReg(ir.IrKind.kindScalar)
+	let sum = b.bin(entry, op: ir.BinOp.binAdd, left: early, right: early, fail: ir.noBlock)
+	b.b.emit(entry, i: ir.newConst(early, value: 1))
+	b.b.terminate(entry, t: ir.newRet(sum))
+	bpRefused("early", p: p, f: b.b.finish(), fragment: "%0 is used in b0 before its definition")
+end 'testAUseBeforeItsDefinitionIsRefused'
+
+function testAUseThatItsDefinitionDoesNotDominateIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let left = b.block()
+	let right = b.block()
+	let join = b.block()
+	let yes = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: ir.newBranch(yes, ifTrue: left, ifFalse: right))
+	let only = b.konst(left, value: 40)
+	b.b.terminate(left, t: ir.newJump(join))
+	b.b.terminate(right, t: ir.newJump(join))
+	b.b.terminate(join, t: ir.newRet(only))
+	bpRefused("undominated", p: p, f: b.b.finish(), fragment: "%1 is used in b3, which its definition in b1 does not dominate")
+end 'testAUseThatItsDefinitionDoesNotDominateIsRefused'
+
+// The result of an instruction that can fail is not defined where its failure goes.
+function testAFailedResultIsNotDefinedInTheFailureBlock()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let failed = b.block()
+	let one = b.konst(entry, value: 1)
+	let sum = b.bin(entry, op: ir.BinOp.binAdd, left: one, right: one, fail: failed)
+	b.b.terminate(entry, t: ir.newRet(sum))
+	b.b.terminate(failed, t: ir.newRet(sum))
+	bpRefused("failed", p: p, f: b.b.finish(), fragment: "%1 is used in b1, which its definition in b0 does not dominate")
+end 'testAFailedResultIsNotDefinedInTheFailureBlock'
+
+function testAnEdgeThatPassesTooFewArgumentsIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let target = b.block()
+	b.b.terminate(entry, t: ir.newJump(target))
+	let got = b.param(target)
+	b.b.terminate(target, t: ir.newRet(got))
+	bpRefused("arity", p: p, f: b.b.finish(), fragment: "b0 passes 0 arguments to b1, which has 1 parameters")
+end 'testAnEdgeThatPassesTooFewArgumentsIsRefused'
+
+function testAnArgumentOfAnotherKindIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let target = b.block()
+	let managed = b.b.f.newReg(ir.IrKind.kindManaged)
+	b.b.emit(entry, i: ir.newConst(managed, value: 0))
+	let entryTerm = b.b.jumpWith(target, args: bpRegs(managed))
+	b.b.terminate(entry, t: entryTerm)
+	let got = b.param(target)
+	b.b.terminate(target, t: ir.newRet(got))
+	bpRefused("kind", p: p, f: b.b.finish(), fragment: "b0 passes the managed %0 to the scalar parameter %1 of b1")
+end 'testAnArgumentOfAnotherKindIsRefused'
+
+function testAnEntryWithParametersIsRefused()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let got = b.param(entry)
+	b.b.terminate(entry, t: ir.newRet(got))
+	bpRefused("entry", p: p, f: b.b.finish(), fragment: "the entry b0 has parameters")
+end 'testAnEntryWithParametersIsRefused'
+
+// Two checks that fail to one block, laid out by hand since the builder gives each failure a block of its own: the block
+// an instruction's failure goes to has that edge as its only one in.
+function testASharedFailureBlockIsRefused()
+	var p = irProject()
+	let decl = interpFunction(p, name: "main", convs: convs0())
+	var b = FnBuilder.new(decl, name: "", paramCount: 0)
+	let one = b.constant(1)
+	let two = b.bin(ir.BinOp.binAdd, left: one, right: one, unsigned: false, fail: block(1))
+	let four = b.bin(ir.BinOp.binAdd, left: two, right: two, unsigned: false, fail: block(1))
+	b.finish(ir.newRet(four))
+	let zero = b.constant(0)
+	b.finish(ir.newRet(zero))
+	bpRefused("shared", p: p, f: b.f, fragment: "b1, where an instruction of b0 fails to, has 2 edges in")
+end 'testASharedFailureBlockIsRefused'
+
+// The same checks made by the builder: each failure gets a block of its own that jumps to the one they shared, and the
+// program still fails to it.
+function testTheBuilderGivesEachFailureABlockOfItsOwn()
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let failed = b.block()
+	let big = b.konst(entry, value: 9223372036854775807)
+	let one = b.konst(entry, value: 1)
+	let two = b.bin(entry, op: ir.BinOp.binAdd, left: one, right: one, fail: failed)
+	let over = b.bin(entry, op: ir.BinOp.binAdd, left: big, right: two, fail: failed)
+	b.b.terminate(entry, t: ir.newRet(over))
+	let seven = b.konst(failed, value: 7)
+	b.b.terminate(failed, t: ir.newRet(seven))
+	var want = ast.StringList.create(0)
+	want.push("function main params 0")
+	want.push("b0:")
+	want.push("  %0 = const 9223372036854775807")
+	want.push("  %1 = const 1")
+	want.push("  %2 = add %1, %1 else b2")
+	want.push("  %3 = add %0, %2 else b3")
+	want.push("  ret %3")
+	want.push("b1:")
+	want.push("  %4 = const 7")
+	want.push("  ret %4")
+	want.push("b2:")
+	want.push("  jump b1")
+	want.push("b3:")
+	want.push("  jump b1")
+	want.push("")
+	bpRun("split", p: p, f: b.b.finish(), want: want, exit: 7)
+end 'testTheBuilderGivesEachFailureABlockOfItsOwn'
+
+function testVerify()
+	testALoopCarriesItsCounterInAParameter()
+	testADiamondJoinsItsArmsInAParameter()
+	testAnEdgeSetsItsParametersAllAtOnce()
+	testASwitchCasePassesArguments()
+	testARegisterDefinedTwiceIsRefused()
+	testAnUndefinedRegisterIsRefused()
+	testAUseBeforeItsDefinitionIsRefused()
+	testAUseThatItsDefinitionDoesNotDominateIsRefused()
+	testAFailedResultIsNotDefinedInTheFailureBlock()
+	testAnEdgeThatPassesTooFewArgumentsIsRefused()
+	testAnArgumentOfAnotherKindIsRefused()
+	testAnEntryWithParametersIsRefused()
+	testASharedFailureBlockIsRefused()
+	testTheBuilderGivesEachFailureABlockOfItsOwn()
+end 'testVerify'

@@ -457,6 +457,9 @@ function holdProgram(run Run, p ast.Project, output String, options Options, mut
 	if run.goal == Goal.executable and options.emitIr 'emitIr'
 		writeIr(p, lowered: run.lowered, path: "{output}{irExtension}")
 	end 'emitIr'
+	if run.goal == Goal.executable and options.verifyIr 'verifyIr'
+		verifyIr(p, lowered: run.lowered)
+	end 'verifyIr'
 	refusals(p, lowered: run.lowered, errs: errs)
 end 'holdProgram'
 
