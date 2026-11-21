@@ -1,0 +1,199 @@
+// Go's math/rand generator, with the draws of the methods the program generator uses, so that a seed makes the same program in the
+// Go compiler's generator and in this one. It is an additive lagged Fibonacci generator seeded by a linear congruential one.
+
+typealias CountList = Array with Count
+
+typealias StringList = Array with String
+
+let rngLen = 607 as Count
+
+let rngTap = 273 as Count
+
+let int32Max = 2147483647 as Count
+
+let twoPow31 = 2147483648 as Count
+
+let maxCount = 18446744073709551615 as Count
+
+let maxWord = 9223372036854775807 as Count
+
+// emptySeedState is the state that Go's generator takes for a seed of 0, which would otherwise make every draw the same.
+let emptySeedState = 89482311 as Count
+
+let seedMultiplier = 48271 as Count
+
+let seedQuotient = 44488 as Count
+
+let seedRemainder = 3399 as Count
+
+// seedWarmup is how many steps of the seeding generator are thrown away before the state is filled.
+let seedWarmup = 20 as Count
+
+// lowBits24 keeps the bits of a 31-bit value that survive a shift left by 40: Go's int64 shift drops the rest.
+let lowBits24 = 16777215 as Count
+
+let shiftHigh = 40 as Count
+
+let shiftMid = 20 as Count
+
+let shiftToInt31 = 32 as Count
+
+let shiftToUint32 = 31 as Count
+
+let uint32Range = 4294967296 as Count
+
+// wrapAdd is a + b modulo 2^64.
+function wrapAdd(a Count, b Count) returns Count
+	let room = maxCount - b
+	if a <= room 'fits'
+		return try a + b otherwise panic("fuzz: an addition that fits overflows")
+	end 'fits'
+	let over = try a - room otherwise panic("fuzz: a wrapped addition")
+	return try over - 1 otherwise panic("fuzz: a wrapped addition")
+end 'wrapAdd'
+
+// seedStep is one step of the generator that seeds the state: x * 48271 modulo 2^31 - 1.
+function seedStep(x Count) returns Count
+	let hi = x / seedQuotient
+	let lo = x mod seedQuotient
+	let plus = try seedMultiplier * lo otherwise panic("fuzz: a seed product past 2^31")
+	let minus = try seedRemainder * hi otherwise panic("fuzz: a seed product past 2^31")
+	if plus >= minus 'direct'
+		return try plus - minus otherwise panic("fuzz: a seed step below 0")
+	end 'direct'
+	let wrapped = try plus + int32Max otherwise panic("fuzz: a seed step past 2^32")
+	return try wrapped - minus otherwise panic("fuzz: a seed step below 0")
+end 'seedStep'
+
+type Rand
+	var vec as CountList
+	var tap as Count
+	var feed as Count
+
+	static function new(seed Count) returns Rand
+		let cooked = cookedWords()
+		var vec = CountList.create(0)
+		var x = (seed mod int32Max) as Count
+		if x == 0 'empty'
+			x = emptySeedState
+		end 'empty'
+		for _ in 0 upto seedWarmup 'warm'
+			x = seedStep(x)
+		end 'warm'
+		for i in 0 upto rngLen 'fill'
+			x = seedStep(x)
+			var u = try (x and lowBits24) shl shiftHigh otherwise panic("fuzz: a seed word past 64 bits")
+			x = seedStep(x)
+			u = u xor (try x shl shiftMid otherwise panic("fuzz: a seed word past 64 bits"))
+			x = seedStep(x)
+			u = u xor x
+			u = u xor cooked[i]
+			vec.push(u)
+		end 'fill'
+		return Rand{vec: vec, tap: 0, feed: try rngLen - rngTap otherwise panic("fuzz: the tap is past the state")}
+	end 'new'
+
+	// uint64 is the next word of the state.
+	function uint64(mutates self) returns Count
+		if tap == 0 'wrapTap'
+			tap = try rngLen - 1 otherwise panic("fuzz: an empty state")
+		end 'wrapTap' else 'stepTap'
+			tap = try tap - 1 otherwise panic("fuzz: a tap below 0")
+		end 'stepTap'
+		if feed == 0 'wrapFeed'
+			feed = try rngLen - 1 otherwise panic("fuzz: an empty state")
+		end 'wrapFeed' else 'stepFeed'
+			feed = try feed - 1 otherwise panic("fuzz: a feed below 0")
+		end 'stepFeed'
+		let x = wrapAdd(vec[feed], b: vec[tap])
+		vec[feed] = x
+		return x
+	end 'uint64'
+
+	function int63(mutates self) returns Count
+		return self.uint64() and maxWord
+	end 'int63'
+
+	function int31(mutates self) returns Count
+		return self.int63() shr shiftToInt31
+	end 'int31'
+
+	function uint32(mutates self) returns Count
+		return self.int63() shr shiftToUint32
+	end 'uint32'
+
+	// intn is a number from 0 up to n, which is more than 0, as Go's Intn draws it: by rejection above the largest multiple of n.
+	function intn(mutates self, n Count) returns Count
+		if n == 0 'none'
+			panic("fuzz: a draw from an empty range")
+		end 'none'
+		let below = try n - 1 otherwise panic("fuzz: a range below 1")
+		if (n and below) == 0 'power'
+			return self.int31() and below
+		end 'power'
+		let limit = try int32Max - (twoPow31 mod n) otherwise panic("fuzz: a limit below 0")
+		var v = self.int31()
+		while v > limit 'again'
+			v = self.int31()
+		end 'again'
+		return v mod n
+	end 'intn'
+
+	// shuffleN is a number from 0 up to n by the method Go's Shuffle uses.
+	function shuffleN(mutates self, n Count) returns Count
+		var v = self.uint32()
+		var product = (try v * n otherwise panic("fuzz: a product of 32-bit numbers past 64 bits")) as Count
+		var low = (product mod uint32Range) as Count
+		if low < n 'rejectable'
+			let thresh = (try uint32Range - n otherwise panic("fuzz: a range above 2^32")) mod n
+			while low < thresh 'again'
+				v = self.uint32()
+				product = try v * n otherwise panic("fuzz: a product of 32-bit numbers past 64 bits")
+				low = product mod uint32Range
+			end 'again'
+		end 'rejectable'
+		return product shr 32
+	end 'shuffleN'
+
+	// perm is Go's Perm: a permutation of 0 up to n.
+	function perm(mutates self, n Count) returns CountList
+		var m = CountList.create(0)
+		for i in 0 upto n 'each'
+			let j = self.intn(try i + 1 otherwise panic("fuzz: a permutation past memory"))
+			if j < m.count() 'moved'
+				let old = m[j]
+				m.push(old)
+				m[j] = i
+			end 'moved' else 'first'
+				m.push(i)
+			end 'first'
+		end 'each'
+		return m
+	end 'perm'
+
+	// shuffled is the order that Go's Shuffle gives the elements of a list of n: the index at each position. The swaps it makes
+	// depend only on n.
+	function shuffled(mutates self, n Count) returns CountList
+		var order = CountList.create(0)
+		for i in 0 upto n 'identity'
+			order.push(i)
+		end 'identity'
+		var i = n
+		while i > 1 'swaps'
+			i = try i - 1 otherwise panic("fuzz: a shuffle below 0")
+			let j = self.shuffleN(try i + 1 otherwise panic("fuzz: a shuffle past memory"))
+			let kept = order[i]
+			order[i] = order[j]
+			order[j] = kept
+		end 'swaps'
+		return order
+	end 'shuffled'
+
+	function pick(mutates self, n Count) returns Count
+		return self.intn(n)
+	end 'pick'
+
+	function chance(mutates self, percent Count) returns bool
+		return self.intn(100) < percent
+	end 'chance'
+end 'Rand'

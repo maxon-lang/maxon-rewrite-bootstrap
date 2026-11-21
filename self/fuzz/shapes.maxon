@@ -1,0 +1,379 @@
+// The small records, enums and functions the generator's statements and expressions are made of.
+
+typealias CountLists = Array with CountList
+
+// carelessPrograms is the share of programs that break the rules of ownership on purpose.
+let carelessPrograms = 40 as Count
+
+// arraysOnlyPrograms is the share of programs with no map, list or pool, which can also run as executables.
+let arraysOnlyPrograms = 30 as Count
+
+// targetedPrograms is the share of the programs that are not careless which break one rule of sharing, once.
+let targetedPrograms = 40 as Count
+
+// targetedChance is how often a statement of a targeted program tries to be its one sin.
+let targetedChance = 12 as Count
+
+// heldBrokenPercent is how often a careless program writes the call that changes the place.
+let heldBrokenPercent = 85 as Count
+
+// heldFamilyPercent is the share of targeted programs whose one sin is a borrowed place held across a call.
+let heldFamilyPercent = 35 as Count
+
+// The uses of the element of a subscript that the generator writes.
+let useRead = 0 as Count
+
+let useAssign = 1 as Count
+
+let useMutate = 2 as Count
+
+let useMatch = 3 as Count
+
+let subscriptUses = 4 as Count
+
+// firstElementKey is the key the generator keeps in a map it needs an element of.
+let firstElementKey = 0 as Count
+
+// lower is the depth of what is inside an expression of the depth.
+function lower(depth Depth) returns Depth
+	return try depth - 1 otherwise panic("fuzz: a depth below the smallest")
+end 'lower'
+
+function literal(n Count) returns String
+	return "{n}"
+end 'literal'
+
+// typed is a value of type t that names its type, so a call that infers its type arguments from it gets t: an integer expression
+// names no alias of its own.
+function typed(kind Kind, value String) returns String
+	if kind == Kind.kCount 'count'
+		return "({value}) {kwAs} Count"
+	end 'count'
+	return value.clone()
+end 'typed'
+
+// keyOf is the key of a map with keys of the kind that the number names.
+function keyOf(kind Kind, n Count) returns String
+	if kind == Kind.kCount 'count'
+		return "{n}"
+	end 'count'
+	return quoted("k{n}")
+end 'keyOf'
+
+// convention is the convention that the number picks for a parameter: weighted towards none.
+function convention(n Count) returns String
+	return match n 'n'
+		2 gives kwMutates.clone()
+		3 gives kwConsumes.clone()
+		4 gives kwSets.clone()
+		default gives ""
+	end 'n'
+end 'convention'
+
+function introducer(isVar bool) returns String
+	if isVar 'var'
+		return kwVar.clone()
+	end 'var'
+	return kwLet.clone()
+end 'introducer'
+
+function arithmeticOp(n Count) returns String
+	return match n 'n'
+		0 gives "+"
+		1 gives "-"
+		2 gives "*"
+		3 gives "/"
+		4 gives "mod"
+		default gives panic("fuzz: {n} is no arithmetic operator")
+	end 'n'
+end 'arithmeticOp'
+
+function comparisonOp(n Count) returns String
+	return match n 'n'
+		0 gives "<"
+		1 gives "<="
+		2 gives "=="
+		3 gives "!="
+		4 gives ">"
+		default gives panic("fuzz: {n} is no comparison")
+	end 'n'
+end 'comparisonOp'
+
+// dedupe is the strings with each kept only where it first stands.
+function dedupe(items StringList) returns StringList
+	var out = StringList.create(0)
+	for i in 0 upto items.count() 'each'
+		var seen = false
+		for k in 0 upto out.count() 'known'
+			if out[k] == items[i] 'same'
+				seen = true
+			end 'same'
+		end 'known'
+		if not seen 'new'
+			out.push(items[i].clone())
+		end 'new'
+	end 'each'
+	return out
+end 'dedupe'
+
+// trimTrailingNewlines is the text without the newlines at its end.
+function trimTrailingNewlines(text String) returns String
+	var finish = text.byteLength()
+	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == 10 'trim'
+		finish = try finish - 1 otherwise 0
+	end 'trim'
+	return text.sliceBytes(0, endPos: finish)
+end 'trimTrailingNewlines'
+
+// collectionSlot is the position of a collection's kind among the four that a program has: arrays, pools, lists and maps.
+function collectionSlot(kind Kind) returns Count
+	if kind == Kind.kArray 'array'
+		return 0
+	end 'array'
+	if kind == Kind.kPool 'pool'
+		return 1
+	end 'pool'
+	if kind == Kind.kList 'list'
+		return 2
+	end 'list'
+	if kind == Kind.kMap 'map'
+		return 3
+	end 'map'
+	panic("fuzz: not a collection")
+end 'collectionSlot'
+
+typealias KindList = Array with Kind
+
+function kindsOf(kind Kind) returns KindList
+	var kinds = KindList.create(0)
+	kinds.push(kind)
+	return kinds
+end 'kindsOf'
+
+function allCollections() returns KindList
+	var kinds = KindList.create(0)
+	kinds.push(Kind.kArray)
+	kinds.push(Kind.kPool)
+	kinds.push(Kind.kList)
+	kinds.push(Kind.kMap)
+	return kinds
+end 'allCollections'
+
+// Accept is which types a walk of the places takes: one type, or any collection.
+type Accept
+	var collection as bool
+	var want as Count
+
+	static function of(want Count) returns Accept
+		return Accept{collection: false, want: want}
+	end 'of'
+
+	static function collections() returns Accept
+		return Accept{collection: true, want: 0}
+	end 'collections'
+end 'Accept'
+
+// GuardMark is what a guarded statement remembers while it is written: the guards of the statement around it, and where its
+// own lines begin.
+type GuardMark
+	var saved as StringList
+	var start as Count
+
+	static function make(consumes saved StringList, start Count) returns GuardMark
+		return GuardMark{saved: saved, start: start}
+	end 'make'
+end 'GuardMark'
+
+// Subject is what a match is over: a place or a variable, and the union or option it holds.
+type Subject
+	var src as String
+	var t as Count
+
+	static function make(consumes src String, t Count) returns Subject
+		return Subject{src: src, t: t}
+	end 'make'
+end 'Subject'
+
+typealias SubjectList = Array with Subject
+
+// Arm is one case of a union or an option that a match covers.
+type Arm
+	var name as String
+	var payload as FieldList
+
+	static function make(consumes name String, consumes payload FieldList) returns Arm
+		return Arm{name: name, payload: payload}
+	end 'make'
+end 'Arm'
+
+typealias ArmList = Array with Arm
+
+// Pattern is the text of a case pattern with a name for each payload field that it binds.
+type Pattern
+	var text as String
+	var bound as ParamList
+
+	static function make(consumes text String, consumes bound ParamList) returns Pattern
+		return Pattern{text: text, bound: bound}
+	end 'make'
+end 'Pattern'
+
+// Access is the index that names the first element of a collection, and the same index as an argument of a call.
+type Access
+	var index as String
+	var result as String
+
+	static function make(consumes index String, consumes result String) returns Access
+		return Access{index: index, result: result}
+	end 'make'
+end 'Access'
+
+// Exposed is a variable of the function around a behaviour that the body may name, with the variable that stands for it in the
+// body.
+type Exposed
+	var outer as Count
+	var inner as Count
+
+	static function make(outer Count, inner Count) returns Exposed
+		return Exposed{outer: outer, inner: inner}
+	end 'make'
+end 'Exposed'
+
+typealias ExposedList = Array with Exposed
+
+// The calls that are written after a borrowed place in one expression.
+enum SiblingKind
+	rebuild
+	erase
+	mutatingMethod
+	swallow
+	consumingMethod
+	look
+end 'SiblingKind'
+
+type Sibling
+	var kind as SiblingKind
+	var src as String
+	var name as String
+	var v as Count
+
+	static function make(kind SiblingKind, consumes src String, consumes name String, v Count) returns Sibling
+		return Sibling{kind: kind, src: src, name: name, v: v}
+	end 'make'
+end 'Sibling'
+
+typealias SiblingList = Array with Sibling
+
+// Action is a kind of statement the generator writes.
+enum Action
+	actDeclare
+	actAssign
+	actCall
+	actPrint
+	actMove
+	actIf
+	actTry
+	actWhile
+	actFor
+	actMatch
+	actArray
+	actPool
+	actList
+	actMap
+	actReturn
+	actLoopJump
+	actElement
+	actBox
+	actDiscard
+	actMatchLet
+	actBoth
+	actTargetHold
+	actSet
+	actUninit
+	actMethod
+	actGeneric
+	actFieldAssign
+	actFreeze
+	actShare
+	actThaw
+	actCown
+	actWhen
+	actFrozenMethod
+	actCownPeek
+	actBorrowedCapture
+	actUseAfterCapture
+	actFrozenAbuse
+	actHeldCompare
+	actHeldIndex
+	actHeldInterpolation
+end 'Action'
+
+typealias ActionList = Array with Action
+
+type Weighted
+	var weight as Count
+	var action as Action
+
+	static function make(weight Count, action Action) returns Weighted
+		return Weighted{weight: weight, action: action}
+	end 'make'
+end 'Weighted'
+
+typealias WeightedList = Array with Weighted
+
+// actionTable is every statement the generator writes, with the weight at which it is picked. Some are listed twice, as they
+// have been added to the table twice.
+function actionTable() returns WeightedList
+	var t = WeightedList.create(0)
+	t.push(Weighted.make(10, action: Action.actDeclare))
+	t.push(Weighted.make(8, action: Action.actAssign))
+	t.push(Weighted.make(7, action: Action.actCall))
+	t.push(Weighted.make(5, action: Action.actPrint))
+	t.push(Weighted.make(6, action: Action.actMove))
+	t.push(Weighted.make(4, action: Action.actIf))
+	t.push(Weighted.make(3, action: Action.actTry))
+	t.push(Weighted.make(3, action: Action.actWhile))
+	t.push(Weighted.make(3, action: Action.actFor))
+	t.push(Weighted.make(5, action: Action.actMatch))
+	t.push(Weighted.make(9, action: Action.actArray))
+	t.push(Weighted.make(5, action: Action.actPool))
+	t.push(Weighted.make(4, action: Action.actList))
+	t.push(Weighted.make(4, action: Action.actMap))
+	t.push(Weighted.make(3, action: Action.actReturn))
+	t.push(Weighted.make(3, action: Action.actLoopJump))
+	t.push(Weighted.make(3, action: Action.actElement))
+	t.push(Weighted.make(3, action: Action.actBox))
+	t.push(Weighted.make(2, action: Action.actDiscard))
+	t.push(Weighted.make(3, action: Action.actMatchLet))
+	t.push(Weighted.make(4, action: Action.actBoth))
+	t.push(Weighted.make(3, action: Action.actTargetHold))
+	t.push(Weighted.make(2, action: Action.actSet))
+	t.push(Weighted.make(4, action: Action.actBoth))
+	t.push(Weighted.make(3, action: Action.actTargetHold))
+	t.push(Weighted.make(2, action: Action.actSet))
+	t.push(Weighted.make(2, action: Action.actUninit))
+	t.push(Weighted.make(3, action: Action.actMethod))
+	t.push(Weighted.make(3, action: Action.actGeneric))
+	t.push(Weighted.make(2, action: Action.actFieldAssign))
+	t.push(Weighted.make(3, action: Action.actFreeze))
+	t.push(Weighted.make(3, action: Action.actShare))
+	t.push(Weighted.make(2, action: Action.actThaw))
+	t.push(Weighted.make(3, action: Action.actCown))
+	t.push(Weighted.make(8, action: Action.actWhen))
+	t.push(Weighted.make(2, action: Action.actFrozenMethod))
+	t.push(Weighted.make(1, action: Action.actCownPeek))
+	t.push(Weighted.make(2, action: Action.actBorrowedCapture))
+	t.push(Weighted.make(2, action: Action.actUseAfterCapture))
+	t.push(Weighted.make(2, action: Action.actFrozenAbuse))
+	t.push(Weighted.make(3, action: Action.actHeldCompare))
+	t.push(Weighted.make(4, action: Action.actHeldIndex))
+	t.push(Weighted.make(3, action: Action.actHeldInterpolation))
+	return t
+end 'actionTable'
+
+// program writes the source of one random program for the seed, whose library text is what every program starts with.
+export function program(seed Count, library String) returns String
+	var g = Generator.new(seed)
+	g.start()
+	return g.finish(library)
+end 'program'

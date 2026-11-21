@@ -1,0 +1,193 @@
+// The words of the language that the program generator writes. Each is spelled here and nowhere else, so that renaming a keyword
+// of the language is a change to one line of this file.
+
+let kwAnd = "and"
+
+let kwAs = "as"
+
+let kwBreak = "break"
+
+let kwConsumes = "consumes"
+
+let kwContinue = "continue"
+
+let kwElse = "else"
+
+let kwEnd = "end"
+
+let kwExport = "export"
+
+let kwFalse = "false"
+
+let kwFor = "for"
+
+let kwFunction = "function"
+
+let kwGives = "gives"
+
+let kwIf = "if"
+
+let kwIn = "in"
+
+let kwLet = "let"
+
+let kwMatch = "match"
+
+let kwMutates = "mutates"
+
+let kwNot = "not"
+
+let kwOr = "or"
+
+let kwOtherwise = "otherwise"
+
+let kwReturn = "return"
+
+let kwReturns = "returns"
+
+let kwSelf = "self"
+
+let kwSets = "sets"
+
+let kwStatic = "static"
+
+let kwThen = "then"
+
+let kwTrue = "true"
+
+let kwTry = "try"
+
+let kwType = "type"
+
+let kwTypealias = "typealias"
+
+let kwUnion = "union"
+
+let kwUpto = "upto"
+
+let kwVar = "var"
+
+let kwWhen = "when"
+
+let kwWhile = "while"
+
+let kwWith = "with"
+
+// The pieces of text that the generated lines are made of and that the generator's own string literals would otherwise have to
+// escape.
+let openBrace = "\{"
+
+let closeBrace = "\}"
+
+let printNothing = "print(\"-\\n\")"
+
+// braced is text in braces, as an interpolation of the generated program.
+function braced(text String) returns String
+	return "{openBrace}{text}{closeBrace}"
+end 'braced'
+
+// printed is the statement that prints the value of an expression and a newline.
+function printed(expr String) returns String
+	return "print(\"{braced(expr)}\\n\")"
+end 'printed'
+
+// printedText is the statement that prints a fixed text and a newline.
+function printedText(text String) returns String
+	return "print(\"{text}\\n\")"
+end 'printedText'
+
+// quoted is a string literal of the generated program holding text.
+function quoted(text String) returns String
+	return "\"{text}\""
+end 'quoted'
+
+// hasPrefix is whether text begins with prefix.
+function hasPrefix(text String, prefix String) returns bool
+	let n = prefix.byteLength()
+	if text.byteLength() < n 'short'
+		return false
+	end 'short'
+	return text.sliceBytes(0, endPos: n) == prefix
+end 'hasPrefix'
+
+// containsText is whether needle stands anywhere in text.
+function containsText(text String, needle String) returns bool
+	let n = needle.byteLength()
+	if text.byteLength() < n 'short'
+		return false
+	end 'short'
+	let last = (try text.byteLength() - n otherwise panic("fuzz: a needle longer than its text")) as Count
+	for at in 0 to last 'scan'
+		let finish = try at + n otherwise panic("fuzz: a needle past memory")
+		if text.sliceBytes(at, endPos: finish) == needle 'found'
+			return true
+		end 'found'
+	end 'scan'
+	return false
+end 'containsText'
+
+// joinStrings is the parts with the separator between each two.
+export function joinStrings(parts Array with String, separator String) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto parts.count() 'each'
+		if i > 0 'separate'
+			out.append(separator.toByteArray())
+		end 'separate'
+		out.append(parts[i].toByteArray())
+	end 'each'
+	return String.from(out)
+end 'joinStrings'
+
+// tabs is n tabs.
+function tabs(n Count) returns String
+	var out = ByteArray.create(0)
+	for _ in 0 upto n 'each'
+		out.push(9 as Byte)
+	end 'each'
+	return String.from(out)
+end 'tabs'
+
+// withoutTab is the line with its first tab taken off, when it has one.
+function withoutTab(line String) returns String
+	if line.byteLength() > 0 and line.byteAt(0) == 9 'tabbed'
+		return line.sliceBytes(1, endPos: line.byteLength())
+	end 'tabbed'
+	return line.clone()
+end 'withoutTab'
+
+// mentions is whether the text names the variable: whether it stands there with no letter, digit or underscore on either side.
+function mentions(text String, name String) returns bool
+	let n = name.byteLength()
+	if text.byteLength() < n 'short'
+		return false
+	end 'short'
+	let last = (try text.byteLength() - n otherwise panic("fuzz: a name longer than its text")) as Count
+	for at in 0 to last 'scan'
+		let finish = try at + n otherwise panic("fuzz: a name past memory")
+		if text.sliceBytes(at, endPos: finish) == name 'candidate'
+			var before = false
+			if at > 0 'hasBefore'
+				before = isWordByte(text.byteAt(try at - 1 otherwise panic("fuzz: a position below 0")))
+			end 'hasBefore'
+			var after = false
+			if finish < text.byteLength() 'hasAfter'
+				after = isWordByte(text.byteAt(finish))
+			end 'hasAfter'
+			if not before and not after 'whole'
+				return true
+			end 'whole'
+		end 'candidate'
+	end 'scan'
+	return false
+end 'mentions'
+
+function isWordByte(c Byte) returns bool
+	return (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95
+end 'isWordByte'
+
+// truncate drops the lines of out from index keep on.
+function truncate(mutates out StringList, keep Count)
+	while out.count() > keep 'drop'
+		try out.pop() otherwise ignore
+	end 'drop'
+end 'truncate'

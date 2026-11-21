@@ -85,19 +85,11 @@ end 'interpCommand'
 // interpreter runs is no refusal here.
 function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFrees bool, mutates errs diag.ErrorList) returns ExitCode
 	var p = loadedProject
-	let checked = frontEnd(p, makesProgram: true, errs: errs)
-	var lowered = interp.ModuleFunctions.create(0)
-	if errs.count() == 0 'lower'
-		lowered = lowerModules(p, first: 0, checked: checked, lowersBodies: true, errs: errs)
-	end 'lower'
-	if errs.count() == 0 'refusals'
-		refusalsBesidesInterpreterOnly(lowered, errs: errs)
-	end 'refusals'
-	ast.locateAllErrors(p.modules, errs: errs)
+	let generated = lowerForInterpreter(p, errs: errs)
 	if errs.count() > 0 'failed'
 		return report(errs)
 	end 'failed'
-	let out = interp.run(p, modules: lowered, entry: checked.entry, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: wantFrees)
+	let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: wantFrees)
 	print(out.stdout)
 	printError(out.stderr)
 	for i in 0 upto out.violations.count() 'violations'
@@ -115,6 +107,21 @@ function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFree
 	end 'timedOut'
 	return interp.exitStatus(out.exitCode)
 end 'interpLoaded'
+
+// lowerForInterpreter checks and lowers a project that has no runtime, as a build does but with no backend, so that the
+// interpreter can run it. What only the interpreter runs is no refusal here; what it lowered is nothing when errs has any.
+function lowerForInterpreter(mutates p ast.Project, mutates errs diag.ErrorList) returns Generated
+	let checked = frontEnd(p, makesProgram: true, errs: errs)
+	var generated = Generated.nothing()
+	if errs.count() == 0 'lower'
+		generated = Generated.make(checked.entry, modules: lowerModules(p, first: 0, checked: checked, lowersBodies: true, errs: errs))
+	end 'lower'
+	if errs.count() == 0 'refusals'
+		refusalsBesidesInterpreterOnly(generated.modules, errs: errs)
+	end 'refusals'
+	ast.locateAllErrors(p.modules, errs: errs)
+	return generated
+end 'lowerForInterpreter'
 
 // refusalsBesidesInterpreterOnly reports what a function's lowering could not make that is not a construct the interpreter runs,
 // at the first of each function, as the backend's refusals are.

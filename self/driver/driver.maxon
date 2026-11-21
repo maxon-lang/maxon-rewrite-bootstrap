@@ -28,7 +28,7 @@ function goOnlyCommands() returns CommandNames
 end 'goOnlyCommands'
 
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [dir]                            run the corpus of tests (default: the nearest tests directory)\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [dir]                            run the corpus of tests (default: the nearest tests directory)\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
 end 'usage'
 
 function isGoOnlyCommand(name String) returns bool
@@ -70,6 +70,9 @@ export function run(args Array with String) returns ExitCode
 	if rest.count() >= 1 and rest[0] == "test" 'test'
 		return testCommand(rest)
 	end 'test'
+	if rest.count() >= 1 and rest[0] == "fuzz" 'fuzz'
+		return fuzzCommand(rest)
+	end 'fuzz'
 	if rest.count() < 2 'bare'
 		if rest.count() == 1 and isGoOnlyCommand(rest[0]) 'later'
 			printError("the command '{rest[0]}' is not implemented yet\n")

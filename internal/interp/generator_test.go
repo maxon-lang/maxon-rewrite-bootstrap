@@ -1,9 +1,10 @@
 package interp_test
 
 import (
-	_ "embed"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -562,7 +563,12 @@ func (g *generator) method(r *record, m *fn) {
 	g.scopes, g.ret, g.loop, g.budget = savedScopes, savedRet, savedLoop, savedBudget
 }
 
-// library is the generic code every program has: functions generic over any type, a bounded one, and a generic record.
-//
-//go:embed testdata/library.maxon
-var library string
+// library is the generic code every program has: functions generic over any type, a bounded one, and a generic record. The
+// generator in self/fuzz writes the same programs, so the text is theirs together.
+var library = func() string {
+	text, err := os.ReadFile(filepath.Join("..", "..", "self", "fuzz", "library.txt"))
+	if err != nil {
+		panic(err)
+	}
+	return string(text)
+}()

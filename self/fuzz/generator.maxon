@@ -1,0 +1,4542 @@
+// The program generator writes random minimaxon programs over the constructs the memory model's rules cover: records, unions,
+// strings, let and var, assignment, moves, copy(), the four conventions, calls whose arguments overlap or are disjoint, match
+// bindings, loops, generics with bounds, and arrays, maps, lists and pools with handles. A program is well formed, and the types
+// are consistent, but nothing in it tries to obey the ownership rules: the checker decides which programs are accepted, and
+// every one it accepts must run without a violation. The generator only leans toward programs that pass, so that most of what
+// it writes reaches the interpreter, and leans toward the edges of the rules where a hole would be: arguments that overlap,
+// values moved out of branches and loops, borrows held across changes.
+//
+// A type, a variable and a place are handles into the generator's tables, as the Go generator's pointers are: a type is its
+// index in `tys`, a variable its index in `vars` and a place its index in `store`.
+
+typealias Depth = int(-16 to 8)
+
+enum Kind
+	kCount
+	kBool
+	kString
+	kRecord
+	kUnion
+	kArray
+	kPool
+	kList
+	kMap
+	kHandle
+	kOption
+	kFrozen
+	kCown
+end 'Kind'
+
+// The three types that are not made by the program's declarations or an instance.
+let tCount = 0 as Count
+
+let tBool = 1 as Count
+
+let tString = 2 as Count
+
+type Ty
+	var kind as Kind
+	var name as String
+	var args as CountList
+	var src as String
+	// alias is the name the program gives the instance when it writes it as an expression, or empty until it does.
+	var alias as String
+
+	static function make(kind Kind, consumes name String, consumes args CountList, consumes src String) returns Ty
+		return Ty{kind: kind, name: name, args: args, src: src, alias: ""}
+	end 'make'
+end 'Ty'
+
+typealias TyList = Array with Ty
+
+typealias TyIndex = table.StringMap with Count
+
+type Field
+	var name as String
+	var t as Count
+	var isVar as bool
+
+	static function make(consumes name String, t Count, isVar bool) returns Field
+		return Field{name: name, t: t, isVar: isVar}
+	end 'make'
+end 'Field'
+
+typealias FieldList = Array with Field
+
+type CaseDecl
+	var name as String
+	var payload as FieldList
+
+	static function make(consumes name String, consumes payload FieldList) returns CaseDecl
+		return CaseDecl{name: name, payload: payload}
+	end 'make'
+end 'CaseDecl'
+
+typealias CaseList = Array with CaseDecl
+
+type Param
+	var name as String
+	var t as Count
+	// conv is the parameter's convention: empty, or mutates, consumes or sets.
+	var conv as String
+
+	static function make(consumes name String, t Count, consumes conv String) returns Param
+		return Param{name: name, t: t, conv: conv}
+	end 'make'
+end 'Param'
+
+typealias ParamList = Array with Param
+
+type Fn
+	var name as String
+	var params as ParamList
+	var hasRet as bool
+	var ret as Count
+	// recv is empty, mutates or consumes for a method.
+	var recv as String
+
+	static function make(consumes name String, consumes params ParamList, hasRet bool, ret Count, consumes recv String) returns Fn
+		return Fn{name: name, params: params, hasRet: hasRet, ret: ret, recv: recv}
+	end 'make'
+end 'Fn'
+
+typealias FnList = Array with Fn
+
+type Record
+	var t as Count
+	var fields as FieldList
+	var methods as FnList
+	// makeParams are the parameters of the record's factory.
+	var makeParams as ParamList
+
+	static function new(t Count) returns Record
+		return Record{t: t, fields: FieldList.create(0), methods: FnList.create(0), makeParams: ParamList.create(0)}
+	end 'new'
+end 'Record'
+
+typealias RecordList = Array with Record
+
+type Union
+	var t as Count
+	var cases as CaseList
+
+	static function new(t Count) returns Union
+		return Union{t: t, cases: CaseList.create(0)}
+	end 'new'
+end 'Union'
+
+typealias UnionList = Array with Union
+
+type Variable
+	var name as String
+	var t as Count
+	var owned as bool
+	var mutable as bool
+	var moved as bool
+	// loop is the loop depth where the variable was declared.
+	var loop as Count
+	// frozen is how many enclosing match arms borrow from the variable.
+	var frozen as Count
+	// setParam marks a sets parameter, which a function owns once it has initialised it but which a behaviour cannot capture:
+	// the caller's variable receives it.
+	var setParam as bool
+
+	static function make(consumes name String, t Count, owned bool, mutable bool, loop Count) returns Variable
+		return Variable{name: name, t: t, owned: owned, mutable: mutable, moved: false, loop: loop, frozen: 0, setParam: false}
+	end 'make'
+end 'Variable'
+
+typealias VarList = Array with Variable
+
+typealias Scopes = Array with CountList
+
+// Place is an expression that names storage: a variable, or fields of one.
+type Place
+	var src as String
+	var t as Count
+	var root as Count
+	var mutable as bool
+	var whole as bool
+	var elements as bool
+	// hasParent says that the path goes through another place, the one before this step, so that a later operand can be made to
+	// overlap any of them.
+	var hasParent as bool
+	var parent as Count
+	// guards are the tests that make an element on the path exist.
+	var guards as StringList
+
+	static function new(consumes src String, t Count, root Count, mutable bool, whole bool) returns Place
+		return Place{src: src, t: t, root: root, mutable: mutable, whole: whole, elements: false, hasParent: false, parent: 0, guards: StringList.create(0)}
+	end 'new'
+end 'Place'
+
+typealias PlaceList = Array with Place
+
+// MoveState is whether each variable was moved, as it was when the state was taken: 0 for a variable that was not visible, 1 for
+// one that held its value and 2 for one that was moved.
+typealias MoveState = Array with Count
+
+typealias MoveStates = Array with MoveState
+
+let stateAbsent = 0 as Count
+
+let stateHeld = 1 as Count
+
+let stateMoved = 2 as Count
+
+type Generator
+	var rng as Rand
+	var tys as TyList
+	var tyIndex as TyIndex
+	var records as RecordList
+	var unions as UnionList
+	var fns as FnList
+	// aliases name the instances that the program writes as an expression, in the order it first does.
+	var aliases as CountList
+	var out as StringList
+	var indent as Count
+	var labels as Count
+	var names as Count
+	var scopes as Scopes
+	var vars as VarList
+	var store as PlaceList
+	var hasRet as bool
+	var ret as Count
+	var loop as Count
+	var budget as Count
+	var guards as StringList
+	// pendingInit are variables that the statement being written gives a value, through a sets parameter.
+	var pendingInit as CountList
+	// carelessPercent is how often this program breaks a rule of ownership on purpose.
+	var carelessPercent as Count
+	// arraysOnly keeps a map, a list and a pool out of the program, so that it also compiles to an executable.
+	var arraysOnly as bool
+	// sharing lets the program freeze values, make cowns and schedule behaviours, none of which has an executable yet.
+	var sharing as bool
+	// behaviours is how many behaviours enclose the statement being written.
+	var behaviours as Count
+	// sinsLeft is how many rules of sharing a targeted program still breaks on purpose. A careless program breaks them
+	// throughout and is nearly always refused for the first of many, so a program with a single sin is the one in which a rule
+	// that the checker lacks shows.
+	var sinsLeft as Count
+	// heldSin makes the one sin of a targeted program a borrowed place held across a call in the same expression.
+	var heldSin as bool
+	// inMain is set while the statements of main are written, which run: nothing is sure to call another function.
+	var inMain as bool
+	// tries is how many try blocks with a handler enclose the statement being written, in its own function: the body of a
+	// behaviour is not in the trys around its 'when'.
+	var tries as Count
+	// sinning is set while the statement that is a targeted program's one sin is written.
+	var sinning as bool
+	var recent as Count
+	var recentOK as bool
+
+	static function new(seed Count) returns Generator
+		var tys = TyList.create(0)
+		tys.push(Ty.make(Kind.kCount, name: "", args: CountList.create(0), src: "Count"))
+		tys.push(Ty.make(Kind.kBool, name: "", args: CountList.create(0), src: "bool"))
+		tys.push(Ty.make(Kind.kString, name: "", args: CountList.create(0), src: "String"))
+		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false}
+	end 'new'
+
+	// kindOf is the kind of a type.
+	function kindOf(t Count) returns Kind
+		return tys[t].kind
+	end 'kindOf'
+
+	function srcOf(t Count) returns String
+		return tys[t].src.clone()
+	end 'srcOf'
+
+	function argOf(t Count, index Count) returns Count
+		return tys[t].args[index]
+	end 'argOf'
+
+	// elementTypeOf is the type of an element of a collection: the last of its arguments.
+	function elementTypeOf(t Count) returns Count
+		let last = try tys[t].args.count() - 1 otherwise panic("fuzz: a collection with no arguments")
+		return tys[t].args[last]
+	end 'elementTypeOf'
+
+	function managed(t Count) returns bool
+		let k = tys[t].kind
+		return k != Kind.kCount and k != Kind.kBool and k != Kind.kHandle
+	end 'managed'
+
+	function scalar(t Count) returns bool
+		return not self.managed(t)
+	end 'scalar'
+
+	// typeExpr is a type written as an expression, to call a static function or name a case on it. An instance of a generic type
+	// is written through a typealias, which the program declares before its other declarations.
+	function typeExpr(mutates self, t Count) returns String
+		if tys[t].args.count() == 0 and not containsText(tys[t].name, needle: " ") 'plain'
+			return tys[t].src.clone()
+		end 'plain'
+		if tys[t].alias != "" 'named'
+			return tys[t].alias.clone()
+		end 'named'
+		let name = "I{aliases.count()}"
+		tys[t].alias = name.clone()
+		aliases.push(t)
+		return name
+	end 'typeExpr'
+
+	// aliasDecls are the typealiases of the instances the program writes as expressions.
+	function aliasDecls() returns String
+		var text = ByteArray.create(0)
+		for i in 0 upto aliases.count() 'each'
+			let t = aliases[i]
+			text.append("{kwTypealias} {tys[t].alias} = {tys[t].src}\n\n".toByteArray())
+		end 'each'
+		return String.from(text)
+	end 'aliasDecls'
+
+	// instanceSrc is how a type writes a generic type given its arguments, with an argument that is an instance itself in
+	// parentheses.
+	function instanceSrc(base String, args CountList) returns String
+		var parts = StringList.create(0)
+		for i in 0 upto args.count() 'each'
+			parts.push(tys[args[i]].src.clone())
+		end 'each'
+		if parts.count() == 1 and not containsText(parts[0], needle: " {kwWith} ") 'single'
+			return "{base} {kwWith} {parts[0]}"
+		end 'single'
+		return "{base} {kwWith} ({joinStrings(parts, separator: ", ")})"
+	end 'instanceSrc'
+
+	// intern is the one type that has the given source, which is made from the pieces when there is none yet.
+	function intern(mutates self, kind Kind, consumes name String, consumes args CountList, consumes src String) returns Count
+		let found = tyIndex.get(src)
+		if found.isSome() 'known'
+			return found.unwrap()
+		end 'known'
+		let id = tys.count()
+		tyIndex.insert(src.clone(), value: id)
+		tys.push(Ty.make(kind, name: name, args: args, src: src))
+		return id
+	end 'intern'
+
+	function internInstance(mutates self, kind Kind, base String, consumes args CountList) returns Count
+		let src = self.instanceSrc(base, args: args)
+		return self.intern(kind, name: "", args: args, src: src)
+	end 'internInstance'
+
+	function internNamed(mutates self, kind Kind, name String) returns Count
+		return self.intern(kind, name: name.clone(), args: CountList.create(0), src: name.clone())
+	end 'internNamed'
+
+	function arrayOf(mutates self, e Count) returns Count
+		var args = CountList.create(0)
+		args.push(e)
+		return self.internInstance(Kind.kArray, base: "Array", args: args)
+	end 'arrayOf'
+
+	function poolOf(mutates self, e Count) returns Count
+		var args = CountList.create(0)
+		args.push(e)
+		return self.internInstance(Kind.kPool, base: "Pool", args: args)
+	end 'poolOf'
+
+	function listOf(mutates self, e Count) returns Count
+		var args = CountList.create(0)
+		args.push(e)
+		return self.internInstance(Kind.kList, base: "List", args: args)
+	end 'listOf'
+
+	function handleOf(mutates self, e Count) returns Count
+		var args = CountList.create(0)
+		args.push(e)
+		return self.internInstance(Kind.kHandle, base: "Handle", args: args)
+	end 'handleOf'
+
+	function optionOf(mutates self, e Count) returns Count
+		var args = CountList.create(0)
+		args.push(e)
+		return self.internInstance(Kind.kOption, base: "Option", args: args)
+	end 'optionOf'
+
+	function mapOf(mutates self, k Count, v Count) returns Count
+		var args = CountList.create(0)
+		args.push(k)
+		args.push(v)
+		return self.internInstance(Kind.kMap, base: "Map", args: args)
+	end 'mapOf'
+
+	function chance(mutates self, percent Count) returns bool
+		return rng.chance(percent)
+	end 'chance'
+
+	// pickFrom is a number from base up to base and n more.
+	function pickFrom(mutates self, base Count, n Count) returns Count
+		return try base + self.pick(n) otherwise panic("fuzz: a pick past memory")
+	end 'pickFrom'
+
+	function pick(mutates self, n Count) returns Count
+		return rng.pick(n)
+	end 'pick'
+
+	function fresh(mutates self, prefix String) returns String
+		names = try names + 1 otherwise panic("fuzz: more names than memory")
+		return "{prefix}{names}"
+	end 'fresh'
+
+	function label(mutates self) returns String
+		labels = try labels + 1 otherwise panic("fuzz: more labels than memory")
+		return "'l{labels}'"
+	end 'label'
+
+	function line(mutates self, text String)
+		out.push("{tabs(indent)}{text}")
+	end 'line'
+
+	function blank(mutates self)
+		out.push("")
+	end 'blank'
+
+	function indentMore(mutates self)
+		indent = try indent + 1 otherwise panic("fuzz: an indent past memory")
+	end 'indentMore'
+
+	function indentLess(mutates self)
+		indent = try indent - 1 otherwise panic("fuzz: an indent below 0")
+	end 'indentLess'
+
+	// Types
+	// managedTypes is every type the program's declarations name, so a value of any of them can be made.
+	function managedTypes() returns CountList
+		var found = CountList.create(0)
+		found.push(tString)
+		for i in 0 upto records.count() 'records'
+			found.push(records[i].t)
+		end 'records'
+		for i in 0 upto unions.count() 'unions'
+			found.push(unions[i].t)
+		end 'unions'
+		return found
+	end 'managedTypes'
+
+	function anyType(mutates self) returns Count
+		if sharing 'shared'
+			if self.chance(14) 'chosen'
+				return self.sharedType()
+			end 'chosen'
+		end 'shared'
+		let managedList = self.managedTypes()
+		let n = self.pick(10)
+		if n < 2 'scalar'
+			let which = self.pick(3)
+			if which == 2 'flag'
+				return tBool
+			end 'flag'
+			return tCount
+		end 'scalar'
+		if n < 6 'managed'
+			return managedList[self.pick(managedList.count())]
+		end 'managed'
+		if n < 7 'array'
+			let inner = self.elementType()
+			return self.arrayOf(inner)
+		end 'array'
+		if n < 8 'option'
+			let inner = self.elementType()
+			return self.optionOf(inner)
+		end 'option'
+		if n < 9 and not arraysOnly 'pool'
+			let inner = self.elementType()
+			return self.poolOf(inner)
+		end 'pool'
+		if arraysOnly 'arrays'
+			let inner = self.elementType()
+			return self.arrayOf(inner)
+		end 'arrays'
+		let inner = self.elementType()
+		return self.listOf(inner)
+	end 'anyType'
+
+	// elementType is a type an array, a pool or an option holds.
+	function elementType(mutates self) returns Count
+		if sharing 'shared'
+			if self.chance(7) 'chosen'
+				return self.sharedType()
+			end 'chosen'
+		end 'shared'
+		let n = self.pick(10)
+		if n < 3 'count'
+			return tCount
+		end 'count'
+		if n < 5 'string'
+			return tString
+		end 'string'
+		let managedList = self.managedTypes()
+		return managedList[self.pick(managedList.count())]
+	end 'elementType'
+
+	function keyType(mutates self) returns Count
+		if self.chance(50) 'count'
+			return tCount
+		end 'count'
+		return tString
+	end 'keyType'
+
+	// recordIndex is the index of the record that declares t, when t is a record.
+	function recordIndex(t Count) returns table.Option with Count
+		for i in 0 upto records.count() 'each'
+			if records[i].t == t 'found'
+				return table.Option.some(i)
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'recordIndex'
+
+	function isRecord(t Count) returns bool
+		return self.recordIndex(t).isSome()
+	end 'isRecord'
+
+	function unionIndex(t Count) returns table.Option with Count
+		for i in 0 upto unions.count() 'each'
+			if unions[i].t == t 'found'
+				return table.Option.some(i)
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'unionIndex'
+
+	function isUnion(t Count) returns bool
+		return self.unionIndex(t).isSome()
+	end 'isUnion'
+
+	function isBox(t Count) returns bool
+		return hasPrefix(tys[t].name, prefix: "Box")
+	end 'isBox'
+
+	// Declarations
+	function declareTypes(mutates self)
+		let recordCount = self.pickFrom(2, n: 3)
+		for i in 0 upto recordCount 'records'
+			let t = self.internNamed(Kind.kRecord, name: "R{i}")
+			var rec = Record.new(t)
+			let fieldCount = self.pickFrom(1, n: 4)
+			for j in 0 upto fieldCount 'fields'
+				let fieldT = self.fieldType()
+				let isVar = self.chance(85)
+				rec.fields.push(Field.make("f{j}", t: fieldT, isVar: isVar))
+			end 'fields'
+			records.push(rec)
+			var wantsUnion = i == 0
+			if not wantsUnion 'draw'
+				wantsUnion = self.chance(40)
+			end 'draw'
+			if wantsUnion 'union'
+				let made = self.newUnion(unions.count())
+				unions.push(made)
+			end 'union'
+		end 'records'
+		for which in 0 upto 2 'boxes'
+			var name = "Box {kwWith} Count"
+			if which == 1 'string'
+				name = "Box {kwWith} String"
+			end 'string'
+			let t = self.internNamed(Kind.kRecord, name: name)
+			let item = self.boxed(name)
+			var rec = Record.new(t)
+			rec.fields.push(Field.make("item", t: item, isVar: true))
+			rec.methods.push(Fn.make("peek", params: ParamList.create(0), hasRet: true, ret: item, recv: ""))
+			records.push(rec)
+		end 'boxes'
+		for i in 0 upto records.count() 'makes'
+			for k in 0 upto records[i].fields.count() 'params'
+				let fieldT = records[i].fields[k].t
+				var conv = ""
+				if self.managed(fieldT) 'managed'
+					conv = kwConsumes.clone()
+				end 'managed'
+				records[i].makeParams.push(Param.make("p{k}", t: fieldT, conv: conv))
+			end 'params'
+		end 'makes'
+		let meter = self.internNamed(Kind.kRecord, name: "Meter")
+		var meterRecord = Record.new(meter)
+		meterRecord.fields.push(Field.make("n", t: tCount, isVar: true))
+		meterRecord.makeParams.push(Param.make("n", t: tCount, conv: ""))
+		meterRecord.methods.push(Fn.make("score", params: ParamList.create(0), hasRet: true, ret: tCount, recv: ""))
+		var growParams = ParamList.create(0)
+		growParams.push(Param.make("by", t: tCount, conv: ""))
+		meterRecord.methods.push(Fn.make("grow", params: growParams, hasRet: false, ret: 0, recv: kwMutates.clone()))
+		records.push(meterRecord)
+	end 'declareTypes'
+
+	function boxed(name String) returns Count
+		if containsText(name, needle: "String") 'string'
+			return tString
+		end 'string'
+		return tCount
+	end 'boxed'
+
+	// fieldType is the type of a field: only types declared before it, so records never contain themselves.
+	function fieldType(mutates self) returns Count
+		if sharing 'shared'
+			if self.chance(9) 'chosen'
+				return self.sharedTypeBefore()
+			end 'chosen'
+		end 'shared'
+		let n = self.pick(17)
+		if n < 4 'count'
+			return tCount
+		end 'count'
+		if n < 5 'bool'
+			return tBool
+		end 'bool'
+		if n < 8 'string'
+			return tString
+		end 'string'
+		if n < 10 'array'
+			let inner = self.elementTypeBefore()
+			return self.arrayOf(inner)
+		end 'array'
+		if n < 11 'option'
+			let inner = self.elementTypeBefore()
+			return self.optionOf(inner)
+		end 'option'
+		if n < 12 and not arraysOnly 'handle'
+			let inner = self.elementTypeBefore()
+			return self.handleOf(inner)
+		end 'handle'
+		if n < 13 and not arraysOnly 'pool'
+			let inner = self.elementTypeBefore()
+			return self.poolOf(inner)
+		end 'pool'
+		if n < 14 and not arraysOnly 'list'
+			let inner = self.elementTypeBefore()
+			return self.listOf(inner)
+		end 'list'
+		if n < 15 and not arraysOnly 'map'
+			let key = self.keyType()
+			let valueT = self.elementTypeBefore()
+			return self.mapOf(key, v: valueT)
+		end 'map'
+		return self.elementTypeBefore()
+	end 'fieldType'
+
+	function elementTypeBefore(mutates self) returns Count
+		let n = self.pick(10)
+		if n < 4 'count'
+			return tCount
+		end 'count'
+		if n < 6 'string'
+			return tString
+		end 'string'
+		var declared = CountList.create(0)
+		for i in 0 upto records.count() 'each'
+			if not self.isBox(records[i].t) 'plain'
+				declared.push(records[i].t)
+			end 'plain'
+		end 'each'
+		if declared.count() == 0 'none'
+			return tString
+		end 'none'
+		return declared[self.pick(declared.count())]
+	end 'elementTypeBefore'
+
+	function newUnion(mutates self, i Count) returns Union
+		let t = self.internNamed(Kind.kUnion, name: "U{i}")
+		var u = Union.new(t)
+		let caseCount = self.pickFrom(2, n: 2)
+		for c in 0 upto caseCount 'cases'
+			var payload = FieldList.create(0)
+			var left = self.pick(3)
+			while left > 0 'payload'
+				let fieldT = self.fieldType()
+				payload.push(Field.make("x{payload.count()}", t: fieldT, isVar: false))
+				left = try left - 1 otherwise panic("fuzz: a payload below 0")
+			end 'payload'
+			u.cases.push(CaseDecl.make("c{c}", payload: payload))
+		end 'cases'
+		return u
+	end 'newUnion'
+
+	function writeTypes(mutates self)
+		for i in 0 upto records.count() 'records'
+			let t = records[i].t
+			let name = tys[t].name.clone()
+			if name == "Meter" or hasPrefix(name, prefix: "Box") 'skipped'
+				continue 'records'
+			end 'skipped'
+			self.line("{kwType} {name}")
+			self.indentMore()
+			for k in 0 upto records[i].fields.count() 'fields'
+				var introducer = kwLet.clone()
+				if records[i].fields[k].isVar 'var'
+					introducer = kwVar.clone()
+				end 'var'
+				let fieldName = records[i].fields[k].name.clone()
+				let fieldSrc = tys[records[i].fields[k].t].src.clone()
+				self.line("{kwExport} {introducer} {fieldName} {kwAs} {fieldSrc}")
+			end 'fields'
+			self.methods(i)
+			self.indentLess()
+			self.line("{kwEnd} '{name}'")
+			self.blank()
+		end 'records'
+		for i in 0 upto unions.count() 'unions'
+			let name = tys[unions[i].t].name.clone()
+			self.line("{kwUnion} {name}")
+			self.indentMore()
+			for c in 0 upto unions[i].cases.count() 'cases'
+				let signature = self.caseSignature(unions[i].cases[c].clone())
+				self.line(signature)
+			end 'cases'
+			self.indentLess()
+			self.line("{kwEnd} '{name}'")
+			self.blank()
+		end 'unions'
+	end 'writeTypes'
+
+	function caseSignature(c CaseDecl) returns String
+		if c.payload.count() == 0 'bare'
+			return c.name.clone()
+		end 'bare'
+		var parts = StringList.create(0)
+		for i in 0 upto c.payload.count() 'each'
+			parts.push("{c.payload[i].name} {tys[c.payload[i].t].src}")
+		end 'each'
+		return "{c.name}({joinStrings(parts, separator: ", ")})"
+	end 'caseSignature'
+
+	// methods writes the factory and the methods of a record: ones that read, ones that change and ones that consume it.
+	function methods(mutates self, ri Count)
+		let t = records[ri].t
+		let typeName = tys[t].name.clone()
+		var params = StringList.create(0)
+		var inits = StringList.create(0)
+		for i in 0 upto records[ri].fields.count() 'each'
+			let fieldT = records[ri].fields[i].t
+			var conv = ""
+			if self.managed(fieldT) 'managed'
+				conv = "{kwConsumes} "
+			end 'managed'
+			params.push("{conv}p{i} {tys[fieldT].src}")
+			inits.push("{records[ri].fields[i].name}: p{i}")
+		end 'each'
+		// A function in a declaration has a blank line before it, unless it is the body's first line.
+		if records[ri].fields.count() > 0 'blank'
+			self.blank()
+		end 'blank'
+		self.line("{kwStatic} {kwFunction} make({joinStrings(params, separator: ", ")}) {kwReturns} {typeName}")
+		self.indentMore()
+		self.line("{kwReturn} {typeName}\{{joinStrings(inits, separator: ", ")}\}")
+		self.indentLess()
+		self.line("{kwEnd} 'make'")
+		for spec in 0 upto 6 'specs'
+			var name = "read"
+			var recv = ""
+			var params = ParamList.create(0)
+			var specHasRet = false
+			var specRet = tCount
+			if spec == 1 'bump'
+				name = "bump"
+				recv = kwMutates.clone()
+				params.push(Param.make("by", t: tCount, conv: ""))
+			end 'bump' else if spec == 2 'finish'
+				name = "finish"
+				recv = kwConsumes.clone()
+				specHasRet = true
+			end 'finish' else if spec == 3 'absorb'
+				name = "absorb"
+				recv = kwMutates.clone()
+				params.push(Param.make("other", t: t, conv: ""))
+			end 'absorb' else if spec == 4 'relabel'
+				name = "relabel"
+				recv = kwMutates.clone()
+				specHasRet = true
+				specRet = tString
+			end 'relabel' else if spec == 5 'spend'
+				name = "spend"
+				recv = kwConsumes.clone()
+				specHasRet = true
+				specRet = tString
+			end 'spend' else 'read'
+				specHasRet = true
+			end 'read'
+			let m = Fn.make(name, params: params, hasRet: specHasRet, ret: specRet, recv: recv)
+			self.blank()
+			self.method(ri, m: m.clone())
+			records[ri].methods.push(m)
+		end 'specs'
+	end 'methods'
+
+	// method writes a method whose body is generated like any other function's, with self a variable that the statements use. A
+	// method may call only the methods written before it, so no call can recurse.
+	function method(mutates self, ri Count, m Fn)
+		let t = records[ri].t
+		var parts = StringList.create(0)
+		if m.recv != "" 'receiver'
+			parts.push("{m.recv} {kwSelf}")
+		end 'receiver'
+		for i in 0 upto m.params.count() 'params'
+			parts.push("{m.params[i].name} {tys[m.params[i].t].src}")
+		end 'params'
+		var header = "{kwFunction} {m.name}({joinStrings(parts, separator: ", ")})"
+		if m.hasRet 'ret'
+			header = "{header} {kwReturns} {tys[m.ret].src}"
+		end 'ret'
+		self.line(header)
+		let savedScopes = exchange(scopes, value: Scopes.create(0))
+		let savedHasRet = hasRet
+		let savedRet = ret
+		let savedLoop = loop
+		let savedBudget = budget
+		self.push()
+		_ = self.declare(kwSelf, t: t, owned: m.recv == kwConsumes, mutable: m.recv == kwMutates)
+		for i in 0 upto m.params.count() 'declared'
+			_ = self.declare(m.params[i].name, t: m.params[i].t, owned: false, mutable: false)
+		end 'declared'
+		hasRet = m.hasRet
+		ret = m.ret
+		loop = 0
+		let allowance = self.pickFrom(4, n: 4)
+		budget = allowance
+		self.indentMore()
+		self.push()
+		let start = out.count()
+		while budget > 0 'body'
+			self.stmt(2)
+		end 'body'
+		if m.hasRet 'returned'
+			let value = self.owned(m.ret, depth: 2)
+			self.line("{kwReturn} {value}")
+		end 'returned'
+		if out.count() == start 'empty'
+			self.line(printedText("m"))
+		end 'empty'
+		self.pop()
+		self.indentLess()
+		self.line("{kwEnd} '{m.name}'")
+		scopes = savedScopes
+		hasRet = savedHasRet
+		ret = savedRet
+		loop = savedLoop
+		budget = savedBudget
+	end 'method'
+
+	// Scopes and places
+	function push(mutates self)
+		scopes.push(CountList.create(0))
+	end 'push'
+
+	function pop(mutates self)
+		try scopes.pop() otherwise ignore
+	end 'pop'
+
+	function declare(mutates self, name String, t Count, owned bool, mutable bool) returns Count
+		let v = vars.count()
+		vars.push(Variable.make(name.clone(), t: t, owned: owned, mutable: mutable, loop: loop))
+		let top = try scopes.count() - 1 otherwise panic("fuzz: a declaration with no scope")
+		scopes[top].push(v)
+		return v
+	end 'declare'
+
+	function visible() returns CountList
+		var found = CountList.create(0)
+		for s in 0 upto scopes.count() 'scopes'
+			for i in 0 upto scopes[s].count() 'each'
+				found.push(scopes[s][i])
+			end 'each'
+		end 'scopes'
+		return found
+	end 'visible'
+
+	function moveState() returns MoveState
+		var state = MoveState.filled(vars.count(), value: stateAbsent)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved 'moved'
+				state[v] = stateMoved
+			end 'moved' else 'held'
+				state[v] = stateHeld
+			end 'held'
+		end 'each'
+		return state
+	end 'moveState'
+
+	function restoreMoves(mutates self, state MoveState)
+		for v in 0 upto state.count() 'each'
+			if state[v] != stateAbsent 'known'
+				vars[v].moved = state[v] == stateMoved
+			end 'known'
+		end 'each'
+	end 'restoreMoves'
+
+	// mergeMoves marks a variable moved when any path moved it.
+	function mergeMoves(mutates self, states MoveStates)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			var moved = false
+			for s in 0 upto states.count() 'states'
+				if v < states[s].count() and states[s][v] == stateMoved 'path'
+					moved = true
+				end 'path'
+			end 'states'
+			vars[v].moved = moved
+		end 'each'
+	end 'mergeMoves'
+
+	function mergeTwo(mutates self, a MoveState, b MoveState)
+		var states = MoveStates.create(0)
+		states.push(a.clone())
+		states.push(b.clone())
+		self.mergeMoves(states)
+	end 'mergeTwo'
+
+	function addPlace(mutates self, consumes p Place) returns Count
+		let id = store.count()
+		store.push(p)
+		return id
+	end 'addPlace'
+
+	// inside is the place a field of p names.
+	function inside(mutates self, p Count, src String, t Count, mutable bool) returns Count
+		let root = store[p].root
+		var q = Place.new(src.clone(), t: t, root: root, mutable: mutable, whole: false)
+		q.hasParent = true
+		q.parent = p
+		q.guards = store[p].guards.clone()
+		return self.addPlace(q)
+	end 'inside'
+
+	// element marks the place as an element of a collection, which exists only where the guard holds.
+	function element(mutates self, p Count, guard String) returns Count
+		var q = store[p].clone()
+		q.elements = true
+		q.guards.push(guard.clone())
+		return self.addPlace(q)
+	end 'element'
+
+	// wholeOf is the place that names a variable as a whole.
+	function wholeOf(mutates self, v Count, mutable bool) returns Count
+		return self.addPlace(Place.new(vars[v].name.clone(), t: vars[v].t, root: v, mutable: mutable, whole: true))
+	end 'wholeOf'
+
+	// accepts is whether the types a walk looks for include t.
+	function accepts(a Accept, t Count) returns bool
+		if a.collection 'collections'
+			return self.isCollection(t)
+		end 'collections'
+		return t == a.want
+	end 'accepts'
+
+	function isCollection(t Count) returns bool
+		let k = tys[t].kind
+		return k == Kind.kArray or k == Kind.kPool or k == Kind.kList or k == Kind.kMap
+	end 'isCollection'
+
+	// walk is the places in and under p whose type accept takes.
+	function walk(mutates self, mutates found CountList, p Count, accept Accept, depth Count)
+		let pt = store[p].t
+		if self.accepts(accept, t: pt) 'accepted'
+			found.push(p)
+		end 'accepted'
+		if depth == 0 'bottom'
+			return
+		end 'bottom'
+		if tys[pt].kind == Kind.kFrozen 'frozen'
+			self.walkFrozen(found, p: p, accept: accept, depth: depth)
+			return
+		end 'frozen'
+		let ri = self.recordIndex(pt)
+		if not ri.isSome() 'plain'
+			return
+		end 'plain'
+		let r = ri.unwrap()
+		let src = store[p].src.clone()
+		let outerMutable = store[p].mutable
+		let below = try depth - 1 otherwise panic("fuzz: a walk below its depth")
+		for k in 0 upto records[r].fields.count() 'fields'
+			let fieldName = records[r].fields[k].name.clone()
+			let fieldT = records[r].fields[k].t
+			let fieldVar = records[r].fields[k].isVar
+			let q = self.inside(p, src: "{src}.{fieldName}", t: fieldT, mutable: outerMutable and fieldVar)
+			self.walk(found, p: q, accept: accept, depth: below)
+		end 'fields'
+	end 'walk'
+
+	// placesWhere are the places whose type accept takes that can be read, or changed when mutable is set.
+	function placesWhere(mutates self, accept Accept, mutable bool) returns CountList
+		var found = CountList.create(0)
+		// Now and then a variable that was moved is read again, to see that the checker notices.
+		let careless = self.careless()
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved and not careless 'moved'
+				continue 'each'
+			end 'moved'
+			if mutable and (not vars[v].mutable or (vars[v].frozen > 0 and not careless)) 'unchangeable'
+				continue 'each'
+			end 'unchangeable'
+			let rootMutable = vars[v].mutable and (vars[v].frozen == 0 or careless)
+			let root = self.wholeOf(v, mutable: rootMutable)
+			var walked = CountList.create(0)
+			self.walk(walked, p: root, accept: accept, depth: 3)
+			for k in 0 upto walked.count() 'walked'
+				if mutable and not store[walked[k]].mutable 'readOnly'
+					continue 'walked'
+				end 'readOnly'
+				found.push(walked[k])
+			end 'walked'
+		end 'each'
+		return found
+	end 'placesWhere'
+
+	// places are the places of type want that can be read, or changed when mutable is set.
+	function places(mutates self, want Count, mutable bool) returns CountList
+		return self.placesWhere(Accept.of(want), mutable: mutable)
+	end 'places'
+
+	function place(mutates self, want Count, mutable bool) returns table.Option with Count
+		let ps = self.places(want, mutable: mutable)
+		if ps.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(ps[self.pick(ps.count())])
+	end 'place'
+
+	// movable are the variables that own a value of type want and may give it away here.
+	function movable(mutates self, want Count) returns CountList
+		var found = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].owned and not vars[v].moved and vars[v].t == want 'candidate'
+				var allowed = vars[v].frozen == 0 and vars[v].loop == loop
+				if not allowed 'draw'
+					allowed = self.careless()
+				end 'draw'
+				if allowed 'give'
+					found.push(v)
+				end 'give'
+			end 'candidate'
+		end 'each'
+		return found
+	end 'movable'
+
+	// Expressions
+	function countExpr(mutates self, depth Depth) returns String
+		var leaf = depth <= 0
+		if not leaf 'draw'
+			leaf = self.chance(40)
+		end 'draw'
+		if leaf 'leaf'
+			let found = self.place(tCount, mutable: false)
+			if found.isSome() 'some'
+				let p = found.unwrap()
+				if self.chance(60) 'use'
+					return store[p].src.clone()
+				end 'use'
+			end 'some'
+			return literal(self.pick(10))
+		end 'leaf'
+		let n = self.pick(12)
+		if n < 3 'arithmetic'
+			return self.arithmetic(depth)
+		end 'arithmetic'
+		if n < 7 'collection'
+			let c = self.countOfCollection()
+			if c.isSome() 'some'
+				return c.unwrap()
+			end 'some'
+		end 'collection' else if n < 9 'call'
+			let c = self.callReturning(tCount, depth: depth)
+			if c.isSome() 'some'
+				return c.unwrap()
+			end 'some'
+		end 'call' else if n < 10 'conditional'
+			return self.condExpr(tCount, depth: depth)
+		end 'conditional'
+		return literal(self.pick(10))
+	end 'countExpr'
+
+	// arithmetic is an operation on two counts. Inside a try block it may stand bare, its failure going to the block's handler;
+	// elsewhere a try gives the value it has when it fails. Its left operand is a count that is stored, cast to Count as a loop's
+	// variable needs, so the operation is on Count and not on constants or a loop's range, whose result would be a signed word.
+	function arithmetic(mutates self, depth Depth) returns String
+		let found = self.place(tCount, mutable: false)
+		if not found.isSome() 'none'
+			return literal(self.pick(10))
+		end 'none'
+		let p = found.unwrap()
+		let op = arithmeticOp(self.pick(5))
+		let left = "({store[p].src} {kwAs} Count)"
+		var right = self.countExpr(lower(depth))
+		if (op == "/" or op == "mod") and right == literal(0) 'zero'
+			right = literal(1)
+		end 'zero'
+		if tries > 0 'inTry'
+			if self.chance(50) 'bare'
+				return "({left} {op} {right})"
+			end 'bare'
+		end 'inTry'
+		let fallback = literal(self.pick(10))
+		return "({kwTry} {left} {op} {right} {kwOtherwise} {fallback})"
+	end 'arithmetic'
+
+	function countOfCollection(mutates self) returns table.Option with String
+		var found = StringList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved 'moved'
+				continue 'each'
+			end 'moved'
+			if self.isCollection(vars[v].t) 'collection'
+				found.push("{vars[v].name}.count()")
+			end 'collection'
+		end 'each'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())].clone())
+	end 'countOfCollection'
+
+	function boolExpr(mutates self, depth Depth) returns String
+		var leaf = depth <= 0
+		if not leaf 'draw'
+			leaf = self.chance(30)
+		end 'draw'
+		if leaf 'leaf'
+			if self.chance(30) 'literal'
+				if self.pick(2) == 0 'yes'
+					return kwTrue.clone()
+				end 'yes'
+				return kwFalse.clone()
+			end 'literal'
+			let found = self.place(tBool, mutable: false)
+			if found.isSome() 'some'
+				let p = found.unwrap()
+				if self.chance(60) 'use'
+					return store[p].src.clone()
+				end 'use'
+			end 'some'
+			let left = self.countExpr(0)
+			let right = self.countExpr(0)
+			return "{left} < {right}"
+		end 'leaf'
+		let n = self.pick(9)
+		let below = lower(depth)
+		if n < 3 'compare'
+			let left = self.countExpr(below)
+			let op = comparisonOp(self.pick(5))
+			let right = self.countExpr(below)
+			return "{left} {op} {right}"
+		end 'compare'
+		if n < 4 'negation'
+			let inner = self.boolExpr(below)
+			return "{kwNot} ({inner})"
+		end 'negation'
+		if n < 5 'junction'
+			let left = self.boolExpr(below)
+			var op = kwAnd.clone()
+			if self.pick(2) == 1 'or'
+				op = kwOr.clone()
+			end 'or'
+			let right = self.boolExpr(below)
+			return "({left}) {op} ({right})"
+		end 'junction'
+		if n < 6 'query'
+			let c = self.queryExpr()
+			if c.isSome() 'some'
+				return c.unwrap()
+			end 'some'
+		end 'query' else if n < 7 'call'
+			let c = self.callReturning(tBool, depth: depth)
+			if c.isSome() 'some'
+				return c.unwrap()
+			end 'some'
+		end 'call' else if n < 8 'held'
+			let interpolation = self.chance(35)
+			let broken = self.heldBroken()
+			if interpolation 'interpolation'
+				let c = self.heldInterpolationCompare(broken, elements: false)
+				if c.isSome() 'some'
+					return c.unwrap()
+				end 'some'
+			end 'interpolation' else 'compare'
+				let c = self.heldCompare(broken, elements: false)
+				if c.isSome() 'some'
+					return c.unwrap()
+				end 'some'
+			end 'compare'
+		end 'held'
+		return kwTrue.clone()
+	end 'boolExpr'
+
+	// queryExpr is a bool that asks a collection or an option a question.
+	function queryExpr(mutates self) returns table.Option with String
+		var found = StringList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved 'moved'
+				continue 'each'
+			end 'moved'
+			if self.isCollection(vars[v].t) 'collection'
+				found.push("{vars[v].name}.isEmpty()")
+			end 'collection' else if tys[vars[v].t].kind == Kind.kOption 'option'
+				found.push("{vars[v].name}.isSome()")
+			end 'option'
+		end 'each'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())].clone())
+	end 'queryExpr'
+
+	// ownedFromStorage is a value of type t taken from storage, as an owned copy or by moving a whole variable.
+	function ownedFromStorage(mutates self, t Count) returns table.Option with String
+		if self.careless() 'careless'
+			// A move out of a place that is not a whole local that owns its value: a field, a borrow, an element.
+			let found = self.place(t, mutable: false)
+			if found.isSome() 'borrowed'
+				let p = found.unwrap()
+				if not store[p].whole 'part'
+					return table.Option.some(store[p].src.clone())
+				end 'part'
+			end 'borrowed'
+			let seen = self.visible()
+			for i in 0 upto seen.count() 'locals'
+				let v = seen[i]
+				if vars[v].t == t and not vars[v].owned 'borrow'
+					if self.chance(50) 'taken'
+						return table.Option.some(vars[v].name.clone())
+					end 'taken'
+				end 'borrow'
+			end 'locals'
+			let c = self.collectionOf(t)
+			if c.isSome() 'collection'
+				let cv = c.unwrap()
+				let e = self.elementOf(cv, mutable: false)
+				if e.isSome() 'element'
+					let p = e.unwrap()
+					return table.Option.some(store[p].src.clone())
+				end 'element'
+			end 'collection'
+			// A field of a value that is only a temporary.
+			for ri in 0 upto records.count() 'records'
+				for k in 0 upto records[ri].fields.count() 'fields'
+					if records[ri].fields[k].t == t and not self.isBox(records[ri].t) 'candidate'
+						if self.chance(40) 'taken'
+							let fieldName = records[ri].fields[k].name.clone()
+							let value = self.recordExpr(ri, depth: 1)
+							return table.Option.some("{value}.{fieldName}")
+						end 'taken'
+					end 'candidate'
+				end 'fields'
+			end 'records'
+		end 'careless'
+		let optionT = self.optionOf(t)
+		let opts = self.movable(optionT)
+		if opts.count() > 0 and self.managed(t) 'options'
+			if self.chance(30) 'taken'
+				let v = opts[self.pick(opts.count())]
+				vars[v].moved = true
+				return table.Option.some("{vars[v].name}.unwrap()")
+			end 'taken'
+		end 'options'
+		let moves = self.movable(t)
+		if moves.count() > 0 'moves'
+			if self.chance(55) 'taken'
+				let v = moves[self.pick(moves.count())]
+				vars[v].moved = true
+				return table.Option.some(vars[v].name.clone())
+			end 'taken'
+		end 'moves'
+		let copied = self.place(t, mutable: false)
+		if copied.isSome() 'copy'
+			let p = copied.unwrap()
+			return table.Option.some("{store[p].src}.clone()")
+		end 'copy'
+		return table.Option.none
+	end 'ownedFromStorage'
+
+	// owned is an expression of type t whose value the receiver owns: it is fresh, a copy, or a variable moved.
+	function owned(mutates self, t Count, depth Depth) returns String
+		var level = depth
+		if level < 0 'clamp'
+			level = 0
+		end 'clamp'
+		let k = tys[t].kind
+		if k == Kind.kCount 'count'
+			return self.countExpr(level)
+		end 'count'
+		if k == Kind.kBool 'bool'
+			return self.boolExpr(level)
+		end 'bool'
+		let below = lower(level)
+		if level > 0 'storage'
+			if self.chance(15) 'drawn'
+				let s = self.ownedFromStorage(t)
+				if s.isSome() 'some'
+					return s.unwrap()
+				end 'some'
+			end 'drawn'
+		end 'storage'
+		if level > 0 'call'
+			if self.chance(12) 'drawn'
+				let c = self.callReturning(t, depth: level)
+				if c.isSome() 'some'
+					return c.unwrap()
+				end 'some'
+			end 'drawn'
+		end 'call'
+		if level > 0 'conditional'
+			if self.chance(8) and k != Kind.kHandle 'drawn'
+				return self.condExpr(t, depth: level)
+			end 'drawn'
+		end 'conditional'
+		if k == Kind.kString 'string'
+			let n = self.pick(6)
+			if n < 2 'literal'
+				return quoted("s{self.pick(5)}")
+			end 'literal'
+			if n < 4 'interpolated'
+				let c = self.countExpr(below)
+				return quoted("{braced(c)}x")
+			end 'interpolated'
+			if n < 5 'storage'
+				let s = self.ownedFromStorage(t)
+				if s.isSome() 'some'
+					return s.unwrap()
+				end 'some'
+			end 'storage'
+			return quoted("s{self.pick(5)}")
+		end 'string'
+		if k == Kind.kRecord 'record'
+			let ri = self.recordIndex(t).unwrap()
+			return self.recordExpr(ri, depth: level)
+		end 'record'
+		if k == Kind.kUnion 'union'
+			let ui = self.unionIndex(t).unwrap()
+			return self.unionExpr(ui, depth: level)
+		end 'union'
+		if k == Kind.kArray 'array'
+			let n = self.pick(6)
+			if n < 2 'empty'
+				return "{self.typeExpr(t)}.create(0)"
+			end 'empty'
+			if n < 4 'filled'
+				let typeText = self.typeExpr(t)
+				let count = self.pick(4)
+				let elemT = tys[t].args[0]
+				let value = self.owned(elemT, depth: below)
+				return "{typeText}.filled({count}, value: {value})"
+			end 'filled'
+			let s = self.ownedFromStorage(t)
+			if s.isSome() 'some'
+				return s.unwrap()
+			end 'some'
+			return "{self.typeExpr(t)}.create(0)"
+		end 'array'
+		if k == Kind.kPool or k == Kind.kList or k == Kind.kMap 'collection'
+			if self.chance(30) 'storage'
+				let s = self.ownedFromStorage(t)
+				if s.isSome() 'some'
+					return s.unwrap()
+				end 'some'
+			end 'storage'
+			return "{self.typeExpr(t)}.create()"
+		end 'collection'
+		if k == Kind.kOption 'option'
+			return self.optionExpr(t, depth: level)
+		end 'option'
+		if k == Kind.kHandle 'handle'
+			return self.handleExpr(t, depth: level)
+		end 'handle'
+		if k == Kind.kFrozen or k == Kind.kCown 'shared'
+			return self.sharedExpr(t, depth: level)
+		end 'shared'
+		panic("owned: unhandled type {tys[t].src}")
+	end 'owned'
+
+	function recordExpr(mutates self, ri Count, depth Depth) returns String
+		let t = records[ri].t
+		if self.isBox(t) 'box'
+			let typeText = self.typeExpr(t)
+			let itemT = records[ri].fields[0].t
+			let item = self.owned(itemT, depth: lower(depth))
+			return "{typeText}.make({item})"
+		end 'box'
+		let params = records[ri].makeParams.clone()
+		let name = tys[t].name.clone()
+		return self.callArgsText("{name}.make", params: params, depth: depth)
+	end 'recordExpr'
+
+	function unionExpr(mutates self, ui Count, depth Depth) returns String
+		let c = self.pick(unions[ui].cases.count())
+		let name = tys[unions[ui].t].name.clone()
+		let caseName = unions[ui].cases[c].name.clone()
+		if unions[ui].cases[c].payload.count() == 0 'bare'
+			return "{name}.{caseName}"
+		end 'bare'
+		var params = ParamList.create(0)
+		for i in 0 upto unions[ui].cases[c].payload.count() 'each'
+			params.push(Param.make(unions[ui].cases[c].payload[i].name.clone(), t: unions[ui].cases[c].payload[i].t, conv: kwConsumes.clone()))
+		end 'each'
+		return self.callArgsText("{name}.{caseName}", params: params, depth: depth)
+	end 'unionExpr'
+
+	// callArgsText is a call whose arguments are owned values: the first is positional and the others are labelled.
+	function callArgsText(mutates self, callee String, params ParamList, depth Depth) returns String
+		var parts = StringList.create(0)
+		for i in 0 upto params.count() 'each'
+			let v = self.owned(params[i].t, depth: lower(depth))
+			if i == 0 'first'
+				parts.push(v.clone())
+			end 'first' else 'labelled'
+				parts.push("{params[i].name}: {v}")
+			end 'labelled'
+		end 'each'
+		return "{callee}({joinStrings(parts, separator: ", ")})"
+	end 'callArgsText'
+
+	function optionExpr(mutates self, t Count, depth Depth) returns String
+		let elem = tys[t].args[0]
+		let below = lower(depth)
+		let n = self.pick(8)
+		if n < 2 'none'
+			return "{self.typeExpr(t)}.none"
+		end 'none'
+		if n < 4 'some'
+			let typeText = self.typeExpr(t)
+			let value = self.owned(elem, depth: below)
+			return "{typeText}.some({value})"
+		end 'some'
+		if n < 6 'pop'
+			let arrayT = self.arrayOf(elem)
+			let a = self.place(arrayT, mutable: true)
+			if a.isSome() 'array'
+				let p = a.unwrap()
+				let typeText = self.typeExpr(t)
+				let value = self.owned(elem, depth: below)
+				return "{typeText}.some({kwTry} {store[p].src}.pop() {kwOtherwise} {value})"
+			end 'array'
+		end 'pop' else if n < 7 'first'
+			let arrayT = self.arrayOf(elem)
+			let a = self.place(arrayT, mutable: false)
+			if a.isSome() 'array'
+				let p = a.unwrap()
+				return "firstOf({store[p].src})"
+			end 'array'
+		end 'first'
+		let s = self.ownedFromStorage(t)
+		if s.isSome() 'storage'
+			return s.unwrap()
+		end 'storage'
+		return "{self.typeExpr(t)}.none"
+	end 'optionExpr'
+
+	// handleExpr is the handle of a new element of a pool or a list, or one that a variable already holds.
+	function handleExpr(mutates self, t Count, depth Depth) returns String
+		let elem = tys[t].args[0]
+		let below = lower(depth)
+		if self.chance(40) 'held'
+			let p = self.place(t, mutable: false)
+			if p.isSome() 'some'
+				return store[p.unwrap()].src.clone()
+			end 'some'
+		end 'held'
+		let poolT = self.poolOf(elem)
+		let pool = self.place(poolT, mutable: true)
+		if pool.isSome() 'pool'
+			if self.chance(60) 'insert'
+				let p = pool.unwrap()
+				let value = self.owned(elem, depth: below)
+				return "{store[p].src}.insert({value})"
+			end 'insert'
+		end 'pool'
+		let listT = self.listOf(elem)
+		let list = self.place(listT, mutable: true)
+		if list.isSome() 'list'
+			let l = list.unwrap()
+			var add = "append"
+			if self.pick(2) == 1 'prepend'
+				add = "prepend"
+			end 'prepend'
+			let value = self.owned(elem, depth: below)
+			return "{store[l].src}.{add}({value})"
+		end 'list'
+		let again = self.place(t, mutable: false)
+		if again.isSome() 'again'
+			return store[again.unwrap()].src.clone()
+		end 'again'
+		return self.freshHandle(elem, depth: depth)
+	end 'handleExpr'
+
+	// freshHandle needs a pool to put something in, so it makes one inside an expression it cannot: callers declare it.
+	function freshHandle(mutates self, elem Count, depth Depth) returns String
+		let value = self.owned(elem, depth: lower(depth))
+		return "mint({typed(self.kindOf(elem), value: value)})"
+	end 'freshHandle'
+
+	// condExpr is a conditional whose branches give owned values, so a place in one is moved.
+	function condExpr(mutates self, t Count, depth Depth) returns String
+		let below = lower(depth)
+		let state = self.moveState()
+		let a = self.owned(t, depth: below)
+		let stateA = self.moveState()
+		self.restoreMoves(state)
+		let b = self.owned(t, depth: below)
+		let stateB = self.moveState()
+		self.mergeTwo(stateA, b: stateB)
+		let test = self.boolExpr(below)
+		if t == tCount 'count'
+			// Two constants unify to a plain integer, which does not fit Count without a cast.
+			return "(({a} {kwIf} {test} {kwElse} {b}) {kwAs} Count)"
+		end 'count'
+		return "({a} {kwIf} {test} {kwElse} {b})"
+	end 'condExpr'
+
+	// matchExpr is a match over a union or an option that gives a value of type t in each arm. It spans lines, so it is only the
+	// initial value of a binding.
+	function matchExpr(mutates self, t Count, depth Depth) returns String
+		let subject = self.matchSubject()
+		if not subject.isSome() 'none'
+			return self.owned(t, depth: lower(depth))
+		end 'none'
+		let found = subject.unwrap()
+		let armList = self.armsOf(found.t)
+		let label = self.label()
+		var arms = StringList.create(0)
+		let state = self.moveState()
+		var states = MoveStates.create(0)
+		for i in 0 upto armList.count() 'arms'
+			self.restoreMoves(state)
+			self.push()
+			let pattern = self.armPattern(armList[i].clone())
+			for b in 0 upto pattern.bound.count() 'bound'
+				_ = self.declare(pattern.bound[b].name, t: pattern.bound[b].t, owned: false, mutable: false)
+			end 'bound'
+			let value = self.owned(t, depth: lower(depth))
+			arms.push("{pattern.text} {kwGives} {value}")
+			states.push(self.moveState())
+			self.pop()
+		end 'arms'
+		self.mergeMoves(states)
+		return "{kwMatch} {found.src} {label}\n{self.armLines(arms)}{kwEnd} {label}"
+	end 'matchExpr'
+
+	function armLines(arms StringList) returns String
+		let deeper = try indent + 1 otherwise panic("fuzz: an indent past memory")
+		var text = ByteArray.create(0)
+		for i in 0 upto arms.count() 'each'
+			text.append("{tabs(deeper)}{arms[i]}\n".toByteArray())
+		end 'each'
+		text.append(tabs(indent).toByteArray())
+		return String.from(text)
+	end 'armLines'
+
+	// matchSubject is a place or a fresh value of a union or option type, with the arms that cover it.
+	function matchSubject(mutates self) returns table.Option with Subject
+		var candidates = SubjectList.create(0)
+		for u in 0 upto unions.count() 'unions'
+			let t = unions[u].t
+			let ps = self.places(t, mutable: false)
+			for i in 0 upto ps.count() 'each'
+				candidates.push(Subject.make(store[ps[i]].src.clone(), t: store[ps[i]].t))
+			end 'each'
+		end 'unions'
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if tys[vars[v].t].kind == Kind.kOption and not vars[v].moved 'option'
+				candidates.push(Subject.make(vars[v].name.clone(), t: vars[v].t))
+			end 'option'
+			// A frozen union is matched through its contents, which the arms borrow.
+			if tys[vars[v].t].kind == Kind.kFrozen and not vars[v].moved and self.isUnion(tys[vars[v].t].args[0]) 'frozen'
+				candidates.push(Subject.make(vars[v].name.clone(), t: tys[vars[v].t].args[0]))
+			end 'frozen'
+		end 'each'
+		if candidates.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(candidates[self.pick(candidates.count())].clone())
+	end 'matchSubject'
+
+	function armsOf(t Count) returns ArmList
+		var found = ArmList.create(0)
+		if tys[t].kind == Kind.kOption 'option'
+			var payload = FieldList.create(0)
+			payload.push(Field.make("v", t: tys[t].args[0], isVar: false))
+			found.push(Arm.make("some", payload: payload))
+			found.push(Arm.make("none", payload: FieldList.create(0)))
+			return found
+		end 'option'
+		let ui = self.unionIndex(t).unwrap()
+		for i in 0 upto unions[ui].cases.count() 'cases'
+			found.push(Arm.make(unions[ui].cases[i].name.clone(), payload: unions[ui].cases[i].payload.clone()))
+		end 'cases'
+		return found
+	end 'armsOf'
+
+	// armPattern is a case pattern with a fresh name for each payload field, or an underscore for some.
+	function armPattern(mutates self, a Arm) returns Pattern
+		if a.payload.count() == 0 'bare'
+			return Pattern.make(a.name.clone(), bound: ParamList.create(0))
+		end 'bare'
+		var bound = ParamList.create(0)
+		var patternNames = StringList.create(0)
+		for i in 0 upto a.payload.count() 'each'
+			if self.chance(25) 'discard'
+				patternNames.push("_")
+				continue 'each'
+			end 'discard'
+			let n = self.fresh("b")
+			patternNames.push(n.clone())
+			bound.push(Param.make(n, t: a.payload[i].t, conv: ""))
+		end 'each'
+		return Pattern.make("{a.name}({joinStrings(patternNames, separator: ", ")})", bound: bound)
+	end 'armPattern'
+
+	// Calls
+	// callReturning is a call of a function that returns t, or a method; its arguments follow the parameters' conventions.
+	function callReturning(mutates self, t Count, depth Depth) returns table.Option with String
+		var candidates = CountList.create(0)
+		for i in 0 upto fns.count() 'each'
+			if fns[i].hasRet and fns[i].ret == t 'returns'
+				candidates.push(i)
+			end 'returns'
+		end 'each'
+		if t == tCount 'count'
+			if self.chance(30) 'library'
+				let s = self.libraryCount(depth)
+				if s.isSome() 'some'
+					return s
+				end 'some'
+			end 'library'
+			let m = self.methodCall(tCount, depth: depth)
+			if m.isSome() 'method'
+				return m
+			end 'method'
+		end 'count'
+		if candidates.count() == 0 'none'
+			return self.libraryCall(t, depth: depth)
+		end 'none'
+		let f = candidates[self.pick(candidates.count())]
+		let name = fns[f].name.clone()
+		let params = fns[f].params.clone()
+		return self.callText(name, params: params, depth: depth)
+	end 'callReturning'
+
+	// callText writes a call with an argument for each parameter, following its convention.
+	function callText(mutates self, callee String, params ParamList, depth Depth) returns table.Option with String
+		return self.callTextRoots(callee, params: params, depth: depth, earlier: CountList.create(0))
+	end 'callText'
+
+	// callTextRoots is a call whose arguments may reuse the variables of earlier ones, such as the receiver.
+	function callTextRoots(mutates self, callee String, params ParamList, depth Depth, earlier CountList) returns table.Option with String
+		var parts = StringList.create(0)
+		var roots = earlier.clone()
+		for i in 0 upto params.count() 'each'
+			let arg = self.argument(params[i].clone(), depth: depth, earlier: roots)
+			if not arg.isSome() 'failed'
+				return table.Option.none
+			end 'failed'
+			if recentOK 'placed'
+				roots.push(store[recent].root)
+			end 'placed'
+			if i == 0 'first'
+				parts.push(arg.unwrap())
+			end 'first' else 'labelled'
+				parts.push("{params[i].name}: {arg.unwrap()}")
+			end 'labelled'
+		end 'each'
+		return table.Option.some("{callee}({joinStrings(parts, separator: ", ")})")
+	end 'callTextRoots'
+
+	// callTextFirst is a call whose first argument is given.
+	function callTextFirst(mutates self, fi Count, first String, depth Depth) returns table.Option with String
+		var parts = StringList.create(0)
+		parts.push(first.clone())
+		let params = fns[fi].params.clone()
+		let name = fns[fi].name.clone()
+		for i in 1 upto params.count() 'each'
+			let arg = self.argument(params[i].clone(), depth: depth, earlier: CountList.create(0))
+			if not arg.isSome() 'failed'
+				return table.Option.none
+			end 'failed'
+			parts.push("{params[i].name}: {arg.unwrap()}")
+		end 'each'
+		return table.Option.some("{name}({joinStrings(parts, separator: ", ")})")
+	end 'callTextFirst'
+
+	// pickOverlapping is a place among ps that lies in a variable an earlier argument used, in the way an adversarial program
+	// writes arguments that overlap, or the place already picked.
+	function pickOverlapping(mutates self, ps CountList, picked Count, earlier CountList) returns Count
+		for i in 0 upto ps.count() 'each'
+			let want = earlier[self.pick(earlier.count())]
+			if store[ps[i]].root == want 'found'
+				return ps[i]
+			end 'found'
+		end 'each'
+		return picked
+	end 'pickOverlapping'
+
+	// argument is an argument for a parameter: a read for a let, a place that can change for mutates, an owned value for consumes.
+	// Sometimes it is a place the arguments before it already used, to try the exclusivity rule.
+	function argument(mutates self, p Param, depth Depth, earlier CountList) returns table.Option with String
+		recentOK = false
+		if p.conv == kwMutates 'mutates'
+			let candidates = self.places(p.t, mutable: true)
+			let ps = self.notSelf(candidates)
+			if ps.count() == 0 'none'
+				return table.Option.none
+			end 'none'
+			var pl = ps[self.pick(ps.count())]
+			if earlier.count() > 0 'earlier'
+				if self.adversarial() 'adversarial'
+					pl = self.pickOverlapping(ps, picked: pl, earlier: earlier)
+				end 'adversarial'
+			end 'earlier'
+			recent = pl
+			recentOK = true
+			return table.Option.some(store[pl].src.clone())
+		end 'mutates'
+		if p.conv == kwConsumes 'consumes'
+			return table.Option.some(self.owned(p.t, depth: lower(depth)))
+		end 'consumes'
+		if p.conv == kwSets 'sets'
+			// A variable with no value, which the call gives one.
+			let name = self.fresh("v")
+			self.line("{kwVar} {name} {kwAs} {tys[p.t].src}")
+			let v = self.declare(name, t: p.t, owned: true, mutable: true)
+			vars[v].moved = true
+			pendingInit.push(v)
+			return table.Option.some(name)
+		end 'sets'
+		if self.chance(60) 'read'
+			let ps = self.places(p.t, mutable: false)
+			if ps.count() > 0 'some'
+				var pl = ps[self.pick(ps.count())]
+				if earlier.count() > 0 'earlier'
+					if self.adversarial() 'adversarial'
+						pl = self.pickOverlapping(ps, picked: pl, earlier: earlier)
+					end 'adversarial'
+				end 'earlier'
+				recent = pl
+				recentOK = true
+				return table.Option.some(store[pl].src.clone())
+			end 'some'
+		end 'read'
+		return table.Option.some(self.owned(p.t, depth: lower(depth)))
+	end 'argument'
+
+	// methodCall calls a method of a record that returns a Count: one that reads, one that changes, one that consumes.
+	function methodCall(mutates self, t Count, depth Depth) returns table.Option with String
+		var recs = CountList.create(0)
+		for i in 0 upto records.count() 'each'
+			if records[i].methods.count() > 0 'methods'
+				recs.push(i)
+			end 'methods'
+		end 'each'
+		if recs.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		let ri = recs[self.pick(recs.count())]
+		let mi = self.pick(records[ri].methods.count())
+		let m = records[ri].methods[mi].clone()
+		if not m.hasRet or m.ret != t or m.params.count() > 0 'mismatch'
+			return table.Option.none
+		end 'mismatch'
+		let rt = records[ri].t
+		if m.recv == kwConsumes 'consumes'
+			let moves = self.movable(rt)
+			var fresh = moves.count() == 0
+			if not fresh 'draw'
+				fresh = not self.chance(60)
+			end 'draw'
+			if fresh 'fresh'
+				let value = self.recordExpr(ri, depth: lower(depth))
+				return table.Option.some("{value}.{m.name}()")
+			end 'fresh'
+			let v = moves[self.pick(moves.count())]
+			vars[v].moved = true
+			return table.Option.some("{vars[v].name}.{m.name}()")
+		end 'consumes'
+		let found = self.place(rt, mutable: false)
+		if found.isSome() 'place'
+			return table.Option.some("{store[found.unwrap()].src}.{m.name}()")
+		end 'place'
+		return table.Option.none
+	end 'methodCall'
+
+	// libraryCount is a call of the library's generic functions that gives a Count.
+	function libraryCount(mutates self, depth Depth) returns table.Option with String
+		let meterT = self.meterType()
+		let meters = self.places(meterT, mutable: false)
+		if meters.count() > 0 'meters'
+			if self.chance(60) 'total'
+				let metered = meters[self.pick(meters.count())]
+				return table.Option.some("total({store[metered].src})")
+			end 'total'
+		end 'meters'
+		let counts = self.arrayOf(tCount)
+		let a = self.place(counts, mutable: true)
+		if a.isSome() 'array'
+			return table.Option.some("shrink({store[a.unwrap()].src})")
+		end 'array'
+		if sharing 'sharing'
+			let frozen = self.varsOf(Kind.kFrozen)
+			for i in 0 upto frozen.count() 'each'
+				let v = frozen[i]
+				if tys[vars[v].t].args[0] == meterT and not vars[v].moved 'meter'
+					return table.Option.some("totalFrozen({vars[v].name})")
+				end 'meter'
+			end 'each'
+		end 'sharing'
+		return table.Option.none
+	end 'libraryCount'
+
+	function meterType(mutates self) returns Count
+		return self.internNamed(Kind.kRecord, name: "Meter")
+	end 'meterType'
+
+	// libraryCall is a call of a library function that gives a value of type t.
+	function libraryCall(mutates self, t Count, depth Depth) returns table.Option with String
+		let below = lower(depth)
+		if tys[t].kind == Kind.kRecord and tys[t].name == "Meter" 'meter'
+			let n = self.countExpr(below)
+			return table.Option.some("Meter.make({n})")
+		end 'meter' else if tys[t].kind == Kind.kOption 'option'
+			let elemT = tys[t].args[0]
+			let arrayT = self.arrayOf(elemT)
+			let a = self.place(arrayT, mutable: false)
+			if a.isSome() 'array'
+				return table.Option.some("firstOf({store[a.unwrap()].src})")
+			end 'array'
+		end 'option'
+		if not self.managed(t) 'scalar'
+			return table.Option.none
+		end 'scalar'
+		let n = self.pick(4)
+		if n == 0 'keep'
+			let value = self.owned(t, depth: below)
+			return table.Option.some("keep({self.typedOf(t, value: value)})")
+		end 'keep'
+		if n == 1 'pass2'
+			let first = self.owned(t, depth: below)
+			let second = self.owned(t, depth: below)
+			let which = self.boolExpr(below)
+			return table.Option.some("pass2({self.typedOf(t, value: first)}, b: {self.typedOf(t, value: second)}, first: {which})")
+		end 'pass2'
+		if n == 2 'dup'
+			let p = self.place(t, mutable: false)
+			if p.isSome() 'some'
+				return table.Option.some("dup({store[p.unwrap()].src})")
+			end 'some'
+		end 'dup'
+		return table.Option.none
+	end 'libraryCall'
+
+	// typedOf is a value of type t that names its type, so a call that infers its type arguments from it gets t: an integer
+	// expression names no alias of its own.
+	function typedOf(t Count, value String) returns String
+		return typed(tys[t].kind, value: value)
+	end 'typedOf'
+
+	// careless says whether to break a rule of ownership here, on purpose. Most programs do not, so most are accepted; the others
+	// break one often, to see that the checker refuses what it must.
+	function careless(mutates self) returns bool
+		let percent = carelessPercent
+		return self.chance(percent)
+	end 'careless'
+
+	// collectionOf is a collection in scope whose elements are of type t.
+	function collectionOf(mutates self, t Count) returns table.Option with Count
+		var found = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved or vars[v].frozen > 0 'unusable'
+				continue 'each'
+			end 'unusable'
+			let k = tys[vars[v].t].kind
+			if k == Kind.kArray or k == Kind.kPool or k == Kind.kList 'sequence'
+				if tys[vars[v].t].args[0] == t 'element'
+					found.push(v)
+				end 'element'
+			end 'sequence' else if k == Kind.kMap 'map'
+				if tys[vars[v].t].args[1] == t 'value'
+					found.push(v)
+				end 'value'
+			end 'map'
+		end 'each'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())])
+	end 'collectionOf'
+
+	// notSelf leaves out 'self' itself: a method's receiver cannot be passed as a mutates argument, and a field of it can.
+	function notSelf(mutates self, ps CountList) returns CountList
+		if self.careless() 'careless'
+			return ps.clone()
+		end 'careless'
+		var found = CountList.create(0)
+		for i in 0 upto ps.count() 'each'
+			if store[ps[i]].src != kwSelf 'other'
+				found.push(ps[i])
+			end 'other'
+		end 'each'
+		return found
+	end 'notSelf'
+
+	// adversarial says whether to try an overlap that the checker should refuse, in a program that does so.
+	function adversarial(mutates self) returns bool
+		if carelessPercent > 0 'careless'
+			return self.chance(40)
+		end 'careless'
+		return false
+	end 'adversarial'
+
+	// Statements
+	// guardedBegin starts a statement that reads an element, a handle's element or a key: what it writes is wrapped, by
+	// guardedEnd, in the test that makes it safe, so the program does not stop at a trap before it has done anything: a trap is
+	// legitimate, but it ends the run early.
+	function guardedBegin(mutates self) returns GuardMark
+		let saved = exchange(guards, value: StringList.create(0))
+		let mark = GuardMark.make(saved, start: out.count())
+		self.indentMore()
+		self.push()
+		return mark
+	end 'guardedBegin'
+
+	function guardedEnd(mutates self, consumes mark GuardMark)
+		if out.count() == mark.start 'empty'
+			self.line(printNothing)
+		end 'empty'
+		self.pop()
+		self.indentLess()
+		var lines = StringList.create(0)
+		for i in mark.start upto out.count() 'taken'
+			lines.push(out[i].clone())
+		end 'taken'
+		truncate(out, keep: mark.start)
+		let conds = exchange(guards, value: mark.saved.clone())
+		if conds.count() == 0 'unguarded'
+			for i in 0 upto lines.count() 'each'
+				out.push(withoutTab(lines[i]))
+			end 'each'
+			return
+		end 'unguarded'
+		let label = self.label()
+		self.line("{kwIf} {joinStrings(dedupe(conds), separator: " {kwAnd} ")} {label}")
+		for i in 0 upto lines.count() 'each'
+			out.push(lines[i].clone())
+		end 'each'
+		self.line("{kwEnd} {label}")
+	end 'guardedEnd'
+
+	// elementOf is a place for an element of a collection variable: it needs the guard that the element exists.
+	function elementOf(mutates self, v Count, mutable bool) returns table.Option with Count
+		let found = self.elementPlace(v, mutable: mutable)
+		if found.isSome() 'some'
+			let p = found.unwrap()
+			for i in 0 upto store[p].guards.count() 'guards'
+				guards.push(store[p].guards[i].clone())
+			end 'guards'
+			return table.Option.some(p)
+		end 'some'
+		return table.Option.none
+	end 'elementOf'
+
+	// elementPlace is a place for an element of a collection variable, with the guard that the element exists among its guards.
+	// Nothing is written for it, so a caller that does not use the place leaves no guard behind.
+	function elementPlace(mutates self, v Count, mutable bool) returns table.Option with Count
+		if vars[v].moved or (mutable and (not vars[v].mutable or vars[v].frozen > 0)) 'unusable'
+			return table.Option.none
+		end 'unusable'
+		let name = vars[v].name.clone()
+		let t = vars[v].t
+		let k = tys[t].kind
+		let whole = self.addPlace(Place.new(name.clone(), t: t, root: v, mutable: vars[v].mutable and vars[v].frozen == 0, whole: true))
+		if k == Kind.kArray 'array'
+			let elemT = tys[t].args[0]
+			let inner = self.inside(whole, src: "{name}[0]", t: elemT, mutable: mutable)
+			return table.Option.some(self.element(inner, guard: "{name}.count() > 0"))
+		end 'array'
+		if k == Kind.kPool or k == Kind.kList 'handled'
+			let pooledT = tys[t].args[0]
+			let handleT = self.handleOf(pooledT)
+			let h = self.place(handleT, mutable: false)
+			if not h.isSome() 'none'
+				return table.Option.none
+			end 'none'
+			let hsrc = store[h.unwrap()].src.clone()
+			let inner = self.inside(whole, src: "{name}[{hsrc}]", t: pooledT, mutable: mutable)
+			return table.Option.some(self.element(inner, guard: "{name}.contains({hsrc})"))
+		end 'handled'
+		if k == Kind.kMap 'map'
+			let key = keyOf(tys[tys[t].args[0]].kind, n: firstElementKey)
+			let valueT = tys[t].args[1]
+			let inner = self.inside(whole, src: "{name}[{key}]", t: valueT, mutable: mutable)
+			return table.Option.some(self.element(inner, guard: "{name}.contains({key})"))
+		end 'map'
+		if k == Kind.kFrozen 'frozen'
+			let held = tys[t].args[0]
+			if tys[held].kind == Kind.kArray 'array'
+				let heldElemT = tys[held].args[0]
+				let inner = self.inside(whole, src: "{name}[0]", t: heldElemT, mutable: false)
+				return table.Option.some(self.element(inner, guard: "{name}.count() > 0"))
+			end 'array'
+		end 'frozen'
+		return table.Option.none
+	end 'elementPlace'
+
+	function keyLiteral(mutates self, k Count) returns String
+		return keyOf(tys[k].kind, n: self.pick(3))
+	end 'keyLiteral'
+
+	function stmt(mutates self, depth Depth)
+		budget = try budget - 1 otherwise panic("fuzz: a statement past the budget")
+		guards = StringList.create(0)
+		let weights = actionTable()
+		if sinsLeft > 0 and (inMain or not heldSin) 'targeted'
+			if self.chance(targetedChance) 'sin'
+				var sins = ActionList.create(0)
+				if heldSin 'held'
+					sins.push(Action.actHeldCompare)
+					sins.push(Action.actHeldIndex)
+					sins.push(Action.actHeldInterpolation)
+				end 'held' else 'shared'
+					sins.push(Action.actBorrowedCapture)
+					sins.push(Action.actUseAfterCapture)
+					sins.push(Action.actFrozenAbuse)
+					sins.push(Action.actFrozenMethod)
+					sins.push(Action.actCownPeek)
+				end 'shared'
+				sinning = true
+				let order = rng.perm(sins.count())
+				for i in 0 upto order.count() 'order'
+					if self.attempt(sins[order[i]], depth: depth) 'written'
+						sinning = false
+						sinsLeft = try sinsLeft - 1 otherwise panic("fuzz: a sin past the one")
+						return
+					end 'written'
+				end 'order'
+				sinning = false
+			end 'sin'
+		end 'targeted'
+		var total = 0 as Count
+		for i in 0 upto weights.count() 'weights'
+			total = try total + weights[i].weight otherwise panic("fuzz: the weights past memory")
+		end 'weights'
+		for _ in 0 upto 8 'tries'
+			var n = self.pick(total)
+			for i in 0 upto weights.count() 'actions'
+				if n < weights[i].weight 'chosen'
+					if self.attempt(weights[i].action, depth: depth) 'written'
+						return
+					end 'written'
+					break 'actions'
+				end 'chosen'
+				n = try n - weights[i].weight otherwise panic("fuzz: a weight past the draw")
+			end 'actions'
+		end 'tries'
+		self.line(printNothing)
+	end 'stmt'
+
+	// attempt writes a statement, or takes back what it wrote and says it could not.
+	function attempt(mutates self, a Action, depth Depth) returns bool
+		let mark = out.count()
+		let state = self.moveState()
+		let top = try scopes.count() - 1 otherwise panic("fuzz: a statement with no scope")
+		let declared = scopes[top].count()
+		pendingInit = CountList.create(0)
+		if self.runAction(a, depth: depth) 'written'
+			for i in 0 upto pendingInit.count() 'init'
+				vars[pendingInit[i]].moved = false
+			end 'init'
+			pendingInit = CountList.create(0)
+			return true
+		end 'written'
+		truncate(out, keep: mark)
+		while scopes[top].count() > declared 'declarations'
+			try scopes[top].pop() otherwise ignore
+		end 'declarations'
+		self.restoreMoves(state)
+		return false
+	end 'attempt'
+
+	function runAction(mutates self, a Action, depth Depth) returns bool
+		match a 'action'
+			actDeclare then return self.actDeclare(depth)
+			actAssign then return self.actAssign(depth)
+			actCall then return self.actCall(depth)
+			actPrint then return self.actPrint(depth)
+			actMove then return self.actMove(depth)
+			actIf then return self.actIf(depth)
+			actTry then return self.actTry(depth)
+			actWhile then return self.actWhile(depth)
+			actFor then return self.actFor(depth)
+			actMatch then return self.actMatch(depth)
+			actArray then return self.actArray(depth)
+			actPool then return self.actPool(depth)
+			actList then return self.actList(depth)
+			actMap then return self.actMap(depth)
+			actReturn then return self.actReturn(depth)
+			actLoopJump then return self.actLoopJump(depth)
+			actElement then return self.actElement(depth)
+			actBox then return self.actBox(depth)
+			actDiscard then return self.actDiscard(depth)
+			actMatchLet then return self.actMatchLet(depth)
+			actBoth then return self.actBoth(depth)
+			actTargetHold then return self.actTargetHold(depth)
+			actSet then return self.actSet(depth)
+			actUninit then return self.actUninit(depth)
+			actMethod then return self.actMethod(depth)
+			actGeneric then return self.actGeneric(depth)
+			actFieldAssign then return self.actFieldAssign(depth)
+			actFreeze then return self.actFreeze(depth)
+			actShare then return self.actShare(depth)
+			actThaw then return self.actThaw(depth)
+			actCown then return self.actCown(depth)
+			actWhen then return self.actWhen(depth)
+			actFrozenMethod then return self.actFrozenMethod(depth)
+			actCownPeek then return self.actCownPeek(depth)
+			actBorrowedCapture then return self.actBorrowedCapture(depth)
+			actUseAfterCapture then return self.actUseAfterCapture(depth)
+			actFrozenAbuse then return self.actFrozenAbuse(depth)
+			actHeldCompare then return self.actHeldCompare(depth)
+			actHeldIndex then return self.actHeldIndex(depth)
+			actHeldInterpolation then return self.actHeldInterpolation(depth)
+		end 'action'
+	end 'runAction'
+
+	// nonEmptyBlock writes the statements of a block, at least one.
+	function nonEmptyBlock(mutates self, count Count, depth Depth)
+		self.indentMore()
+		self.push()
+		let n = self.pickFrom(1, n: count)
+		let start = out.count()
+		var i = 0 as Count
+		while i < n and budget > 0 'statements'
+			self.stmt(depth)
+			i = try i + 1 otherwise panic("fuzz: more statements than memory")
+		end 'statements'
+		if out.count() == start 'empty'
+			self.line(printedText("."))
+		end 'empty'
+		self.pop()
+		self.indentLess()
+	end 'nonEmptyBlock'
+
+	function actDeclare(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle 'handle'
+			return false
+		end 'handle'
+		let name = self.fresh("v")
+		let isVar = self.chance(55)
+		var keyword = kwLet.clone()
+		if isVar 'var'
+			keyword = kwVar.clone()
+		end 'var'
+		var init = self.owned(t, depth: 2)
+		if tys[t].kind == Kind.kCount 'count'
+			init = "{literal(self.pick(10))} {kwAs} Count"
+		end 'count'
+		self.line("{keyword} {name} = {init}")
+		_ = self.declare(name, t: t, owned: true, mutable: isVar)
+		return true
+	end 'actDeclare'
+
+	function actUninit(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle 'handle'
+			return false
+		end 'handle'
+		let name = self.fresh("v")
+		self.line("{kwVar} {name} {kwAs} {tys[t].src}")
+		let v = self.declare(name, t: t, owned: true, mutable: true)
+		vars[v].moved = true
+		let label = self.label()
+		let label2 = self.label()
+		let test = self.boolExpr(1)
+		self.line("{kwIf} {test} {label}")
+		let state = self.moveState()
+		self.indentMore()
+		let first = self.owned(t, depth: 1)
+		self.line("{name} = {first}")
+		self.indentLess()
+		let stateA = self.moveState()
+		self.restoreMoves(state)
+		self.line("{kwEnd} {label} {kwElse} {label2}")
+		self.indentMore()
+		let second = self.owned(t, depth: 1)
+		self.line("{name} = {second}")
+		self.indentLess()
+		self.line("{kwEnd} {label2}")
+		let stateB = self.moveState()
+		self.mergeTwo(stateA, b: stateB)
+		vars[v].moved = false
+		return true
+	end 'actUninit'
+
+	function actAssign(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle 'handle'
+			return false
+		end 'handle'
+		let found = self.place(t, mutable: true)
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let p = found.unwrap()
+		if store[p].src == kwSelf 'self'
+			return false
+		end 'self'
+		let value = self.owned(t, depth: 2)
+		self.line("{store[p].src} = {value}")
+		if store[p].whole 'whole'
+			vars[store[p].root].moved = false
+		end 'whole'
+		return true
+	end 'actAssign'
+
+	function actFieldAssign(mutates self, depth Depth) returns bool
+		var recs = CountList.create(0)
+		for i in 0 upto records.count() 'records'
+			if records[i].fields.count() > 0 'fields'
+				let rt = records[i].t
+				let ps = self.places(rt, mutable: true)
+				for k in 0 upto ps.count() 'each'
+					recs.push(ps[k])
+				end 'each'
+			end 'fields'
+		end 'records'
+		if recs.count() == 0 'none'
+			return false
+		end 'none'
+		let p = recs[self.pick(recs.count())]
+		let ri = self.recordIndex(store[p].t).unwrap()
+		var assignable = CountList.create(0)
+		for k in 0 upto records[ri].fields.count() 'fields'
+			if records[ri].fields[k].isVar 'var'
+				assignable.push(k)
+			end 'var'
+		end 'fields'
+		if assignable.count() == 0 'none'
+			return false
+		end 'none'
+		let f = assignable[self.pick(assignable.count())]
+		let fieldName = records[ri].fields[f].name.clone()
+		let fieldT = records[ri].fields[f].t
+		let value = self.owned(fieldT, depth: 2)
+		self.line("{store[p].src}.{fieldName} = {value}")
+		return true
+	end 'actFieldAssign'
+
+	function actMove(mutates self, depth Depth) returns bool
+		var movable = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].owned and not vars[v].moved and vars[v].frozen == 0 and vars[v].loop == loop and self.managed(vars[v].t) 'movable'
+				movable.push(v)
+			end 'movable'
+		end 'each'
+		if movable.count() == 0 'none'
+			return false
+		end 'none'
+		let v = movable[self.pick(movable.count())]
+		let name = self.fresh("v")
+		if self.chance(30) 'copy'
+			self.line("{kwLet} {name} = {vars[v].name}.clone()")
+		end 'copy' else 'move'
+			self.line("{kwLet} {name} = {vars[v].name}")
+			vars[v].moved = true
+		end 'move'
+		let movedT = vars[v].t
+		_ = self.declare(name, t: movedT, owned: true, mutable: false)
+		return true
+	end 'actMove'
+
+	function actPrint(mutates self, depth Depth) returns bool
+		let n = self.pick(3)
+		if n == 0 'string'
+			let found = self.place(tString, mutable: false)
+			if found.isSome() 'some'
+				self.line(printed(store[found.unwrap()].src))
+				return true
+			end 'some'
+		end 'string' else if n == 1 'bool'
+			let found = self.place(tBool, mutable: false)
+			if found.isSome() 'some'
+				self.line(printed(store[found.unwrap()].src))
+				return true
+			end 'some'
+		end 'bool'
+		let value = self.countExpr(2)
+		self.line(printed(value))
+		return true
+	end 'actPrint'
+
+	function actDiscard(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle or self.scalar(t) 'unusable'
+			return false
+		end 'unusable'
+		let value = self.owned(t, depth: 2)
+		self.line("_ = {value}")
+		return true
+	end 'actDiscard'
+
+	function actCall(mutates self, depth Depth) returns bool
+		if fns.count() == 0 'none'
+			return false
+		end 'none'
+		let f = self.pick(fns.count())
+		let name = fns[f].name.clone()
+		let params = fns[f].params.clone()
+		let returnsValue = fns[f].hasRet
+		let text = self.callText(name, params: params, depth: 2)
+		if not text.isSome() 'failed'
+			return false
+		end 'failed'
+		self.writeCall(text.unwrap(), hasValue: returnsValue)
+		return true
+	end 'actCall'
+
+	// writeCall writes a call as a statement, which discards the value of one that gives any.
+	function writeCall(mutates self, text String, hasValue bool)
+		if hasValue 'value'
+			self.line("_ = {text}")
+		end 'value' else 'statement'
+			self.line(text)
+		end 'statement'
+	end 'writeCall'
+
+	// actMatchLet binds the value of a match, whose arms each give an owned value.
+	function actMatchLet(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle or depth <= 0 'unusable'
+			return false
+		end 'unusable'
+		let name = self.fresh("v")
+		let text = self.matchExpr(t, depth: 2)
+		if not hasPrefix(text, prefix: "{kwMatch} ") 'plain'
+			return false
+		end 'plain'
+		self.line("{kwLet} {name} = {text}")
+		_ = self.declare(name, t: t, owned: true, mutable: false)
+		return true
+	end 'actMatchLet'
+
+	function actMethod(mutates self, depth Depth) returns bool
+		var recs = CountList.create(0)
+		for i in 0 upto records.count() 'records'
+			if records[i].methods.count() > 0 'methods'
+				recs.push(i)
+			end 'methods'
+		end 'records'
+		if recs.count() == 0 'none'
+			return false
+		end 'none'
+		let ri = recs[self.pick(recs.count())]
+		let mi = self.pick(records[ri].methods.count())
+		let m = records[ri].methods[mi].clone()
+		let rt = records[ri].t
+		var receiver = ""
+		var root = 0 as Count
+		if m.recv == kwMutates 'mutates'
+			let found = self.place(rt, mutable: true)
+			if not found.isSome() 'none'
+				return false
+			end 'none'
+			let p = found.unwrap()
+			receiver = store[p].src.clone()
+			root = store[p].root
+		end 'mutates' else if m.recv == kwConsumes 'consumes'
+			let moves = self.movable(rt)
+			if moves.count() == 0 'none'
+				return false
+			end 'none'
+			let v = moves[self.pick(moves.count())]
+			vars[v].moved = true
+			receiver = vars[v].name.clone()
+			root = v
+		end 'consumes' else 'reads'
+			let found = self.place(rt, mutable: false)
+			if not found.isSome() 'none'
+				return false
+			end 'none'
+			let p = found.unwrap()
+			receiver = store[p].src.clone()
+			root = store[p].root
+		end 'reads'
+		var earlier = CountList.create(0)
+		earlier.push(root)
+		let text = self.callTextRoots("{receiver}.{m.name}", params: m.params.clone(), depth: 2, earlier: earlier)
+		if not text.isSome() 'failed'
+			return false
+		end 'failed'
+		self.writeCall(text.unwrap(), hasValue: m.hasRet)
+		return true
+	end 'actMethod'
+
+	function actIf(mutates self, depth Depth) returns bool
+		if depth <= 0 'shallow'
+			return false
+		end 'shallow'
+		let label = self.label()
+		let test = self.boolExpr(2)
+		self.line("{kwIf} {test} {label}")
+		let state = self.moveState()
+		self.nonEmptyBlock(3, depth: lower(depth))
+		let stateA = self.moveState()
+		if self.chance(50) 'alone'
+			self.mergeTwo(stateA, b: state)
+			self.line("{kwEnd} {label}")
+			return true
+		end 'alone'
+		self.restoreMoves(state)
+		let label2 = self.label()
+		self.line("{kwEnd} {label} {kwElse} {label2}")
+		self.nonEmptyBlock(3, depth: lower(depth))
+		self.line("{kwEnd} {label2}")
+		let stateB = self.moveState()
+		self.mergeTwo(stateA, b: stateB)
+		return true
+	end 'actIf'
+
+	// actTry writes a try block, whose body may hold bare arithmetic, and its handler. The handler starts wherever the body
+	// failed, so it takes what the body moved as moved.
+	function actTry(mutates self, depth Depth) returns bool
+		if depth <= 0 'shallow'
+			return false
+		end 'shallow'
+		let label = self.label()
+		self.line("{kwTry} {label}")
+		let state = self.moveState()
+		tries = try tries + 1 otherwise panic("fuzz: more trys than memory")
+		self.nonEmptyBlock(3, depth: lower(depth))
+		tries = try tries - 1 otherwise panic("fuzz: a try below 0")
+		let body = self.moveState()
+		self.mergeTwo(state, b: body)
+		let handler = self.label()
+		self.line("{kwEnd} {label} {kwOtherwise} {handler}")
+		self.nonEmptyBlock(2, depth: lower(depth))
+		self.line("{kwEnd} {handler}")
+		let after = self.moveState()
+		self.mergeTwo(body, b: after)
+		return true
+	end 'actTry'
+
+	function actWhile(mutates self, depth Depth) returns bool
+		if depth <= 0 'shallow'
+			return false
+		end 'shallow'
+		let counter = self.fresh("v")
+		self.line("{kwVar} {counter} = 0 {kwAs} Count")
+		_ = self.declare(counter, t: tCount, owned: true, mutable: false)
+		let label = self.label()
+		let bound = self.pickFrom(1, n: 3)
+		self.line("{kwWhile} {counter} < {bound} {label}")
+		self.indentMore()
+		self.line("{counter} = {counter} + 1")
+		self.indentLess()
+		loop = try loop + 1 otherwise panic("fuzz: more loops than memory")
+		self.nonEmptyBlock(3, depth: lower(depth))
+		loop = try loop - 1 otherwise panic("fuzz: a loop below 0")
+		self.line("{kwEnd} {label}")
+		return true
+	end 'actWhile'
+
+	function actFor(mutates self, depth Depth) returns bool
+		if depth <= 0 'shallow'
+			return false
+		end 'shallow'
+		let label = self.label()
+		let index = self.fresh("i")
+		var bound = "{self.pickFrom(1, n: 3)}"
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if tys[vars[v].t].kind == Kind.kArray and not vars[v].moved 'array'
+				if self.chance(40) 'bounded'
+					bound = "{vars[v].name}.count()"
+				end 'bounded'
+			end 'array'
+		end 'each'
+		self.line("{kwFor} {index} {kwIn} 0 {kwUpto} {bound} {label}")
+		loop = try loop + 1 otherwise panic("fuzz: more loops than memory")
+		self.push()
+		_ = self.declare(index, t: tCount, owned: false, mutable: false)
+		self.indentMore()
+		self.push()
+		let n = self.pickFrom(1, n: 3)
+		let start = out.count()
+		var i = 0 as Count
+		while i < n and budget > 0 'statements'
+			self.stmt(lower(depth))
+			i = try i + 1 otherwise panic("fuzz: more statements than memory")
+		end 'statements'
+		if out.count() == start 'empty'
+			self.line(printed(index))
+		end 'empty'
+		self.pop()
+		self.indentLess()
+		self.pop()
+		loop = try loop - 1 otherwise panic("fuzz: a loop below 0")
+		self.line("{kwEnd} {label}")
+		return true
+	end 'actFor'
+
+	function actLoopJump(mutates self, depth Depth) returns bool
+		if loop == 0 'outside'
+			return false
+		end 'outside'
+		let label = self.label()
+		let test = self.boolExpr(1)
+		self.line("{kwIf} {test} {label}")
+		self.indentMore()
+		if self.chance(50) 'break'
+			self.line(kwBreak)
+		end 'break' else 'continue'
+			self.line(kwContinue)
+		end 'continue'
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+		return true
+	end 'actLoopJump'
+
+	function actReturn(mutates self, depth Depth) returns bool
+		if depth <= 0 or not hasRet 'unusable'
+			return false
+		end 'unusable'
+		if loop > 0 'looping'
+			if self.chance(50) 'skipped'
+				return false
+			end 'skipped'
+		end 'looping'
+		let label = self.label()
+		let test = self.boolExpr(1)
+		self.line("{kwIf} {test} {label}")
+		let state = self.moveState()
+		self.indentMore()
+		let returnT = ret
+		let value = self.owned(returnT, depth: 2)
+		self.line("{kwReturn} {value}")
+		self.indentLess()
+		self.restoreMoves(state)
+		self.line("{kwEnd} {label}")
+		return true
+	end 'actReturn'
+
+	function actMatch(mutates self, depth Depth) returns bool
+		let found = self.matchSubject()
+		if not found.isSome() or depth <= 0 'unusable'
+			return false
+		end 'unusable'
+		let subject = found.unwrap()
+		var rooted = false
+		var root = 0 as Count
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			let name = vars[v].name.clone()
+			if hasPrefix(subject.src, prefix: name) 'prefix'
+				if subject.src.byteLength() == name.byteLength() or subject.src.byteAt(name.byteLength()) == 46 'boundary'
+					rooted = true
+					root = v
+				end 'boundary'
+			end 'prefix'
+		end 'each'
+		let arms = self.armsOf(subject.t)
+		self.matchOn(subject.src, rooted: rooted, root: root, arms: arms)
+		return true
+	end 'actMatch'
+
+	// matchOn writes a match over the subject, whose arms only borrow from the variable it lies in.
+	function matchOn(mutates self, subject String, rooted bool, root Count, arms ArmList)
+		let label = self.label()
+		self.line("{kwMatch} {subject} {label}")
+		if rooted 'freezing'
+			vars[root].frozen = try vars[root].frozen + 1 otherwise panic("fuzz: more borrows than memory")
+		end 'freezing'
+		let state = self.moveState()
+		var states = MoveStates.create(0)
+		self.indentMore()
+		for i in 0 upto arms.count() 'arms'
+			self.restoreMoves(state)
+			self.push()
+			let pattern = self.armPattern(arms[i].clone())
+			for b in 0 upto pattern.bound.count() 'bound'
+				_ = self.declare(pattern.bound[b].name, t: pattern.bound[b].t, owned: false, mutable: false)
+			end 'bound'
+			let action = self.armAction(pattern.bound)
+			self.line("{pattern.text} {kwThen} {action}")
+			states.push(self.moveState())
+			self.pop()
+		end 'arms'
+		self.indentLess()
+		self.mergeMoves(states)
+		if rooted 'thawing'
+			vars[root].frozen = try vars[root].frozen - 1 otherwise panic("fuzz: a borrow below 0")
+		end 'thawing'
+		self.line("{kwEnd} {label}")
+	end 'matchOn'
+
+	// armAction is a single statement for a match arm: what a binding can be used for.
+	function armAction(mutates self, bound ParamList) returns String
+		let order = rng.shuffled(bound.count())
+		for i in 0 upto order.count() 'each'
+			let b = bound[order[i]].clone()
+			if b.t == tCount or b.t == tString 'printable'
+				return printed(b.name)
+			end 'printable'
+			if self.managed(b.t) 'managed'
+				if self.chance(50) 'assigned'
+					let target = self.place(b.t, mutable: true)
+					if target.isSome() 'some'
+						let p = target.unwrap()
+						if store[p].src != kwSelf 'other'
+							return "{store[p].src} = {b.name}.clone()"
+						end 'other'
+					end 'some'
+					return "_ = {b.name}.clone()"
+				end 'assigned'
+			end 'managed'
+		end 'each'
+		return printedText("arm")
+	end 'armAction'
+
+	// Collections
+	function collectionVar(mutates self, kinds KindList) returns table.Option with Count
+		var found = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved or vars[v].frozen > 0 'unusable'
+				continue 'each'
+			end 'unusable'
+			for k in 0 upto kinds.count() 'kinds'
+				if tys[vars[v].t].kind == kinds[k] 'match'
+					found.push(v)
+				end 'match'
+			end 'kinds'
+		end 'each'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())])
+	end 'collectionVar'
+
+	function actArray(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(kindsOf(Kind.kArray))
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		let name = vars[v].name.clone()
+		let t = vars[v].t
+		let elem = tys[t].args[0]
+		let mutable = vars[v].mutable
+		let n = self.pick(9)
+		if n < 2 and mutable 'push'
+			let value = self.owned(elem, depth: 2)
+			self.line("{name}.push({value})")
+		end 'push' else if n < 3 and mutable 'insert'
+			var at = "0"
+			if self.pick(2) == 1 'end'
+				at = "{name}.count()"
+			end 'end'
+			let value = self.owned(elem, depth: 2)
+			self.line("{name}.insert({at}, value: {value})")
+		end 'insert' else if n < 4 and mutable 'remove'
+			let mark = self.guardedBegin()
+			guards.push("{name}.count() > 0")
+			if self.chance(50) 'ignored'
+				self.line("{kwTry} {name}.remove(0) {kwOtherwise} ignore")
+			end 'ignored' else 'kept'
+				let kept = self.fresh("v")
+				self.line("{kwLet} {kept} = {kwTry} {name}.remove(0) {kwOtherwise} panic(\"index out of range\")")
+				_ = self.declare(kept, t: elem, owned: true, mutable: false)
+			end 'kept'
+			self.guardedEnd(mark)
+		end 'remove' else if n < 5 and mutable 'pop'
+			let kept = self.fresh("v")
+			let fallback = self.owned(elem, depth: 2)
+			self.line("{kwLet} {kept} = {kwTry} {name}.pop() {kwOtherwise} {fallback}")
+			_ = self.declare(kept, t: elem, owned: true, mutable: false)
+		end 'pop' else if n < 6 'element'
+			let mark = self.guardedBegin()
+			self.elementStatement(v)
+			self.guardedEnd(mark)
+		end 'element' else if n < 7 'count'
+			self.line(printed("{name}.count()"))
+		end 'count' else if n < 8 and mutable 'put'
+			let value = self.owned(elem, depth: 2)
+			self.line("put({name}, x: {value})")
+		end 'put' else 'clone'
+			let copy = self.fresh("v")
+			self.line("{kwLet} {copy} = {name}.clone()")
+			_ = self.declare(copy, t: t, owned: true, mutable: false)
+		end 'clone'
+		return true
+	end 'actArray'
+
+	// elementStatement does something with the first element of an array, which the caller guards.
+	function elementStatement(mutates self, v Count)
+		let t = vars[v].t
+		let elem = tys[t].args[0]
+		let mutable = vars[v].mutable
+		let found = self.elementOf(v, mutable: mutable)
+		let p = found.unwrap()
+		let src = store[p].src.clone()
+		let n = self.pick(6)
+		if n < 1 and self.scalar(elem) and mutable 'scalar'
+			let value = self.owned(elem, depth: 1)
+			self.line("{src} = {value}")
+		end 'scalar' else if n < 2 and self.managed(elem) and mutable 'managed'
+			let value = self.owned(elem, depth: 1)
+			self.line("{src} = {value}")
+		end 'managed' else if n < 3 and self.managed(elem) 'copy'
+			let name = self.fresh("v")
+			self.line("{kwLet} {name} = {src}.clone()")
+			_ = self.declare(name, t: elem, owned: true, mutable: false)
+		end 'copy' else if n < 4 and mutable and self.managed(elem) 'overwrite'
+			let value = self.owned(elem, depth: 1)
+			self.line("overwrite({src}, value: {value})")
+		end 'overwrite' else if n < 5 and elem == tCount 'print'
+			self.line(printed(src))
+		end 'print' else 'other'
+			let ri = self.recordIndex(elem)
+			if ri.isSome() and mutable 'record'
+				let r = ri.unwrap()
+				for k in 0 upto records[r].fields.count() 'fields'
+					if records[r].fields[k].isVar and records[r].fields[k].t == tCount 'count'
+						let fieldName = records[r].fields[k].name.clone()
+						let value = self.countExpr(1)
+						self.line("{src}.{fieldName} = {value}")
+						return
+					end 'count'
+				end 'fields'
+			end 'record'
+			self.line("_ = {src}.clone()")
+		end 'other'
+	end 'elementStatement'
+
+	function actElement(mutates self, depth Depth) returns bool
+		// An element of one collection passed with an argument that may change another, or the same one.
+		let found = self.collectionVar(allCollections())
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		let elem = self.elementTypeOf(vars[v].t)
+		if tys[elem].kind == Kind.kHandle 'handle'
+			return false
+		end 'handle'
+		let mark = self.guardedBegin()
+		self.elementCall(v, elem: elem)
+		self.guardedEnd(mark)
+		return true
+	end 'actElement'
+
+	// elementCall passes the first element of a collection to a function that takes one, or copies it.
+	function elementCall(mutates self, v Count, elem Count)
+		let found = self.elementOf(v, mutable: false)
+		if not found.isSome() 'none'
+			self.line(printNothing)
+			return
+		end 'none'
+		let src = store[found.unwrap()].src.clone()
+		if elem == tCount or elem == tString 'printable'
+			self.line(printed(src))
+			return
+		end 'printable'
+		for f in 0 upto fns.count() 'fns'
+			if fns[f].params.count() >= 1 and fns[f].params[0].t == elem and fns[f].params[0].conv == "" 'takes'
+				let text = self.callTextFirst(f, first: src, depth: 2)
+				if text.isSome() 'called'
+					let producesValue = fns[f].hasRet
+					self.writeCall(text.unwrap(), hasValue: producesValue)
+					return
+				end 'called'
+			end 'takes'
+		end 'fns'
+		self.line("_ = {src}.clone()")
+	end 'elementCall'
+
+	function actPool(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(kindsOf(Kind.kPool))
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		if not vars[v].mutable 'immutable'
+			return false
+		end 'immutable'
+		let name = vars[v].name.clone()
+		let elem = tys[vars[v].t].args[0]
+		let n = self.pick(6)
+		if n < 2 'insert'
+			let h = self.fresh("h")
+			let value = self.owned(elem, depth: 2)
+			self.line("{kwLet} {h} = {name}.insert({value})")
+			let handleT = self.handleOf(elem)
+			_ = self.declare(h, t: handleT, owned: false, mutable: false)
+		end 'insert' else if n < 3 'remove'
+			let handleT = self.handleOf(elem)
+			let held = self.place(handleT, mutable: false)
+			if held.isSome() 'some'
+				let kept = self.fresh("v")
+				self.line("{kwLet} {kept} = {name}.remove({store[held.unwrap()].src})")
+				let optionT = self.optionOf(elem)
+				_ = self.declare(kept, t: optionT, owned: true, mutable: false)
+				return true
+			end 'some'
+			return false
+		end 'remove' else if n < 4 'element'
+			let mark = self.guardedBegin()
+			self.elementStatement2(v)
+			self.guardedEnd(mark)
+		end 'element' else if n < 5 'contains'
+			let handleT = self.handleOf(elem)
+			let held = self.place(handleT, mutable: false)
+			if held.isSome() 'some'
+				self.line(printed("{name}.contains({store[held.unwrap()].src})"))
+				return true
+			end 'some'
+			return false
+		end 'contains' else 'count'
+			self.line(printed("{name}.count()"))
+		end 'count'
+		return true
+	end 'actPool'
+
+	// elementStatement2 does something with the element a handle names in a pool, a list or a map, which the caller guards.
+	function elementStatement2(mutates self, v Count)
+		let elem = self.elementTypeOf(vars[v].t)
+		let mutable = vars[v].mutable
+		let found = self.elementOf(v, mutable: mutable)
+		if not found.isSome() 'none'
+			self.line(printNothing)
+			return
+		end 'none'
+		let src = store[found.unwrap()].src.clone()
+		let n = self.pick(4)
+		if n < 1 and mutable 'assign'
+			let value = self.owned(elem, depth: 1)
+			self.line("{src} = {value}")
+		end 'assign' else if n < 2 and self.managed(elem) 'copy'
+			let name = self.fresh("v")
+			self.line("{kwLet} {name} = {src}.clone()")
+			_ = self.declare(name, t: elem, owned: true, mutable: false)
+		end 'copy' else if n < 3 and elem == tCount 'print'
+			self.line(printed(src))
+		end 'print' else 'clone'
+			self.line("_ = {src}.clone()")
+		end 'clone'
+	end 'elementStatement2'
+
+	function actList(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(kindsOf(Kind.kList))
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		if not vars[v].mutable 'immutable'
+			return false
+		end 'immutable'
+		let name = vars[v].name.clone()
+		let elem = vars[v].t
+		let element = tys[elem].args[0]
+		let n = self.pick(8)
+		if n < 2 'add'
+			let h = self.fresh("h")
+			var adder = "append"
+			if self.pick(2) == 1 'prepend'
+				adder = "prepend"
+			end 'prepend'
+			let value = self.owned(element, depth: 2)
+			self.line("{kwLet} {h} = {name}.{adder}({value})")
+			let handleT = self.handleOf(element)
+			_ = self.declare(h, t: handleT, owned: false, mutable: false)
+		end 'add' else if n < 3 'take'
+			let kept = self.fresh("v")
+			var taker = "removeFirst"
+			if self.pick(2) == 1 'last'
+				taker = "removeLast"
+			end 'last'
+			let fallback = self.owned(element, depth: 2)
+			self.line("{kwLet} {kept} = {kwTry} {name}.{taker}() {kwOtherwise} {fallback}")
+			_ = self.declare(kept, t: element, owned: true, mutable: false)
+		end 'take' else if n < 4 'remove'
+			let handleT = self.handleOf(element)
+			let held = self.place(handleT, mutable: false)
+			if held.isSome() 'some'
+				let kept = self.fresh("v")
+				self.line("{kwLet} {kept} = {name}.remove({store[held.unwrap()].src})")
+				let optionT = self.optionOf(element)
+				_ = self.declare(kept, t: optionT, owned: true, mutable: false)
+				return true
+			end 'some'
+			return false
+		end 'remove' else if n < 5 'move'
+			let handleT = self.handleOf(element)
+			let held = self.place(handleT, mutable: false)
+			if held.isSome() 'some'
+				self.line("{name}.moveToFront({store[held.unwrap()].src})")
+				return true
+			end 'some'
+			return false
+		end 'move' else if n < 6 'element'
+			let mark = self.guardedBegin()
+			self.elementStatement2(v)
+			self.guardedEnd(mark)
+		end 'element' else if n < 7 'first'
+			let kept = self.fresh("v")
+			let mark = self.guardedBegin()
+			guards.push("{kwNot} {name}.isEmpty()")
+			self.line("{kwLet} {kept} = {kwTry} {name}.first() {kwOtherwise} panic(\"the list is empty\")")
+			let handleT = self.handleOf(element)
+			_ = self.declare(kept, t: handleT, owned: false, mutable: false)
+			self.guardedEnd(mark)
+		end 'first' else 'count'
+			self.line(printed("{name}.count()"))
+		end 'count'
+		return true
+	end 'actList'
+
+	function actMap(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(kindsOf(Kind.kMap))
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		if not vars[v].mutable 'immutable'
+			return false
+		end 'immutable'
+		let name = vars[v].name.clone()
+		let key = tys[vars[v].t].args[0]
+		let value = tys[vars[v].t].args[1]
+		let n = self.pick(6)
+		if n < 2 'upsert'
+			let keyText = self.keyLiteral(key)
+			let valueText = self.owned(value, depth: 2)
+			self.line("{name}.upsert({keyText}, value: {valueText})")
+		end 'upsert' else if n < 3 'remove'
+			let kept = self.fresh("v")
+			let keyText = self.keyLiteral(key)
+			self.line("{kwLet} {kept} = {name}.remove({keyText})")
+			_ = self.declare(kept, t: tBool, owned: true, mutable: false)
+		end 'remove' else if n < 4 'element'
+			let mark = self.guardedBegin()
+			self.elementStatement2(v)
+			self.guardedEnd(mark)
+		end 'element' else if n < 5 'contains'
+			let keyText = self.keyLiteral(key)
+			self.line(printed("{name}.contains({keyText})"))
+		end 'contains' else 'count'
+			self.line(printed("{name}.count()"))
+		end 'count'
+		return true
+	end 'actMap'
+
+	function actBox(mutates self, depth Depth) returns bool
+		var boxes = CountList.create(0)
+		for i in 0 upto records.count() 'records'
+			if self.isBox(records[i].t) 'box'
+				let rt = records[i].t
+				let ps = self.places(rt, mutable: true)
+				for k in 0 upto ps.count() 'each'
+					boxes.push(ps[k])
+				end 'each'
+			end 'box'
+		end 'records'
+		if boxes.count() == 0 'none'
+			return false
+		end 'none'
+		let p = boxes[self.pick(boxes.count())]
+		let ri = self.recordIndex(store[p].t).unwrap()
+		let item = records[ri].fields[0].t
+		let src = store[p].src.clone()
+		let n = self.pick(3)
+		if n == 0 'replace'
+			let value = self.owned(item, depth: 1)
+			self.line("{src}.replace({value})")
+		end 'replace' else if n == 1 'peek'
+			self.line("_ = {src}.peek()")
+		end 'peek' else 'assign'
+			let value = self.owned(item, depth: 1)
+			self.line("{src}.item = {value}")
+		end 'assign'
+		return true
+	end 'actBox'
+
+	function actGeneric(mutates self, depth Depth) returns bool
+		let n = self.pick(4)
+		if n == 0 'grow'
+			let meterT = self.meterType()
+			let m = self.place(meterT, mutable: true)
+			if m.isSome() 'some'
+				let p = m.unwrap()
+				if store[p].src != kwSelf 'other'
+					self.line("growTwice({store[p].src})")
+					return true
+				end 'other'
+			end 'some'
+		end 'grow' else if n == 1 'overwrite'
+			let t = self.anyType()
+			if tys[t].kind == Kind.kHandle 'handle'
+				return false
+			end 'handle'
+			let a = self.place(t, mutable: true)
+			if not a.isSome() 'none'
+				return false
+			end 'none'
+			let p = a.unwrap()
+			if store[p].src == kwSelf 'self'
+				return false
+			end 'self'
+			let value = self.owned(t, depth: 1)
+			self.line("overwrite({store[p].src}, value: {value})")
+			return true
+		end 'overwrite' else if n == 2 'keep'
+			let t = self.anyType()
+			if tys[t].kind == Kind.kHandle or not self.managed(t) 'unusable'
+				return false
+			end 'unusable'
+			let name = self.fresh("v")
+			let value = self.owned(t, depth: 2)
+			self.line("{kwLet} {name} = keep({self.typedOf(t, value: value)})")
+			_ = self.declare(name, t: t, owned: true, mutable: false)
+			return true
+		end 'keep' else 'pass2'
+			let t = self.anyType()
+			if tys[t].kind == Kind.kHandle 'handle'
+				return false
+			end 'handle'
+			let name = self.fresh("v")
+			let first = self.owned(t, depth: 1)
+			let second = self.owned(t, depth: 1)
+			let which = self.boolExpr(1)
+			self.line("{kwLet} {name} = pass2({self.typedOf(t, value: first)}, b: {self.typedOf(t, value: second)}, first: {which})")
+			_ = self.declare(name, t: t, owned: true, mutable: false)
+			return true
+		end 'pass2'
+		return false
+	end 'actGeneric'
+
+	// Functions and the program
+	function writeFunction(mutates self, index Count)
+		let name = "fn{index}"
+		var hasFnRet = false
+		var fnRet = tCount
+		if self.chance(60) 'returns'
+			hasFnRet = true
+			fnRet = self.anyType()
+			if tys[fnRet].kind == Kind.kHandle 'handle'
+				fnRet = tCount
+			end 'handle'
+		end 'returns'
+		let paramCount = self.pick(4)
+		var parts = StringList.create(0)
+		var params = ParamList.create(0)
+		scopes = Scopes.create(0)
+		self.push()
+		var setParams = CountList.create(0)
+		let first = self.anyType()
+		let second = self.anyType()
+		for i in 0 upto paramCount 'params'
+			var t = first
+			if self.pick(2) == 1 'second'
+				t = second
+			end 'second'
+			if tys[t].kind == Kind.kHandle 'handle'
+				t = tCount
+			end 'handle'
+			var conv = convention(self.pick(5))
+			if self.scalar(t) and conv == kwConsumes 'scalar'
+				conv = ""
+			end 'scalar'
+			let paramName = "a{i}"
+			params.push(Param.make(paramName.clone(), t: t, conv: conv.clone()))
+			var text = ""
+			if conv != "" 'conv'
+				text = "{conv} "
+			end 'conv'
+			parts.push("{text}{paramName} {tys[t].src}")
+			let v = self.declare(paramName, t: t, owned: conv == kwConsumes or conv == kwSets, mutable: conv == kwMutates or conv == kwSets)
+			vars[v].setParam = conv == kwSets
+			if conv == kwSets 'sets'
+				// A sets parameter starts with no value, and the function gives it one before it does anything else, except in a
+				// program that is careless about it.
+				vars[v].moved = true
+				setParams.push(v)
+			end 'sets'
+		end 'params'
+		var header = "{kwFunction} {name}({joinStrings(parts, separator: ", ")})"
+		if hasFnRet 'ret'
+			header = "{header} {kwReturns} {tys[fnRet].src}"
+		end 'ret'
+		self.line(header)
+		hasRet = hasFnRet
+		ret = fnRet
+		loop = 0
+		budget = 14
+		self.indentMore()
+		self.push()
+		for i in 0 upto setParams.count() 'sets'
+			if not self.careless() 'initialised'
+				let v = setParams[i]
+				let setT = vars[v].t
+				let value = self.owned(setT, depth: 1)
+				self.line("{vars[v].name} = {value}")
+				vars[v].moved = false
+			end 'initialised'
+		end 'sets'
+		if self.chance(60) 'preamble'
+			self.preamble()
+		end 'preamble'
+		while budget > 0 'body'
+			self.stmt(3)
+		end 'body'
+		if hasFnRet 'return'
+			let value = self.owned(fnRet, depth: 2)
+			self.line("{kwReturn} {value}")
+		end 'return'
+		self.pop()
+		self.indentLess()
+		self.line("{kwEnd} '{name}'")
+		self.blank()
+		self.pop()
+		fns.push(Fn.make(name, params: params, hasRet: hasFnRet, ret: fnRet, recv: ""))
+	end 'writeFunction'
+
+	function mainFunction(mutates self)
+		scopes = Scopes.create(0)
+		self.push()
+		self.line("{kwFunction} main() {kwReturns} ExitCode")
+		inMain = true
+		hasRet = false
+		loop = 0
+		budget = 40
+		self.indentMore()
+		self.push()
+		self.preamble()
+		while budget > 0 'body'
+			self.stmt(3)
+		end 'body'
+		self.line("{kwReturn} 0")
+		self.pop()
+		self.indentLess()
+		self.line("{kwEnd} 'main'")
+	end 'mainFunction'
+
+	// preamble declares what the statements work on: variables of the program's own types and a collection of each kind with
+	// something in it, so a statement that needs one has one.
+	function preamble(mutates self)
+		let managedList = self.managedTypes()
+		let n = self.pickFrom(2, n: 3)
+		for _ in 0 upto n 'variables'
+			let t = managedList[self.pick(managedList.count())]
+			let name = self.fresh("v")
+			let value = self.owned(t, depth: 2)
+			self.line("{kwVar} {name} = {value}")
+			_ = self.declare(name, t: t, owned: true, mutable: true)
+		end 'variables'
+		var elem = self.elementType()
+		let name = self.fresh("v")
+		let arr = self.arrayOf(elem)
+		let arrText = self.typeExpr(arr)
+		self.line("{kwVar} {name} = {arrText}.create(0)")
+		_ = self.declare(name, t: arr, owned: true, mutable: true)
+		let pushed = self.owned(elem, depth: 2)
+		self.line("{name}.push({pushed})")
+		let pushedAgain = self.owned(elem, depth: 2)
+		self.line("{name}.push({pushedAgain})")
+		if self.chance(80) and not arraysOnly 'pool'
+			elem = self.elementType()
+			let p = self.fresh("v")
+			let pt = self.poolOf(elem)
+			let poolText = self.typeExpr(pt)
+			self.line("{kwVar} {p} = {poolText}.create()")
+			_ = self.declare(p, t: pt, owned: true, mutable: true)
+			let h = self.fresh("h")
+			let value = self.owned(elem, depth: 2)
+			self.line("{kwLet} {h} = {p}.insert({value})")
+			let handleT = self.handleOf(elem)
+			_ = self.declare(h, t: handleT, owned: false, mutable: false)
+		end 'pool'
+		if self.chance(70) and not arraysOnly 'list'
+			elem = self.elementType()
+			let l = self.fresh("v")
+			let lt = self.listOf(elem)
+			let listText = self.typeExpr(lt)
+			self.line("{kwVar} {l} = {listText}.create()")
+			_ = self.declare(l, t: lt, owned: true, mutable: true)
+			let h = self.fresh("h")
+			let value = self.owned(elem, depth: 2)
+			self.line("{kwLet} {h} = {l}.append({value})")
+			let handleT = self.handleOf(elem)
+			_ = self.declare(h, t: handleT, owned: false, mutable: false)
+		end 'list'
+		if self.chance(70) and not arraysOnly 'map'
+			let key = self.keyType()
+			elem = self.elementType()
+			let m = self.fresh("v")
+			let mt = self.mapOf(key, v: elem)
+			let mapText = self.typeExpr(mt)
+			self.line("{kwVar} {m} = {mapText}.create()")
+			_ = self.declare(m, t: mt, owned: true, mutable: true)
+			let value = self.owned(elem, depth: 2)
+			self.line("{m}.upsert({keyOf(tys[key].kind, n: firstElementKey)}, value: {value})")
+		end 'map'
+		self.sharingPreamble()
+	end 'preamble'
+
+	// anyPlace is a place of any managed type that is in scope, to be borrowed.
+	function anyPlace(mutates self, mutable bool) returns table.Option with Count
+		var found = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved or not self.managed(vars[v].t) or (mutable and not vars[v].mutable) 'unusable'
+				continue 'each'
+			end 'unusable'
+			let name = vars[v].name.clone()
+			if name != kwSelf or not mutable 'whole'
+				found.push(self.addPlace(Place.new(name.clone(), t: vars[v].t, root: v, mutable: false, whole: true)))
+			end 'whole'
+			let ri = self.recordIndex(vars[v].t)
+			if ri.isSome() 'record'
+				let r = ri.unwrap()
+				for k in 0 upto records[r].fields.count() 'fields'
+					if self.managed(records[r].fields[k].t) and (not mutable or records[r].fields[k].isVar) 'field'
+						let fieldName = records[r].fields[k].name.clone()
+						found.push(self.addPlace(Place.new("{name}.{fieldName}", t: records[r].fields[k].t, root: v, mutable: false, whole: false)))
+					end 'field'
+				end 'fields'
+			end 'record'
+		end 'each'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())])
+	end 'anyPlace'
+
+	// actBoth passes a borrowed place and a place that is changed to a generic function that reads the first after it changed the
+	// second: a borrow into what is changed is a use after free. The checker has to see the overlap.
+	function actBoth(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(allCollections())
+		if found.isSome() 'collection'
+			if self.chance(40) 'element'
+				let v = found.unwrap()
+				let mark = self.guardedBegin()
+				self.bothElement(v)
+				self.guardedEnd(mark)
+				return true
+			end 'element'
+		end 'collection'
+		let borrowed = self.anyPlace(false)
+		if not borrowed.isSome() 'none'
+			return false
+		end 'none'
+		return self.bothWith(borrowed.unwrap())
+	end 'actBoth'
+
+	function bothElement(mutates self, v Count)
+		let found = self.elementOf(v, mutable: false)
+		if not found.isSome() 'none'
+			self.line(printNothing)
+			return
+		end 'none'
+		let p = found.unwrap()
+		if not self.managed(store[p].t) 'plain'
+			self.line(printNothing)
+			return
+		end 'plain'
+		_ = self.bothWith(p)
+	end 'bothElement'
+
+	function bothWith(mutates self, borrowed Count) returns bool
+		let wantMutable = not self.careless()
+		let found = self.anyPlace(wantMutable)
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		var changed = found.unwrap()
+		let adversarial = self.adversarial()
+		if adversarial 'adversarial'
+			let borrowedT = store[borrowed].t
+			let c = self.collectionOf(borrowedT)
+			if c.isSome() 'collection'
+				let root = c.unwrap()
+				if vars[root].mutable 'mutable'
+					changed = self.addPlace(Place.new(vars[root].name.clone(), t: vars[root].t, root: root, mutable: false, whole: false))
+				end 'mutable'
+			end 'collection'
+		end 'adversarial'
+		var sameRoot = store[borrowed].root == store[changed].root
+		if sameRoot 'overlap'
+			let again = self.adversarial()
+			if not again 'refuse'
+				return false
+			end 'refuse'
+		end 'overlap'
+		let borrowedSrc = store[borrowed].src.clone()
+		if self.chance(50) 'both'
+			self.line("both({borrowedSrc}, b: {store[changed].src})")
+		end 'both' else 'both2'
+			let changedT = store[changed].t
+			let value = self.owned(changedT, depth: 1)
+			self.line("both2({borrowedSrc}, b: {self.typedOf(changedT, value: value)})")
+		end 'both2'
+		return true
+	end 'bothWith'
+
+	// actSet declares a variable with no value and has a function that takes it as a sets parameter initialise it.
+	function actSet(mutates self, depth Depth) returns bool
+		let t = self.anyType()
+		if tys[t].kind == Kind.kHandle 'handle'
+			return false
+		end 'handle'
+		let found = self.place(t, mutable: false)
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let p = found.unwrap()
+		let name = self.fresh("v")
+		self.line("{kwVar} {name} {kwAs} {tys[t].src}")
+		self.line("fill({name}, from: {store[p].src})")
+		_ = self.declare(name, t: t, owned: true, mutable: true)
+		return true
+	end 'actSet'
+
+	// actTargetHold assigns to a part of an element with a value that changes the collection: the address of the element is
+	// taken before the value is computed, so the store would land where the element used to be.
+	function actTargetHold(mutates self, depth Depth) returns bool
+		let found = self.collectionVar(allCollections())
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let v = found.unwrap()
+		if not vars[v].mutable or carelessPercent == 0 'unusable'
+			return false
+		end 'unusable'
+		let mark = self.guardedBegin()
+		self.targetHold(v)
+		self.guardedEnd(mark)
+		return true
+	end 'actTargetHold'
+
+	function targetHold(mutates self, v Count)
+		let t = vars[v].t
+		let elem = self.elementTypeOf(t)
+		let found = self.elementOf(v, mutable: true)
+		if not found.isSome() 'none'
+			self.line(printNothing)
+			return
+		end 'none'
+		var target = store[found.unwrap()].src.clone()
+		if elem != tCount 'record'
+			let ri = self.recordIndex(elem)
+			if not ri.isSome() 'plain'
+				self.line(printNothing)
+				return
+			end 'plain'
+			let r = ri.unwrap()
+			var located = false
+			for k in 0 upto records[r].fields.count() 'fields'
+				if records[r].fields[k].t == tCount and records[r].fields[k].isVar 'count'
+					target = "{target}.{records[r].fields[k].name}"
+					located = true
+					break 'fields'
+				end 'count'
+			end 'fields'
+			if not located 'missing'
+				self.line(printNothing)
+				return
+			end 'missing'
+		end 'record'
+		let name = vars[v].name.clone()
+		let k = tys[t].kind
+		var call = ""
+		if k == Kind.kArray 'array'
+			call = "churn({name})"
+		end 'array' else if k == Kind.kList 'list'
+			call = "churnList({name})"
+		end 'list' else if k == Kind.kMap 'map'
+			if tys[t].args[0] != tString 'keyed'
+				self.line(printNothing)
+				return
+			end 'keyed'
+			call = "churnMap({name})"
+		end 'map' else 'pool'
+			let value = self.owned(elem, depth: 1)
+			call = "churnPool({name}, x: {value})"
+		end 'pool'
+		self.line("{target} = {call}")
+	end 'targetHold'
+
+	// The part of the generator that writes a borrowed place as one operand of an expression and, as an operand evaluated after
+	// it, a call that may change or consume what the place lies in: the second operand of a string comparison, and the index,
+	// key or handle of a subscript whose base is itself a field or an element. The first operand is loaded before the call runs,
+	// so a call that frees what it was loaded from leaves the expression reading freed memory. The same shapes are also written
+	// with a call that only reads the place or touches another variable, and with a scalar as the first operand, which the
+	// checker has to accept; a program that is accepted with a call that changes or consumes the place is a hole.
+	// heldBroken says whether the call written now changes or consumes the place it is held across: often in a careless program,
+	// and once in a targeted one, by the statement that is its sin.
+	function heldBroken(mutates self) returns bool
+		if carelessPercent > 0 'careless'
+			return self.chance(heldBrokenPercent)
+		end 'careless'
+		return heldSin and sinning
+	end 'heldBroken'
+
+	// indexTypeOf is the type of what a subscript of the collection takes.
+	function indexTypeOf(mutates self, t Count) returns Count
+		let k = tys[t].kind
+		if k == Kind.kArray 'array'
+			return tCount
+		end 'array'
+		if k == Kind.kMap 'map'
+			return tys[t].args[0]
+		end 'map'
+		if k == Kind.kPool or k == Kind.kList 'handled'
+			let pooledT = tys[t].args[0]
+			return self.handleOf(pooledT)
+		end 'handled'
+		panic("indexTypeOf: not a collection: {tys[t].src}")
+	end 'indexTypeOf'
+
+	// pathPlaces are the places whose type accept takes in variables, in their fields and, when elements is set, in the first
+	// element of a collection variable, so that a place can lie behind a subscript.
+	function pathPlaces(mutates self, accept Accept, mutable bool, elements bool) returns CountList
+		var found = self.placesWhere(accept, mutable: mutable)
+		if not elements 'plain'
+			return found
+		end 'plain'
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			let changeable = vars[v].mutable
+			let first = self.elementPlace(v, mutable: changeable)
+			if not first.isSome() 'none'
+				continue 'each'
+			end 'none'
+			var walked = CountList.create(0)
+			self.walk(walked, p: first.unwrap(), accept: accept, depth: 2)
+			for k in 0 upto walked.count() 'walked'
+				if not mutable or store[walked[k]].mutable 'taken'
+					found.push(walked[k])
+				end 'taken'
+			end 'walked'
+		end 'each'
+		return found
+	end 'pathPlaces'
+
+	// around is the places a path goes through, from the variable inwards, ending with the place itself.
+	function around(p Count) returns CountList
+		var chain = CountList.create(0)
+		var at = p
+		chain.push(at)
+		while store[at].hasParent 'up'
+			at = store[at].parent
+			chain.push(at)
+		end 'up'
+		var ordered = CountList.create(0)
+		var i = chain.count()
+		while i > 0 'reverse'
+			i = try i - 1 otherwise panic("fuzz: a chain below 0")
+			ordered.push(chain[i])
+		end 'reverse'
+		return ordered
+	end 'around'
+
+	// siblingCall is a call that gives result, of type t, and is written after the borrowed place in one expression. With broken
+	// set it changes or consumes the place or what it lies in; otherwise it reads them or works on another variable.
+	function siblingCall(mutates self, borrowed Count, t Count, result String, broken bool) returns table.Option with String
+		let path = self.around(borrowed)
+		var calls = SiblingList.create(0)
+		if broken 'broken'
+			for i in 0 upto path.count() 'each'
+				let q = path[i]
+				if not store[q].mutable or store[q].src == kwSelf 'unchangeable'
+					continue 'each'
+				end 'unchangeable'
+				calls.push(Sibling.make(SiblingKind.rebuild, src: store[q].src.clone(), name: "", v: 0))
+				if tys[store[q].t].kind == Kind.kArray 'array'
+					calls.push(Sibling.make(SiblingKind.erase, src: store[q].src.clone(), name: "", v: 0))
+				end 'array'
+				let m = self.stringMethod(store[q].t, recv: kwMutates)
+				if m.isSome() and t == tString 'method'
+					calls.push(Sibling.make(SiblingKind.mutatingMethod, src: store[q].src.clone(), name: m.unwrap(), v: 0))
+				end 'method'
+			end 'each'
+			let root = store[borrowed].root
+			if self.movesFrom(root) 'moves'
+				calls.push(Sibling.make(SiblingKind.swallow, src: "", name: "", v: root))
+				let m = self.stringMethod(vars[root].t, recv: kwConsumes)
+				if m.isSome() and t == tString 'method'
+					calls.push(Sibling.make(SiblingKind.consumingMethod, src: "", name: m.unwrap(), v: root))
+				end 'method'
+			end 'moves'
+		end 'broken' else 'reading'
+			for i in 0 upto path.count() 'each'
+				let q = path[i]
+				calls.push(Sibling.make(SiblingKind.look, src: self.typedOf(store[q].t, value: store[q].src), name: "", v: 0))
+			end 'each'
+			let seen = self.visible()
+			for i in 0 upto seen.count() 'each'
+				let v = seen[i]
+				let kind = tys[vars[v].t].kind
+				if v == store[borrowed].root or vars[v].moved or not self.managed(vars[v].t) or vars[v].name == kwSelf or kind == Kind.kFrozen or kind == Kind.kCown 'skipped'
+					continue 'each'
+				end 'skipped'
+				if vars[v].mutable and vars[v].frozen == 0 'rebuild'
+					calls.push(Sibling.make(SiblingKind.rebuild, src: vars[v].name.clone(), name: "", v: 0))
+				end 'rebuild'
+				if self.movesFrom(v) 'moves'
+					calls.push(Sibling.make(SiblingKind.swallow, src: "", name: "", v: v))
+				end 'moves'
+			end 'each'
+		end 'reading'
+		if calls.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		let c = calls[self.pick(calls.count())].clone()
+		if c.kind == SiblingKind.rebuild 'rebuild'
+			return table.Option.some("rebuildReturning({c.src}, result: {result})")
+		end 'rebuild'
+		if c.kind == SiblingKind.erase 'erase'
+			return table.Option.some("eraseReturning({c.src}, result: {result})")
+		end 'erase'
+		if c.kind == SiblingKind.mutatingMethod 'mutating'
+			return table.Option.some("{c.src}.{c.name}()")
+		end 'mutating'
+		if c.kind == SiblingKind.swallow 'swallow'
+			vars[c.v].moved = true
+			return table.Option.some("swallowReturning({vars[c.v].name}, result: {result})")
+		end 'swallow'
+		if c.kind == SiblingKind.consumingMethod 'consuming'
+			vars[c.v].moved = true
+			return table.Option.some("{vars[c.v].name}.{c.name}()")
+		end 'consuming'
+		return table.Option.some("lookReturning({c.src}, result: {result})")
+	end 'siblingCall'
+
+	// movesFrom says whether the variable can be given away at this point.
+	function movesFrom(mutates self, v Count) returns bool
+		let wantT = vars[v].t
+		let moves = self.movable(wantT)
+		for i in 0 upto moves.count() 'each'
+			if moves[i] == v 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'movesFrom'
+
+	// stringMethod is the method of a record that gives a String and has the convention, if there is one.
+	function stringMethod(t Count, recv String) returns table.Option with String
+		let ri = self.recordIndex(t)
+		if not ri.isSome() 'plain'
+			return table.Option.none
+		end 'plain'
+		let r = ri.unwrap()
+		for i in 0 upto records[r].methods.count() 'each'
+			let m = records[r].methods[i].clone()
+			if m.hasRet and m.ret == tString and m.recv == recv and m.params.count() == 0 'found'
+				return table.Option.some(m.name.clone())
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'stringMethod'
+
+	// heldCompare is a comparison of a place with a later operand, which is a call, another place or a literal. A comparison
+	// written inside a condition has no guard to put elements behind, so it takes none.
+	function heldCompare(mutates self, broken bool, elements bool) returns table.Option with String
+		var accept = Accept.of(tString)
+		if self.chance(15) 'counts'
+			accept = Accept.of(tCount)
+		end 'counts'
+		let candidates = self.pathPlaces(accept, mutable: false, elements: elements)
+		if candidates.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		let left = candidates[self.pick(candidates.count())]
+		let later = self.laterOperand(left, broken: broken)
+		if not later.isSome() 'missing'
+			return table.Option.none
+		end 'missing'
+		for i in 0 upto store[left].guards.count() 'guards'
+			guards.push(store[left].guards[i].clone())
+		end 'guards'
+		var op = "=="
+		if self.pick(2) == 1 'differs'
+			op = "!="
+		end 'differs'
+		if not vars[store[left].root].moved 'held'
+			if self.chance(20) 'swapped'
+				// The call is evaluated first, so the place is read after whatever it did, which is only a legal read when the
+				// call did not give the place away.
+				return table.Option.some("{later.unwrap()} {op} {store[left].src}")
+			end 'swapped'
+		end 'held'
+		return table.Option.some("{store[left].src} {op} {later.unwrap()}")
+	end 'heldCompare'
+
+	function laterOperand(mutates self, left Count, broken bool) returns table.Option with String
+		var result = quoted("s{self.pick(3)}")
+		let leftT = store[left].t
+		if leftT == tCount 'count'
+			result = typed(Kind.kCount, value: literal(self.pick(3)))
+		end 'count'
+		let n = self.pick(10)
+		if n < 6 'sibling'
+			return self.siblingCall(left, t: leftT, result: result, broken: broken)
+		end 'sibling'
+		if n < 8 and leftT == tString 'call'
+			let c = self.callReturning(tString, depth: 2)
+			if c.isSome() 'some'
+				return c
+			end 'some'
+		end 'call' else if n < 9 'place'
+			let p = self.place(leftT, mutable: false)
+			if p.isSome() 'some'
+				return table.Option.some(store[p.unwrap()].src.clone())
+			end 'some'
+		end 'place'
+		return table.Option.some(result)
+	end 'laterOperand'
+
+	// actHeldCompare writes a comparison as a condition, as a printed value or as a bool that is kept.
+	function actHeldCompare(mutates self, depth Depth) returns bool
+		let broken = self.heldBroken()
+		var wrote = false
+		let mark = self.guardedBegin()
+		let found = self.heldCompare(broken, elements: true)
+		if found.isSome() 'some'
+			let text = found.unwrap()
+			wrote = true
+			let n = self.pick(3)
+			if n == 0 'condition'
+				let label = self.label()
+				self.line("{kwIf} {text} {label}")
+				self.indentMore()
+				self.line(printedText("eq"))
+				self.indentLess()
+				self.line("{kwEnd} {label}")
+			end 'condition' else if n == 1 'printed'
+				self.line(printed(text))
+			end 'printed' else 'kept'
+				let name = self.fresh("v")
+				self.line("{kwLet} {name} = {text}")
+				_ = self.declare(name, t: tBool, owned: false, mutable: false)
+			end 'kept'
+		end 'some'
+		self.guardedEnd(mark)
+		return wrote
+	end 'actHeldCompare'
+
+	// heldInterpolation is the text between the quotes of an interpolated string whose first two parts are a place and a call
+	// with no text between them. Lowering joins the parts from the left, so the first stays a borrow while the call runs, whereas
+	// a text between the parts is joined to the first at once. A scalar first part is converted at once as well, and a call that
+	// comes first leaves nothing borrowed.
+	function heldInterpolation(mutates self, broken bool, elements bool) returns table.Option with String
+		var accept = Accept.of(tString)
+		if self.chance(15) 'counts'
+			accept = Accept.of(tCount)
+		end 'counts'
+		let candidates = self.pathPlaces(accept, mutable: false, elements: elements)
+		if candidates.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		let left = candidates[self.pick(candidates.count())]
+		var call as table.Option with String
+		call = table.Option.none
+		var haveCall = false
+		if self.chance(15) 'direct'
+			call = self.callReturning(tString, depth: 2)
+			haveCall = call.isSome()
+		end 'direct'
+		if not haveCall 'sibling'
+			let result = quoted("s{self.pick(3)}")
+			call = self.siblingCall(left, t: tString, result: result, broken: broken)
+			haveCall = call.isSome()
+		end 'sibling'
+		if not haveCall 'missing'
+			return table.Option.none
+		end 'missing'
+		for i in 0 upto store[left].guards.count() 'guards'
+			guards.push(store[left].guards[i].clone())
+		end 'guards'
+		let callText = call.unwrap()
+		let leftSrc = store[left].src.clone()
+		if not vars[store[left].root].moved 'held'
+			if self.chance(15) 'swapped'
+				return table.Option.some("{braced(callText)}{braced(leftSrc)}")
+			end 'swapped'
+		end 'held'
+		if self.chance(15) 'spaced'
+			return table.Option.some("{braced(leftSrc)} {braced(callText)}")
+		end 'spaced'
+		return table.Option.some("{braced(leftSrc)}{braced(callText)}")
+	end 'heldInterpolation'
+
+	// heldInterpolationCompare compares such a string with a literal.
+	function heldInterpolationCompare(mutates self, broken bool, elements bool) returns table.Option with String
+		let found = self.heldInterpolation(broken, elements: elements)
+		if not found.isSome() 'none'
+			return table.Option.none
+		end 'none'
+		var op = "=="
+		if self.pick(2) == 1 'differs'
+			op = "!="
+		end 'differs'
+		let which = self.pick(3)
+		return table.Option.some("\"{found.unwrap()}\" {op} \"s{which}\"")
+	end 'heldInterpolationCompare'
+
+	// actHeldInterpolation uses such a string where strings are used: printed, kept, passed as an argument and compared.
+	function actHeldInterpolation(mutates self, depth Depth) returns bool
+		let broken = self.heldBroken()
+		var wrote = false
+		let mark = self.guardedBegin()
+		let n = self.pick(4)
+		if n == 0 'printed'
+			let found = self.heldInterpolation(broken, elements: true)
+			if found.isSome() 'some'
+				self.line("print(\"{found.unwrap()}\\n\")")
+				wrote = true
+			end 'some'
+		end 'printed' else if n == 1 'kept'
+			let found = self.heldInterpolation(broken, elements: true)
+			if found.isSome() 'some'
+				let name = self.fresh("v")
+				self.line("{kwLet} {name} = \"{found.unwrap()}\"")
+				_ = self.declare(name, t: tString, owned: true, mutable: false)
+				wrote = true
+			end 'some'
+		end 'kept' else if n == 2 'passed'
+			let found = self.heldInterpolation(broken, elements: true)
+			if found.isSome() 'some'
+				let name = self.fresh("v")
+				self.line("{kwLet} {name} = keep(\"{found.unwrap()}\")")
+				_ = self.declare(name, t: tString, owned: true, mutable: false)
+				wrote = true
+			end 'some'
+		end 'passed' else 'compared'
+			let found = self.heldInterpolationCompare(broken, elements: true)
+			if found.isSome() 'some'
+				let label = self.label()
+				self.line("{kwIf} {found.unwrap()} {label}")
+				self.indentMore()
+				self.line(printedText("eq"))
+				self.indentLess()
+				self.line("{kwEnd} {label}")
+				wrote = true
+			end 'some'
+		end 'compared'
+		self.guardedEnd(mark)
+		return wrote
+	end 'actHeldInterpolation'
+
+	// actHeldIndex writes a subscript whose base is a path, with an index that is a call, and uses its element.
+	function actHeldIndex(mutates self, depth Depth) returns bool
+		let broken = self.heldBroken()
+		let use = self.pick(subscriptUses)
+		// A kind is picked before a place, since arrays are the most common and would leave the others few.
+		let all = self.pathPlaces(Accept.collections(), mutable: use == useAssign or use == useMutate, elements: true)
+		var byKind = CountLists.create(0)
+		for _ in 0 upto 4 'kinds'
+			byKind.push(CountList.create(0))
+		end 'kinds'
+		for i in 0 upto all.count() 'each'
+			let p = all[i]
+			if use == useMatch and not self.isUnion(self.elementTypeOf(store[p].t)) 'unmatched'
+				continue 'each'
+			end 'unmatched'
+			byKind[collectionSlot(tys[store[p].t].kind)].push(p)
+		end 'each'
+		var kinds = CountList.create(0)
+		for k in 0 upto 4 'present'
+			if byKind[k].count() > 0 'some'
+				kinds.push(k)
+			end 'some'
+		end 'present'
+		if kinds.count() == 0 'none'
+			return false
+		end 'none'
+		var bases = byKind[kinds[self.pick(kinds.count())]].clone()
+		var nested = CountList.create(0)
+		for i in 0 upto bases.count() 'each'
+			if store[bases[i]].hasParent 'nested'
+				nested.push(bases[i])
+			end 'nested'
+		end 'each'
+		if nested.count() > 0 'prefer'
+			if self.chance(75) 'chosen'
+				bases = nested
+			end 'chosen'
+		end 'prefer'
+		let base = bases[self.pick(bases.count())]
+		let mark = self.guardedBegin()
+		let wrote = self.heldSubscript(use, base: base, broken: broken)
+		self.guardedEnd(mark)
+		return wrote
+	end 'actHeldIndex'
+
+	function heldSubscript(mutates self, use Count, base Count, broken bool) returns bool
+		for i in 0 upto store[base].guards.count() 'guards'
+			guards.push(store[base].guards[i].clone())
+		end 'guards'
+		let ensured = self.ensureElement(base)
+		if not ensured.isSome() 'none'
+			return false
+		end 'none'
+		let access = ensured.unwrap()
+		var index = access.index.clone()
+		if self.chance(80) 'sibling'
+			let baseT = store[base].t
+			let indexT = self.indexTypeOf(baseT)
+			let call = self.siblingCall(base, t: indexT, result: access.result, broken: broken)
+			if call.isSome() 'some'
+				index = call.unwrap()
+			end 'some'
+		end 'sibling'
+		let element = "{store[base].src}[{index}]"
+		let t = self.elementTypeOf(store[base].t)
+		if use == useRead 'read'
+			if t == tCount or t == tString 'printable'
+				self.line(printed(element))
+			end 'printable' else if self.chance(50) 'kept'
+				let name = self.fresh("v")
+				self.line("{kwLet} {name} = {element}.clone()")
+				_ = self.declare(name, t: t, owned: true, mutable: false)
+			end 'kept' else 'discarded'
+				self.line("_ = {element}.clone()")
+			end 'discarded'
+		end 'read' else if use == useAssign 'assign'
+			let field = self.countField(t)
+			var viaField = false
+			if field.isSome() 'candidate'
+				viaField = self.chance(40)
+			end 'candidate'
+			if viaField 'field'
+				let count = self.countExpr(0)
+				self.line("{element}.{field.unwrap()} = {typed(Kind.kCount, value: count)}")
+			end 'field' else 'whole'
+				let value = self.owned(t, depth: 0)
+				self.line("{element} = {self.typedOf(t, value: value)}")
+			end 'whole'
+		end 'assign' else if use == useMutate 'mutate'
+			if t == tCount 'count'
+				self.line("bump({element})")
+			end 'count' else 'other'
+				let value = self.owned(t, depth: 0)
+				self.line("overwrite({element}, value: {value})")
+			end 'other'
+		end 'mutate' else if use == useMatch 'match'
+			let arms = self.armsOf(t)
+			let root = store[base].root
+			self.matchOn(element, rooted: true, root: root, arms: arms)
+		end 'match' else 'unknown'
+			panic("heldSubscript: unknown use {use}")
+		end 'unknown'
+		return true
+	end 'heldSubscript'
+
+	// countField is the name of a field of a record type that holds a Count and can be changed.
+	function countField(t Count) returns table.Option with String
+		let ri = self.recordIndex(t)
+		if ri.isSome() 'record'
+			let r = ri.unwrap()
+			for k in 0 upto records[r].fields.count() 'fields'
+				if records[r].fields[k].t == tCount and records[r].fields[k].isVar 'found'
+					return table.Option.some(records[r].fields[k].name.clone())
+				end 'found'
+			end 'fields'
+		end 'record'
+		return table.Option.none
+	end 'countField'
+
+	// ensureElement makes an element of the collection exist, by adding one when it can be changed and otherwise by a guard, so
+	// the statement does not stop at a trap before it has done anything. It gives the index that names the element, and the same
+	// index written as an argument.
+	function ensureElement(mutates self, b Count) returns table.Option with Access
+		let bt = store[b].t
+		let elem = self.elementTypeOf(bt)
+		let k = tys[bt].kind
+		let src = store[b].src.clone()
+		let mutable = store[b].mutable
+		if k == Kind.kArray 'array'
+			if mutable 'push'
+				let value = self.owned(elem, depth: 0)
+				self.line("{src}.push({self.typedOf(elem, value: value)})")
+			end 'push' else 'guard'
+				guards.push("{src}.count() > 0")
+			end 'guard'
+			return table.Option.some(Access.make("0", result: typed(Kind.kCount, value: "0")))
+		end 'array'
+		if k == Kind.kMap 'map'
+			let keyT = tys[bt].args[0]
+			let key = keyOf(tys[keyT].kind, n: firstElementKey)
+			if mutable 'replace'
+				let value = self.owned(elem, depth: 0)
+				self.line("_ = {src}.replace({key}, value: {self.typedOf(elem, value: value)})")
+			end 'replace' else 'guard'
+				guards.push("{src}.contains({key})")
+			end 'guard'
+			let typedKey = self.typedOf(keyT, value: key)
+			return table.Option.some(Access.make(key, result: typedKey))
+		end 'map'
+		if k == Kind.kPool or k == Kind.kList 'handled'
+			if not mutable 'named'
+				// A handle that is a field is a copy that the checker still sees as a place, so it is passed only by name.
+				let handleT = self.handleOf(elem)
+				let handles = self.places(handleT, mutable: false)
+				var wholes = CountList.create(0)
+				for i in 0 upto handles.count() 'each'
+					if store[handles[i]].whole 'whole'
+						wholes.push(handles[i])
+					end 'whole'
+				end 'each'
+				if wholes.count() == 0 'none'
+					return table.Option.none
+				end 'none'
+				let h = wholes[self.pick(wholes.count())]
+				let hsrc = store[h].src.clone()
+				guards.push("{src}.contains({hsrc})")
+				return table.Option.some(Access.make(hsrc.clone(), result: hsrc))
+			end 'named'
+			let name = self.fresh("h")
+			var add = "insert"
+			if k == Kind.kList 'list'
+				add = "append"
+				if self.pick(2) == 1 'prepend'
+					add = "prepend"
+				end 'prepend'
+			end 'list'
+			let value = self.owned(elem, depth: 0)
+			self.line("{kwLet} {name} = {src}.{add}({self.typedOf(elem, value: value)})")
+			let handleT = self.handleOf(elem)
+			_ = self.declare(name, t: handleT, owned: false, mutable: false)
+			return table.Option.some(Access.make(name.clone(), result: name))
+		end 'handled'
+		panic("ensureElement: not a collection: {tys[bt].src}")
+	end 'ensureElement'
+
+	// The part of the generator that writes frozen values, cowns and behaviours. A behaviour body is written as a function of its
+	// own: the generator hides the variables around it and exposes some of them by name, and whichever of those the body then
+	// mentions is what the behaviour captures. A program that is careless exposes a borrow, names a cown twice, reads a cown's
+	// value outside a behaviour, or changes the contents of a frozen value, to see that the checker refuses it.
+	function frozenOf(mutates self, inner Count) returns Count
+		var args = CountList.create(0)
+		args.push(inner)
+		return self.internInstance(Kind.kFrozen, base: "frozen", args: args)
+	end 'frozenOf'
+
+	function cownOf(mutates self, inner Count) returns Count
+		var args = CountList.create(0)
+		args.push(inner)
+		return self.internInstance(Kind.kCown, base: "cown", args: args)
+	end 'cownOf'
+
+	// freezable is a type of a value that can be frozen: any that is not a plain value.
+	function freezable(mutates self) returns Count
+		if self.chance(20) 'array'
+			let e = self.elementType()
+			return self.arrayOf(e)
+		end 'array'
+		let managedList = self.managedTypes()
+		return managedList[self.pick(managedList.count())]
+	end 'freezable'
+
+	// cownable is the type of what a cown owns: a plain count, or a value of any type.
+	function cownable(mutates self) returns Count
+		let n = self.pick(10)
+		if n < 4 'count'
+			return tCount
+		end 'count'
+		if n < 5 'frozen'
+			let inner = self.freezable()
+			return self.frozenOf(inner)
+		end 'frozen'
+		if n < 6 'cown'
+			let inner = self.cownable()
+			return self.cownOf(inner)
+		end 'cown'
+		return self.freezable()
+	end 'cownable'
+
+	function sharedType(mutates self) returns Count
+		if self.chance(50) 'frozen'
+			let inner = self.freezable()
+			return self.frozenOf(inner)
+		end 'frozen'
+		let inner = self.cownable()
+		return self.cownOf(inner)
+	end 'sharedType'
+
+	// sharedTypeBefore is a frozen value or a cown of a type declared earlier, for a field.
+	function sharedTypeBefore(mutates self) returns Count
+		var inner = self.elementTypeBefore()
+		if self.chance(50) 'frozen'
+			if self.scalar(inner) 'scalar'
+				inner = tString
+			end 'scalar'
+			return self.frozenOf(inner)
+		end 'frozen'
+		return self.cownOf(inner)
+	end 'sharedTypeBefore'
+
+	// sharedExpr is a new owner of a frozen value or a cown: a share of one that is in scope, or a new one.
+	function sharedExpr(mutates self, t Count, depth Depth) returns String
+		let inner = tys[t].args[0]
+		let found = self.place(t, mutable: false)
+		if found.isSome() 'share'
+			if self.chance(35) 'shared'
+				return "share({store[found.unwrap()].src})"
+			end 'shared'
+		end 'share'
+		if tys[t].kind == Kind.kCown 'cown'
+			if inner == tCount 'count'
+				let value = self.countExpr(lower(depth))
+				return "cown({typed(Kind.kCount, value: value)})"
+			end 'count'
+			let value = self.owned(inner, depth: lower(depth))
+			return "cown({value})"
+		end 'cown'
+		let value = self.owned(inner, depth: lower(depth))
+		return "freeze({value})"
+	end 'sharedExpr'
+
+	// walkFrozen is the places inside a frozen value: its fields, which are immutable. A program that is careless tries to change
+	// one.
+	function walkFrozen(mutates self, mutates found CountList, p Count, accept Accept, depth Count)
+		let ri = self.recordIndex(tys[store[p].t].args[0])
+		if not ri.isSome() 'plain'
+			return
+		end 'plain'
+		let r = ri.unwrap()
+		let src = store[p].src.clone()
+		let below = try depth - 1 otherwise panic("fuzz: a walk below its depth")
+		for k in 0 upto records[r].fields.count() 'fields'
+			let fieldName = records[r].fields[k].name.clone()
+			let fieldT = records[r].fields[k].t
+			var changeable = records[r].fields[k].isVar
+			if changeable 'draw'
+				changeable = self.careless()
+			end 'draw'
+			let q = self.inside(p, src: "{src}.{fieldName}", t: fieldT, mutable: changeable)
+			self.walk(found, p: q, accept: accept, depth: below)
+		end 'fields'
+	end 'walkFrozen'
+
+	// sharingPreamble gives the statements a cown and a frozen value to work with, in a program that shares.
+	function sharingPreamble(mutates self)
+		if not sharing 'plain'
+			return
+		end 'plain'
+		let cowns = self.pickFrom(1, n: 3)
+		for _ in 0 upto cowns 'cowns'
+			let inner = self.cownable()
+			let t = self.cownOf(inner)
+			let name = self.fresh("k")
+			let value = self.sharedExpr(t, depth: 1)
+			self.line("{kwLet} {name} = {value}")
+			_ = self.declare(name, t: t, owned: true, mutable: false)
+		end 'cowns'
+		if self.chance(60) 'frozen'
+			let inner = self.freezable()
+			let t = self.frozenOf(inner)
+			let name = self.fresh("z")
+			let isVar = self.chance(50)
+			let value = self.sharedExpr(t, depth: 1)
+			self.line("{introducer(isVar)} {name} = {value}")
+			_ = self.declare(name, t: t, owned: true, mutable: isVar)
+		end 'frozen'
+		if self.sinful() 'sinful'
+			// A frozen record gives the careless statements something to change.
+			var candidates = CountList.create(0)
+			for i in 0 upto records.count() 'records'
+				if records[i].fields.count() > 0 and not self.isBox(records[i].t) 'record'
+					candidates.push(records[i].t)
+				end 'record'
+			end 'records'
+			let picked = candidates[self.pick(candidates.count())]
+			let t = self.frozenOf(picked)
+			let name = self.fresh("z")
+			let value = self.sharedExpr(t, depth: 1)
+			self.line("{kwVar} {name} = {value}")
+			_ = self.declare(name, t: t, owned: true, mutable: true)
+		end 'sinful'
+	end 'sharingPreamble'
+
+	// varsOf are the variables in scope of the kind, that still hold a value.
+	function varsOf(mutates self, k Kind) returns CountList
+		var found = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if tys[vars[v].t].kind == k 'kind'
+				var holds = not vars[v].moved
+				if not holds 'careless'
+					holds = self.careless()
+				end 'careless'
+				if holds 'kept'
+					found.push(v)
+				end 'kept'
+			end 'kind'
+		end 'each'
+		return found
+	end 'varsOf'
+
+	function actFreeze(mutates self, depth Depth) returns bool
+		if not sharing 'plain'
+			return false
+		end 'plain'
+		let inner = self.freezable()
+		let t = self.frozenOf(inner)
+		let name = self.fresh("z")
+		let isVar = self.chance(50)
+		let value = self.sharedExpr(t, depth: 2)
+		self.line("{introducer(isVar)} {name} = {value}")
+		_ = self.declare(name, t: t, owned: true, mutable: isVar)
+		return true
+	end 'actFreeze'
+
+	function actCown(mutates self, depth Depth) returns bool
+		if not sharing 'plain'
+			return false
+		end 'plain'
+		let inner = self.cownable()
+		let t = self.cownOf(inner)
+		let name = self.fresh("k")
+		let value = self.sharedExpr(t, depth: 2)
+		self.line("{kwLet} {name} = {value}")
+		_ = self.declare(name, t: t, owned: true, mutable: false)
+		return true
+	end 'actCown'
+
+	// actShare makes another owner of a frozen value or a cown that is in scope.
+	function actShare(mutates self, depth Depth) returns bool
+		var found = CountList.create(0)
+		let frozen = self.varsOf(Kind.kFrozen)
+		for i in 0 upto frozen.count() 'frozen'
+			found.push(frozen[i])
+		end 'frozen'
+		let cowns = self.varsOf(Kind.kCown)
+		for i in 0 upto cowns.count() 'cowns'
+			found.push(cowns[i])
+		end 'cowns'
+		if found.count() == 0 'none'
+			return false
+		end 'none'
+		let v = found[self.pick(found.count())]
+		let name = self.fresh("sh")
+		self.line("{kwLet} {name} = share({vars[v].name})")
+		let sharedT = vars[v].t
+		_ = self.declare(name, t: sharedT, owned: true, mutable: false)
+		return true
+	end 'actShare'
+
+	// actThaw copies what a frozen value holds into an owned value, which can then change.
+	function actThaw(mutates self, depth Depth) returns bool
+		let frozen = self.varsOf(Kind.kFrozen)
+		if frozen.count() == 0 'none'
+			return false
+		end 'none'
+		let v = frozen[self.pick(frozen.count())]
+		let name = self.fresh("v")
+		self.line("{kwVar} {name} = thaw({vars[v].name})")
+		let thawedT = tys[vars[v].t].args[0]
+		_ = self.declare(name, t: thawedT, owned: true, mutable: true)
+		return true
+	end 'actThaw'
+
+	// actFrozenMethod calls a method of a record on a frozen value, which a method that only reads can do. A program that is
+	// careless calls one that changes or consumes it.
+	function actFrozenMethod(mutates self, depth Depth) returns bool
+		let all = self.varsOf(Kind.kFrozen)
+		let order = rng.shuffled(all.count())
+		for i in 0 upto order.count() 'each'
+			let v = all[order[i]]
+			let ri = self.recordIndex(tys[vars[v].t].args[0])
+			if not ri.isSome() 'plain'
+				continue 'each'
+			end 'plain'
+			let rec = ri.unwrap()
+			if records[rec].methods.count() == 0 'bare'
+				continue 'each'
+			end 'bare'
+			let methodCount = records[rec].methods.count()
+			let mi = self.pick(methodCount)
+			let m = records[rec].methods[mi].clone()
+			var abuse = self.sinful()
+			if abuse 'draw'
+				abuse = self.chance(60)
+			end 'draw'
+			if (m.recv != "" or m.params.count() > 0) and not abuse 'refused'
+				continue 'each'
+			end 'refused'
+			var earlier = CountList.create(0)
+			earlier.push(v)
+			let text = self.callTextRoots("{vars[v].name}.{m.name}", params: m.params.clone(), depth: 2, earlier: earlier)
+			if not text.isSome() 'failed'
+				continue 'each'
+			end 'failed'
+			self.writeCall(text.unwrap(), hasValue: m.hasRet)
+			return true
+		end 'each'
+		return false
+	end 'actFrozenMethod'
+
+	// actCownPeek, in a careless program, reads the value of a cown outside any behaviour.
+	function actCownPeek(mutates self, depth Depth) returns bool
+		if not self.sinful() 'virtuous'
+			return false
+		end 'virtuous'
+		if not self.chance(50) 'skipped'
+			return false
+		end 'skipped'
+		let cowns = self.varsOf(Kind.kCown)
+		if cowns.count() == 0 'none'
+			return false
+		end 'none'
+		let v = cowns[self.pick(cowns.count())]
+		let name = vars[v].name.clone()
+		let inner = tys[vars[v].t].args[0]
+		let ri = self.recordIndex(inner)
+		var firstField = ""
+		var hasField = false
+		if ri.isSome() 'record'
+			let rec = ri.unwrap()
+			if records[rec].fields.count() > 0 'fields'
+				firstField = records[rec].fields[0].name.clone()
+				hasField = true
+			end 'fields'
+		end 'record'
+		if tys[inner].kind == Kind.kArray 'array'
+			self.line(printed("{name}.count()"))
+		end 'array' else if hasField 'field'
+			self.line("_ = {name}.{firstField}")
+		end 'field' else 'other'
+			self.line("_ = {name}.clone()")
+			self.line("_ = {name}.count()")
+		end 'other'
+		return true
+	end 'actCownPeek'
+
+	// actWhen writes a behaviour on one or two cowns, whose body is written as a function of its own.
+	function actWhen(mutates self, depth Depth) returns bool
+		if not sharing or depth <= 0 or behaviours >= 2 'unusable'
+			return false
+		end 'unusable'
+		let cowns = self.varsOf(Kind.kCown)
+		if cowns.count() == 0 'none'
+			return false
+		end 'none'
+		var operands = CountList.create(0)
+		operands.push(cowns[self.pick(cowns.count())])
+		if self.chance(40) and cowns.count() > 1 'second'
+			let other = cowns[self.pick(cowns.count())]
+			var distinct = other != operands[0]
+			if not distinct 'draw'
+				distinct = self.adversarial()
+			end 'draw'
+			if distinct 'taken'
+				operands.push(other)
+			end 'taken'
+		end 'second'
+		if self.adversarial() 'alias'
+			if self.chance(30) 'aliased'
+				// Two boundNames for one cown: the checker cannot tell, and the behaviour traps when it is scheduled.
+				let alias = self.fresh("al")
+				self.line("{kwLet} {alias} = share({vars[operands[0]].name})")
+				let cownT = vars[operands[0]].t
+				let aliasVar = self.declare(alias, t: cownT, owned: true, mutable: false)
+				operands.push(aliasVar)
+			end 'aliased'
+		end 'alias'
+		var exposures = ExposedList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].moved 'moved'
+				if not self.careless() 'kept'
+					continue 'each'
+				end 'kept'
+			end 'moved'
+			var exposed = false
+			var skipped = false
+			if vars[v].name == kwSelf 'self'
+				if not self.careless() 'hidden'
+					skipped = true
+				end 'hidden'
+			end 'self'
+			if skipped 'skipSelf'
+				continue 'each'
+			end 'skipSelf'
+			if self.scalar(vars[v].t) 'scalar'
+				exposed = true
+			end 'scalar' else if vars[v].owned and not vars[v].setParam and vars[v].frozen == 0 and vars[v].loop == loop 'owner'
+				exposed = true
+			end 'owner' else if not vars[v].owned 'borrow'
+				exposed = self.careless()
+			end 'borrow'
+			if not exposed 'refused'
+				continue 'each'
+			end 'refused'
+			var mutable = vars[v].mutable
+			if mutable 'careless'
+				mutable = self.careless()
+				if mutable 'draw'
+					mutable = self.chance(30)
+				end 'draw'
+			end 'careless'
+			let inner = vars.count()
+			vars.push(Variable.make(vars[v].name.clone(), t: vars[v].t, owned: vars[v].owned or self.scalar(vars[v].t), mutable: mutable, loop: 0))
+			exposures.push(Exposed.make(v, inner: inner))
+		end 'each'
+		var boundNames = StringList.create(0)
+		var operandNames = StringList.create(0)
+		for i in 0 upto operands.count() 'operands'
+			boundNames.push(self.fresh("w"))
+			operandNames.push(vars[operands[i]].name.clone())
+		end 'operands'
+		let label = self.label()
+		self.line("{kwWhen} {joinStrings(operandNames, separator: ", ")} {kwAs} {joinStrings(boundNames, separator: ", ")} {label}")
+		let savedScopes = exchange(scopes, value: Scopes.create(0))
+		let savedHasRet = hasRet
+		let savedRet = ret
+		let savedLoop = loop
+		let savedBudget = budget
+		let savedGuards = exchange(guards, value: StringList.create(0))
+		var bodyScope = CountList.create(0)
+		for i in 0 upto exposures.count() 'exposed'
+			bodyScope.push(exposures[i].inner)
+		end 'exposed'
+		scopes.push(bodyScope)
+		hasRet = false
+		loop = 0
+		let allowance = self.pickFrom(2, n: 4)
+		budget = allowance
+		behaviours = try behaviours + 1 otherwise panic("fuzz: more behaviours than memory")
+		let outerTries = tries
+		tries = 0
+		self.indentMore()
+		self.push()
+		for i in 0 upto operands.count() 'bound'
+			let valueT = tys[vars[operands[i]].t].args[0]
+			_ = self.declare(boundNames[i], t: valueT, owned: false, mutable: true)
+		end 'bound'
+		let start = out.count()
+		while budget > 0 'body'
+			self.stmt(lower(depth))
+		end 'body'
+		if out.count() == start 'empty'
+			self.line(printedText("w"))
+		end 'empty'
+		var lines = StringList.create(0)
+		for i in start upto out.count() 'lines'
+			lines.push(out[i].clone())
+		end 'lines'
+		let body = joinStrings(lines, separator: "\n")
+		self.pop()
+		self.indentLess()
+		behaviours = try behaviours - 1 otherwise panic("fuzz: a behaviour below 0")
+		tries = outerTries
+		scopes = savedScopes
+		hasRet = savedHasRet
+		ret = savedRet
+		loop = savedLoop
+		budget = savedBudget
+		guards = savedGuards
+		self.line("{kwEnd} {label}")
+		for i in 0 upto exposures.count() 'captured'
+			let outer = exposures[i].outer
+			if mentions(body, name: vars[outer].name) and self.managed(vars[outer].t) and vars[outer].owned 'moved'
+				vars[outer].moved = true
+			end 'moved'
+		end 'captured'
+		return true
+	end 'actWhen'
+
+	// The actions below only write what the checker must refuse, and with the least else in the way, so a program that is accepted
+	// anyway has found a hole. They are written in careless programs, and once in a targeted one.
+	// sinful says whether a rule of sharing is broken on purpose here: anywhere in a careless program, and in a targeted one until
+	// its one sin is written. A targeted program whose sin is a held place breaks no other rule of sharing.
+	function sinful() returns bool
+		return carelessPercent > 0 or (sinsLeft > 0 and not heldSin)
+	end 'sinful'
+
+	// aCown is a cown in scope for a behaviour that exists to hold one statement.
+	function aCown(mutates self) returns table.Option with Count
+		let cowns = self.varsOf(Kind.kCown)
+		if cowns.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(cowns[self.pick(cowns.count())])
+	end 'aCown'
+
+	// holding writes a behaviour on a cown whose body is one statement.
+	function holding(mutates self, c Count, statement String)
+		let label = self.label()
+		let w = self.fresh("w")
+		self.line("{kwWhen} {vars[c].name} {kwAs} {w} {label}")
+		self.indentMore()
+		self.line(statement)
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+	end 'holding'
+
+	// actBorrowedCapture has a behaviour use a variable that only borrows its value: a parameter that is not consumed, the
+	// receiver, or the access that an enclosing behaviour has to a cown's value.
+	function actBorrowedCapture(mutates self, depth Depth) returns bool
+		if not sharing or not self.sinful() or behaviours >= 2 'unusable'
+			return false
+		end 'unusable'
+		let found = self.aCown()
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let c = found.unwrap()
+		var borrowed = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if not vars[v].owned and self.managed(vars[v].t) and not vars[v].moved and v != c 'borrowed'
+				borrowed.push(v)
+			end 'borrowed'
+		end 'each'
+		if borrowed.count() == 0 'none'
+			return false
+		end 'none'
+		let v = borrowed[self.pick(borrowed.count())]
+		self.holding(c, statement: "_ = {vars[v].name}.clone()")
+		return true
+	end 'actBorrowedCapture'
+
+	// actUseAfterCapture uses a variable after a behaviour took it, which moved it away.
+	function actUseAfterCapture(mutates self, depth Depth) returns bool
+		if not sharing or not self.sinful() or behaviours >= 2 'unusable'
+			return false
+		end 'unusable'
+		let found = self.aCown()
+		if not found.isSome() 'none'
+			return false
+		end 'none'
+		let c = found.unwrap()
+		var owners = CountList.create(0)
+		let seen = self.visible()
+		for i in 0 upto seen.count() 'each'
+			let v = seen[i]
+			if vars[v].owned and not vars[v].setParam and not vars[v].moved and self.managed(vars[v].t) and vars[v].frozen == 0 and vars[v].loop == loop and vars[v].name != kwSelf and v != c 'owner'
+				owners.push(v)
+			end 'owner'
+		end 'each'
+		if owners.count() == 0 'none'
+			return false
+		end 'none'
+		let v = owners[self.pick(owners.count())]
+		self.holding(c, statement: "_ = {vars[v].name}.clone()")
+		self.line("_ = {vars[v].name}.clone()")
+		vars[v].moved = true
+		return true
+	end 'actUseAfterCapture'
+
+	// actFrozenAbuse changes a frozen value's contents, or takes them out of it, in one of the ways that is refused.
+	function actFrozenAbuse(mutates self, depth Depth) returns bool
+		if not self.sinful() 'virtuous'
+			return false
+		end 'virtuous'
+		let all = self.varsOf(Kind.kFrozen)
+		let order = rng.shuffled(all.count())
+		for i in 0 upto order.count() 'each'
+			let v = all[order[i]]
+			let ri = self.recordIndex(tys[vars[v].t].args[0])
+			if not ri.isSome() 'plain'
+				continue 'each'
+			end 'plain'
+			let rec = ri.unwrap()
+			if records[rec].fields.count() == 0 'bare'
+				continue 'each'
+			end 'bare'
+			let f = self.pick(records[rec].fields.count())
+			let fieldName = records[rec].fields[f].name.clone()
+			let fieldT = records[rec].fields[f].t
+			let fieldVar = records[rec].fields[f].isVar
+			let target = "{vars[v].name}.{fieldName}"
+			let n = self.pick(5)
+			if n == 0 'assign'
+				if not fieldVar 'fixed'
+					continue 'each'
+				end 'fixed'
+				let value = self.owned(fieldT, depth: 1)
+				self.line("{target} = {value}")
+			end 'assign' else if n == 1 'push'
+				if tys[fieldT].kind != Kind.kArray 'plain'
+					continue 'each'
+				end 'plain'
+				let pushedT = tys[fieldT].args[0]
+				let value = self.owned(pushedT, depth: 1)
+				self.line("{target}.push({value})")
+			end 'push' else if n == 2 'bump'
+				if fieldT != tCount 'plain'
+					continue 'each'
+				end 'plain'
+				self.line("bump({target})")
+			end 'bump' else if n == 3 'take'
+				if not self.managed(fieldT) 'plain'
+					continue 'each'
+				end 'plain'
+				let name = self.fresh("v")
+				self.line("{kwLet} {name} = {target}")
+				_ = self.declare(name, t: fieldT, owned: true, mutable: false)
+			end 'take' else 'consume'
+				if not self.managed(fieldT) 'plain'
+					continue 'each'
+				end 'plain'
+				self.line("consume({target})")
+			end 'consume'
+			return true
+		end 'each'
+		return false
+	end 'actFrozenAbuse'
+
+	// start writes the program's declarations, its functions and main into the output.
+	function start(mutates self)
+		if self.chance(carelessPrograms) 'careless'
+			let percent = self.pickFrom(2, n: 6)
+			carelessPercent = percent
+		end 'careless'
+		let withoutMaps = self.chance(arraysOnlyPrograms)
+		arraysOnly = withoutMaps
+		if carelessPercent == 0 'untargeted'
+			if self.chance(targetedPrograms) 'targeted'
+				sinsLeft = 1
+				let held = self.chance(heldFamilyPercent)
+				heldSin = held
+			end 'targeted'
+		end 'untargeted'
+		sharing = not arraysOnly
+		self.declareTypes()
+		self.writeTypes()
+		let functionCount = self.pickFrom(1, n: 4)
+		for i in 0 upto functionCount 'functions'
+			self.writeFunction(i)
+		end 'functions'
+		self.mainFunction()
+	end 'start'
+
+	// finish is the program's text: the library, the typealiases of the instances the program names, and what it wrote.
+	function finish(library String) returns String
+		return "{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(out, separator: "\n")}\n"
+	end 'finish'
+end 'Generator'

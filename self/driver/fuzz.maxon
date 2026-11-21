@@ -1,0 +1,604 @@
+// The fuzz command: it writes random programs the checker should accept, checks them, runs each under the tracking interpreter,
+// and reports a program the checker accepted that the interpreter convicts of a memory-model violation or a leak (a hole in the
+// checker or in the lowering), a program that the checker refuses (a hole in the generator, when it does not parse) and, with
+// --native, one whose executable gives other output than the interpreter. A program is a pure function of its seed, so a failure
+// is reproduced by its seed alone.
+
+let fuzzSeedFlag = "--seed="
+
+let fuzzCountFlag = "--count="
+
+let fuzzSchedulesFlag = "--schedules="
+
+let fuzzKeepFlag = "--keep="
+
+let fuzzDumpFlag = "--dump"
+
+let fuzzNativeFlag = "--native"
+
+let fuzzWorkerFlag = "--worker"
+
+// programsPerWorker is how many seeds one worker process runs: what an internal compiler error costs is the other programs of its
+// chunk, run again.
+let programsPerWorker = 100 as Count
+
+// workerMarker starts the line that a worker writes before each program, which says where it was if it dies.
+let workerMarker = "@"
+
+// workerTally starts the line that a worker ends with, which is its counts.
+let workerTally = "tally "
+
+let defaultGeneratedPrograms = 300 as Count
+
+// generatedStepLimit is how many instructions a generated program may outcome under the interpreter before it counts as a timeout.
+let generatedStepLimit = 20000000 as Count
+
+// defaultScheduleSeeds is how many schedules a program that has behaviours runs under.
+let defaultScheduleSeeds = 3 as Count
+
+// maxReportedFailures is how many failing programs are printed whole; the others only say their seed.
+let maxReportedFailures = 3 as Count
+
+// A outcome of at least minProgramsForAcceptedShare programs must have 1 in minAcceptedDivisor accepted: only an accepted program
+// reaches the interpreter, so a change to the language that the generator did not follow would otherwise pass with every program
+// refused.
+let minProgramsForAcceptedShare = 100 as Count
+
+let minAcceptedDivisor = 10 as Count
+
+// leakMessage is what an executable that counts its allocations says when main returns with a heap box still live.
+let leakMessage = "leaked allocations"
+
+// generatedPath names the program of a seed in diagnostics; it is never written.
+let generatedPath = "p.maxon"
+
+let libraryFileName = "library.txt"
+
+let selfDirName = "self"
+
+let fuzzDirName = "fuzz"
+
+typealias FuzzCounts = Array with Count
+
+// fuzzFlagValue is what a flag with a value gives, when the argument is that flag.
+function fuzzFlagValue(arg String, prefix String) returns table.Option with String
+	if hasPrefix(arg, prefix: prefix) 'flag'
+		return table.Option.some(arg.sliceBytes(prefix.byteLength(), endPos: arg.byteLength()))
+	end 'flag'
+	return table.Option.none
+end 'fuzzFlagValue'
+
+// fuzzNumber is the number a flag's value writes, or a usage error.
+function fuzzNumber(text String, flag String) returns table.Option with Count
+	let number = parseSeed(text)
+	if not number.isSome() 'invalid'
+		printError("{flag} takes a number\n")
+	end 'invalid'
+	return number
+end 'fuzzNumber'
+
+// libraryText is the generic code that every generated program starts with, which lives beside the generator's source.
+function libraryText() returns table.Option with String
+	let selfDir = project.nearestDirectory(selfDirName)
+	if not selfDir.isSome() 'missing'
+		return table.Option.none
+	end 'missing'
+	let fuzzDir = project.joinPath(selfDir.unwrap(), name: fuzzDirName)
+	return project.readTextFile(project.joinPath(fuzzDir, name: libraryFileName))
+end 'libraryText'
+
+// FuzzOptions are what the flags of the fuzz command say.
+type FuzzOptions
+	var first as Count
+	var count as Count
+	var schedules as Count
+	var keep as String
+	var dump as bool
+	var native as bool
+	// worker says that this process is one that a run of the command started for some of its seeds, so that an internal compiler error
+	// on one program ends only that process.
+	var worker as bool
+
+	static function new() returns FuzzOptions
+		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, worker: false}
+	end 'new'
+end 'FuzzOptions'
+
+// readFuzzOptions reads the flags after the command, or says why it cannot.
+function readFuzzOptions(args CommandNames) returns table.Option with FuzzOptions
+	var options = FuzzOptions.new()
+	for i in 1 upto args.count() 'args'
+		let seed = fuzzFlagValue(args[i], prefix: fuzzSeedFlag)
+		let count = fuzzFlagValue(args[i], prefix: fuzzCountFlag)
+		let schedules = fuzzFlagValue(args[i], prefix: fuzzSchedulesFlag)
+		let keep = fuzzFlagValue(args[i], prefix: fuzzKeepFlag)
+		if seed.isSome() 'seed'
+			let number = fuzzNumber(seed.unwrap(), flag: "--seed")
+			if not number.isSome() 'invalid'
+				return table.Option.none
+			end 'invalid'
+			options.first = number.unwrap()
+		end 'seed' else if count.isSome() 'count'
+			let number = fuzzNumber(count.unwrap(), flag: "--count")
+			if not number.isSome() 'invalid'
+				return table.Option.none
+			end 'invalid'
+			options.count = number.unwrap()
+		end 'count' else if schedules.isSome() 'schedules'
+			let number = fuzzNumber(schedules.unwrap(), flag: "--schedules")
+			if not number.isSome() 'invalid'
+				return table.Option.none
+			end 'invalid'
+			options.schedules = number.unwrap()
+		end 'schedules' else if keep.isSome() 'keep'
+			options.keep = keep.unwrap()
+		end 'keep' else if args[i] == fuzzDumpFlag 'dump'
+			options.dump = true
+		end 'dump' else if args[i] == fuzzNativeFlag 'native'
+			options.native = true
+		end 'native' else if args[i] == fuzzWorkerFlag 'worker'
+			options.worker = true
+		end 'worker' else 'unknown'
+			printError("fuzz: unknown argument {args[i]}\n")
+			return table.Option.none
+		end 'unknown'
+	end 'args'
+	return table.Option.some(options)
+end 'readFuzzOptions'
+
+// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]`: it runs the programs of the seeds from
+// --seed up, --count of them, and with --dump only prints the program of --seed.
+function fuzzCommand(args CommandNames) returns ExitCode
+	let read = readFuzzOptions(args)
+	if not read.isSome() 'invalid'
+		printError(usage())
+		return usageExitCode
+	end 'invalid'
+	let options = read.unwrap()
+	let found = libraryText()
+	if not found.isSome() 'noLibrary'
+		printError("fuzz: no {selfDirName}/{fuzzDirName}/{libraryFileName} in the compiler's directory or above it\n")
+		return usageExitCode
+	end 'noLibrary'
+	let library = found.unwrap()
+	if options.dump 'dump'
+		print(fuzz.program(options.first, library: library))
+		return 0
+	end 'dump'
+	if options.worker 'worker'
+		return fuzzWorker(options, library: library)
+	end 'worker'
+	return fuzzSupervisor(options)
+end 'fuzzCommand'
+
+// GeneratedRun is what happened to one generated program.
+type GeneratedRun
+	// rejected says that the front end refused the program, which is no failure unless it did not parse.
+	var rejected as bool
+	var syntaxFail as bool
+	var rejectedCode as String
+	var rejectedText as String
+	var violations as ast.StringList
+	var timedOut as bool
+	var exitCode as ExitCode
+	var stdout as String
+	var behaviours as Count
+	// scheduleSeed is the schedule that gave the result, which for a program that breaks a rule is the first that did.
+	var scheduleSeed as Count
+
+	static function new() returns GeneratedRun
+		return GeneratedRun{rejected: false, syntaxFail: false, rejectedCode: "", rejectedText: "", violations: ast.StringList.create(0), timedOut: false, exitCode: 0, stdout: "", behaviours: 0, scheduleSeed: 0}
+	end 'new'
+end 'GeneratedRun'
+
+// isSyntaxCode is whether the diagnostic means the program is not well formed, which the generator must never write.
+function isSyntaxCode(code String) returns bool
+	return code == diag.errUnexpectedToken or code == diag.errUnexpectedEnd or code == diag.errMismatchedEndLabel or code == diag.errExpectedToken or code == diag.errIntegerLiteralRange
+end 'isSyntaxCode'
+
+// runGenerated checks a program and runs it under the interpreter, under as many schedules as the program's behaviours want.
+function runGenerated(source String, schedules Count) returns GeneratedRun
+	var outcome = GeneratedRun.new()
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	project.loadSourceInto(p, path: generatedPath, text: source, errs: errs)
+	runLoaded(p, schedules: schedules, outcome: outcome, errs: errs)
+	return outcome
+end 'runGenerated'
+
+function runLoaded(mutates p ast.Project, schedules Count, mutates outcome GeneratedRun, mutates errs diag.ErrorList)
+	let generated = lowerForInterpreter(p, errs: errs)
+	if errs.count() > 0 'rejected'
+		diag.sortErrors(errs)
+		outcome.rejected = true
+		outcome.rejectedCode = errs[0].code.clone()
+		outcome.rejectedText = joinErrors(errs)
+		for i in 0 upto errs.count() 'each'
+			if isSyntaxCode(errs[i].code) 'syntax'
+				outcome.syntaxFail = true
+			end 'syntax'
+		end 'each'
+		return
+	end 'rejected'
+	var out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(0), wantFrees: false)
+	if out.behaviours > 0 'scheduled'
+		// The schedule of behaviours is random, so a program that has some runs under several, and a rule that only some of them
+		// break is still broken.
+		var schedule = 1 as Count
+		while schedule < schedules and out.violations.count() == 0 'schedules'
+			let again = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(schedule), wantFrees: false)
+			if again.violations.count() > 0 'broken'
+				out = again
+				outcome.scheduleSeed = schedule
+			end 'broken'
+			schedule = try schedule + 1 otherwise panic("fuzz: more schedules than memory")
+		end 'schedules'
+	end 'scheduled'
+	outcome.violations = out.violations.clone()
+	outcome.timedOut = out.timedOut
+	outcome.exitCode = interp.exitStatus(out.exitCode)
+	outcome.stdout = out.stdout.clone()
+	outcome.behaviours = out.behaviours
+end 'runLoaded'
+
+// NativeCheck is how an executable of a program compares with the interpreter's outcome of it: the difference, and whether it ran.
+type NativeCheck
+	var mismatch as String
+	var ran as bool
+
+	static function agreed(ran bool) returns NativeCheck
+		return NativeCheck{mismatch: "", ran: ran}
+	end 'agreed'
+
+	static function differs(consumes mismatch String, ran bool) returns NativeCheck
+		return NativeCheck{mismatch: mismatch, ran: ran}
+	end 'differs'
+end 'NativeCheck'
+
+// compareNative compiles the program the interpreter just ran and runs the executable. A program that uses a map, a list or a
+// pool has no executable yet and is skipped.
+function compareNative(mutates shared SharedRuntime, source String, outcome GeneratedRun) returns NativeCheck
+	let exe = temporaryExecutable("fuzz.maxon")
+	var options = Options.new()
+	options.countAllocations = true
+	var errs = diag.ErrorList.create(0)
+	compileSourceWith(shared, path: generatedPath, text: source, output: exe, options: options, errs: errs)
+	diag.sortErrors(errs)
+	if errs.count() > 0 'failed'
+		if not onlyInterpreterErrors(errs) 'other'
+			return NativeCheck.differs("the program did not compile: {joinErrors(errs)}", ran: false)
+		end 'other'
+		return NativeCheck.agreed(false)
+	end 'failed'
+	let exePath = try FilePath.from(exe) otherwise return NativeCheck.differs("{exe} is not a path", ran: false)
+	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return NativeCheck.differs("cannot run {exe}", ran: false)
+	try File.delete(exePath) otherwise panic("fuzz: cannot delete {exe}")
+	if findText(out.stderr, needle: leakMessage).isSome() 'leaked'
+		// The interpreter found no leak, so a box the executable still holds is one that it did not free.
+		return NativeCheck.differs("the executable ended with live heap boxes: {out.stderr}", ran: true)
+	end 'leaked'
+	if out.exitCode() != outcome.exitCode 'exit'
+		return NativeCheck.differs("exit code {out.exitCode()} against {outcome.exitCode}", ran: true)
+	end 'exit'
+	if out.stdout != outcome.stdout 'stdout'
+		return NativeCheck.differs("standard output differs", ran: true)
+	end 'stdout'
+	return NativeCheck.agreed(true)
+end 'compareNative'
+
+// keepSource saves a program in the directory, when there is one, to look at it later.
+function keepSource(dir String, name String, source String)
+	if dir == "" 'nowhere'
+		return
+	end 'nowhere'
+	let dirPath = try FilePath.from(dir) otherwise return
+	_ = Directory.create(dirPath)
+	let file = try FilePath.from(project.joinPath(dir, name: name)) otherwise return
+	try File.writeText(file, content: source) otherwise return
+end 'keepSource'
+
+// numbered is the source with the number of each line before it.
+function numbered(source String) returns String
+	var out = ByteArray.create(0)
+	var start = 0 as Count
+	var number = 1 as Count
+	let n = source.byteLength()
+	for i in 0 upto n 'bytes'
+		if source.byteAt(i) == 10 'line'
+			out.append(numberedLine(number, text: source.sliceBytes(start, endPos: i)).toByteArray())
+			start = i + 1
+			number = try number + 1 otherwise panic("fuzz: more lines than memory")
+		end 'line'
+	end 'bytes'
+	out.append(numberedLine(number, text: source.sliceBytes(start, endPos: n)).toByteArray())
+	return String.from(out)
+end 'numbered'
+
+function numberedLine(number Count, text String) returns String
+	var digits = "{number}"
+	while digits.byteLength() < 4 'pad'
+		digits = " {digits}"
+	end 'pad'
+	return "{digits}  {text}\n"
+end 'numberedLine'
+
+// FuzzTally is what the programs of a run came to.
+type FuzzTally
+	var accepted as Count
+	var trapped as Count
+	var timedOut as Count
+	var failures as Count
+	var compared as Count
+	var concurrent as Count
+	var behaviours as Count
+	var rejectedCodes as ast.StringList
+	var rejectedCounts as table.StringMap with Count
+
+	static function new() returns FuzzTally
+		return FuzzTally{accepted: 0, trapped: 0, timedOut: 0, failures: 0, compared: 0, concurrent: 0, behaviours: 0, rejectedCodes: ast.StringList.create(0), rejectedCounts: table.StringMap.new()}
+	end 'new'
+
+	// reject counts programs that the checker refused, by the code of the first diagnostic of each.
+	function reject(mutates self, code String, programs Count)
+		let seen = rejectedCounts.get(code)
+		if seen.isSome() 'again'
+			rejectedCounts.insert(code.clone(), value: try seen.unwrap() + programs otherwise panic("fuzz: more programs than memory"))
+		end 'again' else 'first'
+			rejectedCodes.push(code.clone())
+			rejectedCounts.insert(code.clone(), value: programs)
+		end 'first'
+	end 'reject'
+
+	// the counts of the worker's line, which ends a worker's output: its numbers in order, then the rejected codes with their counts.
+	function line() returns String
+		var text = "{workerTally}{accepted} {trapped} {timedOut} {failures} {compared} {concurrent} {behaviours}"
+		for i in 0 upto rejectedCodes.count() 'codes'
+			let count = rejectedCounts.get(rejectedCodes[i]).unwrap()
+			text = "{text} {rejectedCodes[i]}:{count}"
+		end 'codes'
+		return text
+	end 'line'
+
+	// add takes in the counts of a worker's line, which says whether it was one.
+	function add(mutates self, tallyLine String) returns bool
+		let words = splitWords(tallyLine)
+		if words.count() < 8 or words[0] != "tally" 'other'
+			return false
+		end 'other'
+		var numbers = FuzzCounts.create(0)
+		for i in 1 upto 8 'numbers'
+			let n = parseSeed(words[i])
+			if not n.isSome() 'invalid'
+				return false
+			end 'invalid'
+			numbers.push(n.unwrap())
+		end 'numbers'
+		accepted = try accepted + numbers[0] otherwise panic("fuzz: more programs than memory")
+		trapped = try trapped + numbers[1] otherwise panic("fuzz: more programs than memory")
+		timedOut = try timedOut + numbers[2] otherwise panic("fuzz: more programs than memory")
+		failures = try failures + numbers[3] otherwise panic("fuzz: more programs than memory")
+		compared = try compared + numbers[4] otherwise panic("fuzz: more programs than memory")
+		concurrent = try concurrent + numbers[5] otherwise panic("fuzz: more programs than memory")
+		behaviours = try behaviours + numbers[6] otherwise panic("fuzz: more programs than memory")
+		for i in 8 upto words.count() 'codes'
+			let split = findText(words[i], needle: ":")
+			if split.isSome() 'pair'
+				let at = split.unwrap()
+				let code = words[i].sliceBytes(0, endPos: at)
+				let count = parseSeed(words[i].sliceBytes(try at + 1 otherwise panic("fuzz: a colon past memory"), endPos: words[i].byteLength()))
+				if count.isSome() 'counted'
+					self.reject(code, programs: count.unwrap())
+				end 'counted'
+			end 'pair'
+		end 'codes'
+		return true
+	end 'add'
+end 'FuzzTally'
+
+// splitWords is the words of a line, which are cut at spaces.
+function splitWords(text String) returns ast.StringList
+	var words = ast.StringList.create(0)
+	var start = 0 as Count
+	let n = text.byteLength()
+	for i in 0 upto n 'bytes'
+		if text.byteAt(i) == spaceByte 'cut'
+			if i > start 'word'
+				words.push(text.sliceBytes(start, endPos: i))
+			end 'word'
+			start = i + 1
+		end 'cut'
+	end 'bytes'
+	if n > start 'last'
+		words.push(text.sliceBytes(start, endPos: n))
+	end 'last'
+	return words
+end 'splitWords'
+
+// fail reports a program that is a failure: it is kept, and the first few are printed whole.
+function fail(mutates tally FuzzTally, options FuzzOptions, seed Count, source String, message String)
+	tally.failures = try tally.failures + 1 otherwise panic("fuzz: more failures than memory")
+	keepSource(options.keep, name: "seed{seed}.maxon", source: source)
+	if tally.failures <= maxReportedFailures 'whole'
+		print("seed {seed}: {message}\n{numbered(source)}\n")
+	end 'whole' else 'brief'
+		print("seed {seed}: {message}\n")
+	end 'brief'
+end 'fail'
+
+// nativeRuntime is the runtime that executables of generated programs link with, which only a run with --native makes, since
+// checking and compiling it is what no other run needs.
+function nativeRuntime(options FuzzOptions) returns SharedRuntime
+	if options.native 'native'
+		return prepareSharedRuntime()
+	end 'native'
+	return SharedRuntime.none()
+end 'nativeRuntime'
+
+// fuzzWorker runs the programs of the seeds in this process, and says how they went as a line of counts. A program that is
+// refused is no failure, since most of what the generator writes is written to reach the edges of the rules; a program that is
+// accepted and then breaks a rule is a hole in the checker, and one that is not well formed is a bug in the generator.
+function fuzzWorker(options FuzzOptions, library String) returns ExitCode
+	var tally = FuzzTally.new()
+	var shared = nativeRuntime(options)
+	let last = try options.first + options.count otherwise panic("fuzz: the seeds pass the largest number")
+	var seed = options.first
+	while seed < last 'seeds'
+		print("{workerMarker}{seed}\n")
+		let source = fuzz.program(seed, library: library)
+		let outcome = runGenerated(source, schedules: options.schedules)
+		if outcome.syntaxFail 'syntax'
+			fail(tally, options: options, seed: seed, source: source, message: "the generator wrote a program that does not parse: {outcome.rejectedText}")
+		end 'syntax' else if outcome.rejected 'rejected'
+			tally.reject(outcome.rejectedCode, programs: 1)
+		end 'rejected' else if outcome.violations.count() > 0 'violated'
+			var report = ""
+			for i in 0 upto outcome.violations.count() 'each'
+				report = "{report}{outcome.violations[i]}\n"
+			end 'each'
+			fail(tally, options: options, seed: seed, source: source, message: "a program the checker accepted breaks the memory model (schedule of seed {outcome.scheduleSeed}):\n{report}")
+		end 'violated' else if outcome.timedOut 'timedOut'
+			tally.timedOut = try tally.timedOut + 1 otherwise panic("fuzz: more programs than memory")
+			keepSource(options.keep, name: "timeout{seed}.maxon", source: source)
+		end 'timedOut' else 'accepted'
+			tally.accepted = try tally.accepted + 1 otherwise panic("fuzz: more programs than memory")
+			if outcome.exitCode != 0 'trapped'
+				tally.trapped = try tally.trapped + 1 otherwise panic("fuzz: more programs than memory")
+			end 'trapped'
+			if outcome.behaviours > 0 'concurrent'
+				tally.concurrent = try tally.concurrent + 1 otherwise panic("fuzz: more programs than memory")
+				tally.behaviours = try tally.behaviours + outcome.behaviours otherwise panic("fuzz: more behaviours than memory")
+			end 'concurrent'
+			if options.native 'native'
+				let check = compareNative(shared, source: source, outcome: outcome)
+				if check.mismatch != "" 'mismatch'
+					fail(tally, options: options, seed: seed, source: source, message: "the executable and the interpreter differ: {check.mismatch}")
+				end 'mismatch' else if check.ran 'ran'
+					tally.compared = try tally.compared + 1 otherwise panic("fuzz: more programs than memory")
+				end 'ran'
+			end 'native'
+		end 'accepted'
+		seed = try seed + 1 otherwise panic("fuzz: the seeds pass the largest number")
+	end 'seeds'
+	print("{tally.line()}\n")
+	return 0
+end 'fuzzWorker'
+
+// fuzzSupervisor runs the programs of the seeds in worker processes, programsPerWorker at a time, so that an internal compiler
+// error, which ends the process it happens in, is only one failed program: the worker's last marker says which, and the rest of
+// its chunk is run again by new workers.
+function fuzzSupervisor(options FuzzOptions) returns ExitCode
+	var tally = FuzzTally.new()
+	let last = try options.first + options.count otherwise panic("fuzz: the seeds pass the largest number")
+	var first = options.first
+	while first < last 'chunks'
+		let room = try last - first otherwise panic("fuzz: a chunk past the seeds")
+		var size = programsPerWorker
+		if room < size 'short'
+			size = room
+		end 'short'
+		if not runChunk(options, first: first, count: size, tally: tally) 'aborted'
+			return usageExitCode
+		end 'aborted'
+		first = try first + size otherwise panic("fuzz: the seeds pass the largest number")
+	end 'chunks'
+	return fuzzSummary(tally, options: options)
+end 'fuzzSupervisor'
+
+// workerArguments are the arguments of a worker for the seeds from first, count of them.
+function workerArguments(options FuzzOptions, first Count, count Count) returns CommandNames
+	var args = CommandNames.create(0)
+	args.push("fuzz")
+	args.push(fuzzWorkerFlag)
+	args.push("{fuzzSeedFlag}{first}")
+	args.push("{fuzzCountFlag}{count}")
+	args.push("{fuzzSchedulesFlag}{options.schedules}")
+	if options.keep != "" 'keep'
+		args.push("{fuzzKeepFlag}{options.keep}")
+	end 'keep'
+	if options.native 'native'
+		args.push(fuzzNativeFlag)
+	end 'native'
+	return args
+end 'workerArguments'
+
+// runChunk has a worker run the seeds from first, count of them, and adds what it found to the tally. A worker that dies has met an
+// internal compiler error in the program of its last marker: that program is a failure, and the seeds before it and after it are run
+// by other workers. It says whether it could go on.
+function runChunk(options FuzzOptions, first Count, count Count, mutates tally FuzzTally) returns bool
+	if count == 0 'none'
+		return true
+	end 'none'
+	let exe = try Process.executablePath() otherwise panic("fuzz: the compiler's own path is unavailable")
+	let result = try Subprocess.run(Executable.path(exe.clone()), arguments: workerArguments(options, first: first, count: count)) otherwise panic("fuzz: cannot start a worker")
+	var counted = false
+	var started = false
+	var current = 0 as Count
+	let text = withoutCarriageReturns(result.stdout, loneToo: false)
+	var start = 0 as Count
+	let n = text.byteLength()
+	for i in 0 upto n 'bytes'
+		if text.byteAt(i) == newlineByte 'line'
+			let line = text.sliceBytes(start, endPos: i)
+			start = i + 1
+			if hasPrefix(line, prefix: workerMarker) 'marker'
+				let number = parseSeed(line.sliceBytes(workerMarker.byteLength(), endPos: line.byteLength()))
+				if number.isSome() 'seed'
+					current = number.unwrap()
+					started = true
+				end 'seed'
+			end 'marker' else if hasPrefix(line, prefix: workerTally) 'counts'
+				counted = tally.add(line)
+			end 'counts' else 'echo'
+				print("{line}\n")
+			end 'echo'
+		end 'line'
+	end 'bytes'
+	if counted 'done'
+		return true
+	end 'done'
+	if not started 'unstarted'
+		printError("fuzz: a worker ended before its first program: {result.stderr}")
+		return false
+	end 'unstarted'
+	// The seeds before the one that failed ran with no trouble, and run the same again.
+	let before = try current - first otherwise panic("fuzz: a worker's marker is before its chunk")
+	if not runChunk(options, first: first, count: before, tally: tally) 'beforeAborted'
+		return false
+	end 'beforeAborted'
+	let found = libraryText()
+	if not found.isSome() 'noLibrary'
+		return false
+	end 'noLibrary'
+	let source = fuzz.program(current, library: found.unwrap())
+	fail(tally, options: options, seed: current, source: source, message: "internal compiler error: {trimSpace(result.stderr)}")
+	let after = try (first + count) - (current + 1) otherwise panic("fuzz: a worker's marker is after its chunk")
+	return runChunk(options, first: try current + 1 otherwise panic("fuzz: the seeds pass the largest number"), count: after, tally: tally)
+end 'runChunk'
+
+// fuzzSummary prints the counts of a run and gives its exit code: 0 for a run with no failure.
+function fuzzSummary(mutates tally FuzzTally, options FuzzOptions) returns ExitCode
+	project.sortStrings(tally.rejectedCodes)
+	var total = 0 as Count
+	var parts = ast.StringList.create(0)
+	for i in 0 upto tally.rejectedCodes.count() 'codes'
+		let count = tally.rejectedCounts.get(tally.rejectedCodes[i]).unwrap()
+		total = try total + count otherwise panic("fuzz: more programs than memory")
+		parts.push("{tally.rejectedCodes[i]}:{count}")
+	end 'codes'
+	if tally.compared > 0 'compared'
+		print("{tally.compared} accepted programs also ran as executables with the same output and exit code\n")
+	end 'compared'
+	print("{options.count} programs: {tally.accepted} accepted and clean ({tally.trapped} of them ended in a trap, {tally.timedOut} ran out of steps), {total} rejected by the checker [{fuzz.joinStrings(parts, separator: " ")}], {tally.failures} failed\n")
+	print("{tally.concurrent} of the accepted programs scheduled behaviours ({tally.behaviours} in all), each under {options.schedules} schedules\n")
+	var failed = tally.failures > 0
+	let reached = try tally.accepted + tally.failures otherwise panic("fuzz: more programs than memory")
+	let wanted = try reached * minAcceptedDivisor otherwise panic("fuzz: more programs than memory")
+	if options.count >= minProgramsForAcceptedShare and wanted < options.count 'few'
+		print("the checker accepted {reached} of {options.count} programs, fewer than 1 in {minAcceptedDivisor}: a run that accepts almost nothing tests nothing, so the generator or its library no longer follows the language\n")
+		failed = true
+	end 'few'
+	if failed 'failed'
+		return diagnosticsExitCode
+	end 'failed'
+	return 0
+end 'fuzzSummary'

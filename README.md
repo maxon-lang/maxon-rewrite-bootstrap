@@ -7,7 +7,7 @@ PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), `fmt [--check] <path>...` (as `minimaxon fmt`: `self/syntax/format.maxon` and `self/driver/fmt.maxon`), `interp <file|dir> [--seed=N]` (the tracking interpreter of "The interpreter", `self/interp`), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
+compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), `fmt [--check] <path>...` (as `minimaxon fmt`: `self/syntax/format.maxon` and `self/driver/fmt.maxon`), `interp <file|dir> [--seed=N]` (the tracking interpreter of "The interpreter", `self/interp`), `fuzz` (random programs checked and run under the interpreter, "The interpreter", `self/fuzz`), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
 changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
 slices, and no runtime-specific tricks the design depends on.
 
@@ -1129,6 +1129,12 @@ test runner. It has no types; it works from the shape of the values and from the
   each accepted program that has an executable, with its allocations counted, and compares it with the interpreter's: the
   same output and exit code, and no box left live.
   `MINIMAXON_GEN_DUMP=file` writes the program of a seed, and `MINIMAXON_GEN_EXPLAIN=1` lists why programs were refused.
+  The generator is ported to `self/fuzz` file for file, and `c1.exe fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]`
+  (`self/driver/fuzz.maxon`) runs it as the test does: the same seeds, count, schedules, `--keep`, `--native` and `--dump`
+  as the variables above, and the same counts at the end. It writes the program of every seed that Go's generator writes, byte for byte, since
+  `self/fuzz/rand.maxon` is Go's `math/rand` source and the choices are drawn in the same order; each program is loaded from memory
+  (`project.loadSourceInto`), so none is written to disk except a kept one and, with `--native`, the executable. The text every program starts with, the generic
+  library, is `self/fuzz/library.txt`, which the Go test reads too.
 
 ## The runtime
 

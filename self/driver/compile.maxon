@@ -35,6 +35,11 @@ type SharedRuntime
 		return SharedRuntime{p: p, ready: ready}
 	end 'prepare'
 
+	// none is the runtime of a run that compiles no executable: nothing is loaded or checked.
+	static function none() returns SharedRuntime
+		return SharedRuntime{p: ast.Project.new(""), ready: backend.UnitList.create(0)}
+	end 'none'
+
 	// projectForProgram is a copy of the project for one program to be added to. The runtime module is in it by its place
 	// and its flags only: its source and its check are what no program reads, and are the most of the project.
 	function projectForProgram(mutates self) returns ast.Project
