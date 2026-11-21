@@ -343,6 +343,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsSetExitCode(vm, f: f, x: x)
 		return
 	end 'rtOsSetExitCode'
+	if symbol == ir.Rt.rtOsClockNanos 'rtOsClockNanos'
+		try entryOsClockNanos(vm, f: f, x: x)
+		return
+	end 'rtOsClockNanos'
 	if symbol == ir.Rt.rtOsPathFrom 'rtOsPathFrom'
 		try entryOsPathFrom(vm, f: f, x: x)
 		return

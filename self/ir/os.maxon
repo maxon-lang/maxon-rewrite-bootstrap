@@ -175,6 +175,10 @@ function lowerProcessId(mutates l Lowerer, mutates p ast.Project, c CallSite, re
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessId, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerProcessId'
 
+function lowerClockNowNanos(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsClockNanos, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockNowNanos'
+
 function lowerProcessSetExitCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsSetExitCode, args: argsOf1(args[0]))
 	return konst(l, value: 0 as Word)

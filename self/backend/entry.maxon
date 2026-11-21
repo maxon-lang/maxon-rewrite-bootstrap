@@ -73,6 +73,8 @@ export function rtImports() returns NameList
 	names.push("TlsSetValue")
 	names.push("GetActiveProcessorCount")
 	names.push("SwitchToThread")
+	names.push("QueryPerformanceCounter")
+	names.push("QueryPerformanceFrequency")
 	return names
 end 'rtImports'
 

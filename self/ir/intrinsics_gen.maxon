@@ -368,6 +368,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
 		return lowerProcessSetExitCode(l, p: p, c: c, recv: recv, args: args)
 	end 'intrProcessSetExitCode'
+	if op == ast.Intrinsic.intrClockNowNanos 'intrClockNowNanos'
+		return lowerClockNowNanos(l, p: p, c: c, recv: recv, args: args)
+	end 'intrClockNowNanos'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -862,6 +865,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
 		return false
 	end 'intrProcessSetExitCode'
+	if op == ast.Intrinsic.intrClockNowNanos 'intrClockNowNanos'
+		return false
+	end 'intrClockNowNanos'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'

@@ -1,0 +1,18 @@
+// Clock.nowNanos never goes backwards, and a short loop takes far less than ten seconds; only those two facts are printed.
+//> monotonic
+//> short
+
+function main() returns ExitCode
+	let before = Clock.nowNanos()
+	var sum = 0 as Count
+	for i in 0 upto 100000 'spin'
+		sum = sum + i
+	end 'spin'
+	let after = Clock.nowNanos()
+	let elapsed = try after - before otherwise panic("the clock went backwards")
+	print("monotonic\n")
+	if elapsed < 10000000000 and sum > 0 'short'
+		print("short\n")
+	end 'short'
+	return 0
+end 'main'

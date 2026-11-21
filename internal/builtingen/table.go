@@ -90,6 +90,7 @@ type recordType struct {
 var recordTypes = []recordType{
 	{Key: "CommandLine", Name: "CommandLine"},
 	{Key: "Process", Name: "Process"},
+	{Key: "Clock", Name: "Clock"},
 	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}, Implements: []string{"InitableFromStringLiteral"}},
 	{Key: "File", Name: "File"},
 	{Key: "Directory", Name: "Directory"},
@@ -499,6 +500,8 @@ var tableFunctions = []function{
 	{Owner: "Process", Name: "id", Static: true, Result: "Count", Intrinsic: "ProcessId"},
 	// setExitCode is how a behaviour, which runs after main has returned, decides the code the process ends with.
 	{Owner: "Process", Name: "setExitCode", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessSetExitCode"},
+	// nowNanos is maxon's Clock.nowNanos, whose InstantNanos is an unsigned 64-bit integer, which Count is.
+	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -674,6 +677,7 @@ var entries = []entry{
 	{"OsCurrentPath", "rt.os.currentPath", "Os", roleCall, "() -> String: the working directory, panicking when Windows cannot give it"},
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
+	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
 	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
@@ -756,6 +760,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsCurrentPath", "osCurrentPath() String"},
 	{"OsProcessId", "osProcessId() Count"},
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
+	{"OsClockNanos", "osClockNanos() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
 	{"OsWriteText", "osWriteText(path String, content String, errorAddress Count)"},

@@ -262,6 +262,7 @@ export enum Intrinsic
 	intrProcessExecutablePath
 	intrProcessId
 	intrProcessSetExitCode
+	intrClockNowNanos
 	intrFilePathFrom
 	intrFilePathInit
 	intrFilePathToString
@@ -411,6 +412,7 @@ function declareBuiltinTable(mutates tt TypeTable, mutates ft FuncTable, mutates
 	declareBuiltinFunctions(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareCommandLineMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareProcessMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
+	declareClockMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareFilePathMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareFileMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
 	declareDirectoryMethods(tt, ft: ft, std: std, b: b, funcMap: funcMap)
@@ -447,6 +449,7 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	b.cownOrigin = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinCown, name: "cown", paramNames: names8)
 	b.commandLineTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "CommandLine")
 	b.processTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "Process")
+	b.clockTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "Clock")
 	b.filePathTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "FilePath")
 	b.fileTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "File")
 	b.directoryTy = registerRecordType(tt, std: std, typeMap: typeMap, name: "Directory")
@@ -1207,6 +1210,10 @@ function declareProcessMethods(mutates tt TypeTable, mutates ft FuncTable, mutat
 	ps4.push(ParamSpec.make("code", ty: b.exitCodeTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessSetExitCode, name: "setExitCode", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps4, listed: true)
 end 'declareProcessMethods'
+
+function declareClockMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.clockTy, op: Intrinsic.intrClockNowNanos, name: "nowNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+end 'declareClockMethods'
 
 function declareFilePathMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, declTy: b.filePathTy)

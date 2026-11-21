@@ -92,6 +92,15 @@ function entryOsProcessId(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: try Process.id() as ir.Word otherwise panic("interp: the process id is past a word"))
 end 'entryOsProcessId'
 
+// clockStepNanos is how far one reading moves the interpreter's clock.
+let clockStepNanos = 1000 as ir.Word
+
+function entryOsClockNanos(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	vm.clockNanos = try vm.clockNanos + clockStepNanos otherwise panic("interp: the clock is past a word")
+	let now = vm.clockNanos
+	giveNum(vm, x: x, n: now)
+end 'entryOsClockNanos'
+
 function entryOsSetExitCode(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	vm.setExit = true
 	vm.setExitValue = int32Of(argNum(vm, f: f, x: x, i: 0))
