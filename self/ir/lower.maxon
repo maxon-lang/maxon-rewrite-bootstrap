@@ -391,6 +391,14 @@ function visitAssignStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 end 'visitAssignStmt'
 
 function visitForStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and p.typings[l.mi].iterations.has(s as Count) 'cursor'
+		visitForCursor(l, p: p, s: s)
+		return
+	end 'cursor'
+	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) 'forEach'
+		visitForEach(l, p: p, s: s)
+		return
+	end 'forEach'
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
 	let slot = slotOf(sym)
 	let limit = l.b.f.newSlot(IrKind.kindScalar)
@@ -440,6 +448,106 @@ function visitForStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	popJumps(l)
 	l.cur = exit
 end 'visitForStmt'
+
+// visitForEach lowers a for over an array to a loop over its indexes. The array is read once, and the ownership pass keeps
+// the body from changing it. Each element is lent to the variable, as a subscript lends it.
+function visitForEach(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+	let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: s), t: exprType(p, module: l.module, node: source))
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let held = l.b.f.newSlot(IrKind.kindManaged)
+	let index = l.b.f.newSlot(IrKind.kindScalar)
+	let top = l.b.newBlock()
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let coll = lowerRead(l, p: p, e: source)
+	emit(l, i: newStoreSlot(held, src: coll, borrow: true))
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(index, src: zero, borrow: false))
+	goTo(l, target: top)
+	let whole = load(l, slot: held)
+	let n = arrayLength(l, p: p, box: box, arr: whole)
+	let at = load(l, slot: index)
+	let below = compare(l, op: CmpOp.cmpLt, a: at, b: n, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(below, ifTrue: body, ifFalse: exit))
+	l.cur = body
+	let arr = load(l, slot: held)
+	let i = load(l, slot: index)
+	let elem = arrayLoad(l, p: p, box: box, arr: arr, index: i)
+	let lent = regKind(l, v: elem) == IrKind.kindManaged
+	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: lent))
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	lowerBlock(l, p: p, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: cont)
+	popJumps(l)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let cur = load(l, slot: index)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(index, src: next, borrow: false))
+	goTo(l, target: top)
+	l.cur = exit
+end 'visitForEach'
+
+// visitForCursor lowers a for over a type with the iteration protocol. The cursor is made once, by the collection's
+// createIterator(), and owned by the statement, or is the collection itself, borrowed. Each pass reads the element with
+// current() into the variable, which owns it until the pass ends, and advance() moves the cursor on. A throw of either
+// protocol call that throws ends the loop: an empty collection has no cursor, and the last element has no next one.
+function visitForCursor(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let info = iterationInfoAt(p, module: l.module, node: s)
+	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let cursor = l.b.f.newSlot(IrKind.kindManaged)
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let collection = lowerRead(l, p: p, e: source)
+	if info.hasFactory 'factory'
+		let made = newReg(l, kind: IrKind.kindManaged)
+		protocolCall(l, p: p, s: s, info: info.factory, recv: collection, dst: made, exit: exit)
+		emit(l, i: newStoreSlot(cursor, src: made, borrow: false))
+		let top = pred(l.scopes.count())
+		let ty = dropType(l, p: p, t: info.cursorTy)
+		l.scopes[top].drops.push(PendingDrop.ofSlot(cursor, ty: ty))
+	end 'factory' else 'itself'
+		emit(l, i: newStoreSlot(cursor, src: collection, borrow: true))
+	end 'itself'
+	goTo(l, target: body)
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	pushScope(l, block: true)
+	let reading = load(l, slot: cursor)
+	let elem = newReg(l, kind: kindOf(l, p: p, t: sym.ty))
+	protocolCall(l, p: p, s: s, info: info.current, recv: reading, dst: elem, exit: exit)
+	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: false))
+	ownLocal(l, p: p, slot: slotOf(sym), t: sym.ty)
+	lowerBlock(l, p: p, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	popScope(l, p: p)
+	goTo(l, target: cont)
+	popJumps(l)
+	let moving = load(l, slot: cursor)
+	protocolCall(l, p: p, s: s, info: info.advance, recv: moving, dst: noReg, exit: exit)
+	goTo(l, target: body)
+	l.cur = exit
+end 'visitForCursor'
+
+// protocolCall calls a method of the iteration protocol on recv. One that throws goes to exit when it fails: the error
+// is IterationError, which carries nothing to drop.
+function protocolCall(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, exit BlockID)
+	let target = callee(l, p: p, node: s, info: info, receiver: 0 as ast.NodeID)
+	let args = argsOf1(recv)
+	if p.funcs.entries[target as Count].errTy == ast.noType 'plain'
+		emitCall(l, dst: dst, target: target, args: args)
+		return
+	end 'plain'
+	let err = newReg(l, kind: IrKind.kindScalar)
+	emitThrowingCall(l, dst: dst, target: target, args: args, err: err)
+	let ok = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: exit, ifFalse: ok))
+	l.cur = ok
+end 'protocolCall'
 
 // lowerFunction is the IR of a function, or of an instance of a generic one. instances are the ones the function's module
 // needs, which every generic call in the body must be one of.

@@ -1,0 +1,12 @@
+typealias Counts = Array with Count
+
+function main() returns ExitCode
+	var xs = Counts.create(0)
+	xs.push(1)
+	for x in xs 'each'
+		x = 2
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E2013 at 7:3

@@ -278,9 +278,14 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "float typealiases",
 		},
 		{
-			name:     "iterator for loop",
-			in:       "function f(xs Counts)\n\tfor x in xs 'each'\n\t\tprint(\"{x}\")\n\tend 'each'\nend 'f'\n",
-			wantTodo: "iterator-based for loops",
+			name:     "for loop over a string's view",
+			in:       "function f(s String)\n\tfor b in s.bytes() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
+			wantTodo: "iterator-based for loops over a string",
+		},
+		{
+			name:     "for loop over a string literal",
+			in:       "function f()\n\tfor c in \"abc\" 'each'\n\t\tprint(\"{c}\")\n\tend 'each'\nend 'f'\n",
+			wantTodo: "iterator-based for loops over a string",
 		},
 		{
 			name:     "if try",

@@ -100,41 +100,95 @@ end 'borrowedMoveFix'
 
 // requireWritable refuses a change to a place that is not mutable, and one that a match binding still borrows.
 function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath)
+	if requireMutable(o, p: p, site: site, path: path) 'mutable'
+		requireNotProjected(o, p: p, path: path, site: site)
+	end 'mutable'
+end 'requireWritable'
+
+// requireMutable refuses a change to a place that is not mutable, and says whether it is. A part of the variable of a for
+// is a part of the element it borrows, so it is as mutable as that part of the collection.
+function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath) returns bool
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let text = pathText(o, p: p, path: path)
 	if path.crossesFrozen() 'frozen'
 		fail(o, p: p, site: site, code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
-		return
+		return false
 	end 'frozen'
+	if isForVariable(p.modules[o.c.modIdx].tree, l: root) and path.steps.count() == 0 'forVariable'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
+		return false
+	end 'forVariable'
+	if root.projected and path.steps.count() > 0 'part'
+		match consumes lenderOf(o, local: path.root) 'lender'
+			some(collection) then return requireMutable(o, p: p, site: site, path: throughElement(collection, path: path))
+			none then _ = 0
+		end 'lender'
+	end 'part'
 	if root.projected 'projected'
 		let advice = copyAdvice(o, p: p, t: root.ty, ifCopyable: "copy it into a var first: 'var x = {root.name}.clone()'", fallback: "change the subject itself instead of a binding of it")
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of the match subject and cannot be changed; {advice}")
-		return
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of {lenderName(o, p: p, root: root)} and cannot be changed; {advice}")
+		return false
 	end 'projected'
 	if root.isSelf and not isMutableLocal(root) 'self'
 		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt))
-		return
+		return false
 	end 'self'
 	if root.isParam and root.conv == ast.Convention.convLet 'let'
 		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var", fix: conventionFix(p.modules[o.c.modIdx].tree, param: root.definedAt, keyword: fixKindMutates))
-		return
+		return false
 	end 'let'
 	if root.isParam and ast.ownsValue(root.conv) 'owns'
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
-		return
+		return false
 	end 'owns'
 	if not isMutableLocal(root) 'immutable'
 		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let; declare it with 'var'", fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt))
-		return
+		return false
 	end 'immutable'
 	for i in 0 upto path.steps.count() 'steps'
 		if not path.steps[i].isElement() and not fieldIsVar(p, step: path.steps[i]) 'letField'
 			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because the field '{fieldName(p, step: path.steps[i])}' is a let; declare it with 'var'")
-			return
+			return false
 		end 'letField'
 	end 'steps'
-	requireNotProjected(o, p: p, path: path, site: site)
-end 'requireWritable'
+	return true
+end 'requireMutable'
+
+// lenderOf is the collection that the variable of an enclosing for borrows its elements from: none for any other local,
+// and for one over a temporary.
+function lenderOf(o Ownership, local ast.LocalID) returns table.Option with AccessPath
+	for i in 0 upto o.lenders.count() 'each'
+		if o.lenders[i].local == local 'found'
+			return table.Option.some(o.lenders[i].collection.clone())
+		end 'found'
+	end 'each'
+	return table.Option.none
+end 'lenderOf'
+
+// throughElement is a part of the variable of a for as the same part of the element it borrows from the collection.
+function throughElement(collection AccessPath, path AccessPath) returns AccessPath
+	var out = collection.clone()
+	out.steps.push(PathStep.element(0 as ast.NodeID))
+	for i in 0 upto path.steps.count() 'each'
+		out.steps.push(path.steps[i].clone())
+	end 'each'
+	return out
+end 'throughElement'
+
+// lenderName says what a local that borrows lends from: the variable of a for borrows an element of its collection, and
+// any other is a binding of a match.
+function lenderName(o Ownership, p ast.Project, root ast.LocalEntry) returns String
+	if isForVariable(p.modules[o.c.modIdx].tree, l: root) 'loop'
+		return "the collection the loop walks"
+	end 'loop'
+	return "the match subject"
+end 'lenderName'
+
+// isForVariable is whether a local is the variable of a for: a count, or each element of a collection in turn, which a
+// local that borrows is unless it is a binding of a match.
+function isForVariable(tree ast.Tree, l ast.LocalEntry) returns bool
+	return l.definedAt != 0 and tree.kindOf(l.definedAt) == ast.NodeKind.forStmt
+end 'isForVariable'
 
 // requireNotProjected refuses a change or a move of a place while a binding of an enclosing match, or a place that an
 // enclosing expression holds, still borrows part of it.
@@ -187,6 +241,11 @@ function projectionConflict(mutates o Ownership, mutates p ast.Project, pr OwnPr
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the part '{held}' of an enclosing string, which holds it while the next part is evaluated; {advice}")
 		return
 	end 'part'
+	if k == OwnProjectionKind.projectLoop 'loop'
+		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "loop over a copy: 'for x in {held}.clone()'", fallback: "change it after the loop")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the enclosing loop over '{held}', which lends its elements while the body runs; {advice}")
+		return
+	end 'loop'
 	panic("ownership: unknown projection kind {k.name}")
 end 'projectionConflict'
 

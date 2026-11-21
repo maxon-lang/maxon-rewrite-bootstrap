@@ -1,0 +1,104 @@
+//> ada
+//> alan
+//> a 1
+//> 0
+//> 2
+//> 6
+//> 8
+//> 104
+//> 101
+//> 121
+//> 12
+//> [] 0
+//> [0 ] 1
+//> [0 1 ] 2
+//> 3
+
+typealias Counts = Array with Count
+
+typealias Names = Array with String
+
+typealias Grid = Array with Counts
+
+type Item
+	var name as String
+	var n as Count
+
+	static function make(name String, n Count) returns Item
+		return Item{name: name.clone(), n: n}
+	end 'make'
+end 'Item'
+
+typealias Items = Array with Item
+
+function evens(limit Count) returns Counts
+	var out = Counts.create(0)
+	for i in 0 upto limit 'each'
+		if i mod 2 == 0 'even'
+			out.push(i)
+		end 'even'
+	end 'each'
+	return out
+end 'evens'
+
+function total(xs Counts) returns Count
+	var sum = 0 as Count
+	for x in xs 'each'
+		sum = try sum + x otherwise panic("overflow")
+	end 'each'
+	return sum
+end 'total'
+
+function sizes(xs Array with T) uses T returns Count
+	var n = 0 as Count
+	for _ in xs 'each'
+		n = try n + 1 otherwise panic("overflow")
+	end 'each'
+	return n
+end 'sizes'
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("alan")
+	for name in names 'each'
+		print("{name}\n")
+	end 'each'
+	var items = Items.create(0)
+	items.push(Item.make("a", n: 1))
+	items.push(Item.make("b", n: 2))
+	for it in items 'each'
+		if it.n == 2 'two'
+			break 'each'
+		end 'two'
+		print("{it.name} {it.n}\n")
+	end 'each'
+	for e in evens(10) 'each'
+		if e == 4 'skip'
+			continue 'each'
+		end 'skip'
+		print("{e}\n")
+	end 'each'
+	let bytes = "hey".toByteArray()
+	for b in bytes 'each'
+		print("{b}\n")
+	end 'each'
+	print("{total(evens(7))}\n")
+	var grid = Grid.create(0)
+	for r in 0 upto 3 'rows'
+		var row = Counts.create(0)
+		for c in 0 upto r 'cols'
+			row.push(c)
+		end 'cols'
+		grid.push(row)
+	end 'rows'
+	for row in grid 'rows'
+		var line = ""
+		for cell in row 'cells'
+			line = "{line}{cell} "
+		end 'cells'
+		print("[{line}] {row.count()}\n")
+	end 'rows'
+	print("{sizes(grid)}\n")
+	return 0
+end 'main'

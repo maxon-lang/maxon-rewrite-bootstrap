@@ -36,19 +36,19 @@ let lookahead16 = "0001110010000001001000000000010000001000000000000000001000000
 
 let lookahead17 = "000100000000000000000000000000000000000001000000000000000000000000000000000000000000000"
 
-let lookahead18 = "000000111101111111111111111110000000000000000001000011000001011000010000000100011110000"
+let lookahead18 = "000000000000000000000000000000000000000000000000000011000000000000000000000000000000000"
 
-let lookahead19 = "000111001000000110100000000001000000100000000000000000100000000000100000010000100000111"
+let lookahead19 = "000000111101111111111111111110000000000000000001000011000001011000010000000100011110000"
 
-let lookahead20 = "000111000000000000000000000001000000100000000000000000100000000000100000010000100000111"
+let lookahead20 = "000111001000000110100000000001000000100000000000000000100000000000100000010000100000111"
 
-let lookahead21 = "000111000000000000100000000000000000000000000000000000000000000000000000001000000000110"
+let lookahead21 = "000111000000000000000000000001000000100000000000000000100000000000100000010000100000111"
 
-let lookahead22 = "000111000000000000100000000000000000000000000000000000000000000000000000000000000000110"
+let lookahead22 = "000111000000000000100000000000000000000000000000000000000000000000000000001000000000110"
 
-let lookahead23 = "000011000000000000100000000000000000000000000000000000000000000000000000000000000000110"
+let lookahead23 = "000111000000000000100000000000000000000000000000000000000000000000000000000000000000110"
 
-let lookahead24 = "000000000000000000000000000000000000000000000000000011000000000000000000000000000000000"
+let lookahead24 = "000011000000000000100000000000000000000000000000000000000000000000000000000000000000110"
 
 let lookahead25 = "000010000000000000100000000000000000000000000000000000000000000000000000000000000000000"
 
@@ -1140,26 +1140,28 @@ function parseForStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	_ = try p.expect(TokenKind.kw_in, what: "'in'")
 	let v3 = try parseExpr(p)
 	ast.setForStmtFrom(p.tree, id: n, value: v3)
-	if p.at(TokenKind.kw_to) 'b2'
-		_ = try p.expect(TokenKind.kw_to, what: "'to'")
-		ast.setForStmtInclusive(p.tree, id: n)
-	end 'b2' else if p.at(TokenKind.kw_upto) 'b3'
-		_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
-	end 'b3' else 'b4'
-		throw p.expected("'to' or 'upto'")
-	end 'b4'
-	let v4 = try parseExpr(p)
-	ast.setForStmtTo(p.tree, id: n, value: v4)
+	if p.inSet(lookahead18) 'b2'
+		if p.at(TokenKind.kw_to) 'b3'
+			_ = try p.expect(TokenKind.kw_to, what: "'to'")
+			ast.setForStmtInclusive(p.tree, id: n)
+		end 'b3' else if p.at(TokenKind.kw_upto) 'b4'
+			_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
+		end 'b4' else 'b5'
+			throw p.expected("'to' or 'upto'")
+		end 'b5'
+		let v4 = try parseExpr(p)
+		ast.setForStmtTo(p.tree, id: n, value: v4)
+	end 'b2'
 	let v5 = try p.expect(TokenKind.label, what: "a label")
 	let v6 = p.textRef(v5)
 	ast.setForStmtLabelRef(p.tree, id: n, ref: v6)
 	let v7 = try parseBlock(p)
 	ast.setForStmtBodyRef(p.tree, id: n, ref: v7)
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.at(TokenKind.label) 'b5'
+	if p.at(TokenKind.label) 'b6'
 		let v8 = try parseEndLabel(p)
 		ast.setForStmtEnd(p.tree, id: n, value: v8)
-	end 'b5'
+	end 'b6'
 	return n
 end 'parseForStmt'
 
@@ -1210,7 +1212,7 @@ function parseHandlerBlock(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	let v3 = try parseBlock(p)
 	ast.setHandlerBlockBodyRef(p.tree, id: n, ref: v3)
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.at(TokenKind.label) and p.peekIn(lookahead18) 'b1'
+	if p.at(TokenKind.label) and p.peekIn(lookahead19) 'b1'
 		let v4 = try parseEndLabel(p)
 		ast.setHandlerBlockEnd(p.tree, id: n, value: v4)
 	end 'b1'
@@ -1230,7 +1232,7 @@ function parseReturnStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newReturnStmt(p.tree, start: t)
 	_ = try p.expect(TokenKind.kw_return, what: "'return'")
-	if p.inSet(lookahead20) or (p.at(TokenKind.lBracket) and p.peekIn(lookahead19)) or (p.at(TokenKind.lParen) and p.peekIn(lookahead16)) or (p.at(TokenKind.minus) and p.peekIn(lookahead16)) 'b1'
+	if p.inSet(lookahead21) or (p.at(TokenKind.lBracket) and p.peekIn(lookahead20)) or (p.at(TokenKind.lParen) and p.peekIn(lookahead16)) or (p.at(TokenKind.minus) and p.peekIn(lookahead16)) 'b1'
 		let v1 = try parseExpr(p)
 		ast.setReturnStmtValue(p.tree, id: n, value: v1)
 	end 'b1'
@@ -1241,7 +1243,7 @@ function parseBreakStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newBreakStmt(p.tree, start: t)
 	_ = try p.expect(TokenKind.kw_break, what: "'break'")
-	if p.at(TokenKind.label) and p.peekIn(lookahead18) 'b1'
+	if p.at(TokenKind.label) and p.peekIn(lookahead19) 'b1'
 		let v1 = try p.expect(TokenKind.label, what: "a label")
 		let v2 = p.textRef(v1)
 		ast.setBreakStmtLabelRef(p.tree, id: n, ref: v2)
@@ -1253,7 +1255,7 @@ function parseContinueStmt(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	let t = p.curStart()
 	let n = ast.newContinueStmt(p.tree, start: t)
 	_ = try p.expect(TokenKind.kw_continue, what: "'continue'")
-	if p.at(TokenKind.label) and p.peekIn(lookahead18) 'b1'
+	if p.at(TokenKind.label) and p.peekIn(lookahead19) 'b1'
 		let v1 = try p.expect(TokenKind.label, what: "a label")
 		let v2 = p.textRef(v1)
 		ast.setContinueStmtLabelRef(p.tree, id: n, ref: v2)
@@ -1332,7 +1334,7 @@ function parseMatchCore(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v5 = v4 as diag.U32
 		p.lists.ids_MatchCore_Arms.push(v5)
 		_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead21) 'b3'
+		while p.inSet(lookahead22) 'b3'
 			let v6 = try parseMatchArm(p)
 			let v7 = v6 as diag.U32
 			p.lists.ids_MatchCore_Arms.push(v7)
@@ -1341,7 +1343,7 @@ function parseMatchCore(mutates p Parser) returns ast.NodeID throws SyntaxError
 		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b2'
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.at(TokenKind.label) and p.peekIn(lookahead18) 'b4'
+	if p.at(TokenKind.label) and p.peekIn(lookahead19) 'b4'
 		let v8 = try parseEndLabel(p)
 		ast.setMatchCoreEnd(p.tree, id: n, value: v8)
 	end 'b4'
@@ -1357,7 +1359,7 @@ function parseMatchArm(mutates p Parser) returns ast.NodeID throws SyntaxError
 	if p.at(TokenKind.kw_default) 'b1'
 		_ = try p.expect(TokenKind.kw_default, what: "'default'")
 		ast.setMatchArmIsDefault(p.tree, id: n)
-	end 'b1' else if p.inSet(lookahead22) 'b2'
+	end 'b1' else if p.inSet(lookahead23) 'b2'
 		let v1 = try parsePattern(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_MatchArm_Patterns.push(v2)
@@ -1422,10 +1424,10 @@ function parsePattern(mutates p Parser) returns ast.NodeID throws SyntaxError
 			end 'b3'
 			_ = try p.expect(TokenKind.rParen, what: "')'")
 		end 'b2'
-	end 'b1' else if p.inSet(lookahead23) 'b7'
+	end 'b1' else if p.inSet(lookahead24) 'b7'
 		let v7 = try parsePatternValue(p)
 		ast.setPatternValue(p.tree, id: n, value: v7)
-		if p.inSet(lookahead24) 'b8'
+		if p.inSet(lookahead18) 'b8'
 			if p.at(TokenKind.kw_to) 'b9'
 				_ = try p.expect(TokenKind.kw_to, what: "'to'")
 				ast.setPatternInclusive(p.tree, id: n)

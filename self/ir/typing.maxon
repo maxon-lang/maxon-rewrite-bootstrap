@@ -39,6 +39,13 @@ export function callInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID)
 	end 'hit'
 end 'callInfoAt'
 
+export function iterationInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.IterationInfo
+	return match consumes p.typings[ast.modIndex(module)].iterations.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the iteration of the for at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'iterationInfoAt'
+
 export function structLitInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.StructLitInfo
 	return match consumes p.typings[ast.modIndex(module)].structLits.get(node as Count) 'hit'
 		some(info) gives info

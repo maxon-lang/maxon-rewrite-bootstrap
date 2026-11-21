@@ -451,10 +451,11 @@ indexed by `NodeID` (`NodeTypes`, `noType` where nothing was recorded); the fact
 | `structLits` | a struct literal | the record type and the field values in order |
 | `patterns`, `arms` | a match pattern, a match arm | the case and a `LocalID` for each binding; the kind of arm |
 | `whens` | a `when` | the function the body became, the cowns and what it captures |
+| `iterations` | a `for` over a type with the iteration protocol | the calls of `createIterator()`, `current()` and `advance()`, and the cursor's type |
 | `nodeLocals`, `locals` | a `let`, a `for`, a `try` | the `LocalID`, and the `LocalEntry` it indexes (name, type, `var` or parameter, convention, its slot in the function's IR) |
 | `jumps` | a `break`, a `continue` | the `NodeID` of the loop or match |
 | `consumed` | an expression | set by the ownership pass where the value changes owner; lowering reads it and nothing else |
-| `funcUses`, `fieldUses` | a function, a field's default | the calls in it that need an instance of a generic, which `findInstances` follows |
+| `funcUses`, `fieldUses` | a function, a field's default | the calls in it that need an instance of a generic, which `findInstances` follows, and the `for`s whose protocol calls do |
 
 The grammar's `Slot[Counter]` fields (`Local`, `Jump`, `When`, `Pattern`, and the members, calls, operators, names and struct
 literals) generate `numberSlots`, which numbers the nodes of each kind from 1 so that a table for those kinds could be a dense
@@ -907,7 +908,8 @@ and nothing else.
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
   destructors").
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
-  `_ = call()`, `if`/`else if`/`else`, `while`, `for i in a to|upto b`, `match` as a statement or expression
+  `_ = call()`, `if`/`else if`/`else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
+  maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
   without a handler (see "Checked arithmetic").
@@ -921,7 +923,7 @@ and nothing else.
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
+  `FullRangeInt`, `Byte`, `ByteArray` (`Array with Byte`), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
   program that wants one declares a generic union (`union Option uses T`).
 
@@ -1405,7 +1407,7 @@ one anywhere.
 | `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `first()`, `last()`, `next(h)` and `prev(h)` return `Handle with T` and throw `ArrayError.indexOutOfBounds` where there is no such node; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `moveToFront(h)`; `dropEmpty()` |
 | `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
-| `ArrayError`, `MapError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists` |
+| `ArrayError`, `MapError`, `IterationError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists`; `exhausted` and `atStart`, which the iteration protocol throws |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
 
 An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
@@ -1477,7 +1479,18 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   `upsert` replaces the value of a key that is there, which is dropped.
 - **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `Array with T` is
   owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.clone()`.
-- **Iteration** is `for i in 0 upto a.count()` and a subscript. There is no `for x in a`, and a map has no way to
+- **Iteration.** `for x in a` walks an array: each element in turn is lent to `x`, as `a[i]` lends it, so a scalar is
+  copied and anything else is a borrow that cannot be moved out (`E3900`, `.clone()` is the fix). `x` itself is a `let`
+  (`E2013`), and its fields are as writable as the element's: `x.n = 3` needs a mutable `a`, through `var` fields.
+  While the body runs, a place the loop walks is held as a match subject is: changing or moving it is `E3186`, and
+  `for x in a.clone()` is the fix. The lowering is a loop over the indexes, reading the element in place.
+  A type walks with maxon's iteration protocol, found on its concrete type: a cursor declares `current()`, which gives
+  the element and cannot fail, and `advance(mutates self) throws IterationError`, which fails past the last one; a
+  collection declares `createIterator()`, which returns a cursor and may throw `IterationError` where it is empty. A
+  loop over a cursor moves it on in place (a place it is must be mutable, and is held while the body runs); a loop
+  over a collection calls `createIterator()` once and owns the cursor. Each `current()` is a value of its own, owned by
+  `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
+  throws another error is `E2015`, as is a loop over anything else: a string, a map, a list, a pool. A map has no way to
   walk its keys yet.
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
@@ -1688,8 +1701,11 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
-  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; there is no iteration
-  protocol and no `slice`, `clear`, `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
+  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array is walked
+  by `for x in` (a `String`, a `Map`'s entries, a `List`, a range value and `withIterator()` are not), and the loop holds
+  the array, so a body that pushes to it or reassigns it is refused (`E3186`) where maxon re-reads the live count; the
+  iteration protocol is found on the concrete type, never through an interface; there is no `slice`, `clear`,
+  `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
   zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has only
   `byteLength`, `byteAt`, `sliceBytes`, `toByteArray` and the static `String.from(bytes)`, whose names leave `slice` and
   `count` for maxon's graphemes. There is no built-in `Option`, which maxon's stdlib has no more of either: an

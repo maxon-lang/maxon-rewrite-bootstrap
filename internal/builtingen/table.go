@@ -191,6 +191,12 @@ var enumTypes = []enumType{
 		{"inputTooLarge", "ErrorInputTooLarge"},
 		{"statusLost", "ErrorStatusLost"},
 	}},
+	// IterationError is what a type's iteration protocol throws (`createIterator()` on an empty collection, `advance()`
+	// past the last element), which a for loop takes as its end.
+	{Key: "IterationError", Name: "IterationError", Cases: []enumCase{
+		{"exhausted", "ErrorIterationExhausted"},
+		{"atStart", "ErrorIterationAtStart"},
+	}},
 }
 
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.

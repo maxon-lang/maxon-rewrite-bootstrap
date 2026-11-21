@@ -85,7 +85,7 @@ function instantiateMethod(mutates p ast.Project, method ast.FuncID, recv ast.Ty
 	return ast.instantiateFunc(p.funcs, tt: p.types, origin: method, args: args)
 end 'instantiateMethod'
 
-// visitUses finds the instances that the calls a function records need, with the type parameters of the code bound.
+// visitUses finds the instances that the calls a function records need, a for's calls of the iteration protocol among them, with the type parameters of the code bound.
 function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	let node = p.funcs.entries[fn as Count].nodeID
 	var recorded = ast.NodeIDList.create(0)
@@ -94,20 +94,41 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 		none then _ = 0
 	end 'recorded'
 	for i in 0 upto recorded.count() 'each'
-		let info = callInfoAt(p, module: module, node: recorded[i])
-		let target = resolveCall(p, module: module, node: recorded[i], info: info, bindParams: bindParams, bindArgs: bindArgs)
-		if p.funcs.entries[target as Count].genericOrigin != ast.noFunc and not found.has(target) 'new'
-			found.add(target)
-			if not requireFinite(p, module: module, site: recorded[i], instance: target, errs: errs) 'deep'
-				return false
-			end 'deep'
-			if p.funcs.entries[target as Count].module == diag.stdlibID 'std'
-				panic("{funcSymbol(p, fid: target)} is a generic of the standard library, which has no body to lower")
-			end 'std'
-		end 'new'
+		let site = recorded[i]
+		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.forStmt 'loop'
+			let calls = iterationInfoAt(p, module: module, node: site).calls()
+			for j in 0 upto calls.count() 'calls'
+				let target = resolveTarget(p, module: module, receiver: 0 as ast.NodeID, info: calls[j], bindParams: bindParams, bindArgs: bindArgs)
+				if not noteInstance(p, module: module, site: site, target: target, found: found, errs: errs) 'deepLoop'
+					return false
+				end 'deepLoop'
+			end 'calls'
+			continue 'each'
+		end 'loop'
+		let info = callInfoAt(p, module: module, node: site)
+		let target = resolveCall(p, module: module, node: site, info: info, bindParams: bindParams, bindArgs: bindArgs)
+		if not noteInstance(p, module: module, site: site, target: target, found: found, errs: errs) 'deep'
+			return false
+		end 'deep'
 	end 'each'
 	return true
 end 'visitUses'
+
+// noteInstance adds the instance a call at site runs to those found, when it is a new one, and says whether its type
+// arguments are finite.
+function noteInstance(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	if p.funcs.entries[target as Count].genericOrigin == ast.noFunc or found.has(target) 'known'
+		return true
+	end 'known'
+	found.add(target)
+	if not requireFinite(p, module: module, site: site, instance: target, errs: errs) 'deep'
+		return false
+	end 'deep'
+	if p.funcs.entries[target as Count].module == diag.stdlibID 'std'
+		panic("{funcSymbol(p, fid: target)} is a generic of the standard library, which has no body to lower")
+	end 'std'
+	return true
+end 'noteInstance'
 
 // findInstances finds the instances of generic functions that one module needs, which is the code that lowering has to
 // make once for each, in that module's unit. It starts from the calls in the module's functions that are not generic, and

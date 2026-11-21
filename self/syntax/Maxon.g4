@@ -326,7 +326,7 @@ whileStmt
     ;
 
 forStmt
-    : 'for' var=(Name | '_') 'in' from=expr (inclusive='to' | 'upto') to=expr label=Label
+    : 'for' var=(Name | '_') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;

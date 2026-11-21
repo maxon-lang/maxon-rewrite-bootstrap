@@ -1,0 +1,12 @@
+typealias Names = Array with String
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	for name in names 'each'
+		names.push(name.clone())
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3186 at 7:3

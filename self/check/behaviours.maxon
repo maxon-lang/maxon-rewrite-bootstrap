@@ -63,7 +63,9 @@ function requireCapturable(mutates c Checker, mutates p ast.Project, use ast.Nod
 		return true
 	end 'fine'
 	var what = "a let or 'mutates' parameter"
-	if source.projected 'projected'
+	if source.projected and isForVariable(p.modules[c.modIdx].tree, l: source) 'element'
+		what = "the variable of a loop over a collection"
+	end 'element' else if source.projected 'projected'
 		what = "a match binding"
 	end 'projected' else if source.isSelf 'receiver'
 		what = "the receiver"

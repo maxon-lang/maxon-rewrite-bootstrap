@@ -51,12 +51,15 @@ function visitStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID,
 		return join(o, p: p, a: a, b: b)
 	end 'if'
 	if k == ast.NodeKind.whileStmt 'while'
-		return loopOwn(o, p: p, target: st, s: s, body: ast.whileStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: ast.whileStmtCond(p.modules[o.c.modIdx].tree, id: st))
+		return loopOwn(o, p: p, target: st, s: s, body: ast.whileStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: ast.whileStmtCond(p.modules[o.c.modIdx].tree, id: st), fresh: ast.noLocal)
 	end 'while'
+	if k == ast.NodeKind.forStmt and not ast.forStmtIsRange(p.modules[o.c.modIdx].tree, id: st) 'forEach'
+		return forEachOwn(o, p: p, st: st, s: s)
+	end 'forEach'
 	if k == ast.NodeKind.forStmt 'for'
 		let start = expr(o, p: p, e: ast.forStmtFrom(p.modules[o.c.modIdx].tree, id: st), s: s)
 		let bound = expr(o, p: p, e: ast.forStmtTo(p.modules[o.c.modIdx].tree, id: st), s: start)
-		return loopOwn(o, p: p, target: st, s: bound, body: ast.forStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: 0 as ast.NodeID)
+		return loopOwn(o, p: p, target: st, s: bound, body: ast.forStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: 0 as ast.NodeID, fresh: ast.noLocal)
 	end 'for'
 	if k == ast.NodeKind.whenStmt 'when'
 		return whenStmtOwn(o, p: p, st: st, s: s)
@@ -392,7 +395,8 @@ end 'jumpOwn'
 
 // loop walks the body again from what the first walk added to the state, which is enough for a fact to reach the top of
 // the next iteration; a first walk that adds nothing needs no second.
-function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, consumes s OwnState, body diag.U32, cond ast.NodeID) returns OwnState
+// fresh is a local that each pass through the body gives a value of its own before the body runs, or none.
+function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, consumes s OwnState, body diag.U32, cond ast.NodeID, fresh ast.LocalID) returns OwnState
 	pushFrameOwn(o, target: target)
 	let frame = try o.frames.count() - 1 otherwise 0 as Count
 	var entry = s
@@ -401,7 +405,11 @@ function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, 
 	end 'cond'
 	var after = OwnState.unreachable()
 	for i in 0 upto 2 'walks'
-		after = walk(o, p: p, body: body, s: entry.clone())
+		var pass = entry.clone()
+		if fresh != ast.noLocal 'fresh'
+			pass = without(pass, l: fresh)
+		end 'fresh'
+		after = walk(o, p: p, body: body, s: pass)
 		let continues = o.frames[frame].continues.clone()
 		let top = join(o, p: p, a: entry.clone(), b: after.clone())
 		let next = join(o, p: p, a: top, b: continues)
@@ -422,6 +430,51 @@ function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, 
 	let bottom = join(o, p: p, a: entry, b: after)
 	return join(o, p: p, a: bottom, b: closed.breaks)
 end 'loopOwn'
+
+// forEachOwn checks a for over a collection. An array lends each element to the variable in turn, so a place it is stays
+// held while the body runs, as a match subject is while an arm that binds its payload does: the body may read it but
+// neither change nor move it, except through the variable, whose fields are as writable as the element's. A type with the
+// iteration protocol gives each element as a value of its own; one that is its own cursor is moved on in place, so a
+// place it is must be mutable, and is held as an array is. A collection that is not a place is a temporary that the
+// statement owns.
+function forEachOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, consumes s OwnState) returns OwnState
+	let source = ast.forStmtFrom(p.modules[o.c.modIdx].tree, id: st)
+	let start = expr(o, p: p, e: source, s: s)
+	let path = pathOf(o, p: p, e: source)
+	var held = path.isPlace()
+	var lends = held
+	var fresh = ast.noLocal
+	if o.c.typing.iterations.has(st as Count) 'protocol'
+		let info = iterationOwn(o, node: st)
+		lends = false
+		fresh = ownLocalOf(o, node: st)
+		held = held and not info.hasFactory
+		if held and ast.isByAddress(info.advance.selfConv) 'advances'
+			requireWritable(o, p: p, site: offsetOfOwn(o, p: p, node: source), path: path)
+		end 'advances'
+	end 'protocol'
+	if lends 'lend'
+		o.lenders.push(OwnLender.make(ownLocalOf(o, node: st), collection: path.clone()))
+	end 'lend'
+	if held 'hold'
+		o.projections.push(OwnProjection.make(path, place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
+	end 'hold'
+	let out = loopOwn(o, p: p, target: st, s: start, body: ast.forStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), cond: 0 as ast.NodeID, fresh: fresh)
+	if held 'release'
+		_ = try o.projections.pop() otherwise panic("ownership: the hold of a loop's collection vanished")
+	end 'release'
+	if lends 'unlend'
+		_ = try o.lenders.pop() otherwise panic("ownership: the lender of a loop's variable vanished")
+	end 'unlend'
+	return out
+end 'forEachOwn'
+
+function iterationOwn(o Ownership, node ast.NodeID) returns ast.IterationInfo
+	return match consumes o.c.typing.iterations.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the for at node {node} walks no iteration protocol")
+	end 'hit'
+end 'iterationOwn'
 
 function isTrue(tree ast.Tree, e ast.NodeID) returns bool
 	return e != 0 and tree.kindOf(e) == ast.NodeKind.boolLit and ast.boolLitValue(tree, id: e)

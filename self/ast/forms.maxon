@@ -19,3 +19,9 @@ export function matchArmForm(t Tree, id NodeID) returns ArmKind
 	end 'gives'
 	return ArmKind.armPanic
 end 'matchArmForm'
+
+// forStmtIsRange is whether a for counts through a range (`for i in a to b`) rather than walking the elements of a
+// collection (`for x in xs`).
+export function forStmtIsRange(t Tree, id NodeID) returns bool
+	return forStmtTo(t, id: id) != 0
+end 'forStmtIsRange'

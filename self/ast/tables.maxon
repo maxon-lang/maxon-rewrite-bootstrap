@@ -127,6 +127,34 @@ export type CallInfo
 	end 'make'
 end 'CallInfo'
 
+// IterationInfo is how a for walks a value of a type that declares maxon's iteration protocol: the call that makes a
+// cursor of the collection, when the collection is not one itself, and the calls that read the cursor's element and
+// move it on, which throw IterationError where there is none.
+export type IterationInfo
+	export var hasFactory as bool
+	export var factory as CallInfo
+	export var current as CallInfo
+	export var advance as CallInfo
+	export var cursorTy as TypeID
+
+	export static function make(cursorTy TypeID, consumes current CallInfo, consumes advance CallInfo) returns IterationInfo
+		return IterationInfo{hasFactory: false, factory: CallInfo.make(CallKind.callMethod, fn: noFunc, receiverTy: noType), current: current, advance: advance, cursorTy: cursorTy}
+	end 'make'
+
+	// calls are the calls a loop makes, the factory first where there is one.
+	export function calls() returns CallInfoList
+		var out = CallInfoList.create(0)
+		if hasFactory 'factory'
+			out.push(factory.clone())
+		end 'factory'
+		out.push(current.clone())
+		out.push(advance.clone())
+		return out
+	end 'calls'
+end 'IterationInfo'
+
+export typealias CallInfoList = Array with CallInfo
+
 export type StructLitInfo
 	export var ty as TypeID
 	// ordered are the value expressions of the fields in the order of the record's fields; a field the literal leaves to
@@ -247,6 +275,8 @@ export typealias NodeArmMap = table.IntMap with ArmKind
 
 export typealias NodeWhenMap = table.IntMap with WhenInfo
 
+export typealias NodeIterationMap = table.IntMap with IterationInfo
+
 export typealias NodeLocalMap = table.IntMap with LocalID
 
 export typealias NodeLocalListMap = table.IntMap with LocalIDList
@@ -359,6 +389,7 @@ export type Typing
 	export var patterns as NodePatternMap
 	export var arms as NodeArmMap
 	export var whens as NodeWhenMap
+	export var iterations as NodeIterationMap
 	export var jumps as NodeJumpMap
 	export var locals as LocalEntryList
 	export var nodeLocals as NodeLocalMap
@@ -382,13 +413,14 @@ export type Typing
 		let pm = NodePatternMap.new()
 		let ak = NodeArmMap.new()
 		let wm = NodeWhenMap.new()
+		let im = NodeIterationMap.new()
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
 		let flm = NodeLocalListMap.new()
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

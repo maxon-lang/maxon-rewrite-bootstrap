@@ -185,6 +185,10 @@ function checkWhile(mutates c Checker, mutates p ast.Project, s ast.NodeID, muta
 end 'checkWhile'
 
 function checkFor(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	if not ast.forStmtIsRange(p.modules[c.modIdx].tree, id: s) 'iterates'
+		checkForEach(c, p: p, s: s, errs: errs)
+		return
+	end 'iterates'
 	let lowerNode = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
 	let upperNode = ast.forStmtTo(p.modules[c.modIdx].tree, id: s)
 	let lowerTy = checkExpr(c, p: p, e: lowerNode, errs: errs)
@@ -203,17 +207,152 @@ function checkFor(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 	if varType == ast.noType 'badType'
 		return
 	end 'badType'
+	checkForBody(c, p: p, s: s, varType: varType, borrows: false, errs: errs)
+end 'checkFor'
+
+// checkForBody declares the variable of a for and checks the body it is in scope for. A variable that borrows is an
+// element the collection lends, as a match binding of a payload is.
+function checkForBody(mutates c Checker, mutates p ast.Project, s ast.NodeID, varType ast.TypeID, borrows bool, mutates errs diag.ErrorList)
 	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
 	pushScope(c)
 	let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
 	let local = declareLocal(c, p: p, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
 	if local != ast.noLocal 'declared'
+		c.typing.locals[local as Count].projected = borrows
 		c.typing.nodeLocals.insert(s as Count, value: local)
 		checkStmts(c, p: p, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
 	end 'declared'
 	popScope(c)
 	popBlock(c)
-end 'checkFor'
+end 'checkForBody'
+
+// The methods of maxon's iteration protocol: a cursor's current() is its element and advance() moves it on, throwing
+// IterationError past the last one, and a collection's createIterator() makes a cursor, throwing where it is empty.
+let currentMethod = "current"
+
+let advanceMethod = "advance"
+
+let createIteratorMethod = "createIterator"
+
+// checkForEach types a for over the elements of a collection. An array lends each element to the variable, as a
+// subscript lends it; a type that declares the iteration protocol gives each one as the value its current() returns.
+function checkForEach(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let source = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
+	let typed = checkExpr(c, p: p, e: source, errs: errs)
+	if typed == ast.noType 'badSource'
+		return
+	end 'badSource'
+	let t = ast.contentType(p.types, t: typed)
+	if not requireNotCown(c, p: p, off: offsetOf(c, p: p, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
+		return
+	end 'cown'
+	if kindOfType(p, t: t) == ast.TypeKind.builtinArray 'array'
+		let elem = typeElemType(p, ownerTy: t)
+		checkForBody(c, p: p, s: s, varType: elem, borrows: ast.isManagedType(p.types, t: elem), errs: errs)
+		return
+	end 'array'
+	let elem = checkIteration(c, p: p, s: s, t: t, typed: typed, errs: errs)
+	if elem == ast.noType 'notIterable'
+		return
+	end 'notIterable'
+	checkForBody(c, p: p, s: s, varType: elem, borrows: false, errs: errs)
+end 'checkForEach'
+
+// checkIteration finds how a for walks a value of type t through the iteration protocol, records it for the node, and
+// gives the type of the elements: none, with an error, when t declares no protocol a loop can walk. A type that is a
+// cursor itself is walked from where it stands, and any other through the cursor its createIterator() makes.
+function checkIteration(mutates c Checker, mutates p ast.Project, s ast.NodeID, t ast.TypeID, typed ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var cursor = t
+	var factory = ast.noFunc
+	if not declaresCursor(p, t: t) 'factory'
+		factory = zeroArgumentMethod(p, t: t, name: createIteratorMethod)
+		if factory == ast.noFunc 'none'
+			failNotIterable(c, p: p, s: s, t: typed, errs: errs)
+			return ast.noType
+		end 'none'
+		let thrown = p.funcs.entries[factory as Count].errTy
+		if thrown != ast.noType and thrown != p.builtins.iterationErrorTy 'otherError'
+			failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
+			return ast.noType
+		end 'otherError'
+		let made = methodResult(p, recv: t, method: factory)
+		cursor = ast.contentType(p.types, t: made)
+		if not declaresCursor(p, t: cursor) 'notCursor'
+			failNotIterable(c, p: p, s: s, t: cursor, errs: errs)
+			return ast.noType
+		end 'notCursor'
+	end 'factory'
+	let current = zeroArgumentMethod(p, t: cursor, name: currentMethod)
+	let advance = zeroArgumentMethod(p, t: cursor, name: advanceMethod)
+	var info = ast.IterationInfo.make(cursor, current: methodCall(p, recv: cursor, method: current), advance: methodCall(p, recv: cursor, method: advance))
+	var generic = isGeneric(p, f: current) or isGeneric(p, f: advance)
+	if factory != ast.noFunc 'withFactory'
+		info.hasFactory = true
+		info.factory = methodCall(p, recv: t, method: factory)
+		generic = generic or isGeneric(p, f: factory)
+		if not requireVisible(c, p: p, node: s, target: factory, errs: errs) 'hiddenFactory'
+			return ast.noType
+		end 'hiddenFactory'
+	end 'withFactory'
+	if not requireVisible(c, p: p, node: s, target: current, errs: errs) or not requireVisible(c, p: p, node: s, target: advance, errs: errs) 'hidden'
+		return ast.noType
+	end 'hidden'
+	c.typing.iterations.insert(s as Count, value: info)
+	if generic 'instances'
+		recordUse(c, call: s)
+	end 'instances'
+	return methodResult(p, recv: cursor, method: current)
+end 'checkIteration'
+
+function failNotIterable(c Checker, p ast.Project, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}` value — the compiler iterates an `Array`, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
+end 'failNotIterable'
+
+// declaresCursor is whether a type is a cursor: its current() gives a value and cannot fail, and its advance() throws
+// IterationError.
+function declaresCursor(p ast.Project, t ast.TypeID) returns bool
+	let current = zeroArgumentMethod(p, t: t, name: currentMethod)
+	let advance = zeroArgumentMethod(p, t: t, name: advanceMethod)
+	return current != ast.noFunc and advance != ast.noFunc and p.funcs.entries[current as Count].retTy != p.builtins.voidTy and p.funcs.entries[current as Count].errTy == ast.noType and p.funcs.entries[advance as Count].errTy == p.builtins.iterationErrorTy
+end 'declaresCursor'
+
+// zeroArgumentMethod is the method of that name a value of type t has that takes no arguments, or none.
+function zeroArgumentMethod(p ast.Project, t ast.TypeID, name String) returns ast.FuncID
+	if not typeIsNominal(p.types, t: t) 'notNominal'
+		return ast.noFunc
+	end 'notNominal'
+	let method = methodNamed(p, t: t, name: name)
+	if method == ast.noFunc or p.funcs.entries[method as Count].isStatic or p.funcs.entries[method as Count].params.count() != 0 'unfit'
+		return ast.noFunc
+	end 'unfit'
+	return method
+end 'zeroArgumentMethod'
+
+function isGeneric(p ast.Project, f ast.FuncID) returns bool
+	return p.funcs.entries[f as Count].generics.count() > 0
+end 'isGeneric'
+
+// methodCall is a call of a method that takes no arguments on a value of type recv, as a call written in the source
+// records it.
+function methodCall(p ast.Project, recv ast.TypeID, method ast.FuncID) returns ast.CallInfo
+	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: method, receiverTy: ast.noType)
+	if isGeneric(p, f: method) 'generic'
+		info.typeArgs = p.types.entries[recv as Count].typeArgs.clone()
+	end 'generic'
+	info.selfConv = p.funcs.entries[method as Count].selfConv
+	return info
+end 'methodCall'
+
+// methodResult is the type that a method of the type recv returns, with the type's arguments for its parameters.
+function methodResult(mutates p ast.Project, recv ast.TypeID, method ast.FuncID) returns ast.TypeID
+	let result = p.funcs.entries[method as Count].retTy
+	if not isGeneric(p, f: method) 'plain'
+		return result
+	end 'plain'
+	let generics = ast.cloneTypeArgs(p.funcs.entries[method as Count].generics)
+	let args = ast.cloneTypeArgs(p.types.entries[recv as Count].typeArgs)
+	return ast.substituteType(p.types, t: result, params: generics, args: args)
+end 'methodResult'
 
 // forVariableType is the type of the variable of a for: the alias of a bound that has one, else the range from the first
 // value of the lower bound to the last of the upper.

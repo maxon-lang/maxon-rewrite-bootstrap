@@ -106,6 +106,10 @@ export let errorInputTooLarge = 7 as Count
 
 export let errorStatusLost = 8 as Count
 
+export let errorIterationExhausted = 0 as Count
+
+export let errorIterationAtStart = 1 as Count
+
 export enum Intrinsic
 	intrNone
 	intrArrayCreate
@@ -391,11 +395,15 @@ function declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b
 	names21.push("inputTooLarge")
 	names21.push("statusLost")
 	b.subprocessErrorTy = registerEnumType(tt, std: std, typeMap: typeMap, name: "SubprocessError", cases: names21)
+	var names22 = StringList.create(0)
+	names22.push("exhausted")
+	names22.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, std: std, typeMap: typeMap, name: "IterationError", cases: names22)
 	b.copyableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, std: std, typeMap: typeMap, name: "Error")
-	let ty22 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty22)
+	let ty23 = instantiateType(tt, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty23)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)

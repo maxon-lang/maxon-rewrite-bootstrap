@@ -556,6 +556,10 @@ function rangePopFrame(mutates r Ranges) returns Count
 end 'rangePopFrame'
 
 function rangeForStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	if not ast.forStmtIsRange(p.modules[r.modIdx].tree, id: s) 'forEach'
+		rangeForEach(r, p: p, s: s)
+		return
+	end 'forEach'
 	let from = rangeEval(r, p: p, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
 	let upper = rangeEval(r, p: p, e: ast.forStmtTo(p.modules[r.modIdx].tree, id: s))
 	let trips = tripBound(from, upper: upper, inclusive: ast.forStmtInclusive(p.modules[r.modIdx].tree, id: s))
@@ -574,6 +578,21 @@ function rangeForStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	end 'unbind'
 	rangeRestoreTimes(r, outer: times)
 end 'rangeForStmt'
+
+// rangeForEach walks a for over a collection as a while whose condition says nothing: it runs any number of times, and
+// its variable is any value of its type.
+function rangeForEach(mutates r Ranges, p ast.Project, s ast.NodeID)
+	_ = rangeEval(r, p: p, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
+	rangeForget(r, p: p)
+	let top = rangeKeep(r)
+	r.frames.push(RangeFrame.make(s))
+	let times = rangeScaleTimes(r, trips: pastEveryWord())
+	r.st = top
+	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeRestoreTimes(r, outer: times)
+	let breaks = rangePopFrame(r)
+	r.st = r.states.joined(top, b: breaks)
+end 'rangeForEach'
 
 // rangeLoopBody is the state in the body of a for loop, whose variable lies between the bounds: the state at the top of
 // the loop when the variable has no span to know.
