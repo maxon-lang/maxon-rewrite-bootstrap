@@ -171,7 +171,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: discovers the project and runs every module's stages, parse to generate, as one scheduled phase (the modules phase), with the build cache's export summaries, keys and entries, then the routines and the link; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -234,7 +234,40 @@ The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, 
 
 The text of a diagnostic that carries a maxon code is maxon's, so that a spec's expected stderr matches byte for byte. `internal/diag/messages.tsv` holds it, one row per situation maxon words alone: a function name, the code constant and maxon's message with `{placeholders}`. The same `go generate` writes a function per row to `internal/diag/messages_gen.go` (`diag.UndefinedFunction(name)`) and to `self/diag/messages_gen.maxon`, which return the text while the raise site still chooses where the error is. A situation that only minimaxon refuses, or that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
 
-`go test ./internal/grammargen` and `go test ./internal/builtingen` fail if a generated file is not what the grammar or
+The x64 encoder is generated from an instruction table, `internal/x64gen/table.go`, into `self/backend/x64_gen.maxon`. The
+Go compiler's own backend (`internal/backend/x64.go`) is not generated and goes when `self/` compiles itself; the table
+is the encoder of `self/backend` from the start, and a test proves it against `x64.go`. A row is a form, one instruction with
+one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`MovRegReg`, `LoadRegBaseDisp`, `PushReg`):
+
+| Column | Holds |
+|---|---|
+| `name`, `mnemonic` | the encoder is `encode<name>`, and the case of the `X64Form` enum is the name with its first letter lowered |
+| `operands` | in assembly order, each a register, a memory operand `[base + disp]`, a `[rip + disp]` operand, an immediate (`imm8`, `imm32`, `imm32U`, `imm64`), a `rel32` or a condition code, and the part of the encoding that holds it: the reg or r/m field of the ModRM byte, or the low three bits of the opcode (`+r`) |
+| `prefix`, `rexW`, `opcode` | the mandatory prefix (`rep`), REX.W, and the opcode with its `0F` escape; a condition code is added to the last opcode byte |
+| `modrm`, `digit` | no ModRM byte, one the operands fill, or one whose reg field is the form's `/digit` |
+| `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; written as `X64Form` predicates of the same names |
+
+A register that is used as an 8-bit register is marked, and its encoder writes a REX prefix whenever the register is `rsp`
+or above in number, since `spl` to `dil` exist only under one. The displacement of a memory operand is none, a byte or a
+doubleword, as `x64.go` chooses it (a base of `rbp` or `r13` takes at least a byte; one of `rsp` or `r12` takes a SIB
+byte), and `rip` and `rel32` operands take a displacement that the backend writes as 0 and patches (`lastField32`,
+`rel32To`, `patch32`, `patchRel32`). A choice picks the first of several forms whose immediate holds the value
+(`AddRegImm`: a byte, else a doubleword; `MovRegImm`: an unsigned doubleword, a sign-extended doubleword, else a
+quadword), and a sequence is forms the backend always emits together (`SetccRax`). The generated file holds the register
+and condition code enums (`X64Register`, `X64CondCode`, with maxon's case names), the immediate types, the helpers the
+encoders share and one encoder per form, choice and sequence, taking a `mutates code ByteArray` first. Regenerate after
+editing the table:
+
+```powershell
+go generate ./internal/x64gen
+```
+
+`go test ./internal/x64gen` fails if the file is stale, and encodes every form with registers `rax` to `r15`, displacements
+from none to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code,
+once from the table and once through `internal/backend`'s `Asm`, and compares the bytes. `self/main.maxon`'s `selftest`
+runs the generated Maxon on a set of those encodings (`golden` in the test) and compares them with the same bytes.
+
+`go test ./internal/grammargen`, `go test ./internal/builtingen` and `go test ./internal/x64gen` fail if a generated file is not what the grammar or
 the table generates. A package exports only what another
 package uses. What resolution and the check of the bodies decide is not in the nodes but in tables beside them (see
 "The AST"); the declarations, which are structs, still carry the semantic types that declare fills in, which is why `ast` holds both.

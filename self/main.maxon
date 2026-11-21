@@ -424,6 +424,126 @@ function testResolve()
 	end 'ord'
 end 'testResolve'
 
+function hexOf(code ByteArray) returns String
+	let digits = "0123456789abcdef"
+	var out = ByteArray.create(0)
+	for i in 0 upto code.count() 'each'
+		let b = code[i]
+		out.push(digits.byteAt(b / 16))
+		out.push(digits.byteAt(b mod 16))
+	end 'each'
+	return String.from(out)
+end 'hexOf'
+
+function expectEncoded(code ByteArray, expected String, label String)
+	let got = hexOf(code)
+	if got != expected 'mismatch'
+		panic("{label}: expected {expected}, got {got}")
+	end 'mismatch'
+end 'expectEncoded'
+
+// The bytes are those that internal/backend/x64.go writes for the same instructions (internal/x64gen checks them).
+function testX64Encoder()
+	let rax = backend.X64Register.rax
+	let rcx = backend.X64Register.rcx
+	let rbx = backend.X64Register.rbx
+	let rsp = backend.X64Register.rsp
+	let rbp = backend.X64Register.rbp
+	let rsi = backend.X64Register.rsi
+	let r8 = backend.X64Register.r8
+	let r9 = backend.X64Register.r9
+	let r10 = backend.X64Register.r10
+	let r11 = backend.X64Register.r11
+	let r12 = backend.X64Register.r12
+	let r13 = backend.X64Register.r13
+	let r14 = backend.X64Register.r14
+	let r15 = backend.X64Register.r15
+	var c = ByteArray.create(0)
+	backend.encodeMovRegReg(c, dest: rax, src: rcx)
+	expectEncoded(c, expected: "4889c8", label: "movRegReg")
+	c = ByteArray.create(0)
+	backend.encodeMovRegReg(c, dest: r9, src: r12)
+	expectEncoded(c, expected: "4d89e1", label: "movRegReg")
+	c = ByteArray.create(0)
+	backend.encodeAddRegReg(c, dest: rbx, src: r15)
+	expectEncoded(c, expected: "4c01fb", label: "addRegReg")
+	c = ByteArray.create(0)
+	backend.encodeLoadRegBaseDisp(c, dest: rax, base: rsp, disp: 8)
+	expectEncoded(c, expected: "488b442408", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	backend.encodeLoadRegBaseDisp(c, dest: rax, base: rbp, disp: 0)
+	expectEncoded(c, expected: "488b4500", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	backend.encodeLoadRegBaseDisp(c, dest: r13, base: r13, disp: -129)
+	expectEncoded(c, expected: "4d8bad7fffffff", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	backend.encodeStoreBaseDispReg(c, base: r12, disp: 256, src: rax)
+	expectEncoded(c, expected: "4989842400010000", label: "storeBaseDispReg")
+	c = ByteArray.create(0)
+	backend.encodeStoreBaseDispReg8(c, base: rax, disp: 0, src: rcx)
+	expectEncoded(c, expected: "8808", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	backend.encodeStoreBaseDispReg8(c, base: rax, disp: 0, src: rsi)
+	expectEncoded(c, expected: "408830", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	backend.encodeStoreBaseDispReg8(c, base: r8, disp: 0, src: r12)
+	expectEncoded(c, expected: "458820", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	backend.encodeMovRegImm(c, dest: rax, imm: 5)
+	expectEncoded(c, expected: "b805000000", label: "movRegImm")
+	c = ByteArray.create(0)
+	backend.encodeMovRegImm(c, dest: rax, imm: -1)
+	expectEncoded(c, expected: "48c7c0ffffffff", label: "movRegImm")
+	c = ByteArray.create(0)
+	backend.encodeMovRegImm(c, dest: r10, imm: 1099511627776)
+	expectEncoded(c, expected: "49ba0000000000010000", label: "movRegImm")
+	c = ByteArray.create(0)
+	backend.encodeMovRegImm(c, dest: rax, imm: -9223372036854775808)
+	expectEncoded(c, expected: "48b80000000000000080", label: "movRegImm")
+	c = ByteArray.create(0)
+	backend.encodeAddRegImm(c, dest: rsp, imm: -16)
+	expectEncoded(c, expected: "4883c4f0", label: "addRegImm")
+	c = ByteArray.create(0)
+	backend.encodeSubRegImm(c, dest: rsp, imm: 4096)
+	expectEncoded(c, expected: "4881ec00100000", label: "subRegImm")
+	c = ByteArray.create(0)
+	backend.encodeCmpRegImm(c, dest: r8, imm: 127)
+	expectEncoded(c, expected: "4983f87f", label: "cmpRegImm")
+	c = ByteArray.create(0)
+	backend.encodePushReg(c, reg: r14)
+	expectEncoded(c, expected: "4156", label: "pushReg")
+	c = ByteArray.create(0)
+	backend.encodePopReg(c, reg: rbx)
+	expectEncoded(c, expected: "5b", label: "popReg")
+	c = ByteArray.create(0)
+	backend.encodeSetccRax(c, cond: backend.X64CondCode.less)
+	expectEncoded(c, expected: "0f9cc0480fb6c0", label: "setccRax")
+	c = ByteArray.create(0)
+	backend.encodeCqo(c)
+	expectEncoded(c, expected: "4899", label: "cqo")
+	c = ByteArray.create(0)
+	backend.encodeRepStosq(c)
+	expectEncoded(c, expected: "f348ab", label: "repStosq")
+	c = ByteArray.create(0)
+	backend.encodeLeaRegRip(c, dest: r11, disp: 0)
+	expectEncoded(c, expected: "4c8d1d00000000", label: "leaRegRip")
+	c = ByteArray.create(0)
+	backend.encodeCallRip(c, disp: 0)
+	expectEncoded(c, expected: "ff1500000000", label: "callRip")
+	c = ByteArray.create(0)
+	backend.encodeJmpRel32(c, rel: 0)
+	backend.patchRel32(c, at: backend.lastField32(c), target: 0)
+	expectEncoded(c, expected: "e9fbffffff", label: "jmpRel32 backward")
+	c = ByteArray.create(0)
+	backend.encodeJmpRel32(c, rel: 0)
+	let forward = backend.lastField32(c)
+	for i in 0 upto 10 'pad'
+		c.push(0)
+	end 'pad'
+	backend.patchRel32(c, at: forward, target: c.count())
+	expectEncoded(c, expected: "e90a00000000000000000000000000", label: "jmpRel32 forward")
+end 'testX64Encoder'
+
 function selfTest()
 	testProgram()
 	testNumbersAndOperators()
@@ -437,6 +557,7 @@ function selfTest()
 	testProject()
 	testResolve()
 	testPe()
+	testX64Encoder()
 	print("self: all checks passed\n")
 end 'selfTest'
 
