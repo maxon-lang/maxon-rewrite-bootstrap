@@ -11,12 +11,9 @@ import (
 
 	"minimaxon/internal/par"
 	"minimaxon/internal/project"
-	"minimaxon/internal/resolve"
-	"minimaxon/internal/syntax"
 	"os"
 	"runtime"
 	"runtime/debug"
-	"runtime/metrics"
 	"runtime/trace"
 	"slices"
 	"sort"
@@ -28,16 +25,9 @@ const (
 	bytesAllocatedPerSourceByte = 100
 	minNoGcBudget               = int64(256) << 20
 	bytesPerMegabyte            = 1048576.0
-	heapAllocsMetric            = "/gc/heap/allocs:bytes"
 )
 
 func DefaultJobs() int { return max(1, runtime.NumCPU()-1) }
-
-func heapAllocated() uint64 {
-	sample := []metrics.Sample{{Name: heapAllocsMetric}}
-	metrics.Read(sample)
-	return sample[0].Value.Uint64()
-}
 
 // Options say how a program is compiled to an executable.
 type Options struct {
@@ -104,11 +94,11 @@ func Interpret(path string, jobs int, stepLimit int64) (result *interp.Result, e
 	return interp.Run(program, stepLimit), nil
 }
 
-// compileProject runs the phases. With a non-empty output it generates an executable; with capture it lowers the program
+// compileProject discovers the project and runs the modules phase. With a non-empty output it generates an executable; with capture it lowers the program
 // and hands the IR to the interpreter instead.
 //
 // An error raised at a node is located (given its file, line and column) here, the first time anything needs it, and an
-// error that stops the compile outside a pass's own guard is the compile's only error.
+// error that stops the compile outside a stage's own guard is the compile's only error.
 func compileProject(path, output string, o Options, capture **interp.Program) (errs []*diag.CompileError) {
 	jobs, timings := o.Jobs, o.Timings
 	var errors []*diag.CompileError
@@ -139,114 +129,18 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 	if len(errors) > 0 {
 		return sortedErrors(proj, errors)
 	}
-	modules := proj.Modules
-	results := make([]ast.ModuleResult, len(modules))
-
-	phase := func(work func(*ast.Module, *ast.ModuleResult)) {
-		par.ForEachIndex(len(modules), jobs, func(i int) { work(modules[i], &results[i]) })
-	}
-
-	failed := func() []*diag.CompileError { return collectErrors(proj, errors, results, nil) }
-
-	// The parse pass builds each module's own declaration table straight after parsing it, while its AST is in cache. A
-	// module's table is built only when it parsed cleanly, and the table's errors count only when every module did, so
-	// the errors a program gets are the same as if the table had a pass of its own after the parse.
-	var readBytes, lexBytes, parseBytes, tableBytes atomic.Uint64
-	parseStart := heapAllocated()
-	parsed := make([]int, len(modules))
-	par.ForEachIndexWith(len(modules), jobs, syntax.NewScratch, func(scratch *syntax.Scratch, i int) {
-		m, res := modules[i], &results[i]
-		diag.Guard(&res.Errors, func() {
-			a0 := stepAllocated(timings)
-			src := scratch.LoadModuleSource(m.Files)
-			a1 := stepAllocated(timings)
-			tokens := scratch.Lex(src)
-			a2 := stepAllocated(timings)
-			program, syntaxErrors := scratch.Parse(src, tokens, m.ID)
-			m.Adopt(program)
-			res.Errors = append(res.Errors, syntaxErrors...)
-			a3 := stepAllocated(timings)
-			readBytes.Add(a1 - a0)
-			lexBytes.Add(a2 - a1)
-			parseBytes.Add(a3 - a2)
-		})
-		parsed[m.ID] = len(res.Errors)
-		if parsed[m.ID] == 0 {
-			a0 := stepAllocated(timings)
-			project.BuildModuleTable(m, &res.Errors)
-			tableBytes.Add(stepAllocated(timings) - a0)
-		}
-	})
-	if timings {
-		reportParseAllocation(heapAllocated()-parseStart, readBytes.Load(), lexBytes.Load(), parseBytes.Load(), tableBytes.Load())
-	}
-	mark("parse")
-	if parseErrors := collectErrors(proj, errors, results, parsed); parseErrors != nil {
-		return parseErrors
-	}
-
-	// Resolve also sizes the tables that the check pass fills in, while the module's tree is in cache: the bodies are checked
-	// many modules at a time, and allocating the tables of a large project there would make them wait for the heap one
-	// after another.
-	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		res.Typing.Size(m.Tree)
-		resolve.NewResolver(proj, m, res).Run()
-	})
-	mark("resolve")
-	if resolveErrors := failed(); resolveErrors != nil {
-		return resolveErrors
-	}
-	graph := project.NewGraph(results)
-	if cycle := graph.CheckAcyclic(proj); cycle != nil {
-		return sortedErrors(proj, []*diag.CompileError{cycle})
-	}
-	mark("cycles")
-
-	check.DeclareAliases(proj, results)
-	mark("aliases")
-	if aliasErrors := failed(); aliasErrors != nil {
-		return aliasErrors
-	}
-
-	var main *ast.FuncDecl
-	phase(func(m *ast.Module, res *ast.ModuleResult) {
-		res.Typing.Reset(m.Tree)
-		checker := check.NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
-		for _, d := range m.Decls {
-			res.Functions = append(res.Functions, checker.Declare(d)...)
-		}
-		res.Bounds = append(res.Bounds, checker.Bounds...)
-		if m == proj.Root {
-			main = checker.CheckMain()
-		}
-	})
-	mark("declare")
-	if declareErrors := failed(); declareErrors != nil {
-		return declareErrors
-	}
-
-	checkConstants(proj, results, jobs, &errors)
-	mark("constants")
-	if constErrors := failed(); constErrors != nil {
-		return constErrors
-	}
-
-	typings := make(ast.Typings, len(results))
-	for i := range results {
-		typings[i] = &results[i].Typing
-	}
-	modulesPhase := newModulePhase(proj, results, typings, graph, main, output, o, capture)
-	modulesPhase.run()
-	modulesPhase.reportTimings()
-	if o.CacheStats != nil && modulesPhase.keys != nil {
-		*o.CacheStats = modulesPhase.cacheStats()
-	}
+	results := make([]ast.ModuleResult, len(proj.Modules))
+	phase := newModulePhase(proj, results, output, o, capture)
+	phase.run()
+	phase.reportTimings()
 	mark("modules")
-	if checkErrors := collectErrors(proj, errors, results, modulesPhase.bodied); checkErrors != nil {
-		return checkErrors
+	if o.CacheStats != nil && phase.keys != nil && phase.frontSucceeded() {
+		*o.CacheStats = phase.cacheStats()
 	}
-	modulesPhase.raiseCrash()
-	return modulesPhase.conclude(output, mark)
+	if phaseErrors := phase.errors(); phaseErrors != nil {
+		return phaseErrors
+	}
+	return phase.conclude(output, mark)
 }
 
 // firstFailure is the failure of the first module that has one, or nil. Every module that reaches a generic that grows
@@ -285,25 +179,6 @@ func verifyModule(proj *ast.Project, m *ast.Module, res *ast.ModuleResult, flow 
 	verifier.Verify(res.Pending)
 	verifier.VerifyBounds(res.Bounds)
 	verifier.VerifyFlow(m.Decls, res.Functions, flow)
-}
-
-// collectErrors gathers the errors of the compile so far, sorted, or nil if there are none. A pass that fuses two
-// stages gives stageEnds, how many errors each module had when its first stage ended: if any module had errors then,
-// only those count, and what the second stage found is dropped.
-func collectErrors(proj *ast.Project, errors []*diag.CompileError, results []ast.ModuleResult, stageEnds []int) []*diag.CompileError {
-	firstStageFailed := slices.ContainsFunc(stageEnds, func(n int) bool { return n > 0 })
-	all := append([]*diag.CompileError{}, errors...)
-	for i := range results {
-		if firstStageFailed {
-			all = append(all, results[i].Errors[:stageEnds[i]]...)
-		} else {
-			all = append(all, results[i].Errors...)
-		}
-	}
-	if len(all) == 0 {
-		return nil
-	}
-	return sortedErrors(proj, all)
 }
 
 // functionsOnce is the IR of every function the interpreter runs. An instance that several modules lowered is there once,
@@ -373,213 +248,6 @@ func usesBytes(fns []*ir.IrFunction) bool {
 
 func usesOs(fns []*ir.IrFunction) bool {
 	return slices.ContainsFunc(fns, func(fn *ir.IrFunction) bool { return fn.UsesOs })
-}
-
-func stepAllocated(timings bool) uint64 {
-	if !timings {
-		return 0
-	}
-	return heapAllocated()
-}
-
-func reportParseAllocation(phaseTotal, read, lex, parse, table uint64) {
-	sum := read + lex + parse + table
-	scale := 1.0
-	if sum > 0 {
-		scale = float64(phaseTotal) / float64(sum)
-	}
-	mb := func(n uint64) float64 { return float64(n) * scale / bytesPerMegabyte }
-	fmt.Fprintf(os.Stderr, "  read %.1f MB, lex %.1f MB, parse %.1f MB, table %.1f MB\n", mb(read), mb(lex), mb(parse), mb(table))
-}
-
-type constEntry struct {
-	module *ast.Module
-	decl   *ast.ConstDecl
-}
-
-func checkConstants(proj *ast.Project, results []ast.ModuleResult, jobs int, errs *[]*diag.CompileError) {
-	var consts []constEntry
-	for _, m := range proj.Modules {
-		for _, d := range m.Decls {
-			if c, ok := d.(*ast.ConstDecl); ok {
-				consts = append(consts, constEntry{m, c})
-			}
-		}
-	}
-	deps := make([][]*ast.ConstDecl, len(consts))
-	par.ForEachIndex(len(consts), jobs, func(i int) {
-		seen := map[*ast.ConstDecl]bool{}
-		refs := constRefs{proj, &results[consts[i].module.ID].Resolution}
-		for _, c := range refs.of(consts[i].decl.Value, nil) {
-			if !seen[c] {
-				seen[c] = true
-				deps[i] = append(deps[i], c)
-			}
-		}
-	})
-
-	index := make(map[*ast.ConstDecl]int, len(consts))
-	for i, c := range consts {
-		index[c.decl] = i
-	}
-	depth := make([]int, len(consts))
-	state := make([]byte, len(consts))
-	const visiting, done = 1, 2
-
-	var depthOf func(i int) int
-	depthOf = func(i int) int {
-		if state[i] == done {
-			return depth[i]
-		}
-		if state[i] == visiting {
-			panic(consts[i].decl.Error(diag.ErrDependsOnItself, "constant '"+consts[i].decl.Name+"' depends on itself"))
-		}
-		state[i] = visiting
-		depth[i] = 0
-		for _, d := range deps[i] {
-			depth[i] = max(depth[i], depthOf(index[d])+1)
-		}
-		state[i] = done
-		return depth[i]
-	}
-
-	for i := range consts {
-		before := len(*errs)
-		diag.Guard(errs, func() { depthOf(i) })
-		if len(*errs) > before {
-			return
-		}
-	}
-
-	var waves [][]int
-	for i := range consts {
-		for len(waves) <= depth[i] {
-			waves = append(waves, nil)
-		}
-		waves[depth[i]] = append(waves[depth[i]], i)
-	}
-	for _, items := range waves {
-		waveErrors := make([][]*diag.CompileError, len(items))
-		par.ForEachIndex(len(items), jobs, func(k int) {
-			entry := consts[items[k]]
-			res := &results[entry.module.ID]
-			check.NewChecker(proj, entry.module, &res.Resolution, &res.Typing, &waveErrors[k]).CheckConst(entry.decl)
-		})
-		for _, e := range waveErrors {
-			*errs = append(*errs, e...)
-		}
-	}
-}
-
-type constList = []*ast.ConstDecl
-
-// referencedConsts appends the constants that e names, so the constants phase types them first. It walks every
-// expression a constant could hold, including ones the checker then refuses, because a missed reference would
-// check a constant in the same wave as one it reads.
-func (r constRefs) of(e ast.Expr, into constList) constList {
-	return ast.VisitExprState[constList, constList](r, e, into)
-}
-
-// constRefs reads what the module that holds the expression resolved its names to.
-type constRefs struct {
-	proj       *ast.Project
-	resolution *ast.Resolution
-}
-
-func (r constRefs) VisitIntLit(_ ast.IntLit, into constList) constList { return into }
-
-func (r constRefs) VisitBoolLit(_ ast.BoolLit, into constList) constList { return into }
-
-func (r constRefs) VisitSelfExpr(_ ast.SelfExpr, into constList) constList { return into }
-
-func (r constRefs) VisitStrLit(e ast.StrLit, into constList) constList {
-	for _, p := range e.Parts().All() {
-		if !p.Expr.IsNil() {
-			into = r.of(p.Expr, into)
-		}
-	}
-	return into
-}
-
-func (r constRefs) VisitNameExpr(e ast.NameExpr, into constList) constList {
-	if c, ok := r.resolution.Decl(r.proj, e.ID).(*ast.ConstDecl); ok {
-		return append(into, c)
-	}
-	return into
-}
-
-func (r constRefs) VisitBinaryExpr(e ast.BinaryExpr, into constList) constList {
-	return r.of(e.R(), r.of(e.L(), into))
-}
-
-func (r constRefs) VisitUnaryExpr(e ast.UnaryExpr, into constList) constList {
-	return r.of(e.E(), into)
-}
-
-func (r constRefs) VisitTryExpr(e ast.TryExpr, into constList) constList {
-	into = r.of(e.E(), into)
-	if !e.Value().IsNil() {
-		into = r.of(e.Value(), into)
-	}
-	return into
-}
-
-func (r constRefs) VisitCondExpr(e ast.CondExpr, into constList) constList {
-	return r.of(e.Else(), r.of(e.Then(), r.of(e.Cond(), into)))
-}
-
-func (r constRefs) VisitCastExpr(e ast.CastExpr, into constList) constList {
-	return r.of(e.E(), into)
-}
-
-func (r constRefs) VisitIndexExpr(e ast.IndexExpr, into constList) constList {
-	into = r.of(e.Obj(), into)
-	for _, a := range e.Args().All() {
-		into = r.of(a, into)
-	}
-	return into
-}
-
-func (r constRefs) VisitMemberExpr(e ast.MemberExpr, into constList) constList {
-	return r.of(e.Obj(), into)
-}
-
-func (r constRefs) VisitCallExpr(e ast.CallExpr, into constList) constList {
-	into = r.of(e.Callee(), into)
-	for _, a := range e.Args().All() {
-		into = r.of(a.Value(), into)
-	}
-	return into
-}
-
-func (r constRefs) VisitStructLitExpr(e ast.StructLitExpr, into constList) constList {
-	for _, f := range e.Fields().All() {
-		into = r.of(f.Value(), into)
-	}
-	return into
-}
-
-// A match expression's arms all give a value; a 'then' arm, the only one holding a statement, is refused in one.
-func (r constRefs) VisitMatchExpr(e ast.MatchExpr, into constList) constList {
-	into = r.of(e.Match().Subject(), into)
-	for _, arm := range e.Match().Arms().All() {
-		for _, p := range arm.Patterns().All() {
-			if !p.Value().IsNil() {
-				into = r.of(p.Value(), into)
-			}
-			if !p.High().IsNil() {
-				into = r.of(p.High(), into)
-			}
-		}
-		if !arm.Value().IsNil() {
-			into = r.of(arm.Value(), into)
-		}
-	}
-	return into
-}
-
-func (r constRefs) VisitPanicExpr(e ast.PanicExpr, into constList) constList {
-	return r.of(e.Message().Expr(), into)
 }
 
 func suspendCollection(proj *ast.Project, jobs int) (int64, func()) {

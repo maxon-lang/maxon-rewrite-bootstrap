@@ -31,7 +31,7 @@ func frontEnd(t *testing.T, path string) []ast.ModuleResult {
 	res := &results[root.ID]
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
-	check.DeclareAliases(proj, results)
+	check.DeclareAliases(proj, root, res)
 	res.Typing.Reset(root.Tree)
 	c := check.NewChecker(proj, root, &res.Resolution, &res.Typing, &res.Errors)
 	for _, d := range root.Decls {

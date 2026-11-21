@@ -20,6 +20,10 @@ type CompileError struct {
 	Line    int
 	Col     int
 	Site    Site
+	// Unqualified is a bare name that the error did not find, when the message goes on to name the other modules that
+	// declare it. Only every module's table says which, and a module is checked as soon as the modules it names are, so
+	// the hint is written when the error is located, once every module is parsed.
+	Unqualified string
 }
 
 func (e *CompileError) Error() string {

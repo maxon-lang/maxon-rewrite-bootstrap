@@ -3,6 +3,7 @@ package ast
 import (
 	"minimaxon/internal/diag"
 	"sort"
+	"strings"
 )
 
 // ModuleID is a handle to a module: its index in Project.Modules, which lists the root first and then each module's
@@ -119,13 +120,34 @@ func (p *Project) Line(pos Pos) int {
 	return line
 }
 
-// Locate gives each error that was raised at a node its file, line and column.
+// Locate gives each error that was raised at a node its file, line and column, and an error about a bare name that was
+// not found the ways to name the declarations of that name in other modules. It is called once every module is parsed.
 func (p *Project) Locate(errs []*diag.CompileError) {
 	for _, e := range errs {
 		if !e.Located() {
+			e.Message += p.qualifyHint(e)
+			e.Unqualified = ""
 			e.Locate(p.Where(Pos{Mod: ModuleID(e.Site.Module), Off: e.Site.Offset}))
 		}
 	}
+}
+
+// qualifyHint is how to name the declarations of the bare name an error did not find that other modules declare, or ""
+// if none does: another module's declarations are always qualified.
+func (p *Project) qualifyHint(e *diag.CompileError) string {
+	if e.Unqualified == "" {
+		return ""
+	}
+	var spellings []string
+	for _, m := range p.Modules {
+		if _, declared := m.Names[e.Unqualified]; declared && m.ID != ModuleID(e.Site.Module) {
+			spellings = append(spellings, "'"+m.Qualifier()+"."+e.Unqualified+"'")
+		}
+	}
+	if len(spellings) == 0 {
+		return ""
+	}
+	return ": a declaration of another module is named with its module, as " + strings.Join(spellings, " or ")
 }
 
 func NewProject(root *Module) *Project {

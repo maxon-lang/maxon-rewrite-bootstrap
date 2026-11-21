@@ -591,11 +591,16 @@ func (memberDeclarations) VisitConstDecl(*ast.ConstDecl, string) bool { return f
 func (memberDeclarations) VisitAliasDecl(*ast.AliasDecl, string) bool { return false }
 
 func (r *Resolver) isModuleRoot(name string) bool {
-	if name == ast.RootQualifier || name == ast.StdlibQualifier {
-		return true
+	return name == ast.StdlibQualifier || moduleRoot(r.project, name) != nil
+}
+
+// moduleRoot is the module of the project that a qualified name starting with head begins in, or nil if head names none
+// (the standard library is not a module of the project).
+func moduleRoot(p *ast.Project, head string) *ast.Module {
+	if head == ast.RootQualifier {
+		return p.Root
 	}
-	_, ok := r.project.Root.Children[name]
-	return ok
+	return p.Root.Children[head]
 }
 
 type segment struct {
@@ -648,14 +653,9 @@ func (r *Resolver) member(m ast.MemberExpr) {
 }
 
 func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites []ast.Pos) (ast.Decl, int) {
-	var mod *ast.Module
-	switch head {
-	case ast.RootQualifier:
-		mod = r.project.Root
-	case ast.StdlibQualifier:
-		mod = r.project.Stdlib
-	default:
-		mod = r.project.Root.Children[head]
+	mod := r.project.Stdlib
+	if head != ast.StdlibQualifier {
+		mod = moduleRoot(r.project, head)
 	}
 	i := 0
 	for i < len(rest) {

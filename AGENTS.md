@@ -19,16 +19,17 @@ language subset, the pipeline, the packages and the IR; read it before changing 
 - **Reuse maxon's code and tests.** Pull code from the maxon repository with `cmd/convert` wherever it fits rather than
   writing it again, and regenerate converted files instead of hand-editing them. Where maxon's code is not converted,
   read it first and follow its behaviour, edge cases and names.
-- **Assume the source being compiled is correct.** Phases keep running in parallel without waiting on each other.
-  A check that needs another module's results is deferred to the latest point where the answer is actually needed,
-  and done there quickly: a call to a function the module does not declare is assumed to exist elsewhere until the
-  call is resolved, and only then is a missing or mismatched function an error. Correct programs pay nothing.
-- **Keep the compiler Maxon-shaped.** The port to Maxon carries over the architecture, not the Go: phases as barriers,
-  interfaces over closed sets of types (they become Maxon unions), explicit passes, and data a Maxon program can own.
-  A reference that is not an owner's hold on its part (a declaration, a caller, an instance, an IR block) is a handle
-  or an index, never a shared pointer; code that still shares pointers is converted when it is next changed. No
-  reflection, no dependency outside the standard library, and no runtime-specific trick that the design depends on.
-  Otherwise write idiomatic Go.
+- **Assume the source being compiled is correct.** Modules' stages keep running in parallel, each waiting only for
+  what it reads. A check that needs another module's results is deferred to the latest point where the answer is
+  actually needed, and done there quickly: a call to a function the module does not declare is assumed to exist
+  elsewhere until the call is resolved, and only then is a missing or mismatched function an error. Correct programs
+  pay nothing.
+- **Keep the compiler Maxon-shaped.** The port to Maxon carries over the architecture, not the Go: per-module stages
+  scheduled by what they read, interfaces over closed sets of types (they become Maxon unions), explicit passes, and
+  data a Maxon program can own. A reference that is not an owner's hold on its part (a declaration, a caller, an
+  instance, an IR block) is a handle or an index, never a shared pointer; code that still shares pointers is converted
+  when it is next changed. No reflection, no dependency outside the standard library, and no runtime-specific trick
+  that the design depends on. Otherwise write idiomatic Go.
 - **Generated code is allowed when its input is the source of truth** (for example the parser's dispatch generated
   from the grammar). The generator is plain Go in this repository, its output is checked in and deterministic, and a
   test regenerates it and fails if the checked-in file differs.
@@ -71,8 +72,10 @@ go test ./...
 - **Packages are layers** (`README.md`, "Packages"). Imports only point down the list; a change that needs an import
   cycle is a design problem, not a reason to merge packages. Put new code in the package whose phase it belongs to,
   and export only what another package uses.
-- **Phases are barriers.** Within a phase, work items (modules) run in parallel and may only read results that an
-  earlier phase produced. Never write another module's declarations or types after the declare phase.
+- **A module's stage waits only on the modules it names.** Each stage of a module (parse, resolve, aliases, declare,
+  constants, check, generate) is a task that waits for the module's stage before it and for the stages of the modules
+  it names whose results it reads (README, "The modules phase"); there is no barrier across all modules. A stage reads
+  only results of stages it waited on, and never writes another module's declarations or types.
 - **Data the driver owns stays out of the model.** `ast.Module` holds what describes a module; per-phase products
   such as IR and code units belong to the driver.
 

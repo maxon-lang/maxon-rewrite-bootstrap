@@ -5,49 +5,47 @@ import (
 	"minimaxon/internal/diag"
 )
 
-// DeclareAliases gives each typealias of an instance its type, after the typealiases it names. It is serial and cheap:
-// there are few such typealiases, and one may name another's in any module. Modules and declarations go in source
-// order, so the instances are interned in the same order whatever --jobs is. Errors and the type arguments' pending
-// bounds go to the result of the module whose typealias they come from.
-func DeclareAliases(proj *ast.Project, results []ast.ModuleResult) {
+// DeclareAliases gives each typealias of an instance that the module declares its type, after the typealiases it names.
+// A typealias of another module that it names is done already: the module graph has no cycle, and the module's aliases
+// stage waits for those of the modules it names. The module's own go in source order, each after the ones it names, and a
+// typealias that names itself through others is refused. Errors and the type arguments' pending bounds go to the module's
+// result.
+func DeclareAliases(proj *ast.Project, m *ast.Module, res *ast.ModuleResult) {
 	const visiting, done = 1, 2
-	state := map[*ast.AliasDecl]byte{}
-	checkers := map[*ast.Module]*Checker{}
-	checkerOf := func(m *ast.Module) *Checker {
-		if checkers[m] == nil {
-			checkers[m] = NewChecker(proj, m, &results[m.ID].Resolution, &results[m.ID].Typing, &results[m.ID].Errors)
-		}
-		return checkers[m]
-	}
+	// state is by the typealias's place among the module's declarations.
+	state := make([]byte, len(m.Decls))
+	var checker *Checker
 	var visit func(a *ast.AliasDecl)
 	visit = func(a *ast.AliasDecl) {
-		switch state[a] {
+		if a.Module != m {
+			return
+		}
+		switch state[a.Ordinal] {
 		case done:
 			return
 		case visiting:
 			panic(a.Error(diag.ErrDependsOnItself, "typealias '"+a.Name+"' names itself, through the typealiases it names: an instance cannot be its own type argument"))
 		}
-		state[a] = visiting
-		defer func() { state[a] = done }()
-		for _, dep := range namedAliases(proj, &results[a.Module.ID].Resolution, a.Instance, nil) {
+		state[a.Ordinal] = visiting
+		defer func() { state[a.Ordinal] = done }()
+		for _, dep := range namedAliases(proj, &res.Resolution, a.Instance, nil) {
 			visit(dep)
 			if dep.Ty == nil {
 				return
 			}
 		}
-		checkerOf(a.Module).DeclareAlias(a)
+		if checker == nil {
+			checker = NewChecker(proj, m, &res.Resolution, &res.Typing, &res.Errors)
+		}
+		checker.DeclareAlias(a)
 	}
-	for _, m := range proj.Modules {
-		for _, d := range m.Decls {
-			if a, ok := d.(*ast.AliasDecl); ok && !a.Instance.IsNil() {
-				diag.Guard(&results[m.ID].Errors, func() { visit(a) })
-			}
+	for _, d := range m.Decls {
+		if a, ok := d.(*ast.AliasDecl); ok && !a.Instance.IsNil() {
+			diag.Guard(&res.Errors, func() { visit(a) })
 		}
 	}
-	for _, m := range proj.Modules {
-		if c := checkers[m]; c != nil {
-			results[m.ID].Bounds = append(results[m.ID].Bounds, c.Bounds...)
-		}
+	if checker != nil {
+		res.Bounds = append(res.Bounds, checker.Bounds...)
 	}
 }
 

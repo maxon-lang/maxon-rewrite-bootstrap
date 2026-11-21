@@ -467,17 +467,17 @@ func reaches(graph *project.Graph, from ast.ModuleID) map[ast.ModuleID]bool {
 
 // A module's generate reads the bodies and the check results of the generics it reaches, so it waits for the check of
 // every module it reaches, not only of those it names: the first module of the chain lowers the instance that the last holds
-// through the one between them. The check of a module waits for nothing.
+// through the one between them. The edges between modules are the ones each module's resolve adds.
 func TestAModulesGenerateWaitsForTheChecksOfEveryModuleItReaches(t *testing.T) {
 	const modules = 8
 	graph := chainDeps(modules)
 	for _, runtime := range []bool{false, true} {
 		layout := taskLayout{modules: modules, runtime: runtime}
-		plan := modulePlan(graph, layout)
+		plan := modulePlan(layout)
 		for _, jobs := range []int{1, 2, 8} {
 			var mu sync.Mutex
 			checked := map[ast.ModuleID]bool{}
-			par.Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+			par.Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int, edges par.Edges) {
 				m, kind, ofModule := layout.module(task)
 				if !ofModule {
 					return
@@ -485,6 +485,8 @@ func TestAModulesGenerateWaitsForTheChecksOfEveryModuleItReaches(t *testing.T) {
 				mu.Lock()
 				defer mu.Unlock()
 				switch kind {
+				case taskResolve:
+					layout.dependOn(edges, m, graph.Deps[m])
 				case taskCheck:
 					checked[m] = true
 				case taskGenerate:
@@ -505,21 +507,24 @@ func TestAModulesGenerateWaitsForTheChecksOfEveryModuleItReaches(t *testing.T) {
 	}
 }
 
-// The tasks of one module are a group, so a worker that has checked a module goes on to generate it, and the check of
-// every module comes before the generate of any that waits for one.
-func TestAWorkerGeneratesTheModuleItHasJustChecked(t *testing.T) {
-	// Modules 0 and 1 depend on nothing, so each is generated as soon as it is checked.
-	graph := project.NewGraph(make([]ast.ModuleResult, 2))
+// The tasks of one module are a group, so a worker that has parsed a module takes it through every stage to its generate
+// before it starts the next, while its data is in cache.
+func TestAWorkerTakesAModuleFromItsParseToItsGenerate(t *testing.T) {
+	// Modules 0 and 1 depend on nothing.
 	layout := taskLayout{modules: 2}
 	var ran []string
-	par.Run(modulePlan(graph, layout), 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+	par.Run(modulePlan(layout), 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ par.Edges) {
 		m, kind, _ := layout.module(task)
-		if kind != taskClosure {
-			ran = append(ran, fmt.Sprintf("%d:%d", m, kind))
-		}
+		ran = append(ran, fmt.Sprintf("%d:%s", m, taskNames[kind]))
 	})
-	if got, want := strings.Join(ran, " "), "0:0 0:2 1:0 1:2"; got != want {
-		t.Errorf("the tasks ran in the order %s, want %s", got, want)
+	var want []string
+	for m := range 2 {
+		for kind := range taskKind(tasksWithoutCache) {
+			want = append(want, fmt.Sprintf("%d:%s", m, taskNames[kind]))
+		}
+	}
+	if got := strings.Join(ran, " "); got != strings.Join(want, " ") {
+		t.Errorf("the tasks ran in the order %s, want %s", got, strings.Join(want, " "))
 	}
 }
 

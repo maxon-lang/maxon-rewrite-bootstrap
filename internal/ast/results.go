@@ -2,9 +2,9 @@ package ast
 
 import "minimaxon/internal/diag"
 
-// ModuleResult is what the phases produce for one module, as opposed to what describes it (Module). The driver owns one
-// per module, indexed by ModuleID: each phase fills in the result of the module it works on and only reads the results
-// of other modules that an earlier phase finished. It lives here because the resolver, the checker and the instance
+// ModuleResult is what the stages produce for one module, as opposed to what describes it (Module). The driver owns one
+// per module, indexed by ModuleID: each stage fills in the result of the module it works on and only reads the results
+// of other modules that a stage it waited for finished. It lives here because the resolver, the checker and the instance
 // collector all use it and this is the lowest package they share.
 type ModuleResult struct {
 	Errors []*diag.CompileError

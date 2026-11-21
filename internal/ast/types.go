@@ -371,7 +371,7 @@ func Shell(d TypeDeclNode) Ty {
 type shell struct{}
 
 // VisitAliasDecl is the integer type a typealias of a range names. A typealias of an instance has no shell: its type
-// is the instance, which the aliases phase finds once the types it names are known.
+// is the instance, which the module's aliases stage finds once the types it names are known.
 func (shell) VisitAliasDecl(t *AliasDecl) Ty {
 	if !t.Instance.IsNil() {
 		return nil

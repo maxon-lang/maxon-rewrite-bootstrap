@@ -93,7 +93,7 @@ func (t *symbolTexts) add(s string) {
 }
 
 // DecodeUnit reads a unit that Encode wrote. The types of the routines it asks for are found in the project's
-// declarations, which are all made by the front. A failure is in the decoder's Err and the unit is nil.
+// declarations, which the front of the modules the unit's module reaches has made. A failure is in the decoder's Err and the unit is nil.
 func DecodeUnit(d *cache.Decoder, p *ast.Project) *CodeUnit {
 	u := &CodeUnit{Asm: &Asm{}}
 	a := u.Asm

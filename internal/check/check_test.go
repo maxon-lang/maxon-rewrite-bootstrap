@@ -29,7 +29,7 @@ func checkSource(t *testing.T, src string) []*diag.CompileError {
 	defer func() { proj.Locate(res.Errors) }()
 	project.BuildTables(proj, results, 1)
 	resolve.NewResolver(proj, root, res).Run()
-	DeclareAliases(proj, results)
+	DeclareAliases(proj, root, res)
 	if len(res.Errors) > 0 {
 		return res.Errors
 	}

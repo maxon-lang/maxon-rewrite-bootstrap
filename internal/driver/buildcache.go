@@ -88,53 +88,88 @@ func sourceDigest(m *ast.Module) cache.Key {
 	return h.Sum()
 }
 
-// moduleKeys are the keys of the modules' entries, by module. A module's key holds the compiler, the flags that change
-// what a module compiles to, the module's name and source, and the export summaries of the modules it depends on, which
-// say what the module can read of them and of what they reach. So it changes with the source of the module and with
-// anything the modules it reaches show, but not with an edit that none of them shows, such as the body of a function that
-// is not generic. It changes too with the set of modules it depends on: a bare name that now resolves to a declaration in
-// another module is a dependency the module did not have.
-func moduleKeys(store *cache.Cache, o Options, proj *ast.Project, graph *project.Graph, digests []cache.Key, summaries []moduleSummary) []cache.Key {
-	keys := make([]cache.Key, len(proj.Modules))
-	for id, m := range proj.Modules {
-		h := cache.NewHasher()
-		h.String(keyDomain)
-		h.Key(store.Compiler())
-		h.Bool(o.CountAllocations)
-		h.String(m.LinkPath())
-		h.Key(digests[id])
-		deps := graph.Deps[id]
-		h.Int(len(deps))
-		for _, d := range deps {
-			h.Key(summaries[d.Module].digest)
-		}
-		keys[id] = h.Sum()
+// moduleKey is the key of a module's entry. It holds the compiler, the flags that change what a module compiles to, the
+// module's name and source, and the export summaries of the modules it depends on (deps, in module order), which say what
+// the module can read of them and of what they reach. So it changes with the source of the module and with anything the
+// modules it reaches show, but not with an edit that none of them shows, such as the body of a function that is not
+// generic. It changes too with the set of modules it depends on: a name that now resolves to a declaration in another
+// module is a dependency the module did not have.
+func moduleKey(store *cache.Cache, o Options, m *ast.Module, deps []cache.Key) cache.Key {
+	h := cache.NewHasher()
+	h.String(keyDomain)
+	h.Key(store.Compiler())
+	h.Bool(o.CountAllocations)
+	h.String(m.LinkPath())
+	h.Key(sourceDigest(m))
+	h.Int(len(deps))
+	for _, d := range deps {
+		h.Key(d)
 	}
-	return keys
+	return h.Sum()
 }
 
-// consultCache finds the keys, reads every module's entry and decides what the compile can skip. A module is a hit if its
-// entry is whole and holds what this compile needs. A hit's generate does not run. Its check runs only if some module
-// that is not a hit reaches it and reads its check results, which is what a module that declares a generic, an exported
-// constant or a field's default lets another do. Nothing that can report an error is skipped for a module that has one:
-// only a module that compiled cleanly has an entry, and its key says that nothing it reads has changed.
-func (p *modulePhase) consultCache() {
-	n := len(p.proj.Modules)
-	jobs := p.options.Jobs
-	digests := make([]cache.Key, n)
-	par.ForEachIndex(n, jobs, func(i int) { digests[i] = sourceDigest(p.proj.Modules[i]) })
-	p.summaries = summarize(p.proj, p.graph, jobs)
-	p.keys = moduleKeys(p.options.Cache, p.options, p.proj, p.graph, digests, p.summaries)
-	p.cached = make([]*cachedModule, n)
-	par.ForEachIndex(n, jobs, func(i int) {
-		c := p.probe(ast.ModuleID(i))
-		p.cached[i] = c
-		if c != nil {
-			p.units[i+1] = c.unit
-			p.outputs[i] = moduleOutput{usesArrays: c.usesArrays, usesBytes: c.usesBytes, usesOs: c.usesOs, irText: c.irText}
+// probeTask makes the module's summary and key and reads its entry, once the module's front is done and the summaries of
+// the modules it depends on are made, which is all the key holds. A hit's generate does not run, and its check runs only
+// if some module that is not a hit reaches it and reads its check results, which is what a module that declares a
+// generic, an exported constant or a field's default lets another do: such a hit's check waits for the demand that says
+// whether one does. Nothing that can report an error is skipped for a module that has one: only a module that compiled
+// cleanly has an entry, and its key says that nothing it reads has changed.
+func (p *modulePhase) probeTask(id ast.ModuleID, edges par.Edges) {
+	if p.failed.before(stageBodies) {
+		return
+	}
+	m, deps := p.proj.Modules[id], p.results[id].Deps
+	shown := make([]cache.Key, len(deps))
+	for i, d := range deps {
+		shown[i] = p.summaries[d.Module].digest
+	}
+	own := ownSummary(m)
+	p.summaries[id] = moduleSummary{digest: foldSummary(own.digest, shown), readThrough: own.readThrough}
+	p.keys[id] = moduleKey(p.options.Cache, p.options, m, shown)
+	c := p.probe(id)
+	p.cached[id] = c
+	if c == nil {
+		return
+	}
+	p.units[id+1] = c.unit
+	p.outputs[id] = moduleOutput{usesArrays: c.usesArrays, usesBytes: c.usesBytes, usesOs: c.usesOs, irText: c.irText}
+	if own.readThrough {
+		edges.Add(p.layout.task(id, taskCheck), p.layout.task(id, taskDemand))
+	}
+}
+
+// findDependents makes the module graph once every module is resolved, so that each module's demand knows the modules
+// that depend on it and waits for what they found. Which modules depend on a module is only known once every module that
+// could name it is resolved, so this is the one join of every module in the phase, and only the check of a hit that
+// shows its check results waits for it.
+func (p *modulePhase) findDependents(edges par.Edges) {
+	p.graph = project.NewGraph(p.results)
+	for i, dependents := range p.graph.Dependents {
+		if len(dependents) == 0 {
+			continue
 		}
-	})
-	p.needCheck = p.checksNeeded()
+		needs := make([]int, 0, 2*len(dependents))
+		for _, d := range dependents {
+			needs = append(needs, p.layout.task(d, taskProbe), p.layout.task(d, taskDemand))
+		}
+		edges.Add(p.layout.task(ast.ModuleID(i), taskDemand), needs...)
+	}
+}
+
+// demand is whether a miss reaches the module: a module that depends on it is a miss, or a miss reaches that one. A miss
+// reads the check results of a module in its whole closure, not only of the modules it names, because it can instantiate
+// a generic that a signature of a module it names leads to, and a hit that shows none is not checked however many misses
+// reach it.
+func (p *modulePhase) demand(id ast.ModuleID) {
+	if p.failed.before(stageBodies) {
+		return
+	}
+	for _, d := range p.graph.Dependents[id] {
+		if p.cached[d] == nil || p.missReaches[d] {
+			p.missReaches[id] = true
+			return
+		}
+	}
 }
 
 // probe is the module's entry, or nil if there is none that this compile can use.
@@ -150,41 +185,18 @@ func (p *modulePhase) probe(id ast.ModuleID) *cachedModule {
 	return c
 }
 
-// checksNeeded is, for each module, whether its check has to run: a miss is checked, and so is a hit that a miss reaches and
-// that shows its check results to the modules that reach it (its summary says so). A miss reads the check results of a
-// module in its whole closure, not only of the modules it names, because it can instantiate a generic that a signature of
-// a module it names leads to, and a hit that shows none is not checked however many misses reach it.
-func (p *modulePhase) checksNeeded() []bool {
-	reached := make([]bool, len(p.cached))
-	var pending []ast.ModuleID
-	for i, c := range p.cached {
-		if c == nil {
-			reached[i] = true
-			pending = append(pending, ast.ModuleID(i))
-		}
-	}
-	for len(pending) > 0 {
-		m := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
-		for _, d := range p.graph.Deps[m] {
-			if !reached[d.Module] {
-				reached[d.Module] = true
-				pending = append(pending, d.Module)
-			}
-		}
-	}
-	need := make([]bool, len(reached))
-	for i := range need {
-		need[i] = p.cached[i] == nil || (reached[i] && p.summaries[i].readThrough)
-	}
-	return need
-}
-
 // hit is whether the module's code came from the cache.
 func (p *modulePhase) hit(id ast.ModuleID) bool { return p.cached != nil && p.cached[id] != nil }
 
-// skipsCheck is whether the module's check does not run.
-func (p *modulePhase) skipsCheck(id ast.ModuleID) bool { return p.needCheck != nil && !p.needCheck[id] }
+// needsCheck is whether the module's check has to run: always without a cache, and with one for a miss and for a hit that
+// a miss reaches and that shows its check results to the modules that reach it (its summary says so).
+func (p *modulePhase) needsCheck(id ast.ModuleID) bool {
+	if p.needCheck == nil {
+		return true
+	}
+	p.needCheck[id] = p.cached[id] == nil || (p.summaries[id].readThrough && p.missReaches[id])
+	return p.needCheck[id]
+}
 
 // remember stores the module's code and what the tail reads of its output. It is called only for a module with no
 // refusal and no error, so every entry is one that a later compile may use.

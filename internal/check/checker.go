@@ -259,7 +259,7 @@ func (c *Checker) resolveNamed(tr ast.TypeRef, self ast.Ty) ast.Ty {
 			return c.withTypeArgs(tr, t, self)
 		}
 	}
-	panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())+c.qualifyHint(tr.Qualifier().Len(), tr.Name())))
+	panic(unqualified(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())), tr.Qualifier().Len(), tr.Name()))
 }
 
 func (c *Checker) requireNoTypeArgs(tr ast.TypeRef, name string) {
@@ -373,7 +373,7 @@ func (c *Checker) boundsOf(p *ast.TypeParamTy) []*ast.InterfaceTy {
 func (c *Checker) resolveBound(tr ast.TypeRef) *ast.InterfaceTy {
 	target := c.target(tr.ID)
 	if target == nil && c.resolution.TypeParam(tr.ID) == nil {
-		panic(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())+c.qualifyHint(tr.Qualifier().Len(), tr.Name())))
+		panic(unqualified(tr.Error(diag.ErrUnknownType, fmt.Sprintf("unknown type '%s'", tr.Name())), tr.Qualifier().Len(), tr.Name()))
 	}
 	d, ok := target.(*ast.InterfaceDecl)
 	if !ok {
@@ -1078,7 +1078,7 @@ func (c *Checker) VisitNameExpr(n ast.NameExpr) ast.Ty {
 	if n.Name() == "Self" {
 		panic(n.Error(diag.ErrExpressionError, "'Self' is a type, not a value"))
 	}
-	panic(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())+c.qualifyHint(0, n.Name())))
+	panic(unqualified(n.Error(diag.ErrExpressionError, fmt.Sprintf("undefined variable '%s'", n.Name())), 0, n.Name()))
 }
 
 func (c *Checker) VisitSelfExpr(s ast.SelfExpr) ast.Ty {
@@ -1561,23 +1561,14 @@ func (c *Checker) callGeneric(call ast.CallExpr, target *ast.FuncDecl, given []a
 	return ast.Binding{Params: target.Generics, Args: args}.Apply(c.returnType(target))
 }
 
-// qualifyHint is how to name a declaration that a name written with qualifiers parts before it did not find, when the
-// name is bare and other modules declare it: another module's declarations are always qualified. It reads every
-// module's table, which only a program with this error pays for.
-func (c *Checker) qualifyHint(qualifiers int, name string) string {
-	if qualifiers > 0 {
-		return ""
+// unqualified is an error about a name, written with qualifiers parts before it, that was not found. A bare one may name
+// a declaration of another module, which is always qualified, so locating the error adds how to name the ones there are
+// (ast.Project.Locate): it reads every module's table, which only a program with this error pays for.
+func unqualified(err *diag.CompileError, qualifiers int, name string) *diag.CompileError {
+	if qualifiers == 0 {
+		err.Unqualified = name
 	}
-	var spellings []string
-	for _, m := range c.project.Modules {
-		if _, declared := m.Names[name]; declared && m != c.module {
-			spellings = append(spellings, "'"+m.Qualifier()+"."+name+"'")
-		}
-	}
-	if len(spellings) == 0 {
-		return ""
-	}
-	return ": a declaration of another module is named with its module, as " + strings.Join(spellings, " or ")
+	return err
 }
 
 // declares is whether a call of the function is checked now: its signature is known, because this module declares it
@@ -1694,7 +1685,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 		if ast.IsCownConstructor(callee) {
 			return c.cownCall(call)
 		}
-		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())+c.qualifyHint(0, n.Name())))
+		panic(unqualified(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("unknown function '%s'", n.Name())), 0, n.Name()))
 	}
 
 	if m, ok := call.Callee().AsMemberExpr(); ok {

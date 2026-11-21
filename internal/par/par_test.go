@@ -126,7 +126,7 @@ func TestATaskStartsOnlyAfterTheTasksItNeedsFinish(t *testing.T) {
 		plan := randomPlan(200, seed)
 		for _, jobs := range []int{1, 2, 7, 32} {
 			o := newOrder(t, plan)
-			Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+			Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ Edges) {
 				o.start(task)
 				runtime.Gosched()
 				o.finish(task)
@@ -144,7 +144,7 @@ func TestAWorkerContinuesWithTheModuleItWasOn(t *testing.T) {
 	// 0: a-check, 1: b-check, 2: a-generate, 3: b-generate
 	plan := &Plan{Needs: [][]int{nil, nil, {0}, {1}}, Group: []int{0, 1, 0, 1}}
 	var ran []int
-	Run(plan, 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int) { ran = append(ran, task) })
+	Run(plan, 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ Edges) { ran = append(ran, task) })
 	if want := []int{0, 2, 1, 3}; !slices.Equal(ran, want) {
 		t.Errorf("tasks ran in the order %v, want %v", ran, want)
 	}
@@ -155,7 +155,7 @@ func TestAWorkerTakesTheLowestReadyTaskOtherwise(t *testing.T) {
 	// 0 makes 3 and 4 ready, in other groups than its own, and 1 and 2 are ready from the start.
 	plan := &Plan{Needs: [][]int{nil, nil, nil, {0}, {0}}, Group: []int{0, 1, 2, 3, 4}}
 	var ran []int
-	Run(plan, 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int) { ran = append(ran, task) })
+	Run(plan, 1, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ Edges) { ran = append(ran, task) })
 	if want := []int{0, 1, 2, 3, 4}; !slices.Equal(ran, want) {
 		t.Errorf("tasks ran in the order %v, want %v", ran, want)
 	}
@@ -167,7 +167,7 @@ func TestResultsDoNotDependOnTheNumberOfJobs(t *testing.T) {
 	plan := randomPlan(500, 7)
 	compute := func(jobs int) []uint64 {
 		results := make([]uint64, len(plan.Needs))
-		Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+		Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ Edges) {
 			sum := uint64(task) + 1
 			for _, need := range plan.Needs[task] {
 				sum = sum*31 + results[need]
@@ -200,7 +200,7 @@ func TestAPanickingTaskIsRaisedByIndexAndReleasesNoDependents(t *testing.T) {
 					t.Errorf("jobs %d: raised %v, want the panic of task 0", jobs, r)
 				}
 			}()
-			Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int) {
+			Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int, _ Edges) {
 				ran.Store(task, true)
 				switch task {
 				case 1:
@@ -221,6 +221,37 @@ func TestAPanickingTaskIsRaisedByIndexAndReleasesNoDependents(t *testing.T) {
 		}
 		if _, ok := ran.Load(4); !ok {
 			t.Errorf("jobs %d: the independent task did not run", jobs)
+		}
+	}
+}
+
+// A need that a running task adds holds the task it is added to back as a need of the plan does, and a need on a task
+// that has finished already is no wait.
+func TestANeedAddedWhileRunningIsWaitedFor(t *testing.T) {
+	// 0 makes 2, which needs it, wait for 1 and 3 as well; 3 is the slowest, and 1 has finished before 0 adds it.
+	plan := &Plan{Needs: [][]int{{1}, nil, {0}, nil}, Group: []int{0, 1, 2, 3}}
+	for _, jobs := range []int{1, 2, 4} {
+		var mu sync.Mutex
+		finished := map[int]bool{}
+		Run(plan, jobs, func() struct{} { return struct{}{} }, func(_ struct{}, task int, edges Edges) {
+			switch task {
+			case 0:
+				edges.Add(2, 1, 3)
+			case 2:
+				mu.Lock()
+				if !finished[3] {
+					t.Errorf("jobs %d: task 2 ran before task 3, which was added as its need", jobs)
+				}
+				mu.Unlock()
+			case 3:
+				runtime.Gosched()
+			}
+			mu.Lock()
+			finished[task] = true
+			mu.Unlock()
+		})
+		if len(finished) != 4 {
+			t.Errorf("jobs %d: %d tasks ran, want 4", jobs, len(finished))
 		}
 	}
 }

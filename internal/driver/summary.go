@@ -4,8 +4,6 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/cache"
 	"minimaxon/internal/diag"
-	"minimaxon/internal/par"
-	"minimaxon/internal/project"
 )
 
 // A module's export summary is a digest of everything that another module's output can depend on, and nothing else. The
@@ -73,24 +71,6 @@ const (
 type moduleSummary struct {
 	digest      cache.Key
 	readThrough bool
-}
-
-// summarize makes the summary of every module: the own part of each in parallel, then the dependencies folded in, in the
-// order of the module graph so that each module's dependencies are done first.
-func summarize(proj *ast.Project, graph *project.Graph, jobs int) []moduleSummary {
-	n := len(proj.Modules)
-	own := make([]moduleSummary, n)
-	par.ForEachIndex(n, jobs, func(i int) { own[i] = ownSummary(proj.Modules[i]) })
-	folded := make([]moduleSummary, n)
-	for _, id := range graph.Order() {
-		deps := graph.Deps[id]
-		digests := make([]cache.Key, len(deps))
-		for i, d := range deps {
-			digests[i] = folded[d.Module].digest
-		}
-		folded[id] = moduleSummary{digest: foldSummary(own[id].digest, digests), readThrough: own[id].readThrough}
-	}
-	return folded
 }
 
 // foldSummary is the summary of a module that shows own and depends on modules with the summaries deps, in module order.
