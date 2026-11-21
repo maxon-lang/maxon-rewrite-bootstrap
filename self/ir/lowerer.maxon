@@ -60,26 +60,20 @@ end 'OwnerSlot'
 
 export typealias OwnerSlotList = Array with OwnerSlot
 
-// PendingDrop is a value to drop when its scope ends: what a slot holds, or a register, or the box of an interface value
-// that lends its value, which is freed alone.
+// PendingDrop is a value to drop when its scope ends: what a slot holds, or a register.
 export type PendingDrop
 	export var inSlot as bool
 	export var slot as Count
 	export var reg as Reg
 	export var ty as ast.TypeID
-	export var lent as bool
 
 	export static function ofSlot(slot Count, ty ast.TypeID) returns PendingDrop
-		return PendingDrop{inSlot: true, slot: slot, reg: noReg, ty: ty, lent: false}
+		return PendingDrop{inSlot: true, slot: slot, reg: noReg, ty: ty}
 	end 'ofSlot'
 
 	export static function ofReg(reg Reg, ty ast.TypeID) returns PendingDrop
-		return PendingDrop{inSlot: false, slot: 0 as Count, reg: reg, ty: ty, lent: false}
+		return PendingDrop{inSlot: false, slot: 0 as Count, reg: reg, ty: ty}
 	end 'ofReg'
-
-	export static function ofLent(reg Reg) returns PendingDrop
-		return PendingDrop{inSlot: false, slot: 0 as Count, reg: reg, ty: ast.noType, lent: true}
-	end 'ofLent'
 end 'PendingDrop'
 
 export typealias PendingList = Array with PendingDrop

@@ -18,7 +18,7 @@ end 'convsOf'
 // addFunction indexes a function and the bodies of the behaviours and closures it holds.
 function addFunction(mutates prog Program, mutates paths CountLists, p ast.Project, f ir.IrFunction, path CountList, consumes convs CountList)
 	let fi = prog.symbols.count()
-	prog.add(ir.irSymbol(p, f: f), slots: f.slots.count(), regs: f.regs.count(), convs: convs)
+	prog.add(ir.irSymbol(p, f: f), slots: f.slots.count(), regs: f.regs.count(), frameBoxes: f.frameBoxes, convs: convs)
 	prog.fnTakesClosure[fi] = p.funcs.entries[f.decl as Count].isClosure
 	prog.fnCaptureOwned[fi] = f.captureOwned.clone()
 	paths.push(path.clone())

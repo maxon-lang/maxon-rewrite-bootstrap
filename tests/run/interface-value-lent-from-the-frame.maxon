@@ -1,0 +1,88 @@
+//> 27 6 30
+//> kept 9 4
+// A value lent to a `let` parameter of an interface type is boxed in the caller's frame, so the calls free nothing: the
+// interpreter frees only the values the program makes, and the clone that a call keeps, which is a box of its own.
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape extends Copyable
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	var side as Integer
+
+	static function create(side Integer) returns Self
+		return Self{side: side}
+	end 'create'
+
+	function area() returns Integer
+		return try side * side otherwise panic("overflow")
+	end 'area'
+end 'Square'
+
+enum Dot implements Shape
+	small
+	big
+
+	function area() returns Integer
+		return 1 if self == Dot.small else 2
+	end 'area'
+end 'Dot'
+
+typealias Shapes = Array with Shape
+
+function measure(item Shape) returns Integer
+	return item.area()
+end 'measure'
+
+// passOn hands its borrowed interface value on to another borrow, which takes the same box.
+function passOn(item Shape) returns Integer
+	return measure(item)
+end 'passOn'
+
+// keep stores a copy of what it borrows, which is a box on the heap of its own.
+function keep(item Shape, mutates into Shapes)
+	into.push(item.clone())
+end 'keep'
+
+function main() returns ExitCode
+	let sq = Square.create(3)
+	var total = 0 as Integer
+	var dots = 0 as Integer
+	for _ in 0 upto 3 'calls'
+		total = try total + measure(sq) otherwise panic("overflow")
+		dots = try dots + passOn(Dot.big) otherwise panic("overflow")
+	end 'calls'
+	let more = try measure(sq) + passOn(sq) + measure(Square.create(2)) + 8 otherwise panic("overflow")
+	print("{total} {dots} {more}\n")
+	var kept = Shapes.create(0)
+	keep(sq, into: kept)
+	keep(Dot.small, into: kept)
+	keep(Square.create(2), into: kept)
+	print("kept {kept[0].area()} {kept[2].area()}\n")
+	return 0
+end 'main'
+
+// expect-free: record
+// expect-free: string "27"
+// expect-free: string "27 "
+// expect-free: string "6"
+// expect-free: string "27 6"
+// expect-free: string "27 6 "
+// expect-free: string "30"
+// expect-free: string "27 6 30"
+// expect-free: string "27 6 30\n"
+// expect-free: record
+// expect-free: string "9"
+// expect-free: string "kept 9"
+// expect-free: string "kept 9 "
+// expect-free: string "4"
+// expect-free: string "kept 9 4"
+// expect-free: string "kept 9 4\n"
+// expect-free: array
+// expect-free: record
+// expect-free: record
+// expect-free: record
+// expect-free: record
+// expect-free: record
+// expect-free: record

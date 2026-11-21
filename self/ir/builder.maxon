@@ -246,11 +246,16 @@ export type Builder
 		return indexOf(n)
 	end 'table'
 
-	// box makes an interface value of the table t and the value in src, which the box owns, or only lends when borrow is
-	// set.
-	export function box(mutates self, dst Reg, consumes t WitnessTable, src Reg, borrow bool) returns Instr
-		return newBox(dst, table: self.table(t), value: src, borrow: borrow)
+	// box makes an interface value of the table t and the value in src, which the box owns.
+	export function box(mutates self, dst Reg, consumes t WitnessTable, src Reg) returns Instr
+		return newBox(dst, table: self.table(t), value: src)
 	end 'box'
+
+	// frameBox makes an interface value of the table t and the value src in a frame box of its own.
+	export function frameBox(mutates self, dst Reg, consumes t WitnessTable, src Reg) returns Instr
+		let index = self.table(t)
+		return newFrameBox(dst, table: index, value: src, box: f.newFrameBox())
+	end 'frameBox'
 
 	// callWitness calls the method in place slot of the table of the interface value recv, with the value it holds given as
 	// conv says, and args; err is noReg for a method that does not throw.

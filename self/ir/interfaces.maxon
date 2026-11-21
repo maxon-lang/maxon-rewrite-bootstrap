@@ -75,31 +75,27 @@ function checkedTable(l Lowerer, p ast.Project, consumes t WitnessTable) returns
 end 'checkedTable'
 
 // lowerBoxed lowers the value v of e, of the type ty, put in a value of the interface iface. A value that is consumed moves
-// into a new box, which is in flight to what takes it, and a scalar is copied into one, which is a temporary where nothing
-// takes it. A managed value that is only borrowed, a place or a temporary, is lent: the box holds it without owning it
-// for as long as the statement, and is freed alone where the statement ends, its owner keeping the value.
+// into a new box on the heap, which is in flight to what takes it. One that is not is only borrowed, by a `let` parameter
+// or a receiver, so its box goes in the frame and owns nothing: a managed value, a place or a temporary, is lent, its owner
+// keeping it, and a scalar is copied in. A borrow cannot outlive the call it is lent to, and the frame outlives the call.
 function lowerBoxed(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, v Reg, ty ast.TypeID, iface ast.TypeID) returns Reg
 	let table = tableOfBox(l, p: p, e: e, src: ty, iface: iface)
 	requireNative(l, p: p, site: siteOf(l, p: p, node: e), t: table.concrete)
 	let consumed = isConsumed(p, module: l.module, node: e)
 	var value = v
-	let managed = regKind(l, v: v) == IrKind.kindManaged
-	if managed 'settle'
+	if regKind(l, v: v) == IrKind.kindManaged 'settle'
 		value = settle(l, p: p, e: e, v: v, ty: ty, consumed: consumed)
 	end 'settle'
-	let lends = managed and not consumed
 	let box = newReg(l, kind: IrKind.kindManaged)
-	let instr = l.b.box(box, t: table, src: value, borrow: lends)
-	emit(l, i: instr)
-	if lends 'lent'
-		let top = pred(l.scopes.count())
-		l.scopes[top].drops.push(PendingDrop.ofLent(box))
-	end 'lent' else if consumed 'inFlight'
+	if consumed 'inFlight'
+		let instr = l.b.box(box, t: table, src: value)
+		emit(l, i: instr)
 		let dropTy = dropType(l, p: p, t: iface)
 		l.pending.push(PendingDrop.ofReg(box, ty: dropTy))
-	end 'inFlight' else 'temporary'
-		ownTemp(l, p: p, v: box, t: iface)
-	end 'temporary'
+	end 'inFlight' else 'lent'
+		let instr = l.b.frameBox(box, t: table, src: value)
+		emit(l, i: instr)
+	end 'lent'
 	return box
 end 'lowerBoxed'
 

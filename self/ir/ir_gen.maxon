@@ -58,7 +58,7 @@ export enum Opcode
 	opFuncValue
 	opCallValue
 	opBox
-	opFreeBox
+	opFrameBox
 	opCallWitness
 	opIsType
 	opDrop
@@ -650,9 +650,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opBox 'opBox'
 		return 12
 	end 'opBox'
-	if op == Opcode.opFreeBox 'opFreeBox'
-		return 22
-	end 'opFreeBox'
+	if op == Opcode.opFrameBox 'opFrameBox'
+		return 2
+	end 'opFrameBox'
 	if op == Opcode.opCallWitness 'opCallWitness'
 		return 31
 	end 'opCallWitness'
@@ -1060,25 +1060,27 @@ export function newCallValue(dst Reg, argsStart Reg, argsCount Reg) returns Inst
 	return r
 end 'newCallValue'
 
-// Box gives a new interface value: a box of the address of the table Table and the value Value, which the box owns
-// unless Borrow is set.
-export function newBox(dst Reg, table Index, value Reg, borrow bool) returns Instr
+// Box gives a new interface value: a box on the heap of the address of the table Table and the value Value, which
+// the box owns.
+export function newBox(dst Reg, table Index, value Reg) returns Instr
 	var r = Instr.make(Opcode.opBox)
 	r.dst = dst
 	r.c = table
 	r.a = value
-	if borrow 'borrow'
-		r.flags = r.flags or flagBorrow
-	end 'borrow'
 	return r
 end 'newBox'
 
-// FreeBox frees the box of an interface value that only lends its value, which its owner keeps.
-export function newFreeBox(box Reg) returns Instr
-	var r = Instr.make(Opcode.opFreeBox)
-	r.a = box
+// FrameBox gives an interface value whose box is the function's frame box Box, two words of its frame, with the
+// address of the table Table and the value Value: a value only lent to what borrows the interface value, or a scalar,
+// which the box owns nothing of. The box lives as long as the frame, and a borrow cannot outlive the call it is lent to.
+export function newFrameBox(dst Reg, table Index, value Reg, box Count) returns Instr
+	var r = Instr.make(Opcode.opFrameBox)
+	r.dst = dst
+	r.c = table
+	r.a = value
+	r.imm = try box as Word otherwise panic("ir: frameBox box is out of range")
 	return r
-end 'newFreeBox'
+end 'newFrameBox'
 
 // CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with
 // the value the box holds, given as Recv says, and the rest of Args.
@@ -1551,13 +1553,17 @@ export function boxValue(x Instr) returns Reg
 	return x.a
 end 'boxValue'
 
-export function boxBorrow(x Instr) returns bool
-	return (x.flags and flagBorrow) != 0
-end 'boxBorrow'
+export function frameBoxTable(f IrFunction, x Instr) returns WitnessTable
+	return f.tableAt(x.c)
+end 'frameBoxTable'
 
-export function freeBoxBox(x Instr) returns Reg
+export function frameBoxValue(x Instr) returns Reg
 	return x.a
-end 'freeBoxBox'
+end 'frameBoxValue'
+
+export function frameBoxBox(x Instr) returns Count
+	return try x.imm as Count otherwise panic("ir: frameBox box is out of range")
+end 'frameBoxBox'
 
 export function callWitnessRecv(x Instr) returns ReceiverConv
 	return receiverConvOf(x.sub)
@@ -1791,9 +1797,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opBox 'opBox'
 		return table.Option.some(x.dst)
 	end 'opBox'
-	if x.op == Opcode.opFreeBox 'opFreeBox'
-		return table.Option.none
-	end 'opFreeBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		return table.Option.some(x.dst)
+	end 'opFrameBox'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		if x.dst == noReg 'none'
 			return table.Option.none
@@ -1928,9 +1934,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opBox 'opBox'
 		return table.Option.none
 	end 'opBox'
-	if x.op == Opcode.opFreeBox 'opFreeBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
 		return table.Option.none
-	end 'opFreeBox'
+	end 'opFrameBox'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		return table.Option.none
 	end 'opCallWitness'
@@ -1994,7 +2000,7 @@ export interface InstrVisitor
 	function visitFuncValue(mutates self, f IrFunction, x Instr)
 	function visitCallValue(mutates self, f IrFunction, x Instr)
 	function visitBox(mutates self, f IrFunction, x Instr)
-	function visitFreeBox(mutates self, f IrFunction, x Instr)
+	function visitFrameBox(mutates self, f IrFunction, x Instr)
 	function visitCallWitness(mutates self, f IrFunction, x Instr)
 	function visitIsType(mutates self, f IrFunction, x Instr)
 	function visitDrop(mutates self, f IrFunction, x Instr)
@@ -2143,10 +2149,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitBox(f, x: x)
 		return
 	end 'opBox'
-	if x.op == Opcode.opFreeBox 'opFreeBox'
-		visitor.visitFreeBox(f, x: x)
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		visitor.visitFrameBox(f, x: x)
 		return
-	end 'opFreeBox'
+	end 'opFrameBox'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		visitor.visitCallWitness(f, x: x)
 		return
@@ -2357,15 +2363,11 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
 	end 'opCallValue'
 	if x.op == Opcode.opBox 'opBox'
-		var text = "{resultText(x.dst)}box {boxTable(f, x: x).symbol}, %{boxValue(x)}"
-		if boxBorrow(x) 'borrow'
-			text = "{text} borrow"
-		end 'borrow'
-		return text
+		return "{resultText(x.dst)}box {boxTable(f, x: x).symbol}, %{boxValue(x)}"
 	end 'opBox'
-	if x.op == Opcode.opFreeBox 'opFreeBox'
-		return "freebox %{freeBoxBox(x)}"
-	end 'opFreeBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		return "{resultText(x.dst)}framebox {frameBoxTable(f, x: x).symbol}, %{frameBoxValue(x)} in frame box {frameBoxBox(x)}"
+	end 'opFrameBox'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		var text = "{resultText(x.dst)}callwitness.{receiverConvText(callWitnessRecv(x))} {callWitnessSlot(x)}({f.regsText(callWitnessArgsStart(x), count: callWitnessArgsCount(x))})"
 		if callWitnessHasErrReg(x) 'errReg'

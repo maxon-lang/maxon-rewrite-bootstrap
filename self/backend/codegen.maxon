@@ -11,6 +11,9 @@ let pageSize = 4096
 
 let frameAlignment = 16
 
+// ifaceBoxWords is how many words of the frame a frame box takes.
+let ifaceBoxWords = ifaceBoxBytes / wordBytes
+
 let shiftBitCount = 64
 
 let signBitShift = 63
@@ -806,18 +809,29 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.store(rax, disp: imm32Of(closureDropOffset), src: rcx)
 	end 'closureBox'
 
-	// visitBox makes an interface value: a box of the address of the table and the value.
+	// visitBox makes an interface value: a box on the heap of the address of the table and the value.
 	function visitBox(mutates self, f ir.IrFunction, x ir.Instr)
 		u.asm.movImm(rax, imm: try ifaceBoxBytes as FullRangeInt otherwise panic("backend: a box past memory"))
 		u.asm.push(rax)
 		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
 		u.asm.addImm(rsp, imm: wordBytes)
-		self.put(f, v: x.dst, r: rax)
-		u.asm.leaSymbol(rcx, symbol: ir.boxTable(f, x: x).symbol)
-		u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rcx)
-		self.get(f, r: rcx, v: ir.boxValue(x))
-		u.asm.store(rax, disp: imm32Of(ifaceValueOffset), src: rcx)
+		self.fillBox(f, table: ir.boxTable(f, x: x), value: ir.boxValue(x), dst: x.dst)
 	end 'visitBox'
+
+	// visitFrameBox makes an interface value whose box is one of the function's frame boxes.
+	function visitFrameBox(mutates self, f ir.IrFunction, x ir.Instr)
+		u.asm.lea(rax, base: rbp, disp: frameBoxOffset(f, box: ir.frameBoxBox(x)))
+		self.fillBox(f, table: ir.frameBoxTable(f, x: x), value: ir.frameBoxValue(x), dst: x.dst)
+	end 'visitFrameBox'
+
+	// fillBox writes the address of the table and the value into the box at rax, which is the interface value dst.
+	function fillBox(mutates self, f ir.IrFunction, table ir.WitnessTable, value ir.Reg, dst ir.Reg)
+		self.put(f, v: dst, r: rax)
+		u.asm.leaSymbol(rcx, symbol: table.symbol)
+		u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rcx)
+		self.get(f, r: rcx, v: value)
+		u.asm.store(rax, disp: imm32Of(ifaceValueOffset), src: rcx)
+	end 'fillBox'
 
 	// visitIsType calls the entry of the table that names the type of the value the box holds, and compares what it gives
 	// with the name of the type the cast wants.
@@ -835,14 +849,6 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.setccByte(X64CondCode.equal, reg: rax)
 		self.put(f, v: x.dst, r: rax)
 	end 'visitIsType'
-
-	// visitFreeBox frees the box of an interface value that lends its value.
-	function visitFreeBox(mutates self, f ir.IrFunction, x ir.Instr)
-		self.get(f, r: rax, v: ir.freeBoxBox(x))
-		u.asm.push(rax)
-		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
-		u.asm.addImm(rsp, imm: wordBytes)
-	end 'visitFreeBox'
 
 	// visitCallWitness calls the entry of a method in the table of an interface value, which jumps to the method, with the
 	// value the box holds first and the other arguments. A method that consumes the value takes it out of
@@ -1069,8 +1075,14 @@ function paramOffset(f ir.IrFunction, index Count) returns Imm32
 	return imm32Of(try paramBase + wordBytes * after otherwise panic("backend: a parameter past memory"))
 end 'paramOffset'
 
+// frameBoxOffset is where a frame box starts, below the registers: its words lie upward from there, as a box's do.
+function frameBoxOffset(f ir.IrFunction, box Count) returns Imm32
+	let below = try f.slots.count() + f.regs.count() + (box + 1) * ifaceBoxWords otherwise panic("backend: a frame box past memory")
+	return frameOffset(below)
+end 'frameBoxOffset'
+
 function frameBytes(f ir.IrFunction) returns Count
-	let words = try f.slots.count() + f.regs.count() otherwise panic("backend: a frame past memory")
+	let words = try f.slots.count() + f.regs.count() + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
 	return try words * wordBytes otherwise panic("backend: a frame past memory")
 end 'frameBytes'
 

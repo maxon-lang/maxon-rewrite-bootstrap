@@ -104,6 +104,7 @@ type Program
 	var symbols as ast.StringList
 	var fnSlots as CountList
 	var fnRegs as CountList
+	var fnFrameBoxes as CountList
 	// fnConvs are the conventions of a function's parameters, the receiver of a method counting as the first.
 	var fnConvs as CountLists
 	// fnChildren are the behaviour bodies of a function, in the order the function names them.
@@ -123,16 +124,17 @@ type Program
 	var mainFn as Count
 
 	static function new() returns Program
-		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnTakesClosure: BoolList.create(0), fnCaptureOwned: Array.create(0), fnByFunc: table.IntMap.new(), tables: table.StringMap.new(), tableMethods: CountLists.create(0), tableTypes: ast.TypeIDList.create(0), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
-		p.add("", slots: 0, regs: 0, convs: CountList.create(0))
+		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnFrameBoxes: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnTakesClosure: BoolList.create(0), fnCaptureOwned: Array.create(0), fnByFunc: table.IntMap.new(), tables: table.StringMap.new(), tableMethods: CountLists.create(0), tableTypes: ast.TypeIDList.create(0), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
+		p.add("", slots: 0, regs: 0, frameBoxes: 0, convs: CountList.create(0))
 		return p
 	end 'new'
 
 	// add makes the next function, which has the index that the count of the ones before it, and 1, names.
-	function add(mutates self, consumes symbol String, slots Count, regs Count, consumes convs CountList)
+	function add(mutates self, consumes symbol String, slots Count, regs Count, frameBoxes Count, consumes convs CountList)
 		symbols.push(symbol)
 		fnSlots.push(slots)
 		fnRegs.push(regs)
+		fnFrameBoxes.push(frameBoxes)
 		fnConvs.push(convs)
 		fnChildren.push(CountList.create(0))
 		fnTakesClosure.push(false)
@@ -156,18 +158,22 @@ type Frames
 	var slotBase as CountList
 	var retDst as ir.WordList
 	var retErr as ir.WordList
+	// boxBase is where a frame's frame boxes start in boxes, which holds each frame box's object, or 0 until the frame
+	// first makes it. The objects are freed when the frame ends, so a box that outlived its frame is used after it was freed.
+	var boxBase as CountList
+	var boxes as CountList
 	// post is whether the instruction the frame is at has run and what comes after it has not, which is where a frame waits
 	// for a callee to return.
 	var post as BoolList
 
 	static function new() returns Frames
-		var f = Frames{fn: CountList.create(0), thread: CountList.create(0), active: BoolList.create(0), block: CountList.create(0), pc: ir.WordList.create(0), idx: CountList.create(0), paramBase: CountList.create(0), regBase: CountList.create(0), slotBase: CountList.create(0), retDst: ir.WordList.create(0), retErr: ir.WordList.create(0), post: BoolList.create(0)}
+		var f = Frames{fn: CountList.create(0), thread: CountList.create(0), active: BoolList.create(0), block: CountList.create(0), pc: ir.WordList.create(0), idx: CountList.create(0), paramBase: CountList.create(0), regBase: CountList.create(0), slotBase: CountList.create(0), retDst: ir.WordList.create(0), retErr: ir.WordList.create(0), boxBase: CountList.create(0), boxes: CountList.create(0), post: BoolList.create(0)}
 		// Serial 0 is no frame.
-		f.push(0, onThread: 0, params: 0, regs: 0, slots: 0, dst: -1, err: -1)
+		f.push(0, onThread: 0, params: 0, regs: 0, slots: 0, frameBoxes: 0, dst: -1, err: -1)
 		return f
 	end 'new'
 
-	function push(mutates self, fnIndex Count, onThread Count, params Count, regs Count, slots Count, dst ir.Word, err ir.Word)
+	function push(mutates self, fnIndex Count, onThread Count, params Count, regs Count, slots Count, frameBoxes Count, dst ir.Word, err ir.Word)
 		fn.push(fnIndex)
 		thread.push(onThread)
 		active.push(true)
@@ -179,6 +185,10 @@ type Frames
 		slotBase.push(slots)
 		retDst.push(dst)
 		retErr.push(err)
+		boxBase.push(boxes.count())
+		for _ in 0 upto frameBoxes 'boxes'
+			boxes.push(0)
+		end 'boxes'
 		post.push(false)
 	end 'push'
 end 'Frames'

@@ -603,7 +603,7 @@ what a later pass such as reference counting or an optimization changes.
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
-| interface values | `box`, `freebox`, `callwitness`, `istype` (see "Interface values in the IR") |
+| interface values | `box`, `framebox`, `callwitness`, `istype` (see "Interface values in the IR") |
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
 | the runtime only | `loadraw.W`, `storeraw.W`, `globaladdr`, `import` (see "The runtime") |
 
@@ -736,17 +736,25 @@ keeps one, as it does an instance.
 
 | Instruction | Does |
 |---|---|
-| `%r = box table, %v` | a new interface value of the table and `%v`, which it owns: the value moved in, or a scalar |
-| `%r = box table, %v borrow` | the same, lending `%v` to a call that borrows it, which its owner keeps |
-| `freebox %r` | frees a box that lends its value, and nothing it holds: where the statement that made it ends |
+| `%r = box table, %v` | a new interface value of the table and `%v`, in a box on the heap, which owns the value: one that is consumed (a binding, a `consumes` parameter, a field, an element, a `return`) |
+| `%r = framebox table, %v in frame box n` | an interface value whose box is the function's frame box `n`, two words of its frame, which owns nothing: `%v` lent to what borrows it (a `let` parameter, a receiver), which its owner keeps, or a copy of a scalar |
 | `%r = callwitness.lent n(%b, %x)` | calls the method in place `n` of the table of `%b` with the value it holds and the arguments; a receiver that is `let` or `mutates` is lent the value, as a record's is |
 | `%r = callwitness.moved n(%b, %x)` | the same for a receiver that is `consumes` or `destructs`: the value leaves the box, which is freed |
 | `%r = istype %b T` | 1 when `%b` holds a value of the type `T`: the entry that names its type gives the address of the word of data named for `T` (`type` and its link name), which every unit that names it defines and the link keeps once |
 
-Dropping an interface value calls its table's drop entry with the value and frees the box, and copying it makes a box of
-the same table and the copy its copy entry makes: one routine for every interface type, since the table knows the type.
-A scalar is dropped by nothing and copied as it is. The interpreter keeps the box as a record of two words, the table as
-its index among the program's tables, and owns, lends, drops and copies it by shape, as it does any record. The value of a
+A value only borrowed as an interface value is boxed in the caller's frame, so passing one to a `let` parameter allocates
+nothing: a borrow cannot outlive the call it is lent to (`E3900`, `E3925`), the frame outlives the call, and a callee that
+passes its parameter on to another borrow passes the same box. Each `framebox` has a frame box of its own, which the
+backend reserves below the function's registers (`IrFunction.frameBoxes`), and which a `framebox` reached again, in a loop,
+fills again.
+
+Dropping an interface value calls its table's drop entry with the value and frees the box, and copying it makes a box on
+the heap of the same table and the copy its copy entry makes, whichever box it copies: one routine for every interface
+type, since the table knows the type. A scalar is dropped by nothing and copied as it is. The interpreter keeps the box as
+a record of two words, the table as its index among the program's tables, and owns, lends, drops and copies it by shape,
+as it does any record. A frame box is a record its frame makes the first time it reaches the `framebox` and that ends
+with the frame: it is no heap allocation, so it is in no order of frees, and a use of it after its frame has returned is a
+use after free. The value of a
 type that only the interpreter runs is refused natively where it is boxed.
 
 ### Drops
@@ -1629,7 +1637,7 @@ end 'main'
   constant of an interface type is `E2015`.
 - **Ownership.** A value that is consumed there (a binding, a `consumes` parameter, a field, a `return`) moves into the
   interface value under the rules of "Ownership", so a borrowed one is `E3900`; a `let` parameter is lent the caller's
-  value for the call, and the caller keeps it. A `mutates` or `sets` parameter of an interface type takes only an
+  value for the call, in a box in the caller's frame, and the caller keeps it. A `mutates` or `sets` parameter of an interface type takes only an
   interface value (`E3005`), since the callee could put a value of another type there. Dropping an interface value drops
   what it holds, so the type must be `Droppable` (`E3919`). `clone()` of one is allowed where the interface extends
   `Copyable` (`interface Shape extends Copyable`), which every type that implements it must then be (`E3918`); otherwise

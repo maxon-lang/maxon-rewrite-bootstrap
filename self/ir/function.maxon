@@ -105,6 +105,9 @@ export type IrFunction
 	export var paramCount as Count
 	export var slots as IrKindList
 	export var regs as IrKindList
+	// frameBoxes is how many frame boxes the function's frame holds, the boxes of two words of the interface values that
+	// only lend a value to a borrow, which need no heap.
+	export var frameBoxes as Count
 	export var instrs as InstrList
 	export var blocks as BlockList
 	// The pools, which the c of an instruction and a range of its a and b index.
@@ -132,7 +135,7 @@ export type IrFunction
 	export var captureOwned as Array with bool
 
 	export static function new(decl ast.FuncID, consumes name String, paramCount Count) returns IrFunction
-		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), tables: WitnessTableList.create(0), refusals: RefusalList.create(0), usesArrays: false, usesBytes: false, usesOs: false, bodies: IrFunctionList.create(0), captureTypes: ast.TypeIDList.create(0), captureOwned: Array.create(0)}
+		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), frameBoxes: 0, instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), tables: WitnessTableList.create(0), refusals: RefusalList.create(0), usesArrays: false, usesBytes: false, usesOs: false, bodies: IrFunctionList.create(0), captureTypes: ast.TypeIDList.create(0), captureOwned: Array.create(0)}
 	end 'new'
 
 	export function newReg(mutates self, kind IrKind) returns Reg
@@ -146,6 +149,12 @@ export type IrFunction
 		slots.push(kind)
 		return n
 	end 'newSlot'
+
+	export function newFrameBox(mutates self) returns Count
+		let n = frameBoxes
+		frameBoxes = try frameBoxes + 1 otherwise panic("ir: more frame boxes than memory")
+		return n
+	end 'newFrameBox'
 
 	export function stringAt(i Index) returns String
 		return strings[try i as Count otherwise panic("ir: a string index is out of range")].clone()
@@ -251,6 +260,9 @@ export function printIr(p ast.Project, f IrFunction, mutates out ByteArray)
 		end 'each'
 		putText(out, s: "]")
 	end 'slots'
+	if f.frameBoxes > 0 'frameBoxes'
+		putText(out, s: " frame boxes {f.frameBoxes}")
+	end 'frameBoxes'
 	putText(out, s: "\n")
 	for b in 0 upto f.blocks.count() 'blocks'
 		putText(out, s: "b{b}:\n")

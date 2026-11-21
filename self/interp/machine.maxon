@@ -148,9 +148,9 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execBox(vm, f: f, x: x) otherwise ignore
 	end 'visitBox'
 
-	function visitFreeBox(mutates self, f ir.IrFunction, x ir.Instr)
-		try execFreeBox(vm, x: x) otherwise ignore
-	end 'visitFreeBox'
+	function visitFrameBox(mutates self, f ir.IrFunction, x ir.Instr)
+		try execFrameBox(vm, f: f, x: x) otherwise ignore
+	end 'visitFrameBox'
 
 	function visitCallWitness(mutates self, f ir.IrFunction, x ir.Instr)
 		try execCallWitness(vm, f: f, x: x) otherwise ignore
@@ -320,7 +320,7 @@ function enterFrame(mutates vm Vm, fn Count, dst ir.Word, err ir.Word) throws Ha
 	end 'regs'
 	let serial = vm.fr.fn.count()
 	let slots = vm.h.cellN.count()
-	vm.fr.push(fn, onThread: vm.cur, params: base, regs: first, slots: slots, dst: dst, err: err)
+	vm.fr.push(fn, onThread: vm.cur, params: base, regs: first, slots: slots, frameBoxes: vm.prog.fnFrameBoxes[fn], dst: dst, err: err)
 	for i in 0 upto vm.prog.fnSlots[fn] 'slots'
 		let c = vm.h.newCell(0)
 		vm.h.cellFrame[c] = serial
@@ -359,6 +359,7 @@ function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word, errRef ir.
 	let dst = vm.fr.retDst[serial]
 	let errReg = vm.fr.retErr[serial]
 	vm.fr.active[serial] = false
+	endFrameBoxes(vm, serial: serial)
 	try vm.frames.pop() otherwise ignore
 	vm.stackTop = vm.fr.paramBase[serial]
 	vm.switched = true

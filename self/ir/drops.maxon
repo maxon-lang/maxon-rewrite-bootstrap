@@ -24,10 +24,6 @@ export function unwind(mutates l Lowerer, p ast.Project, depth Count)
 end 'unwind'
 
 function emitDrop(mutates l Lowerer, d PendingDrop)
-	if d.lent 'lent'
-		emit(l, i: newFreeBox(d.reg))
-		return
-	end 'lent'
 	if d.inSlot 'slot'
 		emitDropSlot(l, slot: d.slot, ty: d.ty)
 	end 'slot' else 'reg'

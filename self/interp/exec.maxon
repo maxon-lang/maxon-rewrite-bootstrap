@@ -643,36 +643,58 @@ let boxTableWord = (ir.ifaceTableOffset / wordBytes) as Count
 
 let boxValueWord = (ir.ifaceValueOffset / wordBytes) as Count
 
-// execBox makes an interface value. It owns the value, which must be in flight, or holds a value it lends as it is.
-function execBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let symbol = ir.boxTable(f, x: x).symbol.clone()
-	let index = match consumes vm.prog.tables.get(symbol) 'table'
+// tableIndex is the index among the program's tables of the table that a box names by its symbol.
+function tableIndex(vm Vm, t ir.WitnessTable) returns ir.Word
+	let index = match consumes vm.prog.tables.get(t.symbol) 'table'
 		some(i) gives i
-		none gives panic("interp: the table {symbol} was not indexed")
+		none gives panic("interp: the table {t.symbol} was not indexed")
 	end 'table'
+	return try index as ir.Word otherwise panic("interp: a table past a word")
+end 'tableIndex'
+
+// execBox makes an interface value on the heap, which owns the value: it must be in flight, or a scalar.
+function execBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let o = newBox(vm, words: ir.ifaceBoxBytes / wordBytes)
-	vm.h.cellN[vm.h.field(o, i: boxTableWord)] = try index as ir.Word otherwise panic("interp: a table past a word")
-	let c = vm.h.field(o, i: boxValueWord)
-	let src = ir.boxValue(x)
-	if ir.boxBorrow(x) 'lent'
-		_ = try live(vm, o: vm.ref(src), what: "a value that an interface value borrows")
-		let at = vm.regAt(src)
-		vm.h.cellN[c] = vm.regN[at]
-		vm.h.cellR[c] = vm.regR[at]
-	end 'lent' else 'owned'
-		try store(vm, f: f, c: c, src: src, what: "the box of an interface value")
-	end 'owned'
+	vm.h.cellN[vm.h.field(o, i: boxTableWord)] = tableIndex(vm, t: ir.boxTable(f, x: x))
+	try store(vm, f: f, c: vm.h.field(o, i: boxValueWord), src: ir.boxValue(x), what: "the box of an interface value")
 	vm.setRef(x.dst, o: o)
 end 'execBox'
 
-// execFreeBox frees the box of an interface value that lends its value, which stays with its owner.
-function execFreeBox(mutates vm Vm, x ir.Instr) throws Halt
-	let o = try live(vm, o: vm.ref(ir.freeBoxBox(x)), what: "freeing the box of an interface value")
+// execFrameBox makes an interface value in a frame box of the frame that runs, which holds the value as it is and owns
+// nothing: a value lent to a borrow, or a scalar. The frame box is a record of the frame's, made the first time the frame
+// reaches it and the same one each time after, as the executable's is the same two words of the frame; it is no heap
+// allocation, so nothing frees it, and it ends with its frame.
+function execFrameBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let src = ir.frameBoxValue(x)
+	if isManaged(f, r: src) 'lent'
+		_ = try live(vm, o: vm.ref(src), what: "a value that an interface value borrows")
+	end 'lent'
+	let at = try vm.fr.boxBase[vm.top] + ir.frameBoxBox(x) otherwise panic("interp: a frame box past memory")
+	if vm.fr.boxes[at] == 0 'first'
+		let made = newBox(vm, words: ir.ifaceBoxBytes / wordBytes)
+		vm.fr.boxes[at] = made
+	end 'first'
+	let o = vm.fr.boxes[at]
+	vm.h.cellN[vm.h.field(o, i: boxTableWord)] = tableIndex(vm, t: ir.frameBoxTable(f, x: x))
 	let c = vm.h.field(o, i: boxValueWord)
-	vm.h.cellN[c] = 0
-	vm.h.cellR[c] = 0
-	try drop(vm, o: o)
-end 'execFreeBox'
+	let r = vm.regAt(src)
+	vm.h.cellN[c] = vm.regN[r]
+	vm.h.cellR[c] = vm.regR[r]
+	vm.setRef(x.dst, o: o)
+end 'execFrameBox'
+
+// endFrameBoxes ends the frame boxes of the frame serial as it returns: each is marked freed without being a free of the
+// program's, so a use of one after its frame is a use after free.
+function endFrameBoxes(mutates vm Vm, serial Count)
+	let base = vm.fr.boxBase[serial]
+	for i in 0 upto vm.prog.fnFrameBoxes[vm.fr.fn[serial]] 'boxes'
+		let o = vm.fr.boxes[try base + i otherwise panic("interp: a frame box past memory")]
+		if o != 0 'made'
+			vm.h.oFreed[o] = true
+			vm.h.oFreedAt[o] = vm.site()
+		end 'made'
+	end 'boxes'
+end 'endFrameBoxes'
 
 // execCallWitness calls the method of the table of an interface value: the receiver is the value the box holds, lent
 // or moved out of the box, which is then freed, as the method takes it.
