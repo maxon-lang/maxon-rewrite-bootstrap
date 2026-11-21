@@ -1,0 +1,491 @@
+// The assembler and the code unit: what codegen, the routines and the entry stub write instructions into, and what the
+// linker reads. The encoder is x64_gen.maxon; this is what the encoder leaves to the backend: labels, the fixups that the
+// linker patches, and the symbols a unit defines.
+
+export let wordBytes = 8
+
+export let rax = X64Register.rax
+
+export let rcx = X64Register.rcx
+
+export let rdx = X64Register.rdx
+
+export let rbx = X64Register.rbx
+
+export let rsp = X64Register.rsp
+
+export let rbp = X64Register.rbp
+
+export let rsi = X64Register.rsi
+
+export let rdi = X64Register.rdi
+
+export let r8 = X64Register.r8
+
+export let r9 = X64Register.r9
+
+export let r10 = X64Register.r10
+
+export let r11 = X64Register.r11
+
+export let r12 = X64Register.r12
+
+export let r13 = X64Register.r13
+
+export let r14 = X64Register.r14
+
+export let r15 = X64Register.r15
+
+// imm32Of is a size or an offset that an instruction holds in 32 bits.
+export function imm32Of(value Count) returns Imm32
+	return try value as Imm32 otherwise panic("backend: an offset past 2 GiB")
+end 'imm32Of'
+
+typealias StringOffsets = table.StringMap with Count
+
+// LabelID is a label of the function or routine being written, an index into its Asm.
+export typealias LabelID = int(0 to 2147483647)
+
+// Label is a place in the code that a branch goes to. A branch to a label that is not bound yet leaves the previous such
+// branch's position in its own 32-bit field, so the uses of a label are a chain through the code that binding walks.
+type Label
+	var bound as bool
+	var pos as Count
+	// chain is one past the position of the last field that went to the label before it was bound, and 0 for none.
+	var chain as Count
+
+	static function make() returns Label
+		return Label{bound: false, pos: 0 as Count, chain: 0 as Count}
+	end 'make'
+end 'Label'
+
+typealias LabelList = Array with Label
+
+// DataFixup is a RIP-relative reference to an offset of the data section, written at pos.
+export type DataFixup
+	export var pos as Count
+	export var dataOffset as Count
+
+	export static function make(pos Count, dataOffset Count) returns DataFixup
+		return DataFixup{pos: pos, dataOffset: dataOffset}
+	end 'make'
+end 'DataFixup'
+
+export typealias DataFixupList = Array with DataFixup
+
+// ImportFixup is a call through the import slot of the index-th imported name, written at pos.
+export type ImportFixup
+	export var pos as Count
+	export var index as Count
+
+	export static function make(pos Count, index Count) returns ImportFixup
+		return ImportFixup{pos: pos, index: index}
+	end 'make'
+end 'ImportFixup'
+
+export typealias ImportFixupList = Array with ImportFixup
+
+// SymbolFixup is a reference, written at pos, to a symbol that this unit or another one defines.
+export type SymbolFixup
+	export var pos as Count
+	export var symbol as String
+
+	export static function make(pos Count, consumes symbol String) returns SymbolFixup
+		return SymbolFixup{pos: pos, symbol: symbol}
+	end 'make'
+end 'SymbolFixup'
+
+export typealias SymbolFixupList = Array with SymbolFixup
+
+// SymbolDef is a symbol that a unit defines and where: an offset in its code or in its data. A symbol is the text that
+// the unit's code and the link name it by, so a unit does not depend on the compile that made it.
+export type SymbolDef
+	export var symbol as String
+	export var offset as Count
+	// instance says the symbol is an instance of a generic function, which every unit that needs it defines, and the link
+	// keeps one of; any other symbol is defined once.
+	export var instance as bool
+
+	export static function make(consumes symbol String, offset Count, instance bool) returns SymbolDef
+		return SymbolDef{symbol: symbol, offset: offset, instance: instance}
+	end 'make'
+end 'SymbolDef'
+
+export typealias SymbolDefList = Array with SymbolDef
+
+// CodeSection is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
+// their positions.
+export type CodeSection
+	export var code as Count
+	export var symbolFixups as Count
+	export var dataFixups as Count
+	export var importFixups as Count
+
+	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count) returns CodeSection
+		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups}
+	end 'make'
+end 'CodeSection'
+
+export typealias CodeSectionList = Array with CodeSection
+
+// Asm is the code of a unit and the references in it that are not known until the link.
+export type Asm
+	export var code as ByteArray
+	export var dataFixups as DataFixupList
+	export var importFixups as ImportFixupList
+	export var symbolFixups as SymbolFixupList
+	var labels as LabelList
+
+	export static function new() returns Asm
+		return Asm{code: ByteArray.create(0), dataFixups: DataFixupList.create(0), importFixups: ImportFixupList.create(0), symbolFixups: SymbolFixupList.create(0), labels: LabelList.create(0)}
+	end 'new'
+
+	export function pos() returns Count
+		return code.count()
+	end 'pos'
+
+	export function mov(mutates self, dst X64Register, src X64Register)
+		encodeMovRegReg(code, dest: dst, src: src)
+	end 'mov'
+
+	export function add(mutates self, dst X64Register, src X64Register)
+		encodeAddRegReg(code, dest: dst, src: src)
+	end 'add'
+
+	export function sub(mutates self, dst X64Register, src X64Register)
+		encodeSubRegReg(code, dest: dst, src: src)
+	end 'sub'
+
+	export function bitAnd(mutates self, dst X64Register, src X64Register)
+		encodeAndRegReg(code, dest: dst, src: src)
+	end 'bitAnd'
+
+	export function bitOr(mutates self, dst X64Register, src X64Register)
+		encodeOrRegReg(code, dest: dst, src: src)
+	end 'bitOr'
+
+	export function bitXor(mutates self, dst X64Register, src X64Register)
+		encodeXorRegReg(code, dest: dst, src: src)
+	end 'bitXor'
+
+	export function cmp(mutates self, left X64Register, right X64Register)
+		encodeCmpRegReg(code, left: left, right: right)
+	end 'cmp'
+
+	export function test(mutates self, left X64Register, right X64Register)
+		encodeTestRegReg(code, left: left, right: right)
+	end 'test'
+
+	export function imul(mutates self, dst X64Register, src X64Register)
+		encodeImulRegReg(code, dest: dst, src: src)
+	end 'imul'
+
+	export function load(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'load'
+
+	export function store(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'store'
+
+	export function lea(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLeaRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'lea'
+
+	export function loadByte(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovzxRegByteBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadByte'
+
+	export function movImm(mutates self, dst X64Register, imm FullRangeInt)
+		encodeMovRegImm(code, dest: dst, imm: imm)
+	end 'movImm'
+
+	export function addImm(mutates self, dst X64Register, imm Imm32)
+		encodeAddRegImm(code, dest: dst, imm: imm)
+	end 'addImm'
+
+	export function andImm(mutates self, dst X64Register, imm Imm32)
+		encodeAndRegImm(code, dest: dst, imm: imm)
+	end 'andImm'
+
+	export function subImm(mutates self, dst X64Register, imm Imm32)
+		encodeSubRegImm(code, dest: dst, imm: imm)
+	end 'subImm'
+
+	export function cmpImm(mutates self, dst X64Register, imm Imm32)
+		encodeCmpRegImm(code, dest: dst, imm: imm)
+	end 'cmpImm'
+
+	export function bitNot(mutates self, reg X64Register)
+		encodeNotReg(code, reg: reg)
+	end 'bitNot'
+
+	export function neg(mutates self, reg X64Register)
+		encodeNegReg(code, reg: reg)
+	end 'neg'
+
+	export function mulRax(mutates self, reg X64Register)
+		encodeMulReg(code, reg: reg)
+	end 'mulRax'
+
+	export function div(mutates self, reg X64Register)
+		encodeDivReg(code, reg: reg)
+	end 'div'
+
+	export function idiv(mutates self, reg X64Register)
+		encodeIdivReg(code, reg: reg)
+	end 'idiv'
+
+	export function cqo(mutates self)
+		encodeCqo(code)
+	end 'cqo'
+
+	export function shlCl(mutates self, reg X64Register)
+		encodeShlRegCl(code, reg: reg)
+	end 'shlCl'
+
+	export function shrCl(mutates self, reg X64Register)
+		encodeShrRegCl(code, reg: reg)
+	end 'shrCl'
+
+	export function sarCl(mutates self, reg X64Register)
+		encodeSarRegCl(code, reg: reg)
+	end 'sarCl'
+
+	export function sarImm(mutates self, reg X64Register, imm Imm8)
+		encodeSarRegImm8(code, reg: reg, imm: imm)
+	end 'sarImm'
+
+	export function push(mutates self, reg X64Register)
+		encodePushReg(code, reg: reg)
+	end 'push'
+
+	export function pop(mutates self, reg X64Register)
+		encodePopReg(code, reg: reg)
+	end 'pop'
+
+	export function setccRax(mutates self, cond X64CondCode)
+		encodeSetccRax(code, cond: cond)
+	end 'setccRax'
+
+	export function ret(mutates self)
+		encodeRet(code)
+	end 'ret'
+
+	export function ud2(mutates self)
+		encodeUd2(code)
+	end 'ud2'
+
+	export function repMovsb(mutates self)
+		encodeRepMovsb(code)
+	end 'repMovsb'
+
+	export function repStosq(mutates self)
+		encodeRepStosq(code)
+	end 'repStosq'
+
+	export function repeCmpsb(mutates self)
+		encodeRepeCmpsb(code)
+	end 'repeCmpsb'
+
+	// leaData, loadData and storeData reference an offset of the data section, which the link makes an address.
+	export function leaData(mutates self, dst X64Register, dataOffset Count)
+		encodeLeaRegRip(code, dest: dst, disp: 0)
+		self.noteDataFixup(dataOffset)
+	end 'leaData'
+
+	function noteDataFixup(mutates self, dataOffset Count)
+		dataFixups.push(DataFixup.make(lastField32(code), dataOffset: dataOffset))
+	end 'noteDataFixup'
+
+	function noteSymbolFixup(mutates self, symbol String)
+		symbolFixups.push(SymbolFixup.make(lastField32(code), symbol: symbol.clone()))
+	end 'noteSymbolFixup'
+
+	export function loadSymbol(mutates self, dst X64Register, symbol String)
+		encodeLoadRegRip(code, dest: dst, disp: 0)
+		self.noteSymbolFixup(symbol)
+	end 'loadSymbol'
+
+	export function storeSymbol(mutates self, symbol String, src X64Register)
+		encodeStoreRipReg(code, disp: 0, src: src)
+		self.noteSymbolFixup(symbol)
+	end 'storeSymbol'
+
+	export function leaSymbol(mutates self, dst X64Register, symbol String)
+		encodeLeaRegRip(code, dest: dst, disp: 0)
+		self.noteSymbolFixup(symbol)
+	end 'leaSymbol'
+
+	// callImport calls through the import slot of the index-th name of the executable's imports.
+	export function callImport(mutates self, index Count)
+		encodeCallRip(code, disp: 0)
+		importFixups.push(ImportFixup.make(lastField32(code), index: index))
+	end 'callImport'
+
+	// callSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.
+	export function callSymbol(mutates self, symbol String)
+		encodeCallRel32(code, rel: 0)
+		self.noteSymbolFixup(symbol)
+	end 'callSymbol'
+
+	// newLabel makes a label that stays valid until the next section starts.
+	export function newLabel(mutates self) returns LabelID
+		let id = try labels.count() as LabelID otherwise panic("a function has more labels than any code can name")
+		labels.push(Label.make())
+		return id
+	end 'newLabel'
+
+	// useLabel makes the 32-bit field the last instruction ended with go to the label.
+	function useLabel(mutates self, label LabelID)
+		let at = lastField32(code)
+		let index = label as Count
+		if labels[index].bound 'bound'
+			patchRel32(code, at: at, target: labels[index].pos)
+		end 'bound' else 'forward'
+			patch32(code, at: at, value: try labels[index].chain as Imm32 otherwise panic("a branch reaches past 2 GiB"))
+			labels[index].chain = try at + 1 otherwise panic("a field is past the end of memory")
+		end 'forward'
+	end 'useLabel'
+
+	export function jmp(mutates self, label LabelID)
+		encodeJmpRel32(code, rel: 0)
+		self.useLabel(label)
+	end 'jmp'
+
+	export function jcc(mutates self, cond X64CondCode, label LabelID)
+		encodeJccRel32(code, cond: cond, rel: 0)
+		self.useLabel(label)
+	end 'jcc'
+
+	export function call(mutates self, label LabelID)
+		encodeCallRel32(code, rel: 0)
+		self.useLabel(label)
+	end 'call'
+
+	// bind puts the label here and makes every branch that went to it before go here.
+	export function bind(mutates self, label LabelID)
+		let index = label as Count
+		let target = code.count()
+		var use = labels[index].chain
+		while use != 0 'uses'
+			let at = try use - 1 otherwise panic("a label use is before the code")
+			let next = readField32(code, at: at)
+			patchRel32(code, at: at, target: target)
+			use = next
+		end 'uses'
+		labels[index].bound = true
+		labels[index].pos = target
+		labels[index].chain = 0
+	end 'bind'
+
+	// endLabels checks that every label of the section that ends was bound, and forgets them.
+	export function endLabels(mutates self)
+		for i in 0 upto labels.count() 'each'
+			if labels[i].chain != 0 'unbound'
+				panic("backend: a branch goes to a label that was never bound")
+			end 'unbound'
+		end 'each'
+		labels = LabelList.create(0)
+	end 'endLabels'
+end 'Asm'
+
+// readField32 is the 32-bit little-endian field at an offset of the code.
+function readField32(code ByteArray, at Count) returns Count
+	var word = 0 as Count
+	var i = imm32Bytes as Count
+	while i > 0 'bytes'
+		i = try i - 1 otherwise 0
+		let place = try at + i otherwise panic("a field is past the end of memory")
+		word = try word * byteValues + (code[place] as Count) otherwise panic("a field is wider than 32 bits")
+	end 'bytes'
+	return word
+end 'readField32'
+
+// DataSection is the bytes of the executable's data: the strings that code names and the globals it reads.
+export type DataSection
+	export var bytes as ByteArray
+	var strings as StringOffsets
+	// pieces are the offsets where each string and each reserved value begins, which the link keeps or drops whole.
+	export var pieces as CountList
+
+	export static function new() returns DataSection
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), pieces: CountList.create(0)}
+	end 'new'
+
+	function align8(mutates self)
+		while bytes.count() mod wordBytes != 0 'pad'
+			bytes.push(0)
+		end 'pad'
+	end 'align8'
+
+	export function reserve(mutates self, size Count) returns Count
+		self.align8()
+		let at = bytes.count()
+		pieces.push(at)
+		for _ in 0 upto size 'zeros'
+			bytes.push(0)
+		end 'zeros'
+		return at
+	end 'reserve'
+
+	// textOffset is where a string is, as the length and then the bytes, put there once however often it is asked for.
+	export function textOffset(mutates self, text String) returns Count
+		match strings.get(text) 'known'
+			some(at) then return at
+			none then _ = 0
+		end 'known'
+		self.align8()
+		let at = bytes.count()
+		pieces.push(at)
+		var length = text.byteLength()
+		for _ in 0 upto wordBytes 'length'
+			bytes.push((length mod byteValues) as Byte)
+			length = length / byteValues
+		end 'length'
+		bytes.append(text.toByteArray())
+		strings.insert(text.clone(), value: at)
+		return at
+	end 'textOffset'
+end 'DataSection'
+
+// CodeUnit is the code and data of one module, of the routines of some types, or of the entry, with the symbols it defines.
+export type CodeUnit
+	export var asm as Asm
+	export var data as DataSection
+	// codeSymbols and dataSymbols are in the order the unit defined them. A symbol that is defined twice, and is not an
+	// instance of a generic, is found by the link, which meets every definition of every unit.
+	export var codeSymbols as SymbolDefList
+	export var dataSymbols as SymbolDefList
+	// sections are the parts of the code that the link keeps or drops whole, in order: a function or a routine each. A
+	// unit that starts none is one section, so its code may jump between its own symbols.
+	export var sections as CodeSectionList
+	// needed are the drop and copy routines this unit's code calls, in the order its code first does.
+	export var needed as RoutineSet
+
+	export static function new() returns CodeUnit
+		return CodeUnit{asm: Asm.new(), data: DataSection.new(), codeSymbols: SymbolDefList.create(0), dataSymbols: SymbolDefList.create(0), sections: CodeSectionList.create(0), needed: RoutineSet.new()}
+	end 'new'
+
+	export function defineCode(mutates self, symbol String)
+		codeSymbols.push(SymbolDef.make(symbol.clone(), offset: asm.pos(), instance: false))
+	end 'defineCode'
+
+	// defineFunction defines the code of a function by its link name.
+	export function defineFunction(mutates self, symbol String, instance bool)
+		codeSymbols.push(SymbolDef.make(symbol.clone(), offset: asm.pos(), instance: instance))
+	end 'defineFunction'
+
+	// beginSection starts a part of the code that the link keeps only if the entry reaches it. Code in it reaches other
+	// sections only through symbols.
+	export function beginSection(mutates self)
+		asm.endLabels()
+		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count()))
+	end 'beginSection'
+
+	export function defineData(mutates self, symbol String, size Count)
+		dataSymbols.push(SymbolDef.make(symbol.clone(), offset: data.reserve(size), instance: false))
+	end 'defineData'
+end 'CodeUnit'
+
+export typealias UnitList = Array with CodeUnit

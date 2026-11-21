@@ -1,0 +1,158 @@
+// The entry stub: the code the executable starts at, which sets up the heap and the standard handles, calls main and
+// exits with what main returns. The rest of the runtime is Maxon source that is compiled with every program; the
+// symbols it defines are the linker's to resolve.
+
+// rtDll is the one library the executable imports from.
+export let rtDll = "kernel32.dll"
+
+// The imports are in the order of their slots in the import table, which code calls through by index.
+export let impGetProcessHeap = 0 as Count
+
+export let impHeapAlloc = 1 as Count
+
+export let impGetStdHandle = 2 as Count
+
+export let impWriteFile = 3 as Count
+
+export let impExitProcess = 4 as Count
+
+export let impHeapFree = 5 as Count
+
+export function rtImports() returns NameList
+	var names = NameList.create(0)
+	names.push("GetProcessHeap")
+	names.push("HeapAlloc")
+	names.push("GetStdHandle")
+	names.push("WriteFile")
+	names.push("ExitProcess")
+	names.push("HeapFree")
+	names.push("GetCommandLineA")
+	names.push("CreateFileA")
+	names.push("ReadFile")
+	names.push("GetFileSizeEx")
+	names.push("CloseHandle")
+	names.push("MoveFileExA")
+	names.push("DeleteFileA")
+	names.push("FindFirstFileA")
+	names.push("FindNextFileA")
+	names.push("FindClose")
+	names.push("GetFileAttributesA")
+	names.push("CreateDirectoryA")
+	names.push("GetEnvironmentVariableA")
+	names.push("CreateProcessA")
+	names.push("WaitForSingleObject")
+	names.push("GetExitCodeProcess")
+	names.push("GetLastError")
+	names.push("CreatePipe")
+	names.push("SetHandleInformation")
+	names.push("PeekNamedPipe")
+	return names
+end 'rtImports'
+
+let stdOutputHandle = -11
+
+let stdErrorHandle = -12
+
+let windowsShadowSize = 40
+
+// leakExitCode is what an executable built to count its allocations exits with when main returned and a box is still
+// live. It differs from every code a program or a trap gives.
+let leakExitCode = 99
+
+let leakMessage = "leaked allocations: "
+
+let leakMessageEnd = "\n"
+
+let leakArguments = 2
+
+// RuntimeOptions say how the entry stub is built.
+export type RuntimeOptions
+	// countAllocations keeps the number of live heap boxes, and has the entry fail when main returns with any left.
+	export var countAllocations as bool
+
+	export static function make(countAllocations bool) returns RuntimeOptions
+		return RuntimeOptions{countAllocations: countAllocations}
+	end 'make'
+end 'RuntimeOptions'
+
+// emitRuntime is the unit with the entry point and the globals it sets: the process heap and the standard handles, and the
+// count of live boxes when the options ask for it. mainSymbol is the symbol of the function the entry calls.
+export function emitRuntime(mainSymbol String, options RuntimeOptions) returns CodeUnit
+	var u = CodeUnit.new()
+	u.defineData(ir.rtSymbol(ir.Rt.rtHeap), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtStderr), size: wordBytes)
+	if options.countAllocations 'live'
+		u.defineData(ir.rtSymbol(ir.Rt.rtLive), size: wordBytes)
+	end 'live'
+	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
+	emitEntry(u, mainSymbol: mainSymbol, count: options.countAllocations)
+	return u
+end 'emitRuntime'
+
+// callRuntime calls an entry of the runtime that takes the number of arguments it was given, and takes them off the stack.
+function callRuntime(mutates u CodeUnit, entry ir.Rt, args Count)
+	u.asm.callSymbol(ir.rtSymbol(entry))
+	if args > 0 'pop'
+		u.asm.addImm(rsp, imm: imm32Of(try args * wordBytes otherwise panic("backend: more arguments than memory")))
+	end 'pop'
+end 'callRuntime'
+
+// emitEntry writes the executable's entry point: it sets up the heap and the standard handles, calls main and exits
+// with what main returns.
+function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
+	u.asm.subImm(rsp, imm: windowsShadowSize)
+	u.asm.callImport(impGetProcessHeap)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtHeap), src: rax)
+	u.asm.movImm(rcx, imm: stdOutputHandle)
+	u.asm.callImport(impGetStdHandle)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStdout), src: rax)
+	u.asm.movImm(rcx, imm: stdErrorHandle)
+	u.asm.callImport(impGetStdHandle)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: rax)
+	u.asm.callSymbol(mainSymbol)
+	if count 'leaks'
+		exitIfLeaking(u)
+	end 'leaks'
+	u.asm.mov(rcx, src: rax)
+	u.asm.callImport(impExitProcess)
+end 'emitEntry'
+
+// exitIfLeaking is the end of main in an executable that counts its allocations: a box still live is a drop that the
+// program lacks, so it says so on standard error and exits with leakExitCode. rax, main's exit code, is untouched when none
+// is live. A panic or a trap exits without this check.
+function exitIfLeaking(mutates u CodeUnit)
+	let clean = u.asm.newLabel()
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtLive))
+	u.asm.test(rcx, right: rcx)
+	u.asm.jcc(X64CondCode.equal, label: clean)
+	beginWriteError(u)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(leakMessage))
+	finishWriteError(u)
+	u.asm.loadSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtLive))
+	u.asm.push(rax)
+	u.asm.movImm(rax, imm: 0)
+	u.asm.push(rax)
+	callRuntime(u, entry: ir.Rt.rtItoa, args: leakArguments)
+	u.asm.mov(rbx, src: rax)
+	beginWriteError(u)
+	u.asm.mov(rax, src: rbx)
+	finishWriteError(u)
+	beginWriteError(u)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(leakMessageEnd))
+	finishWriteError(u)
+	u.asm.movImm(rcx, imm: leakExitCode)
+	u.asm.callImport(impExitProcess)
+	u.asm.bind(clean)
+end 'exitIfLeaking'
+
+// beginWriteError and finishWriteError write the string that the code between them puts in rax to standard error.
+function beginWriteError(mutates u CodeUnit)
+	u.asm.loadSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtStderr))
+	u.asm.push(rax)
+end 'beginWriteError'
+
+function finishWriteError(mutates u CodeUnit)
+	u.asm.push(rax)
+	callRuntime(u, entry: ir.Rt.rtWrite, args: leakArguments)
+end 'finishWriteError'

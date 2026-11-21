@@ -1,0 +1,684 @@
+// A drop or a copy of a value is code that depends on the type of the value: which of the words of a box are boxes
+// themselves, and in what layout. It is generated once for each concrete type that a program drops or copies, after
+// monomorphization, as a routine of its own that the code of every module calls, so a type that contains itself (a record
+// with an array of itself) is a routine that calls itself and not code written out where it is wanted.
+//
+// A routine takes one argument, the value, as every internal call does, and a copy returns the new value in rax. A drop
+// of a value that is 0 does nothing, which is how a place that was moved from, or never assigned, is dropped.
+//
+// The routines are in units of their own, built after the units of the modules, because which of them a program needs is
+// known only once every module has been generated. Which they are, and in what order, comes from the modules in source
+// order and from each routine's own parts in field order.
+
+// The layout of an array and of a byte array, which the runtime's array and byte array code must keep: the length, the
+// capacity and the address of the elements, which are words of 8 bytes each, or one byte each in a byte array.
+let arrayHeaderBytes = 24
+
+let arrayLengthOffset = 0
+
+let arrayCapacityOffset = 8
+
+let arrayDataOffset = 16
+
+let bytesHeaderBytes = 24
+
+let bytesLengthOffset = 0
+
+let bytesCapacityOffset = 8
+
+let bytesDataOffset = 16
+
+// stringLengthOffset is where a string holds its length, the word before its bytes.
+let stringLengthOffset = 0
+
+// routinesPerUnit is how many routines go into one unit.
+let routinesPerUnit = 256
+
+// Frame offsets of the routines: the argument is above the return address, and the locals below the frame pointer.
+let routineArg = 16
+
+let routineLocal0 = -8
+
+let routineLocal1 = -16
+
+let routineLocal2 = -24
+
+let routineLocal3 = -32
+
+export enum RoutineKind
+	dropRoutine = 0
+	copyRoutine = 1
+
+	export function symbolPrefix() returns String
+		return match self 'kind'
+			dropRoutine gives "drop"
+			copyRoutine gives "copy"
+		end 'kind'
+	end 'symbolPrefix'
+end 'RoutineKind'
+
+// TypeRoutine is the routine that drops or copies a value of one type. Its symbol is the kind and the type's link name, so
+// two units that ask for the routine of one type name one routine, whichever compile made them.
+export type TypeRoutine
+	export var kind as RoutineKind
+	export var ty as ast.TypeID
+	// symbol is the text the routine is defined and called by.
+	export var symbol as String
+
+	export static function make(kind RoutineKind, ty ast.TypeID, consumes symbol String) returns TypeRoutine
+		return TypeRoutine{kind: kind, ty: ty, symbol: symbol}
+	end 'make'
+end 'TypeRoutine'
+
+export typealias TypeRoutineList = Array with TypeRoutine
+
+typealias RoutineSymbols = table.IntMap with String
+
+// routineSymbol is the symbol of the routine of a kind for the type with a link name. It starts with the kind and a space,
+// which no function's link name does, so no routine is named like a function.
+function routineSymbol(kind RoutineKind, typeLinkName String) returns String
+	return "{kind.symbolPrefix()} {typeLinkName}"
+end 'routineSymbol'
+
+// RoutineSet is the routines a body of code asks for, each once, in the order they were first asked for. The name of a
+// routine is made once for each type.
+export type RoutineSet
+	export var list as TypeRoutineList
+	var dropSymbols as RoutineSymbols
+	var copySymbols as RoutineSymbols
+
+	export static function new() returns RoutineSet
+		return RoutineSet{list: TypeRoutineList.create(0), dropSymbols: RoutineSymbols.new(), copySymbols: RoutineSymbols.new()}
+	end 'new'
+
+	function known(kind RoutineKind, ty ast.TypeID) returns table.Option with String
+		if kind == RoutineKind.dropRoutine 'drop'
+			return dropSymbols.get(ty as Count)
+		end 'drop'
+		return copySymbols.get(ty as Count)
+	end 'known'
+
+	function remember(mutates self, kind RoutineKind, ty ast.TypeID, symbol String)
+		if kind == RoutineKind.dropRoutine 'drop'
+			dropSymbols.insert(ty as Count, value: symbol.clone())
+		end 'drop' else 'copy'
+			copySymbols.insert(ty as Count, value: symbol.clone())
+		end 'copy'
+	end 'remember'
+
+	// lookup is the symbol of a routine that symbol has been asked for already.
+	export function lookup(kind RoutineKind, ty ast.TypeID) returns String
+		match self.known(kind, ty: ty) 'hit'
+			some(name) then return name.clone()
+			none then panic("backend: the routine of a type was not asked for before its code")
+		end 'hit'
+	end 'lookup'
+
+	// symbol is the name of the code that drops or copies a value of a type, and notes that the code asks for it. A drop of a
+	// box that holds nothing to drop is the free itself, with no routine of its own.
+	export function symbol(mutates self, mutates p ast.Project, kind RoutineKind, ty ast.TypeID) returns String
+		match self.known(kind, ty: ty) 'hit'
+			some(name) then return name.clone()
+			none then _ = 0
+		end 'hit'
+		if kind == RoutineKind.dropRoutine and onlyFrees(p, ty: ty) 'frees'
+			let free = ir.rtSymbol(ir.Rt.rtFree)
+			self.remember(kind, ty: ty, symbol: free)
+			return free
+		end 'frees'
+		let name = routineSymbol(kind, typeLinkName: ast.typeLinkName(p.types, t: ty))
+		self.remember(kind, ty: ty, symbol: name)
+		list.push(TypeRoutine.make(kind, ty: ty, symbol: name.clone()))
+		return name
+	end 'symbol'
+end 'RoutineSet'
+
+// memberType is the type of a field or a payload as the owner has it: an instance has the declaration's type with its own
+// type arguments in place of the parameters.
+function memberType(mutates tt ast.TypeTable, owner ast.TypeID, declared ast.TypeID) returns ast.TypeID
+	let origin = ast.originOf(tt, t: owner)
+	if owner == origin or tt.entries[owner as Count].typeArgs.count() == 0 'declared'
+		return declared
+	end 'declared'
+	let params = ast.cloneTypeArgs(tt.entries[origin as Count].typeParams)
+	let args = ast.cloneTypeArgs(tt.entries[owner as Count].typeArgs)
+	return ast.substituteType(tt, t: declared, params: params, args: args)
+end 'memberType'
+
+function fieldCount(tt ast.TypeTable, owner ast.TypeID) returns Count
+	return tt.entries[ast.originOf(tt, t: owner) as Count].fields.count()
+end 'fieldCount'
+
+function fieldType(mutates tt ast.TypeTable, owner ast.TypeID, index Count) returns ast.TypeID
+	let declared = tt.entries[ast.originOf(tt, t: owner) as Count].fields[index].ty
+	return memberType(tt, owner: owner, declared: declared)
+end 'fieldType'
+
+function caseCount(tt ast.TypeTable, owner ast.TypeID) returns Count
+	return tt.entries[ast.originOf(tt, t: owner) as Count].cases.count()
+end 'caseCount'
+
+function payloadCount(tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
+	return tt.entries[ast.originOf(tt, t: owner) as Count].cases[caseIndex].payload.count()
+end 'payloadCount'
+
+function payloadType(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns ast.TypeID
+	let declared = tt.entries[ast.originOf(tt, t: owner) as Count].cases[caseIndex].payload[index].ty
+	return memberType(tt, owner: owner, declared: declared)
+end 'payloadType'
+
+// elementType is the type of what an array holds.
+function elementType(tt ast.TypeTable, array ast.TypeID) returns ast.TypeID
+	return tt.entries[array as Count].typeArgs[0]
+end 'elementType'
+
+// packsBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
+// fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
+// array asks this, so the two boxes are never mistaken for each other.
+function packsBytes(p ast.Project, t ast.TypeID) returns bool
+	if p.types.entries[t as Count].kind != ast.TypeKind.builtinArray 'notArray'
+		return false
+	end 'notArray'
+	let elem = elementType(p.types, array: t)
+	if p.types.entries[elem as Count].kind != ast.TypeKind.intRange 'notInt'
+		return false
+	end 'notInt'
+	let byteTy = p.builtins.byteTy as Count
+	return p.types.entries[elem as Count].minVal.ge(p.types.entries[byteTy].minVal) and p.types.entries[elem as Count].maxVal.le(p.types.entries[byteTy].maxVal)
+end 'packsBytes'
+
+function anyManagedPayload(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
+	for j in 0 upto payloadCount(tt, owner: owner, caseIndex: caseIndex) 'each'
+		let payloadTy = payloadType(tt, owner: owner, caseIndex: caseIndex, index: j)
+		if ast.isManagedType(tt, t: payloadTy) 'managed'
+			return true
+		end 'managed'
+	end 'each'
+	return false
+end 'anyManagedPayload'
+
+// onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
+// or a union that has no managed payload in any case.
+function onlyFrees(mutates p ast.Project, ty ast.TypeID) returns bool
+	let kind = p.types.entries[ty as Count].kind
+	if kind == ast.TypeKind.record 'record'
+		for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
+			let fieldTy = fieldType(p.types, owner: ty, index: i)
+			if ast.isManagedType(p.types, t: fieldTy) 'managed'
+				return false
+			end 'managed'
+		end 'fields'
+		return true
+	end 'record'
+	if kind == ast.TypeKind.unionTy 'union'
+		for i in 0 upto caseCount(p.types, owner: ty) 'cases'
+			if anyManagedPayload(p.types, owner: ty, caseIndex: i) 'managed'
+				return false
+			end 'managed'
+		end 'cases'
+		return true
+	end 'union'
+	return false
+end 'onlyFrees'
+
+// addNew appends to list the routines that are not known yet, and notes them.
+function addNew(mutates known StringOffsets, consumes list TypeRoutineList, routines TypeRoutineList) returns TypeRoutineList
+	var out = list
+	for i in 0 upto routines.count() 'each'
+		if not known.has(routines[i].symbol) 'new'
+			known.insert(routines[i].symbol.clone(), value: 0 as Count)
+			out.push(routines[i].clone())
+		end 'new'
+	end 'each'
+	return out
+end 'addNew'
+
+// emitTypeRoutines is the units with the drop and copy routine of every type that the units ask for, and of every type
+// those routines reach. A routine asks for the routines of the parts of its type, so they are made in waves: the ones the
+// modules ask for, then the ones those ask for that are not made yet, and so on, each wave in the order the routines were
+// first asked for.
+export function emitTypeRoutines(mutates p ast.Project, units UnitList) returns UnitList
+	var known = StringOffsets.new()
+	var pending = TypeRoutineList.create(0)
+	for i in 0 upto units.count() 'units'
+		pending = addNew(known, list: pending, routines: units[i].needed.list)
+	end 'units'
+	var made = UnitList.create(0)
+	while pending.count() > 0 'waves'
+		var wave = UnitList.create(0)
+		var start = 0 as Count
+		while start < pending.count() 'chunks'
+			var stop = try start + routinesPerUnit otherwise pending.count()
+			if stop > pending.count() 'clamp'
+				stop = pending.count()
+			end 'clamp'
+			var chunk = TypeRoutineList.create(0)
+			for i in start upto stop 'slice'
+				chunk.push(pending[i].clone())
+			end 'slice'
+			wave.push(emitRoutines(p, routines: chunk))
+			start = stop
+		end 'chunks'
+		var next = TypeRoutineList.create(0)
+		for i in 0 upto wave.count() 'asked'
+			next = addNew(known, list: next, routines: wave[i].needed.list)
+		end 'asked'
+		for i in 0 upto wave.count() 'collect'
+			made.push(exchange(wave[i], value: CodeUnit.new()))
+		end 'collect'
+		pending = next
+	end 'waves'
+	return made
+end 'emitTypeRoutines'
+
+function emitRoutines(mutates p ast.Project, routines TypeRoutineList) returns CodeUnit
+	var u = CodeUnit.new()
+	for i in 0 upto routines.count() 'each'
+		emitRoutine(u, p: p, routine: routines[i])
+	end 'each'
+	return u
+end 'emitRoutines'
+
+// routineCall calls the routine of a type with the value in rax. A routine that has not been asked for yet is queued.
+function routineCall(mutates u CodeUnit, mutates p ast.Project, kind RoutineKind, ty ast.TypeID)
+	let symbol = u.needed.symbol(p, kind: kind, ty: ty)
+	u.asm.push(rax)
+	u.asm.callSymbol(symbol)
+	u.asm.addImm(rsp, imm: wordBytes)
+end 'routineCall'
+
+// callRuntimeWithRax calls an entry of the runtime with the value in rax as its one argument.
+function callRuntimeWithRax(mutates u CodeUnit, entry ir.Rt)
+	u.asm.push(rax)
+	u.asm.callSymbol(ir.rtSymbol(entry))
+	u.asm.addImm(rsp, imm: wordBytes)
+end 'callRuntimeWithRax'
+
+// routinePrologue starts a routine that keeps a number of words of its own below the frame pointer. A routine is called once for
+// each level of a nested value, so a tree that is deep enough would use up the stack: a routine reserves only what it uses.
+function routinePrologue(mutates u CodeUnit, locals Count)
+	u.asm.push(rbp)
+	u.asm.mov(rbp, src: rsp)
+	if locals > 0 'locals'
+		u.asm.subImm(rsp, imm: imm32Of(try locals * wordBytes otherwise panic("a routine with locals past memory")))
+	end 'locals'
+end 'routinePrologue'
+
+function routineEpilogue(mutates u CodeUnit)
+	u.asm.mov(rsp, src: rbp)
+	u.asm.pop(rbp)
+	u.asm.ret()
+end 'routineEpilogue'
+
+// freeArgument gives back the box that the routine's argument is.
+function freeArgument(mutates u CodeUnit)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
+end 'freeArgument'
+
+// allocate calls the allocator for a box of a size, leaving it in rax.
+function allocate(mutates u CodeUnit, bytes Count)
+	u.asm.movImm(rax, imm: try bytes as FullRangeInt otherwise panic("a box past memory"))
+	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
+end 'allocate'
+
+// emitRoutine emits the code of one routine.
+function emitRoutine(mutates u CodeUnit, mutates p ast.Project, routine TypeRoutine)
+	u.beginSection()
+	u.defineCode(routine.symbol)
+	if routine.kind == RoutineKind.dropRoutine 'drop'
+		emitDrop(u, p: p, ty: routine.ty)
+	end 'drop' else 'copy'
+		emitCopy(u, p: p, ty: routine.ty)
+	end 'copy'
+end 'emitRoutine'
+
+function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let kind = p.types.entries[ty as Count].kind
+	if kind == ast.TypeKind.primString 'string'
+		dropString(u)
+		return
+	end 'string'
+	if kind == ast.TypeKind.record 'record'
+		dropRecord(u, p: p, ty: ty)
+		return
+	end 'record'
+	if kind == ast.TypeKind.unionTy 'union'
+		dropUnion(u, p: p, ty: ty)
+		return
+	end 'union'
+	if kind == ast.TypeKind.builtinArray 'array'
+		if packsBytes(p, t: ty) 'bytes'
+			dropBytes(u)
+			return
+		end 'bytes'
+		dropArray(u, p: p, ty: ty)
+		return
+	end 'array'
+	panic("routines: no drop routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
+end 'emitDrop'
+
+function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let kind = p.types.entries[ty as Count].kind
+	if kind == ast.TypeKind.primString 'string'
+		copyString(u)
+		return
+	end 'string'
+	if kind == ast.TypeKind.record 'record'
+		copyRecord(u, p: p, ty: ty)
+		return
+	end 'record'
+	if kind == ast.TypeKind.unionTy 'union'
+		copyUnion(u, p: p, ty: ty)
+		return
+	end 'union'
+	if kind == ast.TypeKind.builtinArray 'array'
+		if packsBytes(p, t: ty) 'bytes'
+			copyBytes(u)
+			return
+		end 'bytes'
+		copyArray(u, p: p, ty: ty)
+		return
+	end 'array'
+	panic("routines: no copy routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
+end 'emitCopy'
+
+// returnIfEmpty is the start of a drop: a value that is 0 holds nothing.
+function returnIfEmpty(mutates u CodeUnit, done LabelID)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.equal, label: done)
+end 'returnIfEmpty'
+
+// dropWord drops the managed word at an offset of the box that the argument is.
+function dropWord(mutates u CodeUnit, mutates p ast.Project, offset Count, ty ast.TypeID)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rax, disp: imm32Of(offset))
+	routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: ty)
+end 'dropWord'
+
+function dropRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
+		let fieldTy = fieldType(p.types, owner: ty, index: i)
+		if ast.isManagedType(p.types, t: fieldTy) 'managed'
+			dropWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+		end 'managed'
+	end 'fields'
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropRecord'
+
+// dropUnion drops the payload of the case the box holds, and then the box.
+function dropUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let done = u.asm.newLabel()
+	let release = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	for i in 0 upto caseCount(p.types, owner: ty) 'cases'
+		if not anyManagedPayload(p.types, owner: ty, caseIndex: i) 'plain'
+			continue 'cases'
+		end 'plain'
+		let next = u.asm.newLabel()
+		u.asm.load(rax, base: rbp, disp: routineArg)
+		u.asm.load(rax, base: rax, disp: imm32Of(ir.tagOffset))
+		u.asm.cmpImm(rax, imm: imm32Of(i))
+		u.asm.jcc(X64CondCode.notEqual, label: next)
+		for j in 0 upto payloadCount(p.types, owner: ty, caseIndex: i) 'payload'
+			let payloadTy = payloadType(p.types, owner: ty, caseIndex: i, index: j)
+			if ast.isManagedType(p.types, t: payloadTy) 'managed'
+				dropWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+			end 'managed'
+		end 'payload'
+		u.asm.jmp(release)
+		u.asm.bind(next)
+	end 'cases'
+	u.asm.bind(release)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropUnion'
+
+// dropArray drops each element, and then the buffer and the header.
+function dropArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 1)
+	returnIfEmpty(u, done: done)
+	let elem = elementType(p.types, array: ty)
+	if ast.isManagedType(p.types, t: elem) 'managed'
+		let top = u.asm.newLabel()
+		let out = u.asm.newLabel()
+		u.asm.bitXor(rax, src: rax)
+		u.asm.store(rbp, disp: routineLocal0, src: rax)
+		u.asm.bind(top)
+		u.asm.load(rcx, base: rbp, disp: routineArg)
+		u.asm.load(rdx, base: rcx, disp: arrayLengthOffset)
+		u.asm.load(rax, base: rbp, disp: routineLocal0)
+		u.asm.cmp(rax, right: rdx)
+		u.asm.jcc(X64CondCode.aboveEqual, label: out)
+		u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+		u.asm.movImm(rdx, imm: wordBytes)
+		u.asm.imul(rax, src: rdx)
+		u.asm.add(rcx, src: rax)
+		u.asm.load(rax, base: rcx, disp: 0)
+		routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: elem)
+		u.asm.load(rax, base: rbp, disp: routineLocal0)
+		u.asm.addImm(rax, imm: 1)
+		u.asm.store(rbp, disp: routineLocal0, src: rax)
+		u.asm.jmp(top)
+		u.asm.bind(out)
+	end 'managed'
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: arrayDataOffset)
+	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropArray'
+
+// jumpIfImmortal jumps when the string that the argument is lives in the executable's data section, which no one frees:
+// its address is between the bounds the linker defines. A string on the heap is never there.
+function jumpIfImmortal(mutates u CodeUnit, target LabelID)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	u.asm.leaSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtImageDataStart))
+	u.asm.sub(rax, src: rcx)
+	u.asm.leaSymbol(rdx, symbol: ir.rtSymbol(ir.Rt.rtImageDataEnd))
+	u.asm.sub(rdx, src: rcx)
+	u.asm.cmp(rax, right: rdx)
+	u.asm.jcc(X64CondCode.below, label: target)
+end 'jumpIfImmortal'
+
+function dropString(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	jumpIfImmortal(u, target: done)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropString'
+
+function dropBytes(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: bytesDataOffset)
+	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropBytes'
+
+// copyWord copies the word at an offset of the box that the argument is into the same offset of the new box, which is
+// the first local: a managed word is copied by the routine of its type.
+function copyWord(mutates u CodeUnit, mutates p ast.Project, offset Count, ty ast.TypeID)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: imm32Of(offset))
+	if ast.isManagedType(p.types, t: ty) 'managed'
+		routineCall(u, p: p, kind: RoutineKind.copyRoutine, ty: ty)
+	end 'managed'
+	u.asm.load(rcx, base: rbp, disp: routineLocal0)
+	u.asm.store(rcx, disp: imm32Of(offset), src: rax)
+end 'copyWord'
+
+function copyRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let fields = fieldCount(p.types, owner: ty)
+	routinePrologue(u, locals: 1)
+	allocate(u, bytes: ir.boxBytes(fields, tagged: false))
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	for i in 0 upto fields 'fields'
+		let fieldTy = fieldType(p.types, owner: ty, index: i)
+		copyWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+	end 'fields'
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	routineEpilogue(u)
+end 'copyRecord'
+
+// copyUnion makes a box for the case the value holds, sized for its payload as lowering sizes it.
+function copyUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 1)
+	let cases = caseCount(p.types, owner: ty)
+	for i in 0 upto cases 'cases'
+		let payload = payloadCount(p.types, owner: ty, caseIndex: i)
+		let last = i + 1 == cases
+		let next = u.asm.newLabel()
+		if not last 'check'
+			u.asm.load(rax, base: rbp, disp: routineArg)
+			u.asm.load(rax, base: rax, disp: imm32Of(ir.tagOffset))
+			u.asm.cmpImm(rax, imm: imm32Of(i))
+			u.asm.jcc(X64CondCode.notEqual, label: next)
+		end 'check'
+		allocate(u, bytes: ir.boxBytes(payload, tagged: true))
+		u.asm.store(rbp, disp: routineLocal0, src: rax)
+		u.asm.movImm(rcx, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
+		u.asm.store(rax, disp: imm32Of(ir.tagOffset), src: rcx)
+		for j in 0 upto payload 'payload'
+			let payloadTy = payloadType(p.types, owner: ty, caseIndex: i, index: j)
+			copyWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+		end 'payload'
+		if not last 'skip'
+			u.asm.jmp(done)
+			u.asm.bind(next)
+		end 'skip'
+	end 'cases'
+	u.asm.bind(done)
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	routineEpilogue(u)
+end 'copyUnion'
+
+// copyArray makes a header and a buffer of exactly the length, with a copy of each element.
+function copyArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+	let header = routineLocal0
+	let length = routineLocal1
+	let index = routineLocal2
+	let buffer = routineLocal3
+	let done = u.asm.newLabel()
+	let top = u.asm.newLabel()
+	routinePrologue(u, locals: 4)
+	allocate(u, bytes: arrayHeaderBytes)
+	u.asm.store(rbp, disp: header, src: rax)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: arrayLengthOffset)
+	u.asm.store(rbp, disp: length, src: rax)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.equal, label: done)
+	u.asm.movImm(rdx, imm: wordBytes)
+	u.asm.imul(rax, src: rdx)
+	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
+	u.asm.store(rbp, disp: buffer, src: rax)
+	u.asm.load(rcx, base: rbp, disp: header)
+	u.asm.load(rax, base: rbp, disp: length)
+	u.asm.store(rcx, disp: arrayLengthOffset, src: rax)
+	u.asm.store(rcx, disp: arrayCapacityOffset, src: rax)
+	u.asm.load(rax, base: rbp, disp: buffer)
+	u.asm.store(rcx, disp: arrayDataOffset, src: rax)
+	u.asm.bitXor(rax, src: rax)
+	u.asm.store(rbp, disp: index, src: rax)
+	u.asm.bind(top)
+	u.asm.load(rax, base: rbp, disp: index)
+	u.asm.load(rdx, base: rbp, disp: length)
+	u.asm.cmp(rax, right: rdx)
+	u.asm.jcc(X64CondCode.aboveEqual, label: done)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+	u.asm.movImm(rdx, imm: wordBytes)
+	u.asm.imul(rax, src: rdx)
+	u.asm.add(rcx, src: rax)
+	u.asm.load(rax, base: rcx, disp: 0)
+	let elem = elementType(p.types, array: ty)
+	if ast.isManagedType(p.types, t: elem) 'managed'
+		routineCall(u, p: p, kind: RoutineKind.copyRoutine, ty: elem)
+	end 'managed'
+	u.asm.load(rcx, base: rbp, disp: index)
+	u.asm.movImm(rdx, imm: wordBytes)
+	u.asm.imul(rcx, src: rdx)
+	u.asm.load(rdx, base: rbp, disp: buffer)
+	u.asm.add(rcx, src: rdx)
+	u.asm.store(rcx, disp: 0, src: rax)
+	u.asm.load(rax, base: rbp, disp: index)
+	u.asm.addImm(rax, imm: 1)
+	u.asm.store(rbp, disp: index, src: rax)
+	u.asm.jmp(top)
+	u.asm.bind(done)
+	u.asm.load(rax, base: rbp, disp: header)
+	routineEpilogue(u)
+end 'copyArray'
+
+// copyString is a new string with the same length and bytes, unless the string is in the executable: that one is never
+// freed and never changes, so its copy is itself.
+function copyString(mutates u CodeUnit)
+	let immortal = u.asm.newLabel()
+	routinePrologue(u, locals: 1)
+	jumpIfImmortal(u, target: immortal)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: stringLengthOffset)
+	u.asm.addImm(rax, imm: wordBytes)
+	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	u.asm.mov(rdi, src: rax)
+	u.asm.load(rsi, base: rbp, disp: routineArg)
+	u.asm.load(rcx, base: rsi, disp: stringLengthOffset)
+	u.asm.addImm(rcx, imm: wordBytes)
+	u.asm.repMovsb()
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	routineEpilogue(u)
+	u.asm.bind(immortal)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	routineEpilogue(u)
+end 'copyString'
+
+function copyBytes(mutates u CodeUnit)
+	let header = routineLocal0
+	let length = routineLocal1
+	let buffer = routineLocal2
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 3)
+	allocate(u, bytes: bytesHeaderBytes)
+	u.asm.store(rbp, disp: header, src: rax)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: bytesLengthOffset)
+	u.asm.store(rbp, disp: length, src: rax)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.equal, label: done)
+	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
+	u.asm.store(rbp, disp: buffer, src: rax)
+	u.asm.load(rcx, base: rbp, disp: header)
+	u.asm.load(rax, base: rbp, disp: length)
+	u.asm.store(rcx, disp: bytesLengthOffset, src: rax)
+	u.asm.store(rcx, disp: bytesCapacityOffset, src: rax)
+	u.asm.load(rdx, base: rbp, disp: buffer)
+	u.asm.store(rcx, disp: bytesDataOffset, src: rdx)
+	u.asm.mov(rdi, src: rdx)
+	u.asm.load(rsi, base: rbp, disp: routineArg)
+	u.asm.load(rsi, base: rsi, disp: bytesDataOffset)
+	u.asm.mov(rcx, src: rax)
+	u.asm.repMovsb()
+	u.asm.bind(done)
+	u.asm.load(rax, base: rbp, disp: header)
+	routineEpilogue(u)
+end 'copyBytes'

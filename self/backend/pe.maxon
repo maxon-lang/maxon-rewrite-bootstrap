@@ -3,7 +3,7 @@
 
 export typealias NameList = Array with String
 
-typealias CountList = Array with Count
+export typealias CountList = Array with Count
 
 typealias SectionList = Array with Section
 
