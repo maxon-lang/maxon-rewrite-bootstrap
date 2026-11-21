@@ -34,9 +34,6 @@ a wrong answer and not merely a slower one.
 
 <!-- test: aggregate-argument-is-shared-not-copied -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -57,7 +54,6 @@ end 'Cell'
 
 type Holder uses Element
 	typealias EArray = Array with Element
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
 
@@ -71,7 +67,6 @@ type Holder uses Element
 
 	function entryAt(i Index) returns Entry
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
-		// TODO: tuple values and types are not supported in minimaxon
 		return (v, 1)
 	end 'entryAt'
 end 'Holder'
@@ -82,10 +77,8 @@ function main() returns ExitCode
 	let h = CellHolder.create()
 	h.add(Cell.create(40))
 	let e = h.entryAt(0)
-	// TODO: tuple element access is not supported in minimaxon
 	e.0.bump(2)
 	let again = h.entryAt(0)
-	// TODO: tuple element access is not supported in minimaxon
 	return again.0.n
 end 'main'
 ```
@@ -738,7 +731,6 @@ error E2015: <fragment>:15:11: Unsupported: 'Pair.create' is called on 'Pair.Dee
 ```
 
 <!-- test: mapping-a-map-of-records-releases-the-entry-tuples-it-built -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 Each `map` over a `Map with (String, Box)` builds entry tuples that share the records, keeps them alive after the map replaces its values, and releases them when the mapped array goes.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -766,7 +758,6 @@ function main() returns ExitCode
 		m.upsert("a", value: Box.create(50))
 		m.upsert("bb", value: Box.create(60))
 		for pair in mapped 'sum'
-			// TODO: tuple element access is not supported in minimaxon
 			total = total + pair.1.n + (pair.1.names.count() as Count)
 		end 'sum'
 	end 'eachRound'
@@ -1104,9 +1095,6 @@ a heap string long enough to allocate 1 1
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-clones-its-records -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A clone of an array of `(String, Value)` tuples is its own array: an entry added after the clone is not in it, and every record it holds is released.
 ```maxon
 typealias Count = int(0 to 100000)
@@ -1123,7 +1111,6 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
 	typealias Copier = function() returns Pairs
@@ -1134,7 +1121,6 @@ type Holder uses Value
 	end 'create'
 
 	function put(key String, value Value)
-		// TODO: tuple values and types are not supported in minimaxon
 		self.pairs.push((key, value))
 	end 'put'
 
@@ -1157,7 +1143,6 @@ function main() returns ExitCode
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
@@ -1172,9 +1157,6 @@ end 'main'
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same clone written inside a closure in the method.
 ```maxon
 typealias Count = int(0 to 100000)
@@ -1191,7 +1173,6 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
 	typealias Copier = function() returns Pairs
@@ -1202,7 +1183,6 @@ type Holder uses Value
 	end 'create'
 
 	function put(key String, value Value)
-		// TODO: tuple values and types are not supported in minimaxon
 		self.pairs.push((key, value))
 	end 'put'
 
@@ -1225,7 +1205,6 @@ function main() returns ExitCode
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
@@ -1240,9 +1219,6 @@ end 'main'
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-returned-releases-its-records -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Returning the array field hands back the array itself, so an entry added afterwards is in it, and every record it holds is released.
 ```maxon
 typealias Count = int(0 to 100000)
@@ -1259,7 +1235,6 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
 	typealias Copier = function() returns Pairs
@@ -1269,9 +1244,8 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(key String, value Value)
-		// TODO: tuple values and types are not supported in minimaxon
-		self.pairs.push((key, value))
+	function put(mutates self, key String, consumes value Value)
+		self.pairs.push((key.clone(), value))
 	end 'put'
 
 	function snapshot() returns Pairs
@@ -1286,15 +1260,14 @@ end 'Holder'
 typealias BoxHolder = Holder with Box
 
 function main() returns ExitCode
-	let h = BoxHolder.create()
+	var h = BoxHolder.create()
 	h.put("x", value: Box.create(5))
 	h.put("y", value: Box.create(6))
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		// TODO: tuple element access is not supported in minimaxon
-		total = total + pair.1.n
+		total = try total + pair.1.n otherwise panic("out of range")
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
 	return 0
@@ -1637,7 +1610,6 @@ word 6
 ```
 
 <!-- test: a-static-dropping-an-opaque-value-it-reads-releases-it-through-the-call-sites-descriptor -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 A closure in a static reads an opaque value and drops it. The static receives the descriptor from its call, and the closure releases the value through it.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1645,7 +1617,7 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1656,11 +1628,10 @@ end 'Cell'
 
 type Holder uses T
 	typealias Inner = Cell with T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Inner, Int)
 	var one as Inner
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{one: Inner.create(v)}
 	end 'create'
 
@@ -1687,9 +1658,6 @@ end 'main'
 ```
 
 <!-- test: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A container of tuples over the parameter cloned in a closure written in a static copies its records through the descriptor the static receives from its call.
 ```maxon
 typealias Count = int(0 to 100000)
@@ -1706,7 +1674,6 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
 	typealias Copier = function() returns Pairs
@@ -1717,7 +1684,6 @@ type Holder uses Value
 	end 'create'
 
 	function put(key String, value Value)
-		// TODO: tuple values and types are not supported in minimaxon
 		self.pairs.push((key, value))
 	end 'put'
 
@@ -1746,7 +1712,6 @@ function main() returns ExitCode
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
 	end 'eachPair'
 	print("{total} {snap.count()} {k}\n")
@@ -2848,10 +2813,6 @@ end 'main'
 
 <!-- test: string-argument-outlives-its-source -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2860,7 +2821,6 @@ typealias Index = int(0 to u64.max) implements ElementIndex
 
 type Holder uses Element
 	typealias EArray = Array with Element
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
 
@@ -2874,14 +2834,12 @@ type Holder uses Element
 
 	function entryAt(i Index) returns Entry
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
-		// TODO: tuple values and types are not supported in minimaxon
 		return (v, 1)
 	end 'entryAt'
 end 'Holder'
 
 typealias StringHolder = Holder with String
 
-// TODO: tuple return types are not supported in minimaxon
 function pluck() returns (String, Integer)
 	let h = StringHolder.create()
 	h.add("the source is gone")
@@ -2890,7 +2848,6 @@ end 'pluck'
 
 function main() returns ExitCode
 	let e = pluck()
-	// TODO: tuple element access is not supported in minimaxon
 	if e.0.equals("the source is gone") 'kept'
 		return 42
 	end 'kept'
@@ -2905,9 +2862,6 @@ end 'main'
 
 <!-- test: trivial-argument-takes-no-reference -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2918,7 +2872,6 @@ typealias SmallInt = int(0 to 100)
 
 type Holder uses Element
 	typealias EArray = Array with Element
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
 
@@ -2932,7 +2885,6 @@ type Holder uses Element
 
 	function entryAt(i Index) returns Entry
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
-		// TODO: tuple values and types are not supported in minimaxon
 		return (v, 1)
 	end 'entryAt'
 end 'Holder'
@@ -2945,7 +2897,6 @@ function main() returns ExitCode
 	h.add(2)
 	let a = h.entryAt(0)
 	let b = h.entryAt(1)
-	// TODO: tuple element access is not supported in minimaxon
 	return a.0 + b.0
 end 'main'
 ```
@@ -2962,8 +2913,6 @@ gated on the base's FIELD LIST instead, this exact shape would retain through a 
 release through a zero: exit 101 with the right answer printed.
 
 <!-- test: a-record-in-a-fieldless-generic-releases-what-it-took -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2974,10 +2923,8 @@ type Pack uses T
 		return Self{n: 40}
 	end 'create'
 
-	function tag(t T) returns Integer
-		// TODO: tuple values and types are not supported in minimaxon
+	function tag(consumes t T) returns Integer
 		let pair = (t, n)
-		// TODO: tuple element access is not supported in minimaxon
 		return pair.1
 	end 'tag'
 end 'Pack'
@@ -2987,7 +2934,7 @@ typealias StrPack = Pack with String
 function main() returns ExitCode
 	let p = StrPack.create()
 	let s = "hello"
-	return p.tag(s) + p.tag("literal")
+	return try p.tag(s) + p.tag("literal") otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3521,7 +3468,7 @@ error E2012: <fragment>:10:24: Circular typealias dependency: A
 ```
 
 <!-- test: error.a-struct-literal-over-an-inner-alias-the-conformer-binds-to-an-interface-reports-only-the-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformer that binds an associated type to an interface makes the extension's inner alias `Array with Named`, the same instance the alias written at the bottom is refused for. The literal in the extension body is read whole, fields and all, so the only errors are the conformer's binding and the alias written at the bottom.
@@ -3545,7 +3492,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -3584,7 +3531,7 @@ error E2015: <fragment>:39:35: Unsupported: a container's element type declared 
 No written site spells the refused instance here: the extension writes `Array with Item`, which is legal for every conformer that binds `Item` to a concrete type, and the conformer writes `Named`, which is legal where nothing stores it in a container. The refusal is the pair, and it is reported once at the conformer's binding, whatever the number of uses.
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-as-an-element-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -3607,7 +3554,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -3639,7 +3586,7 @@ error E2015: <fragment>:29:34: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.a-conformer-binding-an-interface-is-reported-once-however-many-aliases-and-uses-store-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 Two aliases in the extension store `Item`, both are used, and the one conformer binding is still reported once.
@@ -3663,7 +3610,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	typealias ItemList = List with Item
@@ -3701,7 +3648,7 @@ error E2015: <fragment>:36:34: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.each-conformer-binding-an-interface-that-an-extension-stores-is-reported-at-its-own-binding -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 Two conformers bind `Item` to `Named`: each binding is reported, at its own token.
@@ -3725,7 +3672,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -3769,7 +3716,7 @@ error E2015: <fragment>:39:35: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.the-reported-binding-is-the-position-the-extension-stores -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension stores `Second`, so the binding of `Second` is the one reported; `First` is bound to a concrete type and is not.
@@ -3794,7 +3741,7 @@ interface Pair uses First, Second
 	function second() returns Second
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Pair
 	typealias SecondArray = Array with Second
 	function seconds() returns Count
@@ -3830,7 +3777,7 @@ error E2015: <fragment>:30:39: Unsupported: a container's element type declared 
 ```
 
 <!-- test: a-conformer-binding-an-interface-the-extension-does-not-store-compiles -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The extension stores `First`, which is bound to a concrete type; `Second` is bound to an interface and no alias stores it, so nothing is refused.
 ```maxon
@@ -3854,7 +3801,7 @@ interface Pair uses First, Second
 	function second() returns Second
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Pair
 	typealias FirstArray = Array with First
 	function firsts() returns Count
@@ -3890,7 +3837,7 @@ end 'main'
 ```
 
 <!-- test: a-conformer-binding-a-concrete-type-the-extension-stores-compiles -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same extension and the same use are legal for a conformer that binds `Item` to a concrete type.
 ```maxon
@@ -3913,7 +3860,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -3942,7 +3889,8 @@ end 'main'
 ```
 
 <!-- test: a-conformer-binding-an-interface-is-not-refused-where-a-conditional-extension-is-withheld -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The extension that stores `Item` holds only for an `Equatable` binding, `Named` is not one, so the alias is never published for the conformer and nothing is refused.
 ```maxon
@@ -3965,7 +3913,8 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Source where Item implements Equatable
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -3994,7 +3943,7 @@ end 'main'
 ```
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-in-another-file-stores-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension is declared in `a.maxon` and the conformer in `main.maxon`: the one E2015 is at the conformer's binding.
@@ -4009,7 +3958,7 @@ export interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 export extension Source
 	typealias ItemArray = Array with Item
 	export function collected() returns Count
@@ -4052,7 +4001,7 @@ error E2015: <fragment>:31:34: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-is-refused-though-no-body-uses-the-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is the pair of the binding and the extension's declaration, so it stands when nothing reads the alias.
@@ -4076,7 +4025,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -4112,7 +4061,7 @@ error E2015: <fragment>:29:34: Unsupported: a container's element type declared 
 The member's signature reads the conformer's binding, so for a conformer that binds `Item` to `Named` a parameter `other Item` is a parameter held at `Named` and a result `Item` is a result held at `Named`. An interface parameter carries its witness beside the value, and an interface result is the fat pointer, exactly as for a plain function declared with `Named`.
 
 <!-- test: an-extension-member-taking-an-associated-type-bound-to-an-interface-runs -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 interface Named
@@ -4144,7 +4093,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	function labelBytes(other Item) returns Count
 		return other.label().byteLength()
@@ -4175,7 +4124,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-returning-an-associated-type-bound-to-an-interface-runs -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 interface Named
@@ -4197,7 +4146,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	function again() returns Item
 		return self.first()
@@ -4229,7 +4178,7 @@ thing
 ```
 
 <!-- test: an-extension-member-passing-an-associated-type-bound-to-an-interface-through-runs -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 One member takes the associated type and returns it, so the witness the caller supplies travels in and back out.
 ```maxon
@@ -4262,7 +4211,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	function pick(other Item, preferOther bool) returns Item
 		if preferOther 'theArgument'
@@ -4298,7 +4247,7 @@ thing other one
 ```
 
 <!-- test: an-extension-member-taking-an-associated-type-serves-a-concrete-and-an-interface-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The one extension member serves a conformer that binds `Item` to a concrete type and one that binds it to an interface.
 ```maxon
@@ -4321,7 +4270,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	function same(other Item) returns Item
 		return other
@@ -5593,9 +5542,6 @@ end 'Outer'
 ```
 
 <!-- test: a-tuple-field-resting-a-nested-view-is-released-on-reassignment -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple field that rests a nested declaration view is released when the record holding it is replaced.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5610,12 +5556,10 @@ end 'Box'
 
 type Bag uses E
 	typealias EBox = Box with E
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias EPair = (EBox, Integer)
 	export let pair as EPair
 
 	static function create(x E) returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (EBox.create(x), 1)}
 	end 'create'
 end 'Bag'
@@ -5633,7 +5577,6 @@ type Outer uses T
 	end 'reset'
 
 	function first() returns T
-		// TODO: tuple element access is not supported in minimaxon
 		return self.bag.pair.0.x
 	end 'first'
 end 'Outer'
@@ -5664,18 +5607,14 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-tuple-field-over-the-parameter-in-a-nested-view-is-released-on-reassignment -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple field over the type parameter itself, in a nested declaration view, is released when the record holding it is replaced.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Bag uses E
-	// TODO: tuple values and types are not supported in minimaxon
 	export let pair as (E, Integer)
 
 	static function create(x E) returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (x, 1)}
 	end 'create'
 end 'Bag'
@@ -5693,7 +5632,6 @@ type Outer uses T
 	end 'reset'
 
 	function first() returns T
-		// TODO: tuple element access is not supported in minimaxon
 		return self.bag.pair.0
 	end 'first'
 end 'Outer'
@@ -5724,9 +5662,6 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-tuple-field-resting-a-nested-view-reassigned-in-its-own-type-is-released -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same tuple field reassigned inside its own type releases the tuple it displaces.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5741,12 +5676,10 @@ end 'Box'
 
 type Bag uses E
 	typealias EBox = Box with E
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias EPair = (EBox, Integer)
 	export var pair as EPair
 
 	static function create(x E) returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (EBox.create(x), 1)}
 	end 'create'
 
@@ -5755,7 +5688,6 @@ type Bag uses E
 	end 'swap'
 
 	function first() returns E
-		// TODO: tuple element access is not supported in minimaxon
 		return self.pair.0.x
 	end 'first'
 end 'Bag'
@@ -5775,7 +5707,6 @@ function main() returns ExitCode
 	let s1 = heapString("first payload ", b: "long enough to allocate")
 	let s2 = heapString("second payload ", b: "long enough to allocate")
 	let b = StrBag.create(s1)
-	// TODO: tuple values and types are not supported in minimaxon
 	b.swap((StrBox.create(s2), 2))
 	print("{b.first()} {b.pair.1}\n")
 	return 0
@@ -5806,14 +5737,10 @@ owns nothing while the stores that follow it take two references; the disagreeme
 shared frame is the party that frees the box.
 
 <!-- test: a-tuple-of-parameters-dropped-in-a-shared-body-releases-what-it-took -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
 	let v as V
@@ -5823,7 +5750,6 @@ type Holder uses K, V
 	end 'create'
 
 	function pair() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (k, v)
 	end 'pair'
 
@@ -5831,7 +5757,6 @@ type Holder uses K, V
 	// at the parameters and the reference its first slot holds is a descriptor read.
 	function second() returns V
 		let p = pair()
-		// TODO: tuple element access is not supported in minimaxon
 		return p.1
 	end 'second'
 end 'Holder'
@@ -5866,14 +5791,10 @@ and therefore whether the record's stores read a REAL protocol or the all-zero o
 carries. A cure that balances one of the two modes is silent about the other, so both are pinned.
 
 <!-- test: a-tuple-of-parameters-dropped-in-a-shared-body-with-two-instantiations -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
 	let v as V
@@ -5883,13 +5804,11 @@ type Holder uses K, V
 	end 'create'
 
 	function pair() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (k, v)
 	end 'pair'
 
 	function second() returns V
 		let p = pair()
-		// TODO: tuple element access is not supported in minimaxon
 		return p.1
 	end 'second'
 end 'Holder'
@@ -5927,13 +5846,10 @@ shared body, one `__retain_type_param` — so a cure that removed it would redde
 two above.
 
 <!-- test: a-tuple-of-parameters-dropped-by-a-concrete-caller -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
 	let v as V
@@ -5943,7 +5859,6 @@ type Holder uses K, V
 	end 'create'
 
 	function pair() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (k, v)
 	end 'pair'
 end 'Holder'
@@ -7556,7 +7471,7 @@ end 'main'
 The pair of a conformer's interface binding and an extension's alias is refused wherever the alias holds the associated type in a slot that is one machine word: a container element is reported at the conformer's binding, and a function type's parameter or result and a tuple element are reported at the extension's alias, once however many conformers bind an interface.
 
 <!-- test: error.an-extension-function-alias-over-a-bound-interface-is-refused-once -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A function alias over the associated type, with a member taking it, is refused at the alias; the program never calls through it.
@@ -7580,7 +7495,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemFn = function(Item) returns Count
 	function apply(f ItemFn) returns Count
@@ -7619,11 +7534,8 @@ error E2015: <fragment>:21:30: Unsupported: a function type's parameter declared
 ```
 
 <!-- test: error.an-extension-tuple-alias-over-a-bound-interface-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple alias holding the associated type is refused at the alias, whatever member uses it.
 ```maxon
@@ -7646,17 +7558,14 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias ItemPair = (Item, Count)
 	function paired(weight Count) returns ItemPair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (self.first(), weight)
 	end 'paired'
 	function weighed(weight Count) returns Count
 		let pair = self.paired(weight)
-		// TODO: tuple element access is not supported in minimaxon
 		return pair.0.label().byteLength() + pair.1
 	end 'weighed'
 end 'Source'
@@ -7742,7 +7651,7 @@ error E2015: stdlib/Interfaces.maxon:204:47: Unsupported: a function type's para
 ```
 
 <!-- test: error.a-generic-conformer-binding-an-interface-is-reported-once-however-many-instances -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic conformer binds `Item` to an interface and is instantiated over two element types: the one binding is reported once.
@@ -7766,7 +7675,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -7798,7 +7707,7 @@ error E2015: <fragment>:29:40: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.an-interface-extension-publishes-no-member-onto-an-enum-conformer-binding-an-interface -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension publishes no member onto an enum conformer, so the alias it stores is never instantiated for one and the call is refused as any call to a missing method is.
@@ -7822,7 +7731,7 @@ interface Source uses Item
 	function first() returns Item
 end 'Source'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count
@@ -7850,7 +7759,6 @@ error E4006: <fragment>:40:14: Type 'Mode' has no method named 'collected'
 ```
 
 <!-- test: error.a-conformer-in-the-earlier-file-binding-an-interface-that-an-extension-in-a-later-file-stores-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The conformer is declared in `a.maxon` and the extension in `main.maxon`: the one E2015 is at the conformer's binding.
@@ -7886,7 +7794,6 @@ type Impl implements Source with Named
 end 'Impl'
 
 // --- file: main.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Source
 	typealias ItemArray = Array with Item
 	function collected() returns Count

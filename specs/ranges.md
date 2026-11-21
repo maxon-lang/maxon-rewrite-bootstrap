@@ -333,11 +333,9 @@ end 'main'
 
 <!-- test: ranges.with-iterator -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `(start upto end).withIterator()` exposes the underlying iterator inside the loop.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, v) in (10 upto 13).withIterator() 'loop'
 		print("{iter.index()}:{v}\n")
@@ -398,8 +396,6 @@ end 'main'
 ```
 
 <!-- test: ranges.float-bounds-refused -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A counted range's loop variable is a counter stepped by 1, so its bounds must be INTEGERS.
 A `float` range is refused at the bound, not at the backend: unchecked, it reaches
 the x64 emitter and panics (*"rax is in the gpr register file where the xmm file is required"*),
@@ -407,7 +403,6 @@ an internal error rather than a diagnostic.
 ```maxon
 function main() returns ExitCode
 	var trips = 0 as Count
-	// TODO: float literals are not supported in minimaxon
 	for x in 1.0 to 3.0 'l'
 		trips = trips + 1
 	end 'l'
@@ -435,14 +430,11 @@ error E2015: specs/ranges/ranges.bool-bounds-refused.maxon:4:11: Unsupported: a 
 ```
 
 <!-- test: ranges.mixed-bounds-blames-the-float-half -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 Each bound is asked separately and anchored on its own half, so a mixed range names the side that
 is wrong — here the END bound, at the `to`.
 ```maxon
 function main() returns ExitCode
 	var trips = 0 as Count
-	// TODO: float literals are not supported in minimaxon
 	for x in 1 to 3.5 'l'
 		trips = trips + 1
 	end 'l'

@@ -3324,7 +3324,6 @@ error E2061: <fragment>:8:29: Cannot use bare type 'int' as a type argument; use
 ```
 
 <!-- test: error.float-type-arg -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A FLOAT TYPE ARGUMENT IS REFUSED HOWEVER IT IS SPELLED (E2062).** A monomorphizing compiler would
 give the instantiation a genuine f64 slot and the question would never arise. The compiler
@@ -3347,7 +3346,6 @@ end 'Box'
 typealias FloatBox = Box with float
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = FloatBox.create(1.5)
 	return 0
 end 'main'
@@ -3357,8 +3355,6 @@ error E2062: <fragment>:8:31: Cannot use 'float' as a type argument: a float typ
 ```
 
 <!-- test: error.float-alias-type-arg -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE CASE THAT CLOSES THE SECOND SPELLING, AND THE REASON E2062 IS ASKED BEFORE E2061.**
 A ranged FLOAT typealias reaches the identical backend assertion — the alias is not the problem, the
@@ -3388,7 +3384,6 @@ opaque formal outright is the wrong rule: it decides from the FORMAL's shape rat
 instance's real type, and answers wrongly the moment a float type argument becomes legal — which
 E2062's own message says is temporary.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 type Box uses T
@@ -3402,7 +3397,6 @@ end 'Box'
 typealias FloatBox = Box with Real
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = FloatBox.create(1.5)
 	return 0
 end 'main'
@@ -3412,7 +3406,6 @@ error E2062: <fragment>:9:31: Cannot use 'Real' as a type argument: a float type
 ```
 
 <!-- test: error.float-type-arg-builtin-generic -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 Both float spellings again on a BUILTIN base: the rule is about the ARGUMENT, so a synthesized base
 reaches it through the same `parseGenericArgNode` a declared generic does. Only the FIRST offending
@@ -3425,7 +3418,6 @@ dictionary-passed type parameter is one opaque general-purpose slot. `Set` hashe
 boxes its payload, and each refuses a float in its own terms at its own door — so the refusal that
 belongs at the DECLARATION is theirs.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias RealSet = Set with Real
@@ -3443,14 +3435,11 @@ error E2062: <fragment>:4:33: Cannot use 'float' as a type argument: a float typ
 
 <!-- test: a-float-element-is-admitted-on-a-buffer-base -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### The exemption, stated as an acceptance
 The refusal above is about a dictionary-passed type-parameter slot, so it lifts exactly where there is
 no such slot. Both buffer bases take both float spellings, and this is the case that turns RED if the
 exemption is ever narrowed back to `FixedArray` alone.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Reals = Array with Real
@@ -3460,12 +3449,9 @@ typealias Vec2 = FixedArray with 2 Real
 
 function main() returns ExitCode
 	let a = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	a.push(1.5)
 	let v = Vec2.create()
-	// TODO: float literals are not supported in minimaxon
 	v.set(0, value: 3.5)
-	// TODO: float literals are not supported in minimaxon
 	return trunc((try a.get(0) otherwise 0.0) + v.get(0))
 end 'main'
 ```
@@ -3652,7 +3638,6 @@ end 'main'
 ```
 
 <!-- test: error.float-actual-at-opaque-formal -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 A `float` actual meeting a `T`-typed formal is refused by the type the INSTANCE substitutes for `T`,
 not by the formal's own spelling. `IntBox`'s `T` is `Integer`, so this is the identical E3009 the
@@ -3674,7 +3659,6 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = IntBox.create(1.5)
 	return b.value
 end 'main'
@@ -3684,7 +3668,6 @@ error E3009: <fragment>:11:17: argument 'v': cannot implicitly convert 'float' t
 ```
 
 <!-- test: error.float-actual-at-opaque-formal-string -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The same rule where the substituted type is not numeric at all: `StrBox`'s `T` is `String`, so a
 float actual is a plain type mismatch (E3005), matching the non-generic `takeStr(1.5)`. This case
@@ -3702,7 +3685,6 @@ end 'Box'
 typealias StrBox = Box with String
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = StrBox.create(1.5)
 	return 0
 end 'main'
@@ -6047,7 +6029,7 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 ```
 
 <!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
@@ -6065,7 +6047,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Container
 	export typealias Pairs = Pair with Item
 end 'Container'
@@ -6093,7 +6075,8 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 ```
 
 <!-- test: error.a-wrong-arity-alias-in-a-conditional-extension-no-conformer-meets-reports-the-arity-error -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when the alias sits in a conditional extension whose `where` clause no conformer meets: the alias is
@@ -6111,7 +6094,8 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Item implements Comparable
 	export typealias Pairs = Pair with Item
 end 'Container'
@@ -6146,7 +6130,7 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 ```
 
 <!-- test: error.a-wrong-arity-alias-in-an-extension-of-an-interface-nothing-implements-reports-the-arity-error -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when nothing implements the extended interface at all.
@@ -6161,7 +6145,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Container
 	export typealias Pairs = Pair with Item
 end 'Container'

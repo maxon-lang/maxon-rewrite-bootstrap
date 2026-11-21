@@ -45,7 +45,6 @@ The 3 canra vectors that name a value the Maxon types cannot spell have no case:
 ## Tests
 
 <!-- test: tls-record.open-tls13-1 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13RecordProtection.open`: every protected record of RFC 8448 sections 3 to 7, OpenSSL's TLS 1.3 records, padding, every suite, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the inner content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-open-rfc8448-3-1 to tls13-open-gen-2-1 (40).
 ```maxon
@@ -60,7 +59,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -74,7 +72,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -193,7 +190,6 @@ tls13-open-gen-2-1 23 474554202f20485454502f312e310d0a0d0a
 <!-- test: tls-record.open-tls13-2 -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `Tls13RecordProtection.open`: every protected record of RFC 8448 sections 3 to 7, OpenSSL's TLS 1.3 records, padding, every suite, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the inner content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-open-gen-2-255 to record-err-019 (25).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -207,7 +203,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -221,7 +216,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -274,7 +268,6 @@ end 'bigEndian'
 function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 	let sequenceBytes = bigEndian(sequenceNumber)
 	let nonce = ByteArray.create(0)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, byte) in iv.withIterator() 'eachByte'
 		if iter.index() < 4 'prefix'
@@ -387,7 +380,6 @@ record-err-019 invalidIvLength
 <!-- test: tls-record.open-tls12 -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `Tls12RecordProtection.open`: OpenSSL's TLS 1.2 records under AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, an explicit nonce taken as sent, the largest record and every refusal. A line prints the content type and the plaintext, or the length and SHA-256 of one over 4000 bytes. Vectors tls12-open-openssl-ecdsa-aes128-0 to record-err-033 (16).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -401,7 +393,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -415,7 +406,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -468,7 +458,6 @@ end 'bigEndian'
 function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 	let sequenceBytes = bigEndian(sequenceNumber)
 	let nonce = ByteArray.create(0)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, byte) in iv.withIterator() 'eachByte'
 		if iter.index() < 4 'prefix'
@@ -570,7 +559,6 @@ record-err-033 badRecordMac
 ```
 
 <!-- test: tls-record.seal-tls13 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls13RecordProtection.seal`: the records of RFC 8448 sections 3 and 5, every suite, padding, sequence numbers up to 2^64 - 1, the largest records and every refusal. A line prints the record, or the length and SHA-256 of one over 4000 bytes. Vectors tls13-seal-rfc8448-3-1 to record-err-018 (35).
 ```maxon
@@ -585,7 +573,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -599,7 +586,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -714,7 +700,6 @@ record-err-018 invalidKeyLength
 ```
 
 <!-- test: tls-record.seal-tls12 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls12RecordProtection.seal`: AES-GCM records whose explicit nonce is the sequence number, ChaCha20-Poly1305 records, the largest record and every refusal. A line prints the record, or the length and SHA-256 of one over 4000 bytes. Vectors tls12-seal-openssl-rsa-chacha-0 to record-err-030 (10).
 ```maxon
@@ -729,7 +714,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -743,7 +727,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -808,13 +791,11 @@ record-err-030 invalidIvLength
 ```
 
 <!-- test: tls-record.tls13-sequence-numbers -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A `Tls13RecordProtection` numbers its records from the number given to `create`, 0 by default: each record it seals or opens takes the next number, a refused call keeps the number, and after 2^64 - 1 it refuses to go on.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -892,13 +873,11 @@ beyond sequenceNumberExhausted
 ```
 
 <!-- test: tls-record.tls12-sequence-numbers -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A `Tls12RecordProtection` numbers its records from the number given to `create`, 0 by default: each record it seals or opens takes the next number, a refused call keeps the number, and after 2^64 - 1 it refuses to go on.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")

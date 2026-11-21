@@ -36,7 +36,6 @@ let z = Math.cos(pi)      // -1.0 (approximately)
 ## Tests
 
 <!-- test: cos.basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 Floats print in the **shortest round-trip** representation (⚖ user ruling; `specs/sin.md` sets out
 why). A shortest digit string is only correct for the exact double it came from, so these four are
 verified against the doubles `Math.cos` returns here
@@ -45,13 +44,9 @@ verified against the doubles `Math.cos` returns here
 `4603041830072026764`), and `…397` is the shortest form of the one this platform's `cos` actually returns.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x1 = Math.cos(0.0)
-	// TODO: float literals are not supported in minimaxon
 	let x2 = Math.cos(0.5)
-	// TODO: float literals are not supported in minimaxon
 	let x3 = Math.cos(1.0)
-	// TODO: float literals are not supported in minimaxon
 	let x4 = Math.cos(1.5708)
 	print("{x1}\n")
 	print("{x2}\n")
@@ -72,12 +67,9 @@ end 'main'
 
 
 <!-- test: cos.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.cos(0.0)
-	// TODO: float literals are not supported in minimaxon
 	if result == 1.0 'check'
 		return 0
 	end 'check'
@@ -89,12 +81,10 @@ end 'main'
 ```
 
 <!-- test: cos.with-int-promotion -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 0 // int
 	let result = Math.cos(x) // x promoted to 0.0
-	// TODO: float literals are not supported in minimaxon
 	if result == 1.0 'check'
 		return 0
 	end 'check'

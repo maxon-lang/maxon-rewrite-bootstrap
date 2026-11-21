@@ -321,28 +321,24 @@ error E3167: gate/<fragment>:6:18: exported field 'gate.Gate.n' names unexported
 ```
 
 <!-- test: crossfile-float-alias-field-off-a-temporary -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A ranged FLOAT alias field. It is the second `named` kind whose VALUE is a scalar, and the raw
 layout column the classifier reads still holds the bare name — so it travels the same cascade the
 int alias does and must reach the same `false`.
 ```maxon
 // --- file: scale.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(0.0 to 1000.0)
 
 type Scale
 	var w as Weight
 
 	static function make() returns Scale
-		// TODO: float literals are not supported in minimaxon
 		return Scale{w: 42.0}
 	end 'make'
 end 'Scale'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return trunc(Scale.make().w)
+	return try trunc(Scale.make().w) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

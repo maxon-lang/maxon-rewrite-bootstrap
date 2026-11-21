@@ -43,12 +43,9 @@ let d = Math.atan2(-1.0, x: 0.0)   // -1.5708 (≈ -π/2)
 ## Tests
 
 <!-- test: atan2.positive-x-axis -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(0.0, x: 1.0)
-	// TODO: float literals are not supported in minimaxon
 	if angle == 0.0 'check'
 		return 0
 	end 'check'
@@ -60,20 +57,16 @@ end 'main'
 ```
 
 <!-- test: atan2.positive-y-axis -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⚠ **EVERY `stdout` BLOCK IN THIS FILE IS SHORTEST ROUND-TRIP, for the reason `specs/sin.md` sets out
 at length — see that file rather than a copy here.** The compiler prints the shortest round-trip
 representation of a double.
 ```maxon
 function main() returns ExitCode
 	// π/2 ≈ 1.5708
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(1.0, x: 0.0)
 	print("{angle}\n")
 	// Should be approximately π/2
-	// TODO: float literals are not supported in minimaxon
 	if angle > 1.57 'check1'
-		// TODO: float literals are not supported in minimaxon
 		if angle < 1.58 'check2'
 			return 0
 		end 'check2'
@@ -89,17 +82,13 @@ end 'main'
 ```
 
 <!-- test: atan2.negative-x-axis -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// π ≈ 3.14159
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(0.0, x: -1.0)
 	print("{angle}\n")
 	// Should be approximately π
-	// TODO: float literals are not supported in minimaxon
 	if angle > 3.14 'check1'
-		// TODO: float literals are not supported in minimaxon
 		if angle < 3.15 'check2'
 			return 0
 		end 'check2'
@@ -115,17 +104,13 @@ end 'main'
 ```
 
 <!-- test: atan2.negative-y-axis -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// -π/2 ≈ -1.5708
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(-1.0, x: 0.0)
 	print("{angle}\n")
 	// Should be approximately -π/2
-	// TODO: float literals are not supported in minimaxon
 	if angle < -1.57 'check1'
-		// TODO: float literals are not supported in minimaxon
 		if angle > -1.58 'check2'
 			return 0
 		end 'check2'
@@ -141,7 +126,6 @@ end 'main'
 ```
 
 <!-- test: atan2.first-quadrant -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **THE `stdout` BLOCK BELOW IS WHAT CHECKS `Math.atan`'s ARITHMETIC.** This case and
 `atan2.third-quadrant` are the only two off-axis cases in the file — every other case either returns a
 stored `pi_half` literal or hands `Math.atan` a zero, which the series never sees. A 24-term Taylor series
@@ -155,7 +139,6 @@ what it prints.
 ```maxon
 function main() returns ExitCode
 	// 45 degrees = π/4 ≈ 0.7854
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(1.0, x: 1.0)
 	print("{angle}\n")
 	return 0
@@ -169,11 +152,9 @@ end 'main'
 ```
 
 <!-- test: atan2.third-quadrant -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Third quadrant: -3π/4 ≈ -2.356
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(-1.0, x: -1.0)
 	print("{angle}\n")
 	return 0
@@ -187,14 +168,11 @@ end 'main'
 ```
 
 <!-- test: atan2.origin -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let angle = Math.atan2(0.0, x: 0.0)
 	print("{angle}\n")
 	// Origin is typically 0
-	// TODO: float literals are not supported in minimaxon
 	if angle == 0.0 'check'
 		return 0
 	end 'check'
@@ -209,7 +187,6 @@ end 'main'
 ```
 
 <!-- test: atan2.signed-zero -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
 ⭐ **THE SIGN OF A ZERO, in all eight zero combinations.** IEEE 754 requires `atan2` to carry the sign of `y`
 through every zero case — `atan2(-0.0, x: -1.0)` is `-π`, not `+π` — and the case is easy to get wrong because
 **no comparison can see it**: `-0.0 == 0.0`, so `y < 0.0` and `y >= 0.0` both answer as though every

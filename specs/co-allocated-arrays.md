@@ -101,9 +101,6 @@ end 'main'
 ```
 
 <!-- test: a-runtime-sized-fixed-array-is-one-allocation-at-any-size -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A runtime-sized fixed array is one allocation at 352 bytes, and at 40000 bytes, past the largest slab class, where the
 record and its buffer live in one operating-system mapping. Both ends of the large one are zero and writable.
 ```maxon
@@ -117,19 +114,15 @@ function churn(count Count) returns Byte
 	return first + last + (try bytes.get(count - 1) otherwise panic("read"))
 end 'churn'
 
-// TODO: tuple return types are not supported in minimaxon
 function allocationsOf(count Count) returns (Byte, HeapCount, HeapCount)
 	let allocsBefore = HeapStats.threadAllocations()
 	let freesBefore = HeapStats.threadFrees()
 	let value = churn(count)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (value, HeapStats.threadAllocations() - allocsBefore, HeapStats.threadFrees() - freesBefore)
 end 'allocationsOf'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (smallValue, smallAllocs, smallFrees) = allocationsOf(352)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (largeValue, largeAllocs, largeFrees) = allocationsOf(40000)
 	if smallValue != 9 or largeValue != 9 'value'
 		return 1
@@ -201,7 +194,7 @@ end 'main'
 
 <!-- test: a-clone-and-a-slice-of-a-large-fixed-array-copy-their-window -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A clone of a record holding a fixed array, and a slice of the fixed array, copy rather than view, at 400 bytes and at
 40000: writing or clearing either side leaves the other alone, and the slice outlives the array it was cut from.
@@ -211,7 +204,7 @@ typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function windowCount(start ElementIndex, stop ElementIndex) returns ElementIndex
 		let window = try managed.slice(start, stop) otherwise panic("slice")
@@ -708,7 +701,6 @@ end 'main'
 ```
 
 <!-- test: growing-past-the-co-allocated-capacity-moves-the-buffer-and-frees-cleanly -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 The record keeps its identity while its buffer leaves the allocation it was born in; the elements survive the move
 and the whole thing is released with no leak.
@@ -732,7 +724,6 @@ function main() returns ExitCode
 		return 4
 	end 'count'
 	var total = 0 as Total
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'sum'
 		total = total + (byte as Total)
 	end 'sum'
@@ -1188,7 +1179,7 @@ end 'main'
 ```
 
 <!-- test: a-packed-fixed-array-slice-and-clone-copy-their-window -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A slice of a sub-byte-packed fixed array is a copy, and so is the clone that is a slice of the whole: writing
@@ -1197,7 +1188,7 @@ either leaves the fixed array's bits alone.
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 16 bool
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function windowOnes(start ElementIndex, stop ElementIndex) returns ElementIndex
 		let window = try managed.slice(start, stop) otherwise panic("slice")

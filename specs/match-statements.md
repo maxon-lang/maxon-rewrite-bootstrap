@@ -1611,13 +1611,11 @@ end 'main'
 ```
 
 <!-- test: match-range.float -->
-<!-- skip: float literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer, 'default', 'false', 'true', '-', a name or a string but got '0.0' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 2.5
 	match x 'check'
-		// TODO: float literals are not supported in minimaxon
 		0.0 to 5.0 then return 1
 		default then return 0
 	end 'check'

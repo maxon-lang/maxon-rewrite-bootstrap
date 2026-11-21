@@ -527,8 +527,6 @@ error E2010: <fragment>:17:52: Expected newline but got ')'
 ```
 
 <!-- test: mutable-tuple-item-refused -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 A tuple item is `immutable` or unmarked.
 
 ```maxon
@@ -542,7 +540,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (mutable Box, Tally)
 
 function main() returns ExitCode
@@ -555,7 +552,6 @@ error E2010: <fragment>:12:19: Expected 'a type' but got 'mutable'
 
 <!-- test: isolated-alias-tuple-item-refused -->
 <!-- skip: capability typealias 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias of an `isolated` record cannot be a tuple item either.
 
@@ -573,7 +569,6 @@ end 'Box'
 // TODO: capability typealias 'isolated' is not supported in minimaxon
 typealias Own = isolated Box
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Own, Tally)
 
 function main() returns ExitCode

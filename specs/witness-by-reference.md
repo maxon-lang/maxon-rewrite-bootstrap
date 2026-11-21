@@ -1046,7 +1046,6 @@ error E3016: <fragment>:9:6: Partial interface implementation: type 'Impl' has 1
 ```
 
 <!-- test: witness-by-reference.a-conformance-declared-by-an-extension-of-a-generic-base-passes-the-cell -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A conformance an `extension` of a generic base declares is read for the cell convention like one the type declares, so the caller's variable is the one the conformer writes.
 ```maxon
 typealias Wide = int(0 to 100)
@@ -1058,12 +1057,11 @@ end 'Bumper'
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box implements Bumper
 	function bump(mutates n Wide)
 		n = 50
@@ -1075,7 +1073,7 @@ typealias WideBox = Box with Wide
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1103,7 +1101,6 @@ end 'main'
 
 <!-- test: witness-by-reference.error.a-conformance-declared-on-a-generic-instance-alias-is-refused -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias of a generic instance cannot declare a conformance, so no conformer is ever filed under an alias name.
 ```maxon
@@ -1126,7 +1123,6 @@ end 'Box'
 
 typealias WideBox = Box with Wide
 
-// TODO: extension blocks are not supported in minimaxon
 extension WideBox implements Bumper
 	function bump(mutates n Wide)
 		n = 5000
@@ -1161,13 +1157,10 @@ error E3017: <fragment>:39:11: Type 'WideBox' does not satisfy constraint 'Bumpe
 ```
 
 <!-- test: witness-by-reference.error.a-float-var-handed-to-an-integer-requirement-formal-is-refused-before-any-cell-is-shared -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 interface Bumper
@@ -1194,7 +1187,6 @@ type Holder uses T where T implements Bumper
 	end 'create'
 
 	function run()
-		// TODO: float literals are not supported in minimaxon
 		var r = 2.5 as Real
 		self.item.bump(r)
 		print("{r}\n")
@@ -1214,13 +1206,10 @@ error E3005: <fragment>:30:13: argument type mismatch for 'k': expected 'Count',
 ```
 
 <!-- test: witness-by-reference.error.an-integer-var-handed-to-a-float-requirement-formal-is-refused-before-any-cell-is-shared -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 interface Scaler
@@ -1235,7 +1224,6 @@ type Doubler implements Scaler
 	end 'create'
 
 	function scale(mutates k Real)
-		// TODO: float literals are not supported in minimaxon
 		k = 2.5
 	end 'scale'
 end 'Doubler'

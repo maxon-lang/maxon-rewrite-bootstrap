@@ -130,12 +130,9 @@ end 'main'
 ```
 
 <!-- test: float.compare.less -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.5
 	let result = a.compare(b)
 	match result 'check'
@@ -150,12 +147,9 @@ end 'main'
 ```
 
 <!-- test: float.compare.greater -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 3.14
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.71
 	let result = a.compare(b)
 	match result 'check'
@@ -170,15 +164,12 @@ end 'main'
 ```
 
 <!-- test: float.compare.nan-less-than-normal -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// NaN from overflow (inf - inf), NOT `0.0 / 0.0` — a literal zero divisor is now a compile
 	// error and a runtime one throws DivisionByZero. Overflow and inf - inf stay silent.
-	// TODO: float literals are not supported in minimaxon
 	let inf = 1.0e308 * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 42.0
 	let result = nan.compare(x)
 	match result 'check'
@@ -193,14 +184,11 @@ end 'main'
 ```
 
 <!-- test: float.compare.normal-greater-than-nan -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// NaN from overflow (inf - inf), not division — see nan-less-than-normal.
-	// TODO: float literals are not supported in minimaxon
 	let inf = 1.0e308 * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 42.0
 	let result = x.compare(nan)
 	match result 'check'
@@ -215,14 +203,11 @@ end 'main'
 ```
 
 <!-- test: float.compare.nan-nan-equal -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Two NaNs from overflow (inf - inf), not division — see nan-less-than-normal.
-	// TODO: float literals are not supported in minimaxon
 	let infA = 1.0e308 * 10.0
 	let a = infA - infA
-	// TODO: float literals are not supported in minimaxon
 	let infB = 1.0e308 * 10.0
 	let b = infB - infB
 	let result = a.compare(b)
@@ -238,14 +223,11 @@ end 'main'
 ```
 
 <!-- test: float.compare.nan-less-than-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// NaN from overflow (inf - inf), not division — see nan-less-than-normal.
-	// TODO: float literals are not supported in minimaxon
 	let inf = 1.0e308 * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = -999999.0
 	let result = nan.compare(x)
 	match result 'check'
@@ -260,12 +242,9 @@ end 'main'
 ```
 
 <!-- test: float.compare.positive-negative-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let pos = 0.0
-	// TODO: float literals are not supported in minimaxon
 	let neg = -0.0
 	let result = pos.compare(neg)
 	match result 'check'

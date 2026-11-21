@@ -573,12 +573,10 @@ compiler-minted type.
 
 <!-- test: error.nested-struct-backing-tuple-field -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Wide, Wide)
 
 type Meta

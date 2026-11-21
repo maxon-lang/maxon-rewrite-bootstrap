@@ -111,12 +111,9 @@ end 'main'
 ```
 
 <!-- test: int-vs-float-error -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 5
-	// TODO: float literals are not supported in minimaxon
 	let y = 5.0
 	if x == y 'check'
 		return 1
@@ -129,11 +126,8 @@ error E3005: specs/contextual-literal-typing/int-vs-float-error.maxon:5:7: type 
 ```
 
 <!-- test: float-vs-int-error -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	let y = 5
 	if x == y 'check'
@@ -147,11 +141,8 @@ error E3005: specs/contextual-literal-typing/float-vs-int-error.maxon:5:7: type 
 ```
 
 <!-- test: int-literal-vs-float-error -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	if x == 5 'check'
 		return 1
@@ -164,12 +155,9 @@ error E3005: specs/contextual-literal-typing/int-literal-vs-float-error.maxon:4:
 ```
 
 <!-- test: float-literal-vs-int-error -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 5
-	// TODO: float literals are not supported in minimaxon
 	if x == 5.0 'check'
 		return 1
 	end 'check'
@@ -181,16 +169,12 @@ error E3005: specs/contextual-literal-typing/float-literal-vs-int-error.maxon:4:
 ```
 
 <!-- test: explicit-cast-int-to-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function main() returns ExitCode
 	let x = 5
-	// TODO: float literals are not supported in minimaxon
 	let y = 5.0
 	if (x as Float) == y 'check'
 		return 1
@@ -203,11 +187,9 @@ end 'main'
 ```
 
 <!-- test: explicit-cast-float-to-int -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 5
-	// TODO: float literals are not supported in minimaxon
 	let y = 5.0
 	if x == trunc(y) 'check'
 		return 1
@@ -224,7 +206,7 @@ end 'main'
 function main() returns ExitCode
 	let x = 16
 	let result = sqrt(x)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -232,12 +214,10 @@ end 'main'
 ```
 
 <!-- test: math-intrinsic-with-float-literal -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = sqrt(16.0)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -278,12 +258,9 @@ end 'main'
 ```
 
 <!-- test: float-vs-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 3.14
-	// TODO: float literals are not supported in minimaxon
 	let b = 3.14
 	if a == b 'check'
 		return 1

@@ -257,21 +257,17 @@ end 'main'
 
 <!-- test: float-backed-union-rawvalue-takes-every-float-operator -->
 <!-- skip: explicit raw values on union cases are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 `.rawValue` of a float-backed union is a `float`, decoded from the case's bits: it takes float arithmetic and
 is an argument to a `float` parameter.
 ```maxon
 union Weight
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 2.5
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
 function half(x FullRangeFloat) returns FullRangeFloat
-	// TODO: float literals are not supported in minimaxon
 	return x / 2.0
 end 'half'
 
@@ -337,21 +333,17 @@ error E2004: <fragment>:9:12: Cannot operate on int and Status
 
 <!-- test: error.a-float-backed-union-value-is-not-an-operand -->
 <!-- skip: explicit raw values on union cases are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is the same for a float-backed union, whose value is not a float either.
 ```maxon
 union Weight
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 2.5
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let total = Weight.light + 1.0
 	print("{total}\n")
 	return 0

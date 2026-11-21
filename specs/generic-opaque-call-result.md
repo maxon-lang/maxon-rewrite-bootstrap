@@ -153,7 +153,7 @@ The program's own answer comes through the compiler's `Array` surface, which is 
 record it describes is destroyed exactly once.
 
 <!-- test: a-self-is-its-own-instance-record-keeps-its-parameter-opaque -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 enum BagError implements Error
@@ -181,7 +181,7 @@ type Array uses Element implements BuiltinArrayLiteral
 	end 'at'
 end 'Array'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Array where Element implements Equatable
 	function contains(element Element) returns bool
 		let mine = try at(0) otherwise return false

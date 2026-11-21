@@ -225,7 +225,7 @@ end 'main'
 ```
 
 <!-- test: error.static-binding-in-an-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 An `extension` body declares no storage. Its members are re-parsed once per conforming type, so a binding
@@ -242,7 +242,7 @@ type Widget implements Tagged
 	export var v as Integer
 end 'Widget'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
 	// TODO: static fields (static let) are not supported in minimaxon
 	static let LIMIT = 4

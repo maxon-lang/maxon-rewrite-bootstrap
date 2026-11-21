@@ -1497,7 +1497,6 @@ unsorted arrays: 0
 
 <!-- test: sort-duplicate-heavy-arrays-keep-equal-keys-in-arrival-order -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same duplicate-heavy shapes as records sorted by key with `sortBy(cmp)`. Each
 record carries its arrival position, so a stable sort leaves every run of equal
 keys in ascending arrival order; the arrivals must also all survive the sort.
@@ -1555,7 +1554,6 @@ function main() returns ExitCode
 			var arrivals = 0 as Tally
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
-			// TODO: tuple loop variables in for loops are not supported in minimaxon
 			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'
@@ -1594,7 +1592,6 @@ unstable arrays: 0
 
 <!-- test: sort-small-arrays-keep-equal-keys-in-arrival-order -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Stability on the short slices the stable sort handles without partitioning:
 records of 2 to 64 elements over three keys, forty arrays of each length, every
 one checked for order and for equal keys left in arrival order.
@@ -1642,7 +1639,6 @@ function main() returns ExitCode
 			var stable = entries.count() == n
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
-			// TODO: tuple loop variables in for loops are not supported in minimaxon
 			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'

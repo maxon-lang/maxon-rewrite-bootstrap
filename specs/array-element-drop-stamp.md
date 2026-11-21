@@ -185,14 +185,11 @@ end 'main'
 
 <!-- test: a-local-array-of-tuples-holding-a-promise-reclaims-an-unawaited-element -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Entry = (Integer, IntPromise)
 
 typealias EntryArray = Array with Entry
@@ -204,7 +201,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = EntryArray.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push((1, async work(1)))
 	held.clear()

@@ -35,8 +35,6 @@ address it did not choose — and how two of these cases running at once cannot 
 <!-- test: netpoll-socket.n-concurrent-reads-do-not-serialise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- procs: 1 -->
 **FOUR ECHO ROUND-TRIPS IN FLIGHT AT ONE PROCESSOR, AND THE MONITOR NEVER FIRES.** A blocking `readSome` holds the
 only machine there, so four round-trips cost four times one round-trip and sysmon retakes the processor out of
@@ -109,13 +107,11 @@ end 'echoOnce'
 // The monitor answers host load as well as a blocking read, so an attempt it disturbed is repeated; a read
 // that holds the machine is retaken on every one. The peer is awaited before the verdict so a discarded
 // attempt leaves no green thread behind.
-// TODO: tuple return types are not supported in minimaxon
 function attempt() returns (Tally, bool) throws Attempt
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise throw Attempt.noListener
 	return try attemptOver(listener)
 end 'attempt'
 
-// TODO: tuple return types are not supported in minimaxon
 function attemptOver(listener TcpListener) returns (Tally, bool) throws Attempt
 	let port = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -151,7 +147,6 @@ function attemptOver(listener TcpListener) returns (Tally, bool) throws Attempt
 	if ok == readers and stuck 'noise'
 		throw Attempt.disturbed
 	end 'noise'
-	// TODO: tuple values and types are not supported in minimaxon
 	return (ok, stuck)
 end 'attemptOver'
 

@@ -614,18 +614,15 @@ end 'main'
 55
 ```
 <!-- test: float-and-int-mixed-pressure -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.14
-	// TODO: float literals are not supported in minimaxon
 	let y = 2.86
 	let sum_f = x + y
 	let a = 10
 	let b = 20
 	let sum_i = a + b
-	return trunc(sum_f) + sum_i
+	return try trunc(sum_f) + sum_i otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -711,7 +708,6 @@ end 'main'
 52
 ```
 <!-- test: int-float-survives-call -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -721,10 +717,9 @@ function getInt() returns Integer
 end 'getInt'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.14
 	let x = getInt()
-	return trunc(f) as Integer + x
+	return try trunc(f) as Integer + x otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -370,8 +370,6 @@ error E3006: <fragment>:12:10: duplicate definition of 'helper' — already decl
 ```
 
 <!-- test: error.an-extension-method-of-a-name-the-type-already-declares -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A method an `extension` adds to a type is declared in that type's scope, so a name the type already
 declares cannot be added again, whatever the parameters.
 ```maxon
@@ -387,7 +385,6 @@ type Counter
 	end 'add'
 end 'Counter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Counter
 	function add(amount ExitCode) returns ExitCode
 		return amount

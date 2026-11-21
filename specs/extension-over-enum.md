@@ -35,7 +35,6 @@ interface or primitive is not an extension target.
 ## Tests
 
 <!-- test: an-extension-adds-a-method-to-an-enum -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The headline case: the declaration, the extension and the call share a file.
 ```maxon
 typealias Width = int(0 to 9)
@@ -45,7 +44,6 @@ enum Suite
 	b
 end 'Suite'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Suite
 	function width() returns Width
 		return 3
@@ -61,7 +59,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-adds-a-method-to-a-union -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A union with payloads: the method matches on `self` and binds each case's payload.
 ```maxon
 typealias Measure = int(0 to 1000)
@@ -72,11 +69,10 @@ union Shape
 	empty
 end 'Shape'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Shape
 	function span() returns Measure
 		return match self 'which'
-			circle(radius) gives radius + radius
+			circle(radius) gives try radius + radius otherwise panic("out of range")
 			square(side) gives side
 			empty gives 0
 		end 'which'
@@ -95,7 +91,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-method-calls-the-enums-own-method-and-matches-self -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The extension body reaches the enum's own method by `self.` and by a bare sibling call, and inspects `self`
 with `match`.
 ```maxon
@@ -111,7 +106,6 @@ enum Direction
 	end 'opposite'
 end 'Direction'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function code() returns ExitCode
 		return match self 'which'
@@ -119,9 +113,11 @@ extension Direction
 			south gives 20
 		end 'which'
 	end 'code'
+
 	function oppositeCode() returns ExitCode
 		return self.opposite().code()
 	end 'oppositeCode'
+
 	function bareOppositeCode() returns ExitCode
 		return opposite().code() + 1
 	end 'bareOppositeCode'
@@ -136,7 +132,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-names-the-enum-and-its-cases-through-self-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `Self` in an extension body is the enum, in a return type and as the qualifier of a case, for an enum and for
 a union that builds a value.
 ```maxon
@@ -145,7 +140,6 @@ enum Direction
 	south
 end 'Direction'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function other() returns Self
 		return match self 'flip'
@@ -160,14 +154,14 @@ union Shape
 	line(length ExitCode)
 end 'Shape'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Shape
 	function longer() returns Self
 		return match self 'which'
 			dot gives Self.line(1)
-			line(length) gives Self.line(length + 1)
+			line(length) gives Self.line(try length + 1 otherwise panic("out of range"))
 		end 'which'
 	end 'longer'
+
 	function size() returns ExitCode
 		return match self 'which'
 			dot gives 0
@@ -181,7 +175,7 @@ function main() returns ExitCode
 		north gives 100
 		south gives 40
 	end 'which'
-	return (flipped + Shape.dot.longer().longer().size()) as ExitCode
+	return try (flipped + Shape.dot.longer().longer().size()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -189,7 +183,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-method-reads-the-case-name-and-ordinal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `self.name` and `self.ordinal` read the case in an extension body as they do in the enum's own.
 ```maxon
 enum Planet
@@ -198,7 +191,6 @@ enum Planet
 	earth
 end 'Planet'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Planet
 	function label() returns String
 		return "{self.name}#{self.ordinal}"
@@ -215,7 +207,6 @@ earth#2
 ```
 
 <!-- test: a-method-of-an-enum-extension-is-a-method-of-the-enum-for-every-case-of-a-loop -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Every case of `allCases` has the extension's method.
 ```maxon
@@ -225,7 +216,6 @@ enum Level
 	high = 9
 end 'Level'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Level
 	function twice() returns ExitCode
 		return (self.rawValue * 2) as ExitCode
@@ -246,7 +236,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-in-another-file-of-the-directory-adds-a-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The extension sits in a file of its own, and the method is `export` because the call is in a third file.
 ```maxon
 // --- file: suite.maxon
@@ -256,7 +245,6 @@ enum Suite
 end 'Suite'
 
 // --- file: widths.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Suite
 	function width() returns ExitCode
 		return match self 'which'
@@ -268,7 +256,7 @@ end 'Suite'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Suite.a.width() + Suite.b.width()
+	return try Suite.a.width() + Suite.b.width() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -276,7 +264,6 @@ end 'main'
 ```
 
 <!-- test: a-union-extension-in-another-file-of-the-directory-adds-a-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 // --- file: shape.maxon
 union Shape
@@ -285,7 +272,6 @@ union Shape
 end 'Shape'
 
 // --- file: lengths.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Shape
 	function length() returns ExitCode
 		return match self 'which'
@@ -297,7 +283,7 @@ end 'Shape'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Shape.dot.length() + Shape.line(40).length()
+	return try Shape.dot.length() + Shape.line(40).length() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -305,7 +291,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-in-another-directory-adds-a-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `extension sub.Suite` extends the enum `sub/` declares, and the call goes through the same chain.
 ```maxon
 // --- file: sub/suite.maxon
@@ -315,7 +300,6 @@ export enum Suite
 end 'Suite'
 
 // --- file: main.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension sub.Suite
 	function width() returns ExitCode
 		return match self 'which'
@@ -326,7 +310,7 @@ extension sub.Suite
 end 'Suite'
 
 function main() returns ExitCode
-	return sub.Suite.a.width() + sub.Suite.b.width() - 20
+	return try sub.Suite.a.width() + sub.Suite.b.width() - 20 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -334,7 +318,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-method-of-another-directory-is-called-from-a-third-file -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The method is `export` and the call is in a file beside neither the enum nor the extension.
 ```maxon
 // --- file: sub/suite.maxon
@@ -344,7 +327,6 @@ export enum Suite
 end 'Suite'
 
 // --- file: sub/widths.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Suite
 	export function width() returns ExitCode
 		return match self 'which'
@@ -364,8 +346,6 @@ end 'main'
 ```
 
 <!-- test: error.a-private-enum-extension-method-is-not-callable-from-another-file -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An unmarked extension method is visible only in its declaring directory and its subdirectories, as a type's is.
 ```maxon
 // --- file: suite.maxon
@@ -374,7 +354,6 @@ export enum Suite
 end 'Suite'
 
 // --- file: widths/widths.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Suite
 	function width() returns ExitCode
 		return 3
@@ -391,7 +370,6 @@ error E3008: <fragment>:16:17: function 'Suite.width' is not exported
 ```
 
 <!-- test: an-enum-extension-declares-a-conformance-dispatched-through-an-interface -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `extension Suite implements Describable` makes `Suite` a conformer. The same value is reached through a
 generic function bound `T is Describable` and through an interface-typed parameter.
 ```maxon
@@ -404,7 +382,6 @@ enum Suite
 	spades
 end 'Suite'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Suite implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
@@ -431,7 +408,6 @@ end 'main'
 ```
 
 <!-- test: a-union-extension-declares-a-conformance-dispatched-through-an-interface -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 interface Describable
 	function describe() returns ExitCode
@@ -442,7 +418,6 @@ union Reading
 	value(amount ExitCode)
 end 'Reading'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Reading implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
@@ -469,7 +444,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-conformance-joins-the-enums-own -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The enum's own `implements` and the extension's are a union, whichever is written first.
 ```maxon
 interface Shower
@@ -480,7 +454,6 @@ interface Sizer
 	function size() returns ExitCode
 end 'Sizer'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Mode implements Sizer
 	function size() returns ExitCode
 		return 2
@@ -513,8 +486,6 @@ end 'main'
 ```
 
 <!-- test: error.an-enum-extension-that-leaves-a-requirement-unmet-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 The conformance an extension declares is checked against the interface's requirements.
 ```maxon
 interface Describable
@@ -525,7 +496,6 @@ enum Suite
 	hearts
 end 'Suite'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Suite implements Describable
 	function other() returns ExitCode
 		return 1
@@ -542,15 +512,12 @@ error E3016: <fragment>:10:11: Partial interface implementation: type 'Suite' is
 ```
 
 <!-- test: error.static-function-in-an-enum-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An enum has no `static function`, and an extension of one refuses it with the sentence the body gives.
 ```maxon
 enum Color
 	red
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	static function best() returns ExitCode
 		return 1
@@ -566,14 +533,11 @@ error E2015: <fragment>:7:2: Unsupported: a `static function` on `enum Color` (a
 ```
 
 <!-- test: error.static-function-in-a-union-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 union Shape
 	circle(radius ExitCode)
 end 'Shape'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Shape
 	export static function unit() returns ExitCode
 		return 1
@@ -589,15 +553,12 @@ error E2015: <fragment>:7:9: Unsupported: a `static function` on `union Shape` (
 ```
 
 <!-- test: error.a-field-read-through-self-in-an-enum-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 `self` in an enum extension is the case value, so a field read is the refusal the enum's own body gives.
 ```maxon
 enum Color
 	red
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	function peek() returns ExitCode
 		return self.x
@@ -613,8 +574,6 @@ error E2015: <fragment>:8:10: Unsupported: a field access through `self` in a me
 ```
 
 <!-- test: error.an-enum-extension-method-repeats-an-enum-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Direction
 	north
@@ -624,7 +583,6 @@ enum Direction
 	end 'opposite'
 end 'Direction'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function opposite() returns ExitCode
 		return 2
@@ -640,21 +598,17 @@ error E3006: <fragment>:11:11: Duplicate method 'opposite' in type 'Direction'
 ```
 
 <!-- test: error.two-extensions-of-an-enum-declare-one-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Direction
 	north
 end 'Direction'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function code() returns ExitCode
 		return 1
 	end 'code'
 end 'Direction'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function code() returns ExitCode
 		return 2
@@ -670,14 +624,11 @@ error E3006: <fragment>:13:11: Duplicate method 'code' in type 'Direction'
 ```
 
 <!-- test: error.an-enum-extension-may-not-declare-storage -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum Color
 	red
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	var extra as ExitCode
 end 'Color'
@@ -691,7 +642,7 @@ error E2015: <fragment>:7:2: Unsupported: a `var` declaration in an `extension` 
 ```
 
 <!-- test: error.an-enum-extension-takes-no-where-clause -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- positions: moved -->
 An enum declares no `uses` list, so there is no parameter for a `where` clause to constrain.
 ```maxon
@@ -699,7 +650,7 @@ enum Color
 	red
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Color where T implements Hashable
 	function code() returns ExitCode
 		return 1
@@ -715,11 +666,8 @@ error E2015: <fragment>:6:23: Unsupported: a `where` clause constrains 'T', whic
 ```
 
 <!-- test: error.an-extension-of-an-undeclared-name-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A name that no declaration holds is not an extension target, and the refusal names it at the `extension` line.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Nonesuch
 	function code() returns ExitCode
 		return 1
@@ -735,13 +683,10 @@ error E3011: <fragment>:2:11: Unknown type 'Nonesuch'
 ```
 
 <!-- test: error.an-extension-of-a-typealias-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A typealias names a range, not a declaration with methods of its own, so it is no extension target either.
 ```maxon
 typealias Score = int(0 to 100)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Score
 	function code() returns ExitCode
 		return 1
@@ -761,7 +706,6 @@ error E2015: <fragment>:4:11: Unsupported: `extension Score` — 'Score' is a ty
 ```
 
 <!-- test: a-union-with-a-managed-payload-conforms-through-an-extension-and-is-dropped -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A union with a `String` payload and no `implements` clause of its own is a word, and a conformer is never a
 word. The extension's clause is the conformance, so the union is widened through a witness and dropped as a
 box (a mismatch is a leak, exit 101, or a crash).
@@ -775,7 +719,6 @@ union Note
 	text(body String)
 end 'Note'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Note implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
@@ -798,7 +741,6 @@ end 'main'
 ```
 
 <!-- test: a-union-extension-conformance-in-another-file-keeps-the-union-a-box -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The same program with the union, the extension and the caller in three files.
 ```maxon
 // --- file: note.maxon
@@ -812,7 +754,6 @@ union Note
 end 'Note'
 
 // --- file: notes.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Note implements Describable
 	function describe() returns ExitCode
 		return match self 'which'
@@ -836,7 +777,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-may-declare-the-error-conformance -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `extension Failure implements Error` is the enum's `Error` conformance, so an implementation of an abstract
 `throws Error` requirement may narrow to it, and the error is thrown and caught.
 ```maxon
@@ -846,7 +786,6 @@ enum Failure
 	empty
 end 'Failure'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Failure implements Error
 	function code() returns Integer
 		return 42
@@ -876,7 +815,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-conformer-through-an-extension-writing-a-let-argument-is-written -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The requirement's `mutable` reaches an enum conformer that an extension declares, exactly as it reaches one
 its own clause declares (`enum-interface-conformance.md`). A `let` forbids only reassigning `a`, so the push
 lands in the array it names and the read finds `9`.
@@ -894,7 +832,6 @@ enum Step
 	two
 end 'Step'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Step implements Grower
 	function grow(mutates dest IntArray)
 		dest.push(9)
@@ -916,7 +853,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-conformer-through-an-extension-writing-a-var-argument-is-allowed -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The twin of the case above: the same program with `var a` answers 9.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -932,7 +868,6 @@ enum Step
 	two
 end 'Step'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Step implements Grower
 	function grow(mutates dest IntArray)
 		dest.push(9)
@@ -954,8 +889,6 @@ end 'main'
 ```
 
 <!-- test: error.an-enum-conformer-through-an-extension-writing-an-unmarked-parameter-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An implementation that writes a parameter its requirement does not declare `mutable` is refused for an
 extension-declared enum conformer as it is for one the enum's own clause declares.
 ```maxon
@@ -977,7 +910,6 @@ enum Slot
 	one
 end 'Slot'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Slot implements Taker
 	function take(item Cell)
 		item.v = 5
@@ -993,7 +925,7 @@ error E3210: <fragment>:21:11: 'Slot.take' writes its parameter 'item', but 'Tak
 ```
 
 <!-- test: an-enum-extension-conformance-satisfies-a-conditional-type-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 `extension Container where Element is Sizer` is available on `Container with Suite` because
 `extension Suite implements Sizer` makes `Suite` a `Sizer`.
 ```maxon
@@ -1006,7 +938,6 @@ enum Suite
 	spades
 end 'Suite'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Suite implements Sizer
 	function size() returns ExitCode
 		return match self 'which'
@@ -1024,7 +955,7 @@ type Container uses Element
 	end 'create'
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Element implements Sizer
 	function total() returns ExitCode
 		return self.item.size() + 2
@@ -1043,7 +974,8 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-conformance-satisfies-a-conditional-interface-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `extension HasItems where Element is Sizer` is available on a conformer that binds `Element` to `Suite`, an
 enum whose `Sizer` conformance an extension declares.
@@ -1057,7 +989,6 @@ enum Suite
 	spades
 end 'Suite'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Suite implements Sizer
 	function size() returns ExitCode
 		return match self 'which'
@@ -1072,7 +1003,8 @@ interface HasItems uses Element
 	function current() returns Element
 end 'HasItems'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension HasItems where Element implements Sizer
 	function currentSize() returns ExitCode
 		return self.current().size()
@@ -1101,11 +1033,8 @@ end 'main'
 ```
 
 <!-- test: error.an-enum-extension-method-repeats-an-enum-method-declared-after-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 The refusal does not depend on which of the two declarations is written first.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	function opposite() returns ExitCode
 		return 2
@@ -1129,8 +1058,6 @@ error E3006: <fragment>:3:11: Duplicate method 'opposite' in type 'Direction'
 ```
 
 <!-- test: error.an-enum-extension-method-repeats-a-method-of-an-enum-in-another-file -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: direction.maxon
 export enum Direction
@@ -1142,7 +1069,6 @@ export enum Direction
 end 'Direction'
 
 // --- file: extension.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Direction
 	export function opposite() returns ExitCode
 		return 2
@@ -1159,7 +1085,6 @@ error E3006: <fragment>:13:18: Duplicate method 'opposite' in type 'Direction'
 ```
 
 <!-- test: error.a-nested-typealias-in-an-enum-extension-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 An enum body declares cases and methods and no nested `typealias`, so the extension of one declares no more.
 ```maxon
@@ -1167,7 +1092,6 @@ enum Color
 	red
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	typealias Tint = int(0 to 3)
 	function tinted(tint Tint) returns ExitCode

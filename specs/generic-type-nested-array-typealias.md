@@ -2033,7 +2033,6 @@ transfer is a double free (SIGSEGV) or an unbalanced drop (exit 101), and the ru
 (`add(item)` → `stash(item)`) is `extension-body-forwarder-feeds-opaque-element`.
 
 <!-- test: extension-body-push-feeds-opaque-element -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -2052,9 +2051,8 @@ type Container uses Element
 	end 'count'
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Container
-	function stash(item Element)
+	function stash(mutates self, consumes item Element)
 		items.push(item)
 	end 'stash'
 end 'Container'
@@ -2066,10 +2064,10 @@ function main() returns ExitCode
 	while seed < 3 'grow'
 		seed = seed + 1
 	end 'grow'
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	let owned = "heap-built element number {seed} long enough to escape any small-string envelope"
 	sc.stash(owned)
-	let second = "heap-built element number {seed + 1} long enough to escape any small-string envelope"
+	let second = "heap-built element number {try seed + 1 otherwise panic("out of range")} long enough to escape any small-string envelope"
 	sc.stash(second)
 	if sc.count() == 2 'check'
 		return 0
@@ -2197,7 +2195,6 @@ after printing `a=true`. The program is legal: it prints all three lines and exi
 the method-call door needs no check of its own.
 
 <!-- test: unconditional-extension-on-constrained-type-dispatches-a-witness -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2214,7 +2211,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Pair
 	function bothAre(x A) returns bool
 		return self.firstIs(x)
@@ -2252,7 +2248,6 @@ and read its two forwarded slots off whatever the argument registers happen to h
 single-witness case, which is what says the count and the order are one rule and not two.
 
 <!-- test: unconditional-extension-forwards-two-witnesses-in-order -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2273,7 +2268,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'secondIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Pair
 	function bothAre(x A, y B) returns bool
 		if self.firstIs(x) 'f'
@@ -2319,7 +2313,7 @@ FIRST, in declaration order, then the extension's extras — so `self.firstIs(x)
 the type's, forwards slots 0 and 1 and finds them index-aligned by construction.
 
 <!-- test: extension-clause-disjoint-from-the-types-own -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2336,7 +2330,7 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Comparable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2376,11 +2370,11 @@ This case is the twin of the disjoint-clause case above with the two declaration
 case that fails first if the union is ever computed from a partially folded registry.
 
 <!-- test: extension-declared-before-the-type-it-extends -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Comparable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2429,7 +2423,7 @@ The one shape a replace-rule would be right for, kept as a control on the union:
 copy of itself is the identity, and so is unioning it with itself.
 
 <!-- test: extension-clause-equal-to-the-types-own -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2446,7 +2440,7 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Equatable, B implements Equatable
 	function bothAre(x A) returns bool
 		return self.firstIs(x)
@@ -2486,7 +2480,7 @@ dereferences slot 0, so the wrong table at slot 1 would never be followed and th
 the union the body carries `[A is Equatable, B is Equatable, A is Comparable]` and every prefix aligns.
 
 <!-- test: extension-clause-superset-of-the-types-own -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2503,7 +2497,7 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Pair where A implements Equatable and Comparable, B implements Equatable
 	function firstIsVia(x A) returns bool
 		return self.firstIs(x)
@@ -2539,7 +2533,6 @@ The other half of the trigger: a body that reserves the wrong number of witness 
 never forwards one. It pins that the union reaches the ABI of the methods that need it and of no others.
 
 <!-- test: unconditional-extension-body-that-dispatches-no-witness -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2556,7 +2549,6 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	end 'firstIs'
 end 'Pair'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Pair
 	function firstCopy() returns A
 		return self.first
@@ -2603,7 +2595,7 @@ need is a WHOLE-PROGRAM fixpoint keyed by qualified method name, and `Bag.absorb
 to `Bag.absorb` is an edge like any other.
 
 <!-- test: interface-extension-body-forwards-a-descriptor -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -2616,7 +2608,7 @@ interface Appendable uses Func
 	function absorb(mutates self, other Func)
 end 'Appendable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Appendable
 	function absorbTwice(a Func, b Func)
 		self.absorb(a)
@@ -2670,7 +2662,6 @@ need. With that need computed, `Container.stashIf` reserves it and the program c
 only this one reaches the guard — the guard is the whole difference.
 
 <!-- test: conditional-feed-inside-a-type-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -2689,9 +2680,8 @@ type Container uses Element
 	end 'count'
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Container
-	function stashIf(item Element, keep bool)
+	function stashIf(mutates self, consumes item Element, keep bool)
 		if keep 'wanted'
 			items.push(item)
 		end 'wanted'
@@ -2705,9 +2695,9 @@ function main() returns ExitCode
 	while seed < 3 'grow'
 		seed = seed + 1
 	end 'grow'
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.stashIf("heap-built element number {seed} long enough to escape any small-string envelope", keep: true)
-	sc.stashIf("heap-built element number {seed + 1} long enough to escape any small-string envelope", keep: false)
+	sc.stashIf("heap-built element number {try seed + 1 otherwise panic("out of range")} long enough to escape any small-string envelope", keep: false)
 	if sc.count() == 1 'check'
 		return 0
 	end 'check'
@@ -2729,12 +2719,10 @@ extension body in the program — so this case, whose extension precedes its typ
 sweep reaches first, reserves exactly what the same program written the other way round reserves.
 
 <!-- test: cross-file-extension-before-its-type-reserves-a-descriptor -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 // --- file: a_ext.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Vault
-	function stashIf(item Element, keep bool)
+	function stashIf(mutates self, consumes item Element, keep bool)
 		if keep 'wanted'
 			items.push(item)
 		end 'wanted'
@@ -2763,9 +2751,9 @@ function main() returns ExitCode
 	while seed < 3 'grow'
 		seed = seed + 1
 	end 'grow'
-	let sv = StringVault.create()
+	var sv = StringVault.create()
 	sv.stashIf("heap-built element number {seed} long enough to escape any small-string envelope", keep: true)
-	sv.stashIf("heap-built element number {seed + 1} long enough to escape any small-string envelope", keep: false)
+	sv.stashIf("heap-built element number {try seed + 1 otherwise panic("out of range")} long enough to escape any small-string envelope", keep: false)
 	if sv.count() == 1 'check'
 		return 0
 	end 'check'
@@ -2793,7 +2781,8 @@ and there is no diagnostic anywhere between the two names colliding and the comp
 VERDICT: a conformer the extension is withheld from is not scanned, because those methods are not its.
 
 <!-- test: a-withheld-conditional-extension-scans-no-descriptor-site -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
@@ -2804,7 +2793,8 @@ interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Holder where Item implements Comparable
 	function slotSize() returns Num
 		return 1
@@ -2945,7 +2935,6 @@ spare 100
 ```
 
 <!-- test: extension-body-forwarder-feeds-opaque-element -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
@@ -2962,11 +2951,11 @@ type Container uses Element
 	end 'count'
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Container
 	function stash(item Element)
 		items.push(item)
 	end 'stash'
+
 	function add(item Element)
 		stash(item)
 	end 'add'
@@ -3095,8 +3084,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-tuple-of-the-parameter-releases-it -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The closure captures a `(T, T)` tuple local over `String`, so the environment holds two references that its destructor releases through the descriptor; a leak exits 101.
 ```maxon
 type Twin uses T
@@ -3107,9 +3094,7 @@ type Twin uses T
 	end 'create'
 
 	function first(a T, b T) returns T
-		// TODO: tuple values and types are not supported in minimaxon
 		let both = (a, b)
-		// TODO: tuple element access is not supported in minimaxon
 		let f = function() gives both.0
 		return f()
 	end 'first'
@@ -3186,7 +3171,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-extension-method-of-a-generic-type-calls-a-descriptor-reader -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Box uses T
@@ -3202,7 +3186,6 @@ type Box uses T
 	end 'width'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function viaClosure() returns Count
 		let f = function() gives self.width()
@@ -3598,7 +3581,6 @@ end 'main'
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-before-another -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 Two types each extended with a `Transform` of their own, the one that spells `Count` first and the one that spells `Level` last. Each default fills its own extension's alias.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3619,7 +3601,6 @@ type Plain uses U
 	end 'create'
 end 'Plain'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
@@ -3636,7 +3617,6 @@ type Leveled uses T
 	end 'create'
 end 'Leveled'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Leveled
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
@@ -3665,7 +3645,6 @@ end 'main'
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-after-another -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The same two extensions with the order swapped, so the one that spells `Count` is declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3694,7 +3673,6 @@ type Leveled uses T
 	end 'create'
 end 'Leveled'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Leveled
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
@@ -3703,7 +3681,6 @@ extension Leveled
 	end 'run'
 end 'Leveled'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
@@ -3851,7 +3828,6 @@ end 'main'
 
 <!-- test: three-directories-each-declare-a-transform-and-the-last-declares-it-in-an-extension -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
@@ -3968,7 +3944,6 @@ type Plain uses U
 	end 'create'
 end 'Plain'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
@@ -3985,7 +3960,6 @@ type Leveled uses T
 	end 'create'
 end 'Leveled'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Leveled
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
@@ -4024,7 +3998,6 @@ end 'main'
 
 <!-- test: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
@@ -4069,7 +4042,6 @@ type Plain uses U
 	end 'create'
 end 'Plain'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
@@ -4191,7 +4163,6 @@ end 'main'
 
 <!-- test: the-default-of-a-second-method-declared-in-an-extension-reads-sizeof -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -4203,7 +4174,6 @@ type Gauge uses T
 	end 'create'
 end 'Gauge'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Gauge
 	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, extra Level = sizeof(T) as Level) returns Level
@@ -4979,14 +4949,13 @@ c 6
 ```
 
 <!-- test: a-member-array-of-self-declared-by-an-extension-of-the-generic-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 The member alias may be declared in an `extension` of the generic type.
 ```maxon
 type Box uses T
 	var v as T
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	typealias Peers = Array with Self
 	static function peers(v T) returns Peers

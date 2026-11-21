@@ -421,11 +421,8 @@ error E2004: specs/field-defaults/field-defaults.error.uncast-number-default.max
 ```
 
 <!-- test: field-defaults.error.uncast-float-default -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Report
-	// TODO: float literals are not supported in minimaxon
 	export var ratio = 0.5
 
 	static function create() returns Self

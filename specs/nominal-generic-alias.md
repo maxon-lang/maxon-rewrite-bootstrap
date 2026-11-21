@@ -1625,36 +1625,29 @@ error E3005: <fragment>:8:3: argument type mismatch for 1: expected 'Ys', got 'X
 ```
 
 <!-- test: a-tuple-alias-over-a-brand-declared-after-its-uses-is-the-tuple-a-literal-builds -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The tuple type is named where the alias is declared, and a literal of the same elements is that type, whichever of the declarations the file reads first.
 ```maxon
 function make(x Xs) returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
-	return (x, 1)
+	return (x.clone(), 1)
 end 'make'
 
 function total(p Pair) returns Count
-	// TODO: tuple element access is not supported in minimaxon
-	return p.0.count() as Count
+	return try p.0.count() as Count otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
-	let x = Xs.create(0)
+	var x = Xs.create(0)
 	x.push("a")
 	x.push("b")
 	let p = make(x)
 	print("{total(p)}\n")
-	let y = Xs.create(0)
+	var y = Xs.create(0)
 	y.push("c")
-	// TODO: tuple values and types are not supported in minimaxon
 	let q = (y, 2 as Count)
 	print("{total(q)}\n")
 	return 0
 end 'main'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Xs, Count)
 
 typealias Count = int(0 to 100)

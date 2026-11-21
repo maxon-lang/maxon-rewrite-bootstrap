@@ -3328,7 +3328,6 @@ measured=62055
 ```
 
 <!-- test: a-float-payload-is-constructed-and-matched -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '5' -->
 A `float` payload is built, carried in the union's box and bound back out by a match, like any other scalar.
 ```maxon
 union Reading
@@ -3360,7 +3359,6 @@ celsius -3.25
 ```
 
 <!-- test: a-float-payload-crosses-a-mailbox -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A union with a `float` payload is a message argument like any other; one service prints in FIFO order.
@@ -3390,10 +3388,8 @@ end 'Thermometer'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Thermometer.create()
-	// TODO: float literals are not supported in minimaxon
 	try t.show(Reading.celsius(21.5)) otherwise panic("send show")
 	try t.show(Reading.missing) otherwise panic("send show")
-	// TODO: float literals are not supported in minimaxon
 	try t.show(Reading.celsius(-3.25)) otherwise panic("send show")
 	return 0
 end 'main'
@@ -3410,7 +3406,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-float-payload-beside-other-payloads -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '325' -->
 A case carrying a `String` and a `float` binds both fields; the managed field is released with the box.
 ```maxon
 union Sample
@@ -3474,7 +3469,6 @@ celsius 3.0
 ```
 
 <!-- test: a-float-payload-union-is-read-back-through-from-name -->
-<!-- skip: float literals are not supported in minimaxon -->
 `fromName` with a literal case name takes the payload as its extra argument, a `float` one included.
 ```maxon
 union Reading
@@ -3483,7 +3477,6 @@ union Reading
 end 'Reading'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = try Reading.fromName("celsius", 21.5) otherwise Reading.missing
 	match r 'which'
 		celsius(value) then print("celsius {value}\n")

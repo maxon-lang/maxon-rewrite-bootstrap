@@ -122,11 +122,9 @@ end 'main'
 ```
 
 <!-- test: builtins-type.float-to-bits -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let bits = __Builtins.floatToBits(1.0)
 	// IEEE 754: 1.0 = 0x3FF0000000000000 = 4607182418800017408
 	if bits == 4607182418800017408 'check'
@@ -140,7 +138,6 @@ end 'main'
 ```
 
 <!-- test: builtins-type.bits-to-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -148,7 +145,6 @@ function main() returns ExitCode
 	// IEEE 754: 0x3FF0000000000000 = 4607182418800017408 is exactly 1.0.
 	// A numeric conversion would instead yield ~4.6e18, so this distinguishes
 	// a bitcast from a widening int-to-float conversion.
-	// TODO: float literals are not supported in minimaxon
 	if value == 1.0 'check'
 		return 0
 	end 'check'
@@ -160,7 +156,6 @@ end 'main'
 ```
 
 <!-- test: builtins-type.bits-to-float-round-trip -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `bitsToFloat` and `floatToBits` are exact inverses, so composing them in either
 order is the identity. Round-tripping bit patterns that no numeric conversion
@@ -195,17 +190,14 @@ function main() returns ExitCode
 	end 'one'
 	// Negative zero: its bit pattern is 0x8000000000000000, which `==` on
 	// floats cannot detect because -0.0 == 0.0. Comparing bits does.
-	// TODO: float literals are not supported in minimaxon
 	let negativeZeroBits = __Builtins.floatToBits(-0.0) as FloatBits
 	if roundTripBits(negativeZeroBits) != negativeZeroBits 'negativeZero'
 		return 5
 	end 'negativeZero'
 	// Sign bit through the float-first composition.
-	// TODO: float literals are not supported in minimaxon
 	if __Builtins.bitsToFloat(__Builtins.floatToBits(-2.5)) != -2.5 'negativeValue'
 		return 6
 	end 'negativeValue'
-	// TODO: float literals are not supported in minimaxon
 	if __Builtins.bitsToFloat(__Builtins.floatToBits(0.5)) != 0.5 'half'
 		return 7
 	end 'half'
@@ -223,8 +215,6 @@ not interchangeable. Passing the wrong one is always a mistake, and is rejected
 rather than reinterpreted.
 
 <!-- test: builtins-type.error.bits-to-float-float-arg -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 ⚠ **ONE SENTENCE FOR THE WHOLE SURFACE.** The compiler words a `__Builtins.*` operand rejection
 the same way for every intrinsic, naming the callee and the two SOURCE types and anchoring on the callee,
@@ -234,7 +224,6 @@ A `float` argument to `bitsToFloat` is almost always a `floatToBits` that was
 meant instead.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = __Builtins.bitsToFloat(1.0)
 	return trunc(v)
 end 'main'

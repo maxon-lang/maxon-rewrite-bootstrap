@@ -373,10 +373,9 @@ error E2001: specs/lexer-parser-robustness/near-keyword-uppercase.maxon:6:1: Exp
 ### Random bytes: small fixed pseudo-random byte blobs
 
 <!-- test: random-printable-garbage-1 -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
 <!-- positions: moved -->
 ```maxon
-// TODO: tuple values and types are not supported in minimaxon
 q1} ; + (= * foo,) bar
 ```
 ```maxoncstderr

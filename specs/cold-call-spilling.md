@@ -150,36 +150,30 @@ end 'main'
 ```
 
 <!-- test: a-float-survives-a-cold-call -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 Control for the floating-point half. `f` accumulates across a slow arm that runs on the last four
 indices; a float live across the call is saved and reloaded through its XMM register exactly as an
 integer is, and must come back intact.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias WordArray = Array with Word
 
 function halves(a WordArray, n Count) returns Real
-	// TODO: float literals are not supported in minimaxon
 	var f = 0.5 as Real
 	for i in 0 upto n 'each'
 		let v = try a.get(i) otherwise 8
-		// TODO: float literals are not supported in minimaxon
 		f = f + (v as Real) * 0.5
 	end 'each'
 	return f
 end 'halves'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i)
 	end 'seed'
-	// TODO: float literals are not supported in minimaxon
 	if halves(a, n: 8) != 19.5 'sum'
 		return 1
 	end 'sum'
@@ -547,8 +541,6 @@ end 'main'
 ```
 
 <!-- test: a-scratch-clobbering-op-in-a-cold-arm -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A panic handler is a cold block, and the float negation in its message writes an xmm scratch while
 defining a virtual of its own. Such an op is no run op — a value born inside a run would have no save
 point — so its scratch keeps confining exactly as in a normal block, and the block's runs are the
@@ -556,7 +548,6 @@ handler's calls alone. Every index is in range, so the handler never runs and th
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias WordArray = Array with Word
@@ -565,17 +556,16 @@ function walk(a WordArray, n Count, f Real) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		let v = try a.get(i) otherwise panic("index {i} is past the end; scale was {-f}")
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'each'
 	return t
 end 'walk'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
-	// TODO: float literals are not supported in minimaxon
 	return 0 if walk(a, n: 5, f: 1.5) == 10 else 1
 end 'main'
 ```

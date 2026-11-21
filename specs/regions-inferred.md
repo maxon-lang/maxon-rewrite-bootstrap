@@ -3744,8 +3744,6 @@ error E3196: <fragment>:21:18: cannot store a read-only 'Box' into 'Holder.box',
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-tuple-literal -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The tuple `(e, Box.create(1))` types its first item from the first trip's `e`, and the next trip's frozen `e` would sit in a mutable item.
 
@@ -3763,16 +3761,13 @@ end 'Box'
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 function edit(pinned immutable Box, rounds Tally)
 	var e = Box.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (e, Box.create(1))
 	var i = 0 as Tally
 	while i < rounds 'again'
-		// TODO: tuple values and types are not supported in minimaxon
 		pair = (e, Box.create(1))
 		e = pinned
 		i = i + 1
 	end 'again'
-	// TODO: tuple element access is not supported in minimaxon
 	pair.0.n = 5
 end 'edit'
 

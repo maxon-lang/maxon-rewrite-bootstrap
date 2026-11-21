@@ -139,7 +139,6 @@ error E3008: other/<fragment>:11:9: function 'helper' is not exported
 ```
 
 <!-- test: an-unmarked-field-is-read-and-written-by-another-type-and-a-sibling-files-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `Filler` is another type in `Box`'s file, and `grow.maxon` holds an `extension Box` in the same directory: both
 read and write the unmarked `v` (11 + 31).
 ```maxon
@@ -160,26 +159,25 @@ type Filler
 	end 'create'
 
 	function fill() returns ExitCode
-		let b = Box.create()
-		b.v = b.v + step
+		var b = Box.create()
+		b.v = try b.v + step otherwise panic("out of range")
 		return b.v
 	end 'fill'
 end 'Filler'
 
 // --- file: grow.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Box
-	function grown() returns ExitCode
-		self.v = self.v + 20
-		return v + 10
+	function grown(mutates self) returns ExitCode
+		self.v = try self.v + 20 otherwise panic("out of range")
+		return try v + 10 otherwise panic("out of range")
 	end 'grown'
 end 'Box'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let filled = Filler.create().fill()
-	let b = Box.create()
-	return filled + b.grown()
+	var b = Box.create()
+	return try filled + b.grown() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

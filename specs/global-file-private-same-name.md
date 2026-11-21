@@ -491,8 +491,6 @@ end 'main'
 
 <!-- test: every-block-scope-form-named-like-a-contested-binding-keeps-its-own-meaning -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A loop variable, a closure parameter, a union payload with its match-arm binding, a tuple destructuring and an enum
 case are each spelled `counter` in `alpha/`, beside `alpha/`'s own `let counter` and `beta/`'s. Each is a block-scope name that
 shadows the binding exactly as far as its scope runs: the reads inside it mean the local, and the reads before or after
@@ -535,8 +533,6 @@ end 'viaMatch'
 
 export function viaTuple() returns ExitCode
 	let before = counter
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	let (counter, other) = (5, 6)
 	return before + counter + other
 end 'viaTuple'

@@ -439,8 +439,6 @@ end 'main'
 ```
 
 <!-- test: a-float-constant-expression-is-evaluated -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐ **THE CONTROL, AND WHAT A SABOTAGE OF IT BREAKS — one field along.** The three multiplications
 and the addition below leave no `mulsd`/`addsd` in the emitted code (`--emit-ir`): each is one
 `movsd xmm, [rip + __fconst_…]`. What discriminates the fold is the MINTED TYPE. Carry the folded
@@ -449,7 +447,6 @@ lands in the wrong register file: on this very program,
 `x64 emitter: rax is in the gpr register file where the xmm file is required`; on wasm the same
 mistake declares an i64 local that every `f64.*` consumer fails validation against.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function scaleF(a Real, b Real) returns Real
@@ -461,15 +458,12 @@ function addF(a Real, b Real) returns Real
 end 'addF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if scaleF(2.5, b: 4.0) != 10.0 'product'
 		return 1
 	end 'product'
-	// TODO: float literals are not supported in minimaxon
 	if addF(0.5, b: 0.25) != 0.75 'sum'
 		return 2
 	end 'sum'
-	// TODO: float literals are not supported in minimaxon
 	if scaleF(-1.5, b: 2.0) != -3.0 'negativeProduct'
 		return 3
 	end 'negativeProduct'
@@ -481,7 +475,6 @@ end 'main'
 ```
 
 <!-- test: signed-zero-arithmetic-folds-to-the-right-zero -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐ **THE FIRST OF THE THREE REASONS THIS FOLD WAS DEFERRED, ANSWERED BY MEASUREMENT.** `-0.0 + 0.0`
 is `+0.0` and `-0.0 + -0.0` is `-0.0`; the sign flip of `+0.0` is `-0.0` and never `+0.0`, because a
 float negate is a sign-bit FLIP and not `0.0 - x`. Every answer here is asserted through `"{…}"`
@@ -489,7 +482,6 @@ rather than `==`, deliberately: `-0.0 == 0.0` is TRUE in IEEE-754, so a comparis
 two zeros apart and a case written that way would pass over the exact wrong answer it exists to
 catch.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function addF(a Real, b Real) returns Real
@@ -521,8 +513,6 @@ end 'main'
 ```
 
 <!-- test: a-float-division-by-a-constant-zero-is-not-folded -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐ **THE FLOAT TRAP CASE, AND IT DISCRIMINATES ON BOTH ZEROS.** After `pickF` inlines, both operands
 of each divide are constants, so a folder that answered for `1.0 / 0.0` would replace a catchable
 throw with `inf` and the `otherwise` arm would stop firing. `-0.0` is the second half and is not a
@@ -531,7 +521,6 @@ duplicate: a bit test for a zero divisor reads the negative zero as the ordinary
 rather than by inspecting the pattern. The third check is the control on the control — an ordinary
 divisor still folds.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function pickF(a Real) returns Real
@@ -539,17 +528,13 @@ function pickF(a Real) returns Real
 end 'pickF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let one = pickF(1.0)
-	// TODO: float literals are not supported in minimaxon
 	if (try (one / pickF(0.0)) otherwise -77.0) != -77.0 'positiveZeroStillThrows'
 		return 1
 	end 'positiveZeroStillThrows'
-	// TODO: float literals are not supported in minimaxon
 	if (try (one / pickF(-0.0)) otherwise -78.0) != -78.0 'negativeZeroStillThrows'
 		return 2
 	end 'negativeZeroStillThrows'
-	// TODO: float literals are not supported in minimaxon
 	if (try (one / pickF(4.0)) otherwise -79.0) != 0.25 'anOrdinaryDivisionStillFolds'
 		return 3
 	end 'anOrdinaryDivisionStillFolds'
@@ -561,15 +546,12 @@ end 'main'
 ```
 
 <!-- test: an-overflowing-float-fold-answers-infinity -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The float edge that the integer `overflow-wraps-exactly-as-the-instruction-does` is the twin of:
 where an integer `add` WRAPS, a float `mul` past `f64.max` goes to `+inf` and stays there. A folder
 that refused the operation, saturated at `f64.max`, or computed in a wider format would disagree with
 `mulsd` on exactly this input. The emitted code (`--emit-ir`) shows the answer arriving as a `.rdata` load of
 the infinity pattern, which is also what says the constant pool can NAME a value no literal spells.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function scaleF(a Real, b Real) returns Real
@@ -577,12 +559,10 @@ function scaleF(a Real, b Real) returns Real
 end 'scaleF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let big = scaleF(1.0e308, b: 10.0)
 	if "{big}" != "inf" 'overflowsToInfinity'
 		return 1
 	end 'overflowsToInfinity'
-	// TODO: float literals are not supported in minimaxon
 	if big != big * 2.0 'infinityIsAbsorbing'
 		return 2
 	end 'infinityIsAbsorbing'
@@ -597,8 +577,6 @@ end 'main'
 ```
 
 <!-- test: a-computed-nan-keeps-its-instruction -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐⭐ **THE SECOND DEFERRAL REASON, AND THE ONE THAT IS STILL A DECLINE.** `inf - inf` and
 `sqrt(-4.0)` are NaN, and a NaN's PAYLOAD is the machine's to choose — x64's indefinite is
 `0xFFF8000000000000`, arm64's default NaN is `0x7FF8000000000000`, and wasm does not promise one at
@@ -612,7 +590,6 @@ decline removed. **What shows the decline is this case's emitted code (`--emit-i
 deletes the `subsd` — and nothing in the suite pins it, for the reason the Documentation gives: a payload
 divergence is between two MACHINES, and no assertion runnable on one host can stage it.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function scaleF(a Real, b Real) returns Real
@@ -628,13 +605,11 @@ function sqrtF(a Real) returns Real
 end 'sqrtF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = scaleF(1.0e308, b: 10.0)
 	let notANumber = subF(inf, b: inf)
 	if notANumber == notANumber 'infinityMinusInfinityIsNan'
 		return 1
 	end 'infinityMinusInfinityIsNan'
-	// TODO: float literals are not supported in minimaxon
 	let root = sqrtF(-4.0)
 	if root == root 'rootOfANegativeIsNan'
 		return 2
@@ -650,8 +625,6 @@ end 'main'
 ```
 
 <!-- test: min-and-max-fold-to-the-compare-and-select-definition -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐⭐ **THE FOUR SIGNED-ZERO INPUTS `StdBinOpcode`'s `min`/`max` HEADER TABULATES, ASKED OF THE
 FOLDER.** `min(a, b)` is `a` when `a < b` and `b` otherwise; `max(a, b)` is `a` when `a > b` and `b`
 otherwise. Two zeros of opposite sign compare EQUAL, so the strict test is false in every direction
@@ -661,7 +634,6 @@ commuted the operands would invert all four**, and `binOpcodeIsCommutative` answ
 precisely so that nothing may. Asserted through `"{…}"` for the reason
 `signed-zero-arithmetic-folds-to-the-right-zero` gives.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function minF(a Real, b Real) returns Real
@@ -685,11 +657,9 @@ function main() returns ExitCode
 	if "{maxF(-0.0, b: 0.0)}" != "0.0" 'maxTakesTheSecondEitherWay'
 		return 4
 	end 'maxTakesTheSecondEitherWay'
-	// TODO: float literals are not supported in minimaxon
 	if minF(2.5, b: 4.0) != 2.5 'minOrdersDistinctOperands'
 		return 5
 	end 'minOrdersDistinctOperands'
-	// TODO: float literals are not supported in minimaxon
 	if maxF(2.5, b: 4.0) != 4.0 'maxOrdersDistinctOperands'
 		return 6
 	end 'maxOrdersDistinctOperands'
@@ -701,8 +671,6 @@ end 'main'
 ```
 
 <!-- test: a-comparison-on-float-constants-folds -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The float twin of `comparisons-fold-signed-at-the-machine-word`, and it exists for the same reason:
 one bit pattern, two readings. A folder that compared the raw `FullRangeInt`s would get `-1.0 > -2.0`
 BACKWARDS — a double's pattern is sign-and-magnitude, so the negative side orders the wrong way round
@@ -718,7 +686,6 @@ reaches the caller as a BLOCK ARG of the inliner's continuation (`__il_cont`), a
 what a `const` op materializes. So `not greater(…)` sees a phi where `not (…)` sees a constant. What
 each `movRegImm32 rax, 1` above IS, is the float comparison this case exists for, already folded.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function greater(a Real, b Real) returns bool
@@ -730,20 +697,16 @@ function equal(a Real, b Real) returns bool
 end 'equal'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if not greater(-1.0, b: -2.0) 'negativesOrderAsNumbers'
 		return 1
 	end 'negativesOrderAsNumbers'
-	// TODO: float literals are not supported in minimaxon
 	if greater(-2.0, b: -1.0) 'andNotBackwards'
 		return 2
 	end 'andNotBackwards'
-	// TODO: float literals are not supported in minimaxon
 	if not equal(-0.0, b: 0.0) 'theTwoZerosCompareEqual'
 		return 3
 	end 'theTwoZerosCompareEqual'
 	var taken = 0 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if greater(2.5, b: 1.5) 'thenArm'
 		taken = 7
 	end 'thenArm' else 'elseArm'
@@ -760,8 +723,6 @@ end 'main'
 ```
 
 <!-- test: math-intrinsics-over-constants-fold -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The six f64 → f64 unary shapes, folded. `sqrt` is the one IEEE-754 requires to be CORRECTLY ROUNDED,
 so the host and all three targets answer the same bits; `floor`/`ceil` are exact; `round` is
 **ties-to-even** on every target this compiler emits for (`roundsd 0`, `frintn`, `f64.nearest`) and
@@ -769,7 +730,6 @@ so the host and all three targets answer the same bits; `floor`/`ceil` are exact
 ties-away-from-zero routine instead. `abs` and `-x` are the two pure bit operations, and their
 signed-zero answers are what say so.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function sqrtF(a Real) returns Real
@@ -797,23 +757,18 @@ function negF(a Real) returns Real
 end 'negF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if sqrtF(2.25) != 1.5 'squareRoot'
 		return 1
 	end 'squareRoot'
-	// TODO: float literals are not supported in minimaxon
 	if floorF(-2.5) != -3.0 'floorGoesDown'
 		return 2
 	end 'floorGoesDown'
-	// TODO: float literals are not supported in minimaxon
 	if ceilF(-2.5) != -2.0 'ceilingGoesUp'
 		return 3
 	end 'ceilingGoesUp'
-	// TODO: float literals are not supported in minimaxon
 	if roundF(2.5) != 2.0 'tiesGoToEven'
 		return 4
 	end 'tiesGoToEven'
-	// TODO: float literals are not supported in minimaxon
 	if roundF(3.5) != 4.0 'andEvenIsNotAlwaysDown'
 		return 5
 	end 'andEvenIsNotAlwaysDown'
@@ -831,15 +786,12 @@ end 'main'
 ```
 
 <!-- test: a-promotion-of-a-constant-folds -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 `siToFp` — the int→f64 conversion `1 + 2.0` needs, folded to the double the instruction would have
 computed. It is total over `i64` and correctly rounded to nearest-even on the host and on all three
 targets, which the second check is the discriminating input for: `2^53 + 1` has no exact double, and
 round-to-nearest-EVEN answers `9007199254740992`, one below the integer written. A folder that
 truncated or rounded away from zero would answer `9007199254740994`.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Word = int(i64.min to i64.max)
@@ -849,14 +801,12 @@ function mix(i Word, f Real) returns Real
 end 'mix'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if mix(3, f: 0.5) != 3.5 'anOrdinaryPromotion'
 		return 1
 	end 'anOrdinaryPromotion'
 	if "{mix(9007199254740993, f: 0.0)}" != "9007199254740992.0" 'roundsToNearestEven'
 		return 2
 	end 'roundsToNearestEven'
-	// TODO: float literals are not supported in minimaxon
 	if mix(-2, f: -0.5) != -2.5 'andTheNegativeSide'
 		return 3
 	end 'andTheNegativeSide'
@@ -868,8 +818,6 @@ end 'main'
 ```
 
 <!-- test: a-truncation-of-a-constant-folds-inside-the-i64-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 `fpToSi` — `trunc` toward zero, folded, and ONLY where the answer is an `i64`. Inside the range the
 three targets and the host agree exactly, which is what these checks pin. **There is deliberately no
 out-of-range case here**: `trunc(1.0e300)` has three different right answers — x64's `cvttsd2si`
@@ -878,7 +826,6 @@ gives the indefinite integer, arm64's `fcvtzs` saturates to `i64.max`, and wasm'
 pinned by one expectation. The fold declines there, which is what keeps the wasm trap a trap; a case
 that could see it would have to be three cases with three answers.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Word = int(i64.min to i64.max)
@@ -888,15 +835,12 @@ function truncF(a Real) returns Word
 end 'truncF'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if truncF(3.99) != 3 'towardZeroFromAbove'
 		return 1
 	end 'towardZeroFromAbove'
-	// TODO: float literals are not supported in minimaxon
 	if truncF(-3.99) != -3 'towardZeroFromBelow'
 		return 2
 	end 'towardZeroFromBelow'
-	// TODO: float literals are not supported in minimaxon
 	if truncF(-0.5) != 0 'andTheFractionBelowZero'
 		return 3
 	end 'andTheFractionBelowZero'

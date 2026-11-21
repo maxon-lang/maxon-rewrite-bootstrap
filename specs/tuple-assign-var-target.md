@@ -31,24 +31,18 @@ A `var` target is a declaration like any other, so it carries every rule a body 
 and both spell `(x, let y)`, so the `var`-qualified target is exercised by no case there.
 
 <!-- test: var-target-declares-a-mutable-binding -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The declared `b` is reassignable afterwards, which is the whole of what `var` adds over `let`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair(n Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (n, n + 1)
+	return (n, try n + 1 otherwise panic("out of range"))
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(let a, var b) = pair(5)
-	b = b + 10
-	return a + b
+	b = try b + 10 otherwise panic("out of range")
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -56,26 +50,20 @@ end 'main'
 ```
 
 <!-- test: var-target-beside-a-rebind -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `var` target sits beside a bare rebinding target in one statement: `x` already exists and is written,
 `y` is declared here and then written again.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair(n Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (n * 2, n * 3)
+	return (try n * 2 otherwise panic("out of range"), try n * 3 otherwise panic("out of range"))
 end 'pair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, var y) = pair(7)
-	y = y - 1
-	return x + y
+	y = try y - 1 otherwise panic("out of range")
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -83,24 +71,17 @@ end 'main'
 ```
 
 <!-- test: var-target-never-reassigned-is-e3077 -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 A `var` target is a body `var` declaration, so the never-reassigned rule reaches it exactly as it reaches
 `var y = …`. This is what says the target goes through the ordinary declaration door rather than a
 private one.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair(n Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (n, n + 1)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(let a, var b) = pair(5)
 	return a + b
 end 'main'
@@ -110,19 +91,14 @@ error E3077: <fragment>:9:14: variable 'b' is never reassigned; use 'let' instea
 ```
 
 <!-- test: var-target-in-a-loop-carries -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `var` target declared inside a loop body is fresh each trip, while a bare target rebinds the binding the
 loop carries. Both spellings in one loop, so the header phi and the per-trip declaration are exercised
 together.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function step(n Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (n + 1, n * 2)
+	return (try n + 1 otherwise panic("out of range"), try n * 2 otherwise panic("out of range"))
 end 'step'
 
 function main() returns ExitCode
@@ -130,13 +106,12 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
-		// TODO: tuple assignment is not supported in minimaxon
 		(acc, var doubled) = step(acc)
-		doubled = doubled + 1
-		total = total + doubled
+		doubled = try doubled + 1 otherwise panic("out of range")
+		total = try total + doubled otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

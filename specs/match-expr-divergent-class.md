@@ -62,7 +62,6 @@ Both render as **E3005**, positioned at the `match` keyword. Same-type arms (`0 
 ## Tests
 
 <!-- test: int-and-float-arms -->
-<!-- skip: float literals are not supported in minimaxon -->
 The arms cross register classes — an integer `5` and a float `7.5` — so the integer arm is promoted
 to float (`cvtsi2sd`) and the result is uniformly float. With `x` = 1 the integer arm is selected, promoted to `5.0`; `trunc` reads it back as 5.
 ```maxon
@@ -70,10 +69,9 @@ function main() returns ExitCode
 	let x = 1
 	let r = match x 'a'
 		1 gives 5
-		// TODO: float literals are not supported in minimaxon
 		default gives 7.5
 	end 'a'
-	return trunc(r)
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -81,18 +79,16 @@ end 'main'
 ```
 
 <!-- test: float-then-int-arms -->
-<!-- skip: float literals are not supported in minimaxon -->
 The float-first mirror: a float `2.5` and an integer `9`. The integer arm is promoted to float and
 the result is uniformly float. With `x` = 1 the float arm is selected, so `trunc(2.5)` is 2.
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	let r = match x 'a'
-		// TODO: float literals are not supported in minimaxon
 		1 gives 2.5
 		default gives 9
 	end 'a'
-	return trunc(r)
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -115,14 +111,11 @@ error E3005: specs/match-expr-divergent-class/error.match-gives-string-and-int.m
 ```
 
 <!-- test: error.match-gives-float-and-string -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let c = 1
 	let r = match c 'pick'
 		0 gives "hello"
-		// TODO: float literals are not supported in minimaxon
 		default gives 2.5
 	end 'pick'
 	return 0

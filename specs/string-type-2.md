@@ -13,14 +13,12 @@ grapheme/codepoint iteration, slicing, clone/COW, and `String.append`.
 ## Tests
 
 <!-- test: heap-string-data-access -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	// Verify heap-allocated string data is accessible via bytes()
 	let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	// Read first byte ('A' = 65)
 	var first_printed = false
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'read_first'
 		if not first_printed 'print_first'
 			print("{b}\n")
@@ -29,7 +27,6 @@ function main() returns ExitCode
 	end 'read_first'
 	// Read last byte ('Z' = 90)
 	var last_byte = 0 as Byte
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'read_all'
 		last_byte = b
 	end 'read_all'
@@ -118,15 +115,13 @@ end 'main'
 ```
 
 <!-- test: heap-string-iteration -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABCDEFGHIJKLMNOP" // 16 bytes, triggers heap
 	var sum = 0 as Count
 	// Iterate over bytes directly to test heap string iteration
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
-		sum = sum + b as Count
+		sum = try sum + b as Count otherwise panic("out of range")
 	end 'loop'
 	print("{sum}\n") // 65+66+...+80 = 1160
 	return 0
@@ -163,16 +158,14 @@ end 'main'
 ```
 
 <!-- test: heap-string-byteview -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABCDEFGHIJKLMNOPQR" // 18 bytes, heap allocated
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
 		// Use b to avoid unused variable warning
 		if b > 0 'use'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'use'
 	end 'loop'
 	print("{count}\n")
@@ -458,12 +451,10 @@ end 'main'
 ```
 
 <!-- test: codepoints-view -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Codepoints View
 ```maxon
 function main() returns ExitCode
 	let s = "Aé" // A (1 codepoint) + é (1 codepoint if precomposed)
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in s.codepoints() 'loop'
 		print("{cp}\n")
 	end 'loop'

@@ -844,7 +844,6 @@ error E4014: <fragment>:25:6: type 'Scaled' contains a reference cycle (via Scal
 ```
 
 <!-- test: error.clone-of-a-record-holding-an-interface-a-handle-owner-conforms-to-through-an-extension-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
 ### The roster counts extensions, and follows `extends`
@@ -883,7 +882,6 @@ type Tap
 	end 'create'
 end 'Tap'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tap implements Drawable
 	function area() returns Integer
 		return 1

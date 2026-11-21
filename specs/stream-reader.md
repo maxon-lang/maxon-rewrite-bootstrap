@@ -805,7 +805,6 @@ server GET /one
 
 <!-- test: a-tls-stream-is-read-by-line-until-close-notify -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A reader over a `TlsStream` answers `ended` once the peer's close_notify arrives, after every line sent before it. A peer that drops its stream without closing ends the TCP connection with no close_notify, and the read that meets it throws `StreamError.secure(truncated)` rather than answering `ended`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -819,7 +818,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)

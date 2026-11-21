@@ -78,14 +78,11 @@ end 'main'
 ```
 
 <!-- test: unary-negate-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.5
 	let g = -f
-	// TODO: float literals are not supported in minimaxon
-	return trunc(g + 45.5)
+	return try trunc(g + 45.5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -93,11 +90,8 @@ end 'main'
 ```
 
 <!-- test: unary-double-negate-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 42.0
 	let g = --f
 	return trunc(g)

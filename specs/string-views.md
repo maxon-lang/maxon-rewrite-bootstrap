@@ -75,14 +75,12 @@ end 'main'
 ```
 
 <!-- test: utf16-encodes-a-surrogate-pair-in-order -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### The lead surrogate precedes the trail, and the walk resumes past the whole sequence
 A four-byte UTF-8 sequence pushes TWO code units and then advances the source cursor by four — so a
 character after the emoji still lands in the right place.
 ```maxon
 function main() returns ExitCode
 	let s = "😀A"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'each'
 		print("{u},")
 	end 'each'
@@ -364,7 +362,6 @@ Stack trace:
 ```
 
 <!-- test: truncated-sequences-stop-at-the-buffer-end -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A lead byte may not promise more bytes than the buffer holds
 `String.from(bytes)` is the FIRST door arbitrary bytes reach the UTF-8 decoders through: every earlier
 producer of a `String` is well-formed by construction (a literal is lexer-validated, a slice is
@@ -387,12 +384,10 @@ typealias ByteSeq = Array with Byte
 function show(label String, bytes ByteSeq)
 	let s = String.from(bytes as ByteArray)
 	var cps = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in s.codepoints() 'eachCp'
 		cps = "{cps}{c},"
 	end 'eachCp'
 	var units = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'eachUnit'
 		units = "{units}{u},"
 	end 'eachUnit'

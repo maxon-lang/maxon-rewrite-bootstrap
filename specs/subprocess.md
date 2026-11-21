@@ -2748,7 +2748,6 @@ errline len=4 [119 0 120 121]
 
 <!-- test: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An argument holding a NUL cannot reach a child intact on any OS, so the spawn is refused as `spawnFailed`
 before anything starts, and the child never runs. The child is this case's own executable, which prints
@@ -2757,7 +2756,6 @@ every argument it was given, so a spawn that went ahead shows exactly how the ar
 function runChild()
 	let args = CommandLine.args()
 	var line = "child ran"
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, arg) in args.withIterator() 'each'
 		if iter.index() > 0 'afterProgram'
@@ -2964,7 +2962,6 @@ prefix holds x
 <!-- test: subprocess-stdin-bytes-holding-a-nul-reach-the-child-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A stdin payload is bytes, and a zero byte is one of them: every door that feeds a child's stdin delivers a
 payload holding a NUL whole, never cut at the NUL. The child is this case's own executable, which reads its
@@ -2978,7 +2975,6 @@ function readAllStdin() returns String
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	let received = merge read
 	var line = "{received.count()} bytes ["
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in received.withIterator() 'each'
 		if iter.index() > 0 'separator'

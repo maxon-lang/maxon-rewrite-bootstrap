@@ -163,7 +163,7 @@ mut
 ```
 
 <!-- test: static-method-statement.error.unknown-keyword-named-static-names-the-callee -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got 'while' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'while' -->
 The typo half of the case above, and what keeps the widened shape check from swallowing a name. A
 keyword-spelled member that no file declares is claimed by the same base-is-a-declared-struct arm an
 identifier-spelled one is, so it earns the positioned E3004 naming the callee rather than the shape

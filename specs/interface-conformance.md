@@ -182,13 +182,11 @@ error E3016: specs/interface-conformance/conformance-missing-method.maxon:10:6: 
 ```
 
 <!-- test: conformance-wrong-param-type -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 interface Processor
@@ -211,14 +209,11 @@ error E3016: specs/interface-conformance/conformance-wrong-param-type.maxon:10:6
 ```
 
 <!-- test: conformance-wrong-return-type -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 interface Provider
@@ -227,7 +222,6 @@ end 'Provider'
 
 type BadProvider implements Provider
 	function provide() returns Float
-		// TODO: float literals are not supported in minimaxon
 		return 0.0
 	end 'provide'
 end 'BadProvider'

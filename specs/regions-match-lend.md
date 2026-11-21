@@ -2130,7 +2130,6 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-rebind-of-a-cond-subjects-root-is-refused -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple assignment rebinds `first` as a plain assignment does, so it may not rebind a root of the `cond` subject inside an arm.
 ```maxon
@@ -2155,7 +2154,6 @@ function pick(pickFirst bool) returns Count
 	let second = Slot.empty
 	match (first if pickFirst else second) 'which'
 		empty then break
-		// TODO: tuple values and types are not supported in minimaxon
 		held then (first, n) = (Slot.empty, 1)
 	end 'which'
 	return n
@@ -3458,9 +3456,6 @@ error E3200: <fragment>:54:39: 'box' crosses to the service it is sent to only a
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr`, and what `a.pop()` took out of `a` was stored into it, so `crate`, the root the alias names, is held too and is not sent (ruling H-10: a holder chain through a destructured alias).
 ```maxon
@@ -3489,14 +3484,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, Count)
 
 type Crate
 	var pr as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pr: (Bag.create(), 0)}
 	end 'create'
 end 'Crate'
@@ -3509,7 +3502,6 @@ type Taker
 	end 'create'
 
 	export function takeCrate(c Crate) returns Count
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (b, _) = c.pr
 		let weight = match b.item 'c'
 			empty gives 0
@@ -3524,7 +3516,6 @@ function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
 	let crate = Crate.create()
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (inner, _) = crate.pr
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
@@ -3546,10 +3537,6 @@ error E3200: <fragment>:66:41: 'crate' crosses to the service it is sent to only
 <!-- test: error.a-root-whose-field-alias-is-matched-is-not-sent -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr` and the `match` holds it across its arms, so `crate`, the root the alias names, is held and is not sent from an arm (ruling H-10: the subject's alias chain).
 ```maxon
@@ -3576,14 +3563,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, Count)
 
 type Crate
 	var pr as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pr: (Bag.create(), 0)}
 	end 'create'
 end 'Crate'
@@ -3596,7 +3581,6 @@ type Taker
 	end 'create'
 
 	export function takeCrate(c Crate) returns Count
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (b, _) = c.pr
 		let weight = match b.item 'c'
 			empty gives 0
@@ -3609,9 +3593,7 @@ end 'Taker'
 
 function main() returns ExitCode
 	let crate = Crate.create()
-	// TODO: tuple element access is not supported in minimaxon
 	crate.pr.0.item = Slot.held(Token.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (inner, _) = crate.pr
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
@@ -3633,9 +3615,6 @@ error E3214: <fragment>:63:41: cannot hand 'crate' to the service it is sent to:
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `inner` aliases a tuple field of `shelf.cr`, a holder two hops below `shelf`, and what `a.pop()` took out of `a` was stored into it, so `shelf` is held too and is not sent (ruling H-10: the chain is followed to the root).
 ```maxon
@@ -3664,14 +3643,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, Count)
 
 type Crate
 	var pr as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pr: (Bag.create(), 0)}
 	end 'create'
 end 'Crate'
@@ -3692,7 +3669,6 @@ type Taker
 	end 'create'
 
 	export function takeShelf(sh Shelf) returns Count
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (b, _) = sh.cr.pr
 		let weight = match b.item 'c'
 			empty gives 0
@@ -3707,7 +3683,6 @@ function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
 	let shelf = Shelf.create()
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (inner, _) = shelf.cr.pr
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
@@ -3730,9 +3705,6 @@ error E3200: <fragment>:74:41: 'shelf' crosses to the service it is sent to only
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `inner` is a destructured alias of the tuple field `crate.pr`, but what is stored into it is a fresh `Slot.empty`, which no `match` holds, so `crate` stays free and is sent (ruling H-10, accepted control).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -3760,14 +3732,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, Count)
 
 type Crate
 	var pr as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pr: (Bag.create(), 0)}
 	end 'create'
 end 'Crate'
@@ -3780,7 +3750,6 @@ type Taker
 	end 'create'
 
 	export function takeCrate(c Crate) returns Count
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (b, _) = c.pr
 		let weight = match b.item 'c'
 			empty gives 0
@@ -3795,7 +3764,6 @@ function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.empty)
 	let crate = Crate.create()
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (inner, _) = crate.pr
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()

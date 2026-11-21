@@ -123,7 +123,6 @@ level=WARN+2 msg=six
 ```
 
 <!-- test: typed-attrs-in-text -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A text value is quoted when it holds a space, an `=`, a `"` or a control byte, with `Json.quote`'s escapes; a
 float prints its shortest round-trip form; a group's attrs print with dotted keys.
@@ -133,7 +132,6 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
-	// TODO: float literals are not supported in minimaxon
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
 end 'main'
@@ -146,7 +144,6 @@ level=INFO msg=request path="/a b" status=200 delta=-3 ratio=0.5 ok=true req.met
 ```
 
 <!-- test: typed-attrs-in-json -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same record through `JsonLogHandler`: one object per line, a group nested as an object.
 ```maxon
@@ -155,7 +152,6 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(options), levels: levels))
-	// TODO: float literals are not supported in minimaxon
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
 end 'main'
@@ -593,7 +589,6 @@ collected 2: INFO fromWorker
 
 <!-- test: an-error-logged-before-the-program-exits-is-written -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then returns a failing exit code. The program's exit lets the
 handler write what was handed to it, so all four lines reach the child's stderr and the child's exit code is
@@ -623,7 +618,6 @@ function main() returns ExitCode
 	end 'wrongExit'
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
 		let line = try lines.get(iter.index()) otherwise 'short'
@@ -648,7 +642,6 @@ ok
 
 <!-- test: an-error-logged-before-a-panic-is-written -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then panics. The panic first lets the handler write what was
 handed to it, and the handler's mailbox is FIFO, so all four lines precede the panic on the child's stderr.
@@ -674,7 +667,6 @@ function main() returns ExitCode
 	let run = try Subprocess.runConfiguration(config) otherwise return 3
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
 		let line = try lines.get(iter.index()) otherwise 'short'
@@ -699,7 +691,8 @@ ok
 
 <!-- test: an-extension-adds-a-custom-level-helper -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'Log' are not supported in minimaxon -->
+<!-- skip: extensions of 'Logger' are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A program adds its own level helper to `Log` and `Logger` by extension, forwarding its caller's location, so
 the record names the line that called the helper; the level filters it by rank.
@@ -709,7 +702,7 @@ function auditLevel() returns LogLevel
 	return LogLevel.named("AUDIT", rank: 2)
 end 'auditLevel'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Log' are not supported in minimaxon
 extension Log
 	// TODO: default parameter values are not supported in minimaxon
 	public static function audit(message String, attrs LogAttrArray = LogAttrArray.create(0), file String = __file__, line SourceLineNumber = __line__)
@@ -717,7 +710,7 @@ extension Log
 	end 'audit'
 end 'Log'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Logger' are not supported in minimaxon
 extension Logger
 	// TODO: default parameter values are not supported in minimaxon
 	public function audit(message String, attrs LogAttrArray = LogAttrArray.create(0), file String = __file__, line SourceLineNumber = __line__)

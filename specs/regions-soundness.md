@@ -5303,9 +5303,6 @@ error E3198: <fragment>:38:17: 'donor.bytes' is isolated and cannot be read outs
 <!-- test: error.an-isolated-part-read-cannot-enter-a-tuple -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple element is a second path to what it holds, so an `isolated` part of a holder placed in a tuple literal, kept whole or destructured, does not become a clean input to an `isolated` parameter.
 
@@ -5330,15 +5327,11 @@ function weigh(bytes isolated ByteArray) returns Count
 end 'weigh'
 
 function viaTuple(donor Shelf) returns Count
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (donor.bytes, true)
-	// TODO: tuple element access is not supported in minimaxon
 	return weigh(pair.0)
 end 'viaTuple'
 
 function viaDestructure(donor Shelf) returns Count
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	let (got, _) = (donor.bytes, true)
 	return weigh(got)
 end 'viaDestructure'
@@ -6596,7 +6589,6 @@ end 'main'
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 An iterator made over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands out, by `current` or by a `withIterator` loop, pushed into an array outside the region is a second path into it.
 
@@ -6631,7 +6623,6 @@ function keepByIterator(bin Bin, keep BlobArray)
 end 'keepByIterator'
 
 function keepByPairs(bin Bin, keep BlobArray)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, blob) in bin.blobs.withIterator() 'each'
 		keep.push(blob)
@@ -6715,7 +6706,6 @@ error E3201: <fragment>:32:23: 'get' hands back mutable data of the isolated reg
 
 <!-- test: error.a-value-of-an-isolated-map-field-cannot-leave-a-for-loop-into-outside-data -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `Map` field outside a `modify` block reads the field's region as a loop over an `isolated` array or `List` field does, so a value it hands out pushed into an outside array, stored into a plain field or returned from inside the loop is a second path into that region and is refused.
 
@@ -6754,21 +6744,18 @@ type Pocket
 end 'Pocket'
 
 function keepFromMap(bin Bin, keep BlobArray)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, blob) in bin.index 'each'
 		keep.push(blob)
 	end 'each'
 end 'keepFromMap'
 
 function storeFromMap(bin Bin, pocket Pocket)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, blob) in bin.index 'each'
 		pocket.blob = blob
 	end 'each'
 end 'storeFromMap'
 
 function firstFromMap(bin Bin) returns Blob
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, blob) in bin.index 'each'
 		return blob
 	end 'each'
@@ -6793,7 +6780,6 @@ error E3198: <fragment>:44:19: 'bin.index' is isolated and cannot be read outsid
 
 <!-- test: an-isolated-list-or-map-field-hands-out-copies-and-values -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value.
 
 ```maxon
@@ -6834,7 +6820,6 @@ end 'keepFromList'
 
 function weighMap(bin Bin) returns Count
 	var total = 0 as Count
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, blob) in bin.index 'each'
 		total = total + blob.data.count()
 	end 'each'
@@ -7995,9 +7980,6 @@ error E3198: <fragment>:44:34: 'blob' is isolated and cannot be read outside a b
 
 <!-- test: error.an-isolated-payload-read-through-a-helper-cannot-enter-a-tuple-or-a-union -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back an `isolated` payload it is given, so its result placed in a tuple bound to a local or in a plain union payload returned is a read of the part.
 
@@ -8036,12 +8018,9 @@ function wrapLoose(holder Holder) returns Loose
 	end 'take'
 end 'wrapLoose'
 
-// TODO: tuple return types are not supported in minimaxon
 function pairUp(holder Holder) returns (ByteArray, Count)
 	match holder.slot 'take'
-		// TODO: tuple values and types are not supported in minimaxon
 		full(bytes) then return (echo(bytes), 1)
-		// TODO: tuple values and types are not supported in minimaxon
 		empty then return (ByteArray.create(0), 0)
 	end 'take'
 end 'pairUp'
@@ -8052,7 +8031,6 @@ function main() returns ExitCode
 		some(bytes) then print("{bytes.count()}\n")
 		none then print("none\n")
 	end 'show'
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (got, n) = pairUp(holder)
 	print("{got.count()} {n}\n")
 	return 0
@@ -8996,7 +8974,6 @@ error E3198: <fragment>:26:14: 'bin.blobs' is isolated and cannot be read outsid
 <!-- test: the-key-of-a-pair-a-for-loop-hands-out-over-an-isolated-map-field-leaves-freely -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `for` loop destructuring the pairs of an `isolated` map field outside a `modify` block hands out keys that are values, so a key returned or stored in a plain variable leaves freely while the value is read in place.
 
 ```maxon
@@ -9018,7 +8995,6 @@ end 'Holder'
 
 function largestKey(holder Holder) returns Count
 	var best = 0 as Count
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, bytes) in holder.index 'each'
 		if bytes.count() > 0 and key > best 'larger'
 			best = key
@@ -9558,9 +9534,6 @@ end 'main'
 
 <!-- test: error.a-handed-back-result-in-a-tuple-or-a-union-a-helper-builds-is-a-read-of-the-part -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that puts its argument into a tuple or a union payload hands back what a method of an `isolated` field hands back inside it, so binding either result is refused.
 
@@ -9595,9 +9568,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: tuple return types are not supported in minimaxon
 function tupled(bytes ByteArray) returns (ByteArray, Count)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (bytes, bytes.count())
 end 'tupled'
 
@@ -9606,7 +9577,6 @@ function wrapped(bytes ByteArray) returns Maybe
 end 'wrapped'
 
 function viaTuple(holder Holder) returns ByteArray
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (bytes, n) = tupled(holder.blob.inner())
 	bytes.push(n as Byte)
 	return bytes

@@ -574,8 +574,8 @@ end 'main'
 ```
 
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
 `extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
@@ -613,7 +613,6 @@ export type Box implements Seq with Digit
 end 'Box'
 
 // --- file: a/ext.maxon
-// TODO: extension blocks are not supported in minimaxon
 export extension Seq
 	export typealias Items = Array with Item
 	export function all() returns Items
@@ -624,7 +623,6 @@ export extension Seq
 end 'Seq'
 
 // --- file: b/ext.maxon
-// TODO: extension blocks are not supported in minimaxon
 export extension Seq
 	export typealias Items = Array with Item
 	export function twice() returns Items
@@ -2533,9 +2531,6 @@ end 'main'
 
 <!-- test: crossfile-return-type-through-two-alias-forms -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same rule through the arm that has no nominal declaration in it at all — a RANGED alias in one file
 against a TUPLE alias in another. It is a different code path (a tuple alias resolves to the tuple's own
 `structRef`, not to a declared `type`), so narrowing only the nominal side of the cascade leaves it open:
@@ -2559,18 +2554,15 @@ function fromA() returns ExitCode
 end 'fromA'
 
 // --- file: lib/b.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (ExitCode, ExitCode)
 
 function fromB() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (7, 9)
 end 'fromB'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
 	let p = fromB()
-	// TODO: tuple element access is not supported in minimaxon
 	return fromA() + p.0 + p.1
 end 'main'
 ```
@@ -2816,8 +2808,6 @@ end 'main'
 
 
 <!-- test: crossfile-float-alias-against-a-nominal-declaration -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A FLOAT ranged alias in the contest. `resolveFloatAliasType` reaches the ranged registry through
 `aliasOf`, which is reader-aware about the RANGE and must be about the KIND too — otherwise `lib/b.maxon`'s
@@ -2827,13 +2817,10 @@ own `returns Level` would be resolved against `a.maxon`'s float alias, and the r
 ⚠ `lib/b.maxon`'s declarations are unmarked and the files that read them sit in `lib/`, so `a.maxon`, outside `lib/`, never sees them, and a file that sees both means the one in its own directory.
 ```maxon
 // --- file: a.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Level = float(0.0 to 5.0)
 
 function scaledA() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = 2.5 as Level
-	// TODO: float literals are not supported in minimaxon
 	return trunc(v * 2.0) as ExitCode
 end 'scaledA'
 
@@ -2974,7 +2961,6 @@ end 'main'
 
 
 <!-- test: crossfile-ranged-alias-against-a-float-backed-enum-arithmetic -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 The operand rule asks the same question of an arithmetic operator: `a.maxon`'s `W` is an integer alias, so
 `w * 2` multiplies integers, `w / 2` divides them and `w < 4` compares them. Decoding `w` as the other
@@ -2993,10 +2979,8 @@ end 'goA'
 // --- file: b/b.maxon
 enum W
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 2.5
 end 'W'
 
@@ -3022,8 +3006,6 @@ end 'main'
 
 
 <!-- test: error.crossfile-ranged-alias-beside-a-float-backed-enum-is-not-a-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A NAME HELD BY A RANGED ALIAS IN ONE FILE AND A FLOAT-BACKED ENUM IN ANOTHER IS AN INTEGER IN THE FIRST.**
@@ -3034,7 +3016,6 @@ argument would pass as a double's bit pattern and print `1.5e-323`. The enum's o
 // --- file: a/a.maxon
 typealias W = int(0 to 5)
 
-// TODO: float typealiases are not supported in minimaxon
 export typealias Real = float(f64.min to f64.max)
 
 export function takesFloat(f Real) returns Real
@@ -3050,10 +3031,8 @@ end 'goA'
 // --- file: b/b.maxon
 enum W
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 2.5
 end 'W'
 
@@ -3922,7 +3901,7 @@ b missing
 ```
 
 <!-- test: error.extension-alias-pair-compiling-to-one-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ The same non-injective `_` join as `error.two-instantiations-compile-to-one-name`, reached through the
@@ -3990,7 +3969,7 @@ interface Duo uses K, V
 	function second() returns V
 end 'Duo'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Duo
 	typealias Both = Pair with (K, V)
 	function packedSecond() returns Num

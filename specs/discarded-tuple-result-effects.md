@@ -35,9 +35,6 @@ an int field write and refuses every one of these with E3064.
 `refuses-a-callee-with-no-effect` is the control in the other direction, and must stay red.
 
 <!-- test: bare-self-field-store-is-an-effect -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The canonical spelling — a bare field name inside a method. `bump` mutates the receiver, so the call is
 worth making whatever happens to its result.
 ```maxon
@@ -46,10 +43,8 @@ typealias Count = int(i64.min to i64.max)
 type Counter
 	export var n as Count
 
-	// TODO: tuple return types are not supported in minimaxon
-	function bump() returns (Count, Count)
-		n = n + 1
-		// TODO: tuple values and types are not supported in minimaxon
+	function bump(mutates self) returns (Count, Count)
+		n = try n + 1 otherwise panic("out of range")
 		return (n, n)
 	end 'bump'
 
@@ -59,12 +54,10 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
-	// TODO: tuple assignment is not supported in minimaxon
+	var c = Counter.create()
 	(_, _) = c.bump()
-	// TODO: tuple assignment is not supported in minimaxon
 	(_, _) = c.bump()
-	return c.n
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -72,9 +65,6 @@ end 'main'
 ```
 
 <!-- test: explicit-self-field-store-is-an-effect -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same write with an explicit `self.`. One rule about one storage; it must not answer differently for
 the way the source spelled it.
 ```maxon
@@ -83,10 +73,8 @@ typealias Count = int(i64.min to i64.max)
 type Counter
 	export var n as Count
 
-	// TODO: tuple return types are not supported in minimaxon
-	function bump() returns (Count, Count)
-		self.n = self.n + 1
-		// TODO: tuple values and types are not supported in minimaxon
+	function bump(mutates self) returns (Count, Count)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return (self.n, self.n)
 	end 'bump'
 
@@ -96,14 +84,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
-	// TODO: tuple assignment is not supported in minimaxon
+	var c = Counter.create()
 	(_, _) = c.bump()
-	// TODO: tuple assignment is not supported in minimaxon
 	(_, _) = c.bump()
-	// TODO: tuple assignment is not supported in minimaxon
 	(_, _) = c.bump()
-	return c.n
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,9 +96,6 @@ end 'main'
 ```
 
 <!-- test: field-store-through-a-parameter-is-an-effect -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A free function writing a field of the struct it was handed. The caller sees the write, so the call has a
 reason to run that its return type does not express.
 ```maxon
@@ -127,18 +109,15 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: tuple return types are not supported in minimaxon
-function poke(c Counter) returns (Count, Count)
+function poke(mutates c Counter) returns (Count, Count)
 	c.n = 7
-	// TODO: tuple values and types are not supported in minimaxon
 	return (1, 2)
 end 'poke'
 
 function main() returns ExitCode
-	let c = Counter.create()
-	// TODO: tuple assignment is not supported in minimaxon
+	var c = Counter.create()
 	(_, _) = poke(c)
-	return c.n
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -146,9 +125,6 @@ end 'main'
 ```
 
 <!-- test: transitive-field-store-is-an-effect -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The effect reaches the caller through the call graph, two hops up, exactly as a `print` does. Without the
 closure this would compile for the wrong reason, so the depth is the point.
 ```maxon
@@ -157,10 +133,8 @@ typealias Count = int(i64.min to i64.max)
 type Counter
 	export var n as Count
 
-	// TODO: tuple return types are not supported in minimaxon
-	function bump() returns (Count, Count)
-		n = n + 1
-		// TODO: tuple values and types are not supported in minimaxon
+	function bump(mutates self) returns (Count, Count)
+		n = try n + 1 otherwise panic("out of range")
 		return (n, n)
 	end 'bump'
 
@@ -169,21 +143,18 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: tuple return types are not supported in minimaxon
-function oneHop(c Counter) returns (Count, Count)
+function oneHop(mutates c Counter) returns (Count, Count)
 	return c.bump()
 end 'oneHop'
 
-// TODO: tuple return types are not supported in minimaxon
-function twoHops(c Counter) returns (Count, Count)
+function twoHops(mutates c Counter) returns (Count, Count)
 	return oneHop(c)
 end 'twoHops'
 
 function main() returns ExitCode
-	let c = Counter.create()
-	// TODO: tuple assignment is not supported in minimaxon
+	var c = Counter.create()
 	(_, _) = twoHops(c)
-	return c.n
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -191,24 +162,17 @@ end 'main'
 ```
 
 <!-- test: refuses-a-callee-with-no-effect -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **THE CONTROL, AND IT MUST STAY RED.** The four cases above prove the rule does not refuse things it
 should not; this one proves it still refuses what it should. A callee that only builds and returns a
 value has no reason to run when nothing takes the result.
 ```maxon
 typealias Count = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair(a Count, b Count) returns (Count, Count)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(_, _) = pair(1, b: 2)
 	return 0
 end 'main'

@@ -38,41 +38,26 @@ without this paragraph the change would read as a REX-prefix regression, which i
 not be. If this test is ever narrowed or deleted, the leaf branch loses its only cover.
 
 <!-- test: eleven-live-floats-through-rounding-intrinsics -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function scatter(a Wide) returns Wide
-	// TODO: float literals are not supported in minimaxon
 	let v0 = floor(a + 0.5)
-	// TODO: float literals are not supported in minimaxon
 	let v1 = ceil(a + 1.5)
-	// TODO: float literals are not supported in minimaxon
 	let v2 = round(a + 2.5)
-	// TODO: float literals are not supported in minimaxon
 	let v3 = sqrt(a + 3.0)
-	// TODO: float literals are not supported in minimaxon
 	let v4 = floor(a + 4.5)
-	// TODO: float literals are not supported in minimaxon
 	let v5 = ceil(a + 5.5)
-	// TODO: float literals are not supported in minimaxon
 	let v6 = round(a + 6.5)
-	// TODO: float literals are not supported in minimaxon
 	let v7 = sqrt(a + 7.0)
-	// TODO: float literals are not supported in minimaxon
 	let v8 = floor(a + 8.5)
-	// TODO: float literals are not supported in minimaxon
 	let v9 = ceil(a + 9.5)
-	// TODO: float literals are not supported in minimaxon
 	let v10 = round(a + 10.5)
 	return v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10
 end 'scatter'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(scatter(1.0))
+	return try trunc(scatter(1.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

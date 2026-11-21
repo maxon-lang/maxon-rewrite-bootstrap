@@ -209,12 +209,9 @@ value=gt
 ```
 
 <!-- test: float-comparison -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let y = 2.1
 	if x > y 'check'
 		return 1

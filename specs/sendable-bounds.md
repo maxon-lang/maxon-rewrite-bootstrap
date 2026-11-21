@@ -915,8 +915,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-a-tuple-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple is a record the caller keeps sharing, so `Span`, an alias of one, is refused, named by the tuple it
 denotes.
@@ -924,7 +922,6 @@ denotes.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Span = (Tally, Tally)
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -939,7 +936,6 @@ end 'Pool'
 typealias SpanPool = Pool with Span
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let span = (3, 4) as Span
 	let pool = SpanPool.create(span)
 	print("{pool.item.0} {pool.item.1}\n")
@@ -1030,15 +1026,12 @@ error E3215: <fragment>:22:11: 'TallyBox' is not sendable, so it cannot be 'T' o
 
 <!-- test: a-sendable-bound-accepts-an-immutable-tuple-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Span` is shared read-only, so the bound holds for the tuple it denotes.
 
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Span = (Tally, Tally)
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -1054,7 +1047,6 @@ end 'Pool'
 typealias SpanPool = Pool with immutable Span
 
 function span() returns Span
-	// TODO: tuple values and types are not supported in minimaxon
 	return (3, 4)
 end 'span'
 
@@ -1607,7 +1599,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 <!-- test: an-isolated-bound-on-the-owner-does-not-prove-an-immutable-sendable-argument-over-it -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `isolated`, which admits a `unique` `Token`, but `Pool with immutable Rows`, `Rows` being
@@ -1636,7 +1627,6 @@ end 'Pool'
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements isolated
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
 	typealias Rows = Array with Pair
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
@@ -1997,7 +1987,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-tuple-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with immutable Pair`, `Pair` being `(T, Tally)`, inside `Outer uses T` is an `immutable` tuple over a `T` that
@@ -2018,7 +2007,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
@@ -2045,7 +2033,6 @@ error E3215: <fragment>:15:12: '(T, Tally)' is built over 'T' of 'Outer', which 
 
 <!-- test: a-sendable-bound-names-the-first-declared-of-two-unbounded-parameters-an-argument-is-built-over -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pair` is `(U, T)` inside `Outer uses T, U`, so `Pool with immutable Pair` is built over two parameters `Outer` does not bound
@@ -2062,7 +2049,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T, U
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (U, T)
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
@@ -2084,7 +2070,6 @@ error E3215: <fragment>:12:12: '(U, T)' is built over 'T' of 'Outer', which is n
 
 <!-- test: a-sendable-bound-accepts-an-immutable-tuple-over-a-type-parameter-its-owner-bounds -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Pair`, `Pair` being `(T, Tally)`, meets the bound in `Outer`: every
 parameter the tuple mentions is bounded and the rest of its graph can be shared. `Outer with String` is judged against
@@ -2104,7 +2089,6 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
@@ -2275,8 +2259,6 @@ error E3215: <fragment>:14:12: 'Outer.Step' is a function type, so it cannot be 
 
 <!-- test: a-sendable-bound-refuses-a-tuple-through-a-nested-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `Span` is declared inside `Outer`, and an alias of a tuple is a plain record wherever it is declared.
 
@@ -2293,13 +2275,11 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Span = (Tally, Tally)
 	typealias SpanPool = Pool with Span
 	export var pool as SpanPool
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pool: SpanPool.create((3, 4) as Span)}
 	end 'create'
 end 'Outer'
@@ -2362,8 +2342,6 @@ error E3215: <fragment>:29:11: 'CellBox' is not sendable, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-refuses-a-tuple-holding-a-nested-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple is a record the caller keeps sharing whatever its elements are named by, so one with a nested ranged
 alias as an element is refused.
@@ -2397,13 +2375,11 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Mixed = (Grid.Cell, Tally)
 
 typealias MixedPool = Pool with Mixed
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let pool = MixedPool.create((3, 4))
 	print("{pool.item.0}\n")
 	return 0
@@ -2543,7 +2519,7 @@ error E3215: <fragment>:22:11: 'Outer.Items' is not sendable, so it cannot be 'T
 ```
 
 <!-- test: a-sendable-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2578,7 +2554,7 @@ type Digits implements Seq with Tally
 	end 'first'
 end 'Digits'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias Items = Array with Item
 	function all() returns Items
@@ -2642,7 +2618,6 @@ error E3215: <fragment>:14:12: 'Wrapper.Step' is a function type, so it cannot b
 
 <!-- test: a-sendable-bound-refuses-a-tuple-through-a-nested-alias-of-a-generic-type -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Pair` is declared inside `Wrapper uses T` as `(T, T)`, a tuple whatever `T` is, and a tuple is a plain record.
 So `Pool with Pair` is refused where `Wrapper` writes it, once, and `Wrapper with Tally` adds no second report.
@@ -2660,7 +2635,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
 	typealias PairPool = Pool with Pair
 	export var pool as PairPool
@@ -3118,9 +3092,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-whose-pool-it-holds-in-a-tuple -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so the `Pool with T` it holds as the element of a tuple is met in `Outer` too, and
 `Outer with Step` is refused once, at its own instantiation.
@@ -3142,12 +3113,10 @@ end 'Pool'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
 	typealias Inner = Pool with T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Inner, Tally)
 	export var pair as Pair
 
 	static function create(item T) returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (Inner.create(item), 0)}
 	end 'create'
 end 'Outer'
@@ -3156,7 +3125,6 @@ typealias StepOuter = Outer with Step
 
 function main() returns ExitCode
 	let outer = StepOuter.create(function(n) gives n + 1)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (pool, _) = outer.pair
 	let step = pool.item
 	print("{step(1)}\n")
@@ -3169,7 +3137,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-reports-an-instance-a-generic-type-holds-in-a-container-once -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with Step` is refused where `Outer` writes it. Holding that pool in an array and in a tuple adds no
 report, in `Outer` or at `Outer with Step`.
@@ -3191,7 +3158,6 @@ end 'Pool'
 type Outer uses T
 	typealias Fixed = Pool with Step
 	typealias Fixeds = Array with Fixed
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias FixedPair = (Fixed, Tally)
 	export var pools as Fixeds
 	export var pair as FixedPair
@@ -3598,7 +3564,7 @@ error E3011: <fragment>:17:33: Unknown type 'Shape.Items'
 ```
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-in-an-extension-of-an-interface-bound-to-a-value -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `extension Seq` writes `Pool with Item`, and `Jobs` binds `Item` to a `Tally`, which is a value. The alias is judged as `Pool with Tally` for that conformer, and it meets the bound.
@@ -3620,7 +3586,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -3656,7 +3622,7 @@ end 'main'
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-bound-to-a-plain-record -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3687,7 +3653,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -3720,7 +3686,7 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-in-an-extension-of-an-interface-once-for-the-conformer-that-fails -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3751,7 +3717,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -3796,7 +3762,7 @@ error E3215: <fragment>:25:12: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3819,7 +3785,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -3852,7 +3818,7 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 
 <!-- test: a-sendable-bound-refuses-an-associated-type-bound-to-a-generic-conformers-unbounded-parameter-once-for-two-instantiations -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3875,7 +3841,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -3912,7 +3878,7 @@ error E3215: <fragment>:17:12: 'T' of 'Box' is not bounded `sendable`, so it can
 
 
 <!-- test: a-sendable-bound-accepts-an-associated-type-bound-to-a-generic-conformers-bounded-parameter -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Box` binds `Item` to its parameter `T` and declares `where T is sendable`, so the alias in `extension Seq` is judged from that clause and meets the bound; `Box with Tally` runs.
@@ -3934,7 +3900,7 @@ interface Seq uses Item
 	function first() returns Item
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias SP = Pool with Item
 	function pooled() returns Tally
@@ -5432,7 +5398,7 @@ hello
 ```
 
 <!-- test: an-isolated-bound-refuses-a-container-instance-through-an-extension-alias-named-through-a-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5467,7 +5433,7 @@ type Digits implements Seq with Tally
 	end 'first'
 end 'Digits'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	typealias Items = Array with Item
 	function all() returns Items

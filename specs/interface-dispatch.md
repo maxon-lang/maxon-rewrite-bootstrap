@@ -1287,8 +1287,6 @@ error E3005: specs/interface-dispatch/error.interface-return-of-a-nonconformer-a
 
 
 <!-- test: error.interface-return-of-a-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A `float` CONFORMS — it declares the intrinsic `Comparable`/`Equatable`/`Hashable` — and still cannot be
 widened, because the fat pointer's value half is a general-purpose machine word and a float travels in a
 floating-point register. That is the argument position's E3121 asked at the return, through the same one
@@ -1301,7 +1299,6 @@ interface Ranked
 end 'Ranked'
 
 function pick() returns Ranked
-	// TODO: float literals are not supported in minimaxon
 	return 2.5
 end 'pick'
 
@@ -2152,13 +2149,9 @@ error E3005: <fragment>:20:10: field type mismatch for 'Holder.t': type 'Plain' 
 ```
 
 <!-- test: error.float-stored-directly-in-an-interface-field -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 A `float` conforms and still has no way into the fat pointer's value half, so a direct store is refused with
 the argument position's reason.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 type Holder
@@ -2170,7 +2163,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let h = Holder.create(2.5)
 	return 0
 end 'main'
@@ -2223,14 +2215,11 @@ end 'main'
 ```
 
 <!-- test: interface-param-checked-float-divide-survives-specialization -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### A possibly-zero FLOAT divide in an interface-param function survives specialization
 The float sibling of the integer case above. Float `/` is throwing too, so a possibly-zero one is
 a `__checked_div` op whose ResultKind is Float; the interface-alias specialization cloner must carry
 that kind through, or the clone strands as a plain try-call the lowering cannot emit.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 interface Scorer
@@ -2241,7 +2230,6 @@ type Alpha implements Scorer
 	let n as Real
 
 	function score() returns Real
-		// TODO: float literals are not supported in minimaxon
 		return n * 2.0
 	end 'score'
 
@@ -2260,11 +2248,8 @@ function ratioVia(s Scorer, d Real) returns Real
 end 'ratioVia'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = Alpha.create(21.0)
-	// TODO: float literals are not supported in minimaxon
 	let r = ratioVia(a, d: opaque(3.0))
-	// TODO: float literals are not supported in minimaxon
 	return 14 if r == 14.0 else 1
 end 'main'
 ```
@@ -2475,8 +2460,6 @@ end 'main'
 ```
 
 <!-- test: error.float-cannot-be-held-at-an-interface -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **A `float` HAS NO WAY INTO AN EXISTENTIAL, AND IT CONFORMS — WHICH IS WHY THE REFUSAL IS ITS OWN
 RULE.** `float` declares the intrinsic `Comparable`/`Equatable`/`Hashable` conformances, so every
 type-system question about this program answers YES. What stops it is REPRESENTATION: a value held at
@@ -2506,7 +2489,6 @@ function use(_ Comparable) returns Integer
 end 'use'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return use(2.5) as ExitCode
 end 'main'
 ```
@@ -2997,9 +2979,6 @@ end 'main'
 ```
 
 <!-- test: error.interface-typed-tuple-element -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **AN INTERFACE-TYPED POSITION THAT REACHES THE BACKEND WITHOUT ITS OWN DOOR.** A tuple type is
 interned as a SYNTHESIZED STRUCT, so its element list is read by `parseTupleTypeReference` — a third
 route, belonging to no field, parameter or return reader — so it asks a door of its own. Without one the
@@ -3027,11 +3006,9 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Shape, Integer)
 
 function take(p Pair) returns Integer
-	// TODO: tuple element access is not supported in minimaxon
 	return p.1
 end 'take'
 
@@ -3044,9 +3021,6 @@ error E2015: specs/interface-dispatch/error.interface-typed-tuple-element.maxon:
 ```
 
 <!-- test: error.interface-typed-tuple-element-in-a-parameter -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- positions: moved -->
 The SECOND of the three spellings that reach `parseTupleTypeReference` — an inline tuple type in a
 parameter position, with no `typealias` in sight. Pinned separately because each spelling reaches the
 element loop by a different caller, and a guard placed at the `typealias` alone would close only one.
@@ -3069,9 +3043,7 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function take(p(Shape, Integer)) returns Integer
-	// TODO: tuple element access is not supported in minimaxon
+function take(p (Shape, Integer)) returns Integer
 	return p.1
 end 'take'
 
@@ -3084,9 +3056,6 @@ error E2015: specs/interface-dispatch/error.interface-typed-tuple-element-in-a-p
 ```
 
 <!-- test: error.interface-typed-tuple-element-in-a-return -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 The THIRD spelling, pinned because the three reach the element loop by genuinely different paths rather
 than being one shape written three ways.
 ```maxon
@@ -3108,9 +3077,7 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: tuple return types are not supported in minimaxon
 function make() returns (Shape, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (Sq.create(1), 2)
 end 'make'
 
@@ -3123,9 +3090,6 @@ error E2015: specs/interface-dispatch/error.interface-typed-tuple-element-in-a-r
 ```
 
 <!-- test: interface-dispatch.tuples-over-concrete-types-still-compile -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the three above: a tuple whose elements are CONCRETE still interns,
 still holds a conformer, and still answers. Only an interface-typed element loses its second word.
 ```maxon
@@ -3147,17 +3111,14 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Sq, Integer)
 
 function take(p Pair) returns Integer
-	// TODO: tuple element access is not supported in minimaxon
-	return p.0.area() + p.1
+	return try p.0.area() + p.1 otherwise panic("out of range")
 end 'take'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
-	return take((Sq.create(11), 31)) as ExitCode
+	return try take((Sq.create(11), 31)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3890,7 +3851,6 @@ shwmae closing 3
 
 
 <!-- test: interface-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum ProbeError implements Error
 	refused
@@ -3951,7 +3911,6 @@ end 'orEmpty'
 
 function show(bytes ByteArray)
 	print("{bytes.count()}:")
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in bytes 'each'
 		print(" {b}")
 	end 'each'
@@ -4266,7 +4225,6 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-alias-
 
 <!-- test: interface-requirement-returning-a-character-through-two-conformers -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A requirement returning `Character` hands each conformer's grapheme back through the interface-typed value,
 owned by the caller exactly as a direct call's result is.
 ```maxon
@@ -4300,7 +4258,6 @@ end 'Mark'
 
 function codeOf(g Glyphs) returns ExitCode
 	let c = g.glyph()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in c.codepoints() 'first'
 		return cp
 	end 'first'
@@ -4317,7 +4274,6 @@ end 'main'
 ```
 
 <!-- test: error.a-witness-argument-to-a-character-formal-is-refused -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 An argument to a requirement's `Character` parameter is judged through the interface exactly as a direct
 call to the conformer judges it: an integer is not a `Character`.
@@ -4337,7 +4293,6 @@ type Counter implements Sink
 
 	function put(c Character) returns Integer
 		var n = self.base
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for _ in c.codepoints() 'each'
 			n = n + 1
 		end 'each'

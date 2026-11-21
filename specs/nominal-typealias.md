@@ -332,7 +332,6 @@ end 'main'
 
 <!-- test: error.an-element-index-is-not-a-count -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A position is an `ElementIndex`, and an `ElementIndex` is not a `Count`.
 ```maxon
@@ -347,7 +346,6 @@ end 'takesCount'
 function main() returns ExitCode
 	var arr = NarrowArray.create(0)
 	arr.push(4)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (position, _) in arr.withIterator() 'eachElement'
 		print("{takesCount(position.index())}\n")
@@ -367,7 +365,7 @@ typealias Narrow = int(0 to 1000)
 typealias NarrowArray = Array with Narrow
 
 function main() returns ExitCode
-	let arr = NarrowArray.create(0)
+	var arr = NarrowArray.create(0)
 	arr.push(4)
 	arr.push(9)
 	let text = "a😀"
@@ -936,18 +934,14 @@ error E3178: <fragment>:3:46: typealias 'WideId' does not fit the alias it imple
 
 <!-- test: error.an-implements-alias-must-share-its-parents-primitive -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias FooId = int(0 to 1000)
 
-// TODO: float typealiases are not supported in minimaxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0) implements FooId
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = 0.5 as Ratio
 	print("{r}")
 	return 0
@@ -1788,21 +1782,16 @@ error E3005: <fragment>:9:4: argument type mismatch for 'value': expected 'Wide'
 ```
 
 <!-- test: error.array-push-across-float-aliases -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 typealias Reals = Array with Real
 
 function main() returns ExitCode
 	var items = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	let r = 0.5 as Ratio
 	items.push(r)
 	return 0
@@ -1813,20 +1802,15 @@ error E3005: <fragment>:9:8: argument type mismatch for 'value': expected 'Real'
 ```
 
 <!-- test: error.array-literal-element-across-float-aliases -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 typealias Reals = Array with Real
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = 0.5 as Ratio
 	let items = Reals from [r]
 	return items.count() as ExitCode
@@ -2761,12 +2745,10 @@ Stack trace:
 ```
 
 <!-- test: an-int-alias-converts-at-a-float-alias-return -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The tag check licenses an int-to-float widening and `as` performs it, so a `return` performs it too.
 ```maxon
 typealias Tally = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 function toRatio(t Tally) returns Ratio

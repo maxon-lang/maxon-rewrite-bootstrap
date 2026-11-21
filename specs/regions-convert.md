@@ -581,11 +581,9 @@ error E3210: <fragment>:23:11: 'Counter.take' takes its parameter 'box' without 
 
 <!-- test: mutable-function-alias-declared-in-an-extension-is-called-with-two-arguments -->
 <!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `Joiner` is a `mutable function` alias declared inside an extension, and `join(first, second)` calls it with two arguments through the alias's function type like any other function value.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	// TODO: a function type that 'mutates captures' is not supported in minimaxon
 	typealias Joiner = function(Element, Element) returns Ordering mutates captures

@@ -344,7 +344,6 @@ error E3004: <fragment>:9:33: call to undefined function 'frobnicate'
 ```
 
 <!-- test: a-generic-static-method -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '5' -->
 ```maxon
 type MathUtil
 	static function larger(a T, b T) uses T returns T where T implements Comparable
@@ -455,12 +454,9 @@ end 'main'
 ```
 
 <!-- test: built-in-types-are-equatable-and-comparable -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 typealias Score = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function smaller(a T, b T) uses T returns T where T implements Comparable
@@ -476,7 +472,6 @@ end 'same'
 
 function main() returns ExitCode
 	let s = smaller(80 as Score, b: 35 as Score)
-	// TODO: float literals are not supported in minimaxon
 	let r = smaller(0.75 as Ratio, b: 0.25 as Ratio)
 	let w = smaller("pear", b: "apple")
 	print("{s} {r} {w}\n")
@@ -490,7 +485,6 @@ true false true true
 ```
 
 <!-- test: two-instantiations-in-one-program -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '25' -->
 ```maxon
 function twice(a T) uses T returns T
 	return a + a
@@ -528,7 +522,6 @@ end 'main'
 ```
 
 <!-- test: interpolation-in-a-generic-body -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '5' -->
 ```maxon
 typealias Score = int(0 to 100)
 
@@ -785,7 +778,7 @@ end 'main'
 ```
 
 <!-- test: an-instance-calls-an-extension-method-of-its-constraint-on-a-type-its-file-may-not-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An `extension` of the constraining interface is that interface's surface too, so a copy calls its methods on a
 type it may not name.
@@ -797,7 +790,7 @@ interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function doubledRank() returns Score
 		return self.rank() * 2
@@ -831,7 +824,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-method-calls-an-unmarked-requirement-of-a-conformer-in-a-subdirectory -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An `extension` body calls a requirement through the interface's surface, so the conformer's implementation may be
 unmarked in a directory the extension cannot see.
@@ -843,7 +836,7 @@ interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function doubledRank() returns Score
 		return self.rank() * 2
@@ -873,7 +866,7 @@ end 'main'
 ```
 
 <!-- test: error.an-instance-cannot-read-a-field-named-like-a-method-of-its-constraint -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 What a constraint grants is its methods. A field of the same name is a member of the type, and is hidden with it.
@@ -885,7 +878,7 @@ export interface Ranked
 	function rank() returns Score
 end 'Ranked'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Ranked
 	function tally() returns Score
 		return self.rank()
@@ -1091,11 +1084,8 @@ end 'main'
 ```
 
 <!-- test: error.expect-close-takes-floats -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	try Expect.close("a", expected: "b", within: 0.1) otherwise ignore
 	return 0
 end 'main'
@@ -1427,7 +1417,6 @@ error E3006: alpha/<fragment>:12:17: duplicate definition of 'larger' — alread
 
 
 <!-- test: a-bare-call-in-a-type-body-reaches-a-generic-static-its-extension-declares -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A generic static an `extension` declares is a sibling of the type's own methods, so a bare call to it in the
 type body means it, as the qualified call does. Returns 18.
 ```maxon
@@ -1445,7 +1434,6 @@ type Box
 	end 'useQualified'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	static function pick(a T, b T) uses T returns T where T implements Comparable
 		return a if a > b else b

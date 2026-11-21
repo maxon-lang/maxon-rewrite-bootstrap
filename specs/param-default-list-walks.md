@@ -230,9 +230,6 @@ end 'main'
 ```
 
 <!-- test: a-discard-binds-nothing-in-every-other-position -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `_` outside a parameter list still discards: a closure parameter, a `for` variable, a tuple element, a union payload beside a named one, and the `_ =` statement.
 ```maxon
 typealias Num = int(0 to 1000)
@@ -248,9 +245,7 @@ function ask(f Probe, v Num) returns bool
 	return f(v)
 end 'ask'
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (Num, Num)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (4, 5)
 end 'pair'
 
@@ -276,11 +271,10 @@ function main() returns ExitCode
 	for _ in 0 upto 3 'rep'
 		total = total + 1
 	end 'rep'
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (first, _) = pair()
-	total = total + first
-	total = total + sides(Shape.rect(2, height: 7))
-	total = total + sides(Shape.circle(9))
+	total = try total + first otherwise panic("out of range")
+	total = try total + sides(Shape.rect(2, height: 7)) otherwise panic("out of range")
+	total = try total + sides(Shape.circle(9)) otherwise panic("out of range")
 	_ = bump()
 	return total as ExitCode
 end 'main'
@@ -474,9 +468,6 @@ end 'main'
 ```
 
 <!-- test: a-destructured-discard-of-a-managed-element-leaks-nothing -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `let (label, _) = …` over a tuple whose discarded element is a record: the element is neither bound nor released by the pattern, and the tuple's owner drops it once.
 ```maxon
 typealias Num = int(0 to 1000)
@@ -489,14 +480,11 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (String, Bag)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("kept", Bag.create())
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (label, _) = pair()
 	print("{label}\n")
 	return 0
@@ -892,22 +880,15 @@ end 'main'
 ```
 
 <!-- test: error.a-destructured-discard-names-nothing-to-read -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 `let (first, _) = …` takes the first element and throws the second away; `_` is not bound, so it cannot be read afterwards.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (Num, Num)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (4, 5)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (first, _) = pair()
 	return (first + _) as ExitCode
 end 'main'
@@ -917,22 +898,15 @@ error E2004: <fragment>:10:18: Undefined variable '_'
 ```
 
 <!-- test: error.a-declaring-assignment-discard-names-nothing-to-read -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 `(let _, let second) = …` discards its first element exactly as `(_, let second) = …` does, so `_` is not bound there either.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (Num, Num)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (4, 5)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(let _, let second) = pair()
 	return (second + _) as ExitCode
 end 'main'

@@ -90,15 +90,12 @@ error E3092: api/<fragment>:5:17: exported function 'api.unusedHelper' is never 
 ```
 
 <!-- test: error.an-unused-export-whose-name-contains-union-cases-is-reported -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 `int.unionCasesFor` is an extension method its author wrote, whose qualified name only CONTAINS the word
 a union's companion member is named by: an `export` nothing outside its file calls is reported like any
 other.
 ```maxon
 // --- file: api/lib.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	export function unionCasesFor() returns bool
 		return self > 3

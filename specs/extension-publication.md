@@ -79,7 +79,6 @@ whichever of the two happens to be written earlier.
 ## Tests
 
 <!-- test: a-bare-call-inside-a-type-extension-reaches-the-conformers-own-method -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The headline case. `self.tag()` compiled and bare `tag()` was
 **`E3004: call to undefined function 'tag'`** — two spellings of one call, one of which the language says
 are the same. Nothing about generics is involved; the conformer is generic here only because that is the
@@ -99,11 +98,11 @@ type Box uses T
 	end 'tag'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Box
 	function bareCall() returns Idx
 		return tag()
 	end 'bareCall'
+
 	function qualifiedCall() returns Idx
 		return self.tag()
 	end 'qualifiedCall'
@@ -119,7 +118,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-inside-a-type-extension-reaches-a-conformer-declared-static -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ⚠ **THE RECEIVER HALF IS A SEPARATE FACT AND GETTING IT WRONG IS A WRONG REFUSAL.** `Box.of` is
 `static`, so a bare `of(7)` must be called with NO instance; handed the enclosing `self` it would fail
 the arity check on a parameter its author never wrote. The index publishes staticness per declaration for
@@ -135,7 +133,6 @@ type Box
 	end 'of'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function twin() returns Integer
 		return of(7).v + self.v
@@ -152,7 +149,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-inside-an-interface-extension-reaches-a-non-requirement-of-the-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 The same rule where the enclosing declaration is an INTERFACE extension. An interface's own requirements
 already reach this body — they are added to the sibling map from the requirement list — so the case that
 distinguishes the two readers is a conformer method the interface does **not** require: `Five.bonus`.
@@ -163,7 +160,7 @@ interface Tagged
 	function tag() returns Integer
 end 'Tagged'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
 	function score() returns Integer
 		return tag() + bonus()
@@ -194,7 +191,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-inside-an-extension-reaches-a-method-a-sibling-extension-published -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A published method IS the conformer's, so a second extension's body reaches it by the same rule and
 through the same index entry. Nothing here can be answered by reading either extension's own member list.
 ```maxon
@@ -208,14 +204,12 @@ type Box
 	end 'of'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function tripled() returns Integer
 		return self.v * 3
 	end 'tripled'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function reported() returns Integer
 		return tripled() + 1
@@ -232,7 +226,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-inside-the-type-body-reaches-a-method-an-extension-published -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The same gap seen from the other side, and it is the same one sentence: the walk reads ONE declaration's
 member list, so a `type` body could not see what an `extension` published onto it either. `self.tripled()`
 compiled here too; bare `tripled()` was **`E3004: call to undefined function 'tripled'`**.
@@ -255,7 +248,6 @@ type Box
 	end 'viaSelf'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function tripled() returns Integer
 		return self.v * 3
@@ -272,7 +264,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-reaches-the-conformers-own-body-where-it-shadows-an-extensions -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 The shadow rule, seen from the bare-call door. `Bag` declares its own `has`, so `extension Holder`'s
 `has` is never published onto it and its body is never emitted — a bare `has()` inside a sibling
 extension body must therefore reach `Bag.has`, the only declaration there is. `40 + 3`.
@@ -283,11 +275,12 @@ interface Holder
 	function only() returns Integer
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Holder
 	function has() returns Integer
 		return 1
 	end 'has'
+
 	function report() returns Integer
 		return has() + only()
 	end 'report'
@@ -317,8 +310,6 @@ end 'main'
 ```
 
 <!-- test: error.a-bare-call-to-a-name-no-declaration-carries-is-still-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ⛔ **THE REFUSAL MUST SURVIVE.** Widening what a bare call inside an extension body may reach is worth
 nothing if a name nothing declares becomes a silent no-op or a call to something else. `Box` declares no
 `missing`, no extension publishes one, and no free function of that name exists.
@@ -333,7 +324,6 @@ type Box
 	end 'of'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function broken() returns Integer
 		return missing() + self.v
@@ -388,7 +378,6 @@ error E2015: <fragment>:4:11: Unsupported: `String` member 'reticulate' — the 
 ### A conformance an extension adds
 
 <!-- test: an-extension-conformance-joins-the-conformers-own-rather-than-replacing-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ⛔ **THE UNION IS NOT A REPLACE, AND THE LAST DECLARATION DOES NOT WIN.** `Thing` declares `Shower` on its
 own body and `Sizer` on an extension; the declared-conformance index joins them into one set. A fresh set
 per declaration would let the extension's entry overwrite the type's and refuse `display(t)` with
@@ -417,7 +406,6 @@ type Thing implements Shower
 	end 'show'
 end 'Thing'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Thing implements Sizer
 	function size() returns Integer
 		return value
@@ -442,7 +430,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-conformance-written-before-the-type-joins-it-too -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ⚠ **THE ORDER CONTROL, AND IT IS THE HALF THAT PROVES THE CAUSE.** The same program with the extension
 written FIRST refused the other interface — `E3005 … does not implement interface 'Sizer'` — so the
 verdict was decided by declaration order rather than by what the program declares. A case pinning only
@@ -459,7 +446,6 @@ interface Sizer
 	function size() returns Integer
 end 'Sizer'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Thing implements Sizer
 	function size() returns Integer
 		return value
@@ -498,7 +484,6 @@ end 'main'
 ### An extension of a type named through its directory
 
 <!-- test: an-extension-of-a-type-named-through-its-directory-publishes-onto-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `extension sub.Calc` extends the `Calc` that `sub/` declares, so its `doubled` is a method of that type
 at a call through the same chain (20 × 2 + 2).
 ```maxon
@@ -512,15 +497,14 @@ export type Calc
 end 'Calc'
 
 // --- file: main.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension sub.Calc
 	function doubled() returns ExitCode
-		return self.v * 2
+		return try self.v * 2 otherwise panic("out of range")
 	end 'doubled'
 end 'Calc'
 
 function main() returns ExitCode
-	return sub.Calc.make().doubled() + 2
+	return try sub.Calc.make().doubled() + 2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -530,7 +514,6 @@ end 'main'
 ### An extension's conformance is the type's conformance to every reader
 
 <!-- test: a-type-extension-conformance-satisfies-a-generic-constraint -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 `T is Sizer` is decided from the declarations, and an `implements` an `extension` declares is one of them.
 ```maxon
 interface Sizer
@@ -545,7 +528,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Sizer
 	function size() returns ExitCode
 		return self.v
@@ -565,7 +547,7 @@ end 'main'
 ```
 
 <!-- test: a-type-extension-conformance-satisfies-a-conditional-type-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 `extension Container where Element is Sizer` is available on `Container with Tag` when
 `extension Tag implements Sizer` is what makes `Tag` a `Sizer`.
 ```maxon
@@ -581,7 +563,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Sizer
 	function size() returns ExitCode
 		return self.v
@@ -596,7 +577,7 @@ type Container uses Element
 	end 'create'
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Element implements Sizer
 	function total() returns ExitCode
 		return self.item.size() + 2
@@ -615,7 +596,8 @@ end 'main'
 ```
 
 <!-- test: a-type-extension-conformance-satisfies-a-conditional-interface-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `extension HasItems where Element is Sizer` is available on a conformer that binds `Element` to `Tag`.
 ```maxon
@@ -631,7 +613,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Sizer
 	function size() returns ExitCode
 		return self.v
@@ -643,7 +624,8 @@ interface HasItems uses Element
 	function current() returns Element
 end 'HasItems'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension HasItems where Element implements Sizer
 	function currentSize() returns ExitCode
 		return self.current().size()
@@ -672,7 +654,6 @@ end 'main'
 ```
 
 <!-- test: a-type-conformer-through-an-extension-writing-a-let-argument-is-written -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The requirement's `mutable` reaches a `type` conformer that an extension declares, as it reaches one its own
 clause declares (`where-clauses.md`'s `witness-mutation-of-let-argument-is-written`). A `let` forbids only
 reassigning `a`, so the push lands in the array it names and the read finds `9`.
@@ -693,7 +674,6 @@ type Step
 	end 'create'
 end 'Step'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Step implements Grower
 	function grow(mutates dest IntArray)
 		dest.push(9)

@@ -308,14 +308,11 @@ end 'main'
 ```
 
 <!-- test: async-sleep.float-arg-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `sleep` requires an integer millisecond count; a float is refused at compile time — by the ORDINARY
 argument rule against `milliseconds Milliseconds`, which is why the rejection names the parameter and offers
 the conversion, and is the same sentence every other narrowing site speaks.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	sleep(1.5)
 	return 0
 end 'main'

@@ -577,8 +577,6 @@ end 'main'
 ```
 
 <!-- test: a-let-payload-of-an-aliased-array-stored-into-a-tuple -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `Bytes` names the payload type, so the tuple column the two payloads are stored into is declared `Bytes`. `let (a, b)` binds both payloads' records, so the store is accepted.
 ```maxon
 typealias Bytes = Array with Byte
@@ -595,13 +593,11 @@ function split() returns Parts
 end 'split'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = match split() 'm'
-		// TODO: tuple values and types are not supported in minimaxon
-		parts(x, y) gives (x, y)
+		parts(x, y) gives (x.clone(), y.clone())
 		none panic("none")
 	end 'm'
-	return (a.count() + b.count()) as ExitCode
+	return try (a.count() + b.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -609,8 +605,6 @@ end 'main'
 ```
 
 <!-- test: a-let-payload-of-a-contested-alias-stored-into-a-tuple -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same program where `Bytes` is also declared, over another instance, in a second file. The name is contested, so it brands nothing and the tuple column is declared without a brand; the payloads are accepted the same way.
 ```maxon
 // --- file: a.maxon
@@ -628,9 +622,7 @@ function split() returns Parts
 end 'split'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = match split() 'm'
-		// TODO: tuple values and types are not supported in minimaxon
 		parts(x, y) gives (x, y)
 		none panic("none")
 	end 'm'
@@ -730,8 +722,6 @@ end 'main'
 ```
 
 <!-- test: a-let-payload-projected-into-a-tuple-is-read-by-the-caller -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple lends its items: the projection returns the payload's record and the caller reads it.
 
 ```maxon
@@ -750,12 +740,9 @@ union Holder
 	empty
 end 'Holder'
 
-// TODO: tuple return types are not supported in minimaxon
 function partsOf(holder Holder) returns (Cell, Integer)
 	match holder 'which'
-		// TODO: tuple values and types are not supported in minimaxon
-		held(cell, tag) then return (cell, tag)
-		// TODO: tuple values and types are not supported in minimaxon
+		held(cell, tag) then return (cell.clone(), tag)
 		empty then return (Cell.create(), 0)
 	end 'which'
 end 'partsOf'

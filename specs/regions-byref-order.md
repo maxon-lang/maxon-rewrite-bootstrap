@@ -175,7 +175,7 @@ ok
 ```
 
 <!-- test: tuple-literal-element-before -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A tuple literal holds the local and the by-reference call's result. The read runs before the write.
 
@@ -192,7 +192,6 @@ end 'keep'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (label, put(label))
 	keep(t)
 	print("ok\n")
@@ -204,7 +203,7 @@ error E3186: <fragment>:15:22: argument 'label' is read by another operand of th
 ```
 
 <!-- test: tuple-literal-element-after -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A tuple literal holds the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -220,7 +219,6 @@ end 'keep'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (put(label), label)
 	keep(t)
 	print("ok\n")
@@ -7442,8 +7440,6 @@ end 'main'
 ```
 
 <!-- test: write-based-tuple-assignment-writes-both-cells -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple assignment to two `mutable` parameters reassigns each, so a sibling read of the first is refused.
 
@@ -7451,8 +7447,6 @@ A tuple assignment to two `mutable` parameters reassigns each, so a sibling read
 typealias Tally = int(0 to u64.max)
 
 function swapped(mutates a String, mutates b String, c String) returns Tally
-	// TODO: tuple assignment is not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	(a, b) = (b, a)
 	return c.byteLength() as Tally
 end 'swapped'

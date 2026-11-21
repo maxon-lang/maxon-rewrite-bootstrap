@@ -114,7 +114,6 @@ That works for any type that is `Equatable` (for `==`) and `Stringable` (for the
 ## Tests
 
 <!-- test: every-matcher-passes -->
-<!-- skip: float literals are not supported in minimaxon -->
 Every matcher on its holding path: nothing is printed and nothing is thrown.
 ```maxon
 // --- file: main.maxon
@@ -126,18 +125,13 @@ function main() returns ExitCode
 	try Expect.notEqual("a", expected: "b") otherwise ignore
 	try Expect.notEqual(true, expected: false) otherwise ignore
 	try Expect.greaterThan(10, than: 3) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.greaterThan(10.5, than: 3.5) otherwise ignore
 	try Expect.lessThan(3, than: 10) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.lessThan(3.5, than: 10.5) otherwise ignore
 	try Expect.atLeast(10, than: 10) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.atLeast(10.5, than: 10.5) otherwise ignore
 	try Expect.atMost(3, than: 3) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.atMost(3.5, than: 3.5) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.close(1.0, expected: 1.25, within: 0.5) otherwise ignore
 	try Expect.isTrue(true) otherwise ignore
 	try Expect.isFalse(false) otherwise ignore
@@ -157,7 +151,6 @@ all held
 ```
 
 <!-- test: every-matcher-reports-its-failure -->
-<!-- skip: float literals are not supported in minimaxon -->
 Every matcher on its failing path, in roster order. Its `stderr` block pins the format.
 ```maxon
 // --- file: main.maxon
@@ -169,18 +162,13 @@ function main() returns ExitCode
 	try Expect.notEqual("same", expected: "same") otherwise ignore
 	try Expect.notEqual(false, expected: false) otherwise ignore
 	try Expect.greaterThan(3, than: 10) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.greaterThan(3.5, than: 10.5) otherwise ignore
 	try Expect.lessThan(10, than: 3) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.lessThan(10.5, than: 3.5) otherwise ignore
 	try Expect.atLeast(3, than: 10) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.atLeast(3.5, than: 10.5) otherwise ignore
 	try Expect.atMost(10, than: 3) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.atMost(10.5, than: 3.5) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.close(1.0, expected: 5.0, within: 0.5) otherwise ignore
 	try Expect.isTrue(false) otherwise ignore
 	try Expect.isFalse(true) otherwise ignore
@@ -491,7 +479,6 @@ FAIL main.maxon:5: Expect.fail
 ```
 
 <!-- test: equal-infers-its-type-with-no-cast -->
-<!-- skip: float literals are not supported in minimaxon -->
 `equal` is one generic matcher over any `Equatable` type, so an `ElementIndex`, a plain integer
 expression and an author's own alias all reach it without a cast.
 ```maxon
@@ -509,7 +496,6 @@ function main() returns ExitCode
 	try Expect.equal(xs.count(), expected: 3) otherwise ignore
 	try Expect.equal(2 + 2, expected: 4) otherwise ignore
 	try Expect.equal(i, expected: 5) otherwise ignore
-	// TODO: float literals are not supported in minimaxon
 	try Expect.equal(1.5, expected: 1.5) otherwise ignore
 	print("all held\n")
 	return 0

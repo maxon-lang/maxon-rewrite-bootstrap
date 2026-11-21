@@ -1485,7 +1485,6 @@ note: <fragment>:14:9: the `default` for `Config`
 
 <!-- test: a-message-with-a-float-parameter -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message with no reply takes a `float` argument. A reply cell carries one integer word (E3140), so the
 awaited answer is the average in hundredths.
@@ -1495,7 +1494,6 @@ type Averager
 	var count as Integer
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{total: 0.0, count: 0}
 	end 'create'
 
@@ -1505,9 +1503,7 @@ type Averager
 	end 'take'
 
 	export function averageHundredths() returns Integer
-		// TODO: float literals are not supported in minimaxon
 		let average = try (self.total / (self.count as FullRangeFloat)) otherwise 0.0
-		// TODO: float literals are not supported in minimaxon
 		return trunc(average * 100.0)
 	end 'averageHundredths'
 end 'Averager'
@@ -1515,11 +1511,8 @@ end 'Averager'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Averager.create()
-	// TODO: float literals are not supported in minimaxon
 	try h.take(20.25) otherwise panic("send take 20.25")
-	// TODO: float literals are not supported in minimaxon
 	try h.take(21.5) otherwise panic("send take 21.5")
-	// TODO: float literals are not supported in minimaxon
 	try h.take(22.75) otherwise panic("send take 22.75")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let hundredths = try await h.averageHundredths() otherwise 0
@@ -4280,7 +4273,7 @@ error E3171: <fragment>:3:19: `Element` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter-in-its-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -4289,7 +4282,7 @@ interface Holder uses Element
 	function only() returns Element
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Holder
 	typealias Cell = SharedValue with Element
 end 'Holder'
@@ -4372,11 +4365,9 @@ error E3171: <fragment>:32:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-an-extension-above-it-builds-one -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A use the compiler reads before the declaration builds nothing: the alias's own refusal is the one report.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Maker
 	function through() returns T
 		let cell = TCell.create(self.item)
@@ -4408,7 +4399,7 @@ error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-in-an-extension-of-its-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 An extension of a generic type declares the alias over that type's parameter, and the bound is the type's.
 ```maxon
@@ -4420,7 +4411,6 @@ type Bag uses T
 	end 'create'
 end 'Bag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Bag
 	typealias TCell = SharedValue with T
 end 'Bag'
@@ -4570,7 +4560,7 @@ error E3171: <fragment>:3:31: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: a-shared-value-alias-in-an-interface-extension-over-another-alias-of-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 An interface extension's `SharedValue` alias over a concrete element, named through a sibling alias, is
 built on each conformer.
 ```maxon
@@ -4580,7 +4570,7 @@ interface Tagged
 	function tag() returns Count
 end 'Tagged'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
 	typealias Small = int(0 to 9)
 	typealias SmallCell = SharedValue with Small
@@ -4616,7 +4606,6 @@ end 'main'
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-another-file-uses-its-values -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 Another file's use of the alias waits on the declaring file's refusal and reports nothing of its own.
 ```maxon
@@ -4635,11 +4624,11 @@ typealias TallyMaker = Maker with Tally
 typealias Tally = int(0 to u64.max)
 
 // --- file: main.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Maker
 	function put(c TCell)
 		c.publish(self.item)
 	end 'put'
+
 	function take(c TCell) returns T
 		return c.current()
 	end 'take'

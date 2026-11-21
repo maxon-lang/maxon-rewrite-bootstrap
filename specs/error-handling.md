@@ -606,8 +606,6 @@ error E3168: <fragment>:15:18: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.otherwise-type-mismatch -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -622,7 +620,6 @@ function mayFail() returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let val = try mayFail() otherwise 5.0
 	return val
 end 'main'
@@ -2240,8 +2237,6 @@ error E3059: specs/error-handling/error.otherwise-wrong-struct.maxon:32:10: type
 ```
 
 <!-- test: error.throwing-float-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A THROWING function that RETURNS a float. The OK edge places the real double in the return register;
 the THROW edge's family-default primary value — which the caller ignores once the error flag is
 set — must be classed for the SAME register file, an XMM zero rather than a GPR zero. An i64 GPR zero
@@ -2254,23 +2249,19 @@ enum MathError implements Error
 	negative
 end 'MathError'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function safeRoot(n Integer) returns Float throws MathError
 	if n < 0 'neg'
 		throw MathError.negative
 	end 'neg'
-	// TODO: float literals are not supported in minimaxon
 	return 2.0
 end 'safeRoot'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let bad = try safeRoot(-1) otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let ok = try safeRoot(5) otherwise 0.0
-	return trunc(bad) + trunc(ok)
+	return try trunc(bad) + trunc(ok) otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

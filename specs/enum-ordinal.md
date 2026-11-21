@@ -109,18 +109,14 @@ end 'main'
 ### Float-Backed Enum
 
 <!-- test: enum-ordinal.float-backed -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Threshold
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	low = 0.1
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 0.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 

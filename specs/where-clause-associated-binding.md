@@ -54,9 +54,6 @@ instance in hand.
 
 <!-- test: associated-binding.constrained-parameter-typed-through-the-binding -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐ **THE RESULT OF A DISPATCH THROUGH A CONSTRAINED TYPE PARAMETER.** `s.current()` returns `Cursor`'s
 associated `Element`; the constraint says this `Cursor` binds it to `E`; so the tuple `(s, s.current())`
 is the declared `(S, E)`, and the function returns it as that type.
@@ -87,9 +84,7 @@ type Wrap uses S, E where S implements Cursor with E
 		return Self{s: s}
 	end 'create'
 
-	// TODO: tuple return types are not supported in minimaxon
 	function pair() returns (S, E)
-		// TODO: tuple values and types are not supported in minimaxon
 		return (self.s, self.s.current())
 	end 'pair'
 end 'Wrap'
@@ -98,7 +93,6 @@ typealias IntWrap = Wrap with (IntCur, Integer)
 
 function main() returns ExitCode
 	let w = IntWrap.create(IntCur.create(7))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (c, e) = w.pair()
 	print("{e}:{c.current()}\n")
 	return 0
@@ -989,7 +983,7 @@ end 'main'
 ```
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-constraint -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformance declared by an `extension` is the one `Wrap`'s constraint is checked against, whichever declaration of the type comes first.
@@ -1017,7 +1011,7 @@ type TextCur implements Named
 	end 'code'
 end 'TextCur'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extension headers with type arguments are not supported in minimaxon
 extension TextCur implements Cursor with String
 	function current() returns String
 		return self.v

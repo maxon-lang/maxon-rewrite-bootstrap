@@ -499,27 +499,21 @@ end 'main'
 ```
 
 <!-- test: tuple-element-read-out-of-a-temporary -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A TUPLE needs no arm of its own — it is a synthesized struct, so its positional member rides the
 same layout, the same classifier and the same promotion.
 ```maxon
 
 typealias Wide = int(i64.min to i64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Wide, String)
 
 function makePair() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (7, "hello")
 end 'makePair'
 
 function main() returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
-	let s = makePair().1
-	return s.byteLength()
+	let s = makePair().1.clone()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

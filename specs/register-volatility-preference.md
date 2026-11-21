@@ -127,8 +127,6 @@ end 'main'
 ```
 
 <!-- test: unconstrained-floats-leave-the-callee-saved-half-free -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The SIMD twin, and it fails for the opposite reason: not a scrambled overlap but an EMPTY
 one.
 
@@ -152,57 +150,35 @@ that is comfortably inside every other target's pool.
 eight `b` values are `10.0`..`24.0`, summing to `136.0`. Total `232.0`.
 ```maxon
 function fsink(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x + 1.0
 end 'fsink'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let n = fsink(3.0)
-	// TODO: float literals are not supported in minimaxon
 	let a0 = n + 1.0
-	// TODO: float literals are not supported in minimaxon
 	let a1 = n + 2.0
-	// TODO: float literals are not supported in minimaxon
 	let a2 = n + 3.0
-	// TODO: float literals are not supported in minimaxon
 	let a3 = n + 4.0
-	// TODO: float literals are not supported in minimaxon
 	let a4 = n + 5.0
-	// TODO: float literals are not supported in minimaxon
 	let a5 = n + 6.0
-	// TODO: float literals are not supported in minimaxon
 	let a6 = n + 7.0
-	// TODO: float literals are not supported in minimaxon
 	let a7 = n + 8.0
-	// TODO: float literals are not supported in minimaxon
 	let a8 = n + 9.0
-	// TODO: float literals are not supported in minimaxon
 	let a9 = n + 10.0
-	// TODO: float literals are not supported in minimaxon
 	let b0 = a0 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b1 = a1 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b2 = a2 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b3 = a3 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b4 = a4 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b5 = a5 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b6 = a6 * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let b7 = a7 * 2.0
 	let s = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9
 	let c = fsink(s)
 	let total = b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7 + c
-	// TODO: float literals are not supported in minimaxon
 	return 0 if total == 232.0 else 99
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode

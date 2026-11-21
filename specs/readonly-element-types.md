@@ -534,7 +534,6 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Map`'s `immutable` value stays immutable when a `for` loop destructures an entry.
@@ -556,7 +555,6 @@ typealias Index = Map with String, immutable Counter
 function main() returns ExitCode
 	var index = Index.create()
 	index.upsert("a", value: freeze(Counter.create(1)))
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, value) in index 'each'
 		value.n = 7
 	end 'each'
@@ -569,7 +567,6 @@ error E3197: specs/readonly-element-types/error.a-for-value-over-an-immutable-ma
 
 <!-- test: error.an-element-an-iterator-pair-yields-is-not-written -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The element of a `withIterator()` pair is read out of the same array.
@@ -591,7 +588,6 @@ typealias Roster = Array with immutable Counter
 function main() returns ExitCode
 	var roster = Roster.create(0)
 	roster.push(freeze(Counter.create(1)))
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, item) in roster.withIterator() 'each'
 		item.n = 7
@@ -780,7 +776,6 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-by-for-is-not-stored-into-a-var-field -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A key read back out of a `Map` is read-only, so it cannot be stored into a `var` field, where it would have a
 second writer.
@@ -803,7 +798,6 @@ type Tally
 	end 'record'
 
 	function rememberKeys()
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		for (name, _) in self.counts 'eachName'
 			self.last = name
 		end 'eachName'
@@ -860,7 +854,6 @@ error E3196: specs/readonly-element-types/error.a-set-element-read-by-for-is-not
 ```
 
 <!-- test: an-immutable-element-is-carried-to-the-ninth-argument-of-a-nested-instance -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An `extension Array` member returns a nine-argument instance whose last argument is the array's element type. On an
 `Array with immutable Counter` that argument is immutable, and the position it occupies is the ninth, past the eight a
@@ -889,7 +882,6 @@ type Wide uses A, B, C, D, E, F, G, H, I
 	end 'item'
 end 'Wide'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias NineWide = Wide with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
 	function wide() returns NineWide throws ArrayError
@@ -913,7 +905,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-is-carried-to-the-sixty-fourth-argument-of-a-nested-instance -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The sixty-fourth argument is the last position an instance records, and an `Array with immutable Counter`'s element
 reaches it.
@@ -941,7 +932,6 @@ type Widest uses P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14
 	end 'item'
 end 'Widest'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias SixtyFourWide = Widest with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
 	function widest() returns SixtyFourWide throws ArrayError

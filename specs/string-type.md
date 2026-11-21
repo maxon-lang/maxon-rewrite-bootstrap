@@ -765,11 +765,9 @@ c
 ```
 
 <!-- test: byteview-iteration -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
 		print("{b}\n")
 	end 'loop'
@@ -786,11 +784,9 @@ end 'main'
 ```
 
 <!-- test: utf16-ascii -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABC"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -807,11 +803,9 @@ end 'main'
 ```
 
 <!-- test: utf16-bmp -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "αβγ"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -828,11 +822,9 @@ end 'main'
 ```
 
 <!-- test: utf16-surrogate-pair -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "😀"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -848,11 +840,9 @@ end 'main'
 ```
 
 <!-- test: utf16-mixed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "A😀B"
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'

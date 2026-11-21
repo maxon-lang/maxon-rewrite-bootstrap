@@ -988,8 +988,6 @@ end 'main'
 ```
 
 <!-- test: a-frozen-item-of-a-tuple-is-not-writable -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The literal `(a, b)` is typed `(immutable Box, Box)`, so `pair.1` is writable and `pair.0` is not.
 
@@ -1007,11 +1005,8 @@ end 'Box'
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (a, b)
-	// TODO: tuple element access is not supported in minimaxon
 	pair.1.n = 6
-	// TODO: tuple element access is not supported in minimaxon
 	pair.0.n = 5
 	print("{a.n} {b.n}\n")
 	return 0
@@ -1023,8 +1018,6 @@ error E3197: <fragment>:17:2: cannot write 'n' through 'pair.0', which is immuta
 
 <!-- test: a-tuple-parameter-with-an-immutable-item-takes-a-frozen-item-and-runs -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
 `(immutable Box, Box)` spells the item capabilities; the first item reads, the second item is written.
 
 ```maxon
@@ -1039,11 +1032,8 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function weigh(pair(immutable Box, Box)) returns Tally
-	// TODO: tuple element access is not supported in minimaxon
 	pair.1.n = pair.1.n + 1
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.0.n + pair.1.n
 end 'weigh'
 
@@ -1063,9 +1053,6 @@ end 'main'
 
 <!-- test: a-write-through-an-immutable-tuple-item-parameter-refused -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A parameter spelled `(immutable Box, Box)` reads its first item and cannot write through it.
 
@@ -1081,16 +1068,13 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function bump(pair(immutable Box, Box))
-	// TODO: tuple element access is not supported in minimaxon
 	pair.0.n = 9
 end 'bump'
 
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	bump((a, b))
 	print("{a.n}\n")
 	return 0
@@ -1101,8 +1085,6 @@ error E3197: <fragment>:13:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: a-destructured-frozen-item-is-not-writable -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 Destructuring binds each name at its item's capability, so `x` is frozen and `y` is writable.
 
@@ -1120,8 +1102,6 @@ end 'Box'
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	var (x, y) = (a, b)
 	y.n = 9
 	x.n = 8
@@ -1134,8 +1114,6 @@ error E3197: <fragment>:17:2: cannot write 'n' through 'x', which is immutable
 ```
 
 <!-- test: a-destructured-tuple-binds-each-item-at-its-capability-and-runs -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The writable item of a destructured tuple is written and the frozen one is read.
 
 ```maxon
@@ -1152,10 +1130,8 @@ end 'Box'
 function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = Box.create(2)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	let (x, y) = (a, b)
-	y.n = x.n + 8
+	y.n = try x.n + 8 otherwise panic("out of range")
 	print("{x.n} {y.n} {b.n}\n")
 	return 0
 end 'main'
@@ -1168,15 +1144,12 @@ end 'main'
 ```
 
 <!-- test: a-list-of-tuples-with-an-immutable-item-takes-a-matching-tuple-and-runs -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 `List with (immutable Box, Box)` stores a tuple whose first item is frozen and reads it back at the same capabilities.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Mixed = (immutable Box, Box)
 
 typealias MixedList = List with Mixed
@@ -1193,10 +1166,8 @@ function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = Box.create(2)
 	let mixed = MixedList.create()
-	// TODO: tuple values and types are not supported in minimaxon
 	mixed.append((a, b))
 	let found = try mixed.get(0) otherwise panic("empty")
-	// TODO: tuple element access is not supported in minimaxon
 	found.1.n = 5
 	print("{found.0.n} {b.n} {mixed.count()}\n")
 	return 0
@@ -1210,15 +1181,12 @@ end 'main'
 ```
 
 <!-- test: a-frozen-item-into-a-list-of-plain-tuples-refused -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `List with (Box, Box)` holds mutable items only, so the tuple with a frozen first item is refused where it is stored.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias PlainPair = (Box, Box)
 
 typealias PlainList = List with PlainPair
@@ -1235,7 +1203,6 @@ function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
 	var plain = PlainList.create()
-	// TODO: tuple values and types are not supported in minimaxon
 	plain.append((a, b))
 	print("{plain.count()}\n")
 	return 0
@@ -1246,15 +1213,12 @@ error E3196: <fragment>:18:16: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-tuple-bound-to-a-local-into-a-list-of-plain-tuples-refused -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The local `pair` is typed `(immutable Box, Box)`; a list of `(Box, Box)` is a different type.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias PlainPair = (Box, Box)
 
 typealias PlainList = List with PlainPair
@@ -1270,7 +1234,6 @@ end 'Box'
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (a, b)
 	var plain = PlainList.create()
 	plain.append(pair)
@@ -1284,10 +1247,6 @@ error E3005: <fragment>:19:8: argument type mismatch for 'value': expected '(Box
 
 <!-- test: a-tuple-with-another-item-capability-is-another-type -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `(immutable Box, Box)` and `(Box, Box)` are two types, so the parameter refuses the first.
 
@@ -1302,16 +1261,12 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: tuple parameter types are not supported in minimaxon
 function weigh(pair(Box, Box)) returns Tally
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.0.n + pair.1.n
 end 'weigh'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple return types are not supported in minimaxon
 function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (first, second)
 end 'pairOf'
 
@@ -1329,10 +1284,6 @@ error E3005: <fragment>:24:10: argument type mismatch for 'pair': expected '(Box
 
 <!-- test: a-tuple-result-type-carries-its-item-capabilities-and-runs -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The result `(immutable Box, Box)` flows into a parameter of the same tuple type.
 
 ```maxon
@@ -1347,16 +1298,12 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function weigh(pair(immutable Box, Box)) returns Tally
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.0.n + pair.1.n
 end 'weigh'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple return types are not supported in minimaxon
 function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (first, second)
 end 'pairOf'
 
@@ -1376,8 +1323,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-item-capability-is-compared-and-not-writable -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 Item capabilities nest: the first item of the inner tuple is frozen, so writing through `pair.0.0` is refused.
 
@@ -1396,11 +1341,8 @@ function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
 	var c = Box.create(3)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = ((a, b), c)
-	// TODO: float literals are not supported in minimaxon
 	pair.0.1.n = 7
-	// TODO: float literals are not supported in minimaxon
 	pair.0.0.n = 5
 	print("{a.n} {b.n} {c.n}\n")
 	return 0
@@ -1411,10 +1353,6 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'pair.0.0', which is immu
 ```
 
 <!-- test: a-nested-tuple-with-another-item-capability-is-another-type -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The inner tuple's item capabilities are part of the outer tuple's type.
 
@@ -1429,10 +1367,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function weigh(pair((Box, Box), Box)) returns Tally
-	// TODO: float literals are not supported in minimaxon
-	// TODO: tuple element access is not supported in minimaxon
+function weigh(pair ((Box, Box), Box)) returns Tally
 	return pair.0.0.n + pair.0.1.n + pair.1.n
 end 'weigh'
 
@@ -1440,7 +1375,6 @@ function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
 	var c = Box.create(3)
-	// TODO: tuple values and types are not supported in minimaxon
 	let nested = ((a, b), c)
 	print("{weigh(nested)}\n")
 	return 0
@@ -1452,8 +1386,6 @@ error E3005: <fragment>:21:10: argument type mismatch for 'pair': expected '((Bo
 
 <!-- test: an-isolated-tuple-item-type-refused -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- positions: moved -->
 An item is `immutable` or unmarked; an `isolated` value cannot be a tuple element.
 
@@ -1469,9 +1401,7 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function weigh(pair(isolated Box, Box)) returns Tally
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.1.n
 end 'weigh'
 
@@ -1486,9 +1416,6 @@ error E2010: <fragment>:12:22: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: a-frozen-tuple-handed-to-a-generic-method-that-stores-its-items-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `absorb` stores both items of its `(T, T)` argument, and `BoxBag` fixes `T` to a mutable `Box`; the tuple cannot be built from frozen boxes.
 
@@ -1511,11 +1438,8 @@ type Bag uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	function absorb(pair(T, T))
-		// TODO: tuple element access is not supported in minimaxon
+	function absorb(pair (T, T))
 		self.items.push(pair.0)
-		// TODO: tuple element access is not supported in minimaxon
 		self.items.push(pair.1)
 	end 'absorb'
 
@@ -1530,7 +1454,6 @@ function main() returns ExitCode
 	var bag = BoxBag.create()
 	var a = freeze(Box.create(1))
 	var b = freeze(Box.create(2))
-	// TODO: tuple values and types are not supported in minimaxon
 	bag.absorb((a, b))
 	print("{bag.size()}\n")
 	return 0
@@ -1541,9 +1464,6 @@ error E3196: <fragment>:37:14: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-tuple-of-frozen-items-handed-to-an-immutable-generic-method-runs -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `absorb` takes `(T, T)` with `T` fixed to `immutable Box`, so a tuple of two frozen boxes is stored.
 
@@ -1566,11 +1486,8 @@ type Bag uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: tuple parameter types are not supported in minimaxon
 	function absorb(pair(T, T))
-		// TODO: tuple element access is not supported in minimaxon
 		self.items.push(pair.0)
-		// TODO: tuple element access is not supported in minimaxon
 		self.items.push(pair.1)
 	end 'absorb'
 
@@ -1586,7 +1503,6 @@ function main() returns ExitCode
 	let bag = FrozenBag.create()
 	let a = freeze(Box.create(1))
 	let b = freeze(Box.create(2))
-	// TODO: tuple values and types are not supported in minimaxon
 	bag.absorb((a, b))
 	print("{bag.size()}\n")
 	return 0
@@ -1601,8 +1517,6 @@ end 'main'
 
 <!-- test: an-isolated-value-in-a-tuple-literal-refused -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` value is merged before it joins a tuple.
 
@@ -1621,9 +1535,7 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(1) as isolated Box
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (a, b)
-	// TODO: tuple element access is not supported in minimaxon
 	pair.0.n = 5
 	print("{pair.0.n} {b.n}\n")
 	return 0
@@ -1664,8 +1576,6 @@ error E3196: <fragment>:14:16: cannot store an isolated 'Box' into 'a value of t
 ```
 
 <!-- test: an-immutable-element-in-a-tuple-literal-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `held` is read out of an `immutable` element, and the tuple keeps it where the write through `pair.0` is refused.
@@ -1689,9 +1599,7 @@ function main() returns ExitCode
 	items.push(freeze(Box.create(1)))
 	let held = try items.get(0) otherwise panic("empty")
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (held, b)
-	// TODO: tuple element access is not supported in minimaxon
 	pair.0.n = 5
 	print("{pair.0.n} {b.n}\n")
 	return 0
@@ -1944,8 +1852,6 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'held', which is immutabl
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-takes-frozen-and-mutable-arguments-and-runs -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Pair` is a tuple of the declared generic's `T`, so its items are frozen for `Pairs with immutable Box` and mutable for `Pairs with Box`.
 
@@ -1961,7 +1867,6 @@ type Box
 end 'Box'
 
 type Pairs uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
 	typealias Items = List with Pair
 	var items as Items
@@ -1971,7 +1876,6 @@ type Pairs uses T
 	end 'create'
 
 	function add(first T, second T)
-		// TODO: tuple values and types are not supported in minimaxon
 		self.items.append((first, second))
 	end 'add'
 
@@ -2006,8 +1910,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-refuses-a-frozen-argument-for-a-mutable-instance -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `BoxPairs.add` stores its arguments into the mutable items of a `(Box, Box)` tuple, so a frozen first argument is refused.
 
@@ -2023,7 +1925,6 @@ type Box
 end 'Box'
 
 type Pairs uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
 	typealias Items = List with Pair
 	var items as Items
@@ -2033,7 +1934,6 @@ type Pairs uses T
 	end 'create'
 
 	function add(first T, second T)
-		// TODO: tuple values and types are not supported in minimaxon
 		self.items.append((first, second))
 	end 'add'
 
@@ -2059,9 +1959,6 @@ error E3196: <fragment>:37:12: cannot store an immutable 'Box' into 'Pairs.add.f
 
 <!-- test: an-item-handed-back-by-a-call-over-a-tuple-with-a-frozen-item-is-immutable -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 `leak` returns `pair.0` as an ordinary `Box`; the tuple argument holds a frozen item, so the result is `immutable` and `got` cannot be written through.
 
@@ -2077,16 +1974,13 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function leak(pair(immutable Box, Box)) returns Box
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.0
 end 'leak'
 
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var got = leak((a, b))
 	got.n = 9
 	print("{a.n}\n")
@@ -2098,16 +1992,13 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'got', which is immutable
 ```
 
 <!-- test: an-item-handed-back-by-a-call-over-a-list-of-tuples-with-a-frozen-item-is-immutable -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 The frozen item reaches the result through the list, and the list's element type names it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Mixed = (immutable Box, Box)
 
 typealias MixedList = List with Mixed
@@ -2122,7 +2013,6 @@ end 'Box'
 
 function firstOf(list MixedList) returns Box
 	let first = try list.get(0) otherwise panic("empty")
-	// TODO: tuple element access is not supported in minimaxon
 	return first.0
 end 'firstOf'
 
@@ -2130,7 +2020,6 @@ function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
 	var mixed = MixedList.create()
-	// TODO: tuple values and types are not supported in minimaxon
 	mixed.append((a, b))
 	var got = firstOf(mixed)
 	got.n = 9
@@ -2144,9 +2033,6 @@ error E3197: <fragment>:25:2: cannot write 'n' through 'got', which is immutable
 
 <!-- test: a-tuple-with-a-frozen-item-returned-as-a-plain-tuple-refused -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The result `(Box, Box)` is a different type from the parameter's `(immutable Box, Box)`.
 
@@ -2162,8 +2048,6 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
-// TODO: tuple return types are not supported in minimaxon
 function widen(pair(immutable Box, Box)) returns (Box, Box)
 	return pair
 end 'widen'
@@ -2171,7 +2055,6 @@ end 'widen'
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var wide = widen((a, b))
 	print("{wide.0.n}\n")
 	return 0
@@ -2183,10 +2066,6 @@ error E3005: <fragment>:13:2: Cannot return '(immutable Box, Box)' from function
 
 <!-- test: a-frozen-item-copied-into-a-plain-result-tuple-refused -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 Building `(pair.0, pair.1)` for a `(Box, Box)` result stores the frozen first item into a mutable item.
 
@@ -2202,18 +2081,13 @@ type Box
 end 'Box'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
-// TODO: tuple return types are not supported in minimaxon
 function widen(pair(immutable Box, Box)) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: tuple element access is not supported in minimaxon
 	return (pair.0, pair.1)
 end 'widen'
 
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var b = Box.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	var wide = widen((a, b))
 	print("{wide.0.n}\n")
 	return 0

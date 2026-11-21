@@ -2381,7 +2381,6 @@ error E3005: <fragment>:7:6: argument type mismatch for 'value': expected 'Integ
 ```
 
 <!-- test: error.push-float-into-int-array -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A float pushed into an int-element array is the lossy-narrowing refusal
 ```maxon
@@ -2391,7 +2390,6 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	var arr = IntArray.create(0)
-	// TODO: float literals are not supported in minimaxon
 	arr.push(1.5)
 	return arr.count()
 end 'main'
@@ -2522,7 +2520,6 @@ error E3005: <fragment>:8:6: argument type mismatch for 'value': expected 'Integ
 ```
 
 <!-- test: error.insert-float-into-int-array -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2532,7 +2529,6 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(1)
-	// TODO: float literals are not supported in minimaxon
 	arr.insert(0, value: 1.5)
 	return arr.count()
 end 'main'
@@ -2576,7 +2572,6 @@ error E3005: <fragment>:8:10: argument type mismatch for 'value': expected 'Inte
 ```
 
 <!-- test: error.set-float-into-int-array -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2586,7 +2581,6 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(1)
-	// TODO: float literals are not supported in minimaxon
 	try arr.set(0, value: 1.5) otherwise panic("test invariant: set OOB")
 	return arr.count()
 end 'main'
@@ -2908,7 +2902,6 @@ end 'main'
 ```
 
 <!-- test: a-float-element-reads-back-out-of-the-slot -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### A FLOAT element rides the slot as its 64 bits and reads back a float
 The element load and store reinterpret (`containerElementWord` out, its inverse in), so the slot is
 an ordinary 8-byte stride and the value that comes back is a `float` rather than the raw pattern.
@@ -2918,12 +2911,9 @@ container path asked a UNION PAYLOAD's rule about it. A payload's float genuinel
 does, and the two are different questions about different storage.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5]
-	// TODO: float literals are not supported in minimaxon
 	let v = try a.get(0) otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
-	return trunc(v + 1.0)
+	return try trunc(v + 1.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2931,18 +2921,14 @@ end 'main'
 ```
 
 <!-- test: a-float-element-round-trips-through-set -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### `set` writes a float element and `get` reads the same value back
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = Reals from [1.5, 2.5]
-	// TODO: float literals are not supported in minimaxon
+	var a = Reals from [1.5, 2.5]
 	try a.set(1, value: 4.75) otherwise panic("test invariant: set OOB")
-	// TODO: float literals are not supported in minimaxon
-	return trunc(try a.get(1) otherwise 0.0)
+	return try trunc(try a.get(1) otherwise 0.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2950,17 +2936,13 @@ end 'main'
 ```
 
 <!-- test: a-float-alias-array-from-a-literal -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### A float literal array headed by a float-element alias takes the alias's element type
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = Reals from [1.5, 2.5]
-	// TODO: float literals are not supported in minimaxon
+	var a = Reals from [1.5, 2.5]
 	try a.set(0, value: 3.5) otherwise panic("test invariant: set OOB")
-	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as FullRangeFloat
 	for x in a 'each'
 		sum = sum + x
@@ -2977,18 +2959,15 @@ end 'main'
 ```
 
 <!-- test: a-float-element-iterates -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### `for … in` yields float elements
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5, 3.5]
-	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as FullRangeFloat
 	for e in a 'each'
 		sum = sum + e
 	end 'each'
-	return trunc(sum)
+	return try trunc(sum) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2996,7 +2975,6 @@ end 'main'
 ```
 
 <!-- test: a-float-element-keeps-every-bit-of-its-slot -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### A float element is REINTERPRETED, so every bit of the slot survives the round trip
 `trunc` reads only an element's integer part, so every case above would pass identically over a
 value that had been NUMERICALLY converted on its way into the slot rather than reinterpreted. These
@@ -3008,16 +2986,13 @@ that says so for the LITERAL element.
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = Reals from [0.1, 2.5]
-	// TODO: float literals are not supported in minimaxon
+	var a = Reals from [0.1, 2.5]
 	try a.set(1, value: -0.0) otherwise panic("test invariant: set OOB")
-	// TODO: float literals are not supported in minimaxon
 	a.push(1.7976931348623157e308)
 	for x in a 'each'
 		print("{x}\n")
 	end 'each'
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3030,7 +3005,6 @@ end 'main'
 ```
 
 <!-- test: a-float-elements-buffer-is-an-ordinary-eight-byte-stride -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### The buffer under a float element answers the managed surface like any other
 The element's register file is the CALLER's question, never the buffer's: what the stride holds is
@@ -3038,11 +3012,9 @@ The element's register file is the CALLER's question, never the buffer's: what t
 no second storage path. The managed surface is where that claim is checkable from source.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5, 3.5]
 	print("{a.managed.length()}\n")
 	print("{a.managed.elementSize()}\n")
-	// TODO: float literals are not supported in minimaxon
 	return trunc(try a.get(2) otherwise 0.0)
 end 'main'
 ```
@@ -3055,19 +3027,15 @@ end 'main'
 ```
 
 <!-- test: a-float-element-survives-a-clone -->
-<!-- skip: float literals are not supported in minimaxon -->
 ### A cloned float array carries its elements' bits
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = Reals from [1.5, 2.5]
-	// TODO: float literals are not supported in minimaxon
+	var a = Reals from [1.5, 2.5]
 	a.push(3.5)
 	let c = a.clone()
-	// TODO: float literals are not supported in minimaxon
-	return trunc((try c.get(2) otherwise 0.0) + (try c.get(0) otherwise 0.0))
+	return try trunc((try c.get(2) otherwise 0.0) + (try c.get(0) otherwise 0.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3075,8 +3043,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-float-element-array-round-trips -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### A float element is spellable in SOURCE, not only mintable by a literal
 `[1.5, 2.5]` has always minted an `Array with float` the compiler stores, loads, clones and
 iterates, so refusing the same instance when a program NAMES it refused a type this compiler
@@ -3084,19 +3050,15 @@ already builds and runs. An `Array`'s element is a stride in a buffer, not a dic
 type-parameter slot, so E2062's stated reason — a general-purpose 8-byte slot a float cannot
 travel in — is not true of it; `Box with float`, where the reason IS true, is still refused.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Reals = Array with Real
 
 function main() returns ExitCode
-	let a = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
+	var a = Reals.create(0)
 	a.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	a.push(2.5)
-	// TODO: float literals are not supported in minimaxon
-	return trunc((try a.get(0) otherwise 0.0) + (try a.get(1) otherwise 0.0))
+	return try trunc((try a.get(0) otherwise 0.0) + (try a.get(1) otherwise 0.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3104,14 +3066,11 @@ end 'main'
 ```
 
 <!-- test: a-declared-float-element-array-crosses-a-call-boundary -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### A named float-element array is a parameter type, a return type and a field type
 The whole point of naming the instance: none of these three positions can be spelled with a bare
 `Array with float`, so before the element was nameable a float array could not leave the
 expression that built it.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Reals = Array with Real
@@ -3120,15 +3079,13 @@ type Samples
 	export var values as Reals
 
 	static function create() returns Self
-		let v = Reals.create(0)
-		// TODO: float literals are not supported in minimaxon
+		var v = Reals.create(0)
 		v.push(2.5)
 		return Self{values: v}
 	end 'create'
 end 'Samples'
 
 function total(xs Reals) returns Real
-	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as Real
 	for x in xs 'each'
 		sum = sum + x
@@ -3138,8 +3095,7 @@ end 'total'
 
 function main() returns ExitCode
 	let s = Samples.create()
-	// TODO: float literals are not supported in minimaxon
-	return trunc(total(s.values) + 1.5)
+	return try trunc(total(s.values) + 1.5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3147,8 +3103,6 @@ end 'main'
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-float-element -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A raw byte write is refused on a float element, and it is the SLOT's rule that refuses it
 E3118 admits raw bytes into an element only when the element's own value set covers every bit
@@ -3158,7 +3112,6 @@ integer value set gets everywhere else. The element is nameable, so this rule is
 source as well as from a literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var a = [1.5 as FullRangeFloat, 2.5]
 	try a.managed.setByte(0, value: 223) otherwise panic("test invariant: setByte OOB")
 	return 0
@@ -3169,8 +3122,6 @@ error E3118: <fragment>:4:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so w
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-declared-float-element -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The same refusal, off the element's DECLARED float alias
@@ -3178,14 +3129,12 @@ The alias arm of the element's value set (`integerAliasValueRange`) answers *"no
 for a float alias for the reason the bare keyword's arm does; before the element was nameable that
 arm had no program that could reach it.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Reals = Array with Real
 
 function main() returns ExitCode
 	var a = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	a.push(1.5)
 	try a.managed.setByte(0, value: 223) otherwise panic("test invariant: setByte OOB")
 	return 0
@@ -4505,18 +4454,16 @@ error E2004: <fragment>:4:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: create-with-capacity-publishes-that-many-zero-elements -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `create(n)` builds an array of `n` elements, every one zero, in one call: the length is `n` and no element needs writing first.
 ```maxon
 function main() returns ExitCode
-	let bytes = ByteArray.create(16)
+	var bytes = ByteArray.create(16)
 	try bytes.set(3, value: 9) otherwise return 1
 	var sum = 0 as Count
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
-		sum = sum + (byte as Count)
+		sum = try sum + (byte as Count) otherwise panic("out of range")
 	end 'eachByte'
-	return (bytes.count() + sum) as ExitCode
+	return try (bytes.count() + sum) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5033,13 +4980,11 @@ error E3106: <fragment>:7:14: 'create(n)' cannot publish zeroed slots of 'Step':
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tuple -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple is a record, so a zeroed slot is a null tuple.
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Digit, Digit)
 
 typealias Pairs = Array with Pair
@@ -5129,7 +5074,6 @@ end 'main'
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tag-set-without-zero-at-any-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 The slot is the tag, and the test is whether 0 is one of the declared tags. A tag set that straddles 0 without containing it, an all-negative one, a float backing without `0.0` and a character backing without `'\0'` each exclude it, and each function below is refused on its own.
@@ -5146,10 +5090,8 @@ end 'Negative'
 
 enum Ratio
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	half = 0.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	whole = 1.0
 end 'Ratio'
 
@@ -5203,7 +5145,6 @@ error E3106: <fragment>:46:11: 'create(n)' cannot publish zeroed slots of 'Mark'
 
 <!-- test: create-with-capacity-zeroed-holds-an-enum-with-a-zero-tag-at-any-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A tag of 0 is a case whichever way it arrives: an auto-increment that lands on 0, a float `0.0`, a character `'\0'`, and a struct or function backing, whose tags are declaration indices. A zeroed slot reads as the case that owns 0.
 ```maxon
@@ -5233,10 +5174,8 @@ end 'Climb'
 
 enum Ratio
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	none = 0.0
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	whole = 1.0
 end 'Ratio'
 

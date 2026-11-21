@@ -38,7 +38,6 @@ leaves for P-256, P-384, RSA and Ed25519, an expired leaf, a second root, and a 
 <!-- test: tls-stream.echo-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A `TlsListener` and a `TlsClient` in one program: the client trusts the case's root and verifies `example.com`, the server presents the P-256 leaf, and a default configuration negotiates TLS 1.3 with the server's first suite, ChaCha20-Poly1305. The client's `ping` returns as `echo:ping`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -52,7 +51,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -203,7 +201,6 @@ client[echo:ping tls13 tls13/chaCha20Poly1305Sha256 alpn=none] server[served pin
 <!-- test: tls-stream.echo-tls12-only-client -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A client that enables only TLS 1.2 against a server that enables both: the handshake is TLS 1.2 with the server's first suite its key fits.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -217,7 +214,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -370,7 +366,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 <!-- test: tls-stream.echo-tls12-only-server -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A server that enables only TLS 1.2 against a client that enables both, with the P-384 leaf: the client offers TLS 1.3 and TLS 1.2, and the server answers with TLS 1.2.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -384,7 +379,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -550,7 +544,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -739,7 +732,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -922,7 +914,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1096,7 +1087,6 @@ tls12 presents=true: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha2
 <!-- test: tls-stream.mtls-required-refuses-anonymous -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A server that requires client certificates refuses a client that has none with certificate_required (TLS 1.3) or handshake_failure (TLS 1.2), which the client reads as the peer's alert. In TLS 1.3 the client's handshake is complete before the server decides, so the client sees the alert on its first read.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1110,7 +1100,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1296,7 +1285,6 @@ tls12: client[connect: peerAlert(handshakeFailure)] server[recv: protocolError(h
 <!-- test: tls-stream.mtls-refuses-an-untrusted-client-certificate -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A client certificate that does not chain to the roots the server was given is refused with the verification reason, and the client reads unknown_ca from the peer.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1310,7 +1298,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1514,7 +1501,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1692,7 +1678,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1858,7 +1843,6 @@ tls12 expired: client[connect: certificateRejected(expired)] server[recv: peerAl
 
 <!-- test: tls-stream.peer-certificates-are-the-chains-presented -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Each side reports the chain the other presented, as DER in the order sent: the client the server's leaf, the server the client's leaf, and an unauthenticated client leaves the server's list empty.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1872,7 +1856,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2027,7 +2010,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2189,7 +2171,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2340,7 +2321,6 @@ tls12 client heard [answer to [request] after ended] then ended; server answered
 <!-- test: tls-stream.alpn-is-negotiated -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The server picks the first of its protocols that the client offered (its own order wins), a server that configures none negotiates none, and a client whose only protocol the server lacks is refused with no_application_protocol.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2354,7 +2334,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2520,7 +2499,6 @@ no overlap: client[connect: peerAlert(noApplicationProtocol)] server[recv: proto
 <!-- test: tls-stream.alpn-is-negotiated-in-tls12 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ALPN in TLS 1.2: the same selection as in TLS 1.3, reported by `applicationProtocol()`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2534,7 +2512,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2689,7 +2666,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=h2] server[se
 <!-- test: tls-stream.version-mismatch-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A client and a server with no TLS version in common: the server refuses with protocol_version and the client reads it from the peer, whichever side holds TLS 1.3 only.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2703,7 +2679,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2876,7 +2851,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3036,7 +3010,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3203,7 +3176,6 @@ tls12: client[download 3145728 bytes intact=true] server[upload 4194304 bytes in
 ```
 
 <!-- test: tls-stream.identities-accept-der-and-pem -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `TlsIdentity.fromDer` and `fromPem` take the certificate chain, leaf first, and a private key as PKCS #8, SEC1 (`EC PRIVATE KEY`) or PKCS #1 (`RSA PRIVATE KEY`). They refuse text that is not PEM, a PEM with no key, a key that is not the first certificate's, a damaged key, an empty chain and a chain with a certificate that is not X.509.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3217,7 +3189,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3356,7 +3327,6 @@ DER: accepted
 ```
 
 <!-- test: tls-stream.identities-refuse-damaged-and-foreign-keys -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `TlsIdentity.fromDer` parses the whole private key before any handshake and compares its public key with the leaf certificate's. It refuses, all as `invalidPrivateKey`, an RSA key whose private-key structure is incomplete or whose modulus is outside 2048 to 4096 bits, an EC scalar that is zero or not below the curve order, an element left after the key in a PKCS #8, SEC1 or Ed25519 encoding, a SEC1 curve that differs from the PKCS #8 algorithm parameters, and a key whose public half is not the leaf's key.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3370,7 +3340,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3583,7 +3552,6 @@ PKCS8 P-384 whose SEC1 names P-256: invalidPrivateKey
 <!-- test: tls-stream.an-identity-from-pem-serves-a-handshake -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A server built from PEM text (a P-256 key in the SEC1 form, an Ed25519 PKCS #8 key, then an RSA key in the PKCS #1 form) completes a handshake with a client that trusts the root given as PEM.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3597,7 +3565,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3765,7 +3732,6 @@ RSA PKCS1: client[echo:ping tls13 tls13/chaCha20Poly1305Sha256 alpn=none] server
 ```
 
 <!-- test: tls-stream.configuration-is-checked -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A setter refuses what no handshake could use with `invalidConfiguration`: no TLS version, an empty or 256-byte protocol name, no roots, an empty server name, and no client roots. Dialling nothing is `connectFailed`, an unresolvable name `resolveFailed`, and binding a port a live listener holds `bindFailed`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3779,7 +3745,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3912,7 +3877,6 @@ bind a port in use: bindFailed
 
 <!-- test: tls-stream.handshakes-are-bounded-by-deadlines -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A client with a deadline gives up on a server that accepts the connection and never answers its ClientHello (`handshakeTimedOut`), and a listener with a handshake deadline gives up on a client that connects and says nothing; neither stalls the program.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3926,7 +3890,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4054,7 +4017,6 @@ server: handshake: handshakeTimedOut
 
 <!-- test: tls-stream.input-that-is-not-tls-is-refused-before-its-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The server reads the 5-byte record header first and refuses what cannot be a TLS record: an HTTP request, a record of an unknown protocol version, and a record that declares a body past the bound, without waiting for a body that never comes. The peer receives the alert, a plaintext record of type 21.
 ```maxon
@@ -4069,7 +4031,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4083,7 +4044,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -4182,7 +4142,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(protocolVersion)]
 
 <!-- test: tls-stream.a-closed-stream-refuses-further-use -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 After `close`, `send`, `readSome`, `shutdownWrite` and the two deadline setters throw `closed`, and `close` again does nothing.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4196,7 +4155,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4354,7 +4312,6 @@ server: heard last words
 
 <!-- test: tls-stream.a-handshake-that-times-out-is-not-an-accept-that-times-out -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `TlsError.timedOut` is an accept deadline that passed with no connection; `handshakeTimedOut` is a connection that was accepted and did not finish its handshake in time, for the listener and for the client. A listener goes on accepting after a stalled handshake.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4368,7 +4325,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4596,7 +4552,6 @@ a client dialling a server that never answers: handshakeTimedOut then ended
 <!-- test: tls-stream.a-peer-that-sent-more-than-the-header-still-hears-the-alert -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A peer that is not speaking TLS and has sent far more than a record header still receives the alert the listener refused it with: the refusing side shuts down its write side and drains what the peer sent, bounded, before it closes, so the close does not reset the connection ahead of the alert. The peer's whole send completes.
 ```maxon
@@ -4611,7 +4566,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4625,7 +4579,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -4756,7 +4709,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(unexpectedMessage
 <!-- test: tls-stream.a-failed-flush-fails-the-write-side-for-good -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- runs: alone -->
 A write deadline that passes while a peer that does not read holds the send in the kernel throws `timedOut`, and leaves the stream with part of its records written. The write side is then failed for good: a later `send` or `shutdownWrite` throws the same `timedOut` without writing a byte, even with the deadline cleared and the peer reading again, so the peer never reads a record out of step. `close` still closes, and the peer's read throws the end of the connection as `StreamError.secure(truncated)`.
 
@@ -4772,7 +4724,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4935,7 +4886,6 @@ peer read: secure(truncated)
 
 <!-- test: tls-stream.a-refused-stream-answers-closed-to-every-call -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A server that requires a client certificate answers a client that presented none after the client's handshake is complete, so the client reads the alert from its first `readSome`. That stream refused what its peer sent and is closed: every later call, the deadline setters included, throws `closed`.
 
 ```maxon
@@ -4950,7 +4900,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -5116,7 +5065,6 @@ server: recv: protocolError(certificateRequired)
 <!-- test: tls-stream.a-silent-client-does-not-delay-another-clients-echo -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `accept` returns once the TCP connection is accepted and the handshake runs on the stream's first use, so a server that accepts in a loop and serves each stream on its own green thread is not held up by a client that connects and says nothing: with no handshake deadline, so that nothing but the silent client's own `close()` can end its connection, the second client's echo still completes while the first connection is waiting for its ClientHello, and that connection's handshake then fails on its own when the client goes away.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -5130,7 +5078,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)

@@ -49,12 +49,10 @@ may declare it, and the direct call and the witness reach the same body.
 ## Tests
 
 <!-- test: an-extension-adds-a-method-to-int -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The base case: a new method, no conformance, an `int` receiver.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	function doubled() returns Integer
 		return self * 2
@@ -63,7 +61,7 @@ end 'int'
 
 function main() returns ExitCode
 	let n = 21
-	return n.doubled() as ExitCode
+	return try n.doubled() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -71,27 +69,22 @@ end 'main'
 ```
 
 <!-- test: an-extension-adds-a-method-to-float -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: extensions of 'float' are not supported in minimaxon -->
 `trunc` rather than `as Integer`: a float→int CAST is `E3009 Cannot cast from float to int` in the compiler with no
 extension anywhere in sight, so the cast form would have tested that rule instead of this one.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'float' are not supported in minimaxon
 extension float
 	function tripled() returns Real
-		// TODO: float literals are not supported in minimaxon
 		return self * 3.0
 	end 'tripled'
 end 'float'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 4.0
 	return trunc(x.tripled()) as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -99,11 +92,9 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: an-extension-adds-a-method-to-bool -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension bool
 	function asCount() returns Integer
 		if self 'yes'
@@ -116,7 +107,7 @@ end 'bool'
 function main() returns ExitCode
 	let t = true
 	let f = false
-	return (t.asCount() + f.asCount()) as ExitCode
+	return try (t.asCount() + f.asCount()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -124,11 +115,9 @@ end 'main'
 ```
 
 <!-- test: self-in-return-position-on-a-primitive-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ⭐ `returns Self` on a primitive extension. `Self` is the primitive, so the returned value is an
 ordinary `int`.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	function twin() returns Self
 		return self + 1
@@ -137,7 +126,7 @@ end 'int'
 
 function main() returns ExitCode
 	let n = 40
-	return n.twin().twin() as ExitCode
+	return try n.twin().twin() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -145,11 +134,9 @@ end 'main'
 ```
 
 <!-- test: self-in-parameter-position-on-a-primitive-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	function plus(other Self) returns Integer
 		return self + other
@@ -158,7 +145,7 @@ end 'int'
 
 function main() returns ExitCode
 	let n = 20
-	return n.plus(22) as ExitCode
+	return try n.plus(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -166,7 +153,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-conformance-supplies-a-protocol-the-primitive-lacks -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ⭐⭐ **A DECLARATION CAN EXTEND THE SYNTHESIZED SURFACE.**
 `bool` has no intrinsic `Hashable` at all: `IrInterface.isIntrinsicBuiltinConformance` grants it
 `Comparable` and nothing else, so a bare `t.hash()` is **`E2015 'bool' has no method named 'hash' — a
@@ -175,7 +161,6 @@ this the case where the declared body is not competing with a compiler answer bu
 and it is the sharper test of the witness road: the table cannot be inherited from a synthesized impl,
 because there is none to inherit. Both roads are compared in one program, so a split is a differing line rather than two green runs nobody put side by side.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension bool implements Hashable
 	function hash() returns HashValue
 		return 9 if self else 4
@@ -208,12 +193,9 @@ direct=9 witness=9
 ```
 
 <!-- test: error.an-extension-may-not-redeclare-a-member-the-primitive-already-has -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 `int` already has the synthesized `hash`, so the extension's declaration is a duplicate and is refused at the
 redeclared name.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension int implements Hashable
 	function hash() returns HashValue
 		return 77
@@ -230,14 +212,11 @@ error E3006: <fragment>:3:11: Duplicate method 'hash' in type 'int'
 ```
 
 <!-- test: an-extension-on-a-primitive-may-not-declare-storage -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An extension adds behaviour, never storage — there is no layout for a field to join. The primitive
 target does not relax that, and the refusal is the same one every other extension body gets.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	var extra as Integer
 end 'int'
@@ -251,7 +230,7 @@ error E2015: <fragment>:5:2: Unsupported: a `var` declaration in an `extension` 
 ```
 
 <!-- test: error.byte-is-not-an-extendable-primitive -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'byte' are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **`byte` is admitted by `namesAPrimitiveType` and is NOT an extendable target, and the difference is
 the point.** That predicate names the set with STATICS (`byte.fromString`); this door needs the set with
@@ -261,7 +240,7 @@ u8.max)`) reaching every receiver door tagged `integer` — so an `extension byt
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'byte' are not supported in minimaxon
 extension byte
 	function widened() returns Integer
 		return 1
@@ -277,14 +256,11 @@ error E2015: <fragment>:4:11: Unsupported: `extension byte` — `byte` is the qu
 ```
 
 <!-- test: error.self-in-a-primitive-extension-has-no-fields -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ A primitive **is** its value. `self` in these bodies is the `int` itself, so there is nothing for a
 field access to read. Reaching for one is a positioned refusal, mirroring the enum arm.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	function peek() returns Integer
 		return self.v
@@ -301,7 +277,7 @@ error E2015: <fragment>:6:10: Unsupported: a field access through `self` in a me
 ```
 
 <!-- test: error.an-interface-extension-publishes-nothing-onto-a-primitive -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE BOUNDARY OF PRIMITIVE EXTENSIONS, PINNED SO IT CANNOT DRIFT INTO A WRONG ANSWER.** A
 primitive may be an extension TARGET, and this case's `extension int implements Doubler` is accepted and
@@ -318,14 +294,13 @@ interface Doubler
 	function doubled() returns Integer
 end 'Doubler'
 
-// TODO: extension blocks are not supported in minimaxon
 extension int implements Doubler
 	function doubled() returns Integer
 		return self * 2
 	end 'doubled'
 end 'int'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Doubler
 	function quadrupled() returns Integer
 		return self.doubled() * 2

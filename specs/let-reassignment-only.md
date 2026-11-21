@@ -491,23 +491,16 @@ error E2013: <fragment>:6:3: 'item' is a let and cannot be reassigned
 ```
 
 <!-- test: error.reassigning-a-tuple-element-of-a-let -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	let x = 0
 	let y = 0
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, y) = makePair(10, b: 32)
 	return x + y
 end 'main'
@@ -600,7 +593,6 @@ error E3207: <fragment>:5:8: 'push' needs a writable receiver; 'fixed' is immuta
 ```
 
 <!-- test: error.a-stored-map-key-is-still-read-only -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
@@ -610,7 +602,6 @@ typealias Counted = Map with (String, Count)
 function main() returns ExitCode
 	let m = Counted.create()
 	m.upsert("a", value: 1)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (k, _) in m 'each'
 		k.append("x")
 	end 'each'

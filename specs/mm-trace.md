@@ -502,8 +502,6 @@ mm_free Counter #4
 <!-- test: an-async-spawn-with-a-float-argument-names-its-argument-image -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- procs: 1 -->
 An `async` call with a `float` argument cannot use the green thread's inline region, which holds integer words
 only, so its arguments go in a separate argument image, and a leak trace names that block `AsyncArgumentImage`
@@ -513,7 +511,6 @@ register files and nothing more.
 ```maxon
 function scaled(count Integer, factor Factor) returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	if factor > 2.5 'large'
 		return count * 3
 	end 'large'
@@ -522,14 +519,12 @@ end 'scaled'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async scaled(12, factor: 3.0)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = await p
 	return total as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Factor = float(0.0 to 10.0)
 
 typealias Integer = int(i64.min to i64.max)

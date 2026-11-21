@@ -1292,15 +1292,11 @@ end 'main'
 
 <!-- test: rc-tuple-primitive-freed -->
 <!-- skip: @heap annotations are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple of primitives is heap-allocated and freed at scope exit.
 ```maxon
 function main() returns ExitCode
 	// TODO: @heap annotations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	@heap let t = (10, 32)
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0
 end 'main'
 ```
@@ -1310,16 +1306,12 @@ end 'main'
 
 <!-- test: rc-tuple-alias-incref -->
 <!-- skip: @heap annotations are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Aliasing a tuple increfs it; both variables share the same tuple object.
 ```maxon
 function main() returns ExitCode
 	// TODO: @heap annotations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	@heap let a = (3, 7)
 	let b = a
-	// TODO: tuple element access is not supported in minimaxon
 	return b.0 + b.1
 end 'main'
 ```
@@ -1328,17 +1320,12 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-reassign-decrefs-old -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Reassigning a tuple var decrefs the old tuple before storing the new one.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var t = (1 as FullRangeInt, 2 as FullRangeInt)
-	// TODO: tuple values and types are not supported in minimaxon
 	t = (3, 4)
-	// TODO: tuple element access is not supported in minimaxon
-	return t.0 + t.1
+	return try t.0 + t.1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1346,14 +1333,10 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-with-string-freed -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple containing a managed type (String); the destructor must cascade to decref the String field.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (42, "hello")
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0
 end 'main'
 ```
@@ -1362,9 +1345,6 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-return-transfers-ownership -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Returning a tuple hands the caller a fully-owned value, with no reference left behind for
 either side to release twice or forget to release once.
 
@@ -1377,16 +1357,13 @@ there is no ownership to get wrong.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	let t = makePair(5, b: 3)
-	// TODO: tuple element access is not supported in minimaxon
-	return t.0 + t.1
+	return try t.0 + t.1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1394,14 +1371,10 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-destructuring-cleanup -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Destructuring a tuple frees the tuple wrapper while the bindings remain live.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (10, 20)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (x, y) = t
 	return x + y
 end 'main'
@@ -1411,8 +1384,6 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-with-struct-freed -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple containing a user-defined struct; the destructor cascades through the tuple into the struct.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1427,9 +1398,7 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (1, Point.create(10, y: 20))
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0
 end 'main'
 ```
@@ -1464,23 +1433,17 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-return-destructure-no-crash -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Returning a tuple from a function and destructuring it must not crash: a cleanup that decref'd the already-freed tuple would segfault.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (x, y) = makePair(10, b: 32)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -174,7 +174,7 @@ error E3005: <fragment>:14:25: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: an-inline-range-at-a-mutable-parameter-is-refused-at-its-declaration -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 <!-- positions: moved -->
 A `mutable` parameter has a named alias for its type, so no formal is an unnamed range the variable could be compared to.
 
@@ -715,7 +715,6 @@ error E3181: <fragment>:21:3: type parameter 'T' of 'pass' cannot be 'type param
 
 <!-- test: a-method-of-a-primitive-cannot-assign-its-receiver -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A method's receiver is read-only, so a `Narrow` variable it is called on is never overwritten.
 
@@ -725,7 +724,6 @@ typealias Wide = int(0 to 100)
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	function bump()
 		self = 99
@@ -849,9 +847,6 @@ error E2004: <fragment>:20:8: Undefined variable 'relay'
 
 <!-- test: a-narrow-tuple-variable-at-a-wider-mutable-tuple-parameter-is-refused -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple's elements are ranged too, so the callee may write a `Wide` element a `Narrow` element cannot hold.
 
@@ -861,19 +856,15 @@ typealias Wide = int(0 to 100)
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias WidePair = (Wide, Wide)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias NarrowPair = (Narrow, Narrow)
 
 function widen(mutates p WidePair)
-	// TODO: tuple element access is not supported in minimaxon
 	p.0 = 50
 end 'widen'
 
 function make() returns NarrowPair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (3, 4)
 end 'make'
 

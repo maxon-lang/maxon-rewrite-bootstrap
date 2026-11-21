@@ -119,22 +119,15 @@ end 'main'
 ```
 
 <!-- test: tuple-destructuring-unused -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Small = int(0 to 100)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair() returns (Small, Small)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (10, 20)
 end 'makePair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = makePair()
 	return a
 end 'main'

@@ -112,7 +112,6 @@ end 'main'
 ```
 
 <!-- test: an-inverted-float-branch-still-refuses-a-nan -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **THE HAZARD.** All six IEEE predicates against a NaN, each with an explicit else arm — so
 whichever arm the layout makes the fall-through, the NaN's destination is pinned. A complement
 taken from the source predicate rather than from the flags (`mi` → `ge` on AArch64, or a
@@ -135,12 +134,9 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	var hits = 0 as Count
 	if nan < x 'lt'

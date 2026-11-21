@@ -227,8 +227,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.mutate-ranged-float-alias-ref -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### A RANGED FLOAT ALIAS field and local are written, and the address is not converted
 A ranged float alias is spelled `named`, not `float`, so a door that retypes the handed-over address
 without resolving the alias hands the callee a value whose machine class disagrees with the parameter's
@@ -236,11 +234,9 @@ without resolving the alias hands the callee a value whose machine class disagre
 address in either case, so the alias is resolved where the slot is retyped.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(0.0 to 1000.0)
 
 function setTo99(mutates w Weight)
-	// TODO: float literals are not supported in minimaxon
 	w = 99.0
 end 'setTo99'
 
@@ -248,15 +244,13 @@ type Box
 	export var w as Weight
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{w: 1.0}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	var scale = 1.0 as Weight
-	let b = Box.create()
+	var scale = try 1.0 as Weight otherwise panic("out of range")
+	var b = Box.create()
 	setTo99(b.w)
 	setTo99(scale)
 	print("{b.w} {scale}")
@@ -271,8 +265,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.mutate-tuple-member-ref -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### A POSITIONAL tuple member at a by-reference position is written
 `t.0` and `t._0` name one field, so they cannot have opposite semantics at a by-reference position. The
 token walk that predicts the hand-over asks the same member-name predicate the real chain walk does,
@@ -286,9 +278,7 @@ function setTo99(mutates x Integer)
 end 'setTo99'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (1 as Integer, 2 as Integer)
-	// TODO: tuple element access is not supported in minimaxon
 	setTo99(pair.0)
 	setTo99(pair._1)
 	print("{pair.0} {pair.1}")
@@ -624,20 +614,15 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.mutate-float-ref -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function setTo99(mutates x Float)
-	// TODO: float literals are not supported in minimaxon
 	x = 99.0
 end 'setTo99'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var n = 0.0 as Float
 	setTo99(n)
 	print("{n}")
@@ -652,16 +637,13 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.enum-float-backed-ref -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 
 enum Ratio
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	half = 0.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	quarter = 0.25
 end 'Ratio'
 
@@ -899,20 +881,15 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.function-value-call-updates-a-float-variable -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A by-reference `float` position is an address through a function value too, not a value in a float register.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function setTo99(mutates x Float)
-	// TODO: float literals are not supported in minimaxon
 	x = 99.0
 end 'setTo99'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var n = 0.0 as Float
 	let f = setTo99
 	f(n)
@@ -1858,14 +1835,11 @@ error E3005: <fragment>:17:15: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.error.a-float-var-handed-to-an-integer-parameter-is-refused-before-any-cell-is-shared -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A variable and a parameter of different register classes never share a cell: the argument is refused where it is written.
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 function bump(mutates k Count)
@@ -1873,7 +1847,6 @@ function bump(mutates k Count)
 end 'bump'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 2.5 as Real
 	bump(r)
 	print("{r}\n")
@@ -1885,17 +1858,13 @@ error E3005: <fragment>:11:2: argument type mismatch for 'k': expected 'Count', 
 ```
 
 <!-- test: pass-by-reference.error.an-integer-var-handed-to-a-float-parameter-is-refused-before-any-cell-is-shared -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 function scale(mutates k Real)
-	// TODO: float literals are not supported in minimaxon
 	k = 2.5
 end 'scale'
 

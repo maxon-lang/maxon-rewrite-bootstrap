@@ -141,11 +141,8 @@ end 'main'
 ```
 
 <!-- test: float-divide-by-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### Float divide-by-zero throws DivisionByZero, caught with try/otherwise
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // An opaque source so the divisor is possibly-zero (the compiler cannot fold it,
@@ -157,15 +154,12 @@ function opaque(x Float) returns Float
 end 'opaque'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let zero = opaque(0.0)
 	var result = 0 as FullRangeInt
 	try 'work'
-		// TODO: float literals are not supported in minimaxon
 		let q = 100.0 / zero
 		// Unreachable: the divide throws before this runs. `q > 0.0` keeps the value used so the
 		// divide is not elided, without casting a float to the ExitCode.
-		// TODO: float literals are not supported in minimaxon
 		result = 1 if q > 0.0 else 2
 	end 'work' otherwise (e) 'handle'
 		match e 'kind'
@@ -214,11 +208,8 @@ end 'main'
 ```
 
 <!-- test: float-divide-by-zero-expression-form -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ### A float divide's DivisionByZero is bound and discriminated by match
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function opaque(x Float) returns Float
@@ -226,10 +217,8 @@ function opaque(x Float) returns Float
 end 'opaque'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let zero = opaque(0.0)
 	var result = 0 as FullRangeInt
-	// TODO: float literals are not supported in minimaxon
 	try (100.0 / zero) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then result = 42
@@ -263,10 +252,7 @@ refactor the register guard cannot see: a deliberately well-typed bitcast of the
 integer to avoid an xmm compare.
 
 <!-- test: float-divide-by-runtime-negative-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function opaque(x Float) returns Float
@@ -274,10 +260,8 @@ function opaque(x Float) returns Float
 end 'opaque'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let negZero = opaque(-0.0)
 	var result = 0 as FullRangeInt
-	// TODO: float literals are not supported in minimaxon
 	try (1.0 / negZero) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then result = 42
@@ -455,13 +439,9 @@ error E3103: <fragment>:5:12: division by zero: the divisor of '/' is always 0
 ```
 
 <!-- test: error.float-divide-by-constant-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 12.0
-	// TODO: float literals are not supported in minimaxon
 	let q = a / 0.0
 	return trunc(q) as ExitCode
 end 'main'
@@ -471,13 +451,9 @@ error E3103: <fragment>:4:12: division by zero: the divisor of '/' is always 0
 ```
 
 <!-- test: error.float-divide-by-negative-constant-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 12.0
-	// TODO: float literals are not supported in minimaxon
 	let q = a / -0.0
 	return trunc(q) as ExitCode
 end 'main'

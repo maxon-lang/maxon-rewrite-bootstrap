@@ -133,8 +133,6 @@ end 'main'
 ```
 
 <!-- test: seven-float-parameters -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The float file overflows on its own counter: seven floats need one stack slot even though no integer
 argument exists.
 ```maxon
@@ -143,16 +141,13 @@ function sumf7(a Real, b Real, c Real, d Real, e Real, f Real, g Real) returns R
 end 'sumf7'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let total = sumf7(1.0, b: 2.0, c: 4.0, d: 8.0, e: 16.0, f: 32.0, g: 64.0)
-	// TODO: float literals are not supported in minimaxon
 	if total == 127.0 'ok'
 		return 0
 	end 'ok'
 	return 1
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -160,8 +155,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: int-and-float-overflow-share-one-stack-area -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 Seven integers and seven floats: each file overflows once, and the two overflowing arguments must
 land in DIFFERENT slots of the single merged stack area. If either file indexed the area by its own
 counter, both would claim slot 0 and one would read the other's bits.
@@ -169,19 +162,16 @@ counter, both would claim slot 0 and one would read the other's bits.
 typealias Integer = int(i64.min to i64.max)
 
 function mix(i1 Integer, i2 Integer, i3 Integer, i4 Integer, i5 Integer, i6 Integer, i7 Integer, f1 Real, f2 Real, f3 Real, f4 Real, f5 Real, f6 Real, f7 Real) returns Integer
-	// TODO: float literals are not supported in minimaxon
 	if f1 + f2 + f3 + f4 + f5 + f6 + f7 == 127.0 'floatsOk'
-		return i1 + i2 + i3 + i4 + i5 + i6 + i7
+		return try i1 + i2 + i3 + i4 + i5 + i6 + i7 otherwise panic("out of range")
 	end 'floatsOk'
 	return 0
 end 'mix'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return mix(1, i2: 2, i3: 4, i4: 8, i5: 16, i6: 32, i7: 64, f1: 1.0, f2: 2.0, f3: 4.0, f4: 8.0, f5: 16.0, f6: 32.0, f7: 64.0)
+	return try mix(1, i2: 2, i3: 4, i4: 8, i5: 16, i6: 32, i7: 64, f1: 1.0, f2: 2.0, f3: 4.0, f4: 8.0, f5: 16.0, f6: 32.0, f7: 64.0) as ExitCode otherwise panic("out of range")
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode

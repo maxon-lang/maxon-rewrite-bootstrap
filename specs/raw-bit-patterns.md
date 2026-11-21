@@ -802,7 +802,6 @@ end 'main'
 <!-- test: bytes-assembled-in-a-loop-fill-an-unsigned-quantity-word -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ### Bytes assembled in a loop fill an unsigned-quantity word, top byte included
 The shape any code building a machine word out of bytes has: a loop-carried accumulator, a shift by a
 computed count, and a last byte at or above 0x80.
@@ -811,7 +810,6 @@ typealias Word = int(0 to u64.max)
 
 function packed(bytes ByteArray) returns Word
 	var word = 0 as Word
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in bytes.withIterator() 'eachByte'
 		word = word or ((value as Word) shl ((iter.index() as Word) * 8))
@@ -1058,8 +1056,6 @@ Stack trace:
 ```
 
 <!-- test: a-signed-counter-through-an-interface-to-an-unsigned-quantity-parameter-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ### …and at a call through an INTERFACE, where the call site checks it
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1076,7 +1072,6 @@ type Plain
 	end 'create'
 end 'Plain'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain implements Shower
 	function show(c Count) returns Count
 		return c + self.tag
@@ -1099,7 +1094,6 @@ error E3005: <fragment>:24:13: Value -2 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-count-difference-through-an-interface-panics-at-the-call -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ### …and the run-time twin: the call through an interface checks a difference it cannot evaluate
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1116,7 +1110,6 @@ type Plain
 	end 'create'
 end 'Plain'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Plain implements Shower
 	function show(c Count) returns Count
 		return c + self.tag

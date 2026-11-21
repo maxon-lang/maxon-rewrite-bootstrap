@@ -51,7 +51,7 @@ end 'main'
 <!-- test: division -->
 ```maxon
 function main() returns ExitCode
-	return trunc(100 / 4)
+	return try trunc(100 / 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -86,13 +86,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias NonZero = int(1 to i64.max)
 
 function divLive(a Integer, b NonZero, x Integer) returns Integer
-	let preserved = x + 1
+	let preserved = try x + 1 otherwise panic("out of range")
 	let result = try (a / (b as Integer)) otherwise panic("b is never zero")
-	return trunc(result + preserved)
+	return trunc(try (result + preserved) as FullRangeFloat otherwise panic("out of range"))
 end 'divLive'
 
 function main() returns ExitCode
-	return divLive(10, b: 2, x: 5)
+	return try divLive(10, b: 2, x: 5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -129,7 +129,7 @@ function divLoop(n Integer) returns Integer
 	var sum = 0 as Integer
 	var i = 1 as Integer
 	while i <= n 'loop'
-		sum = sum + trunc(try (50 / i) otherwise panic("divLoop: i was 0"))
+		sum = sum + trunc((try (50 / i) otherwise panic("divLoop: i was 0")) as FullRangeFloat)
 		i = i + 1
 	end 'loop'
 	return sum
@@ -155,8 +155,8 @@ function helper(x Integer) returns Integer
 end 'helper'
 
 function divCall(a Integer, b NonZero) returns Integer
-	let temp = trunc(try (a / (b as Integer)) otherwise panic("b is never zero"))
-	let result = helper(temp)
+	let temp = trunc((try (a / (b as Integer)) otherwise panic("b is never zero")) as FullRangeFloat)
+	let result = helper(temp as Integer)
 	return result + temp
 end 'divCall'
 
@@ -178,11 +178,11 @@ typealias NonZero = int(1 to i64.max)
 function multiDiv(a Integer, b NonZero, c Integer, d NonZero) returns Integer
 	let r1 = try (a / (b as Integer)) otherwise panic("b is never zero")
 	let r2 = try (c / (d as Integer)) otherwise panic("d is never zero")
-	return trunc(r1 + r2)
+	return trunc(try (r1 + r2) as FullRangeFloat otherwise panic("out of range"))
 end 'multiDiv'
 
 function main() returns ExitCode
-	return multiDiv(10, b: 2, c: 20, d: 4)
+	return try multiDiv(10, b: 2, c: 20, d: 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

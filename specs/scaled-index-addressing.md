@@ -246,21 +246,17 @@ end 'main'
 ```
 
 <!-- test: a-float-element-reads-through-the-same-addressing-mode -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An `Array with` a float element is 8 bytes wide like an integer one, so its slot address takes the same
 `×8` scale — and the value moves through the same word-width memory op, because the Std tier loads the
 element's 64 bits and reinterprets them. This is the case that says the fold is about the ADDRESS and
 not about what the loaded bits mean: a scale applied to the wrong width would read a float out of the
 middle of two.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias RealArray = Array with Real
 
 function total(a RealArray) returns Real
-	// TODO: float literals are not supported in minimaxon
 	var t = 0.0 as Real
 	for v in a 'loop'
 		t = t + v
@@ -269,18 +265,13 @@ function total(a RealArray) returns Real
 end 'total'
 
 function main() returns ExitCode
-	let a = RealArray.create(0)
-	// TODO: float literals are not supported in minimaxon
+	var a = RealArray.create(0)
 	a.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	a.push(2.25)
-	// TODO: float literals are not supported in minimaxon
 	a.push(4.0)
-	// TODO: float literals are not supported in minimaxon
 	if total(a) != 7.75 'sum'
 		return 1
 	end 'sum'
-	// TODO: float literals are not supported in minimaxon
 	if (try a.get(1) otherwise panic("get: index out of range")) != 2.25 'middle'
 		return 2
 	end 'middle'

@@ -88,16 +88,13 @@ arrives.
 ## Tests
 
 <!-- test: gt-else-edge-phi -->
-<!-- skip: float literals are not supported in minimaxon -->
 The single-jump relational case. `r` is assigned only in the then-branch, so the merge block
 takes a phi and the ELSE edge carries `r`'s incoming `7`. `3.5 > 9.5` is false, so the else
 edge is the one taken and 7 is the value that must arrive.
 ```maxon
 function main() returns ExitCode
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let y = 9.5
 	if x > y 'check'
 		r = 1
@@ -110,7 +107,6 @@ end 'main'
 ```
 
 <!-- test: lt-operand-swap -->
-<!-- skip: float literals are not supported in minimaxon -->
 `<` is lowered by SWAPPING the operands and emitting the `above` family, so this must agree
 with `gt-else-edge-phi` read backwards. A lowering that instead emitted `jb` would still
 pass THIS test — only `lt-nan-is-false` below can tell the two apart — so the pair has to be
@@ -118,9 +114,7 @@ read together.
 ```maxon
 function main() returns ExitCode
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let y = 9.5
 	if x < y 'check'
 		r = 1
@@ -133,15 +127,12 @@ end 'main'
 ```
 
 <!-- test: le-boundary-equal -->
-<!-- skip: float literals are not supported in minimaxon -->
 `<=` swaps to `jae`, whose ZF=1 case is the one that distinguishes it from `ja`. Equal
 operands take the then-branch.
 ```maxon
 function main() returns ExitCode
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 4.25
-	// TODO: float literals are not supported in minimaxon
 	let y = 4.25
 	if x <= y 'check'
 		r = 1
@@ -154,16 +145,13 @@ end 'main'
 ```
 
 <!-- test: eq-ordered-else-edge-phi -->
-<!-- skip: float literals are not supported in minimaxon -->
 `==` on two ORDERED, unequal operands: the `jp` is not taken, the `je` is not taken, and the
 else edge is reached by the fallthrough out of the SECOND block. `r`'s incoming `7` must
 arrive on it.
 ```maxon
 function main() returns ExitCode
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let y = 2.5
 	if x == y 'check'
 		r = 1
@@ -176,14 +164,11 @@ end 'main'
 ```
 
 <!-- test: eq-ordered-then-edge-phi -->
-<!-- skip: float literals are not supported in minimaxon -->
 The same lowering with the `je` TAKEN — the then edge, out of the second block, past a phi.
 ```maxon
 function main() returns ExitCode
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 2.5
-	// TODO: float literals are not supported in minimaxon
 	let y = 2.5
 	if x == y 'check'
 		r = 1
@@ -196,7 +181,6 @@ end 'main'
 ```
 
 <!-- test: eq-nan-else-edge-phi -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **THE HAZARD ITSELF.** `nan == nan` is FALSE, and it is decided by the `jp` in the FIRST
 block — the edge a one-block lowering leaves unrewired. `r`'s incoming `7` must arrive on it;
 when it does not, the value that arrives is whatever the register happens to hold.
@@ -223,10 +207,8 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
 	if nan == nan 'check'
@@ -240,7 +222,6 @@ end 'main'
 ```
 
 <!-- test: ne-nan-then-edge-phi -->
-<!-- skip: float literals are not supported in minimaxon -->
 The mirror: `nan != nan` is TRUE, IEEE's one predicate that is true on unordered, and here
 the `jp` takes the THEN edge. So this is the same first-block jump as `eq-nan-else-edge-phi`
 carrying a phi to the OTHER successor — a lowering that routed only the second block's jump
@@ -257,10 +238,8 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
 	if nan != nan 'check'
@@ -274,7 +253,6 @@ end 'main'
 ```
 
 <!-- test: lt-nan-is-false -->
-<!-- skip: float literals are not supported in minimaxon -->
 `nan < x` must be FALSE. This is the case the operand swap buys: a `jb` lowering reads CF,
 which `ucomisd` SETS on unordered, so it would take the then-branch and return 1. Only an
 `above`-family jump on swapped operands returns 7.
@@ -290,13 +268,10 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	if nan < x 'check'
 		r = 1
@@ -309,7 +284,6 @@ end 'main'
 ```
 
 <!-- test: le-nan-is-false -->
-<!-- skip: float literals are not supported in minimaxon -->
 `nan <= x` must be FALSE, for the same reason with ZF also set.
 ```maxon
 type Magnitude
@@ -323,13 +297,10 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	if nan <= x 'check'
 		r = 1
@@ -342,7 +313,6 @@ end 'main'
 ```
 
 <!-- test: gt-nan-is-false -->
-<!-- skip: float literals are not supported in minimaxon -->
 `nan > x` must be FALSE — the case that needs NO parity test, because `ja` requires CF=0 and
 unordered sets CF. It is here to pin that the lowering does NOT grow a `jp` it does not
 need: if this ever starts emitting one, the `above` family's whole reason for existing has
@@ -359,13 +329,10 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
 	var r = 7 as ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0
 	if nan > x 'check'
 		r = 1
@@ -378,7 +345,6 @@ end 'main'
 ```
 
 <!-- test: float-cmp-materialized -->
-<!-- skip: float literals are not supported in minimaxon -->
 A float compare whose result is a VALUE rather than a branch condition — it is stored into a
 `var` the merge reads, so it cannot be fused into a `jcc` and must materialize through
 `setcc`. The unordered case has to survive that path too: `nan == nan` materializes FALSE
@@ -396,9 +362,7 @@ end 'Magnitude'
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let source = MagnitudeCell.create(Magnitude.create(1.0e308))
-	// TODO: float literals are not supported in minimaxon
 	let inf = source.current().big * 10.0
 	let nan = inf - inf
 	let a = nan == nan

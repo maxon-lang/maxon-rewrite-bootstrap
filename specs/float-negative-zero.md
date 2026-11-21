@@ -44,14 +44,11 @@ but a zero the two agree, so the ordinary case below passes under both spellings
 the zero cases after it are the ones that tell them apart.
 
 <!-- test: negating-a-float-variable -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.5
 	let g = -f
-	// TODO: float literals are not supported in minimaxon
-	return trunc(g + 45.5)
+	return try trunc(g + 45.5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -64,10 +61,8 @@ sign is read two ways: through `print`, whose float formatter is sign-bit based,
 Under `0.0 - x` both prints said `0.0` and the bit was never set.
 
 <!-- test: negating-a-zero-variable -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let z = 0.0
 	let negated = -z
 	print("{negated}\n")
@@ -119,9 +114,7 @@ A top-level `let` folds with the same flip: `-` over a float CONSTANT reference 
 `-0.0`.
 
 <!-- test: const-negation-of-a-float-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let Zero = 0.0
 
 let NegatedZero = -Zero
@@ -145,9 +138,7 @@ that resolves a declared alias to its domain — so the flip does not depend on 
 declared.
 
 <!-- test: negation-through-a-ranged-float-alias -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function negate(x Real) returns Real

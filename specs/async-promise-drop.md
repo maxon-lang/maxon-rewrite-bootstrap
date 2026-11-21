@@ -1742,10 +1742,6 @@ error E3141: <fragment>:34:21: a promise cannot be borrowed through 'fromMap': i
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-tuple -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple argument that carries an instance of the generic type is a holder.
 ```maxon
@@ -1760,15 +1756,11 @@ type Box uses T
 		return Self{v: v}
 	end 'create'
 
-	// TODO: tuple return types are not supported in minimaxon
 	static function paired(v T) returns (Self, Integer)
-		// TODO: tuple values and types are not supported in minimaxon
 		return (Self{v: v}, 1 as Integer)
 	end 'paired'
 
-	// TODO: tuple parameter types are not supported in minimaxon
 	static function fromPair(pair(Self, Integer)) returns T
-		// TODO: tuple element access is not supported in minimaxon
 		return pair.0.v
 	end 'fromPair'
 end 'Box'
@@ -2211,10 +2203,6 @@ end 'main'
 <!-- test: async-promise-drop.error.a-static-returning-a-parameter-written-as-an-alias-hands-back-a-borrowed-promise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The parameter `x` is written through the `Pair` alias and the result as the tuple itself, so the two spellings differ while naming one type: `x` is what `relay` hands back, and the caller's `held` only lent it, so the result is a borrow.
 ```maxon
@@ -2222,7 +2210,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (IntPromise, Integer)
 
 type Box uses T
@@ -2232,7 +2219,6 @@ type Box uses T
 		return Self{v: v}
 	end 'create'
 
-	// TODO: tuple return types are not supported in minimaxon
 	static function relay(x Pair) returns (IntPromise, Integer)
 		return x
 	end 'relay'
@@ -2246,10 +2232,8 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = (async plain(), 1 as Integer)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (p, n) = PromiseBox.relay(held)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return ((await p) + n) as ExitCode
@@ -2355,7 +2339,6 @@ end 'main'
 <!-- test: async-promise-drop.error.a-user-extension-cannot-redeclare-a-library-move-out-door -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A library move-out door cannot be redeclared from an `extension`: the name belongs to the container's own member, so the extension's declaration is a duplicate.
 ```maxon
@@ -2363,7 +2346,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function remove(element Element) returns bool
 		_ = element
@@ -2759,7 +2741,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 <!-- positions: moved -->
 A `withIterator` pair bound WHOLE carries the promise its array still holds, and a pair can be passed anywhere,
 so no slot follows it. Only the destructuring spelling moves the promise back to its array slot; this one is
@@ -2784,7 +2765,6 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for pair in s.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + (await pair.1)
 	end 'each'
 	return total as ExitCode
@@ -2797,7 +2777,6 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 <!-- test: async-promise-drop.error.a-map-iterator-over-promise-values -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A `Map`'s iterator hands each entry back as a `(key, value)` pair while the map keeps the value, and a map has
 no index a slot could name — so a promise value read through it is refused.
@@ -2818,7 +2797,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("a", value: async plain(9))
 	var total = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in m 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await v)
@@ -4863,9 +4841,6 @@ error E3141: <fragment>:43:22: a promise cannot be borrowed through 'watch': it 
 <!-- test: async-promise-drop.a-tuple-literal-holding-a-spawn-pushed-into-an-array -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple is stored in a container as the one record it was built as: the array takes ownership of the promise the
 tuple holds, so the tuple is not copied and its original dropped (which would reclaim the green thread the array
 still names). The promise pops out with its tuple and is awaited.
@@ -4874,7 +4849,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, IntPromise)
 
 typealias PairArray = Array with Pair
@@ -4886,10 +4860,8 @@ end 'work'
 
 function main() returns ExitCode
 	let held = PairArray.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push((1, async work(1)))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (tag, p) = try held.pop() otherwise panic("one pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
@@ -4907,9 +4879,6 @@ end 'main'
 <!-- test: async-promise-drop.a-tuple-variable-holding-a-spawn-pushed-into-an-array -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple held by a binding moves into the array with its promise: the array owns the one record, and awaiting the
 promise out of it is the only consumption.
 ```maxon
@@ -4917,7 +4886,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, IntPromise)
 
 typealias PairArray = Array with Pair
@@ -4928,7 +4896,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function entryFor(n Integer) returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return (n, async work(n))
 end 'entryFor'
@@ -4937,7 +4904,6 @@ function main() returns ExitCode
 	let held = PairArray.create(0)
 	let entry = entryFor(2)
 	held.push(entry)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (tag, p) = try held.pop() otherwise panic("one pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
@@ -4955,9 +4921,6 @@ end 'main'
 <!-- test: async-promise-drop.a-tuple-holding-a-spawn-set-at-an-index -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `set` stores the new tuple with its promise and drops the one it replaces, whose green thread is reclaimed
 exactly once.
 ```maxon
@@ -4965,7 +4928,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, IntPromise)
 
 typealias PairArray = Array with Pair
@@ -4977,13 +4939,10 @@ end 'work'
 
 function main() returns ExitCode
 	let held = PairArray.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push((1, async work(1)))
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	try held.set(0, value: (5, async work(5))) otherwise panic("index 0 exists")
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (tag, p) = try held.pop() otherwise panic("one held")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
@@ -5000,8 +4959,6 @@ end 'main'
 
 <!-- test: async-promise-drop.a-map-value-that-is-a-tuple-holding-a-spawn -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `Map` value that is a tuple holding a promise is stored as the one record too; the map releases it, and its
 thread, when the key is replaced, removed, or the map goes out of scope un-awaited. A map hands a value back
 only by a borrow, which a promise refuses (E3141), so the case observes the count.
@@ -5010,7 +4967,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, IntPromise)
 
 typealias PairMap = Map with (String, Pair)
@@ -5022,13 +4978,10 @@ end 'work'
 
 function main() returns ExitCode
 	let m = PairMap.create()
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("a", value: (3, async work(3)))
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("b", value: (4, async work(4)))
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("a", value: (5, async work(5)))
 	let removed = m.remove("b")
@@ -5046,16 +4999,12 @@ end 'main'
 <!-- test: async-promise-drop.a-tuple-holding-two-spawns-pushed-into-an-array -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Both promises of a tuple stay with the one record in the array, and each is awaited once.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Twin = (IntPromise, IntPromise)
 
 typealias TwinArray = Array with Twin
@@ -5067,10 +5016,8 @@ end 'work'
 
 function main() returns ExitCode
 	let held = TwinArray.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push((async work(1), async work(10)))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = try held.pop() otherwise panic("one pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let x = await a

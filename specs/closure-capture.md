@@ -2978,8 +2978,6 @@ error E3183: <fragment>:22:9: this value holds a closure that captures 'c' and i
 ```
 
 <!-- test: closure-capture.error.a-closure-in-a-tuple-stored-into-what-it-captures -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple holds its closure as a record field does.
 ```maxon
@@ -2993,16 +2991,13 @@ end 'idle'
 
 type Counter
 	export var n as Integer
-	// TODO: tuple values and types are not supported in minimaxon
 	export var pair as (Thunk, Integer)
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{n: 1, pair: (idle, 0)}
 	end 'create'
 
 	export function arm()
-		// TODO: tuple values and types are not supported in minimaxon
 		self.pair = (function() gives self.n, 1)
 	end 'arm'
 end 'Counter'
@@ -3010,7 +3005,6 @@ end 'Counter'
 function main() returns ExitCode
 	var c = Counter.create()
 	c.arm()
-	// TODO: tuple element access is not supported in minimaxon
 	return c.pair.1 as ExitCode
 end 'main'
 ```

@@ -694,7 +694,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-roster-member-inside-an-extension-body-resolves -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An `extension` body's bare `count()` / `get(i)` is the same rule one declaration over, and it is what
 `stdlib/Array.maxon`'s `containsSequence(sequence)` is written in. The sibling walk cannot see them — they belong
@@ -718,7 +717,6 @@ type Array uses Element implements BuiltinArrayLiteral
 	end 'create'
 end 'Array'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Array
 	function total() returns Num
 		let slots = count()

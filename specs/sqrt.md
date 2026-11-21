@@ -35,12 +35,10 @@ let w = sqrt(z)      // 1.414213... (√2)
 ## Tests
 
 <!-- test: sqrt.basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = sqrt(16.0)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -48,15 +46,13 @@ end 'main'
 ```
 
 <!-- test: sqrt.precision -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = sqrt(2.0)
 	// sqrt(2) * sqrt(2) should be approximately 2
 	let check = x * x
 	// Trunc to get integer 2
-	return trunc(check)
+	return try trunc(check) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -64,12 +60,9 @@ end 'main'
 ```
 
 <!-- test: sqrt.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = sqrt(0.0)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'
@@ -81,12 +74,10 @@ end 'main'
 ```
 
 <!-- test: sqrt.rt-basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 16.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(sqrt(x))
 end 'main'
@@ -96,12 +87,10 @@ end 'main'
 ```
 
 <!-- test: sqrt.rt-precision -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 2.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let check = sqrt(x) * sqrt(x)
 	return trunc(check)
@@ -112,15 +101,12 @@ end 'main'
 ```
 
 <!-- test: sqrt.rt-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 0.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let result = sqrt(x)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'

@@ -500,7 +500,6 @@ end 'main'
 <!-- test: a-closure-with-a-block-keyword-parameter-inside-an-arm-body -->
 <!-- skip: 'function' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
 A closure literal inside a match arm spells `function (…) gives`, which is the shape of a payload-carrying
 case arm — so the walk's name verdict for that `function` token is "a name", and it must STILL record the
 closure's parameters as declared names: `if` here is a parameter, not the opener of a block that never
@@ -525,7 +524,6 @@ end 'apply'
 function classify(m Marker, seed Idx) returns Idx
 	var total = match m 'm'
 		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
-		// TODO: tuple parameter types are not supported in minimaxon
 		// TODO: 'function' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives apply(function(if Idx) gives 33 + if, x: seed)
 		other gives 0

@@ -286,7 +286,6 @@ end 'main'
 
 <!-- test: call-into-isolated-with-mutable-argument-refused -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 `self.index.absorb(spare)` opens `index` for the call, and `spare` is a mutable `WordIndex` of this region, so the region would point out.
 
@@ -308,7 +307,6 @@ type WordIndex
 	end 'add'
 
 	function absorb(other WordIndex)
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		for (word, seen) in other.counts 'eachWord'
 			let mine = try self.counts.get(word) otherwise 0
 			self.counts.upsert(word, value: mine + seen)

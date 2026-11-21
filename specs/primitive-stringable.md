@@ -49,10 +49,8 @@ end 'main'
 ```
 
 <!-- test: float.toString -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.14
 	let s = x.toString()
 	if s == "3.14" 'ok'

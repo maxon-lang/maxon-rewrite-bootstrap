@@ -636,8 +636,6 @@ error E2004: <fragment>:7:10: Undefined variable 'limit'
 ```
 
 <!-- test: view-binding.error.a-view-in-an-extension-body-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An extension body declares members, and `view` begins none.
 
 ```maxon
@@ -651,7 +649,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	view k = 1 as Count
 end 'Box'

@@ -58,7 +58,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = trunc((10 + (2 * 3)) / (4 - 2))
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

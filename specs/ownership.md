@@ -1512,9 +1512,6 @@ end 'main'
 ```
 
 <!-- test: a-destructuring-binder-takes-a-parameters-name -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐ **A BINDER LIST TAKES THE NAME EXACTLY AS `let p = …` DOES, AND ITS KEYWORD STANDS IN FRONT OF THE `(`
 RATHER THAN IN FRONT OF EACH NAME.** That predecessor is the whole difference between the destructure
 below and a CALL, whose arguments bind nothing — so the rule is read off the paren and never off the names
@@ -1523,9 +1520,7 @@ caller drops `"the argument"` itself.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: tuple return types are not supported in minimaxon
 function pairOf() returns (String, String)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("first", "second")
 end 'pairOf'
 
@@ -1534,15 +1529,14 @@ type Wrap
 	export var n as Tally
 
 	static function make(p String) returns Wrap
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (p, q) = pairOf()
-		return Wrap{v: p, n: q.count() as Tally}
+		return Wrap{v: p, n: try q.count() as Tally otherwise panic("out of range")}
 	end 'make'
 end 'Wrap'
 
 function main() returns ExitCode
 	let w = Wrap.make("the argument")
-	return ((w.v.count() as Tally) + w.n) as ExitCode
+	return try ((w.v.count() as Tally) + w.n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

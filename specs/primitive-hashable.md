@@ -203,10 +203,8 @@ end 'main'
 ```
 
 <!-- test: float.hash.nonzero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.14
 	let h = f.hash()
 	if h != 0 'check'
@@ -220,12 +218,9 @@ end 'main'
 ```
 
 <!-- test: float.hash.zero-normalization -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let pos = 0.0
-	// TODO: float literals are not supported in minimaxon
 	let neg = -0.0
 	let h1 = pos.hash()
 	let h2 = neg.hash()
@@ -270,12 +265,9 @@ end 'main'
 ```
 
 <!-- test: float.equals -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 3.14
-	// TODO: float literals are not supported in minimaxon
 	let b = 3.14
 	if a.equals(b) 'eq'
 		return 1
@@ -288,7 +280,6 @@ end 'main'
 ```
 
 <!-- test: float.hash.chained -->
-<!-- skip: float literals are not supported in minimaxon -->
 `float.hash()` returns a `HashValue` exactly as `int.hash()` does, so a hash of a hash is an ordinary
 chained dispatch that leaves the float domain after the first hop: the second `.hash()` dispatches
 `int.hash`, whose low-32 mask is the identity on a value already inside `HashValue`'s range. The pinned
@@ -296,7 +287,6 @@ number is `3.14`'s IEEE-754 pattern `0x40091EB851EB851F` folded: the low half `0
 half `0x40091EB8` is `0x11E29BA7`, i.e. `300063655`.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.14
 	let once = f.hash()
 	let twice = f.hash().hash()
@@ -314,7 +304,6 @@ end 'main'
 ```
 
 <!-- test: float.hash.high-half-contributes -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **THE HIGH HALF OF THE BIT PATTERN REACHES THE HASH.** `2.5` is `0x4004000000000000` and `5.0` is
 `0x4014000000000000`: both low halves are ZERO, so a hash that kept only the low 32 bits answers `0` for
 both — and for every float whose mantissa fits in its top 20 bits, which is every small integer-valued
@@ -322,9 +311,7 @@ or half-integer float a program is likely to key a map with. Folded, each hash i
 `0x40040000` = `1074003968` and `0x40140000` = `1075052544`.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let small = 2.5
-	// TODO: float literals are not supported in minimaxon
 	let large = 5.0
 	if small.hash() == 0 'lowHalfOnly'
 		return 1
@@ -346,15 +333,12 @@ end 'main'
 ```
 
 <!-- test: float.hash.equal-values-equal-hashes -->
-<!-- skip: float literals are not supported in minimaxon -->
 The `Hashable` contract: two values that `equals` must hash alike. `3.0 / 2.0` is computed at run time
 by a `divsd` and `1.5` is loaded from `.rdata`, so the two hashes are reached by different routes and
 agree only because the bit patterns do.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let b = 3.0 / 2.0
 	if a.hash() != b.hash() 'differ'
 		return 1
@@ -367,7 +351,6 @@ end 'main'
 ```
 
 <!-- test: float.hash.negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **A NEGATIVE FLOAT DOES NOT HASH TO ITS POSITIVE TWIN'S VALUE.** IEEE-754's sign is bit 63, in the
 high half, and the fold brings the high half down onto the low one: `-3.14` is `0xC0091EB851EB851F`,
 whose high half `0xC0091EB8` xor its low half `0x51EB851F` is `0x91E29BA7`, i.e. `2447547303` — `3.14`'s
@@ -375,9 +358,7 @@ whose high half `0xC0091EB8` xor its low half `0x51EB851F` is `0x91E29BA7`, i.e.
 with zeros does not move the answer, because the final mask discards that word.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let pos = 3.14
-	// TODO: float literals are not supported in minimaxon
 	let neg = -3.14
 	if neg.hash() == pos.hash() 'signLost'
 		return 1
@@ -393,7 +374,6 @@ end 'main'
 ```
 
 <!-- test: float.hash.nan -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **NaN IS DELIBERATELY NOT NORMALIZED — only `-0.0` is — and the reason is that `float.equals` is
 plain IEEE.** `NaN.equals(NaN)` is FALSE, so no two `equals`-equal values can differ in hash however a
 NaN hashes, and the `Hashable` contract is untouched. `stdlib/PrimitiveExtensions.maxon` folds the bits
@@ -408,7 +388,6 @@ the quiet bit, reaching the hash from the high half. NaN is built by overflow ra
 `primitive-comparable`'s reason: a literal zero divisor is a compile error.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let inf = 1.0e308 * 10.0
 	let nan = inf - inf
 	let h = nan.hash()
@@ -426,7 +405,6 @@ end 'main'
 ```
 
 <!-- test: error.float-type-argument-still-refused -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ⚠ **MAKING `float` CONFORM TO `Hashable` DOES NOT OPEN THE GENERIC DOOR, AND THIS CASE IS WHAT KEEPS
 THE TWO APART.** `float.hash` ships as a DIRECT dispatch on a concrete value, and a float element of an
@@ -448,7 +426,6 @@ end 'Box'
 typealias FloatBox = Box with float
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = FloatBox.create(1.5)
 	return 0
 end 'main'

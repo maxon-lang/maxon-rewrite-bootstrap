@@ -80,7 +80,7 @@ end 'main'
 
 <!-- test: one-shared-body-answers-each-instances-own-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ONE compiled body, two sizes. `capacity()` is written once over `type FixedArray uses Element`,
 whose `Self` states no count; each call site fills in the count of the instance it holds.
@@ -93,7 +93,7 @@ typealias Vec3 = FixedArray with 3 Int
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -113,7 +113,7 @@ end 'main'
 
 <!-- test: the-containers-own-name-means-the-same-as-Self -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `FixedArray` written inside `FixedArray`'s own body denotes exactly what `Self` denotes there, so it
 is the same operand and reads the same slot. The token pre-scan that reserves that slot
@@ -125,7 +125,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function byName() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -144,7 +144,7 @@ end 'main'
 
 <!-- test: a-static-reads-the-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `counted()` is a `static function` — no receiver, no `self`,
 no `__self` in scope — and it reads its own instance's count once per element. Called through
@@ -173,7 +173,7 @@ typealias Vec3 = FixedArray with 3 Int
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function counted(mutates trips Int) returns Self
 		var i = 0 as Count
@@ -213,7 +213,7 @@ end 'main'
 
 <!-- test: a-static-that-returns-another-type-reads-the-count-of-the-instance-its-call-names -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `static function` that returns an `Int` builds no instance, so the count comes from the instance the CALL names: `Vec3.slotsOf()` states 3 and `Vec5.slotsOf()` states 5, through one compiled body. An instance method reaching the same static through `Self` forwards the count it was handed, and a static with a parameter of its own reads it the same way.
 ```maxon
@@ -225,7 +225,7 @@ typealias Vec3 = FixedArray with 3 Int
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function slotsOf() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -256,7 +256,7 @@ end 'main'
 
 <!-- test: statics-that-read-the-count-each-take-the-call-sites-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Two statics read `countof`, one with a parameter and one without. Each call hands the count the static it names reads.
 ```maxon
@@ -265,7 +265,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function slotsOf(extra Int) returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -302,7 +302,7 @@ end 'main'
 
 <!-- test: instance-methods-that-read-the-count-each-take-the-receivers-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Two instance methods read `countof` of the sized receiver, in both widths.
 ```maxon
@@ -314,7 +314,7 @@ typealias Vec3 = FixedArray with 3 Int
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function slotsBase() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -342,7 +342,7 @@ end 'main'
 
 <!-- test: error.a-static-reading-the-count-through-a-bare-container-name-is-refused -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The count of a static that returns another type comes from the instance its call names. `FixedArray.slotsOf()` names no sized instance, and `main` carries no count to forward, so the call is refused with a position rather than handed a count nobody holds.
@@ -352,7 +352,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function slotsOf() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -371,7 +371,7 @@ error E2015: <fragment>:13:21: Unsupported: calling 'slotsOf' (which reads `coun
 ```
 
 <!-- test: sizeof-of-a-type-parameter-in-a-static-reads-the-call-sites-descriptor -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof` of the type parameter in a `static function` is read from the layout descriptor the call site hands the static, the way `countof` reads the count it is handed. `elementBytes` returns `Self`, so the instance it builds supplies both.
@@ -381,7 +381,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function elementBytes() returns Self
 		// TODO: sizeof(...) is not supported in minimaxon
@@ -410,7 +410,7 @@ end 'main'
 
 <!-- test: a-sized-field-of-another-generic-answers-its-own-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ⭐⭐ **THE CASE THAT DECIDES WHERE THE COUNT TRAVELS.** `Holder`'s field is a
 `FixedArray with 4 Element` — a sized instance written over the ENCLOSING generic's own type
@@ -428,7 +428,7 @@ typealias Int = int(i64.min to i64.max)
 
 typealias IntHolder = Holder with Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -533,7 +533,7 @@ error E2015: <fragment>:13:10: Unsupported: countof of a type that states no ele
 
 <!-- test: error.an-extension-alias-stating-no-count-is-a-runtime-sized-fixed-array -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `FixedArray with Element` states no count, so inside an extension it is the runtime-sized fixed
@@ -545,7 +545,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	typealias Me = FixedArray with Element
 	function viaAlias() returns Int
@@ -565,7 +565,7 @@ error E2015: <fragment>:9:10: Unsupported: countof of a runtime-sized fixed arra
 
 <!-- test: error.a-default-argument-reading-countof-Self-is-refused -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A POSITIONED REFUSAL WHERE THE MECHANISM WOULD OTHERWISE ABORT.** The hidden count slot
@@ -579,7 +579,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	// TODO: default parameter values are not supported in minimaxon
 	function padded(extra Count = countof(Self)) returns Int
@@ -633,7 +633,7 @@ error E2015: <fragment>:13:10: Unsupported: countof of a type that states no ele
 
 <!-- test: the-count-reaches-a-Self-typed-parameter -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The count travels the same edge `sizeof`'s descriptor does — see
 [sizeof](sizeof.md)'s `through-a-Self-typed-parameter`. `other Self` binds to the very instance
@@ -650,7 +650,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -673,7 +673,7 @@ end 'main'
 
 <!-- test: countof-inside-a-closure-reads-the-methods-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A closure carries the fixed-element count of the function it is written in, so `countof(Self)` in a
 closure inside a sized container's method reads that method's count.
@@ -683,7 +683,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -707,7 +707,7 @@ end 'main'
 
 <!-- test: the-count-reaches-a-chained-call -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ⭐ **AN UNNAMED RECEIVER.** `self.dup()` hands back a value of the enclosing type with no
 binding to hold it, so neither of the fixpoint's precise self-call columns can see the
@@ -727,7 +727,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function dup() returns Self
 		return Self{}
@@ -753,7 +753,7 @@ end 'main'
 
 <!-- test: a-local-bound-to-a-Self-returning-call-reaches-the-count -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ⭐⭐ **THE SEED REACHES THIS CALLER THROUGH THE CALLEE'S BODY, NOT THROUGH A TOKEN SHAPE.** The
 pre-scan cannot see that `dup()` returns `Self` — `selfTypedLocalBoundAt` admits `= Self{…}` and
@@ -772,7 +772,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -798,7 +798,7 @@ end 'main'
 
 <!-- test: error.an-alias-of-a-Self-typed-parameter-is-refused -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same gap one alias further out. `other Self` IS a shape the pre-scan reads
@@ -811,7 +811,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -835,7 +835,7 @@ error E2015: <fragment>:12:15: Unsupported: calling 'capacity' (which reads `cou
 
 <!-- test: a-count-reading-call-from-inside-a-closure-is-served -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A call inside a closure to a method that reads `countof(Self)` forwards the count the closure carries
 from the method it is written in.
@@ -845,7 +845,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function capacity() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -1215,7 +1215,7 @@ error E2015: <fragment>:6:9: Unsupported: countof of a runtime-sized fixed array
 
 <!-- test: error.a-countof-static-through-a-runtime-sized-alias -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- positions: moved -->
 A static that reads `countof(Self)` takes the count from the instance its call names, and a runtime-sized alias names none: there is no record to read the length from, so the call is refused at its position.
 ```maxon
@@ -1223,7 +1223,7 @@ typealias Int = int(i64.min to i64.max)
 
 typealias Buf = FixedArray with Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function slotsOf() returns Int
 		// TODO: countof(...) is not supported in minimaxon
@@ -1261,7 +1261,7 @@ error E2015: <fragment>:5:9: Unsupported: countof of a runtime-sized fixed array
 ```
 
 <!-- test: error.a-static-returning-Self-through-a-runtime-sized-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- positions: moved -->
 A static that builds its own `Self` publishes the count of the instance its call names, and a runtime-sized alias names none: there is no length to build the record at, so the call is refused at its position.
 ```maxon
@@ -1269,7 +1269,7 @@ typealias Int = int(i64.min to i64.max)
 
 typealias Buf = FixedArray with Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function blank() returns Self
 		return Self{}

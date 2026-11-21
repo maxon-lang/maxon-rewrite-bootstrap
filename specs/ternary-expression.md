@@ -227,12 +227,10 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.with-floats -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 1.5 if true else 2.5
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -240,7 +238,6 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.mixed-int-float-promotes -->
-<!-- skip: float literals are not supported in minimaxon -->
 The two branches cross register classes — a `float` `1.0` and an `int` `2` — so the integer branch
 is promoted to float (`cvtsi2sd`) and the result is uniformly float. `trunc` reads the
 float result back to an int for the exit code. With the condition
@@ -248,9 +245,8 @@ true the float branch is selected, so `trunc(1.0)` is 1.
 ```maxon
 function main() returns ExitCode
 	let c = true
-	// TODO: float literals are not supported in minimaxon
 	let x = 1.0 if c else 2
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -404,7 +400,7 @@ key1
 ```
 
 <!-- test: ternary-expression.in-extension-method-before-sibling -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 
 Regression: a postfix ternary on a `let` binding inside an extension method
 must not confuse the parser's extension-block scanner. The scanner walks
@@ -421,12 +417,13 @@ interface Bounded
 	function hi() returns Small
 end 'Bounded'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Bounded
 	function pickSmaller() returns Small
 		let smaller = self.lo() if self.lo() < self.hi() else self.hi()
 		return smaller
 	end 'pickSmaller'
+
 	function describe() returns Small
 		return self.hi() - self.lo()
 	end 'describe'

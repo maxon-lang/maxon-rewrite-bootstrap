@@ -268,16 +268,13 @@ error E3011: <fragment>:3:25: Unknown type 'NoSuchTypeAtAll'
 ```
 
 <!-- test: tuple-element-unknown-type -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- positions: moved -->
 A tuple type's element is a declaration type position too, so an unknown element type is reported at
 its name inside the tuple.
 ```maxon
 
 typealias Small = int(0 to 100)
 
-// TODO: tuple parameter types are not supported in minimaxon
-function take(p(NoSuchElementType, Small)) returns ExitCode
+function take(p (NoSuchElementType, Small)) returns ExitCode
 	_ = p
 	return 0
 end 'take'
@@ -291,16 +288,13 @@ error E3011: <fragment>:5:18: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: tuple-element-unknown-type-at-each-declaration -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- positions: moved -->
 The same tuple type written in two declarations is reported at each one: a declaration's element
 position belongs to that declaration, not to the first that spelled the tuple.
 ```maxon
 
 typealias Small = int(0 to 100)
 
-// TODO: tuple parameter types are not supported in minimaxon
-function take(p(NoSuchElementType, Small), q(NoSuchElementType, Small)) returns ExitCode
+function take(p (NoSuchElementType, Small), q (NoSuchElementType, Small)) returns ExitCode
 	_ = p
 	_ = q
 	return 0
@@ -316,14 +310,12 @@ error E3011: <fragment>:5:48: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: tuple-alias-element-unknown-type -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple typealias is the declaration that writes the tuple, so its unknown element is reported inside the alias and not at a use of it.
 ```maxon
 
 typealias Small = int(0 to 100)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias P = (NoSuchElementType, Small)
 
 function take(p P) returns ExitCode
@@ -340,15 +332,12 @@ error E3011: <fragment>:4:16: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: nested-tuple-element-unknown-type -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- positions: moved -->
 A tuple inside a tuple reports its own unknown element; the outer element, the inner tuple, resolves.
 ```maxon
 
 typealias Small = int(0 to 100)
 
-// TODO: tuple parameter types are not supported in minimaxon
-function take(p((NoSuchElementType, Small), Small)) returns ExitCode
+function take(p ((NoSuchElementType, Small), Small)) returns ExitCode
 	_ = p
 	return 0
 end 'take'
@@ -362,21 +351,16 @@ error E3011: <fragment>:5:19: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: tuple-element-unknown-type-in-a-field-and-a-parameter -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 The same tuple spelled by a field and by a parameter is reported at each spelling.
 ```maxon
 
 typealias Small = int(0 to 100)
 
 type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	export let pair as (NoSuchElementType, Small)
 end 'Holder'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function take(p(NoSuchElementType, Small)) returns ExitCode
+function take(p (NoSuchElementType, Small)) returns ExitCode
 	_ = p
 	return 0
 end 'take'

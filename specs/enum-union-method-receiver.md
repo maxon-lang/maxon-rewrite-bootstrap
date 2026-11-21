@@ -434,8 +434,6 @@ error E2015: <fragment>:5:2: Unsupported: a `static function` on `enum Color` (a
 ```
 
 <!-- test: two-methods-and-the-second-ones-return-type -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 union Outcome
 	pass
@@ -449,7 +447,6 @@ union Outcome
 	end 'isPass'
 
 	function weight() returns Real
-		// TODO: float literals are not supported in minimaxon
 		return 2.5
 	end 'weight'
 end 'Outcome'
@@ -459,14 +456,12 @@ function main() returns ExitCode
 	if o.isPass() 'y'
 		return 1
 	end 'y'
-	// TODO: float literals are not supported in minimaxon
 	if o.weight() > 2.0 'w'
 		return 7
 	end 'w'
 	return 2
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode

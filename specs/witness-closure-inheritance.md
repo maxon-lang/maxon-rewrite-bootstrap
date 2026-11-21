@@ -91,7 +91,7 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.closure-witness-in-type-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 The constraint written on a TYPE EXTENSION rather than on the declaration — `stdlib/Array.maxon`'s
 `extension Array where Element is Comparable` shape exactly. The extension body's methods reserve the
 witness parameters, so the closure inherits from the extension's clause.
@@ -122,7 +122,7 @@ type Box uses T
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Box where T implements Digest
 	function itemDigest() returns Code
 		let f = function(v T) gives v.digest()
@@ -146,7 +146,7 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.closure-witness-in-interface-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 An INTERFACE extension's body, which the compiler parses once per conformer with the CONFORMER's own `uses`
 parameters and `where` clause installed (`Parser.openExtensionBodyScope`). A closure there inherits the
 conformer's witness exactly as one in the type's own body does. `93` from the dispatch plus `1` from the
@@ -186,7 +186,7 @@ type Box uses T implements Peek where T implements Digest
 	end 'base'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Peek
 	function viaClosure() returns Code
 		let f = function(v T) gives v.digest()

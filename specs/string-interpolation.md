@@ -234,10 +234,8 @@ Value: -10
 ### Float Interpolation
 
 <!-- test: float-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let pi = 3.14159
 	print("Pi: {pi}\n")
 	return 0
@@ -253,7 +251,6 @@ Pi: 3.14159
 ### Float Literal Interpolation
 
 <!-- test: float-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '5' -->
 ```maxon
 function main() returns ExitCode
 	print("Value: {2.5}\n")
@@ -270,10 +267,8 @@ Value: 2.5
 ### Negative Float
 
 <!-- test: negative-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let temp = -3.5
 	print("Temp: {temp}\n")
 	return 0
@@ -292,10 +287,8 @@ Temp: -3.5
 significant digits gets all 17: `0.1 + 0.2` is not `0.3`, and printing it as `0.3` would say it was.
 
 <!-- test: float-signed-zero-and-significance -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let negativeZero = -0.0
 	print("{negativeZero}\n")
 	print("{0.0}\n")
@@ -624,10 +617,8 @@ x and y: false
 ### Float Arithmetic
 
 <!-- test: float-arithmetic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = 2.0
 	print("Area: {3.14159 * r * r}\n")
 	return 0
@@ -679,11 +670,9 @@ Max int: 2147483647
 ### Zero Values
 
 <!-- test: zero-values -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let i = 0
-	// TODO: float literals are not supported in minimaxon
 	let f = 0.0
 	print("Int: {i}, Float: {f}\n")
 	return 0
@@ -981,15 +970,12 @@ DECODE it rather than hand the integer renderer an encoding. Read as an integer 
 `4612811918334230528` — the bits of 2.5 read as a decimal integer — instead of `2.5`.
 
 <!-- test: float-enum-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weight
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 2.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -1014,18 +1000,14 @@ The spellings where reading the encoding is most obviously wrong. Read as an int
 cannot tell them apart.
 
 <!-- test: float-enum-interpolation-extremes -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Scale
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	huge = 1.0e300
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	down = -2.2
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	zero = 0.0
 end 'Scale'
 
@@ -1048,7 +1030,6 @@ interpolation. A fix that routed every enum to the float renderer would print `2
 compiler that never decodes would print the bits of 2.5 — so neither reading passes this case.
 
 <!-- test: int-and-float-enum-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Code
@@ -1058,7 +1039,6 @@ end 'Code'
 
 enum Weight
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 2.5
 end 'Weight'
 
@@ -1081,16 +1061,13 @@ renderer as the file that declares it — the whole-program enum registry is wha
 local to the declaring parse survives to answer here.
 
 <!-- test: cross-file-float-enum-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 // --- file: weights.maxon
 enum Weight
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 2.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 4.0
 end 'Weight'
 
@@ -1754,17 +1731,14 @@ end 'main'
 ### Float Format Specifier - Precision
 
 <!-- test: float-format-precision -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.14159
 	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:.2}\n")
 	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:.4}\n")
-	// TODO: float literals are not supported in minimaxon
 	let g = 2.0
 	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{g:.3}\n")
@@ -1783,11 +1757,9 @@ end 'main'
 ### Float Format Specifier - Width and Precision
 
 <!-- test: float-format-width-precision -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.14
 	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("[{f:8.2}]\n")
@@ -2065,13 +2037,10 @@ end 'main'
 receives any other.
 
 <!-- test: quote-format-leaves-a-float-as-plain-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let neg = -0.25
 	// TODO: string interpolation format specifiers are not supported in minimaxon
 	print("{f:q} {neg:q}\n")
@@ -2380,8 +2349,6 @@ twice 77
 ```
 
 <!-- test: float-ranged-alias-positions -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A float that reaches `"{x}"` through a ranged ALIAS — as a parameter, as a field, as a return —
 interpolates as a float.
 
@@ -2391,7 +2358,6 @@ its IEEE bit pattern in decimal. Nothing reaches that arm, because a ranged floa
 to a `float` tag before the lowering sees it. This pins the three positions where an alias survives
 longest, so the day one of them stops resolving it is a failing case rather than a wrong number.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Percent = float(0.0 to 100.0)
 
 type Reading
@@ -2412,7 +2378,6 @@ function show(p Percent)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = Reading.create(12.5)
 	show(r.pct)
 	print("field={r.pct}")

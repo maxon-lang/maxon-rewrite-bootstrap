@@ -90,25 +90,19 @@ Stack trace:
 ```
 
 <!-- test: narrow-ranged-float-byref-param-guards-the-pointee -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A ranged FLOAT parameter takes the same door and the same dereference, in f64 — the domain is
 decided where the bounds are read, never where the site is recorded.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 10.0)
 
 function scale(mutates r Ratio) returns Ratio
-	// TODO: float literals are not supported in minimaxon
-	r = r * 2.0
+	r = try (r * 2.0) as Ratio otherwise panic("out of range")
 	return r
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	var v = 3.0 as Ratio
+	var v = try 3.0 as Ratio otherwise panic("out of range")
 	let doubled = scale(v)
-	// TODO: float literals are not supported in minimaxon
 	if doubled == 6.0 'exact'
 		return 6
 	end 'exact'

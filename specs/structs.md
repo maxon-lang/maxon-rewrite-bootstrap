@@ -329,12 +329,9 @@ end 'main'
 ```
 
 <!-- test: struct-field-inferred-type -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 type Settings
 	export let maxRetries = 5 as Retries
-	// TODO: float literals are not supported in minimaxon
 	export var timeout = 50.0 as Seconds
 
 	static function create() returns Self
@@ -344,12 +341,11 @@ end 'Settings'
 
 function main() returns ExitCode
 	let s = Settings.create()
-	return s.maxRetries + trunc(s.timeout) as Retries
+	return try s.maxRetries + trunc(s.timeout) as Retries otherwise panic("out of range")
 end 'main'
 
 typealias Retries = int(0 to u64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Seconds = float(f64.min to f64.max)
 ```
 ```exitcode

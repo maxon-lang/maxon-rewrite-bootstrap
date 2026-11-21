@@ -37,7 +37,6 @@ let z = Math.sin(halfPi)  // 1.0 (approximately)
 ## Tests
 
 <!-- test: sin.basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⚖ **USER RULING: The compiler prints the SHORTEST ROUND-TRIP representation** — the fewest digits that
 uniquely identify the double, as Python 3, JavaScript, Rust, Go, Swift, Java and .NET Core all do. A fixed
 six-decimal format is the alternative it rules out, and the third line here shows why: a formatter that
@@ -49,13 +48,9 @@ each is verified to parse back to the identical bit pattern, and dropping any la
 round-trip.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x1 = Math.sin(0.0)
-	// TODO: float literals are not supported in minimaxon
 	let x2 = Math.sin(0.5)
-	// TODO: float literals are not supported in minimaxon
 	let x3 = Math.sin(1.0)
-	// TODO: float literals are not supported in minimaxon
 	let x4 = Math.sin(1.5708)
 	print("{x1}\n")
 	print("{x2}\n")
@@ -75,12 +70,9 @@ end 'main'
 ```
 
 <!-- test: sin.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.sin(0.0)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'
@@ -92,12 +84,10 @@ end 'main'
 ```
 
 <!-- test: sin.with-int-promotion -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 0 // int
 	let result = Math.sin(x) // x promoted to 0.0
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'

@@ -34,12 +34,10 @@ let z = min(-1.0, 1.0)   // -1.0
 ## Tests
 
 <!-- test: min.basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(3.0, 5.0)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -47,12 +45,10 @@ end 'main'
 ```
 
 <!-- test: min.second-smaller -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(10.0, 2.0)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -60,10 +56,8 @@ end 'main'
 ```
 
 <!-- test: min.negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(-5.0, 3.0)
 	print("{trunc(x)}\n")
 	return 0
@@ -74,10 +68,8 @@ end 'main'
 ```
 
 <!-- test: min.both-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(-2.0, -8.0)
 	print("{trunc(x)}\n")
 	return 0
@@ -88,12 +80,10 @@ end 'main'
 ```
 
 <!-- test: min.equal-values -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(7.0, 7.0)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -101,13 +91,11 @@ end 'main'
 ```
 
 <!-- test: min.fractional -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(3.5, 5.2)
 	// min of 3.5 and 5.2 is 3.5, trunc gives 3
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -115,12 +103,9 @@ end 'main'
 ```
 
 <!-- test: min.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(0.0, 5.0)
-	// TODO: float literals are not supported in minimaxon
 	if x == 0.0 'check'
 		return 0
 	end 'check'
@@ -132,14 +117,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 3.0 5.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b))
 end 'main'
@@ -149,14 +131,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-second-smaller -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 10.0 2.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b))
 end 'main'
@@ -166,14 +145,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -5.0 3.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b)) + 10
 end 'main'
@@ -183,14 +159,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-both-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -2.0 -8.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b)) + 10
 end 'main'
@@ -200,14 +173,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-equal -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 7.0 7.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b))
 end 'main'
@@ -217,14 +187,11 @@ end 'main'
 ```
 
 <!-- test: min.rt-fractional -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 3.5 5.2 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	return trunc(min(a, b))
 end 'main'
@@ -234,17 +201,13 @@ end 'main'
 ```
 
 <!-- test: min.rt-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 0.0 5.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
 	let result = min(a, b)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'
@@ -256,8 +219,6 @@ end 'main'
 ```
 
 <!-- test: min.error-second-arg-named -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A builtin's arguments are ALL positional, so the ordinary rule that every argument
 after the first must carry a `name:` label does not apply here — E2053 is not raised
 for `min(3.0, 5.0)`, which is the spelling this whole file uses. Labelling that second
@@ -274,7 +235,6 @@ thing entirely — the defect is the label, not a missing binding — which is w
 registers its own code.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(3.0, b: 5.0)
 	return trunc(x)
 end 'main'
@@ -284,8 +244,6 @@ error E2067: <fragment>:3:19: a builtin's arguments are all positional and canno
 ```
 
 <!-- test: min.error-first-arg-named -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The SAME code at the first argument, and that is the point of having a code of its
 own rather than reusing E2052. E2052's sentence is *"the first argument cannot be
 named because its parameter has no default"* — true of a declared callee, and false
@@ -293,7 +251,6 @@ here in a way that misleads: it suggests a default would make the label legal. A
 takes no label at ANY position, and one sentence says so at every position.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = min(a: 3.0, 5.0)
 	return trunc(x)
 end 'main'

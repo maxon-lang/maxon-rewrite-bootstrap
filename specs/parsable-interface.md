@@ -368,12 +368,9 @@ end 'main'
 ```
 
 <!-- test: parsable.float-fromstring -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = try float.fromString("3.14") otherwise 0.0
-	// TODO: float literals are not supported in minimaxon
 	let check = f * 100.0
 	print("{trunc(check)}\n")
 	return 0
@@ -387,10 +384,8 @@ end 'main'
 ```
 
 <!-- test: parsable.float-fromstring-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = try float.fromString("-2.5") otherwise 0.0
 	return trunc(f) + 10
 end 'main'
@@ -404,7 +399,6 @@ end 'main'
 from. These two cases pin that, and each fails against a naive `intPart + Σ digit/10^k` reader.
 
 <!-- test: parsable.float-fromstring-round-trips-interpolation -->
-<!-- skip: float literals are not supported in minimaxon -->
 Print a float, parse the text back, print it again. The shortest-round-trip printer emits the
 shortest decimal that reads back as the SAME double — a claim only an exact reader can honour, so
 the two lines being identical and `a == b` being true is the whole convergence in one program.
@@ -418,10 +412,8 @@ exact reader either way, so `a` is fixed and `b` alone moves, which is what make
 the READER rather than of the printer.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.7976931348623157
 	let text = "{a}"
-	// TODO: float literals are not supported in minimaxon
 	let b = try float.fromString(text) otherwise 0.0
 	print("{text}\n")
 	print("{b}\n")
@@ -440,7 +432,6 @@ end 'main'
 ```
 
 <!-- test: parsable.float-fromstring-past-the-i64-integer-part -->
-<!-- skip: float literals are not supported in minimaxon -->
 An integer part wider than an i64. The replaced reader accumulated it in an `int` and WRAPPED —
 `18446744073709551617` is 2^64 + 1, so its naive `intPart` came back as 1 and the answer was `1.0`.
 The exact reader builds the magnitude in limbs and rounds it to the nearest double, 2^64.
@@ -451,7 +442,6 @@ back as it (17 significant digits here) — so this line also pins that the two 
 double is meant rather than about which digits spell it.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = try float.fromString("18446744073709551617.0") otherwise 0.0
 	print("{f}\n")
 	return 0

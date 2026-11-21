@@ -144,17 +144,13 @@ end 'main'
 ```
 
 <!-- test: byte-to-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 typealias Byte = int(0 to u8.max)
 
 function toFloat(b Byte) returns Float
-	// TODO: float literals are not supported in minimaxon
 	return b + 0.0
 end 'toFloat'
 
@@ -165,7 +161,7 @@ end 'seed'
 function main() returns ExitCode
 	let b = seed()
 	let f = toFloat(b)
-	return trunc(f)
+	return try trunc(f) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -173,16 +169,14 @@ end 'main'
 ```
 
 <!-- test: int-to-float -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function main() returns ExitCode
 	let x = 42
 	let f = x as Float
-	return trunc(f)
+	return try trunc(f) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -190,15 +184,13 @@ end 'main'
 ```
 
 <!-- test: int-literal-to-float -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function main() returns ExitCode
 	let f = 99 as Float
-	return trunc(f)
+	return try trunc(f) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -221,17 +213,13 @@ end 'main'
 ```
 
 <!-- test: chained-byte-int-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 typealias Byte = int(0 to u8.max)
 
 function toFloat(b Byte) returns Float
-	// TODO: float literals are not supported in minimaxon
 	return b + 0.0
 end 'toFloat'
 
@@ -242,7 +230,7 @@ end 'seed'
 function main() returns ExitCode
 	let b = seed()
 	let f = toFloat(b)
-	return trunc(f)
+	return try trunc(f) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -280,14 +268,11 @@ error E3005: specs/type-casting/error.negative-literal-to-byte.maxon:6:13: Value
 ```
 
 <!-- test: error.float-to-int -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0 as Integer
 	return 0
 end 'main'
@@ -312,11 +297,8 @@ error E3009: specs/type-casting/error.bool-to-int.maxon:7:12: Cannot cast from b
 ```
 
 <!-- test: error.bool-to-float -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function main() returns ExitCode
@@ -356,11 +338,8 @@ error E3009: specs/type-casting/error.int-to-bool.maxon:3:12: Cannot cast from i
 ```
 
 <!-- test: error.float-to-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 0.0 as bool
 	return 0
 end 'main'
@@ -418,12 +397,8 @@ error E3010: specs/type-casting/error.unneeded.same-type-int.maxon:11:12: unneed
 ```
 
 <!-- test: error.unneeded.same-type-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function identity(x Float) returns Float
@@ -431,7 +406,6 @@ function identity(x Float) returns Float
 end 'identity'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = identity(42.0)
 	let g = f as Float
 	return trunc(g)
@@ -619,20 +593,14 @@ error E3010: <fragment>:12:18: unneeded cast: the literal 9 already fits in 'Sco
 ```
 
 <!-- test: error.unneeded.literal-float-argument -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 function half(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x / 2.0
 end 'half'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if half(2.5 as Real) == 1.25 'halved'
 		return 0
 	end 'halved'
@@ -644,21 +612,15 @@ error E3010: <fragment>:9:14: unneeded cast: the literal 2.5 already fits in 'Re
 ```
 
 <!-- test: error.unneeded.integer-literal-to-float-argument -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 An integer literal meets a float parameter without a cast, so the cast converts nothing here either.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 function half(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x / 2.0
 end 'half'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if half(5 as Real) == 2.5 'halved'
 		return 0
 	end 'halved'
@@ -670,7 +632,7 @@ error E3010: <fragment>:9:12: unneeded cast: the literal 5 already fits in 'Real
 ```
 
 <!-- test: error.unneeded.literal-cast-to-nested-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 The destination's type may be an alias declared inside an extension body.
 ```maxon
@@ -678,7 +640,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntegerArray = Array with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias Level = int(0 to 64)
 	function topLevel() returns Level
@@ -696,23 +657,17 @@ error E3010: <fragment>:9:13: unneeded cast: the literal 64 already fits in 'Lev
 ```
 
 <!-- test: error.unneeded.literal-float-field-store -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 type Gauge
 	var level as Real
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{level: 0.0}
 	end 'create'
 
 	function fill()
-		// TODO: float literals are not supported in minimaxon
 		self.level = 2.5 as Real
 	end 'fill'
 
@@ -724,7 +679,6 @@ end 'Gauge'
 function main() returns ExitCode
 	var gauge = Gauge.create()
 	gauge.fill()
-	// TODO: float literals are not supported in minimaxon
 	if gauge.value() == 2.5 'filled'
 		return 0
 	end 'filled'
@@ -757,23 +711,16 @@ error E3010: <fragment>:12:29: unneeded cast: the literal 2 already fits in 'Nib
 ```
 
 <!-- test: error.unneeded.literal-let-every-use-takes-the-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 A literal cast in an untyped `let` converts nothing when the constant the `let` would otherwise be serves every use the same way.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 function half(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x / 2.0
 end 'half'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let level = 2.5 as Real
-	// TODO: float literals are not supported in minimaxon
 	if half(level) == 1.25 'halved'
 		return 0
 	end 'halved'
@@ -879,7 +826,7 @@ end 'main'
 ```
 
 <!-- test: distinct-nested-aliases-with-one-member-name-are-not-unneeded -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 Two inner aliases that share a member name are still two aliases, so a cast from one to the other is real work.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -898,7 +845,6 @@ type Meter
 	end 'raw'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Level = int(0 to 10)
 	function level() returns Level
@@ -906,7 +852,6 @@ extension Meter
 	end 'level'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias Level = int(0 to 64)
 	function levelOf(meter Meter) returns Level
@@ -924,7 +869,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-alias-and-a-file-scope-alias-of-one-name-are-not-unneeded -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 An alias declared inside an extension body is a different alias from a file-scope one that shares its member name.
 ```maxon
 typealias Level = int(0 to 64)
@@ -943,7 +888,6 @@ type Meter
 	end 'raw'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Level = int(0 to 10)
 	function level() returns Level
@@ -999,7 +943,7 @@ error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
 ```
 
 <!-- test: error.unneeded.same-nested-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
 ```maxon
@@ -1017,7 +961,6 @@ type Meter
 	end 'raw'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Idx = int(0 to 9)
 	function index() returns Idx
@@ -1093,12 +1036,8 @@ error E3010: specs/type-casting/error.unneeded.same-alias-int.maxon:11:12: unnee
 ```
 
 <!-- test: error.unneeded.same-alias-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function identity(x Float) returns Float
@@ -1106,7 +1045,6 @@ function identity(x Float) returns Float
 end 'identity'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = identity(42.0)
 	let g = f as Float
 	return trunc(g)
@@ -1198,13 +1136,11 @@ end 'main'
 ```
 
 <!-- test: widening-int-to-float-is-a-real-cast -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An `Integer` into a float alias is a conversion AND a change of type, and `as` is how both are spelled.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias JsonFloat = float(f64.min to f64.max)
 
 function identity(x Integer) returns Integer
@@ -1214,7 +1150,7 @@ end 'identity'
 function main() returns ExitCode
 	let i = identity(42)
 	let f = i as JsonFloat
-	return trunc(f)
+	return try trunc(f) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1482,14 +1418,12 @@ end 'main'
 ### An int alias and a float alias are two types, and the promotion does not cross them
 
 <!-- test: error.an-int-alias-does-not-reach-a-float-alias-parameter -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An `Integer` is not a `Ratio`. The int→float promotion is a conversion of the VALUE; it does not change
 which type the argument carries, so the argument door refuses it as it refuses any other alias mismatch.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(f64.min to f64.max)
 
 function identity(n Integer) returns Integer
@@ -1510,14 +1444,12 @@ error E3005: <fragment>:14:2: argument type mismatch for 'r': expected 'Ratio', 
 ```
 
 <!-- test: an-int-alias-reaches-a-float-alias-parameter-through-as -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The legal twin, both kinds of crossing: an `Integer` into a `Ratio` parameter, and a `Narrow` into an
 `Integer` one. The int→float cast converts the value AND re-declares its type; the int→int cast re-declares
 only, and neither is E3010.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(f64.min to f64.max)
 
 typealias Narrow = int(0 to u32.max)

@@ -197,15 +197,12 @@ error E3014: app/<fragment>:21:5: field 'Box.v' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 `Map` is declared in the standard library, so an `extension Map` in a program file is outside its directory:
 `self.keys` is `Map`'s unmarked field.
 
 ```maxon
 typealias Index = Map with (String, Count)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Map
 	function slots() returns Count
 		return self.keys.count()
@@ -223,14 +220,11 @@ error E3014: <fragment>:6:15: field 'Map.keys' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A write of an unmarked field breaks the type's invariants, so it is refused the same way.
 
 ```maxon
 typealias Index = Map with (String, Count)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Map
 	function corrupt()
 		self.capacity = 0
@@ -248,14 +242,11 @@ error E3014: <fragment>:6:8: field 'Map.capacity' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-by-its-bare-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 The bare spelling of the same read.
 
 ```maxon
 typealias Index = Map with (String, Count)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Map
 	function slots() returns Count
 		return keys.count()
@@ -273,7 +264,6 @@ error E3014: <fragment>:6:10: field 'Map.keys' is not exported
 ```
 
 <!-- test: an-extension-in-the-types-own-file-reaches-its-unmarked-field -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 An extension in the file that declares the type reaches its unmarked field, by `self.hidden` and by the bare
 `hidden`.
 
@@ -288,21 +278,21 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Counter
 	function peek() returns Integer
 		return self.hidden
 	end 'peek'
-	function bump()
-		self.hidden = self.hidden + 1
-		hidden = hidden + 1
+
+	function bump(mutates self)
+		self.hidden = try self.hidden + 1 otherwise panic("out of range")
+		hidden = try hidden + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(40)
+	var c = Counter.create(40)
 	c.bump()
-	return c.peek() as ExitCode
+	return try c.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -310,7 +300,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-in-a-sibling-file-reaches-an-unmarked-field-by-self-and-by-its-bare-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 An extension in another file of the type's directory reaches the unmarked field exactly as one in the type's own
 file does.
 
@@ -327,22 +316,22 @@ type Counter
 end 'Counter'
 
 // --- file: bump.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Counter
 	function peek() returns Integer
 		return self.hidden
 	end 'peek'
-	function bump()
-		self.hidden = self.hidden + 1
-		hidden = hidden + 1
+
+	function bump(mutates self)
+		self.hidden = try self.hidden + 1 otherwise panic("out of range")
+		hidden = try hidden + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let c = Counter.create(40)
+	var c = Counter.create(40)
 	c.bump()
-	return c.peek() as ExitCode
+	return try c.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

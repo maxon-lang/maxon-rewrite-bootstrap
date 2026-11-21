@@ -408,18 +408,14 @@ end 'main'
 ```
 
 <!-- test: float-backed -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Threshold
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	low = 0.1
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 0.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
@@ -679,24 +675,19 @@ end 'main'
 ```
 
 <!-- test: float-arithmetic -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Float-backed enum can be used in arithmetic with floats.
 ```maxon
 enum Weight
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 0.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 2.0
 end 'Weight'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let scale = 4.0
 	let result = Weight.light * scale
-	// TODO: float literals are not supported in minimaxon
 	if result == 2.0 'check'
 		return 1
 	end 'check'
@@ -708,21 +699,17 @@ end 'main'
 ```
 
 <!-- test: float-comparison -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 Float-backed enum can be compared with float values.
 ```maxon
 enum Threshold
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	low = 0.1
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	high = 0.9
 end 'Threshold'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let val = 0.5
 	if val > Threshold.low and val < Threshold.high 'inRange'
 		return 1
@@ -886,25 +873,20 @@ end 'main'
 ```
 
 <!-- test: float-backed-rawvalue -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 2.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
 function main() returns ExitCode
 	let w = Weights.medium
 	let rawVal = w.rawValue
-	// TODO: float literals are not supported in minimaxon
 	if rawVal > 2.0 'check'
 		return 1
 	end 'check'
@@ -1029,20 +1011,15 @@ Mars
 ```
 
 <!-- test: float-rawvalue-in-function -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 enum Weights
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 2.5
 end 'Weights'
 
@@ -1053,7 +1030,6 @@ end 'getRaw'
 function main() returns ExitCode
 	let w = Weights.medium
 	let raw = getRaw(w)
-	// TODO: float literals are not supported in minimaxon
 	if raw > 2.0 'check'
 		return 1
 	end 'check'
@@ -1272,18 +1248,14 @@ done
 ```
 
 <!-- test: name-float-backed -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 2.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
@@ -1401,23 +1373,18 @@ end 'main'
 ```
 
 <!-- test: fromRawValue-float-backed -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Weights
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	light = 1.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	medium = 2.5
 	// TODO: non-integer enum raw values are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	heavy = 3.5
 end 'Weights'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let w = try Weights.fromRawValue(2.5) otherwise Weights.light
 	if w == Weights.medium 'check'
 		return 1

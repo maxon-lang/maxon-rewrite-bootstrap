@@ -37,7 +37,6 @@ thread. The certificates are a P-256 root and a leaf for `localhost` and `127.0.
 
 <!-- test: http-tls.get-and-post-round-trip -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 An `HttpServer` bound with TLS options answers the real `HttpClient` over `https://`: a GET with a query, a POST with a body and a GET by IP address, each against a client that trusts the case's root. The URL's host is the name the certificate is verified for (`localhost` and `127.0.0.1` are in its SAN), the handler sees `https` in `request.url()` and `HttpConnectionSecurity.tls` from `exchange.security()` with TLS 1.3 and the ALPN protocol `http/1.1`, and the response carries `Connection: close`.
@@ -53,7 +52,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -206,7 +204,6 @@ ip: 200 connection=close [get https://127.0.0.1/ip?- body=0 tls13 alpn=http/1.1 
 
 <!-- test: http-tls.tls12-and-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 Client and server restricted to one TLS version each negotiate that version, and the handler reports it. A client that supports only TLS 1.2 against a server that supports only TLS 1.3, and the reverse, fail with the typed `HttpError.tlsFailed`, while the server keeps serving until it is closed.
@@ -222,7 +219,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -386,7 +382,6 @@ server 1.2, client 1.3: error tlsFailed(peerAlert(protocolVersion))
 
 <!-- test: http-tls.a-large-body-round-trips -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -404,7 +399,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -555,7 +549,6 @@ status=200 sent=2359296 received=2359296 identical=true
 
 <!-- test: http-tls.several-requests-are-served -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 Five requests in a row are each a connection and a handshake of their own, since the server and the client send `Connection: close` over TLS as over plain TCP: each answers `connection=close` and the server serves them all until it is closed.
@@ -571,7 +564,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -726,7 +718,6 @@ end 'main'
 
 <!-- test: http-tls.mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -743,7 +734,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -757,7 +747,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -920,7 +909,6 @@ requested
 
 <!-- test: http-tls.untrusted-misnamed-and-expired-certificates-are-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A client refuses a server certificate its roots do not lead to (`unknownAuthority`), one issued for another name (`hostnameMismatch`, from the options' server name, and from the URL's host when the certificate has only a DNS name) and one that has expired at the verification time (`expired`), each as `HttpError.tlsFailed(certificateRejected(reason))`. The server survives each refused handshake and serves the trusted client that follows.
@@ -936,7 +924,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1157,7 +1144,6 @@ named in the options: 200 connection=close [get https://127.0.0.1/?- body=0 tls1
 <!-- test: http-tls.a-plain-peer-on-a-tls-port-is-refused-cleanly -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1174,7 +1160,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1188,7 +1173,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1412,7 +1396,6 @@ then over http: 200 [get http://127.0.0.1/still?- body=0 plaintext]
 
 <!-- test: http-tls.a-redirect-to-https-is-returned-as-is -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpClient` does not follow redirects, so a plain server's `301` to the TLS server's URL is returned as the response, with its `Location`; fetching that location is a second request that gets the TLS server's answer.
@@ -1428,7 +1411,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1615,7 +1597,6 @@ the location, fetched: 200 connection=close [get https://localhost/moved?- body=
 <!-- test: http-tls.stalled-handshakes-are-bounded -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A server that accepts the connection and never answers the ClientHello makes `HttpClient.send` throw `timedOut` once `HttpClientLimits.timeoutMs` has passed, and the server sees the client leave. A client that connects to the TLS server and sends nothing holds only its own connection: with no handshake deadline, so that nothing but the client's own `close()` can end it, the server serves the next request beside it. The accept deadline, set before `serve` starts, ends `serve` as `acceptDeadlinePassed` once no further connection arrives within it; a stalled handshake before it does not.
@@ -1631,7 +1612,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1871,7 +1851,6 @@ with no more connections serve ended: acceptDeadlinePassed
 
 <!-- test: http-tls.alpn-and-the-request-target-follow-the-protocol -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A `TlsClient` talking HTTP to the server by hand: ALPN `http/1.1` is negotiated when offered, nothing is negotiated when nothing is offered, `h2` alone is refused by the handshake, and the absolute-form request target must name `https` (an `http://` target is a `400`).
@@ -1887,7 +1866,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2050,7 +2028,6 @@ absolute-form http: alpn=http/1.1 HTTP/1.1 400 Bad Request |
 
 <!-- test: http-tls.an-ipv6-loopback-server-is-reached-over-https -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 An `https://[::1]:<port>/` URL reaches a TLS server bound on the IPv6 loopback: the client dials the bare `::1`, runs the
@@ -2069,7 +2046,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2199,7 +2175,6 @@ untrusted: error tlsFailed(certificateRejected(unknownAuthority))
 ```
 
 <!-- test: http-tls.binding-a-taken-port-throws-bindfailed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 A second TLS bind on a port a TLS server already holds throws `TlsError.bindFailed`.
 ```maxon
@@ -2214,7 +2189,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2291,7 +2265,6 @@ a second bind on the same port: bindFailed
 
 <!-- test: http-tls.a-silent-client-does-not-delay-another-clients-request -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpServer.serve` serves each connection in its own coroutine, so a client that connects to a TLS server and never sends its ClientHello holds only its own connection: with no handshake deadline, so that nothing but the client's own `close()` can end the silent connection, a request made beside it is still answered, and `serve` goes on until `close()`.
@@ -2307,7 +2280,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)

@@ -51,24 +51,18 @@ Use `_` to discard individual elements:
 ## Tests
 
 <!-- test: basic-tuple-assign -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
 	var y = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, y) = makePair(10, b: 32)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -76,16 +70,11 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-in-loop -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function step(n Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (n + 1, n * 2)
+	return (try n + 1 otherwise panic("out of range"), try n * 2 otherwise panic("out of range"))
 end 'step'
 
 function main() returns ExitCode
@@ -93,11 +82,10 @@ function main() returns ExitCode
 	var b = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'loop'
-		// TODO: tuple assignment is not supported in minimaxon
 		(a, b) = step(a)
 		i = i + 1
 	end 'loop'
-	return b
+	return try b as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -105,23 +93,17 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-discard -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, _) = makePair(42, b: 99)
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -129,21 +111,14 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-discard-all -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(_, _) = makePair(10, b: 32)
 	return 0
 end 'main'
@@ -153,23 +128,16 @@ error E3064: specs/tuple-assign/tuple-assign-discard-all.maxon:9:2: result of pu
 ```
 
 <!-- test: tuple-assign-error-immutable -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	let x = 0
 	let y = 0
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, y) = makePair(10, b: 32)
 	return x + y
 end 'main'
@@ -179,23 +147,17 @@ error E2013: specs/tuple-assign/tuple-assign-error-immutable.maxon:11:3: 'x' is 
 ```
 
 <!-- test: tuple-assign-mixed-var-decl -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, let y) = makePair(10, b: 32)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -203,22 +165,16 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-all-new-var-decl -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
-	// TODO: tuple assignment is not supported in minimaxon
 	(let x, let y) = makePair(10, b: 32)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -226,23 +182,17 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-let-decl -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, let y) = makePair(10, b: 32)
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -250,24 +200,16 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-error-assign-to-let-decl -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, let y) = makePair(10, b: 32)
-	// TODO: tuple assignment is not supported in minimaxon
 	(x, y) = makePair(1, b: 2)
 	return x + y
 end 'main'
@@ -277,22 +219,15 @@ error E2013: specs/tuple-assign/tuple-assign-error-assign-to-let-decl.maxon:11:6
 ```
 
 <!-- test: tuple-assign-error-count-mismatch -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(a Integer, b Integer) returns (Integer, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, b)
 end 'makePair'
 
 function main() returns ExitCode
 	var x = 0 as Integer
-	// TODO: tuple assignment is not supported in minimaxon
 	(x) = makePair(10, b: 32)
 	return x
 end 'main'

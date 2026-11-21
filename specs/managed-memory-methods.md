@@ -2302,9 +2302,6 @@ well — a wrong ACCEPTANCE no diagnostic reports, decided by whichever spelling
 quietly written onto the shared layout column.
 
 <!-- test: tuple-element-serves-the-roster -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 The tuple RETURN spelling's false-reject half. `p.0` is rewritten to a positional field token and reaches the
@@ -2313,15 +2310,12 @@ consults. The element is an ordinary `"hello".toByteArray()` — nothing about t
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (__ManagedMemory, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
 	let p = pair()
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0.length() as ExitCode
 end 'main'
 ```
@@ -2330,9 +2324,6 @@ end 'main'
 ```
 
 <!-- test: tuple-destructuring-serves-the-roster -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 `let (m, n) = pair()` binds each name to a field load off the hidden temp, so a destructured name inherits
@@ -2341,14 +2332,11 @@ what reads a tuple.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (__ManagedMemory, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (m, _) = pair()
 	return m.length() as ExitCode
 end 'main'
@@ -2358,9 +2346,6 @@ end 'main'
 ```
 
 <!-- test: tuple-parameter-serves-the-roster -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 The tuple PARAMETER spelling. The mask is read off the annotation's TOKENS at the same moment the
@@ -2368,14 +2353,11 @@ whole-value bit is, and travels the same parse-local column into `bindParameters
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple parameter types are not supported in minimaxon
-function shown(t(__ManagedMemory, Int)) returns Int
-	// TODO: tuple element access is not supported in minimaxon
+function shown(t (__ManagedMemory, Int)) returns Int
 	return t.0.length()
 end 'shown'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	return shown(("hello".toByteArray(), 7)) as ExitCode
 end 'main'
 ```
@@ -2384,9 +2366,6 @@ end 'main'
 ```
 
 <!-- test: tuple-through-a-struct-field-serves-the-roster -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 A struct FIELD whose declared type is a tuple — the composed shape, which falls out of the two mechanisms
@@ -2396,19 +2375,15 @@ tuple, and `.0` reads it there.
 typealias Int = int(i64.min to i64.max)
 
 type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	export var p as (__ManagedMemory, Int)
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(p(__ManagedMemory, Int)) returns Self
+	static function create(p (__ManagedMemory, Int)) returns Self
 		return Self{p: p}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let h = Holder.create(("hello".toByteArray(), 7))
-	// TODO: tuple element access is not supported in minimaxon
 	return h.p.0.length() as ExitCode
 end 'main'
 ```
@@ -2467,10 +2442,6 @@ end 'main'
 ```
 
 <!-- test: error.tuple-element-has-the-buffer-surface -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 
 The refusal half of the tuple slot. `count` is an `Array` member and not a buffer one, and without the slot
@@ -2478,15 +2449,12 @@ carrier this program compiles, links and RUNS (exit 5).
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (__ManagedMemory, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
 	let p = pair()
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0.count() as ExitCode
 end 'main'
 ```
@@ -2513,10 +2481,6 @@ error E2015: <fragment>:8:11: Unsupported: `__ManagedMemory` member 'count' — 
 ```
 
 <!-- test: error.a-tuple-of-byte-arrays-keeps-the-array-surface -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 
 ⭐⭐ **THE OVER-ACCEPTANCE CONTROL FOR THE TUPLE, and it is the case this mechanism is graded on.**
 `(ByteArray, Int)` and `(__ManagedMemory, Int)` are ONE interned tuple type sharing ONE `StructLayout`, so
@@ -2526,15 +2490,12 @@ refused with the `Array` roster.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (ByteArray, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
 	let p = pair()
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0.length() as ExitCode
 end 'main'
 ```
@@ -2543,25 +2504,19 @@ error E2015: <fragment>:10:13: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: a-tuple-of-byte-arrays-still-serves-count -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 
 The control's positive half — the same tuple type, still answering the `Array` roster it belongs to. A
 refusal case alone would pass just as well if the element had lost BOTH surfaces.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (ByteArray, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
 	let p = pair()
-	// TODO: tuple element access is not supported in minimaxon
-	return p.0.count() as ExitCode
+	return try p.0.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2605,10 +2560,6 @@ end 'main'
 ```
 
 <!-- test: error.tuple-slot-mark-does-not-leak-across-functions -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 
 The slot mask's copy-on-write twin of `error.buffer-mark-does-not-leak-across-functions`, and it is needed
@@ -2623,27 +2574,21 @@ program COMPILES, LINKS AND RUNS, exit 7** — `q.0.length()` accepted on a slot
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function bufferPair() returns (__ManagedMemory, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'bufferPair'
 
-// TODO: tuple return types are not supported in minimaxon
 function arrayPair() returns (ByteArray, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hi".toByteArray(), 3)
 end 'arrayPair'
 
 function useBufferPair() returns Int
 	let p = bufferPair()
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0.length()
 end 'useBufferPair'
 
 function main() returns ExitCode
 	let q = arrayPair()
-	// TODO: tuple element access is not supported in minimaxon
 	return (q.0.length() + useBufferPair()) as ExitCode
 end 'main'
 ```
@@ -3027,9 +2972,6 @@ left to derive it from later: a tuple's element types are CANONICAL by the time 
 alias name is gone. It is blocked on the alias-visibility work, not on this mechanism.
 
 <!-- test: a-nested-tuple-slot-serves-the-roster -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 A tuple inside a tuple. `p.0` binds a value carrying ITS slots, and `p.0.0` reads one off it — the same line
@@ -3037,15 +2979,12 @@ of `emitFieldLoad` running twice, one container in each time. Nothing in the mec
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function nested() returns ((__ManagedMemory, Int), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (("hello".toByteArray(), 7), 9)
 end 'nested'
 
 function main() returns ExitCode
 	let p = nested()
-	// TODO: float literals are not supported in minimaxon
 	return p.0.0.length() as ExitCode
 end 'main'
 ```
@@ -3054,10 +2993,6 @@ end 'main'
 ```
 
 <!-- test: error.a-nested-tuple-of-byte-arrays-keeps-the-array-surface -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 
 ⭐⭐ **THE OVER-ACCEPTANCE CONTROL AT DEPTH, and it matters more than the positive case above.**
 `((ByteArray, Int), Int)` and `((__ManagedMemory, Int), Int)` canonicalize to the SAME two interned tuples
@@ -3066,15 +3001,12 @@ depths. It rides the value, so this stays refused.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function nested() returns ((ByteArray, Int), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (("hello".toByteArray(), 7), 9)
 end 'nested'
 
 function main() returns ExitCode
 	let p = nested()
-	// TODO: float literals are not supported in minimaxon
 	return p.0.0.length() as ExitCode
 end 'main'
 ```
@@ -3083,24 +3015,18 @@ error E2015: <fragment>:10:15: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: a-nested-tuple-of-byte-arrays-still-serves-count -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 
 The depth control's positive half — the same nested slot, still answering the `Array` roster it belongs to.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function nested() returns ((ByteArray, Int), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (("hello".toByteArray(), 7), 9)
 end 'nested'
 
 function main() returns ExitCode
 	let p = nested()
-	// TODO: float literals are not supported in minimaxon
-	return p.0.0.count() as ExitCode
+	return try p.0.0.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3108,9 +3034,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-slot-of-buffers-serves-the-roster -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 A slot whose declared type is an array-of-buffers ALIAS — the surface a slot could not express at all while
@@ -3122,9 +3045,7 @@ typealias Int = int(i64.min to i64.max)
 
 typealias BufArray = Array with __ManagedMemory
 
-// TODO: tuple parameter types are not supported in minimaxon
-function slotted(t(BufArray, Int)) returns Int
-	// TODO: tuple element access is not supported in minimaxon
+function slotted(t (BufArray, Int)) returns Int
 	let m = try t.0.get(0) otherwise return 0
 	return m.length()
 end 'slotted'
@@ -3132,7 +3053,6 @@ end 'slotted'
 function main() returns ExitCode
 	let a = BufArray.create(0)
 	a.push("hello".toByteArray())
-	// TODO: tuple values and types are not supported in minimaxon
 	return slotted((a, 7)) as ExitCode
 end 'main'
 ```
@@ -3141,9 +3061,6 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-slot-of-byte-arrays-keeps-the-array-surface -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 
 ⭐⭐ **THE OVER-ACCEPTANCE CONTROL FOR THE ALIAS SLOT.** `Array with ByteArray` and
@@ -3155,9 +3072,7 @@ typealias Int = int(i64.min to i64.max)
 
 typealias BufList = Array with ByteArray
 
-// TODO: tuple parameter types are not supported in minimaxon
-function slotted(t(BufList, Int)) returns Int
-	// TODO: tuple element access is not supported in minimaxon
+function slotted(t (BufList, Int)) returns Int
 	let m = try t.0.get(0) otherwise return 0
 	return m.length()
 end 'slotted'
@@ -3165,7 +3080,6 @@ end 'slotted'
 function main() returns ExitCode
 	var a = BufList.create(0)
 	a.push("hello".toByteArray())
-	// TODO: tuple values and types are not supported in minimaxon
 	return slotted((a, 7)) as ExitCode
 end 'main'
 ```
@@ -3174,9 +3088,6 @@ error E2015: <fragment>:7:11: Unsupported: `Array` member 'length' — the compi
 ```
 
 <!-- test: a-tuple-slot-of-byte-arrays-still-serves-count -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 
 The alias-slot control's positive half, for the reason its two siblings have one.
 ```maxon
@@ -3184,18 +3095,15 @@ typealias Int = int(i64.min to i64.max)
 
 typealias BufList = Array with ByteArray
 
-// TODO: tuple parameter types are not supported in minimaxon
-function slotted(t(BufList, Int)) returns Int
-	// TODO: tuple element access is not supported in minimaxon
+function slotted(t (BufList, Int)) returns Int
 	let m = try t.0.get(0) otherwise return 0
-	return m.count()
+	return try m.count() as Int otherwise panic("out of range")
 end 'slotted'
 
 function main() returns ExitCode
-	let a = BufList.create(0)
+	var a = BufList.create(0)
 	a.push("hello".toByteArray())
-	// TODO: tuple values and types are not supported in minimaxon
-	return slotted((a, 7)) as ExitCode
+	return try slotted((a, 7)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3203,9 +3111,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-parameter-serves-the-roster -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 The nested shape through the PARAMETER door, where the mask is read off the annotation's own tokens rather
@@ -3214,14 +3119,11 @@ it.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple parameter types are not supported in minimaxon
-function shownNested(t((__ManagedMemory, Int), Int)) returns Int
-	// TODO: float literals are not supported in minimaxon
+function shownNested(t ((__ManagedMemory, Int), Int)) returns Int
 	return t.0.0.length()
 end 'shownNested'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	return shownNested((("hello".toByteArray(), 7), 9)) as ExitCode
 end 'main'
 ```
@@ -3338,9 +3240,6 @@ end 'seed'
 ```
 
 <!-- test: error.a-sibling-files-alias-in-a-tuple-slot-is-refused-alias-file-first -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3362,17 +3261,14 @@ export function seed(x BufArray) returns Int
 end 'seed'
 
 // --- file: main.maxon
-// TODO: tuple return types are not supported in minimaxon
 function make() returns (BufArray, Int)
 	var a = BufArray.create(0)
 	a.push("hello".toByteArray())
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, 7)
 end 'make'
 
 function main() returns ExitCode
 	let t = make()
-	// TODO: tuple element access is not supported in minimaxon
 	let m = try t.0.get(0) otherwise return 0
 	return (m.length() + seed(BufArray.create(0))) as ExitCode
 end 'main'
@@ -3382,9 +3278,6 @@ error E2015: <fragment>:20:12: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: error.a-sibling-files-alias-in-a-tuple-slot-is-refused-alias-file-last -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3393,17 +3286,14 @@ above; it is kept because a pair is what makes "order-independent" a claim a tes
 the answer that happened to be right.
 ```maxon
 // --- file: main.maxon
-// TODO: tuple return types are not supported in minimaxon
 function make() returns (BufArray, Int)
 	var a = BufArray.create(0)
 	a.push("hello".toByteArray())
-	// TODO: tuple values and types are not supported in minimaxon
 	return (a, 7)
 end 'make'
 
 function main() returns ExitCode
 	let t = make()
-	// TODO: tuple element access is not supported in minimaxon
 	let m = try t.0.get(0) otherwise return 0
 	return (m.length() + seed(BufArray.create(0))) as ExitCode
 end 'main'
@@ -3429,26 +3319,18 @@ siblings are absent. These four were written to break that walk, and are kept be
 over a LATER sibling of a NESTED slot is a walk nobody has read.
 
 <!-- test: a-buffer-three-tuples-deep-serves-the-roster -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 Slot 1 of slot 1 of slot 0 — three levels, and every step past a sibling the walk has to skip.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function deep() returns (Int, (Int, (__ManagedMemory, Int)), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (1, (2, ("hello".toByteArray(), 7)), 9)
 end 'deep'
 
 function main() returns ExitCode
 	let p = deep()
-	// TODO: float literals are not supported in minimaxon
-	// TODO: tuple element access is not supported in minimaxon
 	return p.1.1.0.length() as ExitCode
 end 'main'
 ```
@@ -3457,9 +3339,6 @@ end 'main'
 ```
 
 <!-- test: two-nested-slots-of-one-tuple-take-their-own-surfaces -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 ⭐ **THE STRONGEST FORM OF THE OVER-ACCEPTANCE CONTROL: both spellings in ONE tuple, one statement.** Slot 1's
@@ -3469,15 +3348,12 @@ layouts — this program could not give 9, because one of the two calls would ha
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function mixed() returns ((ByteArray, Int), (Int, __ManagedMemory), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (("hello".toByteArray(), 1), (2, "abcd".toByteArray()), 9)
 end 'mixed'
 
 function main() returns ExitCode
 	let p = mixed()
-	// TODO: float literals are not supported in minimaxon
 	return (p.1.1.length() + p.0.0.count()) as ExitCode
 end 'main'
 ```
@@ -3486,10 +3362,6 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-array-slot-beside-a-buffer-slot-keeps-the-array-surface -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 
 And the refusal half of that same tuple: the `ByteArray`-spelled nested slot is still refused `length`, in a
@@ -3498,15 +3370,12 @@ subtree, would accept this.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function mixed() returns ((ByteArray, Int), (Int, __ManagedMemory), Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (("hello".toByteArray(), 1), (2, "abcd".toByteArray()), 9)
 end 'mixed'
 
 function main() returns ExitCode
 	let p = mixed()
-	// TODO: float literals are not supported in minimaxon
 	return p.0.0.length() as ExitCode
 end 'main'
 ```
@@ -3515,9 +3384,6 @@ error E2015: <fragment>:10:15: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: a-seventy-element-tuple-carries-its-last-slots-surface -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 ⭐ **THERE IS NO ARITY CEILING, AND THIS IS WHAT SAYS SO.** A flat 62-slot mask would have to REFUSE a
@@ -3526,15 +3392,12 @@ position, so seventy is not a special number and neither is any other: the buffe
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function wide() returns (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, __ManagedMemory)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, "hello".toByteArray())
 end 'wide'
 
 function main() returns ExitCode
 	let p = wide()
-	// TODO: tuple element access is not supported in minimaxon
 	return p.69.length() as ExitCode
 end 'main'
 ```
@@ -3747,10 +3610,6 @@ end 'main'
 
 <!-- test: error.a-tuple-slot-mark-does-not-leak-into-a-parameter-default-helper -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3773,9 +3632,7 @@ top-level declaration has closed, so the state that reaches the helper is the la
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function arrayPair() returns (ByteArray, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hi".toByteArray(), 3)
 end 'arrayPair'
 
@@ -3788,9 +3645,7 @@ function main() returns ExitCode
 	return withDefault() as ExitCode
 end 'main'
 
-// TODO: tuple parameter types are not supported in minimaxon
 function useBufferPair(p(__ManagedMemory, Int)) returns Int
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0.length()
 end 'useBufferPair'
 ```
@@ -4839,7 +4694,6 @@ ELEMENT the door on the other side is asked about, never what it asks** — so n
 covering that.
 
 <!-- test: the-fused-append-path-agrees-with-the-value-path -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 **THE SUBJECT.** The bare, fused spelling must answer what the value spelling answers. Two elements
 appended to themselves is four.
@@ -4848,7 +4702,6 @@ typealias Int = int(i64.min to i64.max)
 
 typealias Ints = Array with Int
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function doubled() returns Int
 		self.managed.append(managed)
@@ -4868,7 +4721,6 @@ end 'main'
 ```
 
 <!-- test: the-bare-fused-append-answers-the-same -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE CASE THIS SECTION EXISTS FOR — the receiver written BARE, which is the spelling that takes the fused
 record path.** Handed the byte instance, this program does not produce a wrong answer, it **kills the
@@ -4879,7 +4731,6 @@ typealias Int = int(i64.min to i64.max)
 
 typealias Ints = Array with Int
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function doubled() returns Int
 		managed.append(managed)
@@ -4899,7 +4750,6 @@ end 'main'
 ```
 
 <!-- test: the-other-fused-readers-already-agreed-and-must-go-on-agreeing -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE NEUTRALITY CONTROL, AND IT IS WHAT BOUNDS THE BLAST RADIUS.** `length` and `byteAt` answer
 identically through both routes even under the byte instance
@@ -4917,7 +4767,6 @@ typealias Int = int(i64.min to i64.max)
 
 typealias Ints = Array with Int
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function survey() returns Int
 		let bare = managed.length() as Int

@@ -180,14 +180,12 @@ error E2001: specs/lexer-edge-cases/octal-eof.maxon:6:1: Expected function decla
 ```
 
 <!-- test: float-eof -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: float literals are not supported in minimaxon
 3.14
 ```
 ```maxoncstderr

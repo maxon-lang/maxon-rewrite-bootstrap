@@ -379,7 +379,6 @@ add
 <!-- test: union-cases.companion-mirrors-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: explicit raw values on union cases are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 The companion mirrors the union's backing only where the tag IS the raw value. For `float` and `character`
 the tag is an IEEE bit pattern / a codepoint, so the backing travels with it and `.rawValue` decodes to the
 written value. For a `string` backing the raw text rides a column the companion does not carry, so its tag
@@ -390,10 +389,8 @@ typealias ID = int(i64.min to i64.max)
 
 union F
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	a(x ID) = 1.5
 	// TODO: explicit raw values on union cases are not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	b = 2.5
 end 'F'
 
@@ -510,23 +507,20 @@ end 'main'
 ```
 
 <!-- test: multi-line-payload-declaration-of-a-keyword-named-case -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'while' -->
 A keyword-named case's payload list spans lines like any other.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 union Kw
-	// TODO: tuple values and types are not supported in minimaxon
 	while (a Integer, b Integer)
 	if
 end 'Kw'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let k = Kw.while(6, b: 7)
 	var total = 0 as Integer
 	match k 'show'
-		// TODO: tuple values and types are not supported in minimaxon
 		while (a, b) then total = a * b
 		if then total = 0
 	end 'show'

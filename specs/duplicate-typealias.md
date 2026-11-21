@@ -627,20 +627,16 @@ go!
 ```
 
 <!-- test: non-exported-same-name-function-alias-over-a-tuple-slot -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A TUPLE alias in the slot. The two `Pair`s differ in element ORDER, which survives canonicalisation, so the two `Step`s are two shapes and each closure destructures its own file's pair.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Tally, String)
 
 typealias Step = function(Pair) returns Tally
 
 function foldA(step Step) returns Tally
-	// TODO: tuple values and types are not supported in minimaxon
 	return step((700, "a"))
 end 'foldA'
 
@@ -651,13 +647,11 @@ end 'goA'
 // --- file: b/b.maxon
 typealias Tally = int(0 to 5)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, Tally)
 
 typealias Step = function(Pair) returns Tally
 
 function foldB(step Step) returns Tally
-	// TODO: tuple values and types are not supported in minimaxon
 	return step(("b", 3))
 end 'foldB'
 

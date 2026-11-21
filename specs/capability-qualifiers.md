@@ -255,10 +255,6 @@ error E2010: <fragment>:2:15: Expected 'a type' but got 'immutable'
 
 <!-- test: capability-qualifiers.a-tuple-element-qualifier-in-a-parameter-a-field-and-a-result-runs -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `(immutable Box, Box)` qualifies its first element wherever a tuple type is written: a parameter, a field and a result all read the frozen element and write the live one.
 
 ```maxon
@@ -273,34 +269,26 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair as (immutable Box, Box)
 
 	// TODO: parameter capability 'immutable' is not supported in minimaxon
 	static function create(first immutable Box, second Box) returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (first, second)}
 	end 'create'
 
 	function weigh() returns Tally
-		// TODO: tuple element access is not supported in minimaxon
 		self.pair.1.n = self.pair.1.n + 1
-		// TODO: tuple element access is not supported in minimaxon
 		return self.pair.0.n + self.pair.1.n
 	end 'weigh'
 end 'Holder'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple return types are not supported in minimaxon
 function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (first, second)
 end 'pairOf'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: tuple parameter types are not supported in minimaxon
 function total(pair(immutable Box, Box)) returns Tally
-	// TODO: tuple element access is not supported in minimaxon
 	return pair.0.n + pair.1.n
 end 'total'
 

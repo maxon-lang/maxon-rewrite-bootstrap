@@ -92,12 +92,10 @@ end 'main'
 ## Tests
 
 <!-- test: int-literal-to-float-param -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function takeFloat(x Float) returns Integer
@@ -105,7 +103,7 @@ function takeFloat(x Float) returns Integer
 end 'takeFloat'
 
 function main() returns ExitCode
-	return takeFloat(42)
+	return try takeFloat(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -113,12 +111,10 @@ end 'main'
 ```
 
 <!-- test: int-var-to-float-param -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function takeFloat(x Float) returns Integer
@@ -127,7 +123,7 @@ end 'takeFloat'
 
 function main() returns ExitCode
 	let i = 42
-	return takeFloat(i)
+	return try takeFloat(i) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -135,8 +131,6 @@ end 'main'
 ```
 
 <!-- test: float-to-int-param-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A `float` argument to an `int` parameter is a compile error, not a silent truncation. The fix the
 message names is `trunc(f)` -- which `float-to-int-param-explicit-trunc` below then compiles.
 ```maxon
@@ -148,7 +142,6 @@ function takeInt(x Integer) returns Integer
 end 'takeInt'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.7
 	return takeInt(f)
 end 'main'
@@ -158,7 +151,6 @@ error E3009: specs/implicit-type-conversion/float-to-int-param-rejected.maxon:11
 ```
 
 <!-- test: float-to-int-param-explicit-trunc -->
-<!-- skip: float literals are not supported in minimaxon -->
 The half that works, and the reason the rejection above costs nothing: say which rounding you
 meant and the same program compiles. `trunc` truncates toward zero, so `3.7` is `3` -- the very
 value a silent implicit conversion would produce.
@@ -171,9 +163,8 @@ function takeInt(x Integer) returns Integer
 end 'takeInt'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.7
-	return takeInt(trunc(f) as Integer)
+	return try takeInt(trunc(f) as Integer) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -181,8 +172,6 @@ end 'main'
 ```
 
 <!-- test: float-to-int-return-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The rule is not special to arguments: a `float` meeting a declared `int` RETURN type is the same
 E3009. A rule drawn only at the call boundary would leave this one silent.
 ```maxon
@@ -190,7 +179,6 @@ E3009. A rule drawn only at the call boundary would leave this one silent.
 typealias Integer = int(i64.min to i64.max)
 
 function narrow() returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let f = 3.7
 	return f
 end 'narrow'
@@ -204,12 +192,10 @@ error E3009: specs/implicit-type-conversion/float-to-int-return-rejected.maxon:7
 ```
 
 <!-- test: expression-to-float-param -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function takeFloat(x Float) returns Integer
@@ -219,7 +205,7 @@ end 'takeFloat'
 function main() returns ExitCode
 	let a = 20
 	let b = 22
-	return takeFloat(a + b)
+	return try takeFloat(a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -230,7 +216,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = sqrt(16)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -295,8 +281,6 @@ error E3005: specs/implicit-type-conversion/no-int-to-bool.maxon:14:9: argument 
 ```
 
 <!-- test: int-literal-to-float-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐ **THE DOC STATES THE RULE FOR THREE SITES AND EVERY CASE ABOVE EXERCISES ONE.** Each widening test
 above goes through a call ARGUMENT; the one return-direction case is the NARROWING half. So the
 `return` half of "the rule is not special to arguments" is exercised here: an unconverted value
@@ -307,7 +291,6 @@ Every case below asserts a computed VALUE and not merely that the program compil
 the shape of the bug — `42` here is `3.0 * 14.0`, which an unconverted `3` cannot produce.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function widen() returns Float
@@ -315,8 +298,7 @@ function widen() returns Float
 end 'widen'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(widen() * 14.0)
+	return try trunc(widen() * 14.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -324,22 +306,18 @@ end 'main'
 ```
 
 <!-- test: int-expression-to-float-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The returned value need not be a literal: an integer EXPRESSION meets the declared `float` under the
 same rule, exactly as `expression-to-float-param` does at the argument site.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 function widen(a Integer, b Integer) returns Float
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'widen'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(widen(20, b: 22) + 0.5)
+	return try trunc(widen(20, b: 22) + 0.5) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -349,8 +327,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: int-literal-to-float-field-literal -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A struct LITERAL is a coercion site: the field declares the type and the value has to meet it.
 Without the conversion the integer's raw bytes would land in an f64 slot — `3` read back as
 1.5e-323, so `r.raw() == 3.0` would be false and the program would return 7.
@@ -369,15 +345,12 @@ end 'Reading'
 
 function main() returns ExitCode
 	let r = Reading.make()
-	// TODO: float literals are not supported in minimaxon
 	if r.raw() == 3.0 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return trunc(r.raw() * 14.0)
+		return try trunc(r.raw() * 14.0) as ExitCode otherwise panic("out of range")
 	end 'exact'
 	return 7
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -385,13 +358,10 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: int-literal-to-float-field-write -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The same field, reached by a WRITE rather than by construction. It is the same rule and it must not
 answer differently for the way the source spelled it.
 ```maxon
 type Reading
-	// TODO: float literals are not supported in minimaxon
 	export var value = 0.0 as Real
 
 	static function make() returns Self
@@ -400,17 +370,14 @@ type Reading
 end 'Reading'
 
 function main() returns ExitCode
-	let r = Reading.make()
+	var r = Reading.make()
 	r.value = 3
-	// TODO: float literals are not supported in minimaxon
 	if r.value == 3.0 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return trunc(r.value * 14.0)
+		return try trunc(r.value * 14.0) as ExitCode otherwise panic("out of range")
 	end 'exact'
 	return 7
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -418,15 +385,12 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: int-literal-to-float-self-field -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 And the third spelling of that one write: the bare field name inside an instance method.
 ```maxon
 type Reading
-	// TODO: float literals are not supported in minimaxon
 	export var value = 0.0 as Real
 
-	function bump() returns FullRangeInt
+	function bump(mutates self) returns FullRangeInt
 		value = 3
 		return 0
 	end 'bump'
@@ -437,17 +401,14 @@ type Reading
 end 'Reading'
 
 function main() returns ExitCode
-	let r = Reading.make()
+	var r = Reading.make()
 	let done = r.bump()
-	// TODO: float literals are not supported in minimaxon
 	if r.value == 3.0 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return trunc(r.value * 14.0) + done
+		return try trunc(r.value * 14.0) + done otherwise panic("out of range")
 	end 'exact'
 	return 7
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -455,8 +416,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: int-literal-to-float-field-default -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A field DEFAULT is a coercion site too, and the one that holds a parse-time constant rather than a
 value: `as float = 3` records the f64 bit pattern of 3.0, not the integer 3.
 ```maxon
@@ -470,15 +429,12 @@ end 'Reading'
 
 function main() returns ExitCode
 	let r = Reading.make()
-	// TODO: float literals are not supported in minimaxon
 	if r.value == 3.0 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return trunc(r.value * 14.0)
+		return try trunc(r.value * 14.0) as ExitCode otherwise panic("out of range")
 	end 'exact'
 	return 7
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -486,20 +442,16 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: int-literal-to-float-local -->
-<!-- skip: float literals are not supported in minimaxon -->
 A LOCAL `var` keeps its declared type across a rebind for the same reason. Without the coercion the
 binding would silently become an int — `scale == 3.0` on the very next line would report "cannot
 compare int with float" against a legal program, and the same rebind inside a loop would feed an i64
 and an f64 into one header phi.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var scale = 0.0 as FullRangeFloat
 	scale = 3
-	// TODO: float literals are not supported in minimaxon
 	if scale == 3.0 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return trunc(scale * 14.0)
+		return try trunc(scale * 14.0) as ExitCode otherwise panic("out of range")
 	end 'exact'
 	return 7
 end 'main'
@@ -509,7 +461,6 @@ end 'main'
 ```
 
 <!-- test: float-to-int-field-literal-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE OTHER DIRECTION IS STILL REFUSED AT EVERY ONE OF THOSE DOORS**, and that is what makes the
 widening above safe to add: a rule that promoted in both directions would be a far worse bug than the
@@ -519,7 +470,6 @@ type Reading
 	export var value as Integer
 
 	static function make() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{value: 3.7}
 	end 'make'
 end 'Reading'
@@ -536,7 +486,6 @@ error E3009: specs/implicit-type-conversion/float-to-int-field-literal-rejected.
 ```
 
 <!-- test: float-to-int-field-write-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Reading
@@ -549,7 +498,6 @@ end 'Reading'
 
 function main() returns ExitCode
 	var r = Reading.make()
-	// TODO: float literals are not supported in minimaxon
 	r.value = 3.7
 	return r.value
 end 'main'
@@ -561,14 +509,12 @@ error E3009: specs/implicit-type-conversion/float-to-int-field-write-rejected.ma
 ```
 
 <!-- test: float-to-int-self-field-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Reading
 	export var value = 0 as Integer
 
 	function bump() returns Integer
-		// TODO: float literals are not supported in minimaxon
 		value = 3.7
 		return 0
 	end 'bump'
@@ -590,11 +536,9 @@ error E3009: specs/implicit-type-conversion/float-to-int-self-field-rejected.max
 ```
 
 <!-- test: float-to-int-field-default-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Reading
-	// TODO: float literals are not supported in minimaxon
 	export var value = 3.7 as Integer
 
 	static function make() returns Self
@@ -614,8 +558,6 @@ error E3009: specs/implicit-type-conversion/float-to-int-field-default-rejected.
 ```
 
 <!-- test: float-to-int-alias-field-default-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The field-default door reached through a ranged INT alias. It is the case the widening one is most
 easily confused with — the same syntax, the same unresolved NAME at the declaration — and it must
 still refuse: `Count` is an `int` alias, so a float default is the lossy direction however the type
@@ -626,7 +568,6 @@ construction site mentions the value at all.
 typealias Count = int(i64.min to i64.max)
 
 type Bag
-	// TODO: float literals are not supported in minimaxon
 	export var n = 2.5 as Count
 
 	static function make() returns Self
@@ -644,12 +585,10 @@ error E3009: specs/implicit-type-conversion/float-to-int-alias-field-default-rej
 ```
 
 <!-- test: float-to-int-local-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	var counter = 0 as Integer
-	// TODO: float literals are not supported in minimaxon
 	counter = 3.7
 	return counter
 end 'main'

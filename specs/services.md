@@ -8574,7 +8574,6 @@ service read 10 bytes, sender wrote payload 42!
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `.clone()` of a record holding an array of records and a map, bound to a `let` or a `var` before the send,
 is a graph of its own exactly as the same clone written inside the call is, so the send moves it. The second
 copy's map is empty.
@@ -8605,7 +8604,6 @@ type Shelf
 		for leaf in self.leaves 'eachLeaf'
 			sum = sum + leaf.weight * (leaf.name.byteLength() as Integer)
 		end 'eachLeaf'
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		for (key, leaf) in self.byName 'eachEntry'
 			sum = sum + leaf.weight * (key.byteLength() as Integer)
 		end 'eachEntry'
@@ -12948,8 +12946,6 @@ typealias Whole = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-generic-reply-the-cell-cannot-carry-is-refused-at-the-instantiation -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **THE ONLY CASE THAT PROVES THE SECOND ASK IS REACHABLE.** `classifyServiceRoster` is asked twice —
@@ -12973,12 +12969,10 @@ end 'Box'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let h = spawn Box.create(1.5 as Real)
 	return 0
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```maxoncstderr
@@ -17287,9 +17281,6 @@ second padded out long enough to heap allocate 1! 47
 <!-- test: services.error.a-cell-resident-var-a-closure-only-reads-cannot-be-sent -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that only READS a cell-resident `var` takes the cell's occupant, so sending the `var` afterwards is a
 use after move.
@@ -17309,9 +17300,7 @@ type Echo
 	end 'shout'
 end 'Echo'
 
-// TODO: tuple return types are not supported in minimaxon
 function opening() returns (String, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello padded out long enough to heap allocate {1}", 1)
 end 'opening'
 
@@ -17322,7 +17311,6 @@ end 'fill'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
 	let peek = function() gives word.byteLength()
@@ -17646,7 +17634,6 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 `items.withIterator()` makes the loop read `items` the same way, so the send is refused the same way.
 ```maxon
@@ -17680,7 +17667,6 @@ function main() returns ExitCode
 		items.push("first padded out long enough to heap allocate {1}")
 		items.push("second padded out long enough to heap allocate {2}")
 	end 'fill'
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, x) in items.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -17938,7 +17924,6 @@ end 'main'
 <!-- test: services.an-array-of-handles-walks-with-its-iterator -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -17964,7 +17949,6 @@ function main() returns ExitCode
 		workers.push(spawn Worker.create())
 	end 'spawnThem'
 	var sum = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, w) in try workers.withIterator() otherwise panic("an array always yields an iterator") 'walk'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (try await w.add(1) otherwise 0)
@@ -20274,8 +20258,6 @@ end 'main'
 ```
 
 <!-- test: services.a-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -20284,7 +20266,6 @@ register class the factory declares them in, and the interface value is released
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Area = float(f64.min to f64.max)
 
 interface Shape
@@ -20320,7 +20301,6 @@ end 'Plot'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = spawn Plot.create(1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5)
 	try p.show() otherwise panic("an open mailbox with room takes the send")
 	p.shutdown()
@@ -20702,8 +20682,6 @@ refused
 
 <!-- test: services.a-throwing-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -20713,7 +20691,6 @@ interface value with its own witness.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Area = float(f64.min to f64.max)
 
 enum PlotError implements Error
@@ -20756,14 +20733,12 @@ end 'Plot'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = try spawn Plot.create(1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5) otherwise return 1
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let line = try await p.summary() otherwise return 1
 	print("{line}\n")
 	p.shutdown()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	try spawn Plot.create(-1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5) otherwise (e) 'failed'
 		match e 'which'
 			empty then print("empty\n")

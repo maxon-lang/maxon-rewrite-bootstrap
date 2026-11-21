@@ -607,8 +607,6 @@ error E3008: <fragment>:28:18: type 'Box' is not exported
 ```
 
 <!-- test: error.a-hidden-types-extension-method-is-refused-through-a-value -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 An extension's exported method belongs to the type it extends, and is hidden with it.
 ```maxon
 // --- file: lib/lib.maxon
@@ -622,7 +620,6 @@ type Inner
 	end 'make'
 end 'Inner'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Inner
 	export function doubled() returns Integer
 		return self.n * 2
@@ -1585,23 +1582,17 @@ error E3008: <fragment>:34:34: typealias 'Flip' is not exported
 ```
 
 <!-- test: error.hidden-tuple-alias-in-every-type-position -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/probe.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (bool, bool)
 
 function made() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (false, true)
 end 'made'
 
 export function probePair() returns ExitCode
 	let p = made()
-	// TODO: tuple element access is not supported in minimaxon
 	return 1 if p.0 else 0
 end 'probePair'
 
@@ -1610,27 +1601,21 @@ type Holder
 	var pair as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (true, false)}
 	end 'create'
 
 	function first() returns bool
-		// TODO: tuple element access is not supported in minimaxon
 		return self.pair.0
 	end 'first'
 end 'Holder'
 
 function flipped(p Pair) returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: tuple element access is not supported in minimaxon
 	return (p.1, p.0)
 end 'flipped'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	// TODO: tuple values and types are not supported in minimaxon
 	let f = flipped((true, false))
-	// TODO: tuple element access is not supported in minimaxon
 	if h.first() and f.1 'bothHold'
 		return probePair()
 	end 'bothHold'

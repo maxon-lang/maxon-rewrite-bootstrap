@@ -265,8 +265,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-loading.a-stdlib-modules-literals-are-byte-neutral -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The sibling of `no-clock-is-byte-neutral`, for the half that case cannot see. That program's emitted code
 names no `.rdata` label at all, so it shows nothing while every synthetic label in the corpus renumbers.
 This one holds a dense-`match` jump table and a String blob, so its emitted code NAMES labels off the one
@@ -284,7 +282,6 @@ of every program in the suite — this case still PASSES. Keep it: its emitted c
 enforcement lives in `ir-specs/stdlib-loading.md`'s `a-stdlib-modules-literals-cannot-reach-the-rdata-image`,
 which pins the linked image and goes red.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(0.0 to 100.0)
 
 enum Marker
@@ -299,8 +296,7 @@ enum Marker
 end 'Marker'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let scale = 12.5 as Weight
+	let scale = try 12.5 as Weight otherwise panic("out of range")
 	let pick = Marker.gamma
 	let slot = match pick 'which'
 		alpha gives 0
@@ -312,7 +308,7 @@ function main() returns ExitCode
 		eta gives 6
 		theta gives 7
 	end 'which'
-	return trunc(scale) + slot
+	return try trunc(scale) + slot otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1412,7 +1408,6 @@ true false false
 ```
 
 <!-- test: stdlib-loading.json-stringify-round-trips-through-stdlib -->
-<!-- skip: float literals are not supported in minimaxon -->
 The other half of the module, which the parse case cannot reach: the 22 free emitter functions, driven
 by building an arena BY HAND through `JsonNode`'s exported constructors and serializing it. The emitted
 text is checked literally, so it pins `writeJsonString`'s escaping of an embedded quote, `writeNumber`'s
@@ -1427,12 +1422,10 @@ function main() returns ExitCode
 	keys.push("name")
 	children.push(doc.add(JsonNode.stringNode("a\"b")))
 	keys.push("size")
-	// TODO: float literals are not supported in minimaxon
 	children.push(doc.add(JsonNode.numberNode(2.5)))
 	keys.push("done")
 	children.push(doc.add(JsonNode.boolNode(false)))
 	let items = JsonNodeIdArray.create(0)
-	// TODO: float literals are not supported in minimaxon
 	items.push(doc.add(JsonNode.numberNode(1.0)))
 	items.push(doc.add(JsonNode.nullNode()))
 	keys.push("items")

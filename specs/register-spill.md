@@ -993,7 +993,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: float-locals-read-after-each-of-two-calls -->
-<!-- skip: float literals are not supported in minimaxon -->
 Two f64 locals, each read after each of TWO calls — and neither spills at all.
 xmm6–15 are callee-saved, so both locals stay resident in registers across every call and the only
 slot traffic in the emitted code (`--emit-ir`) is the prologue/epilogue pair that preserves xmm6/xmm7 themselves:
@@ -1010,20 +1009,18 @@ the body.
 `work` adds 1 and each round adds `trunc(1.5) + trunc(2.5)` = 3, so `acc` runs 0 → 1 → 4 → 5 → 8.
 ```maxon
 function work(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.5
 	var acc = 0 as Integer
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
-	return acc
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1033,7 +1030,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: float-locals-read-after-each-of-four-calls -->
-<!-- skip: float literals are not supported in minimaxon -->
 The same program with the call sites DOUBLED — the other half of the pair above, and the one that
 makes the property visible in the emitted code. The two locals live in xmm6/xmm7
 across every call, so doubling the calls adds NOTHING: this case's emitted code (`--emit-ir`) carries the same two
@@ -1044,24 +1040,22 @@ four there).
 `acc` runs 0 → 1 → 4 → 5 → 8 → 9 → 12 → 13 → 16.
 ```maxon
 function work(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.5
 	var acc = 0 as Integer
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
 	acc = work(acc)
-	acc = acc + (trunc(a) + trunc(b)) as Integer
-	return acc
+	acc = try acc + (trunc(a) + trunc(b)) as Integer otherwise panic("out of range")
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1071,7 +1065,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: two-floats-multiplied-between-calls -->
-<!-- skip: float literals are not supported in minimaxon -->
 The multiply reads BOTH floats, and that is what makes this a potential compiler CRASH rather than
 slow code.
 
@@ -1096,22 +1089,19 @@ Each round multiplies `1.5 × 2.5` = 3.75 into `s` and `work` adds 1 to `acc`, s
 `trunc(7.5) + 2` = 9.
 ```maxon
 function work(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.5
-	// TODO: float literals are not supported in minimaxon
 	var s = 0.0 as FullRangeFloat
 	var acc = 0 as Integer
 	acc = work(acc)
 	s = s + a * b
 	acc = work(acc)
 	s = s + a * b
-	return trunc(s) as Integer + acc
+	return try trunc(s) as Integer + acc otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1121,7 +1111,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: two-floats-across-a-call-with-a-ranged-typealias -->
-<!-- skip: float literals are not supported in minimaxon -->
 Two f64 locals live across a call in a function whose types are a **ranged typealias**. The floats
 stay in callee-saved XMMs (xmm6–15), so nothing spills; the range check is what separates this
 program from the same one with `int` in place of `Num`.
@@ -1138,23 +1127,20 @@ is past a byte, so the exit code is their difference plus one.
 typealias Num = int(-1000000000 to 1000000000)
 
 function work(x Num) returns Num
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function probe(k Num) returns Num
-	// TODO: float literals are not supported in minimaxon
 	let f0 = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let f2 = 3.625
 	var acc = k
 	acc = work(acc)
-	// TODO: float literals are not supported in minimaxon
-	acc = acc + trunc(f2 * f0 * 64.0) as Num
+	acc = try acc + trunc(f2 * f0 * 64.0) as Num otherwise panic("out of range")
 	return acc
 end 'probe'
 
 function main() returns ExitCode
-	return (probe(1) - probe(0) + 41) as ExitCode
+	return try (probe(1) - probe(0) + 41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1162,7 +1148,6 @@ end 'main'
 ```
 
 <!-- test: a-reload-inherits-its-victims-register-file -->
-<!-- skip: float literals are not supported in minimaxon -->
 TWELVE f64 locals live across a call — two more than the ten callee-saved XMMs — so at least two of
 them genuinely spill and are reloaded, **and the function also carries a ranged typealias**. That
 pair is the whole test: the range check pushes the value-class column past the allocator's value
@@ -1180,43 +1165,31 @@ crash sites.
 typealias Num = int(-1000000000 to 1000000000)
 
 function bump(x Num) returns Num
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 function pressure(k Num) returns Num
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.0
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.0
-	// TODO: float literals are not supported in minimaxon
 	let c = 3.0
-	// TODO: float literals are not supported in minimaxon
 	let d = 4.0
-	// TODO: float literals are not supported in minimaxon
 	let e = 5.0
-	// TODO: float literals are not supported in minimaxon
 	let f = 6.0
-	// TODO: float literals are not supported in minimaxon
 	let g = 7.0
-	// TODO: float literals are not supported in minimaxon
 	let h = 8.0
-	// TODO: float literals are not supported in minimaxon
 	let i = 9.0
-	// TODO: float literals are not supported in minimaxon
 	let j = 10.0
-	// TODO: float literals are not supported in minimaxon
 	let l = 11.0
-	// TODO: float literals are not supported in minimaxon
 	let m = 12.0
 	var acc = k
 	acc = bump(acc)
-	acc = acc + (trunc(a) + trunc(b) + trunc(c) + trunc(d) + trunc(e) + trunc(f)) as Num
-	acc = acc + (trunc(g) + trunc(h) + trunc(i) + trunc(j) + trunc(l) + trunc(m)) as Num
+	acc = try acc + (trunc(a) + trunc(b) + trunc(c) + trunc(d) + trunc(e) + trunc(f)) as Num otherwise panic("out of range")
+	acc = try acc + (trunc(g) + trunc(h) + trunc(i) + trunc(j) + trunc(l) + trunc(m)) as Num otherwise panic("out of range")
 	return acc
 end 'pressure'
 
 function main() returns ExitCode
-	return pressure(0) as ExitCode
+	return try pressure(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1224,7 +1197,6 @@ end 'main'
 ```
 
 <!-- test: ten-floats-across-a-call-fit-the-callee-saved-half -->
-<!-- skip: float literals are not supported in minimaxon -->
 EXACTLY ten f64 locals live across a call — the width of the callee-saved XMM half (xmm6–15). None
 spills: this is the boundary case of the callee-saved half.
 
@@ -1240,39 +1212,29 @@ there the store count stays flat as the calls double, which a per-call spill bra
 `bump(0)` = 1 plus `trunc(1.0) + … + trunc(10.0)` = 55, so 56.
 ```maxon
 function bump(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 function pressure(k Integer) returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let a = 1.0
-	// TODO: float literals are not supported in minimaxon
 	let b = 2.0
-	// TODO: float literals are not supported in minimaxon
 	let c = 3.0
-	// TODO: float literals are not supported in minimaxon
 	let d = 4.0
-	// TODO: float literals are not supported in minimaxon
 	let e = 5.0
-	// TODO: float literals are not supported in minimaxon
 	let f = 6.0
-	// TODO: float literals are not supported in minimaxon
 	let g = 7.0
-	// TODO: float literals are not supported in minimaxon
 	let h = 8.0
-	// TODO: float literals are not supported in minimaxon
 	let i = 9.0
-	// TODO: float literals are not supported in minimaxon
 	let j = 10.0
 	var acc = k
 	acc = bump(acc)
-	acc = acc + (trunc(a) + trunc(b) + trunc(c) + trunc(d) + trunc(e)) as Integer
-	acc = acc + (trunc(f) + trunc(g) + trunc(h) + trunc(i) + trunc(j)) as Integer
+	acc = try acc + (trunc(a) + trunc(b) + trunc(c) + trunc(d) + trunc(e)) as Integer otherwise panic("out of range")
+	acc = try acc + (trunc(f) + trunc(g) + trunc(h) + trunc(i) + trunc(j)) as Integer otherwise panic("out of range")
 	return acc
 end 'pressure'
 
 function main() returns ExitCode
-	return pressure(0) as ExitCode
+	return try pressure(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1282,7 +1244,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: callee-saved-double-survives-a-callee -->
-<!-- skip: float literals are not supported in minimaxon -->
 A caller holding an f64 **across a call** is confined to the callee-saved half of the float file
 (xmm6–15 on x64, d8–d15 on arm64), and the callee it calls preserves exactly the ones its own
 colouring used. This case pins the FULL 64 BITS of that preserve, which nothing else does.
@@ -1304,27 +1265,25 @@ word — zero — and this would return 3.
 `leaf(0)` = 1, plus `trunc(2.0)` = 2, plus `trunc(42.5)` = 42, so 45.
 ```maxon
 function leaf(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'leaf'
 
 function inner(k Integer) returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let p = 2.0
 	var acc = k
 	acc = leaf(acc)
-	return acc + trunc(p) as Integer
+	return try acc + trunc(p) as Integer otherwise panic("out of range")
 end 'inner'
 
 function outer(k Integer) returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let a = 42.5
 	var acc = k
 	acc = inner(acc)
-	return acc + trunc(a) as Integer
+	return try acc + trunc(a) as Integer otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	return outer(0) as ExitCode
+	return try outer(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

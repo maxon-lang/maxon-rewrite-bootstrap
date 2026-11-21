@@ -800,7 +800,6 @@ error E3209: <fragment>:3:9: a return does not fit the declared result: a byte-s
 
 <!-- test: map-key-read-into-immutable-holder -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `Map` key slot is `immutable`: a literal is inserted as it is, and the key a `for` reads back is stored into an
 `immutable` field with no copy.
 
@@ -823,7 +822,6 @@ function main() returns ExitCode
 	counts.upsert(b"ab", value: 1)
 	counts.upsert(b"cde", value: 2)
 	let credits = CreditArray.create(0)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (name, _) in counts 'eachKey'
 		credits.push(Credit.create(name))
 	end 'eachKey'
@@ -1073,7 +1071,6 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-is-refused-by-a-plain-field -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The key a `for` reads is `immutable`, so a plain `ByteArray` field cannot hold it.
 
@@ -1094,7 +1091,6 @@ function main() returns ExitCode
 	var counts = CountMap.create()
 	counts.upsert(b"ab", value: 1)
 	var credits = CreditArray.create(0)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (name, _) in counts 'eachKey'
 		credits.push(Credit.create(name))
 	end 'eachKey'
@@ -2497,9 +2493,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-destructured-from-a-method-result-is-stored-and-written -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A name bound by `var (a, b) = self.method()` is the method's data, so the receiver decides whether it can be stored or written.
 
 ```maxon
@@ -2521,32 +2514,29 @@ type Walker
 	var blocks as BlockArray
 
 	static function create() returns Walker
-		let blocks = BlockArray.create(0)
+		var blocks = BlockArray.create(0)
 		blocks.push(Block.create(0, heat: 0))
 		return Self{current: Block.create(9, heat: 0), blocks: blocks}
 	end 'create'
 
-	// TODO: tuple return types are not supported in minimaxon
-	function branch(heat Slot) returns (Block, Block)
+	function branch(mutates self, heat Slot) returns (Block, Block)
 		let first = Block.create(1, heat: heat)
 		let second = Block.create(2, heat: 0)
 		self.blocks.push(first)
 		self.blocks.push(second)
-		// TODO: tuple values and types are not supported in minimaxon
 		return (first, second)
 	end 'branch'
 
-	function go(heat Slot)
-		// TODO: tuple destructuring declarations are not supported in minimaxon
+	function go(mutates self, heat Slot)
 		let (refused, accepted) = self.branch(heat)
-		refused.heat = refused.heat + 1
+		refused.heat = try refused.heat + 1 otherwise panic("out of range")
 		self.current = accepted
 		self.current = refused
 	end 'go'
 end 'Walker'
 
 function main() returns ExitCode
-	let walker = Walker.create()
+	var walker = Walker.create()
 	walker.go(3)
 	print("{walker.current.id} {walker.current.heat}\n")
 	return 0
@@ -2564,7 +2554,6 @@ end 'main'
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A constant name stored in an `immutable` field, an `immutable` array element and a map key is the one image record, never a
 copy. Reading it back out of each holder and freezing the arrays that hold it neither copies it nor aborts the freeze.
@@ -2608,7 +2597,6 @@ function main() returns ExitCode
 	for token in tokens 'eachToken'
 		names.push(token.value)
 	end 'eachToken'
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, _) in counts 'eachKey'
 		names.push(key)
 	end 'eachKey'

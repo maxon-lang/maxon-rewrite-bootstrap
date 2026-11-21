@@ -1021,8 +1021,6 @@ end 'main'
 ```
 
 <!-- test: var-from-a-let-tuple-element-shares-the-element -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1035,10 +1033,8 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (Box.create(5), 7)
-	// TODO: tuple element access is not supported in minimaxon
-	let b = t.0
+	var b = t.0
 	b.value = 9
 	return b.value
 end 'main'
@@ -1054,18 +1050,14 @@ so a tuple of numbers destructures out of a `let` source with no shared storage 
 and a managed element is shared with the source tuple, as `var b = t.0` shares it.
 
 <!-- test: var-destructure-scalars-from-immutable -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (10 as Integer, 20 as Integer)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (a, b) = t
-	a = a + b
-	b = b + 1
+	a = try a + b otherwise panic("out of range")
+	b = try b + 1 otherwise panic("out of range")
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -1078,8 +1070,6 @@ end 'main'
 ```
 
 <!-- test: var-destructure-managed-element-from-a-let-shares-it -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1092,14 +1082,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (Box.create(5), 7 as Integer)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (b, n) = t
 	b.value = 9
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	b = Box.create(b.value)
-	return b.value + n
+	return try b.value + n otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

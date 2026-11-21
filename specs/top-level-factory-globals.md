@@ -447,19 +447,15 @@ error E3220: bin/<fragment>:20:9: the initializer of 'a' calls 'Outer.build': a 
 ```
 
 <!-- test: error.factory-returning-a-tuple-alias -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Num, Num)
 
 type Maker
 	static function build() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (11, 22)
 	end 'build'
 end 'Maker'
@@ -477,16 +473,12 @@ error E3220: <fragment>:11:9: the initializer of 'a' calls 'Maker.build': a modu
 
 <!-- test: error.factory-returning-a-tuple-alias-declared-in-another-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/a-maker.maxon
 export type Maker
 	export static function build() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (11, 22)
 	end 'build'
 end 'Maker'
@@ -494,7 +486,6 @@ end 'Maker'
 // --- file: api/z-pair.maxon
 public typealias Num = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 export typealias Pair = (Num, Num)
 
 // --- file: bin/main.maxon
@@ -510,19 +501,15 @@ error E3220: bin/<fragment>:14:9: the initializer of 'a' calls 'Maker.build': a 
 ```
 
 <!-- test: error.factory-returning-a-tuple-that-owns-heap -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Tagged = (String, Num)
 
 type Maker
 	static function build() returns Tagged
-		// TODO: tuple values and types are not supported in minimaxon
 		return ("hi", 7)
 	end 'build'
 end 'Maker'
@@ -539,17 +526,12 @@ error E3220: <fragment>:11:9: the initializer of 'a' calls 'Maker.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-tuple-whose-spelling-is-already-canonical -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Both = (String, String)
 
 type Maker
 	static function build() returns Both
-		// TODO: tuple values and types are not supported in minimaxon
 		return ("hi", "there")
 	end 'build'
 end 'Maker'

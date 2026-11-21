@@ -56,7 +56,6 @@ end 'main'
 ```
 
 <!-- test: json-number-range.a-number-is-read-to-the-nearest-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 A number reads as the float nearest to its decimal value, whatever the digits and the exponent are made of: a mantissa of 310 digits under `e-300` is a billion, the smallest subnormal is read as itself rather than zero, and the largest float reads back as itself.
 
 ```maxon
@@ -78,23 +77,14 @@ function main() returns ExitCode
 	for _ in 0 upto 309 'zeros'
 		wide = "{wide}0"
 	end 'zeros'
-	// TODO: float literals are not supported in minimaxon
 	check("a 310-digit mantissa under e-300", text: "{wide}e-300", expected: 1000000000.0)
-	// TODO: float literals are not supported in minimaxon
 	check("the smallest subnormal", text: "4.9e-324", expected: 5.0e-324)
-	// TODO: float literals are not supported in minimaxon
 	check("the largest float", text: "1.7976931348623157e308", expected: 1.7976931348623157e308)
-	// TODO: float literals are not supported in minimaxon
 	check("the lowest float", text: "-1.7976931348623157e308", expected: -1.7976931348623157e308)
-	// TODO: float literals are not supported in minimaxon
 	check("capital E", text: "1E5", expected: 100000.0)
-	// TODO: float literals are not supported in minimaxon
 	check("a plus sign on the exponent", text: "1e+5", expected: 100000.0)
-	// TODO: float literals are not supported in minimaxon
 	check("a negative fraction", text: "-12.5e-1", expected: -1.25)
-	// TODO: float literals are not supported in minimaxon
 	check("one past the largest float", text: "1e309", expected: 0.0)
-	// TODO: float literals are not supported in minimaxon
 	check("far past the largest float", text: "-1e999", expected: 0.0)
 	return 0
 end 'main'

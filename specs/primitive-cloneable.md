@@ -41,13 +41,10 @@ end 'main'
 ```
 
 <!-- test: float.clone -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.14
 	let y = x.clone()
-	// TODO: float literals are not supported in minimaxon
 	if y == 3.14 'ok'
 		return 1
 	end 'ok'

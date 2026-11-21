@@ -186,16 +186,12 @@ end 'main'
 ### Float ranged typealias
 
 <!-- test: float-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let p = 75.5 as Pct
-	return trunc(p)
+	let p = try 75.5 as Pct otherwise panic("out of range")
+	return try trunc(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -208,15 +204,10 @@ A float alias narrows exactly as an integer one does, and an out-of-range float
 LITERAL is the same compile-time E3005 an out-of-range integer literal gets.
 
 <!-- test: error.float-cast-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let p = 500.0 as Pct
 	return trunc(p)
 end 'main'
@@ -233,15 +224,10 @@ would pass under an integer compare, so these two cases (an all-negative range
 and one straddling zero) are what actually hold the float comparison honest.
 
 <!-- test: error.float-negative-bound-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Neg = float(-100.0 to -1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let p = -200.0 as Neg
 	return trunc(-p)
 end 'main'
@@ -251,16 +237,12 @@ error E3005: specs/ranged-typealias/error.float-negative-bound-out-of-range.maxo
 ```
 
 <!-- test: float-negative-bound-in-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Neg = float(-100.0 to -1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let p = -50.0 as Neg
-	return trunc(-p)
+	let p = try -50.0 as Neg otherwise panic("out of range")
+	return try trunc(-p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -268,15 +250,10 @@ end 'main'
 ```
 
 <!-- test: error.float-straddling-zero-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Unit = float(-1.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let u = -2.5 as Unit
 	return trunc(-u)
 end 'main'
@@ -286,17 +263,12 @@ error E3005: specs/ranged-typealias/error.float-straddling-zero-out-of-range.max
 ```
 
 <!-- test: float-straddling-zero-in-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Unit = float(-1.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let u = -0.5 as Unit
-	// TODO: float literals are not supported in minimaxon
-	return trunc(-u * 100.0)
+	let u = try -0.5 as Unit otherwise panic("out of range")
+	return try trunc(-u * 100.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -306,22 +278,17 @@ end 'main'
 ### Float range check: runtime guard on a non-literal
 
 <!-- test: float-runtime-range-panic -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function scale(x Wide) returns Wide
-	// TODO: float literals are not supported in minimaxon
 	return x * 2.0
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let big = scale(300.0)
 	let p = big as Pct
 	return trunc(p)
@@ -338,22 +305,17 @@ Stack trace:
 ```
 
 <!-- test: float-runtime-negative-bound-panic -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Neg = float(-100.0 to -1.0)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function scale(x Wide) returns Wide
-	// TODO: float literals are not supported in minimaxon
 	return x * 2.0
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = scale(-200.0)
 	let n = v as Neg
 	return trunc(-n)
@@ -370,25 +332,19 @@ Stack trace:
 ```
 
 <!-- test: float-runtime-negative-bound-in-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Neg = float(-100.0 to -1.0)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function scale(x Wide) returns Wide
-	// TODO: float literals are not supported in minimaxon
 	return x * 2.0
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = scale(-25.0)
-	let n = v as Neg
-	return trunc(-n)
+	let n = try v as Neg otherwise panic("out of range")
+	return try trunc(-n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -401,13 +357,10 @@ The narrowing an `f32`-bounded alias promises, checked at run time — a value a
 f64 holds comfortably but an f32 cannot.
 
 <!-- test: float-narrow-f64-to-f32 -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Narrow = float(f32.min to f32.max)
 
 function narrow(x Wide) returns Narrow
@@ -415,7 +368,6 @@ function narrow(x Wide) returns Narrow
 end 'narrow'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(narrow(1.0e300))
 end 'main'
 ```
@@ -438,24 +390,17 @@ it is still guard-free. A guard that compared the f64 BIT PATTERNS as signed
 integers would reject this value; the elision is what stops it.
 
 <!-- test: float-full-range-guard-elided -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function widen(x Pct) returns Wide
-	// TODO: float literals are not supported in minimaxon
 	return x * 1.0e299
 end 'widen'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let big = widen(10.0)
-	// TODO: float literals are not supported in minimaxon
 	if big > 1.0e299 'huge'
 		return 42
 	end 'huge'
@@ -469,15 +414,10 @@ end 'main'
 ### Error: return float literal out of range
 
 <!-- test: error.return-float-literal-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function getPct() returns Pct
-	// TODO: float literals are not supported in minimaxon
 	return 500.0
 end 'getPct'
 
@@ -492,14 +432,9 @@ error E3005: specs/ranged-typealias/error.return-float-literal-out-of-range.maxo
 ### Error: top-level let float cast out of range
 
 <!-- test: error.top-level-float-cast-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
-// TODO: float literals are not supported in minimaxon
 let BAD = 500.0 as Pct
 
 function main() returns ExitCode
@@ -511,17 +446,13 @@ error E3005: specs/ranged-typealias/error.top-level-float-cast-out-of-range.maxo
 ```
 
 <!-- test: top-level-float-cast-in-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
-// TODO: float literals are not supported in minimaxon
-let GOOD = 50.0 as Pct
+let GOOD = try 50.0 as Pct otherwise panic("out of range")
 
 function main() returns ExitCode
-	return trunc(GOOD)
+	return try trunc(GOOD) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1185,22 +1116,17 @@ Stack trace:
 ### Return value range check: float return
 
 <!-- test: return-float-range-check -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function clampedPct(x Float) returns Pct
-	return x
+	return try x as Pct otherwise panic("out of range")
 end 'clampedPct'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(clampedPct(42.5))
+	return try trunc(clampedPct(42.5)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1357,18 +1283,13 @@ end 'main'
 ### f32 range alias with float operations
 
 <!-- test: f32-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias SmallFloat = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let x = 3.5 as SmallFloat
-	// TODO: float literals are not supported in minimaxon
-	let y = 1.5 as SmallFloat
-	return trunc(x + y)
+	let x = try 3.5 as SmallFloat otherwise panic("out of range")
+	let y = try 1.5 as SmallFloat otherwise panic("out of range")
+	return try trunc(x + y) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1378,22 +1299,17 @@ end 'main'
 ### F32 arithmetic
 
 <!-- test: f32-arithmetic -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = 10.0 as F
-	// TODO: float literals are not supported in minimaxon
-	let b = 3.0 as F
+	let a = try 10.0 as F otherwise panic("out of range")
+	let b = try 3.0 as F otherwise panic("out of range")
 	let sum = a + b
 	let diff = a - b
 	let prod = a * b
-	let quot = a / b
-	return trunc(sum + diff + prod + quot)
+	let quot = try a / b otherwise panic("out of range")
+	return try trunc(sum + diff + prod + quot) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1403,17 +1319,12 @@ end 'main'
 ### F32 comparison
 
 <!-- test: f32-comparison -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = 3.0 as F
-	// TODO: float literals are not supported in minimaxon
-	let b = 5.0 as F
+	let a = try 3.0 as F otherwise panic("out of range")
+	let b = try 5.0 as F otherwise panic("out of range")
 	if a < b 'less'
 		return 1
 	end 'less'
@@ -1427,20 +1338,15 @@ end 'main'
 ### F32 function parameter and return
 
 <!-- test: f32-function-param-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function double(x F) returns F
-	// TODO: float literals are not supported in minimaxon
-	return x * 2.0
+	return try (x * 2.0) as F otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(double(21.0))
+	return try trunc(double(21.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1450,16 +1356,12 @@ end 'main'
 ### F32 truncation to int
 
 <!-- test: f32-to-int -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let x = 42.9 as F
-	return trunc(x)
+	let x = try 42.9 as F otherwise panic("out of range")
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2946,14 +2848,12 @@ the program **compiles clean, stores 300 twice and exits 2.** The roster-served 
 refuses the same literal; were `insert` struck from the roster, this is the door it would arrive at.
 
 <!-- test: error.array-extension-element-argument-out-of-range -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Byte = int(0 to 255)
 
 typealias BA = Array with Byte
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Array
 	function pushTwice(value Element)
 		push(value)
@@ -3016,11 +2916,7 @@ reach the callee and be caught only by its ranged `return`, at run time, rather 
 compile time.
 
 <!-- test: error.float-call-argument-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function take(p Pct) returns Pct
@@ -3028,7 +2924,6 @@ function take(p Pct) returns Pct
 end 'take'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(take(500.0))
 end 'main'
 ```
@@ -3041,10 +2936,7 @@ error E3005: specs/ranged-typealias/error.float-call-argument-out-of-range.maxon
 The control for the case above: an in-range float literal at the same door still compiles and runs.
 
 <!-- test: float-call-argument-in-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Pct = float(0.0 to 100.0)
 
 function take(p Pct) returns Pct
@@ -3052,8 +2944,7 @@ function take(p Pct) returns Pct
 end 'take'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(take(42.5))
+	return try trunc(take(42.5)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4110,7 +4001,7 @@ doors — the body cast and the
 top-level `let`'s, which are two different walks over two different code paths.
 
 <!-- test: error.bare-int-parameter -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A parameter is an ordinary type position, so the keyword is refused there and the diagnostic is anchored
 on the keyword itself — the token that has to change, not the name to its left.
 ```maxon
@@ -4127,14 +4018,9 @@ error E3005: specs/ranged-typealias/error.bare-int-parameter.maxon:2:16: Cannot 
 ```
 
 <!-- test: error.bare-float-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float types are not supported in minimaxon -->
-<!-- positions: moved -->
 The float half, which carries its own example range (`float(0.0 to 1.0)`) rather than the int's.
 ```maxon
-// TODO: float types are not supported in minimaxon
 function half() returns float
-	// TODO: float literals are not supported in minimaxon
 	return 0.5
 end 'half'
 
@@ -4147,7 +4033,7 @@ error E3005: specs/ranged-typealias/error.bare-float-return.maxon:2:25: Cannot u
 ```
 
 <!-- test: error.bare-int-struct-field -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A struct field is the third spelling of a declared type, and it takes the same refusal. (`var x as int`
 is the FIELD form; a local is always `let x = expr` and has no annotation to refuse.)
 ```maxon
@@ -4164,7 +4050,7 @@ error E3005: specs/ranged-typealias/error.bare-int-struct-field.maxon:3:18: Cann
 ```
 
 <!-- test: error.cast-to-bare-int -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A CAST TARGET gets its own sentence, because the rewrite it needs is shaped differently: a declaration
 site is told to declare an alias, a cast site is shown the cast that would work.
 ```maxon
@@ -4181,7 +4067,7 @@ error E3005: specs/ranged-typealias/error.cast-to-bare-int.maxon:6:15: Cannot ca
 ```
 
 <!-- test: error.top-level-const-cast-to-bare-int -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SECOND CAST DOOR.** A top-level `let`'s initializer is folded during the declaration sweep, by the
 body's expression parser. A top-level door that accepted the bare keyword as an "identity cast" would
 compile this exact program and refuse the identical cast inside a function: one mistake with two verdicts,
@@ -4198,9 +4084,7 @@ error E3005: specs/ranged-typealias/error.top-level-const-cast-to-bare-int.maxon
 ```
 
 <!-- test: the-typealias-rhs-admits-the-keyword -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 ⭐ **THE ONE POSITION WHERE THE BARE KEYWORD IS LEGAL IS THE WHOLE RHS — not just the ranged form.** A FUNCTION
 alias's parameters and return and a TUPLE alias's elements are inside the RHS too, and all three are
 accepted. `bool` stays bare everywhere. A bare `int` there is an unranged integer and no wildcard: a
@@ -4214,7 +4098,6 @@ typealias Whole = int(i64.min to i64.max)
 
 typealias IntOp = function(int) returns int
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 
 function dbl(n Whole) returns Whole
@@ -4222,12 +4105,10 @@ function dbl(n Whole) returns Whole
 end 'dbl'
 
 function apply(f IntOp, p Pair, flag bool) returns Small
-	// TODO: tuple element access is not supported in minimaxon
 	return f(p.0) + p.1 if flag else 0
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let p = (3, 4)
 	return apply(dbl, p: p, flag: true)
 end 'main'
@@ -4237,8 +4118,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-in-a-parameter-is-not-an-rhs -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 <!-- positions: moved -->
 The negative half of the pair above, and the reason the exemption had to be stated as a POSITION rather
 than as a construct: the identical `(int, int)` that a `typealias` RHS accepts is refused in a parameter,
@@ -4246,9 +4126,7 @@ because a parameter is not an RHS.
 ```maxon
 typealias Small = int(0 to 100)
 
-// TODO: tuple parameter types are not supported in minimaxon
 function first(t(int, int)) returns Small
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0
 end 'first'
 

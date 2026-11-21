@@ -86,7 +86,6 @@ excludes*). `sched-processor.md` carries the identical restriction for the ident
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 **THE P-OWNED ROW, HAMMERED.** A green thread's allocations run with `main` adopted as P[0], so every
 span they touch is cut, stamped, cached, drained, evicted and returned against a real owner. This builds
 and drops thousands of short-lived Strings inside green threads and then verifies a population built the
@@ -147,7 +146,6 @@ function main() returns ExitCode
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		strings.push(await p)
 	end 'awaitKeep'
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, s) in strings.withIterator() 'check'
 		let idx = iter.index()
@@ -166,7 +164,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 **THE RAW ROW, AND THE ONE ARM OF THE RAW-ROW LOCK A SINGLE-THREADED PROGRAM REACHES.** Everything allocated
 before the first `async` is allocated with NO processor: the P read answers "none", the spans
 land on the dedicated raw row and are stamped as owned by nobody. Once the scheduler exists those same
@@ -229,7 +226,6 @@ function main() returns ExitCode
 	// Read the pre-scheduler population back, THEN drop it — every one of these frees is of a
 	// slot on a span that no processor owns, with a scheduler running.
 	var bad = 0 as FullRangeInt
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, b) in early.withIterator() 'check'
 		let seed = iter.index()
@@ -258,7 +254,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 **THE UNCACHED SENTINELS, ROUND-TRIPPED.** A span whose last slot is handed OUT is unlinked from its
 owner's mcache row and stamped with an owner that is neither a processor nor "no processor"; the first
 free back into it lists it on mcentral, and the next refill takes it back and re-stamps it. This case
@@ -325,7 +320,6 @@ function main() returns ExitCode
 		keep.push(build((k + 900) as Seed))
 	end 'survivors'
 	var bad = 0 as FullRangeInt
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, b) in keep.withIterator() 'check'
 		let seed = iter.index() + 900
@@ -663,7 +657,6 @@ remote-after-drop=0 before=0
 
 <!-- test: slab-sharding.services-churning-different-size-classes-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -734,7 +727,6 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'
@@ -887,7 +879,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800
 
 <!-- test: slab-sharding.the-same-churn-keeps-its-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -936,7 +927,6 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'
@@ -1092,7 +1082,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800 sweeps=360
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -1142,7 +1131,6 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'
@@ -1293,7 +1281,6 @@ total built=261792000 absorbed=130896000 wrong=0 rounds=261792000
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -1351,7 +1338,6 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'

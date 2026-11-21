@@ -1546,7 +1546,6 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -1596,7 +1595,6 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'

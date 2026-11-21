@@ -1428,7 +1428,7 @@ error E3224: <fragment>:23:30: a closure cannot capture 'r', a linear value: a l
 ```
 
 <!-- test: a-tuple-item-cannot-be-a-linear-value -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1451,7 +1451,6 @@ type Resp
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (Resp.create(1), 2)
 	print("{pair.1}\n")
 	return 0

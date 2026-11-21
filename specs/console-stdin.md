@@ -468,23 +468,17 @@ error E3104: <fragment>:23:10: 'zLoud' lowers to the runtime entry '__con_read_s
 ```
 
 <!-- test: rejected-on-wasm.a-host-bound-reader-answered-in-a-tuple-reaches-its-source -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 The user's function answers a `FileStreamReader`, whose source is host-bound file IO, as element 0 of a tuple, and the caller reads a line from that element. The program is refused with `E3104` on wasm32-wasi at the host-bound `File.openRead`, never a panic from inside the wasm backend.
 ```maxon
-// TODO: tuple return types are not supported in minimaxon
 function openPair(path FilePath) returns (FileStreamReader, Count) throws FileReadError
 	let reader = try File.openRead(path)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (reader, 1)
 end 'openPair'
 
 function main() returns ExitCode
 	let pair = try openPair(FilePath from "input.txt") otherwise return 2
-	// TODO: tuple element access is not supported in minimaxon
 	let read = try pair.0.readLine() otherwise return 3
 	match read 'read'
 		line(text) then print("{text}\n")
@@ -501,9 +495,6 @@ error E3104: <fragment>:7:10: 'main' lowers to the runtime entry '__mf_read_appe
 
 <!-- test: rejected-on-wasm.a-library-reader-answered-in-a-tuple-reaches-its-source -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library function answers a `StreamReader` over a library source whose `readSome` reads stdin as element 0 of a tuple, and the user reads a line from that element. The user's program names the reader only through the tuple, so the reach walk must follow the tuple element's type to `ZSrc.readSome` and `__con_read_stdin`: the program is refused with `E3104` on wasm32-wasi at the user's call of `zPair`, never a panic from inside the wasm backend.
@@ -522,15 +513,12 @@ end 'ZSrc'
 
 public typealias ZReader = StreamReader with ZSrc
 
-// TODO: tuple return types are not supported in minimaxon
 public function zPair() returns (ZReader, Count)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (StreamReader.over(ZSrc.create()), 1)
 end 'zPair'
 // --- file: main.maxon
 function main() returns ExitCode
 	let pair = zPair()
-	// TODO: tuple element access is not supported in minimaxon
 	let read = try pair.0.readLine() otherwise return 2
 	match read 'read'
 		line(text) then print("{text}\n")

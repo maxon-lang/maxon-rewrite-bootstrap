@@ -259,12 +259,10 @@ end 'main'
 ```
 
 <!-- test: a-float-expression-is-reused -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 Floats are subjects: CSE changes no value, it reuses one the program already computed, so the bits
 are the bits the second `mulsd` would have produced. The answer is printed rather than only compared,
 so a reuse that produced a different double would show in the output.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function energy(m Real, v Real) returns Real

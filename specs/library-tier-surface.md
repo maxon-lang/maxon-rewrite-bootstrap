@@ -579,7 +579,6 @@ error E2015: <fragment>:3:27: Unsupported: `async __Builtins.currentProcessId(â€
 ```
 
 <!-- test: error.a-bare-managed-in-a-user-array-extension-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 Inside an `extension Array`, `managed` names the receiver's buffer field without a `self.`; it is the same
 door as `.managed`.
@@ -588,7 +587,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function rawLength() returns Count
 		return managed.length()
@@ -608,7 +606,6 @@ error E3185: <fragment>:7:10: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: a-bare-managed-in-an-array-extension-compiles-in-the-library-tier -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -616,7 +613,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function rawLength() returns Count
 		return managed.length()
@@ -903,13 +899,11 @@ declared
 
 <!-- test: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 An `extension Array` in a program file is not the standard library: `self.managed` is the raw buffer, and the refusal
 lands on the field itself, not on a later member.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function probe() returns bool
 		let m = self.managed
@@ -929,12 +923,10 @@ error E3185: <fragment>:4:16: '.managed' read from outside the library tiers: a 
 
 <!-- test: a-self-managed-read-in-an-array-extension-compiles-in-the-library-tier -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function probe() returns bool
 		let m = self.managed
@@ -953,12 +945,9 @@ end 'main'
 ```
 
 <!-- test: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A member call on `self.managed` is refused at `managed`, the first raw door in source order, and not at the member.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function rawLength() returns Count
 		return self.managed.count()
@@ -975,12 +964,9 @@ error E3185: <fragment>:4:15: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-bare-managed-read-in-an-array-extension-is-refused-at-the-field -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 The bare spelling of the same field.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function rawLength() returns Count
 		let m = managed
@@ -999,12 +985,10 @@ error E3185: <fragment>:4:11: '.managed' read from outside the library tiers: a 
 
 <!-- test: error.a-self-managed-read-in-a-string-extension-is-refused-at-the-field -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A `String`'s buffer is the same raw surface.
 
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension String
 	function probe() returns bool
 		let m = self.managed
@@ -1023,7 +1007,6 @@ error E3185: <fragment>:4:16: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: an-array-extension-that-uses-only-the-public-methods-compiles -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The twin that needs no raw surface: an extension that reads through `get`.
 
 ```maxon
@@ -1031,7 +1014,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function second() returns Element throws ArrayError
 		return try self.get(1)

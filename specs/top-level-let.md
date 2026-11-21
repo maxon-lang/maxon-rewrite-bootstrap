@@ -72,13 +72,11 @@ end 'main'
 ```
 
 <!-- test: basic-float-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let PI = 3.14
 
 function main() returns ExitCode
-	return trunc(PI)
+	return try trunc(PI) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -261,21 +259,17 @@ end 'main'
 ```
 
 <!-- test: float-arithmetic-in-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 Top-level float constants fold `+`, `*`, and `/` with the host's f64 (X=3.0, Y=6.0, Z=2.5). x64-windows only: the exit code 362 is outside `ExitCode` everywhere but there. `ExitCode` is `int(0 to u32.max)` on Windows and `int(0 to 255)` on Linux, macOS and WASI, so the computed 362 panics at the `return` on those lanes. The three sibling tests below (codes <= 255) exercise float const folding on every other target.
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let X = 1.0 + 2.0
 
-// TODO: float literals are not supported in minimaxon
 let Y = X * 2.0
 
-// TODO: float literals are not supported in minimaxon
 let Z = 10.0 / 4.0
 
 function main() returns ExitCode
-	return trunc(X) * 100 + trunc(Y) * 10 + trunc(Z)
+	return try trunc(X) * 100 + trunc(Y) * 10 + trunc(Z) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -283,17 +277,14 @@ end 'main'
 ```
 
 <!-- test: float-mixed-int-promotion-in-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 A mixed int/float constant promotes the int operand to f64 before folding, exactly as the runtime path does (M=3.0, N=7.5).
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let M = 1 + 2.0
 
-// TODO: float literals are not supported in minimaxon
 let N = 5 * 1.5
 
 function main() returns ExitCode
-	return trunc(M) * 10 + trunc(N)
+	return try trunc(M) * 10 + trunc(N) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -301,19 +292,16 @@ end 'main'
 ```
 
 <!-- test: float-subtraction-and-negation-in-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 Float subtraction and a negated float literal fold (A=6.5, B=-2.0, C=4.5).
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let A = 10.0 - 3.5
 
-// TODO: float literals are not supported in minimaxon
 let B = -2.0
 
 let C = A + B
 
 function main() returns ExitCode
-	return trunc(C)
+	return try trunc(C) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -321,13 +309,10 @@ end 'main'
 ```
 
 <!-- test: float-comparison-in-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
 Float comparisons fold with a real f64 compare, so a negative operand orders correctly where an integer compare over the raw bit patterns would answer backwards (both true).
 ```maxon
-// TODO: float literals are not supported in minimaxon
 let LT = -1.0 > -2.0
 
-// TODO: float literals are not supported in minimaxon
 let GE = 2.5 >= 2.5
 
 function main() returns ExitCode
@@ -513,20 +498,16 @@ test.txt
 
 <!-- test: a-top-level-array-literal-of-tuples -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A module-scope `Alias from [ ... ]` whose elements are tuples reads back each element's fields, as the
 same literal does in a body.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Step = (Word, Word)
 
 typealias Steps = Array with Step
 
-// TODO: tuple values and types are not supported in minimaxon
 let steps = Steps from [(0, 1), (2, 3)]
 
 function main() returns ExitCode
@@ -547,18 +528,14 @@ end 'main'
 
 <!-- test: a-top-level-array-literal-of-three-tuples -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple element of three fields, one of them a string, takes the same module-scope form.
 ```maxon
 typealias Index = int(0 to 100)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Entry = (Index, String, bool)
 
 typealias Entries = Array with Entry
 
-// TODO: tuple values and types are not supported in minimaxon
 let entries = Entries from [(1, "one", true), (2, "two", false)]
 
 function main() returns ExitCode
@@ -580,22 +557,17 @@ end 'main'
 
 <!-- test: a-top-level-array-literal-of-nested-tuples -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple element that is itself a tuple takes the stated element type's columns in turn.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Inner = (Word, Word)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Outer = (Inner, Word)
 
 typealias Outers = Array with Outer
 
-// TODO: tuple values and types are not supported in minimaxon
 let outers = Outers from [((1, 2), 3), ((4, 5), 6)]
 
 function main() returns ExitCode
@@ -618,20 +590,16 @@ end 'main'
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A struct literal's field declared at a tuple type takes a tuple literal in a static initializer.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Step = (Word, Word)
 
 type Holder
 	export var step as Step
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
 	static let origin = Holder{step: (7, 9)}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -654,14 +622,11 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A module-scope `let` whose initializer is a tuple literal takes the tuple type the literal states, as `let t = (1, 2)`
 does in a body, and two such constants of one type share it.
 ```maxon
-// TODO: tuple values and types are not supported in minimaxon
 let first = (1, 2)
 
-// TODO: tuple values and types are not supported in minimaxon
 let second = (30, 40)
 
 function main() returns ExitCode
@@ -677,16 +642,13 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-that-owns-a-string -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple constant with a `String` column is built before `main` and released after it, through the destructor
 the tuple type owes, exactly as the same literal is in a body.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple values and types are not supported in minimaxon
 let named = (7, "seven")
 
-// TODO: tuple values and types are not supported in minimaxon
 let other = ("a", "b", 3 as Num)
 
 function main() returns ExitCode
@@ -702,14 +664,12 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-holding-an-empty-container -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A column that is an empty container built by its alias keeps the alias in the tuple's identity, as it does in a body.
 ```maxon
 typealias Item = int(0 to 1000)
 
 typealias Items = Array with Item
 
-// TODO: tuple values and types are not supported in minimaxon
 let held = (Items.create(0), "held")
 
 function main() returns ExitCode
@@ -725,7 +685,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-holding-a-construction-by-its-alias -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A column built by its alias's `from` keeps the alias in the tuple's identity, as it does in a body, so the constant and
 a body-built tuple over the same construction are one type and share an array.
 ```maxon
@@ -733,11 +692,9 @@ typealias Item = int(0 to 1000)
 
 typealias Items = Array with Item
 
-// TODO: tuple values and types are not supported in minimaxon
 let held = (Items from [7], "held")
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let fresh = (Items from [7, 8], "fresh")
 	let both = [fresh, held.clone()]
 	for pair in both 'eachPair'
@@ -755,10 +712,8 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-nested-tuple -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple whose element is a tuple states both types, with no alias written anywhere.
 ```maxon
-// TODO: tuple values and types are not supported in minimaxon
 let nested = ((1, "one"), (2, 3))
 
 function main() returns ExitCode
@@ -774,14 +729,11 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-argument-of-a-top-level-factory -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Pair.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Step = (Num, String)
 
 type Pair
@@ -792,7 +744,6 @@ type Pair
 	end 'create'
 end 'Pair'
 
-// TODO: tuple values and types are not supported in minimaxon
 let p = Pair.create((1, "one"))
 
 function main() returns ExitCode
@@ -805,10 +756,6 @@ error E3220: <fragment>:13:9: the initializer of 'p' calls 'Pair.create': a modu
 ```
 
 <!-- test: error.a-tuple-argument-written-in-the-factory-signature -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Pair.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
@@ -817,14 +764,11 @@ type Pair
 	export var a as Num
 	export var b as Num
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(ends(Num, Num)) returns Pair
-		// TODO: tuple element access is not supported in minimaxon
+	static function create(ends (Num, Num)) returns Pair
 		return Pair{a: ends.0, b: ends.1}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple values and types are not supported in minimaxon
 let p = Pair.create((5, 6))
 
 function main() returns ExitCode
@@ -837,13 +781,10 @@ error E3220: <fragment>:13:9: the initializer of 'p' calls 'Pair.create': a modu
 ```
 
 <!-- test: a-tuple-payload-of-a-top-level-union-case -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A union case whose payload is a tuple takes a tuple literal in a file-scope construction.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Step = (Num, String)
 
 union Move
@@ -851,7 +792,6 @@ union Move
 	still
 end 'Move'
 
-// TODO: tuple values and types are not supported in minimaxon
 let move = Move.moved((3, "three"))
 
 function main() returns ExitCode
@@ -870,10 +810,8 @@ end 'main'
 ```
 
 <!-- test: a-tuple-column-of-a-top-level-map -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A map literal whose value column is a tuple fixes its columns from the first pair's tuple.
 ```maxon
-// TODO: tuple values and types are not supported in minimaxon
 let table = [1: (2, "two"), 3: (4, "four")]
 
 function main() returns ExitCode
@@ -891,10 +829,8 @@ end 'main'
 ```
 
 <!-- test: an-untyped-top-level-array-literal-of-tuples -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 An array literal of tuple literals with no stated alias is an `Array` of the tuple type its first element states.
 ```maxon
-// TODO: tuple values and types are not supported in minimaxon
 let pairs = [(1, "one"), (2, "two")]
 
 function main() returns ExitCode
@@ -915,19 +851,15 @@ end 'main'
 
 <!-- test: a-parenthesised-tuple-element-of-a-typed-array-literal -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple literal written in extra parentheses is the same tuple in a slot that states one.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
 typealias Word = bits(64)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Step = (Word, Word)
 
 typealias Steps = Array with Step
 
-// TODO: tuple values and types are not supported in minimaxon
 let steps = Steps from [((0, 1)), (((2, 3)))]
 
 function main() returns ExitCode
@@ -947,7 +879,6 @@ end 'main'
 ```
 
 <!-- test: error.parenthesised-records-and-tuples-at-file-scope -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Pair.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -964,10 +895,8 @@ end 'Pair'
 
 let grouped = (((Pair.create(1, b: 2))))
 
-// TODO: tuple values and types are not supported in minimaxon
 let wrapped = (((((3, "three")))))
 
-// TODO: tuple values and types are not supported in minimaxon
 let mixed = ((Pair.create(4, b: 5)), ((6, "six")))
 
 function main() returns ExitCode
@@ -982,16 +911,13 @@ error E3220: <fragment>:15:13: the initializer of 'mixed' calls 'Pair.create': a
 
 <!-- test: an-unstated-tuple-constant-declared-in-another-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A constant whose tuple type no file writes is built by the module init whichever file declares it and whichever
 file reads it, and a second file's own constant of the same type shares the layout.
 ```maxon
 // --- file: api/table.maxon
-// TODO: tuple values and types are not supported in minimaxon
 export let origin = (0, "origin")
 
 // --- file: bin/main.maxon
-// TODO: tuple values and types are not supported in minimaxon
 let here = (9, "here")
 
 function main() returns ExitCode
@@ -1008,7 +934,6 @@ end 'main'
 
 <!-- test: error.a-top-level-tuple-literal-in-an-array-of-scalars -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple literal is a tuple wherever it stands, so an array of `Word` refuses it as the same array literal in a
 function body does.
@@ -1018,7 +943,6 @@ typealias Word = bits(64)
 
 typealias Words = Array with Word
 
-// TODO: tuple values and types are not supported in minimaxon
 let words = Words from [(0, 1)]
 
 function main() returns ExitCode
@@ -1031,7 +955,6 @@ error E3009: <fragment>:5:25: Cannot cast from (int, int) to int
 
 <!-- test: error.a-tuple-literal-in-an-array-of-scalars-in-a-body -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
@@ -1040,7 +963,6 @@ typealias Word = bits(64)
 typealias Words = Array with Word
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let words = Words from [(0, 1)]
 	return words.count() as ExitCode
 end 'main'
@@ -1658,16 +1580,12 @@ error E2045: <fragment>:15:20: Function calls are not allowed in global variable
 
 
 <!-- test: a-builtin-call-past-a-hidden-same-name-declaration-folds-to-a-constant -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 Another directory declares an unmarked `sqrt`; from `main.maxon` the bare call means the math builtin, as a
 body call does, and a builtin over a constant is the constant the body knows it to be, so `R` is 2.0.
 ```maxon
 // --- file: main.maxon
-// TODO: float typealiases are not supported in minimaxon
 public typealias Real = float(0.0 to 10.0)
 
-// TODO: float literals are not supported in minimaxon
 let R = sqrt(4.0)
 
 function main() returns ExitCode
@@ -1683,7 +1601,6 @@ function sqrt(x Real) returns Real
 end 'sqrt'
 
 export function useSqrt() returns Real
-	// TODO: float literals are not supported in minimaxon
 	return sqrt(1.0)
 end 'useSqrt'
 ```
@@ -1692,16 +1609,12 @@ end 'useSqrt'
 ```
 
 <!-- test: a-builtin-call-in-a-function-body-past-a-hidden-same-name-declaration-calls-the-builtin -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The same bare call in a function body means the math builtin.
 ```maxon
 // --- file: main.maxon
-// TODO: float typealiases are not supported in minimaxon
 public typealias Real = float(0.0 to 10.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = sqrt(4.0)
 	if r > useSqrt() 'big'
 		return 1
@@ -1715,7 +1628,6 @@ function sqrt(x Real) returns Real
 end 'sqrt'
 
 export function useSqrt() returns Real
-	// TODO: float literals are not supported in minimaxon
 	return sqrt(1.0)
 end 'useSqrt'
 ```
@@ -4141,8 +4053,6 @@ error E3148: <fragment>:3:22: 'bits(5)' is not a legal width: bits(n) takes 1, 2
 ```
 
 <!-- test: error.a-refused-extension-keeps-an-undefined-call-on-an-unrelated-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4162,7 +4072,6 @@ type Bar
 	end 'create'
 end 'Bar'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Foo
 	function shifted(amount) returns Digit
 		return n
@@ -4180,7 +4089,7 @@ error E3004: <fragment>:27:14: call to undefined function 'Bar.missing'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-method-miss-on-a-list-not-built-from-the-extended-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4196,7 +4105,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	typealias Items = Array with Digit
 	function all() returns Items
@@ -4216,7 +4124,7 @@ error E4006: <fragment>:24:5: Type 'List' has no method named 'pushh'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-missing-static-method-whose-argument-came-from-the-refused-producer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/token.maxon
@@ -4240,7 +4148,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	typealias Items = Array with Digit
 	function all() returns Items
@@ -4312,8 +4219,6 @@ error E3011: <fragment>:9:11: Unknown type 'Nosuch'
 ```
 
 <!-- test: error.a-refused-extension-hides-a-call-to-its-own-member-on-the-extended-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4325,7 +4230,6 @@ type Foo
 	end 'create'
 end 'Foo'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Foo
 	function shifted(amount) returns Digit
 		return n
@@ -4342,7 +4246,7 @@ error E2015: <fragment>:13:19: Unsupported: parameter 'amount' with no type — 
 ```
 
 <!-- test: error.a-refused-interface-extension-hides-a-call-to-its-member-on-a-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4363,7 +4267,7 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Named
 	function shouted(amount) returns Digit
 		return label()
@@ -4827,8 +4731,6 @@ error E2004: <fragment>:18:16: Cannot operate on String and int
 ```
 
 <!-- test: error.a-refused-extension-supplying-a-required-method-reports-only-the-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 `Foo`'s only `shifted` is in an extension that is refused, so the missing method the conformance reports is a
 consequence of that refusal. `other` stays reported.
 ```maxon
@@ -4846,7 +4748,6 @@ type Foo implements Shifts
 	end 'create'
 end 'Foo'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Foo
 	function shifted(amount) returns Digit
 		return n

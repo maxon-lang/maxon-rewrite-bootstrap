@@ -302,15 +302,10 @@ error E2004: <fragment>:16:12: Cannot operate on CoordBox and int
 ```
 
 <!-- test: error.an-instance-over-a-float-range-names-the-range-in-decimal -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function half() returns Ratio
-	// TODO: float literals are not supported in minimaxon
 	return 0.5
 end 'half'
 
@@ -420,13 +415,10 @@ error E2004: <fragment>:11:10: Cannot negate Ys
 ```
 
 <!-- test: error.an-otherwise-fallback-struct-against-a-float-result-names-the-struct -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Coord = int(0 to 1000)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 type Point
@@ -445,7 +437,6 @@ function ratioOf(n Coord) returns Ratio throws LookupError
 	if n == 0 'none'
 		throw LookupError.missing
 	end 'none'
-	// TODO: float literals are not supported in minimaxon
 	return 0.5
 end 'ratioOf'
 
@@ -531,8 +522,6 @@ error E3005: <fragment>:14:13: '__Builtins.sleep' requires an integer, but its a
 ```
 
 <!-- test: error.destructuring-a-struct-names-the-struct -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Coord = int(0 to 1000)
 
@@ -546,7 +535,6 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.make(1)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = p
 	return 0
 end 'main'
@@ -882,10 +870,7 @@ error E3005: <fragment>:9:10: argument type mismatch for 'n': expected 'Digit', 
 ```
 
 <!-- test: error.a-bool-at-a-ranged-float-alias-parameter-names-the-alias -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function scale(r Ratio) returns Ratio
@@ -954,10 +939,7 @@ error E3005: <fragment>:6:2: Cannot return 'bool' from function declared to retu
 ```
 
 <!-- test: error.a-bool-returned-from-a-ranged-float-alias-function-names-the-alias -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function pick() returns Ratio
@@ -990,15 +972,10 @@ error E3005: <fragment>:6:2: cannot assign a value of type 'bool' to variable 'd
 ```
 
 <!-- test: error.a-bool-assigned-to-a-ranged-float-alias-variable-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	r = true
 	print("{r}")
@@ -1033,18 +1010,13 @@ error E3005: <fragment>:14:4: cannot assign a value of type 'bool' to field 'd' 
 ```
 
 <!-- test: error.a-string-assigned-to-a-ranged-float-alias-field-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 type Cell
 	export var r as Ratio
 
 	static function make() returns Cell
-		// TODO: float literals are not supported in minimaxon
 		return Cell{r: 0.5}
 	end 'make'
 end 'Cell'
@@ -1061,8 +1033,6 @@ error E3005: <fragment>:14:4: cannot assign a value of type 'String' to field 'r
 ```
 
 <!-- test: error.a-float-converted-to-a-ranged-alias-argument-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -1071,7 +1041,6 @@ function take(n Digit) returns Digit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let w = 2.5
 	let d = take(w)
 	print("{d}")
@@ -1083,13 +1052,10 @@ error E3009: <fragment>:10:10: argument 'n': cannot implicitly convert 'float' t
 ```
 
 <!-- test: error.a-float-converted-to-a-ranged-alias-return-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 function pick() returns Digit
-	// TODO: float literals are not supported in minimaxon
 	let w = 2.5
 	return w
 end 'pick'
@@ -1104,14 +1070,11 @@ error E3009: <fragment>:6:2: cannot implicitly convert 'float' to 'Digit': the c
 ```
 
 <!-- test: error.a-float-converted-to-a-ranged-alias-variable-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 function main() returns ExitCode
 	var d = 5 as Digit
-	// TODO: float literals are not supported in minimaxon
 	let w = 2.5
 	d = w
 	print("{d}")
@@ -1162,10 +1125,8 @@ error E3005: <fragment>:6:10: argument type mismatch for 1: expected 'Digit', go
 ```
 
 <!-- test: error.a-bool-pushed-onto-an-array-of-a-ranged-float-alias-names-the-alias -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 typealias Ratios = Array with Ratio
@@ -1199,17 +1160,11 @@ error E3005: <fragment>:10:25: type mismatch: 'expected Digit, got bool'
 ```
 
 <!-- test: error.a-ratio-local-rebound-from-a-literal-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
-	// TODO: float literals are not supported in minimaxon
 	r = 0.25
 	r = true
 	print("{r}")
@@ -1221,20 +1176,15 @@ error E3005: <fragment>:7:2: cannot assign a value of type 'bool' to variable 'r
 ```
 
 <!-- test: error.a-ratio-local-handed-to-a-callee-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function bump(mutates r Ratio)
-	// TODO: float literals are not supported in minimaxon
 	r = 0.25
 end 'bump'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	bump(r)
 	r = true
@@ -1247,18 +1197,12 @@ error E3005: <fragment>:11:2: cannot assign a value of type 'bool' to variable '
 ```
 
 <!-- test: error.a-ratio-local-after-a-loop-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	for i in 0 upto 3 'l'
-		// TODO: float literals are not supported in minimaxon
 		r = 0.25
 	end 'l'
 	r = true
@@ -1271,22 +1215,16 @@ error E3005: <fragment>:9:2: cannot assign a value of type 'bool' to variable 'r
 ```
 
 <!-- test: error.a-ratio-local-after-an-if-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	let n = 3
 	if n > 2 'a'
-		// TODO: float literals are not supported in minimaxon
 		r = 0.25
 	end 'a' else 'b'
-		// TODO: float literals are not supported in minimaxon
 		r = 0.75
 	end 'b'
 	r = true
@@ -1299,15 +1237,10 @@ error E3005: <fragment>:14:2: cannot assign a value of type 'bool' to variable '
 ```
 
 <!-- test: error.a-ratio-local-from-a-ratio-call-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function half() returns Ratio
-	// TODO: float literals are not supported in minimaxon
 	return 0.5
 end 'half'
 
@@ -1323,15 +1256,10 @@ error E3005: <fragment>:10:2: cannot assign a value of type 'bool' to variable '
 ```
 
 <!-- test: error.a-ratio-local-inside-a-loop-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	for i in 0 upto 3 'l'
 		r = true
@@ -1345,13 +1273,10 @@ error E3005: <fragment>:7:3: cannot assign a value of type 'bool' to variable 'r
 ```
 
 <!-- test: error.a-ratio-value-at-a-digit-argument-is-a-mismatch -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function take(n Digit) returns Digit
@@ -1359,7 +1284,6 @@ function take(n Digit) returns Digit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let w = 0.5 as Ratio
 	let d = take(w)
 	print("{d}")
@@ -1371,18 +1295,14 @@ error E3005: <fragment>:11:10: argument type mismatch for 'n': expected 'Digit',
 ```
 
 <!-- test: error.a-ratio-value-assigned-to-a-digit-variable-is-a-mismatch -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
 	var d = 5 as Digit
-	// TODO: float literals are not supported in minimaxon
 	let w = 0.5 as Ratio
 	d = w
 	print("{d}")
@@ -1394,19 +1314,14 @@ error E3005: <fragment>:8:2: cannot assign a value of type 'Ratio' to variable '
 ```
 
 <!-- test: error.a-ratio-value-at-a-bool-argument-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function take(flag bool) returns bool
 	return flag
 end 'take'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let w = 0.5 as Ratio
 	let d = take(w)
 	print("{d}")
@@ -1438,10 +1353,8 @@ error E3005: <fragment>:6:10: argument type mismatch for 2: expected 'Digit', go
 ```
 
 <!-- test: error.a-bool-at-a-ratio-parameter-of-a-function-type -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 typealias PickR = function(Ratio) returns Ratio
@@ -1554,8 +1467,6 @@ error E3005: <fragment>:20:4: argument type mismatch for 'v': expected 'Digit', 
 ```
 
 <!-- test: error.a-float-narrowed-into-a-ranged-alias-field -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -1569,7 +1480,6 @@ end 'Cell'
 
 function main() returns ExitCode
 	var c = Cell.make()
-	// TODO: float literals are not supported in minimaxon
 	let w = 2.5
 	c.d = w
 	print("{c.d}")
@@ -1598,11 +1508,8 @@ error E3005: <fragment>:7:3: cannot assign a value of type 'bool' to variable 'd
 ```
 
 <!-- test: error.a-ratio-parameter-reassigned-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function f(mutates r Ratio) returns Ratio
@@ -1611,7 +1518,6 @@ function f(mutates r Ratio) returns Ratio
 end 'f'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	print("{f(r)}")
 	return 0
@@ -1622,18 +1528,13 @@ error E3005: <fragment>:5:2: cannot assign a value of type 'bool' to variable 'r
 ```
 
 <!-- test: error.a-ratio-field-assigned-in-a-method -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 type Cell
 	var r as Ratio
 
 	static function make() returns Cell
-		// TODO: float literals are not supported in minimaxon
 		return Cell{r: 0.5}
 	end 'make'
 
@@ -1653,15 +1554,10 @@ error E3005: <fragment>:12:8: cannot assign a value of type 'bool' to field 'r' 
 ```
 
 <!-- test: error.a-ratio-local-captured-by-a-closure-then-a-bool -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5 as Ratio
 	let f = function() gives r
 	r = true
@@ -1674,16 +1570,11 @@ error E3005: <fragment>:7:2: cannot assign a value of type 'bool' to variable 'r
 ```
 
 <!-- test: error.a-ratio-value-assigned-to-a-bool-variable -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
 	var b = true
-	// TODO: float literals are not supported in minimaxon
 	let w = 0.5 as Ratio
 	b = w
 	print("{b}")
@@ -1713,15 +1604,11 @@ error E3005: <fragment>:6:2: Cannot return 'Digit' from function declared to ret
 ```
 
 <!-- test: error.a-ratio-and-a-bool-on-an-operator-names-the-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: operand types -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let r = 0.5 as Ratio
 	let flag = true
 	let both = r + flag

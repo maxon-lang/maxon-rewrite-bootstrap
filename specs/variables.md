@@ -103,14 +103,11 @@ error E2004: <fragment>:3:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: error.a-local-var-bound-to-a-bare-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: operand types -->
 A local `var` initialized with a bare float literal is refused at the literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var r = 0.5
-	// TODO: float literals are not supported in minimaxon
 	r = r * 4.0
 	return trunc(r) as ExitCode
 end 'main'
@@ -270,17 +267,11 @@ error E2004: <fragment>:3:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: error.a-local-var-bound-to-a-tuple-of-bare-numbers -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 A local `var` initialized with a tuple of bare numbers is refused at the parenthesis.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var t = (3, 4)
-	// TODO: tuple element access is not supported in minimaxon
 	t.0 = 9
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0 as ExitCode
 end 'main'
 ```
@@ -302,14 +293,10 @@ end 'main'
 ```
 
 <!-- test: a-local-var-tuple-of-typed-numbers-is-accepted -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `var` tuple whose elements are cast to an alias is a typed tuple, and its element can be written.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var t = (3 as Count, 4 as Count)
-	// TODO: tuple element access is not supported in minimaxon
 	t.0 = 9
 	print("{t.0}\n")
 	return 0

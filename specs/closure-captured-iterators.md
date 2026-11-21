@@ -183,7 +183,6 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 <!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 <!-- positions: moved -->
 The same closure over a `Map` iterator writes a value of the map, so the frozen map is refused.
 
@@ -212,7 +211,6 @@ end 'runIt'
 
 function bumpFirst(boxes BoxMap) returns Count
 	let it = try boxes.createIterator() otherwise panic("empty")
-	// TODO: tuple element access is not supported in minimaxon
 	let g = function() gives bumpBox(it.current().1)
 	return runIt(g)
 end 'bumpFirst'
@@ -656,7 +654,6 @@ end 'main'
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator `for (it, _) in boxes.withIterator()` binds runs over `boxes`, so the closure that writes through it writes the array, and the frozen array is refused where `bumpAll` is called.
 
@@ -685,7 +682,6 @@ end 'runIt'
 
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, _) in boxes.withIterator() 'each'
 		let g = function() gives bumpBox(it.current())
@@ -714,8 +710,6 @@ error E3207: <fragment>:42:18: 'bumpAll' writes 'boxes' (it calls the closure at
 <!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator is held in a tuple (`(it, 1)`) and the closure writes through `pair.0`, so the closure still writes the array the iterator runs over and the frozen array is refused.
 
@@ -744,9 +738,7 @@ end 'runIt'
 
 function bumpFirst(boxes BoxArray) returns Count
 	let it = try boxes.createIterator() otherwise panic("empty")
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (it, 1)
-	// TODO: tuple element access is not supported in minimaxon
 	let g = function() gives bumpBox(pair.0.current())
 	return runIt(g)
 end 'bumpFirst'
@@ -770,7 +762,6 @@ error E3207: <fragment>:38:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 <!-- test: a-mutates-captures-closure-writes-through-a-with-iterator-pair-over-a-mutable-array -->
 <!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The array handed to `bumpAll` is mutable, so the closure's write through the iterator the loop binds is allowed and the caller sees both writes.
 
 ```maxon
@@ -798,7 +789,6 @@ end 'runIt'
 
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, _) in boxes.withIterator() 'each'
 		let g = function() gives bumpBox(it.current())
@@ -822,8 +812,6 @@ end 'main'
 
 <!-- test: a-mutates-captures-closure-writes-through-an-iterator-held-in-a-tuple-over-a-mutable-array -->
 <!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The array handed to `bumpFirst` is mutable, so the closure's write through the iterator in the tuple is allowed and the caller sees it.
 
 ```maxon
@@ -851,9 +839,7 @@ end 'runIt'
 
 function bumpFirst(boxes BoxArray) returns Count
 	let it = try boxes.createIterator() otherwise panic("empty")
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (it, 1)
-	// TODO: tuple element access is not supported in minimaxon
 	let g = function() gives bumpBox(pair.0.current())
 	return runIt(g)
 end 'bumpFirst'

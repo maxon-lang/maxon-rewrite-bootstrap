@@ -52,7 +52,6 @@ six bytes of its UTF-8 spelling.
 ```maxon
 function codepointsOf(text String) returns String
 	var out = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in text.codepoints() 'each'
 		if out.byteLength() > 0 'separator'
 			out.append(",")
@@ -117,7 +116,6 @@ hands the value over as the six bytes of its UTF-8 spelling.
 ```maxon
 function codepointsOf(text String) returns String
 	var out = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in text.codepoints() 'each'
 		if out.byteLength() > 0 'separator'
 			out.append(",")
@@ -462,7 +460,6 @@ PowerShell copies the program into a directory `日本` and runs the copy from i
 ```maxon
 function codepointsOf(text String) returns String
 	var out = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in text.codepoints() 'each'
 		if out.byteLength() > 0 'separator'
 			out.append(",")
@@ -598,7 +595,6 @@ D83D DE00. `CommandLine.args()` hands it over as one code point in four UTF-8 by
 ```maxon
 function codepointsOf(text String) returns String
 	var out = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in text.codepoints() 'each'
 		if out.byteLength() > 0 'separator'
 			out.append(",")
@@ -664,7 +660,6 @@ NTFS stores a name as UTF-16 units without checking that they pair, so PowerShel
 ```maxon
 function codepointsOf(text String) returns String
 	var out = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in text.codepoints() 'each'
 		if out.byteLength() > 0 'separator'
 			out.append(",")
@@ -776,7 +771,6 @@ function main() returns ExitCode
 	for entry in entries 'each'
 		let name = entry.filename()
 		var units = 0 as FullRangeInt
-		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for _ in name.codepoints() 'count'
 			units = units + 1
 		end 'count'

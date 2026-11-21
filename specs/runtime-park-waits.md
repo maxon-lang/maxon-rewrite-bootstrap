@@ -280,8 +280,6 @@ error E3005: <fragment>:11:29: Cannot use bare 'int' as a type. Define a typeali
 
 <!-- test: runtime-park-waits.error.a-message-returning-a-tuple-with-an-inline-ranged-element-is-refused -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Money = int(i64.min to i64.max)
@@ -293,9 +291,7 @@ type Account
 		return Self{balance: opening}
 	end 'create'
 
-	// TODO: tuple return types are not supported in minimaxon
 	export function bounds() returns (Money, int(0 to 9))
-		// TODO: tuple values and types are not supported in minimaxon
 		return (self.balance, 2)
 	end 'bounds'
 end 'Account'
@@ -343,9 +339,6 @@ error E2010: <fragment>:11:33: Expected 'a type' but got 'function'
 <!-- test: runtime-park-waits.a-messages-with-aliased-signatures-register-and-answer -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same shapes written through a `typealias` register as messages and answer: a ranged return, a tuple return, and a ranged and a tuple parameter.
 
 ```maxon
@@ -353,7 +346,6 @@ typealias Money = int(i64.min to i64.max)
 
 typealias Narrow = int(0 to 9)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Money, Narrow)
 
 type Account
@@ -368,12 +360,10 @@ type Account
 	end 'narrowed'
 
 	export function bounds() returns Pair
-		// TODO: tuple values and types are not supported in minimaxon
 		return (self.balance, 2)
 	end 'bounds'
 
 	export function absorb(pair Pair)
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (amount, _) = pair
 		self.balance = self.balance + amount
 	end 'absorb'
@@ -384,9 +374,7 @@ function main() returns ExitCode
 	let account = spawn Account.create(5)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let narrowed = try await account.narrowed(3) otherwise 0
-	// TODO: tuple values and types are not supported in minimaxon
 	try account.absorb((10, 4)) otherwise ignore
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let (balance, second) = try await account.bounds() otherwise return 1
 	print("{narrowed} {balance} {second}\n")

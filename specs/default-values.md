@@ -286,10 +286,8 @@ line2
 
 <!-- test: default-values.float-default-omitted -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A float default on a ranged float alias, interpolated.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Number = float(f64.min to f64.max)
 
 // TODO: default parameter values are not supported in minimaxon
@@ -515,10 +513,8 @@ Write `1.0e100`.
 
 <!-- test: default-values.error.param-default-exponent-without-point -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 // TODO: default parameter values are not supported in minimaxon

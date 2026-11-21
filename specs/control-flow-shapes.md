@@ -367,8 +367,6 @@ end 'main'
 ```
 
 <!-- test: control-flow-shapes.loop-carried-values-rotate-and-swap -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -377,22 +375,18 @@ function rotate(n Integer) returns Integer
 	var b = 2 as Integer
 	var c = 3 as Integer
 	for _ in 0 upto n 'iter'
-		// TODO: tuple assignment is not supported in minimaxon
-		// TODO: tuple values and types are not supported in minimaxon
-		(a, b, c) = (b, c, a + b)
+		(a, b, c) = (b, c, try a + b otherwise panic("out of range"))
 	end 'iter'
-	return a * 1000000 + b * 1000 + c
+	return try a * 1000000 + b * 1000 + c otherwise panic("out of range")
 end 'rotate'
 
 function flip(n Integer) returns Integer
 	var a = 7 as Integer
 	var b = 9 as Integer
 	for _ in 0 upto n 'iter'
-		// TODO: tuple assignment is not supported in minimaxon
-		// TODO: tuple values and types are not supported in minimaxon
 		(a, b) = (b, a)
 	end 'iter'
-	return a * 100 + b
+	return try a * 100 + b otherwise panic("out of range")
 end 'flip'
 
 function main() returns ExitCode

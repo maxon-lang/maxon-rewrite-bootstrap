@@ -51,7 +51,8 @@ end 'Container'
 ### Basic conditional extension with Equatable constraint
 
 <!-- test: conditional-extensions.basic-equatable -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
@@ -63,7 +64,8 @@ interface HasItems uses Element
 	function advance(mutates self) throws IterationError
 end 'HasItems'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension HasItems where Element implements Equatable
 	function has(target Element) returns bool
 		for item in self 'loop'
@@ -117,7 +119,8 @@ end 'main'
 When the associated type does not satisfy the where constraint, calling the method should produce a compile error.
 
 <!-- test: conditional-extensions.constraint-not-met -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -129,7 +132,8 @@ interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Holder where Item implements Comparable
 	function isGreater(other Item) returns bool
 		return self.get().compare(other) == Ordering.greaterThan
@@ -172,7 +176,7 @@ error E4006: specs/conditional-extensions/conditional-extensions.constraint-not-
 Extensions can target types directly, not just interfaces. This is useful when the method needs type-specific capabilities (e.g., `get()` on Array).
 
 <!-- test: conditional-extensions.type-extension -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 type Box uses Item
 	export var item as Item
@@ -182,7 +186,7 @@ type Box uses Item
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Box where Item implements Equatable
 	function matches(other Item) returns bool
 		return item == other
@@ -226,7 +230,8 @@ end 'main'
 ### Conditional extension with multiple constraints using and
 
 <!-- test: conditional-extensions.multiple-constraints -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
@@ -238,7 +243,8 @@ interface Bucket uses Element
 	function advance(mutates self) throws IterationError
 end 'Bucket'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Bucket where Element implements Equatable and Hashable
 	function lookup(target Element) returns bool
 		for item in self 'loop'
@@ -306,7 +312,8 @@ end 'main'
 ### Conditional extension skipped for non-qualifying type but other extensions still work
 
 <!-- test: conditional-extensions.partial-availability -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
@@ -318,7 +325,7 @@ interface Seq uses Element
 	function advance(mutates self) throws IterationError
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	function countItems() returns Integer
 		var n = 0 as Integer
@@ -329,7 +336,8 @@ extension Seq
 	end 'countItems'
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Seq where Element implements Equatable
 	function includes(target Element) returns bool
 		for item in self 'loop'
@@ -391,7 +399,8 @@ reaches `Packed` and `witnessed()` returns 7. The name `Bag` alone denotes no on
 from the name withholds the method from `Packed`.
 
 <!-- test: conditional-extensions.binding-over-an-alias-two-files-declare -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: holder/holder.maxon
@@ -400,7 +409,8 @@ export interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Holder where Item implements Equatable
 	export function witnessed() returns ExitCode
 		return 7
@@ -471,7 +481,8 @@ own local. `weigh(other Item)` takes the conformer's binding, so on `Packed` it 
 type `other` as an array of strings.
 
 <!-- test: conditional-extensions.associated-type-in-an-extension-body-over-an-alias-two-files-declare -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: holder/holder.maxon
@@ -482,7 +493,8 @@ export interface Holder uses Item
 	function get() returns Item
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Holder where Item implements Equatable
 	export function weigh(other Item) returns ExitCode
 		let names = Bag.create(0)

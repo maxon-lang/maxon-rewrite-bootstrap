@@ -879,13 +879,10 @@ end 'main'
 
 <!-- test: a-float-fixed-array-at-constant-indexes -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A float element comes back as its bits and is reinterpreted at the call site, which is the
 one thing the accessor does OUTSIDE the runtime entry — so the total access must leave it
 intact.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -893,13 +890,10 @@ typealias Vec2F = FixedArray with 2 Float
 
 function main() returns ExitCode
 	let v = Vec2F.create()
-	// TODO: float literals are not supported in minimaxon
 	v.set(0, value: 2.5)
-	// TODO: float literals are not supported in minimaxon
 	v.set(1, value: 4.25)
 	let a = v.get(0)
 	let b = v.get(1)
-	// TODO: float literals are not supported in minimaxon
 	return trunc((a + b) * 4.0)
 end 'main'
 ```

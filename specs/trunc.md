@@ -36,13 +36,11 @@ let z = trunc(neg)   // -3 (toward zero, removes fractional part)
 ## Tests
 
 <!-- test: trunc.basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let neg = -3.7
 	let y = trunc(neg)
-	return y + 10
+	return try y + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -50,13 +48,11 @@ end 'main'
 ```
 
 <!-- test: trunc.positive -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 7.9
 	let y = trunc(x)
-	return y
+	return try y as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -64,13 +60,11 @@ end 'main'
 ```
 
 <!-- test: trunc.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 0.5
 	let y = trunc(x)
-	return y
+	return try y as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -78,12 +72,10 @@ end 'main'
 ```
 
 <!-- test: trunc.rt-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -3.7 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(x) + 10
 end 'main'
@@ -93,12 +85,10 @@ end 'main'
 ```
 
 <!-- test: trunc.rt-positive -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 7.9 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(x)
 end 'main'
@@ -108,12 +98,10 @@ end 'main'
 ```
 
 <!-- test: trunc.rt-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 0.5 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(x)
 end 'main'
@@ -123,8 +111,6 @@ end 'main'
 ```
 
 <!-- test: error.trunc-is-a-full-range-int -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 `trunc` produces a `FullRangeInt`, which a parameter of another alias refuses.
 ```maxon
 typealias Score = int(0 to u64.max)
@@ -134,7 +120,6 @@ function show(v Score)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	show(trunc(2.5))
 	return 0
 end 'main'

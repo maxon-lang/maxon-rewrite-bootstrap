@@ -55,10 +55,8 @@ end 'main'
 the fewest digits that parse back to the same bit pattern, by user ruling (`specs/sin.md` sets out why).
 
 <!-- test: ln-of-e -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let e = 2.71828
 	let result = Math.log(e)
 	print("{result}\n")
@@ -74,10 +72,8 @@ end 'main'
 
 
 <!-- test: ln-of-one -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.log(1.0)
 	return trunc(result)
 end 'main'
@@ -88,10 +84,8 @@ end 'main'
 
 
 <!-- test: ln-of-large -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.log(100.0) // ln(100) ≈ 4.6
 	print("{result}\n")
 	return 0
@@ -131,10 +125,8 @@ is then settled INSIDE the guard by `x == 0.0`, which is true of both zeros; `st
 `nonPositiveLogResult` is written that way and this case is what holds it there.
 
 <!-- test: non-positive-is-ieee -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let negativeZero = -0.0
 	print("{Math.log(0.0)}\n")
 	print("{Math.log(negativeZero)}\n")
@@ -163,10 +155,8 @@ pin is worth more here than on an arm that merely returns the wrong digits.
 whole construction.
 
 <!-- test: positive-infinity -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let positiveInfinity = -Math.log(0.0)
 	print("{Math.log(positiveInfinity)}\n")
 	return 0

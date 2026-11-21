@@ -264,10 +264,6 @@ error E3167: api/<fragment>:11:17: exported function 'api.all' names unexported 
 
 <!-- test: error.a-tuple-element-counts -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 The tuple itself names no declaration and is asked nothing. Its ELEMENTS are asked, one at a time —
 `ExitCode` answers and `Secret` does not.
 ```maxon
@@ -278,16 +274,13 @@ type Secret
 	end 'create'
 end 'Secret'
 
-// TODO: tuple return types are not supported in minimaxon
 export function pair() returns (Secret, ExitCode)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (Secret.create(), 7)
 end 'pair'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let t = pair()
-	// TODO: tuple element access is not supported in minimaxon
 	return t.1
 end 'main'
 ```
@@ -884,9 +877,7 @@ error E3167: api/<fragment>:10:18: exported function 'api.Wrapper.at' names unex
 ```
 
 <!-- test: error.an-extension-in-another-file-naming-a-file-private-inner-alias-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 An extension written in another directory names the type's unmarked inner alias `Arr`, which is visible only
 in `api/`, so `more/more.maxon` cannot name it at all, and the `export` method `f` could not
 hand it to a caller either.
@@ -901,7 +892,6 @@ export type Wrapper
 end 'Wrapper'
 
 // --- file: more/more.maxon
-// TODO: extension blocks are not supported in minimaxon
 export extension Wrapper
 	export function f(xs Arr) returns ExitCode
 		return xs.count() as ExitCode
@@ -1022,7 +1012,6 @@ end 'main'
 ```
 
 <!-- test: a-users-own-byte-does-not-judge-the-librarys-signatures -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE LIBRARY IS NEVER HELD AGAINST AN AUTHOR'S DECLARATION.** `api/lib.maxon` declares its own
 `export typealias Byte`, and `stdlib/` is full of `public` signatures naming a `Byte` of its own. Those
@@ -1041,7 +1030,6 @@ end 'widen'
 function main() returns ExitCode
 	let s = "hi"
 	var n = 0 as ExitCode
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'each'
 		n = n + (b as ExitCode)
 	end 'each'
@@ -1217,25 +1205,18 @@ error E3167: api/<fragment>:8:17: exported function 'api.f' names unexported typ
 
 <!-- test: error.a-file-private-tuple-alias-in-an-exported-signature-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 A tuple alias is a declaration like any other alias form. The tuple it stands for names no declaration, but
 the ALIAS does, and the parameter is written with the alias, so the alias's own tier is asked.
 ```maxon
 // --- file: api/lib.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (ExitCode, ExitCode)
 
 export function first(p Pair) returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
 	return p.0
 end 'first'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	return first((7, 1))
 end 'main'
 ```
@@ -1789,27 +1770,21 @@ error E3167: api/<fragment>:9:21: exported field 'api.Holder.mode' names unexpor
 
 <!-- test: error.an-exported-field-typed-by-a-tuple-of-a-file-private-alias-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 A field's type is judged as a parameter's is, so a tuple spelled over an unmarked alias is refused at the field: the element's alias is a declaration like any other.
 ```maxon
 // --- file: api/lib.maxon
 typealias Scores = Array with ExitCode
 
 export type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	export var pair as (Scores, ExitCode)
 
 	export static function create() returns Holder
-		// TODO: tuple values and types are not supported in minimaxon
 		return Holder{pair: (Scores.create(0), 7)}
 	end 'create'
 end 'Holder'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
 	return Holder.create().pair.1
 end 'main'
 ```
@@ -1819,20 +1794,15 @@ error E3167: api/<fragment>:5:13: exported field 'api.Holder.pair' names unexpor
 
 <!-- test: error.an-exported-field-typed-by-a-tuple-of-a-contested-file-private-alias-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
-<!-- positions: moved -->
 Two files declaring one `Scores` over one instance make it a contested name, and the field is still judged at the alias its own file wrote.
 ```maxon
 // --- file: api/lib.maxon
 typealias Scores = Array with ExitCode
 
 export type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	export var pair as (Scores, ExitCode)
 
 	export static function create() returns Holder
-		// TODO: tuple values and types are not supported in minimaxon
 		return Holder{pair: (Scores.create(0), 7)}
 	end 'create'
 end 'Holder'
@@ -1845,7 +1815,6 @@ function tally(scores Scores) returns ExitCode
 end 'tally'
 
 function main() returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
 	return tally(Scores.create(0)) + Holder.create().pair.1
 end 'main'
 ```
@@ -2193,8 +2162,6 @@ error E3167: api/<fragment>:8:18: exported typealias 'api.Chooser' names unexpor
 
 <!-- test: error.an-exported-tuple-alias-over-a-file-private-enum-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2202,7 +2169,6 @@ enum Mode
 	slow
 end 'Mode'
 
-// TODO: tuple typealiases are not supported in minimaxon
 export typealias ModePair = (Mode, Mode)
 
 // --- file: app/main.maxon
@@ -2906,7 +2872,7 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-extension-method-constrained-by-a-file-private-interface-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The conditional extension's `where` clause is part of every method's contract: only a conformer of `Marker` has
@@ -2917,7 +2883,7 @@ interface Marker
 	function code() returns ExitCode
 end 'Marker'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Array where Element implements Marker
 	export function total() returns ExitCode
 		var sum = 0 as ExitCode

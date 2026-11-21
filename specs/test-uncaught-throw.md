@@ -851,7 +851,6 @@ end 'main'
 <!-- test: implied-try-for-source-iteration-error-is-absorbed -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: test declarations are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The call that hands a `for` loop its cursor throws `IterationError` for an EMPTY collection, and the loop
 absorbs it: the loop runs zero trips and the test goes on. The implied handler must not claim that call.
 ```maxon
@@ -863,7 +862,6 @@ typealias IntArray = Array with Integer
 // TODO: test declarations are not supported in minimaxon
 test 'an empty traversal runs no trips'
 	var total = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, value) in IntArray.create(0).withIterator() 'each'
 		total = total + value
@@ -882,7 +880,6 @@ end 'main'
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed-parenthesized -->
 <!-- skip: test declarations are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same loop with its source written in parentheses. A group is transparent, so the loop still absorbs
 the empty collection's `IterationError` and runs zero trips.
 ```maxon
@@ -894,7 +891,6 @@ typealias IntArray = Array with Integer
 // TODO: test declarations are not supported in minimaxon
 test 'an empty parenthesized traversal runs no trips'
 	var total = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, value) in (IntArray.create(0).withIterator()) 'each'
 		total = total + value
 	end 'each'

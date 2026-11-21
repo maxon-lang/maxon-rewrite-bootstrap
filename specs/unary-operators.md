@@ -91,16 +91,14 @@ end 'main'
 
 
 <!-- test: negate-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 Negation of a `float`, brought back to an `ExitCode` by `trunc`. `-(-3.5)` is `3.5` and `trunc`
 truncates toward zero, so the program exits 3 — on the host lane and on `wasm32-wasi`.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = -3.5
 	let y = -x
 	let result = trunc(y)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

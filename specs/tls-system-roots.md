@@ -15,7 +15,6 @@ A client that trusts the system roots reads them from the operating system the f
 
 <!-- test: tls-system-roots.the-system-roots-are-read-once-for-every-connection -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib/helpers/tls -->
 Two connections made with default options, which trust the system roots, read the roots from the operating system once between them: the second connection verifies against the roots the first one loaded. The case settles the program-wide roots from a source that answers the case's root and counts its reads.
 ```maxon
@@ -30,7 +29,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -171,7 +169,6 @@ reads: 1
 
 <!-- test: tls-system-roots.connections-that-start-together-each-settle-the-system-roots-without-waiting -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib/helpers/tls -->
 Four connections that start together settle the system roots at once, while the roots source is still answering its first read. None waits for another: each reads the source itself, one result is kept, and all four settle. A later connection verifies against the kept roots without reading the source again.
 ```maxon
@@ -186,7 +183,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -335,7 +331,6 @@ reads kept: true
 ```
 
 <!-- test: tls-system-roots.a-failed-read-of-the-system-roots-is-kept -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib/helpers/tls -->
 A roots source that cannot be read fails the connection that asked with `trustStoreUnavailable`, and the failure is kept: the next connection fails the same way without the source being read again.
 ```maxon
@@ -350,7 +345,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)

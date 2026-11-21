@@ -107,9 +107,6 @@ end 'main'
 ```
 
 <!-- test: a-record-read-out-of-an-owner-that-is-handed-out-afterwards-is-kept-by-a-let-field -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `owner` is made in `build`, its `inner` goes into the `let` field, and `owner` itself is handed out in the result. The caller can write `owner.inner`, the record the `let` field holds.
 
 ```maxon
@@ -135,22 +132,19 @@ type Keeper
 	export let inner as Counter
 
 	static function create(inner Counter) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Keeper'
 
-// TODO: tuple return types are not supported in minimaxon
 function build() returns (Keeper, Box)
 	let owner = Box.create()
 	let keeper = Keeper.create(owner.inner)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (keeper, owner)
 end 'build'
 
 function main() returns ExitCode
 	let built = build()
-	// TODO: tuple element access is not supported in minimaxon
-	return built.0.inner.v as ExitCode
+	return try built.0.inner.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -264,9 +258,6 @@ end 'main'
 ```
 
 <!-- test: a-let-kept-by-a-let-field-and-also-returned-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The function hands the record to the caller beside the `Wrap` that keeps it: both names reach one record.
 
 ```maxon
@@ -284,22 +275,19 @@ type Wrap
 	export let cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Wrap'
 
-// TODO: tuple return types are not supported in minimaxon
 function register() returns (Wrap, Cell)
 	let cell = Cell.create()
 	let wrap = Wrap.create(cell)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (wrap, cell)
 end 'register'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (wrap, cell) = register()
-	return (wrap.cell.n + cell.n) as ExitCode
+	return try (wrap.cell.n + cell.n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -307,9 +295,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-array-kept-by-a-let-field-and-also-returned-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A `ByteArray` is an array like any other: the name a `Layout` keeps in its `let` field may also be returned.
 
 ```maxon
@@ -317,22 +302,19 @@ type Layout
 	export let name as ByteArray
 
 	static function create(name ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Layout'
 
-// TODO: tuple return types are not supported in minimaxon
 function register() returns (Layout, ByteArray)
 	let name = ByteArray.create(0)
 	let layout = Layout.create(name)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (layout, name)
 end 'register'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (layout, name) = register()
-	return (layout.name.count() + name.count()) as ExitCode
+	return try (layout.name.count() + name.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

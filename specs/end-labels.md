@@ -26,7 +26,6 @@ end 'helper'
 ## Tests
 
 <!-- test: labels-that-repeat-their-openers-compile -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 Every construct closed by its own label, and a function `end` that carries none.
 ```maxon
 typealias Count = int(0 to 100)
@@ -47,10 +46,9 @@ type Box implements Sized
 	end 'size'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function doubled() returns Count
-		return self.n * 2
+		return try self.n * 2 otherwise panic("out of range")
 	end 'doubled'
 end 'Box'
 
@@ -72,24 +70,24 @@ function main() returns ExitCode
 	var total = unlabelled()
 	let box = Box.create()
 	if box.size() > 2 'big'
-		total = total + box.doubled()
+		total = try total + box.doubled() otherwise panic("out of range")
 	end 'big' else 'small'
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'small'
 	for i in 0 upto 2 'eachStep'
-		total = total + i
+		total = try total + i otherwise panic("out of range")
 	end 'eachStep'
 	while total < 10 'grow'
 		total = total + 1
 	end 'grow'
 	let color = Color.green
 	match color 'pick'
-		red then total = total + 1
-		green then total = total + 2
+		red then total = try total + 1 otherwise panic("out of range")
+		green then total = try total + 2 otherwise panic("out of range")
 	end 'pick'
 	match Shape.square(2) 'shape'
-		dot then total = total + 1
-		square(side) then total = total + side
+		dot then total = try total + 1 otherwise panic("out of range")
+		square(side) then total = try total + side otherwise panic("out of range")
 	end 'shape'
 	return total
 end 'main'
@@ -216,8 +214,6 @@ error E2008: <fragment>:6:1: Mismatched end label: expected 'Sized', got 'Size'
 ```
 
 <!-- test: error.an-extension-end-label-names-another-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 10)
 
@@ -229,7 +225,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function doubled() returns Count
 		return self.n * 2
@@ -662,7 +657,6 @@ error E2081: <fragment>:9:24: Block label 'Color' is already the label of an enc
 ```
 
 <!-- test: error.a-block-in-an-extension-method-reuses-the-extended-types-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 10)
@@ -675,7 +669,6 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function doubled() returns Count
 		if self.n > 0 'Box'

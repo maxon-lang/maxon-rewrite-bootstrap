@@ -730,7 +730,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.error.literal-cast-to-inner-alias -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 A literal cast to an alias declared inside an extension body is checked against that alias's range.
 ```maxon
@@ -738,7 +738,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntegerArray = Array with Integer
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias Level = int(0 to 64)
 	function topLevel() returns Level
@@ -757,7 +756,7 @@ error E3005: <fragment>:9:19: Value 100 is outside the range of 'Level' (int(0 t
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-admits-its-top-value -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A full-unsigned alias declared inside an extension body admits `u64.max` at a direct call, as a file-scope one does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -774,7 +773,6 @@ type Meter
 	end 'raw'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Wide = int(0 to u64.max)
 	function take(w Wide) returns bool
@@ -795,7 +793,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-through-an-interface-takes-a-large-unsigned-word -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A large unsigned word reaches a full-unsigned nested-alias parameter through an interface: the call site checks the argument, and the conformer takes no sign test at its entry.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -812,7 +810,6 @@ type Meter
 	end 'raw'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Wide = int(0 to u64.max)
 end 'Meter'
@@ -821,7 +818,6 @@ interface Taker
 	function take(w Meter.Wide) returns bool
 end 'Taker'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter implements Taker
 	function take(w Meter.Wide) returns bool
 		return w == u64.max
@@ -885,7 +881,7 @@ error E3005: <fragment>:27:17: Value -1 is outside the range of 'Idx' (int(0 to 
 ```
 
 <!-- test: range-check-panic.inner-alias-cast-guard -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A runtime value cast to an alias declared inside an extension body carries that alias's guard.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -902,7 +898,6 @@ type Meter
 	end 'scaleOf'
 end 'Meter'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Meter
 	typealias Level = int(0 to 64)
 	function level() returns Level
@@ -927,19 +922,15 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.error.literal-float-field-out-of-range -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A float literal at a struct-literal field is checked against the field's float range.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(0.0 to 100.0)
 
 type Gauge
 	let level as Real
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{level: 150.0}
 	end 'create'
 
@@ -1039,31 +1030,25 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.float-argument -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ A narrowed FLOAT parameter is checked on exactly the same terms as an integer one. The loop counter here is
 the literal 2, so `i * 1.0` is a float whose interval is `[2.0, 2.0]`, and the argument is refused where it is
 written rather than at the parameter's entry guard.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function scale(r Ratio) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return r * 100.0
 end 'scale'
 
 function main() returns ExitCode
 	for i in 2 upto 3 'each'
-		// TODO: float literals are not supported in minimaxon
 		let big = i * 1.0
 		return trunc(scale(big))
 	end 'each'
 	return 0
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```maxoncstderr
@@ -1071,8 +1056,7 @@ error E3005: <fragment>:11:18: Value 2 is outside the range of 'Ratio' (float(0 
 ```
 
 <!-- test: range-check-panic.float-argument-unproven -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ A narrowed FLOAT parameter is guarded on exactly the same terms as an integer one. Shipping the
 integer half alone would have replaced *five doors of which four guard* with *parameters of which only
 the int ones guard* — a fresh instance of the very asymmetry the entry guard exists to delete. The
@@ -1080,23 +1064,18 @@ cascade is the f64 one `emitGuardAt` already forks for the `as` and `return` doo
 parameter is special. The argument wears `Ratio` without proving it, so no interval is known and the
 entry guard is what catches it.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
 function scale(r Ratio) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return r * 100.0
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let half = 0.5 as Ratio
-	// TODO: float literals are not supported in minimaxon
 	let big = half * 4.0
 	return trunc(scale(big))
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -2310,8 +2289,6 @@ end 'main'
 
 
 <!-- test: range-check-panic.a-guarded-float-cast-proves-a-divisor-a-merge-cannot -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ⭐⭐ **THE POSITIVE COUNTERPART OF THE WITHHOLD ABOVE, AND THE LINE BETWEEN THEM IS *NAMED AND GUARDED*.**
 `d` is a reassigned `var`, so it denotes nothing a merge or an interval could vouch for — but `as Positive`
 is a DECLARED alias, and the cast emits the runtime guard the next case fires. Past that guard the value
@@ -2319,15 +2296,12 @@ satisfies `Positive` whatever it was before, so `8.0 / s` is `safety.md`'s escap
 ⚠ The proof cannot ride the SOURCE value: `d` is a bare local, one value under two names, and stamping it
 would vouch for `d` on paths the guard never ran on. The cast mints its own value to carry it.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Positive = float(2.2250738585072014e-308 to f64.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var d = 0.0 as FullRangeFloat
-	// TODO: float literals are not supported in minimaxon
 	d = d + 4.0
-	let s = d as Positive
+	let s = try d as Positive otherwise panic("out of range")
 	print("q={8.0 / s}\n")
 	return 0
 end 'main'
@@ -2338,19 +2312,15 @@ q=2.0
 
 
 <!-- test: range-check-panic.a-guarded-float-cast-that-fails-still-panics -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⛔ **WHAT MAKES THE PROOF ABOVE LEGITIMATE.** The same shape with `d` landing on `0.0`: the guard the cast
 emits is what stands between a bare `divsd` and a division by zero, so it must still fire — and it must fire
 at the CAST, before the divide the proof exempted. An elided guard here would print `q=inf`.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Positive = float(2.2250738585072014e-308 to f64.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var d = 1.0 as FullRangeFloat
-	// TODO: float literals are not supported in minimaxon
 	d = d - 1.0
 	let s = d as Positive
 	print("q={8.0 / s}\n")
@@ -4439,10 +4409,8 @@ end 'main'
 ```
 
 <!-- test: error.an-integer-constant-cast-to-a-float-alias-outside-its-range -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(-1000.0 to 1000.0)
 
 function main() returns ExitCode
@@ -4456,9 +4424,8 @@ error E3005: <fragment>:4:15: Value 3000 is outside the range of 'Real' (float(-
 ```
 
 <!-- test: an-integer-cast-to-a-float-alias-outside-its-range-panics-at-run-time -->
-<!-- skip: float typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(-1000.0 to 1000.0)
 
 typealias Wide = int(0 to 100000)

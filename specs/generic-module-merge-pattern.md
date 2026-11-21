@@ -17,7 +17,7 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 
 <!-- test: generic-module-merge -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -65,7 +65,7 @@ interface Mergeable uses Func
 	function cloneFunc(src Func) returns Func
 end 'Mergeable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 export extension Mergeable
 	function merge(source Self)
 		self.appendOps(source)

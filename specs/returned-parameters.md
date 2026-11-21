@@ -877,13 +877,11 @@ end 'main'
 ```
 
 <!-- test: a-closure-that-returns-a-small-value-tuple-is-read-through-a-function-value -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A closure builds a small value tuple, with the second element chosen by a conditional, and is called directly
 and through a function value. Both calls must read the same pair back.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: tuple values and types are not supported in minimaxon
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 function apply(op PairOp, a Num, b Num) returns Num
@@ -892,7 +890,6 @@ function apply(op PairOp, a Num, b Num) returns Num
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let widen = function(a Num, b Num) gives (a + 1, (b + 2) if a > 5 else b)
 	let direct = widen(10, 20)
 	let miss = widen(1, 2)

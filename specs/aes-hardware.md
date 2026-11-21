@@ -56,7 +56,6 @@ with E3104. Every `__Builtins` member is library-tier: a call from outside `stdl
 ## Tests
 
 <!-- test: aes-hardware.fips-197-vectors -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 FIPS 197 appendices B and C for each key size: the cipher text, the plain text recovered from it, the last
@@ -74,7 +73,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -88,7 +86,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -157,7 +154,6 @@ d014f9a8c9ee2589e13f0cc8b6630ca6
 ```
 
 <!-- test: aes-hardware.matches-the-bitsliced-cipher -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Sixty-four pseudo-random blocks under each key size: the hardware cipher answers what the software `AesBitsliced`
@@ -174,7 +170,6 @@ end 'bytesFor'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -519,7 +514,6 @@ error E3104: <fragment>:20:13: this construct lowers to the runtime entry '__cpu
 ```
 
 <!-- test: aes-hardware.ctr-groups-match-the-bitsliced-cipher -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Every group size (1, 2, 4 and 8 blocks) at three block offsets inside a buffer that starts mid-array, under three
@@ -537,7 +531,6 @@ end 'bytesFor'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -608,7 +601,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.ctr-counter-wraps-inside-its-word -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A group whose counters pass 2^32 - 1 wraps to zero inside the last four bytes of the counter block and never carries
@@ -626,7 +618,6 @@ end 'bytesFor'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -690,9 +681,7 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.xor-key-stream-matches-the-bitsliced-cipher -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Every length from 0 to 300 bytes covers each group size and the partial last block. Under 128-, 192- and
 256-bit keys, from counter zero and from the last counter the length allows, `Aes.xorKeyStream` and
@@ -710,7 +699,6 @@ end 'bytesFor'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -747,7 +735,6 @@ function pastMask(cipher Aes, nonce ByteArray, counter Count, data ByteArray) re
 	output.push(9)
 	output.push(8)
 	output.push(7)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -761,7 +748,6 @@ function pastMaskBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count,
 	output.push(9)
 	output.push(8)
 	output.push(7)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -815,7 +801,6 @@ counterOverflow
 ```
 
 <!-- test: aes-hardware.nist-sp-800-38a-ctr-vectors -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 NIST SP 800-38A appendix F.5.1, F.5.3 and F.5.5: the four-block message under each key size. The standard's initial
 counter block `f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff` is the 12-byte nonce `f0f1f2f3f4f5f6f7f8f9fafb` and the 32-bit counter
@@ -832,7 +817,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -846,7 +830,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -980,7 +963,6 @@ error E3036: <fragment>:4:13: '__Builtins.aesCtrXor' takes exactly 6 arguments, 
 ```
 
 <!-- test: aes-hardware.gcm-intrinsics-match-the-mcgrew-viega-vectors -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The McGrew-Viega test cases 1 to 12 (AES-128, AES-192 and AES-256 with the zero and the Feldman key, with and
@@ -999,7 +981,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1013,7 +994,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1081,9 +1061,6 @@ seal-012 [522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e
 
 <!-- test: aes-hardware.gcm-seal-and-open-match-the-software-backing -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `AesGcm` chooses the CPU's instructions once, in `create`. For each key size, associated data of 0, 1, 13, 16, 17, 31, 32,
 33, 127, 128 and 129 bytes and every data length from 0 to 300 bytes (the 8-block loop, the single blocks and the partial last
@@ -1111,7 +1088,6 @@ function refuses(aead AesGcm, nonce ByteArray, sealed ByteArray, additional Byte
 	return opened.count() > sealed.count()
 end 'refuses'
 
-// TODO: tuple return types are not supported in minimaxon
 function mismatches(keyBytes Count) returns (Count, Count, Count)
 	let key = bytesFor(keyBytes, count: keyBytes)
 	let hardware = try AesGcm.create(key) otherwise panic("the key is valid")
@@ -1153,7 +1129,6 @@ function mismatches(keyBytes Count) returns (Count, Count, Count)
 			end 'hasAdditional'
 		end 'eachData'
 	end 'eachAdditional'
-	// TODO: tuple values and types are not supported in minimaxon
 	return (wrong, forgeries, refused)
 end 'mismatches'
 
@@ -1172,7 +1147,6 @@ function main() returns ExitCode
 	let probe = try AesGcm.create(bytesFor(1, count: 16)) otherwise panic("the key is valid")
 	print("{probe.usesHardware() == hardwareExpected()}\n")
 	for keyBytes in [16, 24, 32] 'eachKey'
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (wrong, forgeries, refused) = mismatches(keyBytes)
 		print("{keyBytes} {wrong} {forgeries == refused}\n")
 	end 'eachKey'
@@ -1804,7 +1778,6 @@ open true true
 ```
 
 <!-- test: aes-hardware.a-byte-array-a-generic-body-created-is-a-buffer -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 The `Array with Byte` a `Bag with Byte` creates inside its shared generic body strides one byte per element, as a
 `ByteArray` created in a concrete body does, so the intrinsics, which treat a buffer as raw bytes, read and write it as
@@ -1828,7 +1801,6 @@ typealias ByteBag = Bag with Byte
 
 function bagOf(bytes ByteArray) returns ByteBag
 	let bag = ByteBag.create()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'each'
 		bag.add(byte)
 	end 'each'

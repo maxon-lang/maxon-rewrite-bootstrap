@@ -716,7 +716,6 @@ end 'main'
 
 <!-- test: every-block-keyword-as-a-payload-carrying-case -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
@@ -726,7 +725,6 @@ union Kw
 	end(c Num)
 	while (d Num)
 	match (e Num)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (f Num)
 	otherwise (g Num)
@@ -739,7 +737,6 @@ function tagOf(k Kw) returns Num
 		end(c) then return c
 		while (d) then return d
 		match (e) then return e
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (f) then return f
 		otherwise (g) then return g

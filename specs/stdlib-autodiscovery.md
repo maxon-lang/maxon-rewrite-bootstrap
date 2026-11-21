@@ -49,11 +49,9 @@ the absent argument, and there is no separate named-parameter sentence for it.
 ## Tests
 
 <!-- test: basic-autodiscovery -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(sqrt(16.0))
+	return try trunc(sqrt(16.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -62,13 +60,10 @@ end 'main'
 
 
 <!-- test: transitive -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 // pow -> log, exp
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(2.0, exponent: 3.0)
-	// TODO: float literals are not supported in minimaxon
 	if result > 7.5 'check'
 		return 8
 	end 'check'
@@ -81,12 +76,10 @@ end 'main'
 
 
 <!-- test: unqualified-call -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = sqrt(16.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -95,10 +88,8 @@ end 'main'
 
 
 <!-- test: qualified-call -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(Math.pow(2.0, exponent: 4.0))
 end 'main'
 ```
@@ -108,11 +99,8 @@ end 'main'
 
 
 <!-- test: wrong-arg-count -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(Math.pow(2.0))
 end 'main'
 ```

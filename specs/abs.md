@@ -39,14 +39,12 @@ let k = trunc(abs(-3.7))   // 3
 ## Tests
 
 <!-- test: abs.float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let neg = -5.5
 	let x = abs(neg)
 	let y = trunc(x)
-	return y
+	return try y as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -54,13 +52,11 @@ end 'main'
 ```
 
 <!-- test: abs.negative-int-as-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let neg = -42.0
 	let x = abs(neg)
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -68,12 +64,9 @@ end 'main'
 ```
 
 <!-- test: abs.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = abs(0.0)
-	// TODO: float literals are not supported in minimaxon
 	if x == 0.0 'check'
 		return 0
 	end 'check'
@@ -85,12 +78,10 @@ end 'main'
 ```
 
 <!-- test: abs.rt-float -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -5.5 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(abs(x))
 end 'main'
@@ -100,12 +91,10 @@ end 'main'
 ```
 
 <!-- test: abs.rt-negative-int -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -42.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(abs(x))
 end 'main'
@@ -115,15 +104,12 @@ end 'main'
 ```
 
 <!-- test: abs.rt-zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 0.0 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let result = abs(x)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'
@@ -135,8 +121,6 @@ end 'main'
 ```
 
 <!-- test: abs.error-arg-named -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The positional-argument rule is the MATH BUILTIN FAMILY's, not `min`'s alone: `abs`
 has no declaration either, so its one argument has no parameter for `x:` to name.
 Arity is irrelevant to the reason — a builtin has nothing to label at any position —
@@ -148,7 +132,6 @@ Reading the label as a variable reference instead would answer
 `E2004: Undefined variable 'x'` — a consequence of the defect rather than the defect itself.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = abs(x: 1.0)
 	return trunc(x)
 end 'main'

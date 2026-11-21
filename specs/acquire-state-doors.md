@@ -961,7 +961,6 @@ error E3202: <fragment>:68:12: 's' is the state of an acquired service and canno
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple literal stores the state as an item.
 
@@ -1034,7 +1033,6 @@ end 'main'
 function work(s Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'held'
-		// TODO: tuple values and types are not supported in minimaxon
 		let pair = (s, 1)
 		return 1
 	end 'held' otherwise 'stopped'

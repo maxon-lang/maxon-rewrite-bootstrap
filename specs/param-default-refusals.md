@@ -187,13 +187,11 @@ error E2010: <fragment>:4:37: Expected 'end of default value' but got 'zzz'
 
 <!-- test: error-param-default-exponent-without-point -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `1e100` is the integer `1` followed by the identifier `e100` — a float literal must contain a decimal
 point. Dropped, it made `b Real = 1e100` default to `1`: a hundred orders of magnitude, silently.
 Write `1.0e100`.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 // TODO: default parameter values are not supported in minimaxon

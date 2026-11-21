@@ -2564,8 +2564,6 @@ note: <fragment>:82:9: `ListShape` is converted to `Shape` here
 
 <!-- test: error.freeze-names-a-tuple-element-as-an-author-writes-it -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2640,7 +2638,6 @@ function spawnDoor()
 	h.shutdown()
 end 'spawnDoor'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias StepperPair = (Stepper, Plain)
 
 type PairShape implements Shape
@@ -2656,7 +2653,6 @@ type PairShape implements Shape
 end 'PairShape'
 
 function pick() returns Shape
-	// TODO: tuple values and types are not supported in minimaxon
 	return PairShape.create((stepper(), Plain.create()))
 end 'pick'
 
@@ -2998,7 +2994,6 @@ end 'main'
 ```
 
 <!-- test: a-string-conformer-widened-to-a-share-reached-interface-runs -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `String` stands at `Shape` through an extension, and the interface is share-reached; the widening is judged like any conformer's and the program runs.
 
@@ -3009,7 +3004,6 @@ interface Shape
 	function area() returns Tally
 end 'Shape'
 
-// TODO: extension blocks are not supported in minimaxon
 extension String implements Shape
 	function area() returns Tally
 		return 3
@@ -3224,9 +3218,6 @@ end 'main'
 
 <!-- test: error.freeze-through-interfaces-names-tuple-and-instance-conformers -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -3268,7 +3259,6 @@ end 'Box'
 
 typealias StepperBox = Box with Stepper
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Tally, Stepper)
 
 typealias Pairs = Array with Pair
@@ -3279,12 +3269,10 @@ type TupBag implements I1
 	export let p as Pair
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: (1, Stepper.create(function(n Tally) gives n))}
 	end 'create'
 
 	function a1() returns Tally
-		// TODO: tuple element access is not supported in minimaxon
 		return self.p.0
 	end 'a1'
 end 'TupBag'

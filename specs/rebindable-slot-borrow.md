@@ -179,9 +179,6 @@ end 'main'
 ```
 
 <!-- test: the-promoted-name-keeps-its-declared-surface -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **A COUNTED BINDING KEEPS ITS DECLARED SURFACE.** `__ManagedMemory` and the `Array` around it are
 one record told apart by provenance, keyed by the value — so a counted binding, which is a fresh value,
@@ -190,14 +187,11 @@ to a field read off the hidden tuple temp, which is a read out of a rebindable s
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple return types are not supported in minimaxon
 function pair() returns (__ManagedMemory, Int)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello".toByteArray(), 7)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (m, _) = pair()
 	return m.length() as ExitCode
 end 'main'

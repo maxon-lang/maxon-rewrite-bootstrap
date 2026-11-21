@@ -208,25 +208,20 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-scheduler.a-float-argument-rides-the-float-argument-registers -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A `float` argument handed to a parameter the callee only reads travels in the thread's float argument region,
 which the trampoline loads into the float argument registers.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function half(x Real) returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	return trunc(x / 2.0)
 end 'half'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async half(84.0)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
@@ -238,15 +233,12 @@ end 'main'
 
 <!-- test: async-scheduler.floats-and-integers-are-counted-by-register-file -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The integer and float argument files are counted independently, so a float between two integers is float
 slot 0 and the second integer is integer slot 1. Every argument carries a distinct weight, so one landing in
 the wrong register shows in the total.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function weigh(a Integer, x Real, b Integer, y Real, c Integer) returns Integer
@@ -257,7 +249,6 @@ end 'weigh'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async weigh(1, x: 4.5, b: 2, y: 5.5, c: 3)
 	print("{await p}\n")
 	return 0
@@ -273,19 +264,15 @@ end 'main'
 <!-- test: async-scheduler.an-integer-argument-is-widened-to-a-float-parameter -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An integer handed to a `float` parameter is converted at the spawn, as an ordinary call converts it, so the
 float argument region holds a double.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function half(x Real) returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	return trunc(x / 2.0)
 end 'half'
 
@@ -303,13 +290,10 @@ end 'main'
 <!-- test: async-scheduler.a-float-argument-beside-a-reassigned-float-uses-both-files -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 `x` is read and travels in float slot 0; `y` is reassigned, so its cell address travels in integer slot 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function blend(x Real, mutates y Real) returns Integer
@@ -319,10 +303,8 @@ function blend(x Real, mutates y Real) returns Integer
 end 'blend'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var y = 40.5 as Real
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async blend(1.5, y: y)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
@@ -335,25 +317,20 @@ end 'main'
 <!-- test: async-scheduler.a-float-argument-the-callee-reassigns-rides-a-cell -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The same spawn, with a callee that reassigns its parameter: the argument rides a cell the coroutine owns, and
 the cell is one integer word whatever it holds.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function half(mutates x Real) returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	x = x / 2.0
 	return trunc(x)
 end 'half'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var x = 84.0 as Real
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async half(x)
@@ -452,14 +429,11 @@ end 'main'
 
 <!-- test: async-scheduler.an-interface-argument-shares-the-files-with-floats-and-integers -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The witness table takes the integer slot after the last integer argument, the float between them takes
 float slot 0, and the callee reads all four.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 interface Shape
@@ -489,7 +463,6 @@ end 'shapeOf'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async describe(1, s: shapeOf(3), x: 2.5, b: 4)
 	print("{await p}\n")
 	return 0
@@ -646,13 +619,10 @@ end 'main'
 
 <!-- test: async-scheduler.ten-float-arguments-spill-onto-the-thread-stack -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The same with ten floats: six or eight ride the float argument registers and the rest the stack.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function weigh(a Real, b Real, c Real, d Real, e Real, f Real, g Real, h Real, i Real, j Real) returns Integer
@@ -664,7 +634,6 @@ end 'weigh'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async weigh(1.5, b: 2.5, c: 3.5, d: 4.5, e: 5.5, f: 6.5, g: 7.5, h: 8.5, i: 9.5, j: 10.5)
 	print("{await p}\n")
 	return 0
@@ -680,8 +649,6 @@ end 'main'
 <!-- test: async-scheduler.integers-floats-and-interface-values-past-both-register-files -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Ten integers, ten floats and two interface values: integers and floats overflow their own files
 independently, the overflow shares one run of stack words in argument order, and both witness tables are
@@ -689,7 +656,6 @@ hidden integer arguments after the declared ones.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 interface Shape
@@ -716,7 +682,6 @@ end 'show'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async show(1, f0: 0.5, s0: Square.create(3), i1: 2, f1: 1.5, i2: 3, f2: 2.5, i3: 4, f3: 3.5, i4: 5, f4: 4.5, i5: 6, f5: 5.5, i6: 7, f6: 6.5, i7: 8, f7: 7.5, i8: 9, f8: 8.5, i9: 10, f9: 9.5, s1: Square.create(4))
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
@@ -758,14 +723,11 @@ end 'main'
 
 <!-- test: async-scheduler.a-cancelled-spawn-releases-the-arguments-it-holds-past-the-registers -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A spawn dropped before it runs gives back the strings, the interface value and the argument image alike. The
 run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 interface Shape
@@ -792,7 +754,6 @@ end 'total'
 
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let p = async total("a", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "ggggggg", x: 1.5, y: 2.5, h: "hhhhhhhh", i: "iiiiiiiii", s: Square.create(3))
 	p.cancel()
 	return 0
@@ -1141,7 +1102,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-scheduler.callee-saved-xmms-survive-a-context-switch -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
 Two green threads each hold TEN f64 locals across a `sleep`, interleaved so each is suspended while
 the other is actively occupying xmm6–15.
 
@@ -1158,69 +1118,45 @@ test that says so: with the switch's `movsd` saves removed, `threadA` returns **
 awaits: 11 + 22 = 33. The exit code is 0 only if all three hold.
 ```maxon
 function threadA() returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let a0 = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let a1 = 2.5
-	// TODO: float literals are not supported in minimaxon
 	let a2 = 3.5
-	// TODO: float literals are not supported in minimaxon
 	let a3 = 4.5
-	// TODO: float literals are not supported in minimaxon
 	let a4 = 5.5
-	// TODO: float literals are not supported in minimaxon
 	let a5 = 6.5
-	// TODO: float literals are not supported in minimaxon
 	let a6 = 7.5
-	// TODO: float literals are not supported in minimaxon
 	let a7 = 8.5
-	// TODO: float literals are not supported in minimaxon
 	let a8 = 9.5
-	// TODO: float literals are not supported in minimaxon
 	let a9 = 10.5
 	sleep(4)
 	let s1 = trunc(a0) + trunc(a1) + trunc(a2) + trunc(a3) + trunc(a4)
 	let s2 = trunc(a5) + trunc(a6) + trunc(a7) + trunc(a8) + trunc(a9)
 	sleep(4)
-	// TODO: float literals are not supported in minimaxon
 	let s3 = trunc(a0 * 2.0) + trunc(a9 * 2.0)
 	return s1 + s2 + s3
 end 'threadA'
 
 function threadB() returns Integer
-	// TODO: float literals are not supported in minimaxon
 	let b0 = 100.5
-	// TODO: float literals are not supported in minimaxon
 	let b1 = 200.5
-	// TODO: float literals are not supported in minimaxon
 	let b2 = 300.5
-	// TODO: float literals are not supported in minimaxon
 	let b3 = 400.5
-	// TODO: float literals are not supported in minimaxon
 	let b4 = 500.5
-	// TODO: float literals are not supported in minimaxon
 	let b5 = 600.5
-	// TODO: float literals are not supported in minimaxon
 	let b6 = 700.5
-	// TODO: float literals are not supported in minimaxon
 	let b7 = 800.5
-	// TODO: float literals are not supported in minimaxon
 	let b8 = 900.5
-	// TODO: float literals are not supported in minimaxon
 	let b9 = 1000.5
 	sleep(2)
 	let t1 = trunc(b0) + trunc(b1) + trunc(b2) + trunc(b3) + trunc(b4)
 	let t2 = trunc(b5) + trunc(b6) + trunc(b7) + trunc(b8) + trunc(b9)
 	sleep(2)
-	// TODO: float literals are not supported in minimaxon
 	let t3 = trunc(b0 * 2.0) + trunc(b9 * 2.0)
 	return t1 + t2 + t3
 end 'threadB'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let m0 = 11.5
-	// TODO: float literals are not supported in minimaxon
 	let m1 = 22.5
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pa = async threadA()
@@ -1246,8 +1182,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-scheduler.a-float-argument-survives-a-stack-grow -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A recursive float-taking function runs on a green thread's 2 KB stack, so `__gt_morestack` fires
 part-way down the recursion and relocates the stack underneath it.
 
@@ -1267,28 +1201,23 @@ function scale(x Real, depth Integer) returns Integer
 	if depth == 0 'base'
 		return trunc(x) as Integer
 	end 'base'
-	// TODO: float literals are not supported in minimaxon
 	return (trunc(x) as Integer) + scale(x * 2.0, depth: depth - 1)
 end 'scale'
 
 function sweep() returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	let d0 = scale(20.0, depth: 0)
 	if d0 != 20 'bad0'
 		return 1
 	end 'bad0'
-	// TODO: float literals are not supported in minimaxon
 	let d1 = scale(20.0, depth: 1)
 	if d1 != 60 'bad1'
 		return 2
 	end 'bad1'
-	// TODO: float literals are not supported in minimaxon
 	let d2 = scale(20.0, depth: 2)
 	if d2 != 140 'bad2'
 		return 3
 	end 'bad2'
-	// TODO: float literals are not supported in minimaxon
 	let d3 = scale(20.0, depth: 3)
 	if d3 != 300 'bad3'
 		return 4
@@ -1306,7 +1235,6 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -1316,8 +1244,6 @@ typealias Real = float(f64.min to f64.max)
 <!-- test: async-scheduler.every-fp-argument-register-survives-a-stack-grow -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The sibling of the test above, widened from one FP argument register to **all six**: `six` spends
 every one of the parser's six parameter slots on a float, so xmm0–5 are ALL live at the stack guard
 when `__gt_morestack` fires. A save list that covered only some of them would still pass the
@@ -1329,17 +1255,14 @@ recursion at the first level (15); a destroyed xmm1–5 drops that register's te
 ```maxon
 function six(a Real, b Real, c Real, d Real, e Real, f Real) returns Integer
 	let sum = (trunc(b) + trunc(c) + trunc(d) + trunc(e) + trunc(f)) as Integer
-	// TODO: float literals are not supported in minimaxon
 	if a < 1.0 'base'
 		return sum
 	end 'base'
-	// TODO: float literals are not supported in minimaxon
 	return sum + six(a - 1.0, b: b, c: c, d: d, e: e, f: f)
 end 'six'
 
 function fpArgs() returns Integer
 	Scheduler.yield()
-	// TODO: float literals are not supported in minimaxon
 	return six(6.0, b: 1.5, c: 2.5, d: 3.5, e: 4.5, f: 5.5)
 end 'fpArgs'
 
@@ -1356,7 +1279,6 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode

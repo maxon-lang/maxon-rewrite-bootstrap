@@ -114,18 +114,14 @@ error E3009: specs/invalid-cast/error.function-to-int.maxon:11:14: Cannot cast f
 ```
 
 <!-- test: valid.compatible-casts-still-compile -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 100)
 
 typealias Big = int(0 to 1000)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(f64.min to f64.max)
 
 function isPositive(r Ratio) returns bool
-	// TODO: float literals are not supported in minimaxon
 	return r > 0.0
 end 'isPositive'
 
@@ -135,7 +131,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let big = seed()
-	let small = big as Small
+	let small = try big as Small otherwise panic("out of range")
 	let r = 42 as Ratio
 	if isPositive(r) 'ok'
 		return small

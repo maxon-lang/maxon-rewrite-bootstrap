@@ -36,12 +36,9 @@ let z = Math.tan(quarterPi)    // 1.0 (approximately)
 ## Tests
 
 <!-- test: tan.zero -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.tan(0.0)
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'
@@ -53,20 +50,15 @@ end 'main'
 ```
 
 <!-- test: tan.multiple-values -->
-<!-- skip: float literals are not supported in minimaxon -->
 Floats print in the **shortest round-trip** representation (⚖ user ruling; `specs/sin.md` sets out
 why). A shortest digit string is only correct for the exact double it came from, so these four are
 verified against the doubles `Math.tan` returns here, with bit patterns `0`, `4603095874924660554`,
 `4609692760021066663`, `4607182435342692924`.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x1 = Math.tan(0.0)
-	// TODO: float literals are not supported in minimaxon
 	let x2 = Math.tan(0.5)
-	// TODO: float literals are not supported in minimaxon
 	let x3 = Math.tan(1.0)
-	// TODO: float literals are not supported in minimaxon
 	let x4 = Math.tan(0.7854)
 	print("{x1}\n")
 	print("{x2}\n")
@@ -86,16 +78,12 @@ end 'main'
 ```
 
 <!-- test: tan.quarter-pi -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let quarterPi = 0.785398163
 	let result = Math.tan(quarterPi)
 	// Should be approximately 1.0
-	// TODO: float literals are not supported in minimaxon
 	let diff = abs(result - 1.0)
-	// TODO: float literals are not supported in minimaxon
 	if diff < 0.01 'check'
 		return 0
 	end 'check'
@@ -107,12 +95,10 @@ end 'main'
 ```
 
 <!-- test: tan.with-int-promotion -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 0 // int
 	let result = Math.tan(x) // x promoted to 0.0
-	// TODO: float literals are not supported in minimaxon
 	if result == 0.0 'check'
 		return 0
 	end 'check'

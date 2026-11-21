@@ -278,18 +278,13 @@ end 'main'
 ```
 
 <!-- test: f32-arithmetic-uses-ss-instructions -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = 10.0 as F
-	// TODO: float literals are not supported in minimaxon
-	let b = 3.0 as F
-	return trunc(a + b)
+	let a = try 10.0 as F otherwise panic("out of range")
+	let b = try 3.0 as F otherwise panic("out of range")
+	return try trunc(a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -297,17 +292,12 @@ end 'main'
 ```
 
 <!-- test: f32-comparison-uses-ucomiss -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = 3.0 as F
-	// TODO: float literals are not supported in minimaxon
-	let b = 5.0 as F
+	let a = try 3.0 as F otherwise panic("out of range")
+	let b = try 5.0 as F otherwise panic("out of range")
 	if a < b 'less'
 		return 1
 	end 'less'
@@ -319,16 +309,12 @@ end 'main'
 ```
 
 <!-- test: f32-truncation-uses-cvttss2si -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias F = float(f32.min to f32.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	let a = 42.9 as F
-	return trunc(a)
+	let a = try 42.9 as F otherwise panic("out of range")
+	return try trunc(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

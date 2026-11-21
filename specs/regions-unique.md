@@ -972,8 +972,7 @@ false 1
 ```
 
 <!-- test: a-tuple-holding-a-unique-kept-by-a-call-is-refused-when-read-afterwards -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A tuple holding a unique is unique-holding, so `keep` storing it moves `pair`.
 
@@ -988,7 +987,6 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Token, Tally)
 
 typealias Pairs = Array with Pair
@@ -1000,7 +998,6 @@ function keep(pair Pair) returns Tally
 end 'keep'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (Token.create(1), 2 as Tally)
 	let moved = keep(pair)
 	print("{moved} {pair.1}\n")
@@ -1210,8 +1207,6 @@ error E3214: <fragment>:21:28: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-let-bound-to-a-unique-tuple-element-read-is-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple element read is a read out of a slot the tuple goes on owning.
 
@@ -1227,9 +1222,7 @@ type Token is noncopyable
 end 'Token'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var pair = (Token.create(1), 2 as Tally)
-	// TODO: tuple element access is not supported in minimaxon
 	let alias = pair.0
 	print("{alias.n} {pair.1}\n")
 	return 0
@@ -1383,8 +1376,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-element-binding-handed-to-a-keeping-parameter-is-refused -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 Destructuring lends the tuple's element, so `keep` cannot take it.
 
@@ -1408,9 +1399,7 @@ function keep(token Token) returns Tally
 end 'keep'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let pair = (Token.create(1), 2 as Tally)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (token, n) = pair
 	print("{keep(token)} {n}\n")
 	return 0
@@ -3700,8 +3689,6 @@ error E3102: <fragment>:14:2: use of moved value 't': its ownership moved to ano
 ```
 
 <!-- test: a-literal-naming-a-unique-local-after-a-cond-of-it-is-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple, a struct literal and a union case that name `q` after a `cond` that may be `q` would hold two names for one unique value.
 ```maxon
@@ -3736,9 +3723,7 @@ end 'chosen'
 function tuple() returns Num
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (q if chosen(1) else q2, q)
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0.n + t.1.n
 end 'tuple'
 
@@ -3764,8 +3749,6 @@ error E3102: <fragment>:41:45: 'q' is named at two payloads of this case, and a 
 ```
 
 <!-- test: a-literal-naming-a-unique-local-before-a-cond-of-it-is-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The order does not matter: naming `q` first and the `cond` second is refused as well.
 ```maxon
@@ -3800,9 +3783,7 @@ end 'chosen'
 function tuple() returns Num
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (q, q if chosen(1) else q2)
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0.n + t.1.n
 end 'tuple'
 
@@ -4078,9 +4059,6 @@ error E3214: <fragment>:19:13: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-unique-operand-a-later-operand-moves-is-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A later argument that moves a unique value an earlier one already passed — through a nested tuple, a call that keeps it, a closure that captures it, or a `cond` — would hand the callee two names for one unique value.
 ```maxon
@@ -4112,9 +4090,7 @@ function chosen(n Num) returns bool
 	return n != 0
 end 'chosen'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function total(a Tk, b(Tk, Num)) returns Num
-	// TODO: tuple element access is not supported in minimaxon
+function total(a Tk, b (Tk, Num)) returns Num
 	return a.n + b.0.n + b.1
 end 'total'
 
@@ -4129,7 +4105,6 @@ end 'run'
 function tupleArgument() returns Num
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	return total(q, b: (q if chosen(1) else q2, 1))
 end 'tupleArgument'
 
@@ -4161,7 +4136,6 @@ function receiver() returns Num
 end 'receiver'
 
 function parameterTuple(p Tk, p2 Tk) returns Num
-	// TODO: tuple values and types are not supported in minimaxon
 	return total(p, b: (p if chosen(1) else p2, 1))
 end 'parameterTuple'
 
@@ -4187,9 +4161,6 @@ error E3102: <fragment>:79:26: 'p' is passed at two arguments of this call, and 
 ```
 
 <!-- test: a-literal-whose-nested-operand-moves-a-unique-operand-is-refused -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A field, an element or a payload naming `q` beside a nested literal or call that moves `q` is refused where the nested one names it.
 ```maxon
@@ -4222,7 +4193,7 @@ end 'Two'
 
 union Both
 	none
-	both(a Tk, b(Tk, Num))
+	both(a Tk, b (Tk, Num))
 end 'Both'
 
 function chosen(n Num) returns bool
@@ -4232,29 +4203,21 @@ end 'chosen'
 function nestedCond() returns Num
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (q, (q if chosen(1) else q2, 1))
-	// TODO: tuple element access is not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	return t.0.n + t.1.0.n
 end 'nestedCond'
 
 function nestedTuple() returns Num
 	let q = Tk.create(1)
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (q, (q, 1))
-	// TODO: tuple element access is not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	return t.0.n + t.1.0.n
 end 'nestedTuple'
 
 function payloads() returns Num
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
-	// TODO: tuple values and types are not supported in minimaxon
 	match Both.both(q, b: (q if chosen(1) else q2, 1)) 'made'
 		none then return 0
-		// TODO: tuple element access is not supported in minimaxon
 		both(a, b) then return a.n + b.0.n
 	end 'made'
 end 'payloads'

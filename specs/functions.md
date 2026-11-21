@@ -453,13 +453,10 @@ error E3004: <fragment>:3:11: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-destructured -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 A destructuring pattern binds each name to a deferred element of its own. The element count of an
 undefined callee's result is unknowable, so the pattern's arity is not refused ahead of E3004.
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (k, v) in frobnicate(2) 'each'
 		print("{k}{v}\n")
 	end 'each'
@@ -954,7 +951,7 @@ error E3004: <fragment>:4:25: call to undefined function 'missing'
 ```
 
 <!-- test: unknown-function-result-chained-method-call-argument-calls-an-undefined-function -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got 'then' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'then' -->
 The arguments of every link of the chain are compiled, not only the first link's.
 ```maxon
 function main() returns ExitCode
@@ -1218,11 +1215,8 @@ error E3004: <fragment>:3:19: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-destructured-by-let -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = frobnicate(2)
 	return (a + b) as ExitCode
 end 'main'

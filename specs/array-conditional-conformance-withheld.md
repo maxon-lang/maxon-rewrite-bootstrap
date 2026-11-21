@@ -169,7 +169,6 @@ cloned
 ```
 
 <!-- test: error.the-suppression-may-not-read-a-weaker-index-than-the-report -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A `where` clause satisfied by an EXTENSION still refuses the copy gate
@@ -227,7 +226,6 @@ interface Sizer
 	function size() returns Integer
 end 'Sizer'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Handle implements Sizer
 	function size() returns Integer
 		return 3

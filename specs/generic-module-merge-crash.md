@@ -13,7 +13,7 @@ category: type-system
 
 <!-- test: generic-module-merge -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
@@ -31,7 +31,7 @@ interface Mergeable uses Func
 	function cloneItem(src Func) returns Func
 end 'Mergeable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Mergeable
 	function merge(source Self)
 		self.appendOps(source)

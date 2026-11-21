@@ -54,7 +54,6 @@ authentication.
 <!-- test: tls-handshake-server.replay-openssl-transcripts -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Four transcripts the client of OpenSSL 3.0.13 sent to the canra reference server replay byte for byte: every record the server sends is the record the vector lists, ServerHello, change_cipher_spec, the protected flight, the application data and close_notify included. They are a default handshake (OpenSSL offers X25519 and compatibility mode), a HelloRetryRequest to secp256r1, an Ed25519 server key, and a handshake where the server required, and verified, OpenSSL's P-256 client certificate.
 ```maxon
@@ -69,7 +68,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -83,7 +81,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -99,7 +96,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -217,7 +213,6 @@ server13-openssl-mtls-ecdsa-p256 {"state":"connected","version":772,"cipher_suit
 <!-- test: tls-handshake-server.handshakes-by-server-key -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The canra reference client's handshakes with each server key type: the default (ECDSA P-256, compatibility mode, ALPN), RSA-PSS with no compatibility mode, ECDSA P-384 and Ed25519. The server signs the CertificateVerify with the first of its own schemes that the client offered and the key fits.
 ```maxon
@@ -232,7 +227,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -246,7 +240,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -262,7 +255,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -380,7 +372,6 @@ server13-ed25519 {"state":"connected","version":772,"cipher_suite":4867,"group":
 <!-- test: tls-handshake-server.negotiated-handshakes -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes that negotiate: a HelloRetryRequest to secp256r1, a client that sends a P-256 share the server prefers less than X25519 and gets P-256 without a retry, a KeyUpdate that asks the server to update its own keys, a client without server_name, and a ClientHello alone, which gets the server's whole first flight and leaves the handshake open.
 ```maxon
@@ -395,7 +386,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -409,7 +399,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -425,7 +414,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -552,7 +540,6 @@ server13-hello-only {"state":"handshaking","version":772,"cipher_suite":4867,"gr
 <!-- test: tls-handshake-server.client-authentication -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A server that asks for a client certificate: it requires, and verifies with the clientAuth purpose and no host name, an ECDSA P-256 or an RSA-PSS client certificate; with `request` it continues when the client has none (the peer is not authenticated); its CertificateRequest carries certificate_authorities when configured.
 ```maxon
@@ -567,7 +554,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -581,7 +567,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -597,7 +582,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -715,7 +699,6 @@ server13-mtls-certificate-authorities {"state":"connected","version":772,"cipher
 <!-- test: tls-handshake-server.negotiation-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A ClientHello the server refuses, each with the alert the server sends, in the contract's negotiation order: no common suite, signature_algorithms, key_share or supported_groups missing, a key share for a group the client does not list, no common group, no common signature scheme, no common ALPN protocol, no common version and a compression method.
 ```maxon
@@ -730,7 +713,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -744,7 +726,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -760,7 +741,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -932,7 +912,6 @@ server13-err-no-application-protocol noApplicationProtocol
 <!-- test: tls-handshake-server.hello-retry-request-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A second ClientHello the server refuses after its HelloRetryRequest: one whose key_share is not the one share for the selected group.
 ```maxon
@@ -947,7 +926,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -961,7 +939,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -977,7 +954,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1068,7 +1044,6 @@ server13-err-second-client-hello-group illegalParameter
 <!-- test: tls-handshake-server.record-and-order-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records and messages the server refuses: a change_cipher_spec before the ClientHello, a duplicate extension, a client Certificate nobody asked for, a tampered record and a Finished that does not verify.
 ```maxon
@@ -1083,7 +1058,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1097,7 +1071,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1113,7 +1086,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1240,7 +1212,6 @@ server13-err-client-finished decryptError
 <!-- test: tls-handshake-server.client-authentication-errors -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A client the server refuses when it asks for a certificate: none at all under `require` (CertificateRequired, also when no scheme in common leaves the client without a signature), a chain from an unknown CA, one for the wrong purpose, an expired one, a CertificateVerify that does not verify and one whose scheme the request did not list.
 ```maxon
@@ -1255,7 +1226,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1269,7 +1239,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1285,7 +1254,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1430,7 +1398,6 @@ server13-err-client-scheme-not-offered illegalParameter
 <!-- test: tls-handshake-server.client-alerts-before-the-finished -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 An alert the client sends after the server flight, in place of its Finished, is read under the client handshake keys: a fatal alert protected under them is `alertReceived`, so is a close_notify, a user_canceled is ignored and the server keeps waiting, and an alert in plaintext is `unexpectedMessage`, its outer content type not being application_data.
 ```maxon
@@ -1445,7 +1412,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1459,7 +1425,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1475,7 +1440,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1593,7 +1557,6 @@ server13-alert-plaintext-after-the-keys unexpectedMessage
 <!-- test: tls-handshake-server.message-length-limits -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A handshake message is refused, with InternalError, as soon as its 4-byte header announces more than 65536 bytes, or more than 262144 for a Certificate: a ClientHello header one byte over the cap, a client Certificate header one byte over, and a KeyUpdate header one byte over after the handshake. A ClientHello header exactly at the cap is not refused: the server waits for the rest.
 ```maxon
@@ -1608,7 +1571,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1622,7 +1584,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1638,7 +1599,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1756,7 +1716,6 @@ server13-err-post-handshake-message-too-long internalError
 <!-- test: tls-handshake-server.no-record-inside-a-handshake-message -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Application data while a partial KeyUpdate is buffered is UnexpectedMessage.
 ```maxon
@@ -1771,7 +1730,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1785,7 +1743,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1801,7 +1758,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -1892,7 +1848,6 @@ server13-err-application-data-inside-a-handshake-message unexpectedMessage
 <!-- test: tls-handshake-server.useless-records -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Seventeen change_cipher_spec records in a row after the ClientHello are UnexpectedMessage.
 ```maxon
@@ -1907,7 +1862,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1921,7 +1875,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1937,7 +1890,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2028,7 +1980,6 @@ server13-err-too-many-change-cipher-specs unexpectedMessage
 <!-- test: tls-handshake-server.reference-signatures-and-preferences -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes made with the canra reference client and checked by the canra reference server, for the server's choices the canra vectors do not reach: RSA-PSS with SHA-384 and SHA-512 (the salt is the first digest-length bytes of the configured salt), the first of the server's schemes the client offered and the key fits, the server's own suite order, a sent share preferred over a retry that its own group order would prefer, the server's own ALPN order, and no ALPN when either side has none.
 ```maxon
@@ -2043,7 +1994,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2057,7 +2007,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2073,7 +2022,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2227,7 +2175,6 @@ reference13-no-alpn-when-the-server-has-none {"state":"connected","version":772,
 <!-- test: tls-handshake-server.reference-hello-and-record-shapes -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 More handshakes made with the canra reference client: a HelloRetryRequest with no compatibility mode (no change_cipher_spec at all), a KeyUpdate that asks for no reply, an ignored user_canceled alert, records after close_notify (ignored unread), the server's application data written in fragments of 16384 bytes with an empty write between, a certificate chain long enough to split the server flight over records, and a ClientHello split over two records.
 ```maxon
@@ -2242,7 +2189,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2256,7 +2202,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2272,7 +2217,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2417,7 +2361,6 @@ reference13-client-hello-split-over-two-records {"state":"connected","version":7
 <!-- test: tls-handshake-server.reference-client-authentication -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 More client authentication made with the canra reference client: an Ed25519 client certificate under `require`, a P-256 one under `request`, and an RSA-PSS one after a HelloRetryRequest.
 ```maxon
@@ -2432,7 +2375,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2446,7 +2388,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2462,7 +2403,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2571,7 +2511,6 @@ reference13-mtls-hello-retry-request {"state":"connected","version":772,"cipher_
 <!-- test: tls-handshake-server.reference-hello-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 ClientHellos and first records the server refuses, made with the canra reference client: an RSA key offered only RSA PKCS #1 schemes (never used in TLS 1.3), a key no offered scheme fits, a ClientHello that shares its record with another message, a first message that is not a ClientHello, an empty handshake record, a ClientHello cut short, an alert, a change_cipher_spec whose body is not 1 or that comes after the handshake, a client that offers only TLS 1.2 or an old legacy version, and invalid X25519 and P-256 key shares.
 ```maxon
@@ -2586,7 +2525,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2600,7 +2538,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2616,7 +2553,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2824,7 +2760,6 @@ reference13-err-p256-share-not-on-the-curve illegalParameter
 <!-- test: tls-handshake-server.reference-second-client-hello-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A second ClientHello the server refuses after its HelloRetryRequest: one without the suite it chose, without TLS 1.3 in supported_versions, with two key shares or none, and one that is not a ClientHello.
 ```maxon
@@ -2839,7 +2774,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2853,7 +2787,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2869,7 +2802,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -2996,7 +2928,6 @@ reference13-err-second-client-hello-is-not-a-client-hello unexpectedMessage
 <!-- test: tls-handshake-server.reference-handshake-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records the server refuses between its flight and the client's Finished, made with the canra reference client: a Finished of the wrong length or value, one that shares its record with a KeyUpdate, application data, a KeyUpdate, close_notify and fatal alerts before the Finished.
 ```maxon
@@ -3011,7 +2942,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3025,7 +2955,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -3041,7 +2970,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -3195,7 +3123,6 @@ reference13-err-alert-of-three-bytes decodeError
 <!-- test: tls-handshake-server.reference-post-handshake-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Records the server refuses after the handshake, made with the canra reference client: a NewSessionTicket (a client never sends one), a KeyUpdate with a value above 1, a KeyUpdate that shares its record with another message, and a fatal alert.
 ```maxon
@@ -3210,7 +3137,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3224,7 +3150,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -3240,7 +3165,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -3358,7 +3282,6 @@ reference13-err-fatal-alert-after-the-handshake alertReceived
 <!-- test: tls-handshake-server.reference-client-authentication-refusals -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Client authentication the server refuses, made with the canra reference client: a Certificate with a non-empty context or an entry extension, a Finished or a CertificateVerify where the Certificate belongs, a CertificateVerify after an empty Certificate, a Certificate that is not a certificate, a CertificateVerify whose scheme the key does not fit, and a chain from an unknown CA whatever certificate_authorities the request lists.
 ```maxon
@@ -3373,7 +3296,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3387,7 +3309,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -3403,7 +3324,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -3557,7 +3477,6 @@ reference13-err-certificate-authorities-do-not-change-the-verdict unknownCa
 <!-- test: tls-handshake-server.reference-useless-records -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 Sixteen change_cipher_spec records in a row after the ClientHello are dropped: the server answers with its flight and waits for the client's Finished.
 ```maxon
@@ -3572,7 +3491,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3586,7 +3504,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -3602,7 +3519,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -3693,7 +3609,6 @@ reference13-change-cipher-specs-at-the-limit {"state":"handshaking","version":77
 <!-- test: tls-handshake-server.a-failure-sends-its-alert-and-stops-the-server -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A defect before any key exists sends the contract's fatal alert in a plaintext record (`15 03 03 00 02 02 <description>`) and stops the server: the same record again throws the same error and queues nothing. A fatal alert from the client, or a close_notify before the handshake completes, is `alertReceived` and sends nothing. `write` and `close` before the client's Finished have verified are refused, although the server's whole flight is already sent.
 ```maxon
@@ -3708,7 +3623,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3722,7 +3636,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -3734,7 +3647,6 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
@@ -3894,7 +3806,6 @@ connected=false drained=0
 ```
 
 <!-- test: tls-handshake-server.a-configuration-the-machine-refuses -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib/helpers/tls -->
 A server needs a certificate chain and a 32-byte random, and refuses to be built without them (`internalError`). A CertificateRequest cannot list only RSA PKCS #1 schemes, which TLS 1.3 forbids: a configuration that would send one fails when it answers the ClientHello, with the alert it sends. Enabling TLS 1.3 alone changes nothing about a TLS 1.3 handshake.
 ```maxon
@@ -3909,7 +3820,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -3996,7 +3906,6 @@ tls13-enabled answered records=3
 ```
 
 <!-- test: tls-handshake-server.an-alert-after-the-keys-are-installed-is-encrypted -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 A failure after the handshake completes sends its alert under the server's current application write keys. The canra reference client's handshake is replayed to the connected state, its application data record is forged, and the fatal bad_record_mac alert the server sends opens under `server_application_traffic_secret_0` of the same handshake, which the canra reference server derived, as an alert record holding `02 14`.
@@ -4012,7 +3921,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4026,7 +3934,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -4074,11 +3981,7 @@ records=1 prefix=1703030013 type=21 plaintext=0214
 ```
 
 <!-- test: tls-handshake-server.our-client-handshakes-with-our-server -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib/helpers/tls -->
 The client of this stdlib and its server handshake with each other in memory, each with the production entropy, the client verifying the server's chain for example.com against a root and the server requiring and verifying the client's chain when asked, both limited to TLS 1.3: each TLS 1.3 suite with and without client authentication, and each server key type (ECDSA P-256, ECDSA P-384, Ed25519, RSA-PSS) with an Ed25519 or RSA client certificate. A line per side prints what it negotiated, whether it authenticated its peer, whether it saw the peer's close_notify and the application data it received (a request, a response); the server's line adds whether its ServerHello carried extended_master_secret, which a TLS 1.3 ServerHello never does.
 ```maxon
@@ -4093,7 +3996,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -4107,7 +4009,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -4137,16 +4038,11 @@ enum Tweak
 	secp256r1Only
 end 'Tweak'
 
-// TODO: tuple return types are not supported in minimaxon
 function serverCredential(kind ServerKind) returns (ByteArrays, TlsPrivateKey)
 	return match kind 'kind'
-		// TODO: tuple values and types are not supported in minimaxon
 		p256 gives (ByteArrays from [fromHex("3082015930820100a00302010202010a300a06082a8648ce3d040302300f310d300b06035504030c04526f6f74301e170d3235303630313030303030305a170d3236303630313030303030305a300f310d300b06035504030c046c6561663059301306072a8648ce3d020106082a8648ce3d030107034200040b019cfdb984d032a96907cca9a63888323695b6404a7ddaacc63b5559364f2ca48f2b5d0e1151b6c0b5d17286d9a522cee437c42f410742ebb8493775fc47e9a34d304b300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030130603551d25040c300a06082b0601050507030130160603551d11040f300d820b6578616d706c652e636f6d300a06082a8648ce3d040302034700304402203bc12c6f77062e5eed59186b72a95e9652f4398685b8845ad8112a5085bb7ab602207c9761426fa260535fb0fa49efe2624a1f34e8e04eb43d8f3c72dd072e736197")], TlsPrivateKey.ecP256(fromHex("0f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b")))
-		// TODO: tuple values and types are not supported in minimaxon
 		p384 gives (ByteArrays from [fromHex("308201763082011da00302010202010b300a06082a8648ce3d040302300f310d300b06035504030c04526f6f74301e170d3235303630313030303030305a170d3236303630313030303030305a300f310d300b06035504030c046c6561663076301006072a8648ce3d020106052b81040022036200043832f60f3e4a462626db06a2f111e8d720f6899694ba2596a07cd906daeb6a968ca938e87ee4c4f9ec57ad8ce1a552b6ab95b1c2d8fa4c25e2058b58e08640a26b2d4f953c297511683247a1f620a0854d3ef5ff6ce43855205dce2b0608c88fa34d304b300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030130603551d25040c300a06082b0601050507030130160603551d11040f300d820b6578616d706c652e636f6d300a06082a8648ce3d04030203470030440220315764a5d757ce1d4517a871f74df0fadea37633f3a996a71724d28de559e3af02201fc71642214f349b358fc75323241cdce73b2b3cc39809d83833ed991880cb5c")], TlsPrivateKey.ecP384(fromHex("11afb2f77a2dec51c976f3225ec7e0eea79b70dab08e2ee263317047c621cd679b49f41aa42549e4cc3180e6191498a9")))
-		// TODO: tuple values and types are not supported in minimaxon
 		ed25519 gives (ByteArrays from [fromHex("308201293081d1a00302010202010d300a06082a8648ce3d040302300f310d300b06035504030c04526f6f74301e170d3235303630313030303030305a170d3236303630313030303030305a300f310d300b06035504030c046c656166302a300506032b657003210011d1a93d4aa46dc06990a15578b6516e837ef6133e5e2fd6d5588089a2539933a34d304b300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030130603551d25040c300a06082b0601050507030130160603551d11040f300d820b6578616d706c652e636f6d300a06082a8648ce3d0403020347003044022052968aac0bfce24da22eae0ce09a8ea82babf6e91409b5986a62f12f74ab70ee022016592ac0afdbcf4dd110fb33b99d5505b00b0888ec45b3a53a4e6f4bb4e9d008")], TlsPrivateKey.ed25519(fromHex("c875a7890a8054f285794a5414fbda9e4693700489f4bd2741908071978533a2")))
-		// TODO: tuple values and types are not supported in minimaxon
 		rsa gives (ByteArrays from [fromHex("30820225308201cba00302010202010c300a06082a8648ce3d040302300f310d300b06035504030c04526f6f74301e170d3235303630313030303030305a170d3236303630313030303030305a300f310d300b06035504030c046c65616630820122300d06092a864886f70d01010105000382010f003082010a0282010100980fb5297c6dbb97057a14a202477630baf871afeb1598873f816217be94c5d5f69db47f1cb38ea433cc6df20a2071d12fce4b12f7c44f357c82bae83573a8240420ec7ff7ed2fdd75c89785d558f68d84663e73aaa4c4d45c4601434916cc3eb576b794e589c15c5c0eefb54852ef17f41ea0321ad585779e5c34df68b88e4a180dfeebf9be95476f6f9015ec0d6b51e2523e78fac0682a5c0f5409d6868c59faddc91135f977108adf4fda4a9b2e4740c8ffece5f66f9468aead8395a76c14962637fbfcfdb9014e75b2b9af07691875b56bb80cb023cd6d4d9a6d4fb7f50b8a0ffcd773cef8d7b7ab41d25748c2f53fe2a710047c4488eb9e30eebca677b30203010001a34d304b300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030130603551d25040c300a06082b0601050507030130160603551d11040f300d820b6578616d706c652e636f6d300a06082a8648ce3d04030203480030450221008f6465fe2a8cc5cb795353c12242d8cb423318cce3d16f4211d5e7313fe6916e022032211dd8d9f50b5443107ff9e203161bfaeef8028d75cc6862d584b1905ed1a8")], TlsPrivateKey.rsa(try RsaPrivateKey.parse(fromHex("308204be020100300d06092a864886f70d0101010500048204a8308204a40201000282010100980fb5297c6dbb97057a14a202477630baf871afeb1598873f816217be94c5d5f69db47f1cb38ea433cc6df20a2071d12fce4b12f7c44f357c82bae83573a8240420ec7ff7ed2fdd75c89785d558f68d84663e73aaa4c4d45c4601434916cc3eb576b794e589c15c5c0eefb54852ef17f41ea0321ad585779e5c34df68b88e4a180dfeebf9be95476f6f9015ec0d6b51e2523e78fac0682a5c0f5409d6868c59faddc91135f977108adf4fda4a9b2e4740c8ffece5f66f9468aead8395a76c14962637fbfcfdb9014e75b2b9af07691875b56bb80cb023cd6d4d9a6d4fb7f50b8a0ffcd773cef8d7b7ab41d25748c2f53fe2a710047c4488eb9e30eebca677b302030100010282010024736f7bf865dd98002a19941473c8f3397ea0d208ca6e7bcd4f5892548f1935871e9acbf5b75d34236e97d47374ff93a3a0120303fdbcf71757c7322ece00ba517b0af64a1a436514fcf6c59034f935474db31ecb032063bf92d06eaeb0965959ea916b51f2c9b53824247612563f1640e0ae8a1440a6f3dbb442c0633c0a6f7de7ba71d3e4244b8a7bc1864cda9fc8b12c8e9ddbf99a134e4dd1815700ba34737712ccf781539a9100dad22e10aba85012a56d0104967e14bd5508a287862903a5c84ddfb573a59610a20c8adea62a464d740f62b08163036af3321949e6afc0f430250142f6445c58dfd80c9e93e23d32059656cde2f6763b68788a3d8b2102818100c7604784668dbc3abf35f39f6dd6ea60fdae845e9c91939e9b3ec67335c76bbcccdaf21ab32ce9c484d8a80f482387b6048262c2dc0f98827f8110ef03d8e835787297fd8ae563c6c9bfb20cb4346ba15bb81ebfcfefc05126ec1fb402db7b5ad7d6e3874aeaad1eebebc7a60a0241b684c23df05e6b7724f37a9c1dffe6e3d902818100c33f64247f70fbbb32ecdc24e98d379727c18d05f4dbc9cf0bfbac772b6b4077ef16105ac145484ddf0e93edabf531cfb75af56cf0aee3cd51e6d40cde751b8a3869be1d03fb6722f5c3b8b23e97eb3b6341fef7690b47e39308e34a522c6bb6e4ef64b56569cb8563ed2a924d9faa32c0a9ab8148b8e05a4537d75dcf959c6b028181008ec392726c3cf19bdf6f7293a6c34df145b5c1733e09bffac28fa0eabe879dce03a283da3a92de91a9ceba08b74f39ce4c4c510bd72813bcde303d3fe9315895713a1d3ba049c1b8869e8d902b399e185ce4ea9fcef58e708dbe66b52f969a2de2802d4ca388878eacc098a57c654148c0a796529849bb76ea21d1c869859b8102818100932ce096e67dcb337412b96b15a5fe66717063963ed9c248d116980d886c233f84b8940165388d652da3b67c6ca7ba31825c0d2e5e4ae6aaa9771f16c8456c4a077625f9873be5a5a3ae3236221ab015a71f634b2a2277c122df8b3d45adf84ff8484018c0663c24c38b4e10d4746b7e305e754a52001215d9a15b357ab9a31b0281804264563254965cdc052103249118f22693332397e0a99f0b1a8440cdc21581ed70ebe413945346acd53605a3635fadd427f62e4078236527509c0c6b40e8a2bac85787638bc5864eefa7382f9ce32efd82d0fd3a009d2df06c866f2d18f0775a4c98b6f558c5734aa54570923e544658e0596e40bb52d2618a35e3fe03c0b58e")) otherwise panic("the case\'s RSA key was refused")))
 	end 'kind'
 end 'serverCredential'
@@ -4305,7 +4201,6 @@ function renderSchemes(trace TlsLoopbackTrace) returns String
 end 'renderSchemes'
 
 function scenario(label String, serverKind ServerKind, clientKind ClientKind, serverProtocols TlsProtocolArray, clientProtocols TlsProtocolArray, suites TlsCipherSuiteCodeArray, tweak Tweak)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (chain, key) = serverCredential(serverKind)
 	let mutual = clientKind != ClientKind.none
 	let serverConfig = TlsServerConfig.create(serverProtocols, cipherSuites: suites, groups: groupsFor(tweak), signatureAlgorithms: schemes(tweak, pkcs1Tweak: Tweak.serverSignsPkcs1, pkcs1: TlsSignatureSchemeCodeArray from [0x0401], preference: TlsSignatureSchemeCodeArray from [0x0403, 0x0503, 0x0807, 0x0804, 0x0805, 0x0806, 0x0401, 0x0501, 0x0601]), applicationProtocols: TlsProtocolNameArray from [fromHex("687474702f312e31")], chain: chain, key: key, clientAuthentication: TlsClientAuthentication.require if mutual else TlsClientAuthentication.none, clientSignatureAlgorithms: TlsSignatureSchemeCodeArray from [0x0403, 0x0503, 0x0807, 0x0804, 0x0805, 0x0806, 0x0401, 0x0501, 0x0601], clientAuthorities: ByteArrays.create(0))

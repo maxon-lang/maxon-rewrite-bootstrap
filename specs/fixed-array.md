@@ -377,10 +377,7 @@ end 'main'
 
 <!-- test: float-fixed-array -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -388,9 +385,7 @@ typealias Vec2F = FixedArray with 2 Float
 
 function main() returns ExitCode
 	let v = Vec2F.create()
-	// TODO: float literals are not supported in minimaxon
 	v.set(0, value: 2.5)
-	// TODO: float literals are not supported in minimaxon
 	v.set(1, value: 3.5)
 	let a = v.get(0)
 	let b = v.get(1)
@@ -564,11 +559,9 @@ end 'main'
 
 <!-- test: from-array-literal-float -->
 <!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'FixedArray' is not supported in minimaxon
-	// TODO: float literals are not supported in minimaxon
 	let v = FixedArray from [1.5, 2.5]
 	let a = v.get(0)
 	let b = v.get(1)
@@ -1029,7 +1022,7 @@ error E4006: <fragment>:7:15: Type 'FixedArray' has no method named 'remove'
 ```
 
 <!-- test: error.a-bare-growth-call-inside-an-extension-body-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **THE SECOND ENTRANCE `W86`'s LANDMINE COULD HAVE COME IN BY, AND IT IS SHUT FOR A DIFFERENT REASON
@@ -1045,7 +1038,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function grow() returns Int
 		push(4)
@@ -1063,7 +1056,7 @@ error E3004: <fragment>:7:3: call to undefined function 'push'
 ```
 
 <!-- test: error.the-buffer-under-a-fixed-array-is-still-the-buffer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -1077,7 +1070,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function grow() returns Int
 		managed.push(4)
@@ -1805,7 +1798,7 @@ error E3106: <fragment>:19:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: a-fixed-array-in-an-extension-body-over-an-associated-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
@@ -1826,7 +1819,7 @@ interface Sized uses Element
 	function tally() returns Int
 end 'Sized'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Sized
 	function tallyTwice() returns Int
 		let v = Slot.create()
@@ -2572,7 +2565,6 @@ end 'main'
 
 <!-- test: with-iterator-walks-a-managed-fixed-array -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -2590,7 +2582,6 @@ function main() returns ExitCode
 	let names = Names.create(launder(3), value: label(1))
 	try names.set(2, value: label(3)) otherwise panic("set")
 	var joined = ""
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, name) in names.withIterator() 'each'
 		joined.append("{iter.index()}={name} ")
@@ -3186,7 +3177,7 @@ cannot produce; this refusal costs nothing at runtime and closes the seam one le
 `push` is already refused on this surface.
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-cleared -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3198,7 +3189,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		managed.clear()
@@ -3216,7 +3207,7 @@ error E2015: <fragment>:7:11: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-relengthened -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3228,7 +3219,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function stretch()
 		try managed.setLength(2) otherwise ignore
@@ -3246,7 +3237,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'setLength' 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-lose-an-element -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3257,7 +3248,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function drop()
 		try managed.remove(0) otherwise ignore
@@ -3275,7 +3266,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'remove' —
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-appended-to -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3302,7 +3293,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function double()
 		try managed.append(managed) otherwise ignore
@@ -3320,7 +3311,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'append' —
 ```
 
 <!-- test: error.the-chained-self-managed-reaches-the-same-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3333,7 +3324,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		self.managed.clear()
@@ -3351,7 +3342,7 @@ error E2015: <fragment>:7:16: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-local-bound-to-the-buffer-reaches-the-same-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3365,7 +3356,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		var m = managed
@@ -3384,7 +3375,7 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-return-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE D — THE RECORD LEAVING BY `return`, FROM A USER FILE.** A user extension cannot reach a
@@ -3397,7 +3388,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function buf() returns ElementMemory
 		return managed
@@ -3414,7 +3405,7 @@ error E3185: <fragment>:6:25: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: the-length-preserving-buffer-members-are-still-served -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OVER-REFUSAL CONTROL, AND IT IS THE HALF A REFUSAL USUALLY FORGETS.** Everything on the
@@ -3428,7 +3419,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function survey() returns Int
 		try managed.grow(64) otherwise ignore
@@ -3479,7 +3470,7 @@ end 'main'
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-pass-it-to-a-helper -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE E — THE ARGUMENT DIRECTION OF D.** An `extension FixedArray` whose `bust()` is `wipe(managed)`
@@ -3492,7 +3483,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		wipe(managed)
@@ -3514,7 +3505,7 @@ error E3185: <fragment>:10:18: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: the-slice-a-member-hands-to-a-helper-is-served -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **A SLICE IS A VIEW WITH A LENGTH OF ITS OWN.** `managed.slice(0, 2)` is not the fixed array's record —
@@ -3528,7 +3519,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function sliceThenClear() returns Int
 		let s = try managed.slice(0, 2) otherwise panic("slice")
@@ -3550,7 +3541,7 @@ end 'main'
 ```
 
 <!-- test: the-slice-a-member-returns-is-served -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **… AND A MEMBER MAY RETURN A SLICE, WHICH ITS CALLER MAY CHANGE FREELY.** The caller clears the view
@@ -3561,7 +3552,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function part() returns ElementMemory
 		return try managed.slice(0, 2) otherwise panic("slice")
@@ -3590,7 +3581,7 @@ tiers. A user extension cannot read `managed` or name the raw buffer type, so ea
 at its first raw door by **E3185**, before any value of the record exists to carry.
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-push-it-into-a-container -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE F — THE RECORD AS A CONTAINER'S ELEMENT.** `Array with ElementMemory` would hold the record, and
@@ -3602,7 +3593,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	typealias Bufs = Array with ElementMemory
 	function bust() returns Int
@@ -3624,10 +3615,8 @@ error E3185: <fragment>:6:30: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-put-it-in-a-tuple -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE G — THE RECORD AS A TUPLE SLOT**, which needs no container type spelled anywhere: two tokens of
 punctuation would launder the mark. The only raw door is the bare `managed` inside the tuple, and it is
@@ -3638,14 +3627,11 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust() returns Int
-		// TODO: tuple values and types are not supported in minimaxon
 		let t = (managed, 1)
-		// TODO: tuple element access is not supported in minimaxon
 		t.0.clear()
-		// TODO: tuple element access is not supported in minimaxon
 		return (managed.length() as Int) + t.1
 	end 'bust'
 end 'FixedArray'
@@ -3660,7 +3646,7 @@ error E3185: <fragment>:7:12: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-store-it-in-a-field -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE H — THE RECORD ASSIGNED INTO A GROWABLE `Array`'s OWN `managed` FIELD.** The growable record's
@@ -3672,7 +3658,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	typealias Arr = Array with Element
 	function bust() returns Int
@@ -3693,7 +3679,7 @@ error E3185: <fragment>:10:5: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-hand-it-to-a-generic -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ROUTE I — THE RECORD THROUGH A USER'S OWN GENERIC.** A nine-line `Box uses T` would take the record
@@ -3717,7 +3703,7 @@ type Box uses T
 	end 'get'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	typealias BufBox = Box with ElementMemory
 	function bust() returns Int
@@ -3738,10 +3724,8 @@ error E3185: <fragment>:18:30: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: a-slice-may-be-stored-passed-and-returned-freely -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **EVERY ROUTE ABOVE IS LEGAL ON A `slice`, IN THE LIBRARY TIER.** A view's `length@8` is its own, so no
 answer about it can contradict the fixed array's type. The slice here is stored into a container, put in a
@@ -3765,7 +3749,7 @@ type Box uses T
 	end 'get'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	typealias Bufs = Array with ElementMemory
 	typealias BufBox = Box with ElementMemory
@@ -3774,9 +3758,7 @@ extension FixedArray
 		b.push(try managed.slice(0, 2) otherwise panic("slice"))
 		let fromContainer = try b.get(0) otherwise panic("no element")
 		fromContainer.clear()
-		// TODO: tuple values and types are not supported in minimaxon
 		let t = (try managed.slice(0, 2) otherwise panic("slice"), 1 as Int)
-		// TODO: tuple element access is not supported in minimaxon
 		t.0.clear()
 		let boxed = BufBox.create(try managed.slice(0, 2) otherwise panic("slice"))
 		let fromBox = boxed.get()
@@ -3810,7 +3792,7 @@ facts:
   third case here pins it.
 
 <!-- test: error.a-buffer-through-a-ternary-reaches-the-same-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3822,7 +3804,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust(flag bool) returns Int
 		var m = managed if flag else managed
@@ -3841,7 +3823,7 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-buffer-through-a-try-fallback-reaches-the-same-refusal -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3854,7 +3836,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust() returns Int
 		var m = try managed.slice(0, 99) otherwise managed
@@ -3900,7 +3882,7 @@ end 'main'
 
 <!-- test: an-extension-still-walks-its-own-fixed-array -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **AN EXTENSION WALKS ITS OWN FIXED ARRAY BOTH WAYS:** `for e in self`, which goes through the declaration's
@@ -3912,7 +3894,7 @@ typealias Int = int(i64.min to i64.max)
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function walkedTwoWays() returns Int
 		var viaSelf = 0 as Int
@@ -4564,10 +4546,7 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Samples = FixedArray with Real
@@ -4578,11 +4557,8 @@ end 'launder'
 
 function main() returns ExitCode
 	let samples = Samples.create(launder(3))
-	// TODO: float literals are not supported in minimaxon
 	try samples.set(1, value: 2.5) otherwise panic("set")
-	// TODO: float literals are not supported in minimaxon
 	try samples.set(2, value: 4.0) otherwise panic("set")
-	// TODO: float literals are not supported in minimaxon
 	var total = 0.0 as Real
 	for sample in samples 'each'
 		total = total + sample
@@ -4693,14 +4669,14 @@ end 'main'
 
 <!-- test: an-extension-reading-countof-Self-answers-the-record-length -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 `countof(Self)` inside `extension FixedArray` is the receiver's count. For a runtime-sized receiver the count is not in the type, so the call site passes the record's length: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 typealias Buf = FixedArray with Int
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function slots() returns Count
 		// TODO: countof(...) is not supported in minimaxon
@@ -5296,7 +5272,7 @@ error E3194: <fragment>:8:15: 'Cells' states no length in its type, so 'create' 
 
 <!-- test: runtime-sized-reached-through-a-witness-reads-its-record-length -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 An interface conformance declared on `extension FixedArray` is dispatched through a witness table. The table's adapter passes the count the impl reads, and for a runtime-sized instance that count is the receiver's record length: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5307,7 +5283,7 @@ interface Measured
 	function measure() returns Count
 end 'Measured'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Measured
 	function measure() returns Count
 		// TODO: countof(...) is not supported in minimaxon
@@ -5348,7 +5324,7 @@ end 'main'
 
 <!-- test: error.a-static-witness-reading-countof-Self-through-a-runtime-sized-alias -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: static functions in interfaces are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static` requirement is not dispatchable through a type parameter at all, so a witness table can never hand a runtime-sized instance a count that only a record could answer: the call is refused before any table is read.
@@ -5362,7 +5338,7 @@ interface Counting
 	static function slots() returns Count
 end 'Counting'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Counting
 	static function slots() returns Count
 		// TODO: countof(...) is not supported in minimaxon
@@ -5594,7 +5570,7 @@ error E3005: <fragment>:6:12: Value -1 is outside the range of 'ElementIndex' (i
 
 <!-- test: runtime-sized-reached-through-a-witness-table-that-also-holds-a-static-requirement -->
 <!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: static functions in interfaces are not supported in minimaxon -->
 A conformance whose interface also declares a `static` requirement reading the count builds a table with a slot for each. The instance slot reads the record's length; the static slot is never dispatched through the type parameter, so the table needs no receiver for it: `6`.
 ```maxon
@@ -5608,7 +5584,7 @@ interface Measured
 	static function slots() returns Count
 end 'Measured'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Measured
 	function measure() returns Count
 		// TODO: countof(...) is not supported in minimaxon
@@ -5749,7 +5725,7 @@ end 'main'
 
 <!-- test: a-sized-fixed-array-strides-by-its-element-and-reads-back-every-element -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A fixed array whose type states its length lays its elements out at the element's own width, exactly as the runtime-sized form does: one byte for a `Byte` or a `bits(8)`, two for a 16-bit element, four for a 32-bit one, and a packed 1, 2 or 4 bits for a `bool`, an `int(0 to 3)` and an `int(0 to 15)`. Every element written through `set` reads back through `get`, through `for` and through a `clone`.
@@ -5792,7 +5768,7 @@ typealias Crumbs = FixedArray with 301 Crumb
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Nibbles = FixedArray with 301 Nibble
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -6000,14 +5976,14 @@ nibble -4 -4 2238 2238 2238
 ```
 
 <!-- test: a-second-type-parameter-strides-by-its-own-instantiation -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic type holding a fixed array over its SECOND parameter lays the elements out at that parameter's instantiation, whatever the first parameter is: one byte for `Byte` beside an `Integer`, a packed bit for `bool` beside a `String`. Every element reads back through `get` and through `for`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -6078,12 +6054,12 @@ flag -1 3 8
 ```
 
 <!-- test: a-nested-generic-passes-its-instantiation-to-the-fixed-array-it-holds -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic `Outer uses T` holding an `Inner with T`, whose `create` builds a `FixedArray with 6 T`, reaches that array through the descriptor table: the elements still stride at `T`'s own width, one byte for `Byte` and a packed bit for `bool`.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -6166,14 +6142,14 @@ flag -1 3
 ```
 
 <!-- test: a-user-generic-over-a-packed-element-strides-by-its-bits -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A user generic over a packed element passes a negative stride through its own body: forty `bool` elements pack into five bytes, and 40 `int(0 to 3)` elements into ten, and every element written through the body reads back.
 ```maxon
 typealias Crumb = int(0 to 3)
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"

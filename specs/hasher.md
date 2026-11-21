@@ -404,7 +404,6 @@ not all equal: true
 <!-- test: each-tier-is-its-own-hash -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `MAXON_HASH_TIER` forces the tier, so every tier is exercised on every host. The parent draws one seed and
@@ -427,7 +426,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -441,7 +439,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -508,10 +505,8 @@ function main() returns ExitCode
 		end 'runs'
 	end 'eachTier'
 	var distinct = true
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (outer, one) in digests.withIterator() 'eachOne'
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (inner, other) in digests.withIterator() 'eachOther'
 			if outer.index() < inner.index() and one == other 'same'
@@ -1073,7 +1068,6 @@ a-bc=true
 
 <!-- test: a-folded-word-never-forgets-the-state -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `KeyedHasher.combined(state, value)` is a digest of both, on every tier: no word folded into a state may erase it. The
@@ -1094,10 +1088,8 @@ typealias TierList = Array with String
 let StateCount = 64 as Count
 
 function allDistinct(digests DigestList) returns bool
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (outer, one) in digests.withIterator() 'eachOne'
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (inner, other) in digests.withIterator() 'eachOther'
 			if outer.index() < inner.index() and one == other 'same'
@@ -1118,7 +1110,6 @@ function child() returns ExitCode
 		states.push(KeyedHasher.empty(HashSeed.random()))
 	end 'eachState'
 	print("states distinct={allDistinct(states)}\n")
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, word) in words().withIterator() 'eachWord'
 		let folded = DigestList.create(0)
@@ -1502,7 +1493,6 @@ error E3036: <fragment>:3:26: 'KeyedHasher.empty' expects 1 argument(s) but 0 we
 ```
 
 <!-- test: a-pinned-process-draws-the-same-random-seeds-on-every-run -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Under a pinned `MAXON_HASH_SEED`, the n-th `HashSeed.random()` of a process is the same on every run: the pin
@@ -1517,7 +1507,6 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1564,7 +1553,6 @@ the two runs drew one sequence: true
 ```
 
 <!-- test: one-pin-draws-the-same-random-seeds-on-every-tier -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1582,7 +1570,6 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1638,7 +1625,6 @@ the tiers drew one sequence: true
 ```
 
 <!-- test: two-pins-draw-different-random-seeds -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two pins fix two sequences: a process pinned to `0123456789abcdef` and one pinned to `fedcba9876543210` draw
@@ -1652,7 +1638,6 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1705,7 +1690,6 @@ the sequences differ: true
 ```
 
 <!-- test: every-random-seed-call-is-a-draw -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Every `HashSeed.random()` call is a draw, so the compiler neither merges two calls nor drops one whose result
@@ -1721,7 +1705,6 @@ let SpelledDrawLength = 16
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1866,7 +1849,6 @@ let SpelledSeedLength = 16
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")

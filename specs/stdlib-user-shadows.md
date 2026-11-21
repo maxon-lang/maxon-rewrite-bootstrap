@@ -609,7 +609,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.the-listed-module-keeps-its-own-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐ **The discriminating case: it is not enough that no diagnostic is raised.** Every case above would
 also pass if `stdlib/Builtins.maxon`'s `FullRangeInt` meant the user's struct and the compiler simply
 did not complain about it. Here the user owns the name AND the program runs stdlib code that depends
@@ -629,7 +628,6 @@ end 'FullRangeInt'
 
 function main() returns ExitCode
 	let p = FullRangeInt.create(0)
-	// TODO: float literals are not supported in minimaxon
 	let x = 2.5
 	print("{x}")
 	print("{-x}")
@@ -644,7 +642,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-user-container-over-the-shadowed-name -->
-<!-- skip: float literals are not supported in minimaxon -->
 ⭐⭐ **The case that witnesses the MEMORY-SAFETY half, and it is the one the case above can only reach by
 accident.** A container's ELEMENT is classified by a tier that has no reading file — `typeIsManaged`, and
 the drop and clone routers behind it — so for a name that is a `type` in one file and a `typealias` in
@@ -671,15 +668,14 @@ end 'FullRangeInt'
 typealias ValueBoxes = Array with FullRangeInt
 
 function main() returns ExitCode
-	let boxes = ValueBoxes.create(0)
+	var boxes = ValueBoxes.create(0)
 	boxes.push(FullRangeInt.create(3))
 	boxes.push(FullRangeInt.create(4))
-	// TODO: float literals are not supported in minimaxon
 	let x = 2.5
 	print("{x}")
 	var total = 0 as Value
 	for b in boxes 'each'
-		total = total + b.value
+		total = try total + b.value otherwise panic("out of range")
 	end 'each'
 	return total as ExitCode
 end 'main'
@@ -789,26 +785,20 @@ beef|BEEF|137357|1011111011101111|00beef|48879
 ```
 
 <!-- test: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-export -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A user EXPORTS `Byte` over `float`; `stdlib/String.maxon`, whose own `Byte` is `int(0 to u8.max)`, still
 compiles and serves `toByteArray`, because a library file never sees an author declaration (105 + 1).
 ```maxon
 // --- file: wide/wide.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Byte = float(0.0 to 1.0)
 
 export function half(b Byte) returns Byte
-	// TODO: float literals are not supported in minimaxon
 	return b / 2.0
 end 'half'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let bytes = "hi".toByteArray()
-	// TODO: float literals are not supported in minimaxon
 	let quarter = half(0.5)
-	// TODO: float literals are not supported in minimaxon
 	return ((try bytes.get(1) otherwise 0) + (1 if quarter < 0.5 else 0)) as ExitCode
 end 'main'
 ```
@@ -842,7 +832,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A program declares its own `type Array` and an `extension Array` whose nested alias `SortComparator` the library's
 `stdlib/helpers/sort/insertionSort.maxon` also declares. The program sweeps first, so the only `SortComparator` filed
 when `stdlib/Array.maxon` reads the name is the author's, which a library file never sees: the library keeps its own
@@ -860,7 +850,6 @@ end 'Array'
 typealias Digit = int(0 to 9)
 
 // --- file: ext.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	typealias SortComparator = function(Digit, Digit) returns Ordering
 	function ordered(cmp SortComparator) returns bool
@@ -1030,12 +1019,9 @@ error E3008: <fragment>:7:22: type 'stdlib.ParentComponentRule' is not exported
 ```
 
 <!-- test: stdlib-user-shadows.another-files-private-function-leaves-the-library-one-visible -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A declaration a file cannot see never counts: `a/`'s unmarked `round` answers its own call, and `b/`'s bare `round` is the library's.
 ```maxon
 // --- file: a/a.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function round(x Real) returns Real
@@ -1048,7 +1034,6 @@ end 'runA'
 
 // --- file: b/b.maxon
 export function runB()
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.7
 	print("b {trunc(round(x))}\n")
 end 'runB'
@@ -1069,13 +1054,9 @@ b 4
 ```
 
 <!-- test: stdlib-user-shadows.two-files-private-functions-each-shadow-the-library-one-for-their-own-file -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '7' -->
 Each directory's unmarked `round` answers its own file's calls, and the root file, which sees neither, calls the library's.
 ```maxon
 // --- file: a/a.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function round(x Real) returns Real
@@ -1087,11 +1068,9 @@ export function runA()
 end 'runA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function round(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x + 1.0
 end 'round'
 
@@ -1117,20 +1096,15 @@ main 4
 ```
 
 <!-- test: stdlib-user-shadows.a-cast-of-a-library-float-alias-to-the-programs-own-alias-of-that-name-is-not-unneeded -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 `Math.pow` answers the library's `FullRangeFloat`, and this file's `FullRangeFloat` is a different declaration of that name, so the cast between them is a conversion rather than an unneeded cast.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias FullRangeFloat = float(f64.min to f64.max)
 
 function half(x FullRangeFloat) returns FullRangeFloat
-	// TODO: float literals are not supported in minimaxon
 	return x / 2.0
 end 'half'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let cube = Math.pow(2.0, exponent: 3.0) as FullRangeFloat
 	print("{half(cube)}\n")
 	return 0
@@ -1163,18 +1137,12 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.arithmetic-between-the-librarys-real-and-the-programs-own-real-is-refused -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 `Math.pow` answers the library's `FullRangeFloat` and `mine` is this file's `FullRangeFloat`. They share a spelling and a range but are two declarations, so `+` refuses the pair, quoting the library's as `stdlib.FullRangeFloat`.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias FullRangeFloat = float(f64.min to f64.max)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let mine = 2.0 as FullRangeFloat
-	// TODO: float literals are not supported in minimaxon
 	let sum = Math.pow(2.0, exponent: 3.0) + mine
 	print("{sum}\n")
 	return 0
@@ -1474,14 +1442,12 @@ Stack trace:
 ```
 
 <!-- test: stdlib-user-shadows.a-library-method-calls-the-librarys-function-past-an-authors-extension-method-of-that-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A program extends `String` with a method named `scanIsAscii`, the name of a free function the library's `isAscii` calls bare.
 A library file never sees an author's declaration, so `isAscii` still calls the library's function and answers for each
 string, and the program's own method answers its own value.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: extension blocks are not supported in minimaxon
 extension String
 	function scanIsAscii() returns Tally
 		return 7
@@ -1504,12 +1470,10 @@ true true false 7
 ```
 
 <!-- test: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-extension-method-of-the-same-signature -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A program extends `String` with a method named `needleOccursIn` that takes what the library's free function of that
 name takes and answers otherwise. `contains` calls that function bare and keeps the library's answer; the program's
 method answers its own when the program calls it.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension String
 	public function needleOccursIn(haystack String, len BytePos, needle String) returns bool
 		return len > haystack.byteLength() + needle.byteLength()
@@ -1530,14 +1494,14 @@ true false false
 ```
 
 <!-- test: stdlib-user-shadows.a-library-static-calls-the-librarys-function-past-an-authors-static-extension-method-of-that-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'CivilDate' are not supported in minimaxon -->
 A program extends `CivilDate` with a static method named `daysInMonth`, the name of a free function the library's
 `CivilDate.create` calls bare. `create` still asks the library's function, so it accepts February 29 in a leap year
 and refuses it in a common one, and the program's own static answers its own value.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'CivilDate' are not supported in minimaxon
 extension CivilDate
 	static function daysInMonth(year CivilYear, month CivilMonth) returns Tally
 		return 31 if year > 0 and month > 0 else 30
@@ -1563,12 +1527,10 @@ day 29, refused, 31, 1
 ```
 
 <!-- test: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-static-extension-method-of-the-same-signature -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 A program extends `String` with a static method named `countGraphemes` that takes what the library's free function of
 that name takes and answers otherwise. `count()` calls that function bare and keeps the library's answer; the program's
 static answers its own when the program calls it.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
 extension String
 	public static function countGraphemes(text String) returns GraphemeIndex
 		return 99 if text.isEmpty() else 98
@@ -1589,7 +1551,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-extension-reads-the-librarys-alias-past-an-authors-member-alias-of-that-name -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A program extends `Array` with a member typealias named `ElementIndex`, the name of an alias the library's own `Array`
 extensions spell bare. A library file never sees an author's declaration, so the library's sort keeps indexing with
 the library's `ElementIndex` and sorts an array longer than the program's alias could index.
@@ -1598,7 +1560,6 @@ typealias Tally = int(0 to 1000)
 
 typealias TallyArray = Array with Tally
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	public typealias ElementIndex = int(0 to 5)
 end 'Array'
@@ -1620,13 +1581,13 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.error.a-hash-on-a-library-enum-is-a-member-the-compiler-supplies -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'ParseError' are not supported in minimaxon -->
 <!-- positions: moved -->
 A program extends the library enum `ParseError` with a `hash` method of its own. The compiler supplies `hash` to every
 payload-free enum, and a layer above the one that declares the enum may not declare a member the compiler supplies to
 it, so the declaration is refused at its name.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'ParseError' are not supported in minimaxon
 extension ParseError
 	function hash() returns HashValue
 		return 777
@@ -1642,12 +1603,12 @@ error E3006: <fragment>:3:11: Duplicate method 'hash' in type 'ParseError': the 
 ```
 
 <!-- test: stdlib-user-shadows.error.a-mismatched-hash-on-a-library-enum-is-the-same-refusal-not-e3130 -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'ParseError' are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal does not depend on the member's signature: a `hash` that returns a `String` is refused for being a member
 the compiler supplies, not for failing the requirement the enum's own layer would be held to.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'ParseError' are not supported in minimaxon
 extension ParseError
 	function hash() returns String
 		return "x"
@@ -1663,12 +1624,12 @@ error E3006: <fragment>:3:11: Duplicate method 'hash' in type 'ParseError': the 
 ```
 
 <!-- test: stdlib-user-shadows.error.a-clone-on-a-library-struct-is-a-member-the-compiler-supplies -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'CivilDate' are not supported in minimaxon -->
 <!-- positions: moved -->
 The compiler supplies `clone` to every struct, so an extension that makes the library struct `CivilDate` `Cloneable`
 by declaring `clone` is refused at the method's name.
 ```maxon
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'CivilDate' are not supported in minimaxon
 extension CivilDate implements Cloneable
 	function clone() returns CivilDate
 		return self
@@ -1684,7 +1645,6 @@ error E3006: <fragment>:3:11: Duplicate method 'clone' in type 'CivilDate': the 
 ```
 
 <!-- test: stdlib-user-shadows.an-enum-the-program-declares-may-declare-its-own-hash -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 The refusal is about a layer above the type's own: an enum the program declares may declare `hash` itself, and its direct
 call and its use as a `Map` key both read that method.
 ```maxon
@@ -1693,7 +1653,6 @@ enum Color
 	green
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	function hash() returns HashValue
 		return 5
@@ -1718,7 +1677,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-interface-extension-leaves-a-library-conformer-the-members-the-compiler-supplies -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 An interface extension's member is a default, and a conformer the compiler supplies the member to keeps the compiler's, in
 whatever layer the conformer is declared. The program's `extension Iterable` declares `clone`, which the compiler
 supplies to the library type `ByteView` and to the program's own `Bag`, so the extension is not refused and neither
@@ -1738,7 +1697,7 @@ type Bag implements Iterable with (RangeBound, RangeIterator)
 	end 'createIterator'
 end 'Bag'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")
@@ -1779,8 +1738,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.error.an-enums-own-mismatched-hash-is-e3130 -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 A layer is held to the requirement for the member of a type it declares itself: an enum the program declares, with a
 `hash` that does not return `HashValue`, is the requirement's own diagnostic rather than the refusal a layer above the
 enum's gets.
@@ -1790,7 +1747,6 @@ enum Color
 	green
 end 'Color'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Color
 	function hash() returns String
 		return "x"

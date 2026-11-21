@@ -184,14 +184,11 @@ end 'main'
 ```
 
 <!-- test: a-float-multiply-keeps-its-copy -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The NaN control. `x * k` is commutative in arithmetic and the liveness is the gate case's exactly —
 `x` is read again, `k` is not — but `mulsd` propagates the DESTINATION's NaN payload, so the two
 orders are not bit-identical on a NaN input and the rule refuses every float. The rendered Target IR
 keeps its `movRegReg` before the `mulsdRegReg` where the integer twin has none.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Wide = float(f64.min to f64.max)
 
 function scale(x Wide, k Wide) returns Wide
@@ -200,14 +197,11 @@ function scale(x Wide, k Wide) returns Wide
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var seen = 0.0 as Wide
 	for i in 0 upto 4 'feed'
-		// TODO: float literals are not supported in minimaxon
 		seen = seen + scale(i + 1.0, k: 2.0)
 	end 'feed'
 	// p = 2,4,6,8; p+x = 3,6,9,12 -> 30
-	// TODO: float literals are not supported in minimaxon
 	if seen != 30.0 'sum'
 		return 1
 	end 'sum'

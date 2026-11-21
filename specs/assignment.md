@@ -490,13 +490,11 @@ end 'main'
 ```
 
 <!-- test: assign-widening-int-to-float-promotes -->
-<!-- skip: float literals are not supported in minimaxon -->
 An `int` assigned to a `float` is PROMOTED, not merely permitted. The stored value carries the
 declared type, so this prints `5.0`. A widening that is legal but unapplied would print `5`: the
 reader would see the raw int.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	var f = 1.5 as FullRangeFloat
 	f = 5
 	print("{f}")

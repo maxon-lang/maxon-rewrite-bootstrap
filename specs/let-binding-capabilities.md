@@ -713,9 +713,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.let-fields-of-a-let-returned-and-bound-with-let-are-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `ends` returns two `let` fields of its parameter; binding them with `let` names the argument's records, and the argument is read afterwards.
 
 ```maxon
@@ -734,19 +731,16 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = ends(p)
 	print("{a.n} {b.n} {p.left.n}\n")
 	return 0
@@ -805,9 +799,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-that-names-only-a-scalar-of-a-writable-result-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The only element the `let` names is a `Count`; the record element is discarded, so no `let` is bound to the record `a` goes on to write.
 
 ```maxon
@@ -821,16 +812,13 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: tuple return types are not supported in minimaxon
-function touchPair(b Box) returns (Box, Count)
+function touchPair(mutates b Box) returns (Box, Count)
 	b.n = 1
-	// TODO: tuple values and types are not supported in minimaxon
-	return (b, 0)
+	return (b.clone(), 0)
 end 'touchPair'
 
 function main() returns ExitCode
-	let a = Box.create(3)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
+	var a = Box.create(3)
 	let (_, k) = touchPair(a)
 	a.n = 5
 	print("{k}\n")
@@ -845,9 +833,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-that-names-a-writable-record-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same call with the record element named `x`: `x` is bound to `a`'s record, which `a` goes on to write.
 
 ```maxon
@@ -861,16 +846,13 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: tuple return types are not supported in minimaxon
-function touchPair(b Box) returns (Box, Count)
+function touchPair(mutates b Box) returns (Box, Count)
 	b.n = 1
-	// TODO: tuple values and types are not supported in minimaxon
-	return (b, 0)
+	return (b.clone(), 0)
 end 'touchPair'
 
 function main() returns ExitCode
-	let a = Box.create(3)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
+	var a = Box.create(3)
 	let (x, k) = touchPair(a)
 	a.n = 5
 	print("{x.n} {k}\n")
@@ -885,9 +867,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-is-read-after-it-is-bound-with-let-and-returned-on -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The tuple a call returns holds the records of the `let` fields: `let (a, b)` and a `let` tuple read it, and a function may hand it on.
 
 ```maxon
@@ -906,26 +885,21 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
-// TODO: tuple return types are not supported in minimaxon
 function relay(p Pair) returns (Box, Box)
 	return ends(p)
 end 'relay'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = relay(p)
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (p.left, p.right)
 	let u = ends(p)
 	print("{a.n} {b.n} {t.0.n} {t.1.n} {u.0.n} {p.left.n}\n")
@@ -940,9 +914,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-destructured-into-a-var-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `ends` returns a tuple holding two `let` fields. Destructuring it with `var` makes the first name another name for `p.left`.
 
 ```maxon
@@ -961,19 +932,16 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, _) = ends(p)
 	a.n = 9
 	print("{a.n} {p.left.n}\n")
@@ -988,9 +956,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-returned-by-a-call-and-bound-to-a-var-is-accepted -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The whole tuple a call returns is bound to a `var`.
 
 ```maxon
@@ -1009,20 +974,17 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	let t = ends(p)
-	// TODO: tuple element access is not supported in minimaxon
+	var t = ends(p)
 	t.0.n = 9
 	print("{t.0.n} {p.left.n}\n")
 	return 0
@@ -1036,8 +998,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-literal-of-let-fields-bound-to-a-var-is-accepted -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple literal of `let` fields bound to a `var`.
 
 ```maxon
@@ -1056,15 +1016,13 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple values and types are not supported in minimaxon
-	let t = (p.left, p.right)
-	// TODO: tuple element access is not supported in minimaxon
+	var t = (p.left, p.right)
 	t.0.n = 9
 	print("{t.0.n} {p.left.n}\n")
 	return 0
@@ -1078,9 +1036,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-assigned-to-existing-vars-is-accepted -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple assignment to existing `var` names.
 
 ```maxon
@@ -1099,20 +1054,17 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
 	var a = Box.create(5)
-	// TODO: tuple assignment is not supported in minimaxon
 	(a, _) = ends(p)
 	a.n = 9
 	print("{a.n} {p.left.n}\n")
@@ -1127,9 +1079,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-stored-into-a-var-field-is-accepted -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Storing the tuple into a `var` field.
 
 ```maxon
@@ -1148,30 +1097,25 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 type Holder
-	// TODO: tuple values and types are not supported in minimaxon
 	export var held as (Box, Box)
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(h(Box, Box)) returns Self
-		return Self{held: h}
+	static function create(h (Box, Box)) returns Self
+		return Self{held: h.clone()}
 	end 'create'
 end 'Holder'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple values and types are not supported in minimaxon
-	let h = Holder.create((Box.create(3), Box.create(4)))
+	var h = Holder.create((Box.create(3), Box.create(4)))
 	h.held = ends(p)
 	print("{h.held.0.n} {p.left.n}\n")
 	return 0
@@ -1185,10 +1129,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-passed-to-a-function-that-writes-it-is-accepted -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `bump` writes through its tuple parameter, and the tuple holding `p`'s `let` fields may be passed to it.
 
 ```maxon
@@ -1207,19 +1147,15 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function bump(t(Box, Box))
-	// TODO: tuple element access is not supported in minimaxon
+function bump(mutates t (Box, Box))
 	t.0.n = 9
 end 'bump'
 
@@ -1238,15 +1174,11 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-pushed-into-an-array-is-accepted -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The tuple may be pushed into an array.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias BoxPair = (Box, Box)
 
 typealias Ends = Array with BoxPair
@@ -1264,19 +1196,17 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	let all = Ends.create(0)
+	var all = Ends.create(0)
 	all.push(ends(p))
 	print("{all.count()} {p.left.n}\n")
 	return 0
@@ -1290,7 +1220,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-tuple-with-a-let-field-column-and-a-var-column-is-accepted -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The first column of the tuple is a `let` field's record. The second is the `var` `p`'s record, which `bump` writes, and the `let` that holds the tuple sees the write.
 
 ```maxon
@@ -1309,22 +1238,21 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	let p = Box.create(5)
-	// TODO: tuple values and types are not supported in minimaxon
+	var p = Box.create(5)
 	let t = (q.left, id(p))
 	bump(p)
 	print("{t.1.n} {q.left.n}\n")
@@ -1339,8 +1267,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-of-a-tuple-with-a-var-column-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same tuple destructured with `let`.
 
 ```maxon
@@ -1359,23 +1285,21 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	let p = Box.create(5)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
+	var p = Box.create(5)
 	let (_, y) = (q.left, id(p))
 	bump(p)
 	print("{y.n} {q.left.n}\n")
@@ -1390,9 +1314,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-of-a-tuple-a-call-returns-with-a-var-column-is-accepted -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `ends2` returns a tuple of a `let` field and its second argument. The argument is the `var` `p`'s record, and the second column is bound with `let`.
 
 ```maxon
@@ -1411,28 +1332,25 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
-// TODO: tuple return types are not supported in minimaxon
 function ends2(a Pair, b Box) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (a.left, b)
+	return (a.left.clone(), b.clone())
 end 'ends2'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	let p = Box.create(5)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
+	var p = Box.create(5)
 	let (_, y) = ends2(q, b: id(p))
 	bump(p)
 	print("{y.n} {q.left.n}\n")
@@ -1447,8 +1365,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-stored-into-a-let-field-is-accepted -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Both columns of the tuple are `let` fields' records, and a `let` field holds the tuple.
 
 ```maxon
@@ -1467,23 +1383,20 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 type Frozen
-	// TODO: tuple values and types are not supported in minimaxon
 	export let held as (Box, Box)
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(h(Box, Box)) returns Self
-		return Self{held: h}
+	static function create(h (Box, Box)) returns Self
+		return Self{held: h.clone()}
 	end 'create'
 end 'Frozen'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple values and types are not supported in minimaxon
 	let fr = Frozen.create((q.left, q.right))
 	print("{fr.held.0.n} {fr.held.1.n} {q.left.n}\n")
 	return 0
@@ -1497,9 +1410,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-built-from-let-field-arguments-is-bound-with-let -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `pairUp` returns a tuple of its two parameters. Passing it two `let` fields gives a tuple of their records, which `let (x, y)` binds and reads.
 
 ```maxon
@@ -1518,19 +1428,16 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function pairUp(a Box, b Box) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (a, b)
+	return (a.clone(), b.clone())
 end 'pairUp'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (x, y) = pairUp(p.left, b: p.right)
 	print("{x.n} {y.n} {p.left.n}\n")
 	return 0
@@ -1544,8 +1451,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-writable-column-of-a-local-tuple-with-a-read-only-column-is-destructured-into-a-var -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Only the first column of the tuple literal is a `let` field's record. The second column is a fresh box, so `var (_, c)` takes a writable record.
 
 ```maxon
@@ -1564,14 +1469,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function fresh(p Pair) returns Count
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
-	let (_, c) = (p.left, Box.create(3))
+	let (_, c) = (p.left.clone(), Box.create(3))
 	c.n = 4
 	return c.n
 end 'fresh'
@@ -1590,9 +1493,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-writable-column-of-a-tuple-a-call-returns-is-destructured-into-a-var -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `mixed` returns a `let` field in its first column and a fresh box in its second. Destructuring only the second column with `var` takes a writable record.
 
 ```maxon
@@ -1611,19 +1511,16 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function mixed(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, Box.create(3))
+	return (p.left.clone(), Box.create(3))
 end 'mixed'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (_, b) = mixed(p)
 	b.n = 4
 	print("{b.n} {p.left.n}\n")
@@ -1638,8 +1535,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-writable-column-a-function-returns-out-of-a-local-tuple-is-bound-to-a-var -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `second` builds a tuple with a `let` field's record as its first column and returns its fresh second column, which the caller binds to a `var` and writes.
 
 ```maxon
@@ -1658,20 +1553,18 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function second(p Pair) returns Box
-	// TODO: tuple values and types are not supported in minimaxon
-	let t = (p.left, Box.create(3))
-	// TODO: tuple element access is not supported in minimaxon
+	let t = (p.left.clone(), Box.create(3))
 	return t.1
 end 'second'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	let b = second(p)
+	var b = second(p)
 	b.n = 4
 	print("{b.n} {p.left.n}\n")
 	return 0
@@ -1685,9 +1578,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-field-column-of-a-tuple-a-call-returns-is-destructured-into-a-var-beside-a-var-column -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same `mixed` result destructured with `var` takes the first column, which is the `let` field's record, beside the second.
 
 ```maxon
@@ -1706,19 +1596,16 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
-// TODO: tuple return types are not supported in minimaxon
 function mixed(p Pair) returns (Box, Box)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (p.left, Box.create(3))
+	return (p.left.clone(), Box.create(3))
 end 'mixed'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, _) = mixed(p)
 	a.n = 4
 	print("{a.n} {p.left.n}\n")
@@ -1733,8 +1620,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-record-below-a-let-field-stored-into-a-tuple-column-is-read-back-into-a-var -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `m.x.y` lies within the `let` field `x`; the tuple column that holds it is destructured into a `var` and written, and the write reaches `m`.
 
 ```maxon
@@ -1752,7 +1637,7 @@ type Inner
 	export var y as Leaf
 
 	static function create(y Leaf) returns Self
-		return Self{y: y}
+		return Self{y: y.clone()}
 	end 'create'
 end 'Inner'
 
@@ -1760,14 +1645,12 @@ type Outer
 	export let x as Inner
 
 	static function create(x Inner) returns Self
-		return Self{x: x}
+		return Self{x: x.clone()}
 	end 'create'
 end 'Outer'
 
 function run(m Outer) returns Count
-	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: tuple values and types are not supported in minimaxon
-	let (r, _) = (m.x.y, 1)
+	let (r, _) = (m.x.y.clone(), 1)
 	r.z = 5
 	return r.z
 end 'run'
@@ -1786,9 +1669,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-result-within-a-tuple-argument-is-written -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `first` returns the first column of the tuple it is passed. The tuple holds a `let` field's record, so the result is that record and writing it writes the field's record.
 
 ```maxon
@@ -1806,19 +1686,16 @@ type Holder
 	export let r as Rec
 
 	static function create(r Rec) returns Self
-		return Self{r: r}
+		return Self{r: r.clone()}
 	end 'create'
 end 'Holder'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function first(t(Rec, Count)) returns Rec
-	// TODO: tuple element access is not supported in minimaxon
-	return t.0
+function first(t (Rec, Count)) returns Rec
+	return t.0.clone()
 end 'first'
 
 function run(h Holder) returns Count
-	// TODO: tuple values and types are not supported in minimaxon
-	let r = first((h.r, 1))
+	var r = first((h.r.clone(), 1))
 	r.v = 5
 	return r.v
 end 'run'
@@ -1837,8 +1714,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-tuple-holding-a-writable-record-is-accepted-by-a-let-field -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The tuple is fresh, and its second column is the record `id(p)` hands back, which is `p`'s; `bump` writes `p` after the `let` field has been given the tuple.
 
 ```maxon
@@ -1853,26 +1728,23 @@ type Box
 end 'Box'
 
 type Frozen
-	// TODO: tuple values and types are not supported in minimaxon
 	export let held as (Box, Box)
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(h(Box, Box)) returns Self
-		return Self{held: h}
+	static function create(h (Box, Box)) returns Self
+		return Self{held: h.clone()}
 	end 'create'
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let p = Box.create(5)
-	// TODO: tuple values and types are not supported in minimaxon
+	var p = Box.create(5)
 	let fr = Frozen.create((Box.create(1), id(p)))
 	bump(p)
 	print("{fr.held.1.n}\n")
@@ -1941,8 +1813,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-tuple-of-fresh-records-is-accepted-by-a-let-field -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Both columns are records the tuple alone holds, so the `let` field keeps nothing another name can write.
 
 ```maxon
@@ -1957,17 +1827,14 @@ type Box
 end 'Box'
 
 type Frozen
-	// TODO: tuple values and types are not supported in minimaxon
 	export let held as (Box, Box)
 
-	// TODO: tuple parameter types are not supported in minimaxon
-	static function create(h(Box, Box)) returns Self
-		return Self{held: h}
+	static function create(h (Box, Box)) returns Self
+		return Self{held: h.clone()}
 	end 'create'
 end 'Frozen'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let fr = Frozen.create((Box.create(1), Box.create(2)))
 	print("{fr.held.0.n} {fr.held.1.n}\n")
 	return 0
@@ -1981,7 +1848,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-tuple-holding-a-writable-record-is-accepted-by-a-let-field-literal -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The factory stores the fresh tuple into its own `let` field directly, and `bump` writes `p` after the store.
 
 ```maxon
@@ -1996,12 +1862,10 @@ type Box
 end 'Box'
 
 type Frozen
-	// TODO: tuple values and types are not supported in minimaxon
 	export let held as (Box, Box)
 
 	static function build() returns Self
-		let p = Box.create(5)
-		// TODO: tuple values and types are not supported in minimaxon
+		var p = Box.create(5)
 		let f = Self{held: (Box.create(1), id(p))}
 		bump(p)
 		return f
@@ -2009,11 +1873,11 @@ type Frozen
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode

@@ -87,7 +87,7 @@ This `map` extension works on any `Iterable` type (Array, Set, Map, etc.) and re
 ## Tests
 
 <!-- test: basic-extension-on-array -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -96,7 +96,7 @@ interface Countable
 	function value() returns Integer
 end 'Countable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Countable
 	function count() returns Integer
 		return 42
@@ -126,7 +126,7 @@ end 'main'
 
 
 <!-- test: extension-with-self -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -135,7 +135,7 @@ interface Summable
 	function value() returns Integer
 end 'Summable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Summable
 	function doubled() returns Integer
 		return self.value() * 2
@@ -165,7 +165,7 @@ end 'main'
 
 
 <!-- test: extension-multiple-types -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -174,7 +174,7 @@ interface Valued
 	function val() returns Integer
 end 'Valued'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Valued
 	function valPlusTen() returns Integer
 		return self.val() + 10
@@ -217,7 +217,7 @@ end 'main'
 
 
 <!-- test: extension-with-params -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -226,7 +226,7 @@ interface Scalable
 	function base() returns Integer
 end 'Scalable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Scalable
 	function scale(factor Integer) returns Integer
 		return self.base() * factor
@@ -256,7 +256,7 @@ end 'main'
 
 
 <!-- test: extension-returns-struct -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -275,7 +275,7 @@ type SimplePoint
 	end 'create'
 end 'SimplePoint'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Pointlike
 	function asSimple() returns SimplePoint
 		return SimplePoint.create(self.getX(), y: self.getY())
@@ -352,13 +352,11 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
 	var sum = 0 as FullRangeInt
 	for pair in m 'loop'
-		// TODO: tuple element access is not supported in minimaxon
 		sum = sum + pair.1 * 10
 	end 'loop'
 	// 10 + 20 + 30 = 60
@@ -370,14 +368,12 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map-with-function -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
 	let mapped = m.map(function(p) gives p)
 	var sum = 0 as FullRangeInt
 	for pair in mapped 'loop'
-		// TODO: tuple element access is not supported in minimaxon
 		sum = sum + pair.1
 	end 'loop'
 	// 1 + 2 + 3 = 6
@@ -390,7 +386,7 @@ end 'main'
 
 
 <!-- test: extension-with-internal-closure -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 A closure declared inside an interface-extension body. An extension method is
 monomorphized by RE-PARSING its body once per conforming type, so `Tagger.bump`
 becomes `Three.bump`, parsed with `Three` as the enclosing type, and the inline
@@ -406,7 +402,7 @@ interface Tagger
 	function tag() returns Integer
 end 'Tagger'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Tagger
 	function bump() returns Integer
 		let one = 1 as Integer
@@ -440,7 +436,7 @@ end 'main'
 
 
 <!-- test: extension-with-substitution-dependent-closure -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 A closure declared inside an interface-extension body whose body IS
 substitution-dependent — it calls `tag()`, which resolves through the
 concrete `implements Tagger` receiver type. With multiple conformers,
@@ -460,7 +456,7 @@ interface Tagger
 	function tag() returns Integer
 end 'Tagger'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Tagger
 	function callTag() returns Integer
 		let inner = function() gives tag() * 2
@@ -502,7 +498,7 @@ end 'main'
 ### An extension NO type implements leaks nothing into file scope
 
 <!-- test: error.an-unconformed-extension-does-not-leak-its-associated-type-names -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **AN `extension <Interface>` WHOSE INTERFACE NO TYPE IMPLEMENTS MUST NOT MAKE THAT INTERFACE'S
@@ -533,7 +529,7 @@ interface Seq uses Element
 	function firstOne() returns Element
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	function twice() returns Element
 		return self.firstOne()
@@ -554,7 +550,7 @@ error E3011: <fragment>:14:14: Unknown type 'Element'
 ```
 
 <!-- test: error.an-unconformed-extension-leak-is-not-a-compiler-panic -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The deeper half of the case above: `f` returns a GENERIC INSTANCE, which is what routes its call through
@@ -584,7 +580,7 @@ interface Seq uses Element
 	function firstOne() returns Element
 end 'Seq'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Seq
 	function twice() returns Element
 		return self.firstOne()
@@ -607,7 +603,7 @@ error E3011: <fragment>:28:14: Unknown type 'Element'
 ### The ORDER of an `implements` clause does not decide which extensions arrive
 
 <!-- test: conformance-clause-order-does-not-change-extensions -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **`implements Tagged with Integer, Held with Integer` AND `implements Held with Integer, Tagged
 with Integer` ARE THE SAME CLAUSE, so they must publish the same extension methods.** The
@@ -635,7 +631,7 @@ interface Held uses Item
 	function held() returns Item
 end 'Held'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Held
 	function heldPlusOne() returns Item
 		return self.held() + 1
@@ -755,7 +751,7 @@ end 'main'
 ```
 
 <!-- test: error.mismatched-extension-end-label -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- positions: moved -->
 A label written after `end` must repeat the name the extension opened with.
 ```maxon
@@ -765,7 +761,7 @@ interface Countable
 	function value() returns Integer
 end 'Countable'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Countable
 	function doubled() returns Integer
 		return value() * 2
@@ -796,7 +792,7 @@ error E2008: <fragment>:12:1: Mismatched end label: expected 'Countable', got 'C
 ### An extension on a BASE interface discharges a DERIVED interface's requirement
 
 <!-- test: a-base-extension-discharges-a-derived-interfaces-requirement -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 ⭐ **THE CONFORMANCE CONSEQUENCE OF "Transitive Extensions", PINNED AS BEHAVIOUR RATHER THAN AS PROSE.**
 `Both extends Forward` REQUIRES `back()`, and `Walker implements Both` declares only `step()` — which
@@ -823,7 +819,7 @@ interface Both extends Forward
 	function back() returns Integer
 end 'Both'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Forward
 	function back() returns Integer
 		return 0 - self.step()
@@ -862,27 +858,21 @@ The extension bodies walk an iterator instance over the collection's own paramet
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
 <!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2]
 	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2]
 	var total = 0 as Count
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, p) in m.withIterator() 'eachPair'
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + p.1
 	end 'eachPair'
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, x) in s.withIterator() 'eachElement'
 		total = total + x
 	end 'eachElement'
 	let pairs = m.map(function(p) gives p)
-	// TODO: tuple element access is not supported in minimaxon
 	let kept = m.filter(function(p) gives p.1 == 2)
 	let doubled = s.map(function(x) gives x + x)
 	let big = s.filter(function(x) gives x == 2)
@@ -1067,7 +1057,7 @@ error E3008: <fragment>:53:10: type 'BagIter' is not exported
 ```
 
 <!-- test: interface-extensions.a-conformers-own-declaration-still-shadows-an-extensions -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 The boundary of the rule above. `Bag` declares its own `has`, so `extension Holder`'s `has` is never
 published onto it — it is not a member of any set and it does not contest one. The conformer's answer
 is the only one, which is what "an extension supplies a DEFAULT implementation" means.
@@ -1078,7 +1068,7 @@ interface Holder
 	function only() returns Integer
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Holder
 	function has() returns Integer
 		return 1
@@ -1109,7 +1099,7 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-member-the-compiler-supplies-to-a-conformer-is-the-compilers-at-every-door -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 The same boundary for a member the compiler supplies. The compiler gives every `type` a `clone`, so `extension
 Iterable`'s `clone` is a default `Bag` never takes: the direct call and the call inside a generic body that
 holds `Bag` as an `Iterable` both reach the compiler's copy, and the extension's body is never run.
@@ -1126,7 +1116,7 @@ type Bag implements Iterable with (RangeBound, RangeIterator)
 	end 'createIterator'
 end 'Bag'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")
@@ -1162,7 +1152,7 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-conformer-the-compiler-supplies-no-member-to-takes-the-default-at-every-door -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 The control: `Plain` has no `hash` of its own and the compiler supplies none, so it takes the extension's, through the
 direct call and through a generic body that holds it as the interface. Its `clone` is the compiler's, so the extension's
 `clone` is not run.
@@ -1173,11 +1163,12 @@ interface Keyed
 	function key() returns Score
 end 'Keyed'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Keyed
 	function hash() returns HashValue
 		return 99
 	end 'hash'
+
 	function clone() returns Self
 		print("extension clone\n")
 		return self
@@ -1213,7 +1204,7 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-payload-free-enum-keeps-the-hash-and-equals-the-compiler-grants -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 An enum is never a conformer an interface extension is expanded over, and the compiler grants it `hash` and `equals`,
 so an enum used as a `Map` key hashes and compares through the granted members whatever an extension of an interface it
 implements declares under those names.
@@ -1224,12 +1215,13 @@ interface Keyed
 	function key() returns Score
 end 'Keyed'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Keyed
 	function hash() returns HashValue
 		print("extension hash\n")
 		return 99
 	end 'hash'
+
 	function equals(other Self) returns bool
 		print("extension equals\n")
 		return true
@@ -1269,7 +1261,7 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-conformers-own-clone-beats-the-compilers-and-the-extensions -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 A `clone` the type declares itself is neither the compiler's nor the extension's: it wins at every door, whether it is
 written in the type's body or in an `extension Bag implements Cloneable` of the same layer.
 ```maxon
@@ -1302,7 +1294,6 @@ type Sack implements Iterable with (RangeBound, RangeIterator)
 	end 'clone'
 end 'Sack'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Bag implements Cloneable
 	function clone() returns Bag
 		print("bag clone\n")
@@ -1310,7 +1301,7 @@ extension Bag implements Cloneable
 	end 'clone'
 end 'Bag'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")

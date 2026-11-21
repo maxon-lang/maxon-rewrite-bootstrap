@@ -422,8 +422,6 @@ end 'main'
 ```
 
 <!-- test: return-a-tuple-among-many-owners -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Tuples are returned from among owned strings, a tuple bound earlier, one bound later and a fresh
 one, with enough owners live that the exits share one chain of drops.
 ```maxon
@@ -433,13 +431,10 @@ function build(i Index) returns String
 	return "owner {i} padded out long enough to heap allocate"
 end 'build'
 
-// TODO: tuple return types are not supported in minimaxon
 function makePair(i Index) returns (Index, Index)
-	// TODO: tuple values and types are not supported in minimaxon
-	return (i, i + 1)
+	return (i, try i + 1 otherwise panic("out of range"))
 end 'makePair'
 
-// TODO: tuple return types are not supported in minimaxon
 function pick(k Index) returns (Index, Index)
 	let a = build(1)
 	let b = build(2)
@@ -447,7 +442,7 @@ function pick(k Index) returns (Index, Index)
 	let d = build(4)
 	let e = build(5)
 	let first = makePair(k)
-	let second = makePair(k + 10)
+	let second = makePair(try k + 10 otherwise panic("out of range"))
 	let f = build(6)
 	let g = build(7)
 	if k == 0 'zero'
@@ -457,11 +452,9 @@ function pick(k Index) returns (Index, Index)
 		return second
 	end 'one'
 	if k == 2 'two'
-		// TODO: tuple values and types are not supported in minimaxon
-		return (a.byteLength() as Index, b.byteLength() as Index)
+		return (try a.byteLength() as Index otherwise panic("out of range"), try b.byteLength() as Index otherwise panic("out of range"))
 	end 'two'
-	// TODO: tuple values and types are not supported in minimaxon
-	return (c.byteLength() as Index, d.byteLength() as Index + e.byteLength() as Index + f.byteLength() as Index + g.byteLength() as Index)
+	return (try c.byteLength() as Index otherwise panic("out of range"), try d.byteLength() as Index + e.byteLength() as Index + f.byteLength() as Index + g.byteLength() as Index otherwise panic("out of range"))
 end 'pick'
 
 function main() returns ExitCode

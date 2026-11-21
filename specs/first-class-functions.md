@@ -509,7 +509,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.cross-file-extension-typealias-param -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 A function-typed parameter must work even when its typealias is declared
 inside an `extension` block in a SEPARATE file that the loader hasn't reached
 yet. The stdlib loader walks `stdlib/` in whatever order the OS returns from
@@ -526,7 +526,6 @@ parameter's function type is therefore settled only once every file in the
 project has been parsed.
 ```maxon
 // --- file: aaa_alias.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Sorter
 	typealias Comparator = function(Element, Element) returns Element
 end 'Sorter'
@@ -572,7 +571,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.type-extension-alias-over-a-type-parameter-at-two-instantiations -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 The case above proves ONE instantiation, and one instantiation cannot tell an alias that is genuinely
 per-instantiation from one the compiler resolved against whichever instantiation it happened to meet first.
 `Transform` is `function(Element) returns Element` and `Predicate` is `function(Element) returns bool`, both
@@ -592,7 +591,6 @@ type Holder uses Element
 	end 'create'
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Holder
 	export typealias Transform = function(Element) returns Element
 	export typealias Predicate = function(Element) returns bool
@@ -676,7 +674,7 @@ picked
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-bound-to-an-enum -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 An ENUM type argument is the one binding that turns a slot with NO pre-erasure identity into one that HAS
 one: `Element` carries none where the alias is written, `Shade` erases to a bare `int` at resolution, and
 what tells one erased `int` from another is the identity column beside it. The declared side's column is
@@ -697,7 +695,6 @@ type Holder uses Element
 	end 'create'
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Holder
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
@@ -731,7 +728,7 @@ dark
 ```
 
 <!-- test: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of an interface are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same alias reached through an INTERFACE extension, which is the shape `stdlib/Interfaces.maxon`'s
 `extension Iterable` wears: `ItemPredicate` names the interface's ASSOCIATED type `Item`, and the conformer
@@ -747,7 +744,7 @@ interface Container uses Item
 	function only() returns Item
 end 'Container'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of an interface are not supported in minimaxon
 extension Container
 	export typealias ItemPredicate = function(Item) returns bool
 	function checkOnly(p ItemPredicate) returns bool
@@ -794,7 +791,7 @@ true false
 ```
 
 <!-- test: first-class-function.error.alias-over-a-type-parameter-named-outside-an-instantiation -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 The over-acceptance guard, and the one thing about this alias that stays unrepresentable. A nested
 `typealias` is published under its BARE name as well as under `<Type>.<member>`, so `Transform` can be
@@ -812,7 +809,6 @@ type Holder uses Element
 	end 'create'
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Holder
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
@@ -843,7 +839,7 @@ error E3005: <fragment>:33:21: argument type mismatch for 'f': expected 'fn(type
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-returning-a-MANAGED-element -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -855,7 +851,6 @@ type Holder uses Element
 	end 'create'
 end 'Holder'
 
-// TODO: extension blocks are not supported in minimaxon
 export extension Holder
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
@@ -2838,12 +2833,9 @@ error E2078: <fragment>:3:15: 'byte.fromString' is a method, and a method is not
 ```
 
 <!-- test: error.a-static-declared-in-a-primitive-extension-is-not-a-function-value -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extension blocks are not supported in minimaxon
 extension int
 	static function make() returns Integer
 		return 1
@@ -4505,20 +4497,16 @@ ARGUMENT travels in a float argument register (its own separate counter) instead
 integer function value is untouched — the tests above are its control.
 
 <!-- test: first-class-function.float-return-called-indirectly -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A function value that RETURNS a float, called indirectly. The indirect call reads the result from
 the float return register; reading it from the integer one would color a move across register files
 (x64: `r8` → `xmm0`; wasm: an `i64` → `f64` coerce).
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias FloatFn = function() returns Ratio
 
 function getVal() returns Ratio
-	// TODO: float literals are not supported in minimaxon
 	return 3.75
 end 'getVal'
 
@@ -4529,7 +4517,7 @@ end 'callIt'
 function main() returns ExitCode
 	let fn = getVal
 	let r = callIt(fn)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4537,21 +4525,17 @@ end 'main'
 ```
 
 <!-- test: first-class-function.float-param-called-indirectly -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A function value that TAKES a float parameter, called indirectly through its `__fnref_` thunk.
 The float argument travels in a float argument register, and the thunk types its forwarded
 parameter as the target's real float type so the register files agree caller-to-callee.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias ScaleFn = function(Ratio) returns Ratio
 
 function scale(x Ratio) returns Ratio
-	// TODO: float literals are not supported in minimaxon
-	return x * 2.0
+	return try (x * 2.0) as Ratio otherwise panic("out of range")
 end 'scale'
 
 function apply(f ScaleFn, v Ratio) returns Ratio
@@ -4560,9 +4544,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let fn = scale
-	// TODO: float literals are not supported in minimaxon
 	let r = apply(fn, v: 10.5)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4570,14 +4553,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.mixed-int-float-params-indirect -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An INT parameter followed by a FLOAT one, called indirectly: the int rides a GPR argument
 register and the float rides a float one, each on its own counter, so the callee reads each
 back from the file the caller wrote it to.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
@@ -4586,8 +4566,7 @@ typealias MixFn = function(Count, Ratio) returns Ratio
 
 function combine(n Count, x Ratio) returns Ratio
 	if n > 0 'pos'
-		// TODO: float literals are not supported in minimaxon
-		return x * 2.0
+		return try (x * 2.0) as Ratio otherwise panic("out of range")
 	end 'pos'
 	return x
 end 'combine'
@@ -4598,9 +4577,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let fn = combine
-	// TODO: float literals are not supported in minimaxon
 	let r = apply(fn, n: 3, x: 5.25)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4608,14 +4586,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.float-then-int-params-indirect -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The reverse order — a FLOAT parameter followed by an INT — proves the separate int/float
 argument counters, not a shared positional one: a shared counter would put the float in float
 slot 0 but the int in GPR slot 1, and the callee reads the int from GPR slot 0.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
@@ -4624,8 +4599,7 @@ typealias MixFn = function(Ratio, Count) returns Ratio
 
 function combine(x Ratio, n Count) returns Ratio
 	if n > 1 'pos'
-		// TODO: float literals are not supported in minimaxon
-		return x * 4.0
+		return try (x * 4.0) as Ratio otherwise panic("out of range")
 	end 'pos'
 	return x
 end 'combine'
@@ -4636,9 +4610,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let fn = combine
-	// TODO: float literals are not supported in minimaxon
 	let r = apply(fn, x: 2.5, n: 5)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4646,22 +4619,17 @@ end 'main'
 ```
 
 <!-- test: first-class-function.float-closure-param-and-return -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A closure (no `__fnref_` thunk) taking and returning a float, called indirectly: the lifted
 closure already declares its float parameter, so the caller's float-argument routing must agree
 with the closure's own float-parameter capture.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = function(x Ratio) gives x * 2.0
-	// TODO: float literals are not supported in minimaxon
 	let r = f(10.5)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4818,8 +4786,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.int-literal-widens-at-indirect-call -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An INT LITERAL passed at a `float` parameter of a function value. A DIRECT call widens it
 (`LowerMaxonToStd.widenIntArgsToFloatParams`); an indirect call must widen it the same way, off the
 DECLARED parameter types of the function type the call goes through. Without that the raw i64 `2`
@@ -4827,13 +4793,11 @@ travels in a GPR to a callee reading `xmm0`, and `v * 2.0` multiplies whatever w
 a silent wrong answer, not a crash.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Scaler = function(Real) returns Real
 
 function twice(v Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return v * 2.0
 end 'twice'
 
@@ -4844,7 +4808,7 @@ end 'apply'
 function main() returns ExitCode
 	let fn = twice
 	let r = apply(fn)
-	return trunc(r) as ExitCode
+	return try trunc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4852,24 +4816,20 @@ end 'main'
 ```
 
 <!-- test: first-class-function.int-literal-widens-through-function-ref -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The same widening where the callee value is a bare FUNCTION REFERENCE rather than a function-typed
 parameter — its declared type is the function's own signature, not an alias's, so the two must reach
 the same answer through one lookup.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 function scale(x Ratio) returns Ratio
-	// TODO: float literals are not supported in minimaxon
-	return x * 2.0
+	return try (x * 2.0) as Ratio otherwise panic("out of range")
 end 'scale'
 
 function main() returns ExitCode
 	let fn = scale
-	return trunc(fn(3)) as ExitCode
+	return try trunc(fn(3)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4877,19 +4837,15 @@ end 'main'
 ```
 
 <!-- test: first-class-function.int-literal-widens-through-closure -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The third callee kind: a LIFTED CLOSURE, whose declared parameter types are its own. The closure
 declares `x Ratio`, so the literal `3` widens exactly as it does for a named function.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let f = function(x Ratio) gives x * 2.0
-	return trunc(f(3)) as ExitCode
+	return try trunc(f(3)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4897,15 +4853,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.mixed-int-float-literal-args-indirect -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The formal→actual MAPPING, pinned rather than "some argument widened": an int literal at an `int`
 parameter must STAY an integer while an int literal at a `float` parameter must widen. Each failure
 mode has its own answer — widening the wrong one makes `n == 3` compare an f64 bit pattern (5), and
 widening neither leaves `x` an integer whose f64 reading is ~2.5e-323 (0).
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
@@ -4914,8 +4867,7 @@ typealias MixFn = function(Count, Ratio) returns Ratio
 
 function combine(n Count, x Ratio) returns Ratio
 	if n == 3 'exact'
-		// TODO: float literals are not supported in minimaxon
-		return x * 10.0
+		return try (x * 10.0) as Ratio otherwise panic("out of range")
 	end 'exact'
 	return x
 end 'combine'
@@ -4926,7 +4878,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let fn = combine
-	return trunc(apply(fn)) as ExitCode
+	return try trunc(apply(fn)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4934,25 +4886,20 @@ end 'main'
 ```
 
 <!-- test: first-class-function.matching-signature-cast-accepted -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A cast to a function type whose signature MATCHES stays legal and stays a no-op — the guard against
 an over-strict signature rule, which would otherwise refuse every cast a program legitimately writes.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Scaler = function(Real) returns Real
 
 function twice(v Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return v * 2.0
 end 'twice'
 
 function main() returns ExitCode
 	let f = twice as Scaler
-	// TODO: float literals are not supported in minimaxon
 	return trunc(f(3.0)) as ExitCode
 end 'main'
 ```
@@ -4961,14 +4908,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.closure-into-alias-typed-param-accepted -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A closure passed into a parameter declared with a function typealias takes the alias's parameter
 and result types: its body is a `float` computation, checked against the alias's `Ratio` result at the
 closure.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
 typealias ScaleFn = function(Ratio) returns Ratio
@@ -4978,8 +4922,7 @@ function apply(f ScaleFn, v Ratio) returns Ratio
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(apply(function(x Ratio) gives x * 3.0, v: 4.0)) as ExitCode
+	return try trunc(apply(function(x Ratio) gives try (x * 3.0) as Ratio otherwise panic("out of range"), v: 4.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4987,14 +4930,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.cast-return-type-mismatch -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A cast whose target function type returns something else. Accepted, the integer the function really
 returns would be read back out of the float return register.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
@@ -5007,7 +4947,6 @@ end 'intish'
 
 function main() returns ExitCode
 	let f = intish as FloatFn
-	// TODO: float literals are not supported in minimaxon
 	return trunc(f(1.0)) as ExitCode
 end 'main'
 ```
@@ -5016,15 +4955,12 @@ error E3009: <fragment>:12:17: function type mismatch in cast: expected 'fn(Real
 ```
 
 <!-- test: first-class-function.error.cast-param-type-mismatch -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The parameter half of the same rule: the target function type declares a `float` parameter the
 function itself declares as an int, so every call through the cast value would write the argument to
 the wrong register file.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
@@ -5032,7 +4968,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias FloatFn = function(Real) returns Real
 
 function intParam(x Integer) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x * 2.0
 end 'intParam'
 
@@ -5070,14 +5005,11 @@ error E3036: <fragment>:12:10: 'Bin' expects 2 argument(s) but 1 were provided
 ```
 
 <!-- test: first-class-function.error.wrong-signature-into-function-param -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The rule is NOT cast-only. The same disagreement reached through a function-typed PARAMETER — no cast
 anywhere — is refused the same way; an argument check that compared only the `function` TAG would accept it.
 ```maxon
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
@@ -5089,7 +5021,6 @@ function intish(x Real) returns Integer
 end 'intish'
 
 function use(f FloatFn) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return f(1.0)
 end 'use'
 
@@ -5566,7 +5497,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.nested-function-type-mismatch -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The other half of the same descent: when the nested function types genuinely DISAGREE the door must
 refuse, because `runner`'s own body calls its parameter through `InnerB`'s signature while the caller
@@ -5576,7 +5506,6 @@ names the nested types, which is what makes it readable at all.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias InnerA = function(Integer) returns Integer
@@ -6437,7 +6366,7 @@ error E3005: <fragment>:31:9: argument type mismatch for 'f': expected 'fn(Integ
 ```
 
 <!-- test: first-class-function.generic-instance-returned-through-an-extension-body-alias-is-identified-by-type-not-by-intern-order -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 ⭐⭐ **THE SAME LOSS AT THE ONE POPULATION WHOSE STORED ID IS ALREADY LIVE WHEN THE WHOLE-PROGRAM INDEX
 RECORDS IT — an `extension` body's nested function typealias.** The four cases above declare their alias at
 FILE SCOPE, and a file-scope alias is folded into the index by the declaration sweep, which runs ABOVE
@@ -6479,7 +6408,6 @@ end 'Field'
 
 typealias FieldArray = Array with Field
 
-// TODO: extension blocks are not supported in minimaxon
 extension Field
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
@@ -6507,7 +6435,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.generic-instance-through-an-extension-body-alias-refuses-a-different-instance -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 <!-- positions: moved -->
 ⛔ **THE NEGATIVE TWIN OF THE CASE ABOVE, so the extension-body population is pinned in BOTH polarities
 exactly as the file-scope one is.** `buildSmalls` returns `Array with Small` where `Builder` promises
@@ -6532,7 +6460,6 @@ end 'Field'
 
 typealias FieldArray = Array with Field
 
-// TODO: extension blocks are not supported in minimaxon
 extension Field
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
@@ -6882,14 +6809,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closures-at-two-function-parameters-beside-a-float -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 Two function-typed parameters around a float one: each closure is one word in its own argument position.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Op = function(Integer) returns Integer
@@ -6908,12 +6832,9 @@ end 'chosen'
 
 function main() returns ExitCode
 	let add = 2
-	// TODO: float literals are not supported in minimaxon
 	let factor = 1.5
-	// TODO: float literals are not supported in minimaxon
 	let mixer = chosen(function(f Op, r Real, g Scale, n Integer) gives mix(f, r: r, g: g, n: n) * 2.0)
-	// TODO: float literals are not supported in minimaxon
-	let result = mixer(function(n Integer) gives n + add, 2.0, function(x Real) gives x * factor, 10)
+	let result = mixer(function(n Integer) gives try n + add otherwise panic("out of range"), 2.0, function(x Real) gives x * factor, 10)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -7166,8 +7087,6 @@ error E3005: <fragment>:14:17: function type mismatch assigning to field 'op': e
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-written-into-a-tuple-element-is-refused -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple element declared with a function type judges a later write to it the way the tuple literal judges its initial value.
 ```maxon
@@ -7184,9 +7103,7 @@ function add(a Integer) returns Integer
 end 'add'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	var t = (seven as Thunk, 1 as Integer)
-	// TODO: tuple element access is not supported in minimaxon
 	t.0 = add
 	return 0
 end 'main'
@@ -7360,8 +7277,6 @@ error E3005: <fragment>:12:4: argument type mismatch for 'value': expected 'fn()
 ```
 
 <!-- test: a-function-of-the-declared-shape-is-accepted-by-every-store-into-a-function-typed-slot -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The shape check refuses a different shape and nothing else: a function of the declared shape is stored through a field write, a tuple element write, a `push`, a `set` and an array literal, and each is called back.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -7389,14 +7304,11 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.create()
 	h.op = nine
-	// TODO: tuple values and types are not supported in minimaxon
 	let t = (seven as Thunk, 1 as Integer)
-	// TODO: tuple element access is not supported in minimaxon
 	t.0 = nine
 	let xs = ThunkArray from [seven, seven]
 	xs.push(nine)
 	try xs.set(0, value: nine) otherwise panic("set")
-	// TODO: tuple element access is not supported in minimaxon
 	let fromTuple = t.0
 	let fromArray = try xs.get(0) otherwise panic("get")
 	let pushed = try xs.get(2) otherwise panic("get")
@@ -7517,7 +7429,7 @@ error E3009: <fragment>:10:20: function type mismatch in cast: expected 'fn(int)
 ```
 
 <!-- test: error.a-function-over-a-wider-return-is-refused-at-a-narrower-function-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 <!-- positions: moved -->
 The return slot runs the other way: the declared return must contain every value the function can return, so a function whose result is an unranged `int` is refused where a `Byte` result is declared.
 ```maxon

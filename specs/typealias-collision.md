@@ -445,22 +445,17 @@ error E3182: Directory 'stdlib' cannot be a namespace: 'stdlib' already names th
 ```
 
 <!-- test: an-author-export-beside-the-librarys-alias-over-another-primitive-is-what-the-bare-name-means -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An author's `float` `Byte` beside the library's `int` one: the two declarations coexist whatever their
 underlying primitives, and the bare read from a third file means the author's, because a library
 declaration never takes part in ambiguity. `0.75` keeps its fraction only in the `float` alias.
 ```maxon
 // --- file: legacy/types.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Byte = float(0.0 to 1.0)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = 0.75 as Byte
-	// TODO: float literals are not supported in minimaxon
 	return 3 if b > 0.5 else 4
 end 'main'
 ```
@@ -469,23 +464,18 @@ end 'main'
 ```
 
 <!-- test: an-author-export-beside-the-librarys-alias-over-another-primitive-is-named-by-its-directory -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Both declarations stand and both qualified spellings work; `stdlib.Byte` is the same type as the `Byte` a
 byte-string literal's elements carry (104 - 7 + 1).
 ```maxon
 // --- file: legacy/types.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Byte = float(0.0 to 1.0)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
-	// TODO: float literals are not supported in minimaxon
 	let f = 0.5 as legacy.Byte
-	// TODO: float literals are not supported in minimaxon
 	return (h - (7 as stdlib.Byte) + (1 if f > 0.25 else 0)) as ExitCode
 end 'main'
 ```
@@ -549,9 +539,6 @@ error E3063: app/<fragment>:9:18: Ambiguous type name 'Bag': more than one visib
 
 <!-- test: generic-tuple-and-nominal-names-are-named-by-their-directory -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 Every kind an E3063 list can name resolves through its qualified spelling (7 + 3 + 5 + 1).
 ```maxon
 // --- file: lib/t.maxon
@@ -565,13 +552,11 @@ end 'Point'
 
 export typealias Bag = Array with ExitCode
 
-// TODO: tuple typealiases are not supported in minimaxon
 export typealias Pair = (ExitCode, ExitCode)
 
 // --- file: alt/u.maxon
 export typealias Bag = Array with bool
 
-// TODO: tuple typealiases are not supported in minimaxon
 export typealias Pair = (bool, bool)
 
 // --- file: app/main.maxon
@@ -580,13 +565,11 @@ function first(b lib.Bag) returns ExitCode
 end 'first'
 
 function sum(p lib.Pair) returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = p
 	return a + b
 end 'sum'
 
 function flags(p alt.Pair, marks alt.Bag) returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (a, b) = p
 	let marked = try marks.get(0) otherwise false
 	return 1 if a and not b and marked else 0
@@ -597,7 +580,6 @@ function main() returns ExitCode
 	b.push(7)
 	let p = lib.Point.make()
 	let marks = alt.Bag from [true]
-	// TODO: tuple values and types are not supported in minimaxon
 	return first(b) + sum((1, 2)) + p.x + flags((true, false), marks: marks)
 end 'main'
 ```

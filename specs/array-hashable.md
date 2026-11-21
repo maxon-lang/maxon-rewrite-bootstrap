@@ -885,13 +885,10 @@ true
 ### A user `Byte` declared as a float compares and hashes element-wise
 
 <!-- test: a-user-byte-declared-as-a-float-compares-element-wise -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An element type named `Byte` that is a float is not a byte: the array compares element by element and hashes
 as the chain of its elements' hashes, never as raw bytes.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Byte = float(-1.0 to 1.0)
 
 typealias Bs = Array with Byte
@@ -907,14 +904,11 @@ end 'fold'
 
 function main() returns ExitCode
 	let a = Bs.create(0)
-	// TODO: float literals are not supported in minimaxon
 	a.push(0.0)
 	let b = Bs.create(0)
-	// TODO: float literals are not supported in minimaxon
 	b.push(-0.0)
 	print("{a == b} {a.equals(b)}\n")
 	let c = Bs.create(0)
-	// TODO: float literals are not supported in minimaxon
 	c.push(0.5)
 	print("{c.hash() == fold(c)}\n")
 	return 0
@@ -931,25 +925,18 @@ true
 ### A float array compares and searches by its values
 
 <!-- test: a-float-array-compares-and-searches-by-its-values -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
 	let a = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	a.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	a.push(2.5)
 	let b = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	b.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	b.push(2.5)
 	let c = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	c.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	c.push(3.5)
 	print("{a == b} {a == c} {a.equals(c)}\n")
 	print("{a.contains(2.5)} {a.contains(7.5)}\n")
@@ -1393,7 +1380,6 @@ own hash decides: true true
 ### A float array hashes as its element chain
 
 <!-- test: a-float-array-hashes-as-its-element-chain -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A float's equality is not bitwise (`0.0 == -0.0`), so a float array hashes as the chain
 `hasher.combine(element.hash())` over a `Hasher.create()`, finalized —
@@ -1420,15 +1406,11 @@ function chained(values Reals) returns HashValue
 end 'chained'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let reals = Reals from [1.5, -2.25, 0.0, 1000000.125]
 	let empty = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	let positive = Reals from [1.5, 0.0]
 	let negative = Reals.create(0)
-	// TODO: float literals are not supported in minimaxon
 	negative.push(1.5)
-	// TODO: float literals are not supported in minimaxon
 	negative.push(-0.0)
 	print("direct: {reals.hash() == chained(reals)}\n")
 	print("through Hashable: {Holder.create(reals).key.hash() == chained(reals)}\n")

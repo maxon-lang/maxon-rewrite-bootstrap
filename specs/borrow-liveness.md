@@ -3549,25 +3549,23 @@ end 'main'
 ```
 
 <!-- test: a-tuple-element-read-survives-a-later-element-reassigning-the-field -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### … as a tuple element, beside a later element that reassigns it
 ```maxon
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
-	// TODO: tuple values and types are not supported in minimaxon
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let pair = (x.label, x.reset())
 	let filler = "filler {1} padded out long enough for the heap"
 	print("[{pair.0}] [{pair.1}] [{x.label}] [{filler}]\n")
@@ -3794,8 +3792,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-field-read-as-a-tuple-element-survives-a-later-element-reassigning-it -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### A field of an opaque type read as a tuple element survives a later element that reassigns it
 `self.item` is a `T`, instantiated here at `String`; it is read before `self.store` replaces it, and the
 tuple keeps the original.
@@ -3803,18 +3799,16 @@ tuple keeps the original.
 type Box uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function store(replacement T) returns bool
+	function store(mutates self, consumes replacement T) returns bool
 		self.item = replacement
 		return true
 	end 'store'
 
-	// TODO: tuple return types are not supported in minimaxon
-	function snapshot(replacement T) returns (T, bool)
-		// TODO: tuple values and types are not supported in minimaxon
+	function snapshot(mutates self, consumes replacement T) returns (T, bool)
 		return (self.item, self.store(replacement))
 	end 'snapshot'
 
@@ -3826,7 +3820,7 @@ end 'Box'
 typealias StringBox = Box with String
 
 function main() returns ExitCode
-	let b = StringBox.create("original {40 + 2} padded out long enough for the heap")
+	var b = StringBox.create("original {40 + 2} padded out long enough for the heap")
 	let pair = b.snapshot("replacement {7} padded out long enough for the heap")
 	let filler = "filler {1} padded out long enough for the heap"
 	print("[{pair.0}] [{pair.1}] [{b.current()}] [{filler}]\n")
@@ -3960,7 +3954,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-field-read-as-a-struct-literal-field-survives-a-later-field-reassigning-it -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ### An interface-typed field read as a struct literal's field survives a later field that reassigns it
 ```maxon
 interface Named
@@ -3975,7 +3968,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Named
 	function name() returns String
 		return self.text
@@ -4021,7 +4013,6 @@ end 'main'
 
 <!-- test: a-service-send-interface-let-field-read-through-a-var-field-survives-a-later-argument-rebinding-it -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4039,7 +4030,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Named
 	function name() returns String
 		return self.text
@@ -4101,7 +4091,6 @@ end 'main'
 
 <!-- test: a-bound-read-only-interface-field-is-shared-with-a-service-as-its-struct-twin-is -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4119,7 +4108,6 @@ type Tag
 	end 'create'
 end 'Tag'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Tag implements Named
 	function name() returns String
 		return self.text
@@ -4252,34 +4240,25 @@ end 'main'
 ```
 
 <!-- test: a-merged-tuple-copy-of-a-let-field-is-writable -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### A trivial tuple read out of a `let` field and copied at a merge is a fresh, writable record
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
 type Pairing
-	// TODO: tuple values and types are not supported in minimaxon
 	export let pair as (Num, Num)
 
 	static function create() returns Self
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{pair: (1, 2)}
 	end 'create'
 end 'Pairing'
 
-// TODO: tuple return types are not supported in minimaxon
 function fallback() returns (Num, Num)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (7, 8)
 end 'fallback'
 
 function pick(p Pairing, c bool) returns Num
-	var t = p.pair if c else fallback()
-	// TODO: tuple element access is not supported in minimaxon
+	var t = p.pair.clone() if c else fallback()
 	t.1 = 99
-	// TODO: tuple element access is not supported in minimaxon
 	return t.1
 end 'pick'
 
@@ -4698,7 +4677,6 @@ end 'main'
 ```
 
 <!-- test: an-array-extension-returning-its-argument-on-a-let-of-read-only-elements-into-a-var-runs -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `echo` returns `Element`, but what it returns is its argument, a record `main` built, so the `var` that takes
 it may write it even though the array's elements are read-only.
@@ -4713,7 +4691,6 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function echo(v Element) returns Element
 		return v
@@ -4779,7 +4756,6 @@ error E3197: <fragment>:26:2: cannot write 'n' through 'q', which is immutable
 ```
 
 <!-- test: an-array-extension-element-of-read-only-elements-into-a-var-then-written-is-refused -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `head` hands back the array's stored element, and the array's elements are read-only, so the binding
@@ -4795,7 +4771,6 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function head() returns Element throws ArrayError
 		return try self.get(0)
@@ -4819,7 +4794,6 @@ error E3197: <fragment>:24:2: cannot write 'n' through 'q', which is immutable
 ```
 
 <!-- test: an-array-extension-forwarding-a-stored-element-of-read-only-elements-is-not-written-through -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `front` returns what `head` returns, an element of the array whose elements are read-only, so no binding that takes it may write it.
@@ -4834,7 +4808,6 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Array
 	function head() returns Element throws ArrayError
 		return try self.get(0)
@@ -4984,31 +4957,26 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-a-tuple-field-survives-the-callee-overwriting-the-field -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `go` hands `use` the tuple in `pair` together with `self.reset()`, whose store replaces the field. The argument is
 counted, so `use` still reads the first element of the tuple it was handed, and the answer is `68064`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, Integer)
 
 type Holder
 	export var pair as Pair
 
 	static function create(pair Pair) returns Self
-		return Self{pair: pair}
+		return Self{pair: pair.clone()}
 	end 'create'
 
-	function reset() returns Integer
-		// TODO: tuple values and types are not supported in minimaxon
+	function reset(mutates self) returns Integer
 		pair = ("short", 1)
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(pair, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5020,19 +4988,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return b.byteLength() as Integer
+	return try b.byteLength() as Integer otherwise panic("out of range")
 end 'churn'
 
 function use(p Pair, k Integer) returns Integer
-	// TODO: tuple element access is not supported in minimaxon
-	let len = p.0.byteLength() as Integer
+	let len = try p.0.byteLength() as Integer otherwise panic("out of range")
 	let c = churn(len)
-	return len * 1000 + c + k
+	return try len * 1000 + c + k otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
-	let h = Holder.create((text(5), 2))
+	var h = Holder.create((text(5), 2))
 	let d = h.go()
 	print("d={d}")
 	return 0

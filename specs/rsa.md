@@ -40,7 +40,6 @@ The canra `rsa-pkcs1-sign` spec adds 34 of its 39 vectors, with the same key rul
 ## Tests
 
 <!-- test: rsa.verify-pkcs1v15 -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The `verify_pkcs1v15` vectors: NIST CAVP SigVer15, Wycheproof, and computed keys of 2048, 2049, 3071 and 4096 bits and with `e = 3`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -54,7 +53,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -184,7 +182,6 @@ verify-pkcs1v15-045 false
 ```
 
 <!-- test: rsa.verify-pss -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The `verify_pss` vectors: NIST CAVP SigVerPSS, Wycheproof, computed keys including a `1 mod 8` modulus, and salts of the wrong length.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -198,7 +195,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -312,7 +308,6 @@ verify-pss-037 false
 ```
 
 <!-- test: rsa.verify-refusals -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The verification error vectors that `HashAlgorithm` can express: malformed and out-of-range public keys, and signatures of the wrong length.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -326,7 +321,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -414,7 +408,6 @@ verify-err-026 invalidSignatureLength
 ```
 
 <!-- test: rsa.sign-pss-nist -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The NIST CAVP SigGenPSS vectors: a 3072-bit key with SHA-256 and SHA-384 and a salt as long as the hash.
 ```maxon
@@ -429,7 +422,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -443,7 +435,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -495,7 +486,6 @@ sign-pss-008 [6ec22bd58c32d41374c017a77027e770f678fd81017e20cdaaab48a8324b050749
 ```
 
 <!-- test: rsa.sign-pss-computed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The computed `sign_pss` vectors: keys of 2048, 2049, 3071 and 4096 bits and with `e = 3`, every hash, an empty and a 1024-byte message, all-zero and all-ones salts.
 ```maxon
@@ -510,7 +500,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -524,7 +513,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -584,7 +572,6 @@ sign-pss-020 [6b89a5645d92847fc50b842b15f2eb7a3254aee5690b863c64880fb9255162be39
 ```
 
 <!-- test: rsa.sign-pss-refusals -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The signing error vectors that `HashAlgorithm` can express: malformed, inconsistent and out-of-range private keys, and salts of the wrong length.
 ```maxon
@@ -599,7 +586,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -613,7 +599,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -685,7 +670,6 @@ sign-pss-err-021 invalidSaltLength
 ```
 
 <!-- test: rsa.sign-pkcs1v15-nist -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The NIST CAVP SigGen15 vectors: 2048- and 3072-bit keys with SHA-256, SHA-384 and SHA-512. Vectors sign-001 to sign-012 (12).
 ```maxon
@@ -700,7 +684,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -714,7 +697,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -774,7 +756,6 @@ sign-012 [bf9e8b4f2ae513f73d788958003733dbe20957b147b17c3f4fd6d024e8e83f07b65d9f
 ```
 
 <!-- test: rsa.sign-pkcs1v15-computed -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The computed `sign_pkcs1v15` vectors: keys of 2048, 2049, 3071 and 4096 bits and with `e = 3`, every hash, an empty and a 1024-byte message. Vectors sign-013 to sign-020 (8).
 ```maxon
@@ -789,7 +770,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -803,7 +783,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -855,7 +834,6 @@ sign-020 [2b26925a09dc99fdab404ae3938d17e3241a84d528a31d901f2e3dbb01a452d819768e
 ```
 
 <!-- test: rsa.sign-pkcs1v15-refusals -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The `sign_pkcs1v15` error vectors that `HashAlgorithm` can express: malformed, inconsistent and out-of-range private keys. Vectors sign-pkcs1-err-001 to sign-pkcs1-err-014 (14).
 ```maxon
@@ -870,7 +848,6 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -884,7 +861,6 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")

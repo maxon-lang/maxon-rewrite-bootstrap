@@ -58,10 +58,8 @@ end 'main'
 ## Tests
 
 <!-- test: basic -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(2.0, exponent: 3.0)
 	return trunc(result)
 end 'main'
@@ -72,10 +70,8 @@ end 'main'
 
 
 <!-- test: square -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(5.0, exponent: 2.0)
 	return trunc(result)
 end 'main'
@@ -86,10 +82,8 @@ end 'main'
 
 
 <!-- test: zero-exponent -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(123.0, exponent: 0.0)
 	return trunc(result)
 end 'main'
@@ -100,7 +94,6 @@ end 'main'
 
 
 <!-- test: fractional-exponent -->
-<!-- skip: float literals are not supported in minimaxon -->
 The only case in this file that reads its result as TEXT rather than through `trunc`, so it is the
 only one that pins what `Math.pow` actually computes rather than what it truncates to. The compiler
 prints the SHORTEST decimal that reads back as the same double, so the value spells out in full —
@@ -111,7 +104,6 @@ multiplies it by an exponent of up to ~1000, so an ln 2 a few ulp low moves this
 `1.9999999999999991`, four ulp under 2. This is the only committed expectation that pins that constant.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(4.0, exponent: 0.5) // Square root
 	print("{result}\n")
 	return 0
@@ -138,10 +130,8 @@ end 'main'
 
 
 <!-- test: basic-with-stdlib-ir -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let result = Math.pow(2.0, exponent: 3.0)
 	return trunc(result)
 end 'main'
@@ -161,7 +151,6 @@ other call uses, so there is one numerical implementation here and one sign rule
 series written out for the negative half of the domain.
 
 <!-- test: negative-base-is-ieee -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
 ```maxon
 function main() returns ExitCode
 	print("pow(-2,3)     {Math.pow(-2.0, exponent: 3.0)}\n")
@@ -189,10 +178,8 @@ exactly when the exponent is an odd integer — which is why `-0.0` has to be to
 that cannot be done with a comparison (`-0.0 < 0.0` is false). `stdlib/Math.maxon` reads the sign bit.
 
 <!-- test: zero-base-is-ieee -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let negativeZero = -0.0
 	print("pow(0,-1)     {Math.pow(0.0, exponent: -1.0)}\n")
 	print("pow(-0,-1)    {Math.pow(negativeZero, exponent: -1.0)}\n")
@@ -237,13 +224,10 @@ repeated-multiplication threshold, which is what drops it into the general path 
 `specs/log.md`. Maxon has no infinity literal, so that is the only way a spec case can name one.
 
 <!-- test: non-finite-is-ieee -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let negInf = Math.log(0.0)
 	let inf = -negInf
-	// TODO: float literals are not supported in minimaxon
 	let nan = Math.log(-1.0)
 	print("pow(nan,0)    {Math.pow(nan, exponent: 0.0)}\n")
 	print("pow(1,nan)    {Math.pow(1.0, exponent: nan)}\n")

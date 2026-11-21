@@ -140,9 +140,6 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-stored-in-a-tuple-is-written-by-a-callee -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple parameter types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple holds what it was built from, so `bump` keeps its parameter in the tuple.
 
 ```maxon
@@ -155,26 +152,23 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
 
-// TODO: tuple parameter types are not supported in minimaxon
-function zeroFirst(t(Box, Count)) returns Count
-	// TODO: tuple element access is not supported in minimaxon
+function zeroFirst(mutates t (Box, Count)) returns Count
 	return zero(t.0)
 end 'zeroFirst'
 
 function bump(b Box) returns Count
-	// TODO: tuple values and types are not supported in minimaxon
-	let t = (b, 1 as Count)
+	var t = (b.clone(), 1 as Count)
 	return zeroFirst(t)
 end 'bump'
 

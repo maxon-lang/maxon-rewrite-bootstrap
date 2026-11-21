@@ -793,9 +793,7 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-written-hidden-typ
 ```
 
 <!-- test: error.same-directory-underlying-conflict-is-reported-once -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 Two files in ONE directory export a `Score` over different underlying primitives. The pair is one
 mistake and earns exactly one diagnostic, E3061 at the second declaration — a directory-qualified
 declaration is filed under its qualified spelling as well, and that second entry must not report the
@@ -805,7 +803,6 @@ duplicate a second time under a name no file contains.
 export typealias Score = int(0 to 100)
 
 // --- file: api/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Score = float(0.0 to 1.0)
 
 // --- file: app/main.maxon
@@ -2716,8 +2713,6 @@ error E3005: app/<fragment>:24:10: argument type mismatch for 'f': expected 'api
 ```
 
 <!-- test: two-directories-export-one-alias-over-two-primitives-and-both-stand -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Author against author across directories: the pair coexists and both qualified spellings work (50 + 1).
 ```maxon
@@ -2725,15 +2720,12 @@ Author against author across directories: the pair coexists and both qualified s
 export typealias Score = int(0 to 100)
 
 // --- file: legacy/t.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Score = float(0.0 to 1.0)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let a = 50 as api.Score
-	// TODO: float literals are not supported in minimaxon
 	let f = 0.5 as legacy.Score
-	// TODO: float literals are not supported in minimaxon
 	return (a + (1 if f > 0.25 else 0)) as ExitCode
 end 'main'
 ```

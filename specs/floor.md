@@ -39,13 +39,11 @@ let i = trunc(floor(x))   // 3
 ## Tests
 
 <!-- test: floor.positive -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.9
 	let y = trunc(floor(x))
-	return y
+	return try y as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -53,13 +51,11 @@ end 'main'
 ```
 
 <!-- test: floor.negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let neg = -3.2
 	let y = trunc(floor(neg))
-	return y + 10
+	return try y + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -67,14 +63,12 @@ end 'main'
 ```
 
 <!-- test: floor.with-ceil -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.7
 	let a = trunc(floor(x))
 	let b = trunc(ceil(x))
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -82,12 +76,10 @@ end 'main'
 ```
 
 <!-- test: floor.rt-positive -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 3.9 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(floor(x))
 end 'main'
@@ -97,12 +89,10 @@ end 'main'
 ```
 
 <!-- test: floor.rt-negative -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: -3.2 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	return trunc(floor(x)) + 10
 end 'main'
@@ -112,12 +102,10 @@ end 'main'
 ```
 
 <!-- test: floor.rt-with-ceil -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- Args: 3.7 -->
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: float literals are not supported in minimaxon
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let a = trunc(floor(x))
 	let b = trunc(ceil(x))

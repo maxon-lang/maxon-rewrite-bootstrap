@@ -581,7 +581,6 @@ end 'main'
 ```
 
 <!-- test: for-in.nested -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Nested for-in loops on the same map must not corrupt each other's iteration state.
 
 ```maxon
@@ -591,7 +590,6 @@ typealias IntMap = Map with (Integer, Integer)
 
 function innerSum(m IntMap) returns Integer
 	var total = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in m 'inner'
 		total = total + v
 	end 'inner'
@@ -601,7 +599,6 @@ end 'innerSum'
 function main() returns ExitCode
 	let m = [1: 1, 2: 2, 3: 3]
 	var outerTotal = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in m 'outer'
 		outerTotal = outerTotal + v + innerSum(m)
 	end 'outer'
@@ -1149,7 +1146,6 @@ slots, and `ensureCapacity` doubles at a load factor of 75% — 16 ⇒ 32 at the
 at the twenty-fourth, and forty entries therefore rest at 64 rather than growing again.
 
 <!-- test: corpus.create-iterator -->
-<!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -1165,7 +1161,6 @@ function main() returns ExitCode
 	var more = true
 	while more 'walk'
 		let entry = it.current()
-		// TODO: tuple element access is not supported in minimaxon
 		total = total + entry.0 * entry.1
 		try it.advance() otherwise 'exhausted'
 			more = false
@@ -1202,7 +1197,6 @@ say so loudly if either does not: it adds `1 + v`, so one spurious trip moves `t
 the slot it read held.
 
 <!-- test: corpus.empty-map-iterates-zero-trips -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -1211,7 +1205,6 @@ typealias ValMap = Map with (Val, Val)
 function main() returns ExitCode
 	let never = ValMap.create()
 	var trips = 0 as Val
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in never 'neverPopulated'
 		trips = trips + 1 + v
 	end 'neverPopulated'
@@ -1220,7 +1213,6 @@ function main() returns ExitCode
 	emptied.upsert(2, value: 20)
 	_ = emptied.remove(1)
 	_ = emptied.remove(2)
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in emptied 'allRemoved'
 		trips = trips + 1 + v
 	end 'allRemoved'
@@ -1514,7 +1506,6 @@ error E3005: <fragment>:11:10: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: a-let-map-for-in-keys-and-values-are-range-known -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Both columns of a `let` map literal keep their range through a destructuring `for … in`.
 ```maxon
 typealias Small = int(0 to 100)
@@ -1525,7 +1516,6 @@ end 'take'
 
 function main() returns ExitCode
 	let m = [7: 40]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (k, v) in m 'each'
 		print("{take(k)} {take(v)}\n")
 	end 'each'
@@ -1540,8 +1530,6 @@ end 'main'
 ```
 
 <!-- test: error.a-let-map-for-in-key-outside-a-narrower-alias -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 A key read through `for … in` is checked against the alias it is handed to.
 ```maxon
 typealias Small = int(0 to 100)
@@ -1552,7 +1540,6 @@ end 'take'
 
 function main() returns ExitCode
 	let m = [700: 40]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (k, v) in m 'each'
 		print("{take(k)} {take(v)}\n")
 	end 'each'

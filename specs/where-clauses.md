@@ -310,8 +310,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.int-actual-for-float-formal -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An INTEGRAL actual supplied for a `float` interface FORMAL is widened at the witness dispatch, exactly as a
 direct call's argument is (`LowerMaxonToStd.widenIntArgsToFloatParams`). A witness dispatch has no callee
 signature to look the parameter up in, and unwidened, the fused `witnessCall`'s `argFloatMask` — read off
@@ -334,7 +332,6 @@ type Point implements Scaled
 	end 'create'
 
 	function scale(k Real) returns Real
-		// TODO: float literals are not supported in minimaxon
 		return k * 2.0
 	end 'scale'
 end 'Point'
@@ -342,7 +339,7 @@ end 'Point'
 type Box uses T where T implements Scaled
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -351,7 +348,6 @@ type Box uses T where T implements Scaled
 	end 'fromInt'
 
 	function fromFloat() returns Real
-		// TODO: float literals are not supported in minimaxon
 		return self.item.scale(1.5)
 	end 'fromFloat'
 end 'Box'
@@ -360,14 +356,12 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(7))
-	// TODO: float literals are not supported in minimaxon
 	if b.fromInt() == 4.0 and b.fromFloat() == 3.0 'ok'
 		return 0
 	end 'ok'
 	return 1
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -375,8 +369,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: where-clauses.float-formal-among-int-formals -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 The formal→actual MAPPING under the widening above, which a one-off would silently break: the receiver is
 `args[0]` and interface formal `j` is `args[j+1]`, so in `combine(a int, k float, b int)` exactly the MIDDLE
 actual is widened and its two integral neighbours are passed through. Widening the wrong position puts a
@@ -398,14 +390,14 @@ type Point implements Mixed
 	end 'create'
 
 	function combine(a Integer, k Real, b Integer) returns Real
-		return k + (a + b) as Real
+		return try k + (a + b) as Real otherwise panic("out of range")
 	end 'combine'
 end 'Point'
 
 type Box uses T where T implements Mixed
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -418,7 +410,6 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(7))
-	// TODO: float literals are not supported in minimaxon
 	if b.go() == 9.0 'ok'
 		return 0
 	end 'ok'
@@ -427,7 +418,6 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -1558,7 +1548,6 @@ error E3005: specs/where-clauses/where-clauses.error.witness-return-keeps-the-re
 ```
 
 <!-- test: where-clauses.witness-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A throwing requirement returning `ByteArray`, called through a `where T is Transform` type parameter of a
 generic function, propagated with `try` and caught with `otherwise`: each conformer's result reaches the
 caller as the array, and a refusal reaches it as the error.
@@ -1582,7 +1571,7 @@ type Doubler implements Transform
 		if data.count() > self.limit 'big'
 			throw ProbeError.refused
 		end 'big'
-		let out = ByteArray.create(0)
+		var out = ByteArray.create(0)
 		for b in data 'each'
 			out.push(b)
 			out.push(b)
@@ -1602,7 +1591,7 @@ type Reverser implements Transform
 		if data.count() > self.limit 'big'
 			throw ProbeError.refused
 		end 'big'
-		let out = ByteArray.create(0)
+		var out = ByteArray.create(0)
 		for b in data 'each'
 			out.insert(0, value: b)
 		end 'each'
@@ -1622,7 +1611,6 @@ end 'orEmpty'
 
 function show(bytes ByteArray)
 	print("{bytes.count()}:")
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in bytes 'each'
 		print(" {b}")
 	end 'each'
@@ -3164,7 +3152,7 @@ error E2015: specs/where-clauses/where-clauses.error.a-closure-in-an-instance-me
 ### A static calling a conditional extension method on a type-parameter instance
 
 <!-- test: where-clauses.a-static-calling-a-conditional-extension-method-on-a-type-parameter-instance -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -3176,14 +3164,13 @@ type Box uses Item
 	end 'create'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Box
 	function plain() returns HashValue
 		return 0
 	end 'plain'
 end 'Box'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Box where Item implements Hashable
 	function describe(salt HashValue) returns HashValue
 		return item.hash() + salt
@@ -4059,7 +4046,6 @@ A body that reserved none would read two argument registers it never declared. `
 `extension Iterator`'s `advanceBy` is the reaching method.
 
 <!-- test: where-clauses.interface-extension-over-a-constrained-conformer -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4089,7 +4075,6 @@ type Ticks uses T where T implements Hashable and Equatable
 	end 'advance'
 end 'Ticks'
 
-// TODO: extension blocks are not supported in minimaxon
 extension Ticks
 	function skip(n Step) throws IterationError
 		var i = 0 as Step

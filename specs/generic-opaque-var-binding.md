@@ -36,8 +36,6 @@ rebound released a reference nobody took, and the runtime crashed in `__mm_retai
 ### A Map key rebound inside a loop keeps its bytes
 
 <!-- test: map-loop-rebind-keeps-the-key -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `var chosen = fallback` and `chosen = key` inside `for (key, _) in self` over an `extension Map`, at a `String`, a struct (a `Map` key is `Hashable` and `Equatable`) and a scalar key. The returned key is the one stored in the map, so the map still contains it.
 ```maxon
 type Tag implements Hashable, Equatable
@@ -63,11 +61,9 @@ typealias TagCountMap = Map with (Tag, Count)
 
 typealias TallyCountMap = Map with (Count, Count)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Map
 	function lastKeyViaVar(fallback Key) returns Key
 		var chosen = fallback
-		// TODO: tuple loop variables in for loops are not supported in minimaxon
 		for (key, _) in self 'eachKey'
 			chosen = key
 		end 'eachKey'
@@ -103,7 +99,7 @@ tag 42 long enough for a heap record 7 true
 ### A Set element rebound inside a loop keeps its bytes
 
 <!-- test: set-loop-rebind-keeps-the-element -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extensions of 'Set' are not supported in minimaxon -->
 The same rebind over `extension Set`, at a `String`, a struct and a scalar element.
 ```maxon
 type Tag implements Hashable, Equatable
@@ -129,7 +125,7 @@ typealias TagSet = Set with Tag
 
 typealias TallySet = Set with Count
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extensions of 'Set' are not supported in minimaxon
 extension Set
 	function lastViaVar(fallback Element) returns Element
 		var chosen = fallback
@@ -168,8 +164,6 @@ tag 42 long enough for a heap record 7 true
 ### A Map entry destructured by `let` and rebound into a `var`
 
 <!-- test: map-loop-entry-destructured-by-let -->
-<!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 The same loop spelled `for entry in self`, then `let (key, _) = entry`, then `chosen = key`. The `let` borrows out of the entry and the `var` owns what it is rebound to.
 ```maxon
 type Tag implements Hashable, Equatable
@@ -195,12 +189,10 @@ typealias TagCountMap = Map with (Tag, Count)
 
 typealias TallyCountMap = Map with (Count, Count)
 
-// TODO: extension blocks are not supported in minimaxon
 extension Map
 	function lastKeyViaEntry(fallback Key) returns Key
 		var chosen = fallback
 		for entry in self 'eachEntry'
-			// TODO: tuple destructuring declarations are not supported in minimaxon
 			let (key, _) = entry
 			chosen = key
 		end 'eachEntry'

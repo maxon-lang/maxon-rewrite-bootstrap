@@ -70,7 +70,7 @@ end 'main'
 ```
 
 <!-- test: a-register-block-with-answers-a-new-block-and-keeps-the-receiver -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got 'with' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'with' -->
 <!-- tier: stdlib -->
 `with` and its two named forms return a new block. The receiver still reads the old words, and `withFlags` keeps the
 segment bits of the word it rewrites.
@@ -113,7 +113,7 @@ end 'main'
 ```
 
 <!-- test: a-register-block-offset-outside-the-block-throws-out-of-bounds -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got 'with' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'with' -->
 <!-- tier: stdlib -->
 `word` and `with` throw `outOfBounds` for an offset that is not a multiple of 8 and for one at or past the end. A block
 that is not a CONTEXT throws it from the named accessors too.

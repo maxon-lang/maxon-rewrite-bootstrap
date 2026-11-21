@@ -1727,9 +1727,6 @@ end 'main'
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-tuple -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 A promise parameter is stored in a tuple slot.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1741,14 +1738,11 @@ function w() returns Integer
 	return 7
 end 'w'
 
-// TODO: tuple return types are not supported in minimaxon
 function pair(p IntPromise) returns (IntPromise, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (p, 1)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let (q, n) = pair(async w())
 	print("{await q} {n}\n")
@@ -4133,8 +4127,6 @@ error E3004: <fragment>:13:8: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-tuple-assignment-of-a-call-nothing-declares-to-a-moved-var-is-undefined -->
-<!-- skip: tuple assignment is not supported in minimaxon -->
-<!-- positions: moved -->
 A tuple assignment gives a moved `var` the same unknown value a plain assignment does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4143,7 +4135,6 @@ function main() returns ExitCode
 	var s = "a string padded out long enough to heap allocate"
 	var n = 0 as Integer
 	let t = s
-	// TODO: tuple assignment is not supported in minimaxon
 	(s, n) = nosuch(1)
 	print("{s}{t}{n}\n")
 	return 0
@@ -4764,9 +4755,6 @@ second padded out long enough to heap allocate 1!
 
 <!-- test: async-await.error.a-cell-resident-var-a-closure-only-reads-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that only READS a cell-resident `var` takes the cell's occupant, so handing the `var` to the
 coroutine afterwards is a use after move.
@@ -4779,9 +4767,7 @@ function shout(text String) returns Integer
 	return text.byteLength() as Integer
 end 'shout'
 
-// TODO: tuple return types are not supported in minimaxon
 function opening() returns (String, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello padded out long enough to heap allocate {1}", 1)
 end 'opening'
 
@@ -4790,7 +4776,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
 	let peek = function() gives word.byteLength()
@@ -4806,9 +4791,6 @@ error E3102: <fragment>:22:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The outer closure reads `word` after a nested closure has ended, so it still captures `word`, and handing the
 `var` to the coroutine afterwards is a use after move.
@@ -4827,9 +4809,7 @@ function shout(text String) returns Integer
 	return text.byteLength() as Integer
 end 'shout'
 
-// TODO: tuple return types are not supported in minimaxon
 function opening() returns (String, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello padded out long enough to heap allocate {1}", 1)
 end 'opening'
 
@@ -4838,7 +4818,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
 	let peek = function() gives run(function() gives 0) + (word.byteLength() as Integer)
@@ -4854,9 +4833,6 @@ error E3102: <fragment>:27:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-across-lines-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The nested closure's body ends at its own line break, and the outer closure's body goes on past it to read
 `word`.
@@ -4875,9 +4851,7 @@ function shout(text String) returns Integer
 	return text.byteLength() as Integer
 end 'shout'
 
-// TODO: tuple return types are not supported in minimaxon
 function opening() returns (String, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("hello padded out long enough to heap allocate {1}", 1)
 end 'opening'
 
@@ -4886,7 +4860,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
 	let peek = function() gives [run(function() gives 0), word.byteLength() as Integer]
@@ -4938,9 +4911,6 @@ end 'main'
 <!-- test: async-await.a-var-whose-clone-a-closure-captured-is-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 The same capture of a clone of a `var` that stays out of a cell.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4958,14 +4928,11 @@ function readIt(b Box) returns Integer
 	return b.n
 end 'readIt'
 
-// TODO: tuple return types are not supported in minimaxon
 function boxed() returns (Box, Integer)
-	// TODO: tuple values and types are not supported in minimaxon
 	return (Box.create(), 1)
 end 'boxed'
 
 function main() returns ExitCode
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (b, _) = boxed()
 	let kept = b.clone()
 	let peek = function() gives kept.n

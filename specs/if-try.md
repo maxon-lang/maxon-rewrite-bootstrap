@@ -381,7 +381,7 @@ end 'makeGreeting'
 function main() returns ExitCode
 	if var s = try makeGreeting(true) 'check'
 		s.append(" world")
-		return s.bytes().count()
+		return try s.bytes().count() as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'

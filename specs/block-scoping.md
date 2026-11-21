@@ -89,12 +89,9 @@ error E2004: specs/block-scoping/for-body-var-not-accessible-after.maxon:7:9: Un
 ```
 
 <!-- test: for-destructured-immutable -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 32]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, value) in m 'loop'
 		value = 99
 	end 'loop'
@@ -106,12 +103,9 @@ error E2013: specs/block-scoping/for-destructured-immutable.maxon:5:3: 'value' i
 ```
 
 <!-- test: for-destructured-not-accessible-after -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 32]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, value) in m 'loop'
 		let sum = key + value
 	end 'loop'

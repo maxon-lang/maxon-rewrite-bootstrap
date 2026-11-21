@@ -413,8 +413,6 @@ owner=2 sibling=2 busy=true preempted=true
 
 <!-- test: sched-preempt.every-argument-register-survives-a-preemption -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION AT A PROLOGUE FINDS EVERY ARGUMENT STILL IN ITS REGISTER.** `mix` takes
@@ -427,7 +425,6 @@ at least `ms` and until the second preemption has been honoured, so the stop the
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 typealias Checksums = Array with Integer
@@ -462,7 +459,6 @@ type Mixer
 		let expected = Checksums.create(0)
 		var k = 0 as Integer
 		while k < variants 'reference'
-			// TODO: float literals are not supported in minimaxon
 			expected.push(mix(k, b: 2 + self.shift, c: 3, d: 4 + self.shift, e: 5, f: 6 + self.shift, g: 7, h: 8 + self.shift, p: 1.5 * self.scale, q: 2.25, r: 3.125 * self.scale, s: 4.0625, t: 5.5 * self.scale, u: 6.75, v: 7.875 * self.scale, w: 8.5, depth: 7))
 			k = k + 1
 		end 'reference'
@@ -472,7 +468,6 @@ type Mixer
 		while (Clock.elapsedMs(start) as Integer) < ms or Scheduler.counters().preempts <= 1 'innerChurn'
 			let k = i mod variants
 			let want = try expected.get(k as ElementIndex) otherwise panic("expected.get out of range at {k}: bounded by variants")
-			// TODO: float literals are not supported in minimaxon
 			if mix(k, b: 2 + self.shift, c: 3, d: 4 + self.shift, e: 5, f: 6 + self.shift, g: 7, h: 8 + self.shift, p: 1.5 * self.scale, q: 2.25, r: 3.125 * self.scale, s: 4.0625, t: 5.5 * self.scale, u: 6.75, v: 7.875 * self.scale, w: 8.5, depth: 7) != want 'differs'
 				wrong = wrong + 1
 			end 'differs'
@@ -484,10 +479,8 @@ end 'Mixer'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let m1 = spawn Mixer.create(0, scale: 1.0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: float literals are not supported in minimaxon
 	let m2 = spawn Mixer.create(1000, scale: 9.75)
 	let churned1 = try m1.churn(200) otherwise panic("an open mailbox with room takes the send")
 	let churned2 = try m2.churn(200) otherwise panic("an open mailbox with room takes the send")
@@ -687,7 +680,6 @@ spinners=true ping=1
 
 <!-- test: sched-preempt.every-register-survives-a-stop-anywhere -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A THREAD STOPPED MID-LOOP RESUMES WITH EVERY REGISTER IT HAD.** Eight integers and eight floats are live
@@ -724,21 +716,13 @@ type Churner
 			var f = 6 as Integer
 			var g = 7 as Integer
 			var h = 8 as Integer
-			// TODO: float literals are not supported in minimaxon
 			var p = 1.5 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var q = 2.25 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var u = 3.125 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var v = 4.0625 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var w = 5.5 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var x = 6.75 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var y = 7.875 as FullRangeFloat
-			// TODO: float literals are not supported in minimaxon
 			var z = 8.5 as FullRangeFloat
 			var i = 0 as Integer
 			while i < stepsPerRound 'spin'
@@ -750,21 +734,13 @@ type Churner
 				f = (f * 5 + e) mod 1000003
 				g = (g * 3 + f) mod 1000003
 				h = (h * 2 + g) mod 1000003
-				// TODO: float literals are not supported in minimaxon
 				p = p * 0.5 + q
-				// TODO: float literals are not supported in minimaxon
 				q = q * 0.5 + u
-				// TODO: float literals are not supported in minimaxon
 				u = u * 0.5 + v
-				// TODO: float literals are not supported in minimaxon
 				v = v * 0.5 + w
-				// TODO: float literals are not supported in minimaxon
 				w = w * 0.5 + x
-				// TODO: float literals are not supported in minimaxon
 				x = x * 0.5 + y
-				// TODO: float literals are not supported in minimaxon
 				y = y * 0.5 + z
-				// TODO: float literals are not supported in minimaxon
 				z = z * 0.5 + p
 				i = i + 1
 			end 'spin'
@@ -887,8 +863,6 @@ ping=0 held=true preempted=0 retaken=0
 <!-- test: sched-preempt.a-main-preempted-between-two-spawns-runs-the-earlier-one-first -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- procs: 1 -->
 **A `main` PREEMPTED BETWEEN TWO `spawn`s SEES THE EARLIER SERVICE ANSWER FIRST.** This is
 `sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor` with the preemption made deterministic:
@@ -948,7 +922,6 @@ end 'Marker'
 
 // The monitor chooses when it asks, so an attempt is accepted only when its one preemption fell between
 // the second and third spawn; a throw drops the handles it spawned.
-// TODO: tuple return types are not supported in minimaxon
 function attempt() returns (Integer, Integer) throws Attempt
 	let c0 = Scheduler.counters().preempts
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
@@ -986,7 +959,6 @@ function attempt() returns (Integer, Integer) throws Attempt
 	if Scheduler.counters().preempts != c0 + 1 'late'
 		throw Attempt.preemptedAfterTheWindow
 	end 'late'
-	// TODO: tuple values and types are not supported in minimaxon
 	return (first as Integer, sum)
 end 'attempt'
 

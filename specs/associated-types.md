@@ -326,14 +326,11 @@ end 'main'
 
 
 <!-- test: multiple-associated-types -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -360,7 +357,6 @@ type IntFloat implements Pair with Integer, Float
 end 'IntFloat'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let p = IntFloat.create(40, b: 2.5)
 	let x = p.getFirst()
 	let y = trunc(p.getSecond()) as Integer
@@ -375,7 +371,6 @@ end 'main'
 <!-- test: character-element-type -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `CharSource` declares no `extends`, so `implements CharSource with Character` is the ordinary root-entry
 binding every case above it uses; `Character.codepoints()` supplies the value, and the program exits **65**.
 ```maxon
@@ -401,7 +396,6 @@ function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let s = SingleChar.create('A')
 	let c = s.getChar()
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in c.codepoints() 'loop'
 		return cp
 	end 'loop'
@@ -508,14 +502,12 @@ error E3016: specs/associated-types/partial-implementation-error.maxon:10:6: Par
 
 
 <!-- test: wrong-return-type-error -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -542,14 +534,12 @@ error E3016: specs/associated-types/wrong-return-type-error.maxon:10:6: Partial 
 
 
 <!-- test: wrong-param-type-error -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -741,14 +731,11 @@ settles it. `Alpha` takes one, so the comma after `Integer` opens a sibling conf
 `stdlib/List.maxon:12` is written in exactly this shape. A greedy reader eats `Beta` as an argument.
 
 <!-- test: mixed-bound-and-unbound-interfaces -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -773,7 +760,6 @@ type Multi implements Alpha with Integer, Beta with Float, Plain
 	end 'one'
 
 	function two() returns Float
-		// TODO: float literals are not supported in minimaxon
 		return 1.0
 	end 'two'
 
@@ -806,14 +792,11 @@ compile and run (exit 42). The arity comes from the whole-program declaration sw
 file's `interface` declarations before any file is parsed — the same guarantee `type` and `enum` have.
 
 <!-- test: interface-declared-below-its-conformance -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Score = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(f64.min to f64.max)
 
 type Both implements Duo with Score, Weight
@@ -840,7 +823,6 @@ interface Duo uses P, Q
 end 'Duo'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = Both.create(42, b: 1.5)
 	return v.getFirst()
 end 'main'
@@ -858,14 +840,11 @@ because "declared lower in this file" and "declared in a file swept later" are t
 per-file lookup misses, and only one of them a re-ordering of declarations could hide.
 
 <!-- test: interface-declared-in-a-later-file -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: a.maxon
 typealias Score = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(f64.min to f64.max)
 
 type Both implements Duo with Score, Weight
@@ -886,7 +865,6 @@ type Both implements Duo with Score, Weight
 end 'Both'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = Both.create(42, b: 1.5)
 	return v.getFirst()
 end 'main'
@@ -912,14 +890,11 @@ resolvable for a forward interface, a reader that consulted it and then over-con
 reason; it must stay green for the right one.
 
 <!-- test: forward-interface-comma-still-opens-a-sibling-conformance -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 type Multi implements Alpha with Integer, Beta with Float, Plain
@@ -930,7 +905,6 @@ type Multi implements Alpha with Integer, Beta with Float, Plain
 	end 'one'
 
 	function two() returns Float
-		// TODO: float literals are not supported in minimaxon
 		return 1.0
 	end 'two'
 
@@ -985,14 +959,11 @@ correct modelling that the corpus cannot exercise, and an edit that breaks it wi
 nothing here. Do not read this case as its guard.
 
 <!-- test: forward-interface-with-no-uses-clause -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Score = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(f64.min to f64.max)
 
 type Both implements Plain with Score, Duo with Score, Weight
@@ -1027,7 +998,6 @@ interface Duo uses P, Q
 end 'Duo'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let v = Both.create(42, b: 1.5)
 	return v.getFirst()
 end 'main'
@@ -1234,14 +1204,12 @@ below it pin that.
 names both types rather than a count.
 
 <!-- test: error.surplus-parenthesized-conformance-argument -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -1349,14 +1317,12 @@ interface the compiler never found. The program's real error is that the name re
 that is the only sentence it earns.
 
 <!-- test: error.surplus-parenthesized-argument-on-unresolvable-interface -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -1460,14 +1426,11 @@ end 'main'
 
 
 <!-- test: conformance-arguments-in-parentheses-at-arity-two -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -1494,7 +1457,6 @@ type Pair implements Two with (Integer, Float)
 end 'Pair'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let p = Pair.create(42, b: 1.5)
 	return p.first()
 end 'main'
@@ -1560,17 +1522,11 @@ meant two bindings and had one to give.
 items — would turn this legal program into an arity complaint while every other case stayed green.
 
 <!-- test: conformance-argument-in-parentheses-is-a-tuple-type -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple return types are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Float = float(f64.min to f64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -1582,9 +1538,7 @@ type Holder implements One with ((Integer, Float))
 	let v as Integer
 	let f as Float
 
-	// TODO: tuple return types are not supported in minimaxon
 	function get() returns (Integer, Float)
-		// TODO: tuple values and types are not supported in minimaxon
 		return (v, f)
 	end 'get'
 
@@ -1594,10 +1548,8 @@ type Holder implements One with ((Integer, Float))
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let h = Holder.create(42, f: 1.5)
 	let t = h.get()
-	// TODO: tuple element access is not supported in minimaxon
 	return t.0
 end 'main'
 ```
@@ -1842,8 +1794,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-takes-an-int-actual -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An associated type bound to `float`, given an INTEGER actual. The requirement spells `Element`, so the
 parser's own float widening — which keys on a formal SPELLED `float` — cannot see that this argument
@@ -1863,7 +1813,6 @@ type Runner implements Taker with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -1890,7 +1839,6 @@ function main() returns ExitCode
 	return RunnerBox.create(Runner.create(20)).run() as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -1898,8 +1846,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-returned-through-an-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 An associated type bound to `float` in a RETURN position, implemented by a method declared `returns Real`:
 the requirement is an unnamed slot and a named value decays into it, exactly as `take(e Real)` implements
@@ -1907,7 +1853,6 @@ the requirement is an unnamed slot and a named value decays into it, exactly as 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(-1000.0 to 1000.0)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -1919,7 +1864,6 @@ type Runner implements Giver with float
 	let base as Integer
 
 	function give() returns Real
-		// TODO: float literals are not supported in minimaxon
 		return 1.5
 	end 'give'
 
@@ -1942,8 +1886,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.assoc-bound-to-float-takes-a-float-actual -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the two refusals below, and for the widening above: an associated type
 bound to `float` in a PARAMETER position, given a float actual, is a correct program and must keep
@@ -1961,7 +1903,6 @@ type Runner implements Taker with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -1974,7 +1915,6 @@ type Box uses T where T implements Taker
 	let item as T
 
 	function run() returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return self.item.take(20.0)
 	end 'run'
 
@@ -1989,7 +1929,6 @@ function main() returns ExitCode
 	return RunnerBox.create(Runner.create(20)).run() as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -2198,8 +2137,6 @@ end 'main'
 ```
 
 <!-- test: associated-types.conformers-disagree-but-nothing-dispatches -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ⭐⭐ **THE DISPATCH GATE, AND WITHOUT IT E3119 REFUSES A CORRECT PROGRAM.** Two conformers bind
 `Element` to `float` and to `Integer` — the disagreement the case two above refuses — but every call
@@ -2220,7 +2157,6 @@ type FloatRunner implements Taker with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -2242,11 +2178,9 @@ type IntRunner implements Taker with Integer
 end 'IntRunner'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return (FloatRunner.create(0).take(20.0) + IntRunner.create(11).take(20)) as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -2307,8 +2241,6 @@ error E3119: specs/associated-types/error.dispatched-associated-type-bound-to-a-
 ```
 
 <!-- test: error.dispatched-associated-type-bound-to-a-float-beside-an-int -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **E3119's FLOAT-BESIDE-INT FAILURE, IN THE PLAIN SHAPE THE ENTRY DESCRIBES.** The `extends` projection case
@@ -2341,7 +2273,6 @@ type FloatRunner implements Taker with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -2358,7 +2289,6 @@ function main() returns ExitCode
 	return (useIt(IntRunner.create(11)) + useIt(FloatRunner.create(0))) as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```maxoncstderr
@@ -2514,8 +2444,6 @@ end 'main'
 ```
 
 <!-- test: error.extends-projected-associated-type-disagreement -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2563,7 +2491,6 @@ type B implements Derived with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -2584,7 +2511,6 @@ function main() returns ExitCode
 	return (useIt(A.create(10)) + useIt(B.create(9))) as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```maxoncstderr
@@ -2592,8 +2518,6 @@ error E3119: specs/associated-types/error.extends-projected-associated-type-disa
 ```
 
 <!-- test: associated-types.extends-projected-associated-type-single-conformer -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the case above. ONE conformer, binding `Derived`'s `Element` to `float`,
@@ -2621,7 +2545,6 @@ type FloatRunner implements Derived with float
 	let base as Integer
 
 	function take(e Real) returns Integer
-		// TODO: float literals are not supported in minimaxon
 		return self.base + (20 if e > 19.0 else 0)
 	end 'take'
 
@@ -2635,7 +2558,6 @@ type FloatRunner implements Derived with float
 end 'FloatRunner'
 
 function useIt(t Derived) returns Integer
-	// TODO: float literals are not supported in minimaxon
 	return t.take(20.0) + t.extra()
 end 'useIt'
 
@@ -2643,7 +2565,6 @@ function main() returns ExitCode
 	return useIt(FloatRunner.create(0)) as ExitCode
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -2869,14 +2790,11 @@ end 'smallOk'
 ```
 
 <!-- test: error.unneeded.a-constraint-bound-float-result-cast-to-its-own-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A value the constraint's binding already types as `Percent` gains nothing from a cast to `Percent`.
 ```maxon
 // --- file: a.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Percent = float(0.0 to 100.0)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -2888,7 +2806,6 @@ type Gauge implements Cursor with Percent
 	var v as Percent
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{v: 90.0}
 	end 'create'
 
@@ -2921,13 +2838,10 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: z/z.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Percent = float(0.0 to 1.0)
 
 export function smallOk() returns bool
-	// TODO: float literals are not supported in minimaxon
 	let low = 0.5 as Percent
-	// TODO: float literals are not supported in minimaxon
 	return low < 1.0
 end 'smallOk'
 ```
@@ -4616,7 +4530,6 @@ and `Parent with Real`. The clause entry is consulted before the declaring entry
 `Parent`'s slot compare different requirements, and one `current()` cannot satisfy both.
 
 <!-- test: error.extends.a-clause-binding-one-inherited-name-two-ways-is-refused -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -4634,7 +4547,6 @@ end 'Child'
 
 typealias Whole = int(0 to 100)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 type Walker implements Child with Whole, Parent with Real
@@ -5055,7 +4967,6 @@ end 'main'
 ```
 
 <!-- test: a-float-binding-beside-a-string-binding-is-built-from-its-own-conformer -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A conformer binding the associated type to a float is widened to the unclaimed interface beside a conformer binding it to `String`, and its table is built against its own float binding.
 ```maxon
@@ -5071,7 +4982,6 @@ type A implements Sink with FullRangeFloat
 	var base as FullRangeFloat
 
 	static function create() returns Self
-		// TODO: float literals are not supported in minimaxon
 		return Self{base: 0.5}
 	end 'create'
 
@@ -5123,7 +5033,6 @@ end 'main'
 ```
 
 <!-- test: an-unclaimed-dispatch-of-another-requirement-does-not-read-a-float-bound-associated-result -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 A conformer binds the associated type to a float, and the only dispatch through the unclaimed `Giver` is `tag()`, which has no associated type in it. The table the widening builds still holds `give`, whose result is the float the conformer bound.
 ```maxon
@@ -5143,7 +5052,6 @@ type Runner implements Giver with FullRangeFloat
 	end 'create'
 
 	function give() returns FullRangeFloat
-		// TODO: float literals are not supported in minimaxon
 		return 1.5
 	end 'give'
 
@@ -5169,7 +5077,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unclaimed-dispatch-of-a-float-bound-associated-result-is-refused -->
-<!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 Dispatching an associated-type result through a receiver that does not say which binding it holds types the result before any conformer is known, so it cannot be the float a conformer bound.
@@ -5190,7 +5097,6 @@ type Runner implements Giver with FullRangeFloat
 	end 'create'
 
 	function give() returns FullRangeFloat
-		// TODO: float literals are not supported in minimaxon
 		return 1.5
 	end 'give'
 
@@ -5217,7 +5123,7 @@ error E3120: <fragment>:9:6: 'Runner' binds 'Giver's associated type 'Element' t
 ```
 
 <!-- test: a-conformance-declared-by-an-extension-binds-its-own-associated-type -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 `A` declares `implements Named` on the type and its `Sink` conformance on an `extension`, so its `Sink` binding is in a later declaration than its first.
 ```maxon
@@ -5244,7 +5150,7 @@ type A implements Named
 	end 'code'
 end 'A'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extension headers with type arguments are not supported in minimaxon
 extension A implements Sink with Integer
 	function put(x Integer) returns Integer
 		return x + self.base
@@ -5288,7 +5194,7 @@ end 'main'
 ```
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-receivers-claim -->
-<!-- skip: extension blocks are not supported in minimaxon -->
+<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same split declaration, widened into a receiver claiming the other binding.
@@ -5316,7 +5222,7 @@ type A implements Named
 	end 'code'
 end 'A'
 
-// TODO: extension blocks are not supported in minimaxon
+// TODO: extension headers with type arguments are not supported in minimaxon
 extension A implements Sink with Integer
 	function put(x Integer) returns Integer
 		return x + self.base
@@ -5358,8 +5264,6 @@ error E3127: <fragment>:54:10: cannot widen 'A' into 's', which is declared at t
 
 
 <!-- test: error.two-files-binding-one-associated-type-to-their-own-same-named-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 E3119 compares two conformers' bindings as the declarations their own files mean, not as the names they
@@ -5401,7 +5305,6 @@ export function makeInt() returns Taker
 end 'makeInt'
 
 // --- file: beta/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Num = float(f64.min to f64.max)
 
 typealias Count = int(0 to 100)
@@ -5414,7 +5317,6 @@ type FloatRunner implements Taker with Num
 	end 'create'
 
 	function take(e Num) returns ExitCode
-		// TODO: float literals are not supported in minimaxon
 		return (self.base + (20 if e > 19.0 else 0)) as ExitCode
 	end 'take'
 end 'FloatRunner'

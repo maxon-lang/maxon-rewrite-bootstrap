@@ -212,8 +212,6 @@ end 'main'
 
 
 <!-- test: error.crossfile-alias-underlying-conflict -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 Two files of one directory each EXPORT `Measure`. A directory holds one declaration of a name, so the
 second is a duplicate: E3061 at `b.maxon`'s
 declaration — the newcomer — and never at `a.maxon`, which declared it first.
@@ -226,7 +224,6 @@ export function useInt(x Measure) returns Measure
 end 'useInt'
 
 // --- file: b.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Measure = float(0.0 to 1.0)
 
 export function useFloat(x Measure) returns Measure
@@ -244,8 +241,6 @@ error E3061: <fragment>:10:18: Duplicate typealias 'Measure'
 
 
 <!-- test: error.crossfile-alias-conflict-is-reported-in-name-byte-order -->
-<!-- skip: float typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 Which declaration is the newcomer is decided by the files' names compared byte by byte, on every host —
 never by the order the filesystem lists them. `B.maxon` precedes `a.maxon` (`B` is 0x42, `a` 0x61), so
 E3061 lands on `a.maxon`'s declaration, although NTFS, which folds case, lists `a.maxon` first and ext4
@@ -259,7 +254,6 @@ export function useInt(x Measure) returns Measure
 end 'useInt'
 
 // --- file: B.maxon
-// TODO: float typealiases are not supported in minimaxon
 export typealias Measure = float(0.0 to 1.0)
 
 export function useFloat(x Measure) returns Measure
@@ -1199,9 +1193,6 @@ end 'main'
 ```
 
 <!-- test: tuple-alias-over-a-contested-generic-alias -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⛔⛔ **A USER-DECLARED TUPLE `typealias` HAS AN HONEST DECLARING FILE, AND ITS ELEMENTS RESOLVE THERE.** A
 tuple's canonical name is keyed on its ELEMENT types. The STRANGER convention (`CompilerOwnedDeclFilePath`)
 is right for a compiler-SYNTHESIZED tuple, which is declared in no file, and wrong for one the source wrote a
@@ -1218,7 +1209,6 @@ export typealias Num = int(0 to 125)
 
 typealias Bag = Array with Num
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, Num)
 
 public type Keeper
@@ -1227,12 +1217,10 @@ public type Keeper
 	export static function make() returns Self
 		let b = Bag.create(0)
 		b.push(7)
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: (b, 1)}
 	end 'make'
 
 	function first() returns Num
-		// TODO: tuple element access is not supported in minimaxon
 		return try self.p.0.get(0) otherwise 0
 	end 'first'
 end 'Keeper'
@@ -1331,9 +1319,7 @@ end 'main'
 ```
 
 <!-- test: tuple-alias-over-a-contested-generic-alias-either-order -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **THE RULE ABOVE IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM, AND THIS IS THE CASE
 THAT SAYS SO.** The tuple rule keys a SWEEP-minted spelling per (spelling, file), and the
 first file to mint one keeps the unsuffixed key — so *which* file that is comes off the fold order,
@@ -1353,7 +1339,6 @@ early once `allFilesFolded` and every name crossing out of the index is canonica
 // --- file: abother/abother.maxon
 typealias Bag = Array with String
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, int)
 
 public type Holder
@@ -1362,12 +1347,10 @@ public type Holder
 	export static function make() returns Self
 		let b = Bag.create(0)
 		b.push("xy")
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{q: (b, 1)}
 	end 'make'
 
 	function first() returns String
-		// TODO: tuple element access is not supported in minimaxon
 		return try self.q.0.get(0) otherwise ""
 	end 'first'
 end 'Holder'
@@ -1387,7 +1370,6 @@ typealias Num = int(0 to 125)
 
 typealias Bag = Array with Num
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Bag, int)
 
 public type Keeper
@@ -1396,12 +1378,10 @@ public type Keeper
 	export static function make() returns Self
 		let b = Bag.create(0)
 		b.push(7)
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: (b, 1)}
 	end 'make'
 
 	function first() returns Num
-		// TODO: tuple element access is not supported in minimaxon
 		return try self.p.0.get(0) otherwise 0
 	end 'first'
 end 'Keeper'
@@ -1416,9 +1396,7 @@ end 'useA'
 
 <!-- test: two-directories-tuple-alias-of-one-name-resolves-in-its-own-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⛔⛔ **A TUPLE `typealias` MUST MEAN WHAT ITS OWN FILE MEANS BY IT, AND THE REGISTRY THAT ANSWERS FOR IT
 HOLDS ONE ROW PER BARE NAME.** `ProgramSignatures.tupleAliases` is a
 `Map with (ByteArray, DeclaredTupleAlias)` keyed on the BARE NAME, and `writeTupleAlias` `upsert`s into
@@ -1446,15 +1424,12 @@ end 'main'
 
 // --- file: a/m-alpha.maxon
 function relayA() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (9, 2)
 end 'relayA'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 
 // --- file: z/z-gamma.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 export function useGamma()
@@ -1463,7 +1438,6 @@ export function useGamma()
 end 'useGamma'
 
 function makeGamma() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeGamma'
 ```
@@ -1477,9 +1451,7 @@ alpha 7
 
 <!-- test: two-directories-tuple-alias-of-one-name-crosses-as-a-parameter -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SAME ONE-ROW REGISTRY ANSWERS A PARAMETER TYPE, AND A READER THAT DECLARES NO `Pair` AT ALL
 HAS TO GET THE CALLEE'S.** `parseTypeReference` is the second door onto `tupleAliasTargetInAnyFile`,
 and it asks the same fileless question, so `relayA`'s own parameter `p Pair` is typed by whichever
@@ -1494,21 +1466,17 @@ The literal `(4, 1)` is what discriminates: `p.0 - p.1` is arithmetic only if `P
 // --- file: a/a-main.maxon
 function main() returns ExitCode
 	useGamma()
-	// TODO: tuple values and types are not supported in minimaxon
 	return relayA((4, 1))
 end 'main'
 
 // --- file: a/m-alpha.maxon
 function relayA(p Pair) returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
 	return (p.0 - p.1) as ExitCode
 end 'relayA'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 
 // --- file: z/z-gamma.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 export function useGamma()
@@ -1517,7 +1485,6 @@ export function useGamma()
 end 'useGamma'
 
 function makeGamma() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeGamma'
 ```
@@ -1530,9 +1497,7 @@ gamma x y
 
 <!-- test: two-directories-tuple-alias-of-one-name-resolves-in-its-own-file-either-order -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **An UNMARKED TUPLE ALIAS IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM, AND THIS
 IS THE CASE THAT SAYS SO.** The fold walks `Directory.list` order — NTFS index order on Windows, APFS
 hash order on macOS — so a one-row last-wins registry hands a different file
@@ -1555,7 +1520,6 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: m/m-gamma.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 export function useGamma()
@@ -1564,17 +1528,14 @@ export function useGamma()
 end 'useGamma'
 
 function makeGamma() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeGamma'
 
 // --- file: z/z-alpha.maxon
 function relayA() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (9, 2)
 end 'relayA'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 ```
 ```exitcode
@@ -1586,9 +1547,6 @@ alpha 7
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-owns-heap-in-every-declared-position -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐⭐ **ADMITTING THE PROGRAM ABOVE PUTS A CONTESTED TUPLE ALIAS IN FRONT OF THE MEMORY
 CLASSIFIERS FOR THE FIRST TIME, AND THIS IS THE CASE THAT SAYS WHAT THEY MUST ANSWER.** The three cases
 above resolve a contested `Pair` in a RETURN type and a PARAMETER — positions where a wrong answer is a
@@ -1655,7 +1613,6 @@ type HolderA
 	export var p as Pair
 
 	static function create() returns HolderA
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: (9, 2)}
 	end 'create'
 end 'HolderA'
@@ -1668,25 +1625,20 @@ end 'SlotA'
 export function alphaSide()
 	let h = HolderA.create()
 	let xs = PairsA.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	xs.push((4, 1))
 	let e = try xs.get(0) otherwise return
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxA.create((6, 3))
-	// TODO: tuple values and types are not supported in minimaxon
 	let s = SlotA.some((8, 5))
 	let ys = xs.clone()
 	let e2 = try ys.get(0) otherwise return
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives 0 as Count
-		// TODO: tuple element access is not supported in minimaxon
 		some(v) gives v.0 - v.1
 	end 'm'
 	print("alpha {h.p.0 - h.p.1} {e.0 - e.1} {b.item.0 - b.item.1} {sv} {e2.0 - e2.1} {h2.p.0 - h2.p.1}\n")
 end 'alphaSide'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Count, Count)
 
 typealias PairsA = Array with Pair
@@ -1698,7 +1650,6 @@ type HolderG
 	export var p as Pair
 
 	static function create() returns HolderG
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: ("a", "b")}
 	end 'create'
 end 'HolderG'
@@ -1711,25 +1662,20 @@ end 'SlotG'
 export function gammaSide()
 	let h = HolderG.create()
 	let xs = PairsG.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	xs.push(("c", "d"))
 	let e = try xs.get(0) otherwise return
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxG.create(("e", "f"))
-	// TODO: tuple values and types are not supported in minimaxon
 	let s = SlotG.some(("g", "h"))
 	let ys = xs.clone()
 	let e2 = try ys.get(0) otherwise return
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives ""
-		// TODO: tuple element access is not supported in minimaxon
 		some(v) gives v.0
 	end 'm'
 	print("gamma {h.p.0}{h.p.1} {e.0}{e.1} {b.item.0}{b.item.1} {sv} {e2.0}{e2.1} {h2.p.0}{h2.p.1}\n")
 end 'gammaSide'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 typealias PairsG = Array with Pair
@@ -1745,9 +1691,6 @@ alpha 7 3 3 3 3 7
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-owns-heap-in-every-declared-position-either-order -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐ **THE SAME PROGRAM WITH THE TWO ALIAS-DECLARING FILES' SORT PREFIXES SWAPPED**, so the file whose
 `Pair` owns NO heap is the one sorting last and holding the bare row. The pair exists for the reason every
 other either-order pair in this file does: the fold walks `Directory.list` order, so half a pair measures
@@ -1777,7 +1720,6 @@ type HolderG
 	export var p as Pair
 
 	static function create() returns HolderG
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: ("a", "b")}
 	end 'create'
 end 'HolderG'
@@ -1790,25 +1732,20 @@ end 'SlotG'
 export function gammaSide()
 	let h = HolderG.create()
 	let xs = PairsG.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	xs.push(("c", "d"))
 	let e = try xs.get(0) otherwise return
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxG.create(("e", "f"))
-	// TODO: tuple values and types are not supported in minimaxon
 	let s = SlotG.some(("g", "h"))
 	let ys = xs.clone()
 	let e2 = try ys.get(0) otherwise return
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives ""
-		// TODO: tuple element access is not supported in minimaxon
 		some(v) gives v.0
 	end 'm'
 	print("gamma {h.p.0}{h.p.1} {e.0}{e.1} {b.item.0}{b.item.1} {sv} {e2.0}{e2.1} {h2.p.0}{h2.p.1}\n")
 end 'gammaSide'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 typealias PairsG = Array with Pair
@@ -1820,7 +1757,6 @@ type HolderA
 	export var p as Pair
 
 	static function create() returns HolderA
-		// TODO: tuple values and types are not supported in minimaxon
 		return Self{p: (9, 2)}
 	end 'create'
 end 'HolderA'
@@ -1833,25 +1769,20 @@ end 'SlotA'
 export function alphaSide()
 	let h = HolderA.create()
 	let xs = PairsA.create(0)
-	// TODO: tuple values and types are not supported in minimaxon
 	xs.push((4, 1))
 	let e = try xs.get(0) otherwise return
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxA.create((6, 3))
-	// TODO: tuple values and types are not supported in minimaxon
 	let s = SlotA.some((8, 5))
 	let ys = xs.clone()
 	let e2 = try ys.get(0) otherwise return
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives 0 as Count
-		// TODO: tuple element access is not supported in minimaxon
 		some(v) gives v.0 - v.1
 	end 'm'
 	print("alpha {h.p.0 - h.p.1} {e.0 - e.1} {b.item.0 - b.item.1} {sv} {e2.0 - e2.1} {h2.p.0 - h2.p.1}\n")
 end 'alphaSide'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Count, Count)
 
 typealias PairsA = Array with Pair
@@ -1868,9 +1799,6 @@ alpha 7 3 3 3 3 7
 
 <!-- test: two-directories-tuple-alias-of-one-name-as-a-generic-type-argument -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐⭐ **A TUPLE ALIAS NAMED AS A GENERIC TYPE ARGUMENT IS INTERNED INTO THE INSTANCE, AND AN INSTANCE HAS NO
 READER TO ASK.** Every other position a contested `Pair` can hold is resolved at a door that takes the
 reading file — `declaredSlotType` for a field, an element and a payload, `parseTypeReference` for a
@@ -1920,27 +1848,22 @@ end 'Box'
 
 // --- file: malpha/m-alpha.maxon
 export function alphaSide() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxA.create((6, 3, 1))
-	// TODO: tuple element access is not supported in minimaxon
 	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
 end 'alphaSide'
 
 typealias BoxA = Box with Pair
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, Integer, Integer)
 
 // --- file: zgamma/z-gamma.maxon
 export function gammaSide()
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxG.create(("e", "f"))
 	print("{b.item.0}{b.item.1} {b.size()}\n")
 end 'gammaSide'
 
 typealias BoxG = Box with Pair
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 ```
 ```exitcode
@@ -1952,9 +1875,6 @@ ef 16
 
 <!-- test: two-directories-tuple-alias-of-one-name-as-a-generic-type-argument-either-order -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ⭐ **THE SAME PROGRAM WITH THE TWO ALIAS-DECLARING FILES' SORT PREFIXES SWAPPED.** Each file's interned
 argument is scoped to that file in both orders, so the answer does not move. A scoping that served only
 whichever file the fold reached last would pass one order and fail the other, and nothing else in the
@@ -1985,27 +1905,22 @@ end 'Box'
 
 // --- file: mgamma/m-gamma.maxon
 export function gammaSide()
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxG.create(("e", "f"))
 	print("{b.item.0}{b.item.1} {b.size()}\n")
 end 'gammaSide'
 
 typealias BoxG = Box with Pair
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 // --- file: zalpha/z-alpha.maxon
 export function alphaSide() returns ExitCode
-	// TODO: tuple values and types are not supported in minimaxon
 	let b = BoxA.create((6, 3, 1))
-	// TODO: tuple element access is not supported in minimaxon
 	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
 end 'alphaSide'
 
 typealias BoxA = Box with Pair
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Integer, Integer, Integer)
 ```
 ```exitcode
@@ -2016,9 +1931,7 @@ ef 16
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-beside-a-nominal-declaration -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **THE CROSS-KIND CONTEST RANKS A SET OF CLAIMS, AND THE TUPLE FORM CONTRIBUTES ONE CLAIM PER DECLARING
 FILE.** `ProgramSignatures.typeNameClaimsOf` assembles every declaration a type name holds so
 `contestedTypeNameKindFor` can answer what a given file means by it. Two files may legally declare one tuple
@@ -2044,16 +1957,13 @@ end 'main'
 // --- file: malpha/m-alpha.maxon
 export function alphaSide() returns ExitCode
 	let p = makeA()
-	// TODO: tuple element access is not supported in minimaxon
 	return (p.0 - p.1) as ExitCode
 end 'alphaSide'
 
 function makeA() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (9, 2)
 end 'makeA'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 
 // --- file: nnominal/n-nominal.maxon
@@ -2078,11 +1988,9 @@ export function useGamma()
 end 'useGamma'
 
 function makeG() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeG'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 ```
 ```exitcode
@@ -2093,9 +2001,7 @@ xy
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-beside-a-nominal-declaration-either-order -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SAME PROGRAM WITH THE TWO ALIAS-DECLARING FILES' SORT PREFIXES SWAPPED.** Each file keeps its own
 claim whichever the fold reaches first, so the program's meaning does not depend on the directory walk.
 
@@ -2113,11 +2019,9 @@ export function useGamma()
 end 'useGamma'
 
 function makeG() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeG'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 
 // --- file: nnominal/n-nominal.maxon
@@ -2138,16 +2042,13 @@ end 'nominalQ'
 // --- file: zalpha/z-alpha.maxon
 export function alphaSide() returns ExitCode
 	let p = makeA()
-	// TODO: tuple element access is not supported in minimaxon
 	return (p.0 - p.1) as ExitCode
 end 'alphaSide'
 
 function makeA() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (9, 2)
 end 'makeA'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)
 ```
 ```exitcode
@@ -2159,16 +2060,13 @@ xy
 
 
 <!-- test: an-exported-signature-through-a-contested-tuple-alias-resolves-the-readers-alias -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 The same three declarations, with `malpha/`'s `Pair` exported and crossing into the root through `makeA`'s
 signature. The root declares no `Pair` and sees only `malpha/`'s, so `sum` takes the `(int, int)` that
 `makeA` returns, and `zgamma/`'s `(String, String)` stays its own (9 + 2).
 ```maxon
 // --- file: a-main.maxon
 function sum(p Pair) returns ExitCode
-	// TODO: tuple element access is not supported in minimaxon
 	return (p.0 + p.1) as ExitCode
 end 'sum'
 
@@ -2178,11 +2076,9 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: malpha/m-alpha.maxon
-// TODO: tuple typealiases are not supported in minimaxon
 export typealias Pair = (int, int)
 
 export function makeA() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return (9, 2)
 end 'makeA'
 
@@ -2208,11 +2104,9 @@ export function useGamma()
 end 'useGamma'
 
 function makeG() returns Pair
-	// TODO: tuple values and types are not supported in minimaxon
 	return ("x", "y")
 end 'makeG'
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, String)
 ```
 ```exitcode
@@ -2273,15 +2167,11 @@ end 'main'
 ```
 
 <!-- test: a-library-files-private-alias-does-not-claim-the-name -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias ProbeWord = float(0.0 to 1.0)
 
 function half(x ProbeWord) returns ProbeWord
-	// TODO: float literals are not supported in minimaxon
-	return x / 2.0
+	return try (x / 2.0) as ProbeWord otherwise panic("out of range")
 end 'half'
 
 function main() returns ExitCode
@@ -2297,8 +2187,6 @@ end 'main'
 ```
 
 <!-- test: two-files-private-aliases-of-one-name-over-different-primitives -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
@@ -2309,13 +2197,10 @@ export function fromA() returns ExitCode
 end 'fromA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Measure = float(0.0 to 1.0)
 
 export function fromB() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let m = 0.5 as Measure
-	// TODO: float literals are not supported in minimaxon
 	return trunc(m * 2.0)
 end 'fromB'
 
@@ -2329,8 +2214,6 @@ end 'main'
 ```
 
 <!-- test: private-aliases-over-different-primitives-as-generic-arguments -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
@@ -2349,23 +2232,18 @@ export function sumA() returns ExitCode
 end 'sumA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Measure = float(0.0 to 1.0)
 
 typealias FloatMeasures = Array with Measure
 
 export function sumB() returns ExitCode
 	let xs = FloatMeasures.create(0)
-	// TODO: float literals are not supported in minimaxon
 	xs.push(0.25 as Measure)
-	// TODO: float literals are not supported in minimaxon
 	xs.push(0.25 as Measure)
-	// TODO: float literals are not supported in minimaxon
 	var total = 0.0 as Measure
 	for x in xs 'each'
-		total = total + x
+		total = (total + x) as Measure
 	end 'each'
-	// TODO: float literals are not supported in minimaxon
 	return trunc(total * 2.0)
 end 'sumB'
 
@@ -2379,8 +2257,6 @@ end 'main'
 ```
 
 <!-- test: private-aliases-over-different-primitives-as-struct-fields -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
@@ -2399,7 +2275,6 @@ export function fromA() returns ExitCode
 end 'fromA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Measure = float(0.0 to 1.0)
 
 type FloatBox
@@ -2411,9 +2286,7 @@ type FloatBox
 end 'FloatBox'
 
 export function fromB() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let b = FloatBox.of(0.5)
-	// TODO: float literals are not supported in minimaxon
 	return trunc(b.m * 2.0)
 end 'fromB'
 
@@ -2427,8 +2300,6 @@ end 'main'
 ```
 
 <!-- test: private-aliases-over-different-primitives-as-interface-parameters -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
@@ -2468,7 +2339,6 @@ export function fromA() returns ExitCode
 end 'fromA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Measure = float(0.0 to 1.0)
 
 interface FloatScaled
@@ -2495,7 +2365,6 @@ type FloatRunner uses T where T implements FloatScaled
 	end 'of'
 
 	function run() returns Measure
-		// TODO: float literals are not supported in minimaxon
 		return self.item.scale(0.5)
 	end 'run'
 end 'FloatRunner'
@@ -2503,7 +2372,6 @@ end 'FloatRunner'
 typealias FloatCellRunner = FloatRunner with FloatCell
 
 export function fromB() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(FloatCellRunner.of(FloatCell.of(1.0)).run() * 2.0)
 end 'fromB'
 
@@ -2517,8 +2385,6 @@ end 'main'
 ```
 
 <!-- test: private-aliases-over-different-primitives-as-associated-type-bindings -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 // --- file: a/a.maxon
@@ -2552,7 +2418,6 @@ export function fromA() returns ExitCode
 end 'fromA'
 
 // --- file: b/b.maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Measure = float(0.0 to 1.0)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -2577,7 +2442,6 @@ function takeFloat(s FloatCell) returns Measure
 end 'takeFloat'
 
 export function fromB() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	return trunc(takeFloat(FloatCell.of(0.5)) * 2.0)
 end 'fromB'
 
@@ -2764,7 +2628,6 @@ error E3008: <fragment>:12:19: typealias 'Idx' is not exported
 ```
 
 <!-- test: an-extension-body-names-its-types-nested-function-alias-beside-a-hidden-one -->
-<!-- skip: extension blocks are not supported in minimaxon -->
 An extension body names its type's nested function alias bare, and resolves it to that member even though
 another file keeps an unmarked alias of the same name.
 ```maxon
@@ -2787,7 +2650,6 @@ export type Holder
 end 'Holder'
 
 // --- file: main.maxon
-// TODO: extension blocks are not supported in minimaxon
 extension Holder
 	function apply(f Step) returns ExitCode
 		return f(self.base)

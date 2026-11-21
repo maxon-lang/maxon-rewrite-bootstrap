@@ -794,9 +794,6 @@ error E3210: <fragment>:33:15: function value for 'Step' may wait (it calls 'ask
 <!-- test: error.self-referential-tuple-alias-in-a-file-that-spells-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: tuple element access is not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 The termination case for a tuple alias that names itself, in a file the region checker has always tracked: the
 walk over the alias's items ends and the program is refused with the same sentence as without `async`.
@@ -804,11 +801,9 @@ walk over the alias's items ends and the program is refused with the same senten
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias P = (P, Int)
 
 function make() returns P
-	// TODO: tuple values and types are not supported in minimaxon
 	return ((1, 2), 3)
 end 'make'
 
@@ -826,7 +821,6 @@ end 'later'
 
 function main() returns ExitCode
 	let t = make()
-	// TODO: tuple element access is not supported in minimaxon
 	return (t.1 + later()) as ExitCode
 end 'main'
 ```

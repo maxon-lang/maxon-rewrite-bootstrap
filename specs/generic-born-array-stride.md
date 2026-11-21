@@ -517,8 +517,6 @@ nibble grow -4 count 70 sum 348
 ```
 
 <!-- test: a-map-over-a-narrow-key-stores-its-keys-at-the-keys-width -->
-<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Map` builds its key column inside a shared generic body, so the column's stride is the key's: one byte for a `Byte` key, two for a 16-bit key. Insertion, replacement, removal and growth of the table all move keys at that width, and every key and value reads back.
 ```maxon
@@ -553,8 +551,6 @@ function main() returns ExitCode
 	end 'replaceBytes'
 	var byteKeys = 0 as Total
 	var byteValues = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (key, value) in bytes 'walkBytes'
 		byteKeys = byteKeys + (key as Total)
 		byteValues = byteValues + value
@@ -576,7 +572,6 @@ function main() returns ExitCode
 	end 'replaceHalves'
 	var halfKeys = 0 as Total
 	var halfValues = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, value) in halves 'walkHalves'
 		halfKeys = halfKeys + (key as Total)
 		halfValues = halfValues + value
@@ -606,7 +601,6 @@ crumb after remove count 2 has three false has one true
 ```
 
 <!-- test: a-generic-born-array-of-a-narrow-signed-enum-strides-its-slot-and-keeps-its-sign -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An enum with negative raw values is stored in a signed one-, two- or four-byte slot, and an array a shared generic body creates over it strides that slot like every other array. The array's record says the slot is signed, so every element the shared body reads comes out sign-extended: the value `-1` that goes in comes out as `-1` through `get`, `first`, `last`, `pop`, `remove`, `peek`, iteration, `clone` and the substituted type, and the signed arms of `insert`, `growFilled`, `refill` and `append` (of a constant literal and of a concrete array) store and read the same value at every width. The extension has to happen inside the shared body: a `Map` and a `Set` keyed by the enum find a key they inserted and iterate the keys they hold only because `Map.findSlot`'s `existing == key` compares the key it reads out of the column, sign-extended, with the key the caller passes; zero-extended, the stored `-1` would read `255` and no inserted key would be found.
 ```maxon
@@ -852,7 +846,6 @@ function main() returns ExitCode
 	print("map count {map.count()} minus {onMinus} removed {dropped} has plus {map.contains(Signal.plus)} has zero {map.contains(Signal.zero)}\n")
 	var keySum = 0 as Integer
 	var valueSum = 0 as Integer
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (key, value) in map 'entries'
 		keySum = keySum + (key.rawValue as Integer)
 		valueSum = valueSum + value

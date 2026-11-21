@@ -1313,9 +1313,6 @@ end 'main'
 ```
 
 <!-- test: substituted-return-of-a-built-record-is-already-owned -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### A substituted return the shared body BUILT is already owned, and the caller must not co-own it
 ⭐⭐ **THE EXTRA `+1` IS OWED FOR AN OPAQUE `T` AND FOR NOTHING ELSE.** A shared generic body cannot classify
 a bare `T` — an unconditional retain there would fault on a trivial instantiation's raw scalar — so
@@ -1344,7 +1341,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Holder uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (T, T)
 	export typealias Items = Array with T
 	var items as Items
@@ -1356,7 +1352,6 @@ type Holder uses T
 	function pair() returns Pair
 		let a = try items.get(0) otherwise panic("oob")
 		let b = try items.get(1) otherwise panic("oob")
-		// TODO: tuple values and types are not supported in minimaxon
 		return (a, b)
 	end 'pair'
 end 'Holder'
@@ -1368,7 +1363,6 @@ function main() returns ExitCode
 	a.push(11)
 	a.push(31)
 	let h = IntHolder.create(a)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (x, y) = h.pair()
 	return x + y
 end 'main'
@@ -1378,9 +1372,6 @@ end 'main'
 ```
 
 <!-- test: substituted-return-of-a-managed-element-tuple-is-already-owned -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 ### The same, through the INCREF arm rather than the record copy
 A tuple with a MANAGED element is not copyable — a shallow copy would free one `String` twice — so the
 promotion increfs it instead. That is the other arm of the same door, and it leaks the same way: `+1`
@@ -1391,7 +1382,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Labeller uses T
-	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Tagged = (String, T)
 	export typealias Items = Array with T
 	var items as Items
@@ -1402,7 +1392,6 @@ type Labeller uses T
 
 	function tagged() returns Tagged
 		let v = try items.get(0) otherwise panic("oob")
-		// TODO: tuple values and types are not supported in minimaxon
 		return ("ab{items.count()}", v)
 	end 'tagged'
 end 'Labeller'
@@ -1413,7 +1402,6 @@ function main() returns ExitCode
 	let a = IntArray.create(0)
 	a.push(39)
 	let l = IntLabeller.create(a)
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (name, v) = l.tagged()
 	return v + (name.count() as Integer)
 end 'main'

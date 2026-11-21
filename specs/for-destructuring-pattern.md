@@ -36,15 +36,12 @@ CONTROL for these. The `for` spelling of either, the
 ## Tests
 
 <!-- test: non-tuple-element -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 An `Array with int` yields an int per trip, and an int cannot be destructured. The refusal blames
 the pattern and the source's ELEMENT — no binding, no initializer, no right-hand side — and it is
 positioned on the `for` keyword, where the author decided how many names to write.
 ```maxon
 function main() returns ExitCode
 	let xs = [1, 2, 3]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (a, b) in xs 'each'
 		print("{a} {b}")
 	end 'each'
@@ -56,14 +53,11 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring `for` pattern of a 'in
 ```
 
 <!-- test: arity-mismatch -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 A map's element is a `(key, value)` pair, so three names have nothing to bind. Same construct
 noun, same anchor; only the count clause differs, and that half is shared with `let` verbatim.
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 20]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (a, b, c) in m 'each'
 		print("{a} {b} {c}")
 	end 'each'
@@ -75,8 +69,6 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring `for` pattern of 3 nam
 ```
 
 <!-- test: one-name-in-parens -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
-<!-- positions: moved -->
 A one-name pattern is refused before the source is even parsed, so `for (x) in …` is read as the
 malformed destructure it is rather than as a type error about whatever follows. **This sentence
 is deliberately the `let` one for BOTH constructs** — it is the arity rule of the pattern itself,
@@ -86,7 +78,6 @@ someone "fixes" for consistency.
 ```maxon
 function main() returns ExitCode
 	let xs = [1, 2, 3]
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (x) in xs 'each'
 		print("{x}")
 	end 'each'
@@ -98,7 +89,6 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring binding of 1 name(s) (
 ```
 
 <!-- test: discard-a-position -->
-<!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `_` discards a position in a `for` header exactly as it does in a `let`, and a discarded position
 binds no name at all — so it is exempt from the unused-binding check that `v` must satisfy. The
 sum proves the surviving position still reads the pair's VALUE and not its key.
@@ -106,7 +96,6 @@ sum proves the surviving position still reads the pair's VALUE and not its key.
 function main() returns ExitCode
 	let m = [1: 10, 2: 20]
 	var total = 0 as ExitCode
-	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	for (_, v) in m 'each'
 		total = total + v
 	end 'each'

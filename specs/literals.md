@@ -317,16 +317,12 @@ error E3005: specs/literals/error.unsigned-literal-into-a-signed-field-of-a-loca
 ```
 
 <!-- test: unsigned-literal-to-a-float-alias-stays-positive -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A literal above `i64.max` converts to a float as the unsigned value it is.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 function main() returns ExitCode
 	let r = 9223372036854775808 as Real
-	// TODO: float literals are not supported in minimaxon
 	if r > 0.0 'positive'
 		return 7
 	end 'positive'
@@ -338,11 +334,8 @@ end 'main'
 ```
 
 <!-- test: unsigned-patterns-to-a-float-alias-at-top-level-stay-positive -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 A top-level initializer converts `u64.max` and a hex pattern with the top bit set to a float as the unsigned values they are.
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
 let fromMax = u64.max as Real
@@ -350,7 +343,6 @@ let fromMax = u64.max as Real
 let fromHex = 0x8000000000000000 as Real
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	if fromMax > 0.0 and fromHex > 0.0 'positive'
 		return 7
 	end 'positive'
@@ -385,17 +377,12 @@ error E3005: specs/literals/error.a-top-level-cast-gives-the-global-its-alias.ma
 ```
 
 <!-- test: error.a-top-level-float-cast-gives-the-global-its-alias -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1.0)
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Weight = float(0.0 to 1.0)
 
-// TODO: float literals are not supported in minimaxon
 let half = 0.5 as Ratio
 
 function show(w Weight)
@@ -428,12 +415,10 @@ end 'main'
 
 
 <!-- test: float -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 3.14
-	return trunc(x)
+	return try trunc(x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -456,12 +441,10 @@ end 'main'
 ```
 
 <!-- test: scientific-notation-positive-exponent -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 1.5e2
-	return trunc(x) - 140
+	return try trunc(x) - 140 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -469,13 +452,10 @@ end 'main'
 ```
 
 <!-- test: scientific-notation-negative-exponent -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 5.0e-1
-	// TODO: float literals are not supported in minimaxon
-	return trunc(x * 20.0)
+	return try trunc(x * 20.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -483,12 +463,10 @@ end 'main'
 ```
 
 <!-- test: scientific-notation-explicit-positive -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 2.5e+02
-	return trunc(x) - 240
+	return try trunc(x) - 240 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -496,12 +474,10 @@ end 'main'
 ```
 
 <!-- test: scientific-notation-uppercase -->
-<!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 1.0E3
-	return trunc(x) - 990
+	return try trunc(x) - 990 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -555,11 +531,8 @@ error E2011: specs/literals/error.octal-overflow.maxon:3:10: Integer literal '0o
 ```
 
 <!-- test: error.float-overflow -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	let x = 1.0e999
 	return 0
 end 'main'

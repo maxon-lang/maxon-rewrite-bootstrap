@@ -121,8 +121,6 @@ error E3036: <fragment>:3:13: '__Builtins.sleep' takes exactly 1 argument, but 0
 ```
 
 <!-- test: builtins-sleep.float-arg-rejected -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 The duration is an integer count of milliseconds; a float is refused, by the SAME operand rule the
 bare `sleep(1.5)` is refused by (`async-sleep.float-arg-rejected`) — one emit, so the two spellings
@@ -132,7 +130,6 @@ operand check, while the bare `sleep` name is a stdlib call the E3104 target gat
 before the operand is ever typed.
 ```maxon
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
 	__Builtins.sleep(1.5)
 	return 0
 end 'main'

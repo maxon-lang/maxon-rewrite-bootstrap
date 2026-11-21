@@ -513,23 +513,18 @@ end 'main'
 ```
 
 <!-- test: a-float-leaf -->
-<!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: float typealiases are not supported in minimaxon -->
 An `f64` parameter and an `f64` return travel through the same column and the same continuation block
 arg — whose TYPE is the callee's return type, which is what puts the value in the right register file.
 
 ```maxon
 function scale(x Real) returns Real
-	// TODO: float literals are not supported in minimaxon
 	return x * 2.0
 end 'scale'
 
 function main() returns ExitCode
-	// TODO: float literals are not supported in minimaxon
-	return trunc(scale(21.0))
+	return try trunc(scale(21.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 
-// TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 ```
 ```exitcode
@@ -693,38 +688,30 @@ Stack trace:
 ```
 
 <!-- test: a-pair-leaf-with-two-returns-gives-the-same-pair-through-either-exit -->
-<!-- skip: tuple destructuring declarations are not supported in minimaxon -->
-<!-- skip: tuple typealiases are not supported in minimaxon -->
-<!-- skip: tuple values and types are not supported in minimaxon -->
 `pick` returns a pair on two exits. Its pair must come back the same through either one, whether `pick` is a call or is spliced.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: tuple typealiases are not supported in minimaxon
 typealias IntegerPair = (Integer, Integer)
 
 function pick(flag Integer, a Integer, b Integer) returns IntegerPair
 	if flag > 0 'first'
-		// TODO: tuple values and types are not supported in minimaxon
-		return (a + 1, b)
+		return (try a + 1 otherwise panic("out of range"), b)
 	end 'first'
-	// TODO: tuple values and types are not supported in minimaxon
-	return (b, a + 2)
+	return (b, try a + 2 otherwise panic("out of range"))
 end 'pick'
 
 function main() returns ExitCode
 	var lo = 1 as Integer
 	var hi = 2 as Integer
 	for step in 0 upto 100 'rounds'
-		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (x, y) = pick(step - 50, a: lo, b: hi)
 		lo = y
 		hi = x
 	end 'rounds'
-	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (p, q) = pick(lo, a: hi, b: lo)
-	return ((p + q) and 127) as ExitCode
+	return try ((try p + q otherwise panic("out of range")) and 127) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
