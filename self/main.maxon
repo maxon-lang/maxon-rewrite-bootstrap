@@ -561,6 +561,7 @@ function selfTest()
 	testCodegen()
 	testIr()
 	testBodies()
+	testInterp()
 	print("self: all checks passed\n")
 end 'selfTest'
 

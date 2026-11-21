@@ -1,0 +1,194 @@
+// borrowsStorage is whether an instruction gives a pointer or an address into storage that already exists, which a change
+// would leave dangling, and not a value that is new and only being built.
+function borrowsStorage(x ir.Instr) returns bool
+	if x.op == ir.Opcode.opLoadSlot or x.op == ir.Opcode.opLoadParam or x.op == ir.Opcode.opLoadField or x.op == ir.Opcode.opLoadAt or x.op == ir.Opcode.opSlotAddr or x.op == ir.Opcode.opFieldAddr 'storage'
+		return true
+	end 'storage'
+	if x.op == ir.Opcode.opCallRuntime 'runtime'
+		// The entries whose symbol ends in .elem.
+		let symbol = ir.callRuntimeSymbol(x)
+		return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtMapElem or symbol == ir.Rt.rtListElem or symbol == ir.Rt.rtPoolElem
+	end 'runtime'
+	return false
+end 'borrowsStorage'
+
+// buildInfo finds, for each instruction of a function, the calls that hold its result as an argument while the arguments after
+// it are evaluated.
+function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
+	var info = Info.new(f.instrs.count())
+	var tail = CountList.create(0)
+	for _ in 0 upto f.instrs.count() 'tails'
+		tail.push(0)
+	end 'tails'
+	// defOf is 1 more than the instruction that last defines a register, in the order of the blocks.
+	var defOf = CountList.create(0)
+	for _ in 0 upto f.regs.count() 'regs'
+		defOf.push(0)
+	end 'regs'
+	for k in 0 upto f.instrs.count() 'defs'
+		match consumes ir.instrDef(f.instrs[k]) 'def'
+			some(dst) then defOf[try dst as Count otherwise panic("interp: a register that does not exist")] = try k + 1 otherwise panic("interp: more instructions than memory")
+			none then _ = 0
+		end 'def'
+	end 'defs'
+	for bi in 0 upto f.blocks.count() 'blocks'
+		for k in f.blocks[bi].first upto f.blocks[bi].endAt 'instrs'
+			if f.instrs[k].op != ir.Opcode.opCall 'notCall'
+				continue 'instrs'
+			end 'notCall'
+			let argsStart = ir.callArgsStart(f.instrs[k])
+			let argsCount = ir.callArgsCount(f.instrs[k])
+			if argsCount < 2 'few'
+				continue 'instrs'
+			end 'few'
+			let target = vm.prog.fnByFunc.get(ir.callCallee(f, x: f.instrs[k]) as Count)
+			let callee = match consumes target 'callee'
+				some(found) gives found
+				none gives panic("interp: a call of a function that has no IR")
+			end 'callee'
+			let last = try argsCount - 1 otherwise panic("interp: a call with no arguments")
+			for i in 0 upto last 'args'
+				if ownsArgument(vm.prog.fnConvs[callee][i]) 'owned'
+					continue 'args'
+				end 'owned'
+				let arg = f.args[try argsStart + i otherwise panic("interp: an argument past the pool")]
+				let def = defOf[try arg as Count otherwise panic("interp: a register that does not exist")]
+				if def != 0 'defined'
+					let at = try def - 1 otherwise panic("interp: a definition before the first instruction")
+					if borrowsStorage(f.instrs[at]) 'borrows'
+						let entry = info.calls.count()
+						info.calls.push(k)
+						info.blocks.push(bi)
+						info.next.push(0)
+						let link = try entry + 1 otherwise panic("interp: more calls than memory")
+						if info.head[at] == 0 'first'
+							info.head[at] = link
+						end 'first' else 'later'
+							info.next[try tail[at] - 1 otherwise panic("interp: a chain without a tail")] = link
+						end 'later'
+						tail[at] = link
+					end 'borrows'
+				end 'defined'
+			end 'args'
+		end 'instrs'
+	end 'blocks'
+	vm.prog.infos[fi] = info
+	vm.prog.infoBuilt[fi] = true
+end 'buildInfo'
+
+// openWindow holds the borrow that the instruction at index k, which has just run in block def, gave to a call that is waiting for
+// the arguments after it.
+function openWindow(mutates vm Vm, f ir.IrFunction, k Count, call Count, callBlock Count, def Count)
+	let dst = f.instrs[k].dst
+	let at = vm.regAt(dst)
+	let word = vm.regR[at]
+	var cell = 0 as Count
+	var obj = 0 as Count
+	if word < 0 'address'
+		cell = try (0 - word) as Count otherwise panic("interp: an address past a word")
+	end 'address' else if word > 0 'object'
+		let o = word as Count
+		if vm.h.oImmortal[o] or vm.h.isShared(o) 'untracked'
+			return
+		end 'untracked'
+		obj = o
+	end 'object' else 'none'
+		return
+	end 'none'
+	let here = vm.site()
+	vm.windows.push(Window.make(call, block: callBlock, def: def, frame: vm.top, cell: cell, obj: obj, at: here))
+end 'openWindow'
+
+// skipWindows closes the windows of the calls that a failure, which goes to the block target, skips. A call that a path from
+// there reaches without computing its argument again, such as the one an 'otherwise' value is an argument of, still runs and
+// keeps its window; one that runs again only after its argument is computed again gets a new window then.
+function skipWindows(mutates vm Vm, f ir.IrFunction, target Count)
+	var i = 0 as Count
+	while i < vm.windows.count() 'each'
+		if vm.windows[i].frame == vm.top and not pathEnters(f, start: target, goal: vm.windows[i].block, avoid: vm.windows[i].def) 'skipped'
+			try vm.windows.remove(i) otherwise ignore
+		end 'skipped' else 'kept'
+			i = try i + 1 otherwise panic("interp: more windows than memory")
+		end 'kept'
+	end 'each'
+end 'skipWindows'
+
+// endWindows closes the windows of a frame that ends: a return or a failure out of it skips the calls still waiting.
+function endWindows(mutates vm Vm)
+	var i = 0 as Count
+	while i < vm.windows.count() 'each'
+		if vm.windows[i].frame == vm.top 'ended'
+			try vm.windows.remove(i) otherwise ignore
+		end 'ended' else 'kept'
+			i = try i + 1 otherwise panic("interp: more windows than memory")
+		end 'kept'
+	end 'each'
+end 'endWindows'
+
+// pathEnters is whether a path from the block start enters the block goal without entering the block avoid first.
+function pathEnters(f ir.IrFunction, start Count, goal Count, avoid Count) returns bool
+	if start == goal 'same'
+		return true
+	end 'same'
+	var reached = BoolList.create(0)
+	for _ in 0 upto f.blocks.count() 'blocks'
+		reached.push(false)
+	end 'blocks'
+	var work = CountList.create(0)
+	work.push(start)
+	reached[start] = true
+	while work.count() > 0 'walk'
+		let b = try work.pop() otherwise panic("interp: an empty work list")
+		var next = CountList.create(0)
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			match consumes ir.instrFail(f.instrs[k]) 'fail'
+				some(target) then next.push(try target as Count otherwise panic("interp: a failure block that does not exist"))
+				none then _ = 0
+			end 'fail'
+		end 'instrs'
+		var successors = ir.SuccessorVisitor.new()
+		ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+		for i in 0 upto successors.out.count() 'successors'
+			next.push(try successors.out[i] as Count otherwise panic("interp: a successor that does not exist"))
+		end 'successors'
+		for i in 0 upto next.count() 'visit'
+			let n = next[i]
+			if not reached[n] and n != avoid 'unseen'
+				reached[n] = true
+				work.push(n)
+			end 'unseen'
+		end 'visit'
+	end 'walk'
+	return reached[goal]
+end 'pathEnters'
+
+// closeWindows closes the windows of the call at index k of the frame that runs, which is about to run.
+function closeWindows(mutates vm Vm, call Count)
+	var n = vm.windows.count()
+	while n > 0 and vm.windows[try n - 1 otherwise panic("interp: no windows")].call == call and vm.windows[try n - 1 otherwise panic("interp: no windows")].frame == vm.top 'closing'
+		n = try n - 1 otherwise panic("interp: no windows")
+	end 'closing'
+	while vm.windows.count() > n 'drop'
+		try vm.windows.pop() otherwise ignore
+	end 'drop'
+end 'closeWindows'
+
+// changed is called wherever a place is written or a structure changes: no borrow that a call is waiting to use may reach it,
+// because the call would then use what moved.
+function changed(mutates vm Vm, c Count, o Count) throws Halt
+	if vm.tracking 'tracking'
+		try requireMutable(vm, c: c, o: o)
+	end 'tracking'
+	for i in 0 upto vm.windows.count() 'windows'
+		if vm.h.overlaps(vm.windows[i].cell, ao: vm.windows[i].obj, bc: c, bo: o) 'overlap'
+			let prefix = "{regionText(vm, c: vm.windows[i].cell, o: vm.windows[i].obj)} is borrowed by an argument (`"
+			let at = vm.windows[i].at
+			let tail = "` at {siteText(vm, site: at)}) that a call is still waiting to use, and this changes {regionText(vm, c: c, o: o)}"
+			let halt = violation(vm, kind: exclusivity, message: prefix)
+			let last = try vm.violations.count() - 1 otherwise panic("interp: a violation that was not recorded")
+			vm.violations[last].takenAt = at
+			vm.violations[last].tail = tail
+			throw halt
+		end 'overlap'
+	end 'windows'
+end 'changed'

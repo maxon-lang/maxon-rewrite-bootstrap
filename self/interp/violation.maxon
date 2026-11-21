@@ -1,0 +1,113 @@
+// A violation is a rule of the memory model that a program broke. A program that the checker accepted must break none,
+// so a violation means the checker, or lowering, has a hole.
+
+// Halt is what ends the run before main returns, all of which leave their cause in the Vm: a violation, a trap or the exit
+// of the program, and the step limit.
+enum Halt implements Error
+	violated
+	exited
+	timedOut
+end 'Halt'
+
+// The kinds of violation.
+// useAfterFree is a read, a write or a borrow of a value that was freed.
+let useAfterFree = 0 as Count
+
+// doubleFree is freeing a value that was freed already.
+let doubleFree = 1 as Count
+
+// leak is a value that is still live when the program ends, or that its owner lost without freeing.
+let leak = 2 as Count
+
+// movedUse is using a value through an owner that gave it away, or never had one.
+let movedUse = 3 as Count
+
+// exclusivity is overlapping access: two arguments that reach one place, or a change to a place that a borrow still holds.
+let exclusivity = 4 as Count
+
+// staleBorrow is using the address of an element after the structure that holds it changed.
+let staleBorrow = 5 as Count
+
+// ownership is a value with two owners, or one that is freed or returned while another owner holds it.
+let ownership = 6 as Count
+
+// race is a thread that touches a value another thread owns, or the value of a cown while no behaviour of its own holds
+// the cown: a data race.
+let race = 7 as Count
+
+// immutability is a change to a value that is part of a frozen value.
+let immutability = 8 as Count
+
+// count is a frozen value or a cown whose count of owners is wrong: freed while a place still holds it, or lowered past 0.
+let countWrong = 9 as Count
+
+function violationName(kind Count) returns String
+	return match kind 'k'
+		0 gives "use after free"
+		1 gives "double free"
+		2 gives "leak"
+		3 gives "use of a moved value"
+		4 gives "exclusivity"
+		5 gives "stale borrow"
+		6 gives "ownership"
+		7 gives "data race"
+		8 gives "change to a frozen value"
+		9 gives "reference count"
+		default gives panic("interp: {kind} is no kind of violation")
+	end 'k'
+end 'violationName'
+
+// Violation is a rule broken at one place in the IR.
+type Violation
+	var kind as Count
+	// fn is the function's index, 0 for a violation that is the end of the program's.
+	var fn as Count
+	var block as Count
+	// instr is the index of the instruction in its block, or -1 for the terminator.
+	var instr as ir.Word
+	var message as String
+	// takenAt is the site of the instruction whose text goes between message and tail, or 0 for none.
+	var takenAt as Count
+	var tail as String
+
+	static function make(kind Count, fn Count, block Count, instr ir.Word, consumes message String) returns Violation
+		return Violation{kind: kind, fn: fn, block: block, instr: instr, message: message, takenAt: 0, tail: ""}
+	end 'make'
+end 'Violation'
+
+typealias Violations = Array with Violation
+
+// goQuote is a string the way Go's strconv.Quote writes it, which the reports of a value by its text use.
+function goQuote(text String) returns String
+	var out = ByteArray.create(0)
+	out.push(34 as Byte)
+	let bytes = text.toByteArray()
+	for i in 0 upto bytes.count() 'each'
+		let c = bytes[i]
+		if c == 34 or c == 92 'escaped'
+			out.push(92 as Byte)
+			out.push(c)
+		end 'escaped' else if c == 10 'newline'
+			out.append("\\n".toByteArray())
+		end 'newline' else if c == 9 'tab'
+			out.append("\\t".toByteArray())
+		end 'tab' else if c == 13 'return'
+			out.append("\\r".toByteArray())
+		end 'return' else if c < 32 or c == 127 'control'
+			out.append("\\x".toByteArray())
+			out.push(hexDigit(c shr 4))
+			out.push(hexDigit(c and 15))
+		end 'control' else 'plain'
+			out.push(c)
+		end 'plain'
+	end 'each'
+	out.push(34 as Byte)
+	return String.from(out)
+end 'goQuote'
+
+function hexDigit(n Byte) returns Byte
+	if n < 10 'digit'
+		return try (48 + n) as Byte otherwise panic("interp: a digit past a byte")
+	end 'digit'
+	return try (87 + n) as Byte otherwise panic("interp: a digit past a byte")
+end 'hexDigit'

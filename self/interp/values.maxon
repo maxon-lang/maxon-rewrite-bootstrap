@@ -1,0 +1,441 @@
+// The interpreter keeps the heap the way the rules describe it: every value has one owner, which is the place that holds
+// it (a slot, a field, an element), and the places that only borrow a value hold the same handle without owning it. A
+// value in flight, such as the result of a call, has no owner yet. A place is a cell and a value is an object, each named
+// by a handle that is an index into the heap's columns, and 0 names none.
+
+typealias BoolList = Array with bool
+
+typealias ByteArrays = Array with ByteArray
+
+typealias CountLists = Array with CountList
+
+typealias WordLists = Array with ir.WordList
+
+let kindBox = 0 as Count
+
+let kindString = 1 as Count
+
+let kindArray = 2 as Count
+
+let kindMap = 3 as Count
+
+let kindList = 4 as Count
+
+let kindPool = 5 as Count
+
+// kindFrozen and kindCown are boxes with many owners: a count of them, not one owner, decides when the box is freed.
+let kindFrozen = 6 as Count
+
+let kindCown = 7 as Count
+
+let kindBytes = 8 as Count
+
+function kindName(kind Count) returns String
+	return match kind 'k'
+		0 gives "record"
+		1 gives "string"
+		2 gives "array"
+		3 gives "map"
+		4 gives "list"
+		5 gives "pool"
+		6 gives "frozen value"
+		7 gives "cown"
+		8 gives "byte array"
+		default gives panic("interp: {kind} is no object kind")
+	end 'k'
+end 'kindName'
+
+// A site is a place in a function, for a report: where a value was made or freed. It is the function's index, the block and
+// the instruction in it packed in a word, and 0 for the start of the program, where no function runs yet.
+let siteBlockShift = 2097152 as Count
+
+let siteFnShift = 4398046511104 as Count
+
+let sitePcMask = 2097151 as Count
+
+// terminatorPc is the instruction index of a block's terminator.
+let terminatorPc = -1 as ir.Word
+
+function packSite(fn Count, block Count, pc ir.Word) returns Count
+	let after = try (pc + 1) as Count otherwise panic("interp: an instruction before the terminator")
+	if after > sitePcMask or block >= siteBlockShift 'wide'
+		panic("interp: a function too large to name a place in it")
+	end 'wide'
+	return try (fn * siteFnShift) + (block * siteBlockShift) + after otherwise panic("interp: a site past a word")
+end 'packSite'
+
+function siteFn(site Count) returns Count
+	return site / siteFnShift
+end 'siteFn'
+
+function siteBlock(site Count) returns Count
+	return (site / siteBlockShift) mod siteBlockShift
+end 'siteBlock'
+
+// sitePc is the index of the instruction at a site: -1 for a terminator.
+function sitePc(site Count) returns ir.Word
+	return ((site and sitePcMask) as ir.Word) - 1
+end 'sitePc'
+
+// SharedData is what a frozen value or a cown has besides its contents: how many owners it has, which are the references
+// that places hold or that are in flight, and for a cown the behaviours that have been scheduled on it and have not
+// finished. holders are the places that hold one.
+type SharedData
+	var count as ir.Word
+	var holders as CountList
+	// queue is the behaviours waiting for a cown, in the order they were scheduled, the first of them being the one that runs
+	// once it has every cown it names; running is the behaviour that has the cown now.
+	var queue as CountList
+	var running as Count
+	// ending is the destructor a cown ends its value with when its count reaches 0, instead of dropping the value: a function
+	// index, or 0 for any other object.
+	var ending as Count
+	// cell is the place that holds the value.
+	var cell as Count
+
+	static function new() returns SharedData
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0}
+	end 'new'
+end 'SharedData'
+
+typealias SharedDatas = Array with SharedData
+
+// MapData is the entries of a map in the order they were made, and the ways to find one by its key: a word, or the text of
+// a string.
+type MapData
+	var entries as CountList
+	var byNumber as table.IntMap with Count
+	var byText as table.StringMap with Count
+
+	static function new() returns MapData
+		return MapData{entries: CountList.create(0), byNumber: table.IntMap.new(), byText: table.StringMap.new()}
+	end 'new'
+end 'MapData'
+
+typealias MapDatas = Array with MapData
+
+// Table holds the elements of a list or a pool in slots that name them by a handle with a generation, so a slot that held
+// an element and was reused does not answer to the handle of the old one. A list also keeps its slots in order.
+type Table
+	var gens as CountList
+	var live as BoolList
+	var cells as CountList
+	var free as CountList
+	var order as CountList
+
+	static function new() returns Table
+		return Table{gens: CountList.create(0), live: BoolList.create(0), cells: CountList.create(0), free: CountList.create(0), order: CountList.create(0)}
+	end 'new'
+
+	// lookup is the slot a handle names, if its element is still there; found says whether it is.
+	function lookup(h ir.Word) returns table.Option with Count
+		if h <= 0 'none'
+			return table.Option.none
+		end 'none'
+		let bits = h as Count
+		let slotPlus = bits and mask32
+		if slotPlus == 0 'noSlot'
+			return table.Option.none
+		end 'noSlot'
+		let slot = try slotPlus - 1 otherwise panic("interp: a handle's slot below 0")
+		let gen = bits shr 32
+		if slot >= gens.count() 'past'
+			return table.Option.none
+		end 'past'
+		if not live[slot] or gens[slot] != gen 'stale'
+			return table.Option.none
+		end 'stale'
+		return table.Option.some(slot)
+	end 'lookup'
+
+	// acquire puts a cell in a free slot, the one released last first, and gives the slot; its handle is handleOf it.
+	function acquire(mutates self, c Count) returns Count
+		var slot = 0 as Count
+		if free.count() > 0 'reuse'
+			slot = try free.pop() otherwise panic("interp: no free slot")
+			cells[slot] = c
+		end 'reuse' else 'fresh'
+			slot = gens.count()
+			gens.push(0)
+			live.push(false)
+			cells.push(c)
+		end 'fresh'
+		gens[slot] = try gens[slot] + 1 otherwise panic("interp: a generation past a word")
+		live[slot] = true
+		return slot
+	end 'acquire'
+
+	function handleOf(slot Count) returns ir.Word
+		let bits = try (gens[slot] shl 32) + slot + 1 otherwise panic("interp: a handle past a word")
+		return wordOf(bits)
+	end 'handleOf'
+
+	function release(mutates self, slot Count)
+		live[slot] = false
+		cells[slot] = 0
+		free.push(slot)
+	end 'release'
+
+	function count() returns Count
+		var n = 0 as Count
+		for i in 0 upto live.count() 'each'
+			if live[i] 'alive'
+				n = try n + 1 otherwise panic("interp: more elements than memory")
+			end 'alive'
+		end 'each'
+		return n
+	end 'count'
+
+	// position is where a slot sits in the order of a list.
+	function position(slot Count) returns Count
+		for i in 0 upto order.count() 'each'
+			if order[i] == slot 'found'
+				return i
+			end 'found'
+		end 'each'
+		panic("interp: a live slot is missing from the order of its list")
+	end 'position'
+
+	function unlink(mutates self, slot Count)
+		let i = self.position(slot)
+		try order.remove(i) otherwise ignore
+	end 'unlink'
+end 'Table'
+
+typealias Tables = Array with Table
+
+// Heap is every cell and every object the program has made, in columns, so that a handle is an index. Nothing is ever taken
+// out of it: a freed object keeps its place, for the report of a use after the free.
+type Heap
+	// A cell is a place that holds a value: a frame slot, a word of a box, an element of a primitive. A value is two words: a
+	// scalar is n; a handle of an object is r; and an address, a borrow of a cell that a callee may change, has the cell's
+	// handle negated in r and the version of the structure it was taken in in n.
+	var cellN as ir.WordList
+	var cellR as ir.WordList
+	// cellHolder is the object that a cell is a part of, or 0, and cellFrame the frame whose slot it is, or 0.
+	var cellHolder as CountList
+	var cellFrame as CountList
+	var cellIndex as CountList
+	// An object's columns. oData is where its contents are: the first cell of a box, an index into the heap's texts, buffers,
+	// element lists, maps, tables or shared data by its kind.
+	var oKind as CountList
+	var oFreed as BoolList
+	var oImmortal as BoolList
+	var oOwner as CountList
+	var oVersion as CountList
+	var oData as CountList
+	var oSize as CountList
+	var oAlloc as CountList
+	var oFreedAt as CountList
+	var texts as ast.StringList
+	var buffers as ByteArrays
+	var elements as CountLists
+	var maps as MapDatas
+	var tables as Tables
+	var shareds as SharedDatas
+	// A map entry is a pair of cells.
+	var entryKey as CountList
+	var entryVal as CountList
+	// literals are the strings that are in the executable, by their text.
+	var literals as table.StringMap with Count
+
+	static function new() returns Heap
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new()}
+		// Handle 0 names nothing, so every column starts with a row that is never used.
+		_ = h.newCell(0)
+		h.oKind.push(0)
+		h.oFreed.push(false)
+		h.oImmortal.push(false)
+		h.oOwner.push(0)
+		h.oVersion.push(0)
+		h.oData.push(0)
+		h.oSize.push(0)
+		h.oAlloc.push(0)
+		h.oFreedAt.push(0)
+		h.texts.push("")
+		h.buffers.push(ByteArray.create(0))
+		h.elements.push(CountList.create(0))
+		h.maps.push(MapData.new())
+		h.tables.push(Table.new())
+		h.shareds.push(SharedData.new())
+		h.entryKey.push(0)
+		h.entryVal.push(0)
+		return h
+	end 'new'
+
+	function newCell(mutates self, holder Count) returns Count
+		let c = cellN.count()
+		cellN.push(0)
+		cellR.push(0)
+		cellHolder.push(holder)
+		cellFrame.push(0)
+		cellIndex.push(0)
+		return c
+	end 'newCell'
+
+	// newObject makes an object of a kind, whose contents the caller then makes.
+	function newObject(mutates self, kind Count, site Count) returns Count
+		let o = oKind.count()
+		oKind.push(kind)
+		oFreed.push(false)
+		oImmortal.push(false)
+		oOwner.push(0)
+		oVersion.push(0)
+		oData.push(0)
+		oSize.push(0)
+		oAlloc.push(site)
+		oFreedAt.push(0)
+		if kind == kindFrozen or kind == kindCown 'shared'
+			oData[o] = shareds.count()
+			shareds.push(SharedData.new())
+		end 'shared'
+		return o
+	end 'newObject'
+
+	// newBox makes a record of words, each its own cell.
+	function newBox(mutates self, words Count, site Count) returns Count
+		let o = self.newObject(kindBox, site: site)
+		oData[o] = cellN.count()
+		oSize[o] = words
+		for _ in 0 upto words 'each'
+			_ = self.newCell(o)
+		end 'each'
+		return o
+	end 'newBox'
+
+	function newString(mutates self, consumes text String, site Count) returns Count
+		let o = self.newObject(kindString, site: site)
+		oData[o] = texts.count()
+		texts.push(text)
+		return o
+	end 'newString'
+
+	function newBytes(mutates self, consumes buf ByteArray, site Count) returns Count
+		let o = self.newObject(kindBytes, site: site)
+		oData[o] = buffers.count()
+		buffers.push(buf)
+		return o
+	end 'newBytes'
+
+	function newArray(mutates self, site Count) returns Count
+		let o = self.newObject(kindArray, site: site)
+		oData[o] = elements.count()
+		elements.push(CountList.create(0))
+		return o
+	end 'newArray'
+
+	function newMap(mutates self, site Count) returns Count
+		let o = self.newObject(kindMap, site: site)
+		oData[o] = maps.count()
+		maps.push(MapData.new())
+		return o
+	end 'newMap'
+
+	// newTable makes a list or a pool.
+	function newTable(mutates self, kind Count, site Count) returns Count
+		let o = self.newObject(kind, site: site)
+		oData[o] = tables.count()
+		tables.push(Table.new())
+		return o
+	end 'newTable'
+
+	// newSharedBox makes a frozen value or a cown with one place for the value it holds.
+	function newSharedBox(mutates self, kind Count, site Count) returns Count
+		let o = self.newObject(kind, site: site)
+		let cell = self.newCell(o)
+		shareds[oData[o]].cell = cell
+		oSize[o] = 1
+		return o
+	end 'newSharedBox'
+
+	function isShared(o Count) returns bool
+		return oKind[o] == kindFrozen or oKind[o] == kindCown
+	end 'isShared'
+
+	// field is the cell of a box that an index names: a frozen value and a cown have the one, which holds their value.
+	function field(o Count, i Count) returns Count
+		if self.isShared(o) 'shared'
+			return shareds[oData[o]].cell
+		end 'shared'
+		return try oData[o] + i otherwise panic("interp: a field past memory")
+	end 'field'
+
+	function refOf(c Count) returns Count
+		let r = cellR[c]
+		if r > 0 'ref'
+			return r as Count
+		end 'ref'
+		return 0
+	end 'refOf'
+
+	// heldBy is whether a place is an owner of the object: the one owner of an ordinary value, or one of the many of a
+	// shared one.
+	function heldBy(o Count, c Count) returns bool
+		if self.isShared(o) 'shared'
+			return self.holds(o, c: c)
+		end 'shared'
+		return oOwner[o] == c
+	end 'heldBy'
+
+	function holds(o Count, c Count) returns bool
+		let at = oData[o]
+		for i in 0 upto shareds[at].holders.count() 'each'
+			if shareds[at].holders[i] == c 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'holds'
+
+	function addHolder(mutates self, o Count, c Count)
+		if not self.holds(o, c: c) 'new'
+			shareds[oData[o]].holders.push(c)
+		end 'new'
+	end 'addHolder'
+
+	function removeHolder(mutates self, o Count, c Count)
+		let at = oData[o]
+		for i in 0 upto shareds[at].holders.count() 'each'
+			if shareds[at].holders[i] == c 'found'
+				try shareds[at].holders.remove(i) otherwise ignore
+				return
+			end 'found'
+		end 'each'
+	end 'removeHolder'
+
+	// within is whether o is x or is owned, through any number of owners, by x.
+	function within(o Count, x Count) returns bool
+		var at = o
+		while at != 0 'owners'
+			if at == x 'same'
+				return true
+			end 'same'
+			let owner = oOwner[at]
+			if owner == 0 'top'
+				return false
+			end 'top'
+			at = cellHolder[owner]
+		end 'owners'
+		return false
+	end 'within'
+
+	// inside is whether a cell is part of x.
+	function inside(c Count, x Count) returns bool
+		return cellHolder[c] != 0 and x != 0 and self.within(cellHolder[c], x: x)
+	end 'inside'
+
+	// overlaps is whether two regions can reach the same storage: one is, or lies inside, the other. A region is a cell, with
+	// whatever it holds, or an object.
+	function overlaps(ac Count, ao Count, bc Count, bo Count) returns bool
+		if ac != 0 and bc != 0 'cells'
+			return ac == bc or self.inside(ac, x: self.refOf(bc)) or self.inside(bc, x: self.refOf(ac))
+		end 'cells'
+		if ac != 0 'first'
+			return self.inside(ac, x: bo) or (self.refOf(ac) != 0 and self.within(bo, x: self.refOf(ac)))
+		end 'first'
+		if bc != 0 'second'
+			return self.overlaps(bc, ao: bo, bc: ac, bo: ao)
+		end 'second'
+		return self.within(ao, x: bo) or self.within(bo, x: ao)
+	end 'overlaps'
+end 'Heap'

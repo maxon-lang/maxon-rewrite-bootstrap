@@ -7,7 +7,7 @@ PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), `fmt [--check] <path>...` (as `minimaxon fmt`: `self/syntax/format.maxon` and `self/driver/fmt.maxon`), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
+compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), `fmt [--check] <path>...` (as `minimaxon fmt`: `self/syntax/format.maxon` and `self/driver/fmt.maxon`), `interp <file|dir> [--seed=N]` (the tracking interpreter of "The interpreter", `self/interp`), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
 changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
 slices, and no runtime-specific tricks the design depends on.
 
@@ -244,7 +244,7 @@ with their signatures and the intrinsic each lowers to, and the runtime entries 
 it `go generate ./internal/ast` writes the declarations (`internal/ast/builtins_gen.go`, and
 `self/ast/builtins_gen.maxon` for `self/`), the `Intrinsic` and `Rt` enums, and the dispatch from each intrinsic and
 entry to its hand-written body: `check<Intrinsic>Args` in the checker for an intrinsic the table marks checked,
-`lower<Intrinsic>` in the lowering, `entry<Entry>` in the interpreter, and `emit<Entry>` on the backend unit that defines
+`lower<Intrinsic>` in the lowering, `entry<Entry>` in the interpreter (`self/interp/builtins_gen.maxon` for `self/`), and `emit<Entry>` on the backend unit that defines
 the entry. A dispatch names a method for every row, so a row added to the table fails the build wherever its body is
 missing.
 
@@ -1097,6 +1097,16 @@ test runner. It has no types; it works from the shape of the values and from the
   destructors in list order, which is the order of the frees (`Result.Frees`), so it is deterministic.
 - **Traps** behave as the executable does: `rt.panic`, an index out of range, a stale handle, a collection ended with `dropEmpty` while it holds an element and a behaviour that names one cown twice write to
   standard error and exit with 1; the same standard output and the same exit code. A trap is not a violation.
+- **In `self/`.** `self/interp` is the same interpreter in Maxon, as `values`, `vm` (with `ownership`, `windows`, `machine` and `program`), `exec`, `runtime`, `os`, `sched` and
+  `violation`, run by `c1.exe interp <path> [--seed=N]` (`self/driver/interp.maxon`), which gives the Go command's output and
+  exit codes, the same output and exit code under every seed, and the same order of frees (`--frees` lists them on
+  standard error; a development flag of `c1.exe` alone). The IR is lowered as for a build, with no runtime module and with
+  the refusals of what only the interpreter runs ignored. The Go interpreter shares pointers and runs each thread in a
+  goroutine; here a cell, an object, a frame and a thread are handles that index the columns of the `Vm`, a thread is a stack of
+  frames that a loop runs until its burst is spent, and a violation, a trap or a timeout is a `Halt` that every function of the
+  run throws. The scheduler draws from the seed the way Go's `math/rand/v2` PCG does (`words.maxon`), so a seed names the same schedule
+  in both. A frame's function is found by where it is in the lowered modules (`withFunction`), since the loop that runs
+  it borrows it. `self/interp_test.maxon` ports the Go tests that build IR (`interp_test.go`, `sched_test.go`).
 - **How tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules
   behaviours, and requires the same stdout and exit code as the directives and no violation. `internal/interp` tests it
   on IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts), on

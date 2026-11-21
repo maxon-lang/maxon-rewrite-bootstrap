@@ -20,7 +20,6 @@ typealias CommandNames = Array with String
 // unknown command so that the corpus runner counts a test that needs one as not yet supported instead of failed.
 function goOnlyCommands() returns CommandNames
 	var names = CommandNames.create(0)
-	names.push("interp")
 	names.push("rewrite")
 	names.push("qualify")
 	names.push("rename")
@@ -29,7 +28,7 @@ function goOnlyCommands() returns CommandNames
 end 'goOnlyCommands'
 
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [dir]                            run the corpus of tests (default: the nearest tests directory)\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [dir]                            run the corpus of tests (default: the nearest tests directory)\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
 end 'usage'
 
 function isGoOnlyCommand(name String) returns bool
@@ -97,6 +96,9 @@ export function run(args Array with String) returns ExitCode
 	if command == "fmt" 'fmt'
 		return formatCommand(rest)
 	end 'fmt'
+	if command == "interp" 'interp'
+		return interpCommand(rest)
+	end 'interp'
 	if isGoOnlyCommand(command) 'later'
 		printError("the command '{command}' is not implemented yet\n")
 		return notImplementedExitCode

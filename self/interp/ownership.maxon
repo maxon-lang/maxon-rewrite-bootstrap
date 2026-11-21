@@ -1,0 +1,378 @@
+// siteText is a place in a function, for a report.
+function siteText(vm Vm, site Count) returns String
+	if site == 0 'start'
+		return "the start of the program"
+	end 'start'
+	let name = vm.prog.symbols[siteFn(site)].clone()
+	let pc = sitePc(site)
+	if pc < 0 'terminator'
+		return "{name} b{siteBlock(site)}, terminator"
+	end 'terminator'
+	return "{name} b{siteBlock(site)} #{pc}"
+end 'siteText'
+
+// objectText is an object, with where it was made, for a report.
+function objectText(vm Vm, o Count) returns String
+	let kind = vm.h.oKind[o]
+	let made = siteText(vm, site: vm.h.oAlloc[o])
+	if kind == kindString 'string'
+		return "string#{o} {goQuote(vm.h.texts[vm.h.oData[o]])} (made in {made})"
+	end 'string'
+	return "{kindName(kind)}#{o} (made in {made})"
+end 'objectText'
+
+// cellText is a place, for a report.
+function cellText(vm Vm, c Count) returns String
+	if vm.h.cellHolder[c] != 0 'part'
+		return "a part of {objectText(vm, o: vm.h.cellHolder[c])}"
+	end 'part'
+	if vm.h.cellFrame[c] != 0 'slot'
+		return "slot s{vm.h.cellIndex[c]} of {vm.prog.symbols[vm.fr.fn[vm.h.cellFrame[c]]]}"
+	end 'slot'
+	return "a place"
+end 'cellText'
+
+// regionText is storage that a borrow, or a change, concerns: a cell, with whatever it holds, or an object.
+function regionText(vm Vm, c Count, o Count) returns String
+	if c != 0 'cell'
+		return cellText(vm, c: c)
+	end 'cell'
+	return objectText(vm, o: o)
+end 'regionText'
+
+function ownerText(vm Vm, o Count) returns String
+	if vm.h.oOwner[o] == 0 'none'
+		return "no one"
+	end 'none'
+	return cellText(vm, c: vm.h.oOwner[o])
+end 'ownerText'
+
+// freeLabel names a freed value in the order of frees: a string by its text, anything else by its kind.
+function freeLabel(vm Vm, o Count) returns String
+	if vm.h.oKind[o] == kindString 'string'
+		return "string {goQuote(vm.h.texts[vm.h.oData[o]])}"
+	end 'string'
+	return kindName(vm.h.oKind[o])
+end 'freeLabel'
+
+// violation records a rule broken at the place the run is at, and gives what ends the run.
+function violation(mutates vm Vm, kind Count, consumes message String) returns Halt
+	var v = Violation.make(kind, fn: 0, block: 0, instr: 0, message: message)
+	if vm.top != 0 'placed'
+		v.fn = vm.curFn
+		v.block = vm.curBlock
+		v.instr = vm.curPc
+	end 'placed'
+	vm.violations.push(v)
+	vm.fatal = fatalViolation
+	return Halt.violated
+end 'violation'
+
+// exitWith ends the program as the executable would: a trap, a panic, or main returning.
+function exitWith(mutates vm Vm, code ir.Word) returns Halt
+	vm.exitCode = code
+	vm.fatal = fatalExit
+	return Halt.exited
+end 'exitWith'
+
+// trap is a panic of the program: the compiled code writes the message to standard error and exits with 1.
+function trap(mutates vm Vm, message String) returns Halt
+	vm.stderr.append("panic: ".toByteArray())
+	vm.stderr.append(message.toByteArray())
+	vm.stderr.push(10 as Byte)
+	return exitWith(vm, code: panicExitCode)
+end 'trap'
+
+function timeout(mutates vm Vm) returns Halt
+	vm.fatal = fatalTimeout
+	return Halt.timedOut
+end 'timeout'
+
+function requireLive(mutates vm Vm, o Count, what String) throws Halt
+	if vm.h.oFreed[o] 'freed'
+		let message = "{objectText(vm, o: o)} is {what} after it was freed at {siteText(vm, site: vm.h.oFreedAt[o])}"
+		throw violation(vm, kind: useAfterFree, message: message)
+	end 'freed'
+end 'requireLive'
+
+// live is the object that a handle names, which must exist and must not have been freed.
+function live(mutates vm Vm, o Count, what String) returns Count throws Halt
+	if o == 0 'moved'
+		throw violation(vm, kind: movedUse, message: "{what} uses a value that was moved out or never assigned")
+	end 'moved'
+	try requireLive(vm, o: o, what: what)
+	if vm.tracking 'tracking'
+		try requireReachable(vm, o: o, what: what)
+	end 'tracking'
+	return o
+end 'live'
+
+// newBox makes a record of words, owned by no one yet.
+function newBox(mutates vm Vm, words Count) returns Count
+	let site = vm.site()
+	return vm.h.newBox(words, site: site)
+end 'newBox'
+
+function newString(mutates vm Vm, consumes text String) returns Count
+	let site = vm.site()
+	return vm.h.newString(text, site: site)
+end 'newString'
+
+function newBytes(mutates vm Vm, consumes buf ByteArray) returns Count
+	let site = vm.site()
+	return vm.h.newBytes(buf, site: site)
+end 'newBytes'
+
+function newArray(mutates vm Vm) returns Count
+	let site = vm.site()
+	return vm.h.newArray(site)
+end 'newArray'
+
+function newMap(mutates vm Vm) returns Count
+	let site = vm.site()
+	return vm.h.newMap(site)
+end 'newMap'
+
+function newTable(mutates vm Vm, kind Count) returns Count
+	let site = vm.site()
+	return vm.h.newTable(kind, site: site)
+end 'newTable'
+
+function newSharedBox(mutates vm Vm, kind Count) returns Count
+	let site = vm.site()
+	return vm.h.newSharedBox(kind, site: site)
+end 'newSharedBox'
+
+// literal is a string in the executable: it is never freed, and no one owns it.
+function literal(mutates vm Vm, text String) returns Count
+	match vm.h.literals.get(text) 'known'
+		some(o) then return o
+		none then _ = 0
+	end 'known'
+	let o = newString(vm, text: text.clone())
+	vm.h.oImmortal[o] = true
+	vm.h.literals.insert(text.clone(), value: o)
+	return o
+end 'literal'
+
+// adopt stores an object into a place that owns what it holds. The value must be in flight, owned by no one: a value that has
+// an owner is moved first, and one that is stored twice would be freed twice. What the place held must be gone already, or it
+// is leaked.
+function adopt(mutates vm Vm, c Count, o Count, what String) throws Halt
+	let old = vm.h.refOf(c)
+	if old != 0 and not vm.h.oImmortal[old] and not vm.h.oFreed[old] and vm.h.heldBy(old, c: c) 'lost'
+		let message = "{what} overwrites {objectText(vm, o: old)}, which {cellText(vm, c: c)} still owns: the old value is lost without being dropped"
+		throw violation(vm, kind: leak, message: message)
+	end 'lost'
+	if o == 0 'moved'
+		throw violation(vm, kind: movedUse, message: "{what} stores a value that was moved out or never assigned")
+	end 'moved'
+	try requireLive(vm, o: o, what: "stored")
+	if vm.h.oImmortal[o] 'immortal'
+		_ = 0
+	end 'immortal' else if vm.h.isShared(o) 'shared'
+		vm.h.addHolder(o, c: c)
+	end 'shared' else 'owned'
+		if vm.h.oOwner[o] != 0 'twice'
+			let message = "{what} stores {objectText(vm, o: o)} into {cellText(vm, c: c)}, but {cellText(vm, c: vm.h.oOwner[o])} still owns it: a value has one owner, so it must be moved first"
+			throw violation(vm, kind: ownership, message: message)
+		end 'twice'
+		vm.h.oOwner[o] = c
+	end 'owned'
+	vm.h.cellN[c] = 0
+	vm.h.cellR[c] = try o as ir.Word otherwise panic("interp: a handle past a word")
+end 'adopt'
+
+// isManaged is whether a register holds an object, as against a scalar or an address.
+function isManaged(f ir.IrFunction, r ir.Reg) returns bool
+	return f.regs[try r as Count otherwise panic("interp: a register that does not exist")] == ir.IrKind.kindManaged
+end 'isManaged'
+
+// store puts a register's value in a place, as an owner when the register is managed.
+function store(mutates vm Vm, f ir.IrFunction, c Count, src ir.Reg, what String) throws Halt
+	if isManaged(f, r: src) 'managed'
+		let o = vm.ref(src)
+		try adopt(vm, c: c, o: o, what: what)
+		return
+	end 'managed'
+	let at = vm.regAt(src)
+	vm.h.cellN[c] = vm.regN[at]
+	vm.h.cellR[c] = vm.regR[at]
+end 'store'
+
+// release takes the object out of a place and leaves it empty, as its owner gives it away or frees it: the object, or 0 when
+// the place holds none.
+function release(mutates vm Vm, c Count, what String) returns Count throws Halt
+	let o = vm.h.refOf(c)
+	if o == 0 'empty'
+		return 0
+	end 'empty'
+	vm.h.cellN[c] = 0
+	vm.h.cellR[c] = 0
+	if vm.h.oImmortal[o] 'immortal'
+		return o
+	end 'immortal'
+	if vm.h.oFreed[o] 'freed'
+		let message = "{what}: {objectText(vm, o: o)} was freed at {siteText(vm, site: vm.h.oFreedAt[o])} but {cellText(vm, c: c)} still holds it"
+		throw violation(vm, kind: useAfterFree, message: message)
+	end 'freed'
+	if not vm.h.heldBy(o, c: c) 'foreign'
+		let message = "{what}: {cellText(vm, c: c)} holds {objectText(vm, o: o)}, but it is not that place's to give up: {ownerText(vm, o: o)} owns it"
+		throw violation(vm, kind: ownership, message: message)
+	end 'foreign'
+	if vm.h.isShared(o) 'shared'
+		vm.h.removeHolder(o, c: c)
+	end 'shared' else 'owned'
+		vm.h.oOwner[o] = 0
+	end 'owned'
+	return o
+end 'release'
+
+// drop frees an object and everything it owns, or lowers the count of a shared one by the one owner that is dropping it. The
+// object must be in flight: its owner has given it up.
+function drop(mutates vm Vm, o Count) throws Halt
+	if vm.h.oImmortal[o] 'immortal'
+		return
+	end 'immortal'
+	if vm.h.isShared(o) 'shared'
+		try unref(vm, o: o)
+		return
+	end 'shared'
+	if vm.h.oFreed[o] 'twice'
+		let message = "{objectText(vm, o: o)} was already freed at {siteText(vm, site: vm.h.oFreedAt[o])}"
+		throw violation(vm, kind: doubleFree, message: message)
+	end 'twice'
+	if vm.h.oOwner[o] != 0 'owned'
+		let message = "{objectText(vm, o: o)} is dropped while {cellText(vm, c: vm.h.oOwner[o])} still owns it"
+		throw violation(vm, kind: ownership, message: message)
+	end 'owned'
+	try changed(vm, c: 0, o: o)
+	try free(vm, o: o)
+end 'drop'
+
+// unref is one owner of a frozen value or a cown letting go: the value is freed when the last one does.
+function unref(mutates vm Vm, o Count) throws Halt
+	if vm.h.oFreed[o] 'twice'
+		let message = "{objectText(vm, o: o)} was already freed at {siteText(vm, site: vm.h.oFreedAt[o])}"
+		throw violation(vm, kind: doubleFree, message: message)
+	end 'twice'
+	let at = vm.h.oData[o]
+	vm.h.shareds[at].count = try vm.h.shareds[at].count - 1 otherwise panic("interp: a count below the word")
+	if vm.h.shareds[at].count < 0 'below'
+		let message = "the count of {objectText(vm, o: o)} fell below 0"
+		throw violation(vm, kind: countWrong, message: message)
+	end 'below'
+	if vm.h.shareds[at].count == 0 'last'
+		try free(vm, o: o)
+	end 'last'
+end 'unref'
+
+function free(mutates vm Vm, o Count) throws Halt
+	if vm.h.oFreed[o] 'twice'
+		let message = "{objectText(vm, o: o)} was already freed at {siteText(vm, site: vm.h.oFreedAt[o])} while freeing what contains it"
+		throw violation(vm, kind: doubleFree, message: message)
+	end 'twice'
+	if vm.h.isShared(o) 'shared'
+		let at = vm.h.oData[o]
+		if vm.h.shareds[at].holders.count() > 0 or vm.h.shareds[at].queue.count() > 0 or vm.h.shareds[at].running != 0 'referenced'
+			let message = "{objectText(vm, o: o)} is freed while it is still referenced: {vm.h.shareds[at].holders.count()} place(s) hold it and {vm.h.shareds[at].queue.count()} behaviour(s) wait for it"
+			throw violation(vm, kind: countWrong, message: message)
+		end 'referenced'
+	end 'shared'
+	vm.h.oFreed[o] = true
+	vm.h.oFreedAt[o] = vm.site()
+	vm.h.oOwner[o] = 0
+	vm.frees.push(o)
+	let kind = vm.h.oKind[o]
+	let data = vm.h.oData[o]
+	if kind == kindString or kind == kindBytes 'flat'
+		return
+	end 'flat'
+	if kind == kindBox 'box'
+		for i in 0 upto vm.h.oSize[o] 'fields'
+			try freeCell(vm, c: vm.h.field(o, i: i))
+		end 'fields'
+		return
+	end 'box'
+	if kind == kindFrozen 'frozen'
+		let contents = vm.h.field(o, i: 0)
+		try freeCell(vm, c: contents)
+		return
+	end 'frozen'
+	if kind == kindCown 'cown'
+		let first = vm.h.field(o, i: 0)
+		let ending = vm.h.shareds[data].ending
+		if ending == 0 'plain'
+			try freeCell(vm, c: first)
+			return
+		end 'plain'
+		// The value leaves the cown and is in flight until its destructor takes it.
+		let n = vm.h.cellN[first]
+		let r = vm.h.cellR[first]
+		if vm.h.refOf(first) != 0 'holds'
+			_ = try release(vm, c: first, what: "freeing a cown")
+			vm.endingFn.push(ending)
+			vm.endingN.push(n)
+			vm.endingR.push(r)
+		end 'holds'
+		return
+	end 'cown'
+	if kind == kindArray 'array'
+		for i in 0 upto vm.h.elements[data].count() 'each'
+			let element = vm.h.elements[data][i]
+			try freeCell(vm, c: element)
+		end 'each'
+		return
+	end 'array'
+	if kind == kindMap 'map'
+		for i in 0 upto vm.h.maps[data].entries.count() 'each'
+			let e = vm.h.maps[data].entries[i]
+			let key = vm.h.entryKey[e]
+			let value = vm.h.entryVal[e]
+			try freeCell(vm, c: key)
+			try freeCell(vm, c: value)
+		end 'each'
+		return
+	end 'map'
+	if kind == kindList 'list'
+		for i in 0 upto vm.h.tables[data].order.count() 'each'
+			let element = vm.h.tables[data].cells[vm.h.tables[data].order[i]]
+			try freeCell(vm, c: element)
+		end 'each'
+		return
+	end 'list'
+	if kind == kindPool 'pool'
+		for slot in 0 upto vm.h.tables[data].live.count() 'each'
+			if vm.h.tables[data].live[slot] 'alive'
+				let element = vm.h.tables[data].cells[slot]
+				try freeCell(vm, c: element)
+			end 'alive'
+		end 'each'
+		return
+	end 'pool'
+	panic("interp: unknown object kind {kind}")
+end 'free'
+
+// freeCell frees what a place owns, as part of freeing the object the place belongs to.
+function freeCell(mutates vm Vm, c Count) throws Halt
+	let o = try release(vm, c: c, what: "freeing its owner")
+	if o != 0 and not vm.h.oImmortal[o] 'owned'
+		if vm.h.isShared(o) 'shared'
+			try unref(vm, o: o)
+		end 'shared' else 'plain'
+			try free(vm, o: o)
+		end 'plain'
+	end 'owned'
+end 'freeCell'
+
+// dropCell drops what a place owns, if it owns anything, and leaves it empty.
+function dropCell(mutates vm Vm, c Count) throws Halt
+	if vm.h.refOf(c) == 0 'empty'
+		return
+	end 'empty'
+	try changed(vm, c: c, o: 0)
+	let o = try release(vm, c: c, what: "a drop")
+	if o != 0 'owned'
+		try drop(vm, o: o)
+	end 'owned'
+end 'dropCell'

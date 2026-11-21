@@ -1,0 +1,947 @@
+// The programs here are written as IR, because the checker refuses every one that breaks a rule, and the interpreter has to
+// catch it: each breaks a rule that the interpreter has to catch, which is what makes it trustworthy on the programs the
+// checker accepts. The others show how behaviours are scheduled. They are internal/interp's interp_test.go and sched_test.go.
+
+typealias ConvList = Array with ast.Convention
+
+let seedsToTry = 30 as Count
+
+// holdsItAWhile is how many instructions main runs while it owns what a behaviour reads.
+let holdsItAWhile = 200 as Count
+
+// Fn builds the IR of one function the way the Go tests' builder does: in one block, with registers and slots made as they are
+// asked for.
+type Fn
+	var b as ir.Builder
+	var cur as ir.BlockID
+	var decl as ast.FuncID
+	var stringTy as ast.TypeID
+
+	static function new(mutates p ast.Project, name String, convs ConvList) returns Fn
+		let decl = interpFunction(p, name: name, convs: convs)
+		var b = ir.Builder.new()
+		b.start(decl, name: "", paramCount: convs.count())
+		let cur = b.newBlock()
+		return Fn{b: b, cur: cur, decl: decl, stringTy: p.builtins.stringTy}
+	end 'new'
+
+	function reg(mutates self, kind ir.IrKind) returns ir.Reg
+		return b.f.newReg(kind)
+	end 'reg'
+
+	function emit(mutates self, consumes i ir.Instr)
+		b.emit(cur, i: i)
+	end 'emit'
+
+	function konst(mutates self, n ir.Word) returns ir.Reg
+		let d = self.reg(ir.IrKind.kindScalar)
+		self.emit(ir.newConst(d, value: n))
+		return d
+	end 'konst'
+
+	function alloc(mutates self, words Count) returns ir.Reg
+		let d = self.reg(ir.IrKind.kindManaged)
+		self.emit(ir.newAlloc(d, bytes: try words * 8 otherwise panic("a box past memory")))
+		return d
+	end 'alloc'
+
+	function slot(mutates self, kind ir.IrKind) returns Count
+		return b.f.newSlot(kind)
+	end 'slot'
+
+	function param(mutates self, i Count, kind ir.IrKind) returns ir.Reg
+		let d = self.reg(kind)
+		self.emit(ir.newLoadParam(d, param: i))
+		return d
+	end 'param'
+
+	function load(mutates self, slot Count) returns ir.Reg
+		let kind = b.f.slots[slot]
+		let d = self.reg(kind)
+		self.emit(ir.newLoadSlot(d, slot: slot))
+		return d
+	end 'load'
+
+	function addr(mutates self, slot Count) returns ir.Reg
+		let d = self.reg(ir.IrKind.kindScalar)
+		self.emit(ir.newSlotAddr(d, slot: slot))
+		return d
+	end 'addr'
+
+	function store(mutates self, slot Count, v ir.Reg)
+		self.emit(ir.newStoreSlot(slot, src: v, borrow: false))
+	end 'store'
+
+	function runtime(mutates self, symbol ir.Rt, kind ir.IrKind, args ir.RegList) returns ir.Reg
+		let d = self.reg(kind)
+		let i = b.callRuntime(d, symbol: symbol, args: args, routine: ast.noFunc)
+		self.emit(i)
+		return d
+	end 'runtime'
+
+	function call(mutates self, target ast.FuncID, args ir.RegList)
+		let i = b.call(ir.noReg, target: target, args: args)
+		self.emit(i)
+	end 'call'
+
+	function drop(mutates self, v ir.Reg)
+		let i = b.drop(v, ty: stringTy)
+		self.emit(i)
+	end 'drop'
+
+	function dropSlot(mutates self, slot Count)
+		let i = b.dropSlot(slot, ty: stringTy)
+		self.emit(i)
+	end 'dropSlot'
+
+	function text(mutates self, s String) returns ir.Reg
+		let d = self.reg(ir.IrKind.kindManaged)
+		let i = b.str(d, text: s.clone())
+		self.emit(i)
+		return d
+	end 'text'
+
+	function write(mutates self, s String)
+		let handle = self.reg(ir.IrKind.kindScalar)
+		self.emit(ir.newLoadGlobal(handle, symbol: ir.Rt.rtStdout))
+		let word = self.text(s)
+		let i = b.callRuntime(ir.noReg, symbol: ir.Rt.rtWrite, args: regs2(handle, b: word), routine: ast.noFunc)
+		self.emit(i)
+	end 'write'
+
+	// cown makes a cown that owns a new box, and gives the register that holds the reference.
+	function cown(mutates self, words Count) returns ir.Reg
+		let box = self.alloc(words)
+		return self.runtime(ir.Rt.rtCownNew, kind: ir.IrKind.kindManaged, args: regs1(box))
+	end 'cown'
+
+	function schedule(mutates self, consumes body ir.IrFunction, cowns ir.RegList, captures ir.RegList)
+		let at = b.behaviour(body)
+		let i = b.whenInstr(at, cowns: cowns, captures: captures)
+		self.emit(i)
+	end 'schedule'
+
+	function ret(mutates self, v ir.Reg) returns ir.IrFunction
+		b.terminate(cur, t: ir.newRet(v))
+		return b.finish()
+	end 'ret'
+end 'Fn'
+
+function interpFunction(mutates p ast.Project, name String, convs ConvList) returns ast.FuncID
+	let node = p.modules[0].tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
+	for i in 0 upto convs.count() 'params'
+		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: convs[i]))
+		entry.paramTypes.push(p.builtins.countTy)
+	end 'params'
+	return ast.allocFunc(p.funcs, f: entry)
+end 'interpFunction'
+
+function regs3(a ir.Reg, b ir.Reg, c ir.Reg) returns ir.RegList
+	var out = regs2(a, b: b)
+	out.push(c)
+	return out
+end 'regs3'
+
+function convs0() returns ConvList
+	return ConvList.create(0)
+end 'convs0'
+
+function convs1(a ast.Convention) returns ConvList
+	var out = ConvList.create(0)
+	out.push(a)
+	return out
+end 'convs1'
+
+function convs2(a ast.Convention, b ast.Convention) returns ConvList
+	var out = convs1(a)
+	out.push(b)
+	return out
+end 'convs2'
+
+// runWith executes main with the other functions available, under the schedule of a seed.
+function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, seed ir.Word) returns interp.Outcome
+	var fns = ir.IrFunctionList.create(0)
+	fns.push(main.clone())
+	for i in 0 upto others.count() 'others'
+		fns.push(others[i].clone())
+	end 'others'
+	var modules = interp.ModuleFunctions.create(0)
+	modules.push(fns)
+	return interp.run(p, modules: modules, entry: main.decl, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: false)
+end 'runWith'
+
+function runMain(p ast.Project, main ir.IrFunction) returns interp.Outcome
+	return runWith(p, main: main, others: ir.IrFunctionList.create(0), seed: 0)
+end 'runMain'
+
+function runAlone(p ast.Project, main ir.IrFunction, other ir.IrFunction) returns interp.Outcome
+	var others = ir.IrFunctionList.create(0)
+	others.push(other.clone())
+	return runWith(p, main: main, others: others, seed: 0)
+end 'runAlone'
+
+function runSeed(p ast.Project, main ir.IrFunction, seed ir.Word) returns interp.Outcome
+	return runWith(p, main: main, others: ir.IrFunctionList.create(0), seed: seed)
+end 'runSeed'
+
+// contains is whether text has fragment in it.
+function contains(text String, fragment String) returns bool
+	let n = text.byteLength()
+	let m = fragment.byteLength()
+	if m > n 'longer'
+		return false
+	end 'longer'
+	let last = try n - m otherwise 0 as Count
+	for start in 0 upto try last + 1 otherwise last 'starts'
+		var same = true
+		for i in 0 upto m 'bytes'
+			if text.byteAt(try start + i otherwise 0 as Count) != fragment.byteAt(i) 'differs'
+				same = false
+				break 'bytes'
+			end 'differs'
+		end 'bytes'
+		if same 'found'
+			return true
+		end 'found'
+	end 'starts'
+	return false
+end 'contains'
+
+function expectViolation(label String, out interp.Outcome, kind String, fragments ast.StringList)
+	if out.violations.count() == 0 'none'
+		panic("{label}: no violation; wanted {kind}")
+	end 'none'
+	let v = out.violations[0].clone()
+	if not contains(v, fragment: "memory-model violation: {kind} in") 'kind'
+		panic("{label}: wanted {kind}:\n{v}")
+	end 'kind'
+	for i in 0 upto fragments.count() 'fragments'
+		if not contains(v, fragment: fragments[i]) 'lacks'
+			panic("{label}: the report lacks '{fragments[i]}':\n{v}")
+		end 'lacks'
+	end 'fragments'
+end 'expectViolation'
+
+function says(a String, b String, c String, d String) returns ast.StringList
+	var out = ast.StringList.create(0)
+	if a != "" 'a'
+		out.push(a.clone())
+	end 'a'
+	if b != "" 'b'
+		out.push(b.clone())
+	end 'b'
+	if c != "" 'c'
+		out.push(c.clone())
+	end 'c'
+	if d != "" 'd'
+		out.push(d.clone())
+	end 'd'
+	return out
+end 'says'
+
+function expectClean(label String, out interp.Outcome, exit ir.Word)
+	if out.violations.count() != 0 or out.exitCode != exit 'unclean'
+		panic("{label}: exit {out.exitCode}, {out.violations.count()} violations, {out.stdout}")
+	end 'unclean'
+end 'expectClean'
+
+function testACleanProgramHasNoViolation()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let boxs = b.alloc(2)
+	b.store(s, v: boxs)
+	b.dropSlot(s)
+	let seven = b.konst(7)
+	expectClean("clean", out: runMain(p, main: b.ret(seven)), exit: 7)
+end 'testACleanProgramHasNoViolation'
+
+function testUseAfterFree()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	b.drop(box)
+	let d = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadField(d, obj: box, offset: 0))
+	let zero = b.konst(0)
+	expectViolation("use after free", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("function main", b: "block b0", c: "instruction #2", d: "freed at main b0 #1"))
+end 'testUseAfterFree'
+
+function testDoubleFree()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	b.drop(box)
+	b.drop(box)
+	let zero = b.konst(0)
+	expectViolation("double free", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("instruction #2", b: "", c: "", d: ""))
+end 'testDoubleFree'
+
+function testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let outer = b.alloc(1)
+	let inner = b.alloc(1)
+	b.emit(ir.newStoreField(outer, offset: 0, src: inner))
+	b.drop(outer)
+	b.drop(inner)
+	let zero = b.konst(0)
+	expectViolation("owner", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("", b: "", c: "", d: ""))
+end 'testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice'
+
+function testLeakAtTheEndOfTheProgram()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	_ = b.alloc(1)
+	let zero = b.konst(0)
+	expectViolation("leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("still live at the end of the program", b: "made in main b0 #0", c: "", d: ""))
+end 'testLeakAtTheEndOfTheProgram'
+
+function testASlotThatStillOwnsWhenTheFunctionReturns()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let boxs = b.alloc(1)
+	b.store(s, v: boxs)
+	let zero = b.konst(0)
+	expectViolation("slot", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("slot s0 still owns", b: "", c: "", d: ""))
+end 'testASlotThatStillOwnsWhenTheFunctionReturns'
+
+function testUsingAMovedValueThroughItsOldOwner()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let boxs = b.alloc(1)
+	b.store(s, v: boxs)
+	let moved = b.reg(ir.IrKind.kindManaged)
+	b.emit(ir.newMoveSlot(moved, slot: s))
+	b.drop(moved)
+	_ = b.load(s)
+	let zero = b.konst(0)
+	expectViolation("moved", out: runMain(p, main: b.ret(zero)), kind: "use of a moved value", fragments: says("moved out or never assigned", b: "", c: "", d: ""))
+end 'testUsingAMovedValueThroughItsOldOwner'
+
+function testAValueWithTwoOwners()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let u = b.slot(ir.IrKind.kindManaged)
+	let box = b.alloc(1)
+	b.store(s, v: box)
+	b.store(u, v: box)
+	let zero = b.konst(0)
+	expectViolation("two owners", out: runMain(p, main: b.ret(zero)), kind: "ownership", fragments: says("still owns it", b: "must be moved first", c: "", d: ""))
+end 'testAValueWithTwoOwners'
+
+function testOverwritingAnOwnedValueWithoutDroppingIt()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let first = b.alloc(1)
+	b.store(s, v: first)
+	let second = b.alloc(1)
+	b.store(s, v: second)
+	let zero = b.konst(0)
+	expectViolation("overwrite", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("lost without being dropped", b: "", c: "", d: ""))
+end 'testOverwritingAnOwnedValueWithoutDroppingIt'
+
+function testReturningAValueThatAnotherOwnerHolds()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let box = b.alloc(1)
+	b.store(s, v: box)
+	expectViolation("return", out: runMain(p, main: b.ret(box)), kind: "ownership", fragments: says("still owns", b: "", c: "", d: ""))
+end 'testReturningAValueThatAnotherOwnerHolds'
+
+// Two arguments reach the same record, and one of them is passed mutable: the callee would reach one place through two names.
+function testOverlappingArgumentsAtACall()
+	var p = irProject()
+	var callee = Fn.new(p, name: "touch", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
+	let calleeZero = callee.konst(0)
+	let calleeFn = callee.ret(calleeZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let boxs = b.alloc(1)
+	b.store(s, v: boxs)
+	let address = b.addr(s)
+	let value = b.load(s)
+	b.call(callee.decl, args: regs2(address, b: value))
+	b.dropSlot(s)
+	let zero = b.konst(0)
+	expectViolation("overlap", out: runAlone(p, main: b.ret(zero), other: calleeFn), kind: "exclusivity", fragments: says("arguments 0 and 1 of the call to touch", b: "", c: "", d: ""))
+end 'testOverlappingArgumentsAtACall'
+
+function testDisjointArgumentsAtACallAreFine()
+	var p = irProject()
+	var callee = Fn.new(p, name: "touch", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
+	let calleeZero = callee.konst(0)
+	let calleeFn = callee.ret(calleeZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let u = b.slot(ir.IrKind.kindManaged)
+	let first = b.alloc(1)
+	b.store(s, v: first)
+	let second = b.alloc(1)
+	b.store(u, v: second)
+	let address = b.addr(s)
+	let value = b.load(u)
+	b.call(callee.decl, args: regs2(address, b: value))
+	b.dropSlot(s)
+	b.dropSlot(u)
+	let zero = b.konst(0)
+	expectClean("disjoint", out: runAlone(p, main: b.ret(zero), other: calleeFn), exit: 0)
+end 'testDisjointArgumentsAtACallAreFine'
+
+// A borrow is taken when its argument is evaluated and used when the call runs. Changing what it borrows in between leaves it
+// pointing at what moved.
+function testChangingWhatAnArgumentBorrowsBeforeTheCallRuns()
+	var p = irProject()
+	var callee = Fn.new(p, name: "look", convs: convs2(ast.Convention.convLet, b: ast.Convention.convLet))
+	let calleeZero = callee.konst(0)
+	let calleeFn = callee.ret(calleeZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let box = b.alloc(1)
+	b.store(s, v: box)
+	let first = b.load(s)
+	let three = b.konst(3)
+	b.emit(ir.newStoreField(box, offset: 0, src: three))
+	let zeroArg = b.konst(0)
+	b.call(callee.decl, args: regs2(first, b: zeroArg))
+	b.dropSlot(s)
+	let zero = b.konst(0)
+	expectViolation("borrow", out: runAlone(p, main: b.ret(zero), other: calleeFn), kind: "exclusivity", fragments: says("still waiting to use", b: "", c: "", d: ""))
+end 'testChangingWhatAnArgumentBorrowsBeforeTheCallRuns'
+
+function testAnAddressIsStaleOnceTheArrayChanges()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let s = b.slot(ir.IrKind.kindManaged)
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	b.store(s, v: a)
+	let zero0 = b.konst(0)
+	let one = b.konst(1)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero0, c: one))
+	let zero1 = b.konst(0)
+	let element = b.runtime(ir.Rt.rtArrayElem, kind: ir.IrKind.kindScalar, args: regs2(a, b: zero1))
+	let zero2 = b.konst(0)
+	let two = b.konst(2)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero2, c: two))
+	let loaded = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadAt(loaded, addr: element))
+	let zero = b.konst(0)
+	expectViolation("stale", out: runMain(p, main: b.ret(zero)), kind: "stale borrow", fragments: says("before the structure changed", b: "", c: "", d: ""))
+end 'testAnAddressIsStaleOnceTheArrayChanges'
+
+function testAnArrayThatIsDroppedFreesItsElements()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let e = b.alloc(1)
+	let zero0 = b.konst(0)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero0, c: e))
+	b.drop(a)
+	let d = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadField(d, obj: e, offset: 0))
+	let zero = b.konst(0)
+	expectViolation("array drop", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("", b: "", c: "", d: ""))
+end 'testAnArrayThatIsDroppedFreesItsElements'
+
+function testAMovedElementIsOwnedByTheCaller()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let zero0 = b.konst(0)
+	let element = b.alloc(1)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero0, c: element))
+	let zero1 = b.konst(0)
+	_ = b.runtime(ir.Rt.rtArrayRemove, kind: ir.IrKind.kindManaged, args: regs2(a, b: zero1))
+	b.drop(a)
+	// The element is the caller's now and leaks unless dropped.
+	let zero = b.konst(0)
+	expectViolation("moved element", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("", b: "", c: "", d: ""))
+end 'testAMovedElementIsOwnedByTheCaller'
+
+// A slot that held an element and was reused for a new one does not answer to the old handle: the handle carries the slot's
+// generation.
+function testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let held = b.slot(ir.IrKind.kindManaged)
+	b.store(held, v: pool)
+	let first = b.alloc(1)
+	let old = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: regs2(pool, b: first))
+	let gone = b.runtime(ir.Rt.rtPoolRemove, kind: ir.IrKind.kindManaged, args: regs2(pool, b: old))
+	b.drop(gone)
+	let second = b.alloc(1)
+	let fresh = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: regs2(pool, b: second))
+	let same = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newCmp(same, op: ir.CmpOp.cmpEq, left: old, right: fresh, unsigned: false))
+	let found = b.runtime(ir.Rt.rtPoolContains, kind: ir.IrKind.kindScalar, args: regs2(pool, b: old))
+	let live = b.runtime(ir.Rt.rtPoolContains, kind: ir.IrKind.kindScalar, args: regs2(pool, b: fresh))
+	// The answer is 100*same + 10*found + live, which must be 1.
+	let hundred = b.reg(ir.IrKind.kindScalar)
+	let hundredConst = b.konst(100)
+	b.emit(ir.newBin(hundred, op: ir.BinOp.binMul, left: same, right: hundredConst, unsigned: false, fail: ir.noBlock))
+	let ten = b.reg(ir.IrKind.kindScalar)
+	let tenConst = b.konst(10)
+	b.emit(ir.newBin(ten, op: ir.BinOp.binMul, left: found, right: tenConst, unsigned: false, fail: ir.noBlock))
+	let sum = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newBin(sum, op: ir.BinOp.binAdd, left: hundred, right: ten, unsigned: false, fail: ir.noBlock))
+	let answer = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newBin(answer, op: ir.BinOp.binAdd, left: sum, right: live, unsigned: false, fail: ir.noBlock))
+	b.dropSlot(held)
+	expectClean("pool", out: runMain(p, main: b.ret(answer)), exit: 1)
+end 'testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle'
+
+function testAStaleHandleTrapsLikeTheCompiledProgram()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let held = b.slot(ir.IrKind.kindManaged)
+	b.store(held, v: pool)
+	let element = b.alloc(1)
+	let old = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: regs2(pool, b: element))
+	let gone = b.runtime(ir.Rt.rtPoolRemove, kind: ir.IrKind.kindManaged, args: regs2(pool, b: old))
+	b.drop(gone)
+	_ = b.runtime(ir.Rt.rtPoolElem, kind: ir.IrKind.kindScalar, args: regs2(pool, b: old))
+	let zero = b.konst(0)
+	let out = runMain(p, main: b.ret(zero))
+	if out.violations.count() != 0 or out.exitCode != 1 or not contains(out.stderr, fragment: "panic: handle names no element") 'wrong'
+		panic("stale handle: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
+	end 'wrong'
+end 'testAStaleHandleTrapsLikeTheCompiledProgram'
+
+function testACheckedAddThatOverflowsGoesToItsFailureBlock()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let failed = b.b.newBlock()
+	let max = b.konst(9223372036854775807)
+	let sum = b.reg(ir.IrKind.kindScalar)
+	let one = b.konst(1)
+	b.emit(ir.newBin(sum, op: ir.BinOp.binAdd, left: max, right: one, unsigned: false, fail: failed))
+	b.b.terminate(b.cur, t: ir.newRet(sum))
+	b.cur = failed
+	let seven = b.konst(7)
+	expectClean("overflow", out: runMain(p, main: b.ret(seven)), exit: 7)
+end 'testACheckedAddThatOverflowsGoesToItsFailureBlock'
+
+// writer is a behaviour on one cown that writes a word to standard output.
+function writer(mutates p ast.Project, name String, word String) returns ir.IrFunction
+	var b = Fn.new(p, name: name, convs: convs1(ast.Convention.convMutates))
+	b.write(word)
+	let zero = b.konst(0)
+	return b.ret(zero)
+end 'writer'
+
+function seedOfTest(seed Count) returns ir.Word
+	return try seed as ir.Word otherwise panic("a seed past a word")
+end 'seedOfTest'
+
+function testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept()
+	var p = irProject()
+	let body = writer(p, name: "body", word: "ran;")
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let c = b.cown(1)
+		b.schedule(body.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.drop(c)
+		let seven = b.konst(7)
+		let out = runSeed(p, main: b.ret(seven), seed: seedOfTest(seed))
+		if out.violations.count() != 0 or out.exitCode != 7 or out.stdout != "ran;" or out.behaviours != 1 'wrong'
+			panic("seed {seed}: exit {out.exitCode}, {out.violations.count()} violations, {out.stdout}, {out.behaviours} behaviours")
+		end 'wrong'
+	end 'seeds'
+end 'testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept'
+
+// Behaviours on one cown run in the order they were scheduled, whatever the interleaving.
+function testBehavioursOnOneCownRunInTheOrderTheyWereScheduled()
+	var p = irProject()
+	let first = writer(p, name: "first", word: "1")
+	let second = writer(p, name: "second", word: "2")
+	let third = writer(p, name: "third", word: "3")
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let c = b.cown(1)
+		b.schedule(first.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.schedule(second.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.schedule(third.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		if out.violations.count() != 0 or out.stdout != "123" 'wrong'
+			panic("seed {seed}: {out.violations.count()} violations, {out.stdout}")
+		end 'wrong'
+	end 'seeds'
+end 'testBehavioursOnOneCownRunInTheOrderTheyWereScheduled'
+
+// Behaviours on disjoint cowns have no order, so the seeds between them find both.
+function testBehavioursOnDisjointCownsRunInEitherOrder()
+	var p = irProject()
+	let left = writer(p, name: "left", word: "L")
+	let right = writer(p, name: "right", word: "R")
+	var leftFirst = 0 as Count
+	var rightFirst = 0 as Count
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let a = b.cown(1)
+		let c = b.cown(1)
+		b.schedule(left.clone(), cowns: regs1(a), captures: ir.RegList.create(0))
+		b.schedule(right.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.drop(a)
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		if out.violations.count() != 0 'violated'
+			panic("seed {seed}: {out.violations[0]}")
+		end 'violated'
+		if out.stdout == "LR" 'lr'
+			leftFirst = try leftFirst + 1 otherwise panic("count")
+		end 'lr' else if out.stdout == "RL" 'rl'
+			rightFirst = try rightFirst + 1 otherwise panic("count")
+		end 'rl' else 'other'
+			panic("seed {seed}: the schedule gave {out.stdout}")
+		end 'other'
+	end 'seeds'
+	if leftFirst == 0 or rightFirst == 0 'one'
+		panic("the schedules gave LR {leftFirst} times and RL {rightFirst} times, wanted both orders")
+	end 'one'
+end 'testBehavioursOnDisjointCownsRunInEitherOrder'
+
+// A behaviour that names two cowns waits for both, so it runs after the earlier behaviours on either one.
+function testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither()
+	var p = irProject()
+	let onA = writer(p, name: "onA", word: "A")
+	let onB = writer(p, name: "onB", word: "B")
+	var both = Fn.new(p, name: "both", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convMutates))
+	both.write("+")
+	let bothZero = both.konst(0)
+	let bothFn = both.ret(bothZero)
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let a = b.cown(1)
+		let c = b.cown(1)
+		b.schedule(onA.clone(), cowns: regs1(a), captures: ir.RegList.create(0))
+		b.schedule(onB.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.schedule(bothFn.clone(), cowns: regs2(a, b: c), captures: ir.RegList.create(0))
+		b.schedule(onA.clone(), cowns: regs1(a), captures: ir.RegList.create(0))
+		b.drop(a)
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		if out.violations.count() != 0 or not (out.stdout == "AB+A" or out.stdout == "BA+A") 'wrong'
+			panic("seed {seed}: {out.violations.count()} violations, {out.stdout}")
+		end 'wrong'
+	end 'seeds'
+end 'testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither'
+
+function twoCownMain(mutates p ast.Project, left ir.IrFunction, right ir.IrFunction) returns ir.IrFunction
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let a = b.cown(1)
+	let c = b.cown(1)
+	b.schedule(left.clone(), cowns: regs1(a), captures: ir.RegList.create(0))
+	b.schedule(right.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+	b.drop(a)
+	b.drop(c)
+	let zero = b.konst(0)
+	return b.ret(zero)
+end 'twoCownMain'
+
+function testTheSameSeedGivesTheSameSchedule()
+	var p = irProject()
+	let left = writer(p, name: "left", word: "L")
+	let right = writer(p, name: "right", word: "R")
+	for seed in 0 upto seedsToTry 'seeds'
+		let mainOne = twoCownMain(p, left: left, right: right)
+		let mainTwo = twoCownMain(p, left: left, right: right)
+		let first = runSeed(p, main: mainOne, seed: seedOfTest(seed))
+		let second = runSeed(p, main: mainTwo, seed: seedOfTest(seed))
+		if first.stdout != second.stdout or first.steps != second.steps 'differs'
+			panic("seed {seed} gave {first.stdout} and {second.stdout}")
+		end 'differs'
+	end 'seeds'
+end 'testTheSameSeedGivesTheSameSchedule'
+
+function testABehaviourThatNamesOneCownTwiceTraps()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convMutates))
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let c = b.cown(1)
+	b.schedule(bodyFn, cowns: regs2(c, b: c), captures: ir.RegList.create(0))
+	let zero = b.konst(0)
+	let out = runSeed(p, main: b.ret(zero), seed: 0)
+	if out.exitCode != 1 or out.violations.count() != 0 or not contains(out.stderr, fragment: "names the same cown twice") 'wrong'
+		panic("same cown twice: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
+	end 'wrong'
+end 'testABehaviourThatNamesOneCownTwiceTraps'
+
+// A behaviour that was handed a value which its scheduler still owns shares it: that is the data race that the capture rules of
+// the checker rule out.
+function testACapturedValueThatTheSchedulerStillOwns()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let c = b.cown(1)
+	let s = b.slot(ir.IrKind.kindManaged)
+	let boxs = b.alloc(1)
+	b.store(s, v: boxs)
+	let captured = b.load(s)
+	b.schedule(bodyFn, cowns: regs1(c), captures: regs1(captured))
+	let zero = b.konst(0)
+	expectViolation("captured", out: runSeed(p, main: b.ret(zero), seed: 0), kind: "data race", fragments: says("captures", b: "still owns", c: "", d: ""))
+end 'testACapturedValueThatTheSchedulerStillOwns'
+
+// A value that was in flight when the behaviour was scheduled and then became main's belongs to main: the behaviour that reads
+// it, whenever it runs after that, races with main.
+function testAThreadReadingWhatAnotherThreadOwns()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
+	let box = body.param(1, kind: ir.IrKind.kindManaged)
+	let field = body.reg(ir.IrKind.kindScalar)
+	body.emit(ir.newLoadField(field, obj: box, offset: 0))
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	var raced = 0 as Count
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let c = b.cown(1)
+		let s = b.slot(ir.IrKind.kindManaged)
+		let captured = b.alloc(1)
+		b.schedule(bodyFn.clone(), cowns: regs1(c), captures: regs1(captured))
+		b.store(s, v: captured)
+		for _ in 0 upto holdsItAWhile 'wait'
+			_ = b.konst(0)
+		end 'wait'
+		b.dropSlot(s)
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		for i in 0 upto out.violations.count() 'violations'
+			if contains(out.violations[i], fragment: "memory-model violation: data race") and contains(out.violations[i], fragment: "belongs to the thread") 'race'
+				raced = try raced + 1 otherwise panic("count")
+			end 'race'
+		end 'violations'
+	end 'seeds'
+	if raced == 0 'none'
+		panic("no schedule of the program showed the race")
+	end 'none'
+end 'testAThreadReadingWhatAnotherThreadOwns'
+
+function testChangingAValueThatIsPartOfAFrozenValue()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	let inner = b.runtime(ir.Rt.rtFrozenGet, kind: ir.IrKind.kindManaged, args: regs1(frozen))
+	let nine = b.konst(9)
+	b.emit(ir.newStoreField(inner, offset: 0, src: nine))
+	let zero = b.konst(0)
+	expectViolation("frozen change", out: runMain(p, main: b.ret(zero)), kind: "change to a frozen value", fragments: says("part of a frozen value", b: "", c: "", d: ""))
+end 'testChangingAValueThatIsPartOfAFrozenValue'
+
+function testReadingAFrozenValueIsFine()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	let inner = b.runtime(ir.Rt.rtFrozenGet, kind: ir.IrKind.kindManaged, args: regs1(frozen))
+	let field = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadField(field, obj: inner, offset: 0))
+	b.drop(frozen)
+	let zero = b.konst(0)
+	expectClean("frozen read", out: runMain(p, main: b.ret(zero)), exit: 0)
+end 'testReadingAFrozenValueIsFine'
+
+// One count for a frozen value, however many objects it holds: the value is freed with its last owner.
+function testAFrozenValueIsFreedWithItsLastOwner()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let outer = b.alloc(1)
+	let inner = b.alloc(1)
+	b.emit(ir.newStoreField(outer, offset: 0, src: inner))
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(outer))
+	let other = b.runtime(ir.Rt.rtShare, kind: ir.IrKind.kindManaged, args: regs1(frozen))
+	b.drop(frozen)
+	b.drop(other)
+	let zero = b.konst(0)
+	var fns = ir.IrFunctionList.create(0)
+	fns.push(b.ret(zero))
+	var modules = interp.ModuleFunctions.create(0)
+	modules.push(fns)
+	let out = interp.run(p, modules: modules, entry: modules[0][0].decl, stepLimit: interp.defaultStepLimit, seed: 0, wantFrees: true)
+	if out.violations.count() != 0 'violated'
+		panic("{out.violations[0]}")
+	end 'violated'
+	if out.frees.count() != 3 or out.frees[0] != "frozen value" or out.frees[1] != "record" or out.frees[2] != "record" 'order'
+		panic("freed {out.frees.count()} values, the first {out.frees[0]}")
+	end 'order'
+end 'testAFrozenValueIsFreedWithItsLastOwner'
+
+function testAFrozenValueIsStillThereWhileAnOwnerHoldsIt()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	let other = b.runtime(ir.Rt.rtShare, kind: ir.IrKind.kindManaged, args: regs1(frozen))
+	b.drop(frozen)
+	let inner = b.runtime(ir.Rt.rtFrozenGet, kind: ir.IrKind.kindManaged, args: regs1(other))
+	let field = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadField(field, obj: inner, offset: 0))
+	b.drop(other)
+	let zero = b.konst(0)
+	expectClean("frozen held", out: runMain(p, main: b.ret(zero)), exit: 0)
+end 'testAFrozenValueIsStillThereWhileAnOwnerHoldsIt'
+
+function testADroppedFrozenValueThatAPlaceStillHolds()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	let s = b.slot(ir.IrKind.kindManaged)
+	b.store(s, v: frozen)
+	b.drop(frozen)
+	let zero = b.konst(0)
+	expectViolation("frozen held by a place", out: runMain(p, main: b.ret(zero)), kind: "reference count", fragments: says("still referenced", b: "", c: "", d: ""))
+end 'testADroppedFrozenValueThatAPlaceStillHolds'
+
+function testAFrozenValueThatNoOneDropsLeaks()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	_ = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	let zero = b.konst(0)
+	expectViolation("frozen leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("frozen value", b: "", c: "", d: ""))
+end 'testAFrozenValueThatNoOneDropsLeaks'
+
+function testACownThatNoOneDropsLeaks()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	_ = b.cown(1)
+	let zero = b.konst(0)
+	expectViolation("cown leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("cown", b: "", c: "", d: ""))
+end 'testACownThatNoOneDropsLeaks'
+
+function testDroppingAFrozenValueOnceTooOften()
+	var p = irProject()
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let box = b.alloc(1)
+	let frozen = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
+	b.drop(frozen)
+	b.drop(frozen)
+	let zero = b.konst(0)
+	expectViolation("frozen twice", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("", b: "", c: "", d: ""))
+end 'testDroppingAFrozenValueOnceTooOften'
+
+// A cown is freed when its last reference is dropped and no behaviour holds it: a behaviour that is still waiting keeps it, and
+// the value it owns, alive.
+function testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs1(ast.Convention.convMutates))
+	let addr = body.param(0, kind: ir.IrKind.kindScalar)
+	let value = body.reg(ir.IrKind.kindManaged)
+	body.emit(ir.newLoadAt(value, addr: addr))
+	let field = body.reg(ir.IrKind.kindScalar)
+	body.emit(ir.newLoadField(field, obj: value, offset: 0))
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let c = b.cown(1)
+		b.schedule(bodyFn.clone(), cowns: regs1(c), captures: ir.RegList.create(0))
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		if out.violations.count() != 0 'violated'
+			panic("seed {seed}: {out.violations[0]}")
+		end 'violated'
+	end 'seeds'
+end 'testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped'
+
+// A behaviour owns what it captures, and frees it when it ends.
+function testACapturedValueIsFreedByTheBehaviour()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convConsumes))
+	let slot = body.slot(ir.IrKind.kindManaged)
+	let param = body.param(1, kind: ir.IrKind.kindManaged)
+	body.store(slot, v: param)
+	body.dropSlot(slot)
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: convs0())
+		let c = b.cown(1)
+		let captured = b.alloc(2)
+		b.schedule(bodyFn.clone(), cowns: regs1(c), captures: regs1(captured))
+		b.drop(c)
+		let zero = b.konst(0)
+		let out = runSeed(p, main: b.ret(zero), seed: seedOfTest(seed))
+		if out.violations.count() != 0 'violated'
+			panic("seed {seed}: {out.violations[0]}")
+		end 'violated'
+	end 'seeds'
+end 'testACapturedValueIsFreedByTheBehaviour'
+
+function testACapturedValueThatTheBehaviourNeverFrees()
+	var p = irProject()
+	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convConsumes))
+	let slot = body.slot(ir.IrKind.kindManaged)
+	let param = body.param(1, kind: ir.IrKind.kindManaged)
+	body.store(slot, v: param)
+	let bodyZero = body.konst(0)
+	let bodyFn = body.ret(bodyZero)
+	var b = Fn.new(p, name: "main", convs: convs0())
+	let c = b.cown(1)
+	let captured = b.alloc(2)
+	b.schedule(bodyFn, cowns: regs1(c), captures: regs1(captured))
+	b.drop(c)
+	let zero = b.konst(0)
+	expectViolation("never freed", out: runSeed(p, main: b.ret(zero), seed: 0), kind: "leak", fragments: says("slot s0 still owns", b: "", c: "", d: ""))
+end 'testACapturedValueThatTheBehaviourNeverFrees'
+
+function testInterp()
+	testACleanProgramHasNoViolation()
+	testUseAfterFree()
+	testDoubleFree()
+	testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice()
+	testLeakAtTheEndOfTheProgram()
+	testASlotThatStillOwnsWhenTheFunctionReturns()
+	testUsingAMovedValueThroughItsOldOwner()
+	testAValueWithTwoOwners()
+	testOverwritingAnOwnedValueWithoutDroppingIt()
+	testReturningAValueThatAnotherOwnerHolds()
+	testOverlappingArgumentsAtACall()
+	testDisjointArgumentsAtACallAreFine()
+	testChangingWhatAnArgumentBorrowsBeforeTheCallRuns()
+	testAnAddressIsStaleOnceTheArrayChanges()
+	testAnArrayThatIsDroppedFreesItsElements()
+	testAMovedElementIsOwnedByTheCaller()
+	testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle()
+	testAStaleHandleTrapsLikeTheCompiledProgram()
+	testACheckedAddThatOverflowsGoesToItsFailureBlock()
+	testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept()
+	testBehavioursOnOneCownRunInTheOrderTheyWereScheduled()
+	testBehavioursOnDisjointCownsRunInEitherOrder()
+	testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither()
+	testTheSameSeedGivesTheSameSchedule()
+	testABehaviourThatNamesOneCownTwiceTraps()
+	testACapturedValueThatTheSchedulerStillOwns()
+	testAThreadReadingWhatAnotherThreadOwns()
+	testChangingAValueThatIsPartOfAFrozenValue()
+	testReadingAFrozenValueIsFine()
+	testAFrozenValueIsFreedWithItsLastOwner()
+	testAFrozenValueIsStillThereWhileAnOwnerHoldsIt()
+	testADroppedFrozenValueThatAPlaceStillHolds()
+	testAFrozenValueThatNoOneDropsLeaks()
+	testACownThatNoOneDropsLeaks()
+	testDroppingAFrozenValueOnceTooOften()
+	testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped()
+	testACapturedValueIsFreedByTheBehaviour()
+	testACapturedValueThatTheBehaviourNeverFrees()
+end 'testInterp'

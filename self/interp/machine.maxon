@@ -1,0 +1,423 @@
+// A frame is run by a loop over its function's instructions that returns whenever the frame that runs changes: a call makes
+// a frame and a return ends one, and the thread that has the turn gives it back after its burst. The loop is outside the type
+// because the dispatch takes the visitor to mutate, which a method cannot give of its own self.
+
+// Machine runs the operations of the IR in a Vm: its visit methods are the interpreter's ir.InstrVisitor and
+// ir.TermVisitor. A failure that ends the run is left in the Vm, so a method that fails does no more.
+type Machine implements ir.InstrVisitor, ir.TermVisitor
+	var vm as Vm
+
+	static function new(consumes vm Vm) returns Machine
+		return Machine{vm: vm}
+	end 'new'
+
+	function visitConst(mutates self, f ir.IrFunction, x ir.Instr)
+		execConst(vm, x: x)
+	end 'visitConst'
+
+	function visitStr(mutates self, f ir.IrFunction, x ir.Instr)
+		execStr(vm, f: f, x: x)
+	end 'visitStr'
+
+	function visitLoadSlot(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLoadSlot(vm, f: f, x: x) otherwise ignore
+	end 'visitLoadSlot'
+
+	function visitStoreSlot(mutates self, f ir.IrFunction, x ir.Instr)
+		try execStoreSlot(vm, f: f, x: x) otherwise ignore
+	end 'visitStoreSlot'
+
+	function visitSlotAddr(mutates self, f ir.IrFunction, x ir.Instr)
+		execSlotAddr(vm, x: x)
+	end 'visitSlotAddr'
+
+	function visitLoadParam(mutates self, f ir.IrFunction, x ir.Instr)
+		execLoadParam(vm, x: x)
+	end 'visitLoadParam'
+
+	function visitLoadField(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLoadField(vm, x: x) otherwise ignore
+	end 'visitLoadField'
+
+	function visitStoreField(mutates self, f ir.IrFunction, x ir.Instr)
+		try execStoreField(vm, f: f, x: x) otherwise ignore
+	end 'visitStoreField'
+
+	function visitFieldAddr(mutates self, f ir.IrFunction, x ir.Instr)
+		try execFieldAddr(vm, x: x) otherwise ignore
+	end 'visitFieldAddr'
+
+	function visitLoadAt(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLoadAt(vm, x: x) otherwise ignore
+	end 'visitLoadAt'
+
+	function visitStoreAt(mutates self, f ir.IrFunction, x ir.Instr)
+		try execStoreAt(vm, f: f, x: x) otherwise ignore
+	end 'visitStoreAt'
+
+	function visitLoadGlobal(mutates self, f ir.IrFunction, x ir.Instr)
+		execLoadGlobal(vm, x: x)
+	end 'visitLoadGlobal'
+
+	// The raw operations are the runtime's source's, which no IR the Go compiler lowers has.
+	function visitLoadRaw(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: loadraw is the runtime source's, which the interpreter never runs")
+	end 'visitLoadRaw'
+
+	function visitStoreRaw(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: storeraw is the runtime source's, which the interpreter never runs")
+	end 'visitStoreRaw'
+
+	function visitGlobalAddr(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: globaladdr is the runtime source's, which the interpreter never runs")
+	end 'visitGlobalAddr'
+
+	function visitCallImport(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: import is the runtime source's, which the interpreter never runs")
+	end 'visitCallImport'
+
+	function visitBin(mutates self, f ir.IrFunction, x ir.Instr)
+		execBin(vm, x: x)
+	end 'visitBin'
+
+	function visitCmp(mutates self, f ir.IrFunction, x ir.Instr)
+		execCmp(vm, x: x)
+	end 'visitCmp'
+
+	function visitNeg(mutates self, f ir.IrFunction, x ir.Instr)
+		execNeg(vm, x: x)
+	end 'visitNeg'
+
+	function visitNot(mutates self, f ir.IrFunction, x ir.Instr)
+		execNot(vm, x: x)
+	end 'visitNot'
+
+	function visitGuard(mutates self, f ir.IrFunction, x ir.Instr)
+		execGuard(vm, x: x)
+	end 'visitGuard'
+
+	function visitAlloc(mutates self, f ir.IrFunction, x ir.Instr)
+		execAlloc(vm, x: x)
+	end 'visitAlloc'
+
+	function visitCall(mutates self, f ir.IrFunction, x ir.Instr)
+		try execCall(vm, f: f, x: x) otherwise ignore
+	end 'visitCall'
+
+	function visitCallRuntime(mutates self, f ir.IrFunction, x ir.Instr)
+		try runtimeEntry(vm, f: f, x: x) otherwise ignore
+	end 'visitCallRuntime'
+
+	function visitWhen(mutates self, f ir.IrFunction, x ir.Instr)
+		try execWhen(vm, f: f, x: x) otherwise ignore
+	end 'visitWhen'
+
+	function visitDrop(mutates self, f ir.IrFunction, x ir.Instr)
+		try execDrop(vm, x: x) otherwise ignore
+	end 'visitDrop'
+
+	function visitDropSlot(mutates self, f ir.IrFunction, x ir.Instr)
+		try execDropSlot(vm, x: x) otherwise ignore
+	end 'visitDropSlot'
+
+	function visitDropAt(mutates self, f ir.IrFunction, x ir.Instr)
+		try execDropAt(vm, x: x) otherwise ignore
+	end 'visitDropAt'
+
+	function visitMoveSlot(mutates self, f ir.IrFunction, x ir.Instr)
+		try execMoveSlot(vm, x: x) otherwise ignore
+	end 'visitMoveSlot'
+
+	function visitMoveAt(mutates self, f ir.IrFunction, x ir.Instr)
+		try execMoveAt(vm, x: x) otherwise ignore
+	end 'visitMoveAt'
+
+	function visitCopy(mutates self, f ir.IrFunction, x ir.Instr)
+		try execCopy(vm, x: x) otherwise ignore
+	end 'visitCopy'
+
+	function visitJump(mutates self, f ir.IrFunction, t ir.Term)
+		vm.curBlock = try ir.jumpTarget(t) as Count otherwise panic("interp: a jump to no block")
+		vm.curPc = 0
+	end 'visitJump'
+
+	function visitBranch(mutates self, f ir.IrFunction, t ir.Term)
+		var next = ir.branchIfFalse(t)
+		if vm.num(ir.branchCond(t)) != 0 'taken'
+			next = ir.branchIfTrue(t)
+		end 'taken'
+		vm.curBlock = try next as Count otherwise panic("interp: a branch to no block")
+		vm.curPc = 0
+	end 'visitBranch'
+
+	function visitSwitch(mutates self, f ir.IrFunction, t ir.Term)
+		var next = ir.switchFallback(t)
+		let v = vm.num(ir.switchValue(t))
+		let start = ir.switchCasesStart(t)
+		for i in 0 upto ir.switchCasesCount(t) 'cases'
+			let at = try start + i otherwise panic("interp: a case past the pool")
+			if f.cases[at].value == v 'match'
+				next = f.cases[at].target
+				break 'cases'
+			end 'match'
+		end 'cases'
+		vm.curBlock = try next as Count otherwise panic("interp: a switch to no block")
+		vm.curPc = 0
+	end 'visitSwitch'
+
+	function visitRet(mutates self, f ir.IrFunction, t ir.Term)
+		try execRet(vm, f: f, t: t) otherwise ignore
+	end 'visitRet'
+
+	function visitThrow(mutates self, f ir.IrFunction, t ir.Term)
+		try execThrow(vm, f: f, t: t) otherwise ignore
+	end 'visitThrow'
+
+	function visitTrap(mutates self, f ir.IrFunction, t ir.Term)
+		vm.stderr.append("trap\n".toByteArray())
+		_ = exitWith(vm, code: illegalInstructionExitCode)
+	end 'visitTrap'
+end 'Machine'
+
+// requireSlotsDropped is a violation for each slot that still owns a value when its function returns or fails.
+function requireSlotsDropped(mutates vm Vm, f ir.IrFunction) throws Halt
+	for i in 0 upto f.slots.count() 'slots'
+		let c = slotCell(vm, slot: i)
+		let o = vm.h.refOf(c)
+		if o != 0 and not vm.h.oImmortal[o] and not vm.h.oFreed[o] and vm.h.heldBy(o, c: c) 'owns'
+			let message = "slot s{i} still owns {objectText(vm, o: o)} when the function returns: no drop frees it"
+			throw violation(vm, kind: leak, message: message)
+		end 'owns'
+	end 'slots'
+end 'requireSlotsDropped'
+
+// execRet hands the result to the caller. It must be a value that nothing owns, and no slot may still own anything: an owner
+// that dies without dropping what it holds leaks it.
+function execRet(mutates vm Vm, f ir.IrFunction, t ir.Term) throws Halt
+	endWindows(vm)
+	let src = ir.retValue(t)
+	if isManaged(f, r: src) 'managed'
+		let o = vm.ref(src)
+		if o == 0 'moved'
+			throw violation(vm, kind: movedUse, message: "the function returns a value that was moved out or never assigned")
+		end 'moved'
+		try requireLive(vm, o: o, what: "returned")
+		if not vm.h.oImmortal[o] and vm.h.oOwner[o] != 0 'owned'
+			let message = "the function returns {objectText(vm, o: o)}, which {cellText(vm, c: vm.h.oOwner[o])} still owns: a return moves its value"
+			throw violation(vm, kind: ownership, message: message)
+		end 'owned'
+	end 'managed'
+	try requireSlotsDropped(vm, f: f)
+	let at = vm.regAt(src)
+	let n = vm.regN[at]
+	let r = vm.regR[at]
+	leaveFrame(vm, n: n, r: r, err: 0)
+end 'execRet'
+
+function execThrow(mutates vm Vm, f ir.IrFunction, t ir.Term) throws Halt
+	endWindows(vm)
+	try requireSlotsDropped(vm, f: f)
+	let err = vm.num(ir.throwErr(t))
+	leaveFrame(vm, n: 0, r: 0, err: err)
+end 'execThrow'
+
+// enterFrame makes a call of a function with the arguments in argN and argR; its result goes to the register dst of the caller
+// and its error to the register err, unless they are -1.
+function enterFrame(mutates vm Vm, fn Count, dst ir.Word, err ir.Word) throws Halt
+	if vm.frames.count() >= maxCallDepth 'deep'
+		vm.stderr.append("stack overflow\n".toByteArray())
+		throw exitWith(vm, code: stackOverflowExitCode)
+	end 'deep'
+	if vm.top != 0 'caller'
+		vm.fr.block[vm.top] = vm.curBlock
+		vm.fr.pc[vm.top] = vm.curPc
+		vm.fr.idx[vm.top] = vm.curIdx
+		vm.fr.post[vm.top] = vm.post
+	end 'caller'
+	let params = vm.argN.count()
+	let regs = vm.prog.fnRegs[fn]
+	let base = vm.stackTop
+	let first = try base + params otherwise panic("interp: a frame past memory")
+	let top = try first + regs otherwise panic("interp: a frame past memory")
+	while vm.regN.count() < top 'grow'
+		vm.regN.push(0)
+		vm.regR.push(0)
+	end 'grow'
+	for i in 0 upto params 'params'
+		let at = try base + i otherwise panic("interp: a parameter past memory")
+		vm.regN[at] = vm.argN[i]
+		vm.regR[at] = vm.argR[i]
+	end 'params'
+	for i in 0 upto regs 'regs'
+		let at = try first + i otherwise panic("interp: a register past memory")
+		vm.regN[at] = 0
+		vm.regR[at] = 0
+	end 'regs'
+	let serial = vm.fr.fn.count()
+	let slots = vm.h.cellN.count()
+	vm.fr.push(fn, onThread: vm.cur, params: base, regs: first, slots: slots, dst: dst, err: err)
+	for i in 0 upto vm.prog.fnSlots[fn] 'slots'
+		let c = vm.h.newCell(0)
+		vm.h.cellFrame[c] = serial
+		vm.h.cellIndex[c] = i
+	end 'slots'
+	vm.stackTop = top
+	vm.frames.push(serial)
+	vm.top = serial
+	vm.curFn = fn
+	vm.curBlock = 0
+	vm.curPc = 0
+	vm.paramBase = base
+	vm.regBase = first
+	vm.slotBase = slots
+	vm.post = false
+	vm.switched = true
+end 'enterFrame'
+
+// loadTop makes the frame at the top of the thread's stack the one that runs.
+function loadTop(mutates vm Vm)
+	let top = vm.top
+	vm.curFn = vm.fr.fn[top]
+	vm.curBlock = vm.fr.block[top]
+	vm.curPc = vm.fr.pc[top]
+	vm.curIdx = vm.fr.idx[top]
+	vm.paramBase = vm.fr.paramBase[top]
+	vm.regBase = vm.fr.regBase[top]
+	vm.slotBase = vm.fr.slotBase[top]
+	vm.post = vm.fr.post[top]
+end 'loadTop'
+
+// leaveFrame ends the frame that runs, giving the value n and r to its caller, and the error.
+function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word)
+	let serial = vm.top
+	let dst = vm.fr.retDst[serial]
+	let errReg = vm.fr.retErr[serial]
+	vm.fr.active[serial] = false
+	try vm.frames.pop() otherwise ignore
+	vm.stackTop = vm.fr.paramBase[serial]
+	vm.switched = true
+	if vm.frames.count() == 0 'base'
+		vm.top = 0
+		vm.baseN = n
+		return
+	end 'base'
+	vm.top = vm.frames[try vm.frames.count() - 1 otherwise panic("interp: no frames")]
+	loadTop(vm)
+	if dst >= 0 'gives'
+		let at = try vm.regBase + (dst as Count) otherwise panic("interp: a register past memory")
+		vm.regN[at] = n
+		vm.regR[at] = r
+	end 'gives'
+	if errReg >= 0 'throws'
+		let at = try vm.regBase + (errReg as Count) otherwise panic("interp: a register past memory")
+		vm.regN[at] = err
+		vm.regR[at] = 0
+	end 'throws'
+end 'leaveFrame'
+
+// runEndings calls the destructors of the cowns that the last instruction freed, in the order they were freed. A destructor that
+// frees more cowns runs their destructors in its own instructions, so the list is taken before any runs. The frames are made
+// last first, so that the one freed first runs first.
+function runEndings(mutates vm Vm) throws Halt
+	let fns = exchange(vm.endingFn, value: CountList.create(0))
+	let ns = exchange(vm.endingN, value: ir.WordList.create(0))
+	let rs = exchange(vm.endingR, value: ir.WordList.create(0))
+	var i = fns.count()
+	while i > 0 'due'
+		i = try i - 1 otherwise panic("interp: no endings")
+		clearArguments(vm)
+		vm.argN.push(ns[i])
+		vm.argR.push(rs[i])
+		try enterFrame(vm, fn: fns[i], dst: -1, err: -1)
+	end 'due'
+end 'runEndings'
+
+// finishInstruction is what follows an instruction that has run: the destructors of the cowns it freed, and the windows its
+// result opens for the calls that wait for the arguments after it.
+function finishInstruction(mutates m Machine, info Count, f ir.IrFunction)
+	if m.vm.endingFn.count() > 0 'endings'
+		m.vm.post = true
+		try runEndings(m.vm) otherwise ignore
+		return
+	end 'endings'
+	var link = m.vm.prog.infos[info].head[m.vm.curIdx]
+	while link != 0 'windows'
+		let entry = try link - 1 otherwise panic("interp: a link before the first")
+		let call = m.vm.prog.infos[info].calls[entry]
+		let callBlock = m.vm.prog.infos[info].blocks[entry]
+		let idx = m.vm.curIdx
+		let def = m.vm.curBlock
+		openWindow(m.vm, f: f, k: idx, call: call, callBlock: callBlock, def: def)
+		link = m.vm.prog.infos[info].next[entry]
+	end 'windows'
+	m.vm.post = false
+	m.vm.curPc = try m.vm.curPc + 1 otherwise panic("interp: an instruction past a word")
+end 'finishInstruction'
+
+// runFrame runs the frame at the top of the thread, which is of the function f, until the frame that runs changes, the thread
+// gives up its turn, or the run ends. Each step counts an instruction: the run ends when the program has used its steps, and
+// the thread gives the turn back when its burst is used.
+function runFrame(mutates m Machine, f ir.IrFunction)
+	let fi = m.vm.curFn
+	if not m.vm.prog.infoBuilt[fi] 'info'
+		buildInfo(m.vm, f: f, fi: fi)
+	end 'info'
+	m.vm.switched = false
+	var block = m.vm.curBlock
+	var first = f.blocks[block].first
+	var count = (try f.blocks[block].endAt - first otherwise panic("interp: a block that ends before it starts")) as Count
+	while m.vm.fatal == fatalNone and not m.vm.switched and not m.vm.yielded 'run'
+		if m.vm.post 'post'
+			finishInstruction(m, info: fi, f: f)
+			continue 'run'
+		end 'post'
+		if m.vm.curBlock != block 'entered'
+			block = m.vm.curBlock
+			first = f.blocks[block].first
+			count = try f.blocks[block].endAt - first otherwise panic("interp: a block that ends before it starts")
+		end 'entered'
+		if m.vm.curPc >= 0 and (m.vm.curPc as Count) >= count 'end'
+			m.vm.curPc = terminatorPc
+		end 'end'
+		if m.vm.ticked 'counted'
+			m.vm.ticked = false
+		end 'counted' else 'count'
+			m.vm.steps = try m.vm.steps + 1 otherwise panic("interp: more steps than a word")
+			if m.vm.steps > m.vm.limit 'limit'
+				_ = timeout(m.vm)
+				return
+			end 'limit'
+			if m.vm.concurrent 'concurrent'
+				m.vm.burst = try m.vm.burst - 1 otherwise panic("interp: a thread ran with no burst left")
+				if m.vm.burst == 0 'spent'
+					m.vm.yielded = true
+					m.vm.ticked = true
+					return
+				end 'spent'
+			end 'concurrent'
+		end 'count'
+		if m.vm.curPc < 0 'terminator'
+			ir.visitTerm(m, f: f, t: f.blocks[block].term)
+			continue 'run'
+		end 'terminator'
+		let idx = try first + (m.vm.curPc as Count) otherwise panic("interp: an instruction past memory")
+		m.vm.curIdx = idx
+		ir.visitInstr(m, f: f, x: f.instrs[idx])
+		if m.vm.fatal != fatalNone or m.vm.switched 'left'
+			return
+		end 'left'
+		if m.vm.failTo >= 0 'failed'
+			let target = m.vm.failTo as Count
+			m.vm.failTo = noFailure
+			skipWindows(m.vm, f: f, target: target)
+			m.vm.curBlock = target
+			m.vm.curPc = 0
+			continue 'run'
+		end 'failed'
+		if m.vm.endingFn.count() == 0 and m.vm.prog.infos[fi].head[idx] == 0 'plain'
+			m.vm.curPc = try m.vm.curPc + 1 otherwise panic("interp: an instruction past a word")
+		end 'plain' else 'followed'
+			m.vm.post = true
+		end 'followed'
+	end 'run'
+end 'runFrame'

@@ -1,0 +1,354 @@
+// The interpreter runs the lowered IR of a whole program while it tracks the heap the way the memory model describes it, and
+// reports a violation where the program breaks a rule: a value used after it was freed, freed twice, leaked, used after it
+// moved, owned twice, or reached through two overlapping borrows. A program that the checker accepted must run clean, so a
+// violation is a hole in the checker or in lowering. It is for tests and development, and never part of a compiled program.
+//
+// It also gives the primitives that the backend has no code for (map, list and pool) their meaning, and a trap in the
+// program behaves as it does natively: the same standard output and the same exit code.
+
+// panicExitCode is what a panic, and every check that the compiled code makes, exits with.
+let panicExitCode = 1 as ir.Word
+
+// illegalInstructionExitCode is what a program that reaches a trap terminator exits with when compiled: the ud2
+// instruction raises STATUS_ILLEGAL_INSTRUCTION.
+let illegalInstructionExitCode = -1073741795 as ir.Word
+
+// stackOverflowExitCode is STATUS_STACK_OVERFLOW.
+let stackOverflowExitCode = -1073741571 as ir.Word
+
+let maxCallDepth = 100000 as Count
+
+// defaultStepLimit is how many instructions a program may run before it is called a timeout.
+export let defaultStepLimit = 500000000 as Count
+
+// maxLeaksReported keeps a report of a program that leaks everything short.
+let maxLeaksReported = 8 as Count
+
+let stdoutHandle = 1 as ir.Word
+
+let stderrHandle = 2 as ir.Word
+
+let heapHandle = 3 as ir.Word
+
+let wordBytes = 8 as Count
+
+// What ended the run: nothing yet, the program's exit, a violation, or the step limit.
+let fatalNone = 0 as Count
+
+let fatalExit = 1 as Count
+
+let fatalViolation = 2 as Count
+
+let fatalTimeout = 3 as Count
+
+// noFailure is what failTo holds when the last instruction did not fail.
+let noFailure = -1 as ir.Word
+
+// Convention codes of a parameter, as the callee takes its argument.
+let convLet = 0 as Count
+
+let convConsumes = 3 as Count
+
+let convDestructs = 4 as Count
+
+// ownsArgument is whether the callee owns what it is given: the caller's value moves in.
+function ownsArgument(conv Count) returns bool
+	return conv == convConsumes or conv == convDestructs
+end 'ownsArgument'
+
+// window is a borrow that a call holds while the arguments after it are evaluated: the address or pointer is taken when its
+// argument is, and used when the call runs.
+type Window
+	// call is the index of the call's instruction in its function, and block the block it is in.
+	var call as Count
+	var block as Count
+	// def is the block of the instruction whose borrow the window holds.
+	var def as Count
+	var frame as Count
+	// A region is a cell with whatever it holds, or an object; the one that is not named is 0.
+	var cell as Count
+	var obj as Count
+	// at is where the borrow was taken, which is also the instruction that took it.
+	var at as Count
+
+	static function make(call Count, block Count, def Count, frame Count, cell Count, obj Count, at Count) returns Window
+		return Window{call: call, block: block, def: def, frame: frame, cell: cell, obj: obj, at: at}
+	end 'make'
+end 'Window'
+
+typealias Windows = Array with Window
+
+// Info is what a function's IR says before it runs: for each instruction, the calls that hold its result as an argument
+// while the arguments after it are evaluated, as a chain through the three columns: head[i] is 1 more than the first link
+// of instruction i, and next[link] is 1 more than the following one.
+type Info
+	var head as CountList
+	var calls as CountList
+	var blocks as CountList
+	var next as CountList
+
+	static function new(instrs Count) returns Info
+		var head = CountList.create(0)
+		for _ in 0 upto instrs 'each'
+			head.push(0)
+		end 'each'
+		return Info{head: head, calls: CountList.create(0), blocks: CountList.create(0), next: CountList.create(0)}
+	end 'new'
+end 'Info'
+
+typealias Infos = Array with Info
+
+// Program is what the interpreter knows about the functions before the first instruction runs: for each function, indexed from 1,
+// its text for a report, its sizes, the conventions of its parameters and where to find it.
+type Program
+	var symbols as ast.StringList
+	var fnSlots as CountList
+	var fnRegs as CountList
+	// fnConvs are the conventions of a function's parameters, the receiver of a method counting as the first.
+	var fnConvs as CountLists
+	// fnChildren are the behaviour bodies of a function, in the order the function names them.
+	var fnChildren as CountLists
+	var fnByFunc as table.IntMap with Count
+	var infos as Infos
+	var infoBuilt as BoolList
+	var mainFn as Count
+
+	static function new() returns Program
+		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnByFunc: table.IntMap.new(), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
+		p.add("", slots: 0, regs: 0, convs: CountList.create(0))
+		return p
+	end 'new'
+
+	// add makes the next function, which has the index that the count of the ones before it, and 1, names.
+	function add(mutates self, consumes symbol String, slots Count, regs Count, consumes convs CountList)
+		symbols.push(symbol)
+		fnSlots.push(slots)
+		fnRegs.push(regs)
+		fnConvs.push(convs)
+		fnChildren.push(CountList.create(0))
+		infos.push(Info.new(0))
+		infoBuilt.push(false)
+	end 'add'
+end 'Program'
+
+// Frames are the calls that have been made, in columns by the serial of the call, which is never reused: a slot's cell names its
+// frame, so an address into a frame that has returned is found stale.
+type Frames
+	var fn as CountList
+	var thread as CountList
+	var active as BoolList
+	var block as CountList
+	var pc as ir.WordList
+	var idx as CountList
+	var paramBase as CountList
+	var regBase as CountList
+	var slotBase as CountList
+	var retDst as ir.WordList
+	var retErr as ir.WordList
+	// post is whether the instruction the frame is at has run and what comes after it has not, which is where a frame waits
+	// for a callee to return.
+	var post as BoolList
+
+	static function new() returns Frames
+		var f = Frames{fn: CountList.create(0), thread: CountList.create(0), active: BoolList.create(0), block: CountList.create(0), pc: ir.WordList.create(0), idx: CountList.create(0), paramBase: CountList.create(0), regBase: CountList.create(0), slotBase: CountList.create(0), retDst: ir.WordList.create(0), retErr: ir.WordList.create(0), post: BoolList.create(0)}
+		// Serial 0 is no frame.
+		f.push(0, onThread: 0, params: 0, regs: 0, slots: 0, dst: -1, err: -1)
+		return f
+	end 'new'
+
+	function push(mutates self, fnIndex Count, onThread Count, params Count, regs Count, slots Count, dst ir.Word, err ir.Word)
+		fn.push(fnIndex)
+		thread.push(onThread)
+		active.push(true)
+		block.push(0)
+		pc.push(0)
+		idx.push(0)
+		paramBase.push(params)
+		regBase.push(regs)
+		slotBase.push(slots)
+		retDst.push(dst)
+		retErr.push(err)
+		post.push(false)
+	end 'push'
+end 'Frames'
+
+// Thread is one running line of execution: main, or the body of a behaviour.
+type Thread
+	// name is the function that the thread runs.
+	var name as Count
+	// behaviour is the behaviour this thread runs, or 0 for main.
+	var behaviour as Count
+	var done as bool
+	// begun is whether the thread has made its first frame, and finished whether its last has returned.
+	var begun as bool
+	var finished as bool
+	var ticked as bool
+	var stackTop as Count
+	// The registers of the interpreter that belong to the thread, kept here while another thread runs.
+	var regN as ir.WordList
+	var regR as ir.WordList
+	var frames as CountList
+	var windows as Windows
+
+	static function new(name Count, behaviour Count) returns Thread
+		return Thread{name: name, behaviour: behaviour, done: false, begun: false, finished: false, ticked: false, stackTop: 0, regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0)}
+	end 'new'
+end 'Thread'
+
+typealias Threads = Array with Thread
+
+// Behaviour columns, by the id of the behaviour, from 1: a scheduled `when`, its body, what it captured, and the cowns it
+// waits for.
+type Behaviours
+	var body as CountList
+	var capturesN as WordLists
+	var capturesR as WordLists
+	var cowns as CountLists
+	var seq as CountList
+	var started as BoolList
+
+	static function new() returns Behaviours
+		var b = Behaviours{body: CountList.create(0), capturesN: WordLists.create(0), capturesR: WordLists.create(0), cowns: CountLists.create(0), seq: CountList.create(0), started: BoolList.create(0)}
+		b.body.push(0)
+		b.capturesN.push(ir.WordList.create(0))
+		b.capturesR.push(ir.WordList.create(0))
+		b.cowns.push(CountList.create(0))
+		b.seq.push(0)
+		b.started.push(false)
+		return b
+	end 'new'
+end 'Behaviours'
+
+// Vm is everything a run has: the heap, the calls, the output, and the scheduler's state.
+type Vm
+	var h as Heap
+	var prog as Program
+	var fr as Frames
+	// The state of the thread that has the turn.
+	var regN as ir.WordList
+	var regR as ir.WordList
+	var frames as CountList
+	var windows as Windows
+	// top is the serial of the frame that runs, with the function, block and instruction it is at, and where its parameters and
+	// its registers start in the thread's words; stackTop is where the next frame's would.
+	var top as Count
+	var curFn as Count
+	var curBlock as Count
+	var curPc as ir.Word
+	// curIdx is the index of the instruction that runs in its function's list, which curBlock and curPc place.
+	var curIdx as Count
+	var paramBase as Count
+	var regBase as Count
+	var slotBase as Count
+	var stackTop as Count
+	// post is whether the top frame's instruction has run and what comes after it has not.
+	var post as bool
+	// failTo is the block that a failed instruction goes to, or -1 when the last one did not fail.
+	var failTo as ir.Word
+	// switched is whether the top frame changed or the thread gave up its turn, so the loop that runs a frame has to start over.
+	var switched as bool
+	var yielded as bool
+	// ticked is whether the instruction that the thread resumes at was counted before the thread gave up its turn.
+	var ticked as bool
+	// The arguments of the call being made, until its frame has them.
+	var argN as ir.WordList
+	var argR as ir.WordList
+	var stdout as ByteArray
+	var stderr as ByteArray
+	var violations as Violations
+	var exitCode as ir.Word
+	var fatal as Count
+	var steps as Count
+	var limit as Count
+	// frees are the objects that were freed, in the order they were.
+	var frees as CountList
+	// endings are the destructors of cowns that were freed and still have to run, with the values they end, in the order the
+	// cowns were freed. A cown can be freed deep inside the free of a record or an array, where a call cannot be made, so the
+	// thread that dropped runs them once the instruction that dropped has finished.
+	var endingFn as CountList
+	var endingN as ir.WordList
+	var endingR as ir.WordList
+	// The scheduler's.
+	var rng as Rng
+	var cur as Count
+	var threads as Threads
+	var behaviours as Behaviours
+	// pending are the behaviours that have not started, in the order they were scheduled.
+	var pending as CountList
+	var scheduled as Count
+	// concurrent is whether a behaviour has ever been scheduled: until then there is one thread and nothing to interleave.
+	var concurrent as bool
+	// tracking is whether the heap has anything that only some threads may touch: a frozen value or a cown has been made.
+	var tracking as bool
+	var mainExit as ir.Word
+	// baseN is the value of the frame that returned to no caller.
+	var baseN as ir.Word
+	var burst as Count
+	// powers are the powers of two, which shifts are made of.
+	var powers as CountList
+
+	static function new(consumes prog Program, limit Count, seed ir.Word) returns Vm
+		var vm = Vm{h: Heap.new(), prog: prog, fr: Frames.new(), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), top: 0, curFn: 0, curBlock: 0, curPc: 0, curIdx: 0, paramBase: 0, regBase: 0, slotBase: 0, stackTop: 0, post: false, failTo: noFailure, switched: false, yielded: false, ticked: false, argN: ir.WordList.create(0), argR: ir.WordList.create(0), stdout: ByteArray.create(0), stderr: ByteArray.create(0), violations: Violations.create(0), exitCode: 0, fatal: fatalNone, steps: 0, limit: limit, frees: CountList.create(0), endingFn: CountList.create(0), endingN: ir.WordList.create(0), endingR: ir.WordList.create(0), rng: Rng.new(seed), cur: 0, threads: Threads.create(0), behaviours: Behaviours.new(), pending: CountList.create(0), scheduled: 0, concurrent: false, tracking: false, mainExit: 0, baseN: 0, burst: 0, powers: powersOfTwo()}
+		// Thread 0 is no thread.
+		vm.threads.push(Thread.new(0, behaviour: 0))
+		return vm
+	end 'new'
+
+	// regAt is where a register is in the thread's words.
+	function regAt(r ir.Reg) returns Count
+		let index = try r as Count otherwise panic("interp: a register that does not exist")
+		return try regBase + index otherwise panic("interp: a register past memory")
+	end 'regAt'
+
+	function paramAt(i Count) returns Count
+		return try paramBase + i otherwise panic("interp: a parameter past memory")
+	end 'paramAt'
+
+	function num(r ir.Reg) returns ir.Word
+		return regN[self.regAt(r)]
+	end 'num'
+
+	// ref is the object a register holds, or 0.
+	function ref(r ir.Reg) returns Count
+		let word = regR[self.regAt(r)]
+		if word > 0 'ref'
+			return word as Count
+		end 'ref'
+		return 0
+	end 'ref'
+
+	// address is the cell a register has the address of, or 0 for a register that is not an address.
+	function address(r ir.Reg) returns Count
+		let word = regR[self.regAt(r)]
+		if word < 0 'adr'
+			return try (0 - word) as Count otherwise panic("interp: an address past a word")
+		end 'adr'
+		return 0
+	end 'address'
+
+	function setNum(mutates self, r ir.Reg, n ir.Word)
+		let at = self.regAt(r)
+		regN[at] = n
+		regR[at] = 0
+	end 'setNum'
+
+	function setRef(mutates self, r ir.Reg, o Count)
+		let at = self.regAt(r)
+		regN[at] = 0
+		regR[at] = try o as ir.Word otherwise panic("interp: a handle past a word")
+	end 'setRef'
+
+	function setAddress(mutates self, r ir.Reg, c Count, version Count)
+		let at = self.regAt(r)
+		regN[at] = try version as ir.Word otherwise panic("interp: a version past a word")
+		regR[at] = try 0 - (c as ir.Word) otherwise panic("interp: a handle past a word")
+	end 'setAddress'
+
+	// site is where the frame that runs is.
+	function site() returns Count
+		if top == 0 'none'
+			return 0
+		end 'none'
+		return packSite(curFn, block: curBlock, pc: curPc)
+	end 'site'
+end 'Vm'

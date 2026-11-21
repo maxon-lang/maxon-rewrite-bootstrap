@@ -1,0 +1,574 @@
+// wordBitsCount is the width of a word, which a shift of that much or more clears.
+let wordBitsCount = 64 as ir.Word
+
+let maxWord = 9223372036854775807 as ir.Word
+
+// slotCell is the cell of a slot of the frame that runs.
+function slotCell(vm Vm, slot Count) returns Count
+	return try vm.slotBase + slot otherwise panic("interp: a slot past memory")
+end 'slotCell'
+
+// copyToReg gives a register the value that a cell holds.
+function copyToReg(mutates vm Vm, dst ir.Reg, c Count)
+	let at = vm.regAt(dst)
+	vm.regN[at] = vm.h.cellN[c]
+	vm.regR[at] = vm.h.cellR[c]
+end 'copyToReg'
+
+// The exec functions run one operation each, as the Go interpreter's Visit methods do. An operation whose check fails leaves
+// the block it goes to in failTo.
+
+function execConst(mutates vm Vm, x ir.Instr)
+	vm.setNum(x.dst, n: x.imm)
+end 'execConst'
+
+function execStr(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let o = literal(vm, text: ir.strText(f, x: x))
+	vm.setRef(x.dst, o: o)
+end 'execStr'
+
+function execLoadSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let slot = ir.loadSlotSlot(x)
+	let c = slotCell(vm, slot: slot)
+	if f.slots[slot] == ir.IrKind.kindManaged 'managed'
+		_ = try live(vm, o: vm.h.refOf(c), what: "a read of the slot")
+	end 'managed'
+	copyToReg(vm, dst: x.dst, c: c)
+end 'execLoadSlot'
+
+function execStoreSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = slotCell(vm, slot: ir.storeSlotSlot(x))
+	let src = ir.storeSlotSrc(x)
+	if not isManaged(f, r: src) 'scalar'
+		let at = vm.regAt(src)
+		vm.h.cellN[c] = vm.regN[at]
+		vm.h.cellR[c] = vm.regR[at]
+		return
+	end 'scalar'
+	if ir.storeSlotBorrow(x) 'borrow'
+		_ = try live(vm, o: vm.ref(src), what: "a binding")
+		let at = vm.regAt(src)
+		vm.h.cellN[c] = vm.regN[at]
+		vm.h.cellR[c] = vm.regR[at]
+		return
+	end 'borrow'
+	try changed(vm, c: c, o: 0)
+	let o = vm.ref(src)
+	try adopt(vm, c: c, o: o, what: "the store")
+end 'execStoreSlot'
+
+function execSlotAddr(mutates vm Vm, x ir.Instr)
+	let c = slotCell(vm, slot: ir.slotAddrSlot(x))
+	vm.setAddress(x.dst, c: c, version: 0)
+end 'execSlotAddr'
+
+function execLoadParam(mutates vm Vm, x ir.Instr)
+	let from = vm.paramAt(ir.loadParamParam(x))
+	let at = vm.regAt(x.dst)
+	vm.regN[at] = vm.regN[from]
+	vm.regR[at] = vm.regR[from]
+end 'execLoadParam'
+
+// fieldOf is the word of a box that an offset names.
+function fieldOf(mutates vm Vm, obj ir.Reg, offset Count, what String) returns Count throws Halt
+	let o = try live(vm, o: vm.ref(obj), what: what)
+	if vm.h.oKind[o] != kindBox or (offset mod wordBytes) != 0 or (offset / wordBytes) >= vm.h.oSize[o] 'outside'
+		panic("interp: {what} reaches outside {objectText(vm, o: o)} at offset {offset}")
+	end 'outside'
+	return vm.h.field(o, i: offset / wordBytes)
+end 'fieldOf'
+
+function execLoadField(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try fieldOf(vm, obj: ir.loadFieldObj(x), offset: ir.loadFieldOffset(x), what: "a field read")
+	copyToReg(vm, dst: x.dst, c: c)
+end 'execLoadField'
+
+function execStoreField(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = try fieldOf(vm, obj: ir.storeFieldObj(x), offset: ir.storeFieldOffset(x), what: "a field write")
+	try changed(vm, c: c, o: 0)
+	try store(vm, f: f, c: c, src: ir.storeFieldSrc(x), what: "the field store")
+end 'execStoreField'
+
+function execFieldAddr(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try fieldOf(vm, obj: ir.fieldAddrObj(x), offset: ir.fieldAddrOffset(x), what: "taking the address of a field")
+	vm.setAddress(x.dst, c: c, version: 0)
+end 'execFieldAddr'
+
+// addressIsValid is whether the cell an address names is still there: the structure that holds it must be alive and unchanged
+// since the address was taken, and the frame of a slot must not have returned.
+function addressIsValid(vm Vm, c Count, version ir.Word) returns bool
+	let holder = vm.h.cellHolder[c]
+	if holder != 0 'held'
+		if vm.h.oFreed[holder] 'freed'
+			return false
+		end 'freed'
+		if vm.h.oVersion[holder] != (try version as Count otherwise panic("interp: a version below 0")) 'stale'
+			return false
+		end 'stale'
+	end 'held'
+	let frame = vm.h.cellFrame[c]
+	return frame == 0 or vm.fr.active[frame]
+end 'addressIsValid'
+
+function requireValid(mutates vm Vm, c Count, version ir.Word, what String) throws Halt
+	let holder = vm.h.cellHolder[c]
+	if holder != 0 'held'
+		try requireLive(vm, o: holder, what: what)
+		if vm.h.oVersion[holder] != (try version as Count otherwise panic("interp: a version below 0")) 'stale'
+			let message = "{what} uses an address into {objectText(vm, o: holder)} that was taken before the structure changed"
+			throw violation(vm, kind: staleBorrow, message: message)
+		end 'stale'
+	end 'held'
+	let frame = vm.h.cellFrame[c]
+	if frame != 0 and not vm.fr.active[frame] 'returned'
+		let message = "{what} uses the address of a slot of {vm.prog.symbols[vm.fr.fn[frame]]}, which has returned"
+		throw violation(vm, kind: staleBorrow, message: message)
+	end 'returned'
+end 'requireValid'
+
+// target is the cell an address names, which must still be there.
+function target(mutates vm Vm, addr ir.Reg, what String) returns Count throws Halt
+	let a = vm.address(addr)
+	if a == 0 'never'
+		throw violation(vm, kind: movedUse, message: "{what} uses an address that was never taken")
+	end 'never'
+	let version = vm.num(addr)
+	if not addressIsValid(vm, c: a, version: version) 'invalid'
+		try requireValid(vm, c: a, version: version, what: what)
+	end 'invalid'
+	if vm.tracking 'tracking'
+		try requireReachableCell(vm, c: a, what: what)
+	end 'tracking'
+	return a
+end 'target'
+
+function execLoadAt(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try target(vm, addr: ir.loadAtAddr(x), what: "a read through an address")
+	copyToReg(vm, dst: x.dst, c: c)
+end 'execLoadAt'
+
+function execStoreAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = try target(vm, addr: ir.storeAtAddr(x), what: "a write through an address")
+	try changed(vm, c: c, o: 0)
+	try store(vm, f: f, c: c, src: ir.storeAtSrc(x), what: "the store")
+end 'execStoreAt'
+
+function execLoadGlobal(mutates vm Vm, x ir.Instr)
+	let symbol = ir.loadGlobalSymbol(x)
+	if symbol == ir.Rt.rtStdout 'stdout'
+		vm.setNum(x.dst, n: stdoutHandle)
+		return
+	end 'stdout'
+	if symbol == ir.Rt.rtStderr 'stderr'
+		vm.setNum(x.dst, n: stderrHandle)
+		return
+	end 'stderr'
+	if symbol == ir.Rt.rtHeap 'heap'
+		vm.setNum(x.dst, n: heapHandle)
+		return
+	end 'heap'
+	panic("interp: unknown global {ir.rtSymbol(symbol)}")
+end 'execLoadGlobal'
+
+// addOverflows is whether a + b is past a signed word.
+function addOverflows(a ir.Word, b ir.Word) returns bool
+	if b > 0 'positive'
+		return a > (try maxWord - b otherwise panic("interp: a bound past a word"))
+	end 'positive'
+	if b < 0 'negative'
+		return a < (try minWord - b otherwise panic("interp: a bound past a word"))
+	end 'negative'
+	return false
+end 'addOverflows'
+
+// subOverflows is whether a - b is past a signed word.
+function subOverflows(a ir.Word, b ir.Word) returns bool
+	if b < 0 'negative'
+		return a > (try maxWord + b otherwise panic("interp: a bound past a word"))
+	end 'negative'
+	if b > 0 'positive'
+		return a < (try minWord + b otherwise panic("interp: a bound past a word"))
+	end 'positive'
+	return false
+end 'subOverflows'
+
+// mulOverflows is whether a * b is past a signed word, where product is the word its bits spell.
+function mulOverflows(a ir.Word, b ir.Word, product ir.Word) returns bool
+	if a == 0 'zero'
+		return false
+	end 'zero'
+	if a == -1 'minusOne'
+		return b == minWord
+	end 'minusOne'
+	return (try product / a otherwise panic("interp: a quotient of a word by a nonzero word")) != b
+end 'mulOverflows'
+
+// shift moves the bits of a word: a shift of the width or more clears all but the sign of a signed right shift.
+function shift(vm Vm, left bool, unsigned bool, x ir.Word, count ir.Word) returns ir.Word
+	if count < 0 'negative'
+		panic("interp: a negative shift count that no guard checked")
+	end 'negative'
+	if left and count >= wordBitsCount 'cleared'
+		return 0
+	end 'cleared'
+	if left 'shl'
+		return wordOf(wrapMul(bitsOf(x), b: vm.powers[count as Count]))
+	end 'shl'
+	if count >= wordBitsCount and unsigned 'clearedUnsigned'
+		return 0
+	end 'clearedUnsigned'
+	if count >= wordBitsCount 'sign'
+		if x < 0 'negative'
+			return -1
+		end 'negative'
+		return 0
+	end 'sign'
+	let divisor = vm.powers[count as Count]
+	if unsigned or x >= 0 'logical'
+		return wordOf(try bitsOf(x) / divisor otherwise panic("interp: a power of two that is 0"))
+	end 'logical'
+	// An arithmetic shift of a negative number is the logical shift of its complement, complemented.
+	return wordOf(maxCount - (try (maxCount - bitsOf(x)) / divisor otherwise panic("interp: a power of two that is 0")))
+end 'shift'
+
+// binary computes an operation in a word, and sets failTo when the result does not fit, which only a checked operation
+// asks. The range analysis proved that an operation without a check fits, and a guard before it rules out a divisor of 0 and a
+// negative shift count, so finding one is a compiler bug.
+function execBin(mutates vm Vm, x ir.Instr)
+	let a = vm.num(x.a)
+	let b = vm.num(x.b)
+	let unsigned = (x.flags and ir.flagUnsigned) != 0
+	let checked = (x.flags and ir.flagChecked) != 0
+	let op = ir.binOp(x)
+	var result = 0 as ir.Word
+	var fits = true
+	if op == ir.BinOp.binAdd 'add'
+		if unsigned 'unsigned'
+			result = wordOf(wrapAdd(bitsOf(a), b: bitsOf(b)))
+			fits = bitsOf(a) <= maxCount - bitsOf(b)
+		end 'unsigned' else 'signed'
+			result = wordOf(wrapAdd(bitsOf(a), b: bitsOf(b)))
+			fits = not addOverflows(a, b: b)
+		end 'signed'
+	end 'add' else if op == ir.BinOp.binSub 'sub'
+		result = wordOf(wrapSub(bitsOf(a), b: bitsOf(b)))
+		if unsigned 'unsigned'
+			fits = bitsOf(a) >= bitsOf(b)
+		end 'unsigned' else 'signed'
+			fits = not subOverflows(a, b: b)
+		end 'signed'
+	end 'sub' else if op == ir.BinOp.binMul 'mul'
+		let wide = mulWide(bitsOf(a), b: bitsOf(b))
+		result = wordOf(wide.lo)
+		if unsigned 'unsigned'
+			fits = wide.hi == 0
+		end 'unsigned' else 'signed'
+			fits = not mulOverflows(a, b: b, product: result)
+		end 'signed'
+	end 'mul' else if op == ir.BinOp.binDiv or op == ir.BinOp.binMod 'divide'
+		if b == 0 'zero'
+			panic("interp: a division by 0 that no guard checked")
+		end 'zero'
+		let division = op == ir.BinOp.binDiv
+		if unsigned 'unsigned'
+			if division 'quotient'
+				result = wordOf(try bitsOf(a) / bitsOf(b) otherwise panic("interp: a division by 0 that no guard checked"))
+			end 'quotient' else 'remainder'
+				result = wordOf(try bitsOf(a) mod bitsOf(b) otherwise panic("interp: a division by 0 that no guard checked"))
+			end 'remainder'
+		end 'unsigned' else if b == -1 'minusOne'
+			if not division 'remainder'
+				result = 0
+			end 'remainder' else if a == minWord 'overflow'
+				if not checked 'unchecked'
+					panic("interp: i64.min / -1 in a division that is not checked")
+				end 'unchecked'
+				fits = false
+			end 'overflow' else 'negate'
+				result = 0 - a
+			end 'negate'
+		end 'minusOne' else 'signed'
+			if division 'quotient'
+				result = try a / b otherwise panic("interp: a signed division that overflows after the guards")
+			end 'quotient' else 'remainder'
+				result = try a mod b otherwise panic("interp: a signed remainder that fails after the guards")
+			end 'remainder'
+		end 'signed'
+	end 'divide' else if op == ir.BinOp.binAnd 'and'
+		result = wordOf(bitsOf(a) and bitsOf(b))
+	end 'and' else if op == ir.BinOp.binOr 'or'
+		result = wordOf(bitsOf(a) or bitsOf(b))
+	end 'or' else if op == ir.BinOp.binXor 'xor'
+		result = wordOf(bitsOf(a) xor bitsOf(b))
+	end 'xor' else if op == ir.BinOp.binShr 'shr'
+		result = shift(vm, left: false, unsigned: unsigned, x: a, count: b)
+	end 'shr' else if op == ir.BinOp.binShl 'shl'
+		result = shift(vm, left: true, unsigned: unsigned, x: a, count: b)
+		if checked 'checked'
+			if b >= wordBitsCount 'wide'
+				fits = a == 0
+			end 'wide' else 'narrow'
+				fits = shift(vm, left: false, unsigned: unsigned, x: result, count: b) == a
+			end 'narrow'
+		end 'checked'
+	end 'shl' else 'unknown'
+		panic("interp: operator {op}")
+	end 'unknown'
+	if checked and not fits 'failed'
+		vm.failTo = x.c as ir.Word
+		return
+	end 'failed'
+	vm.setNum(x.dst, n: result)
+end 'execBin'
+
+function execCmp(mutates vm Vm, x ir.Instr)
+	let a = vm.num(x.a)
+	let b = vm.num(x.b)
+	let equal = a == b
+	var less = a < b
+	if (x.flags and ir.flagUnsigned) != 0 'unsigned'
+		less = bitsOf(a) < bitsOf(b)
+	end 'unsigned'
+	let op = ir.cmpOp(x)
+	var result = false
+	if op == ir.CmpOp.cmpEq 'eq'
+		result = equal
+	end 'eq' else if op == ir.CmpOp.cmpNe 'ne'
+		result = not equal
+	end 'ne' else if op == ir.CmpOp.cmpLt 'lt'
+		result = less
+	end 'lt' else if op == ir.CmpOp.cmpLe 'le'
+		result = less or equal
+	end 'le' else if op == ir.CmpOp.cmpGt 'gt'
+		result = not less and not equal
+	end 'gt' else if op == ir.CmpOp.cmpGe 'ge'
+		result = not less
+	end 'ge' else 'unknown'
+		panic("interp: comparison {op.name}")
+	end 'unknown'
+	if result 'true'
+		vm.setNum(x.dst, n: 1)
+	end 'true' else 'false'
+		vm.setNum(x.dst, n: 0)
+	end 'false'
+end 'execCmp'
+
+function execNeg(mutates vm Vm, x ir.Instr)
+	let a = vm.num(x.a)
+	if (x.flags and ir.flagChecked) != 0 and a == minWord 'failed'
+		vm.failTo = x.c as ir.Word
+		return
+	end 'failed'
+	vm.setNum(x.dst, n: wordOf(wrapSub(0, b: bitsOf(a))))
+end 'execNeg'
+
+function execNot(mutates vm Vm, x ir.Instr)
+	vm.setNum(x.dst, n: wordOf(maxCount - bitsOf(vm.num(x.a))))
+end 'execNot'
+
+// inRange is whether a value passes a guard.
+function inRange(x ir.Instr, v ir.Word) returns bool
+	let kind = ir.guardKind(x)
+	let bound = ir.guardBound(x)
+	if kind == ir.GuardKind.guardNonNegative 'nonNegative'
+		return v >= 0
+	end 'nonNegative'
+	if kind == ir.GuardKind.guardSignedAtLeast 'signedAtLeast'
+		return v >= bound
+	end 'signedAtLeast'
+	if kind == ir.GuardKind.guardSignedAtMost 'signedAtMost'
+		return v <= bound
+	end 'signedAtMost'
+	if kind == ir.GuardKind.guardUnsignedAtLeast 'unsignedAtLeast'
+		return bitsOf(v) >= bitsOf(bound)
+	end 'unsignedAtLeast'
+	if kind == ir.GuardKind.guardUnsignedAtMost 'unsignedAtMost'
+		return bitsOf(v) <= bitsOf(bound)
+	end 'unsignedAtMost'
+	if kind == ir.GuardKind.guardNonZero 'nonZero'
+		return v != 0
+	end 'nonZero'
+	panic("interp: guard {kind.name}")
+end 'inRange'
+
+function execGuard(mutates vm Vm, x ir.Instr)
+	if not inRange(x, v: vm.num(x.a)) 'failed'
+		vm.failTo = x.c as ir.Word
+	end 'failed'
+end 'execGuard'
+
+function execAlloc(mutates vm Vm, x ir.Instr)
+	var words = (ir.allocBytes(x) / wordBytes) as Count
+	if words == 0 'empty'
+		words = 1
+	end 'empty'
+	let o = newBox(vm, words: words)
+	vm.setRef(x.dst, o: o)
+end 'execAlloc'
+
+// execWhen schedules a behaviour.
+function execWhen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try schedule(vm, f: f, x: x)
+end 'execWhen'
+
+function execDrop(mutates vm Vm, x ir.Instr) throws Halt
+	// A register is written before it is dropped on every path, so one that holds nothing is a drop of a value that was never
+	// made: a native frame does not zero its registers, and would free whatever they held.
+	let o = vm.ref(x.a)
+	if o == 0 'unassigned'
+		throw violation(vm, kind: movedUse, message: "a drop of a register that holds no value: it was never assigned on this path")
+	end 'unassigned'
+	try drop(vm, o: o)
+end 'execDrop'
+
+function execCopy(mutates vm Vm, x ir.Instr) throws Halt
+	let o = try live(vm, o: vm.ref(ir.copySrc(x)), what: "a copy")
+	let copy = try copyObject(vm, o: o)
+	vm.setRef(x.dst, o: copy)
+end 'execCopy'
+
+function execDropSlot(mutates vm Vm, x ir.Instr) throws Halt
+	let c = slotCell(vm, slot: ir.dropSlotSlot(x))
+	try dropCell(vm, c: c)
+end 'execDropSlot'
+
+function execDropAt(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try target(vm, addr: ir.dropAtAddr(x), what: "a drop through an address")
+	try dropCell(vm, c: c)
+end 'execDropAt'
+
+// moveOut reads the value of a place that owns one and leaves the place empty: the value is in flight until whatever receives
+// it takes it.
+function moveOut(mutates vm Vm, c Count, dst ir.Reg, what String) throws Halt
+	if vm.h.refOf(c) == 0 'empty'
+		throw violation(vm, kind: movedUse, message: "{what}, which holds no value: it was moved out already or never assigned")
+	end 'empty'
+	try changed(vm, c: c, o: 0)
+	copyToReg(vm, dst: dst, c: c)
+	_ = try release(vm, c: c, what: what)
+end 'moveOut'
+
+function execMoveSlot(mutates vm Vm, x ir.Instr) throws Halt
+	let c = slotCell(vm, slot: ir.moveSlotSlot(x))
+	try moveOut(vm, c: c, dst: x.dst, what: "a move out of the slot")
+end 'execMoveSlot'
+
+function execMoveAt(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try target(vm, addr: ir.moveAtAddr(x), what: "a move through an address")
+	try moveOut(vm, c: c, dst: x.dst, what: "a move out of the place")
+end 'execMoveAt'
+
+// argumentConv is how a callee takes its i-th argument, the receiver of a method counting as the first.
+function argumentConv(vm Vm, callee Count, i Count) returns Count
+	return vm.prog.fnConvs[callee][i]
+end 'argumentConv'
+
+// checkArgument refuses an argument that cannot be used: a value that is gone, or a borrow that is stale.
+function checkArgument(mutates vm Vm, f ir.IrFunction, callee Count, i Count, r ir.Reg) throws Halt
+	let at = vm.regAt(r)
+	let word = vm.regR[at]
+	if word < 0 'address'
+		let c = try (0 - word) as Count otherwise panic("interp: an address past a word")
+		let version = vm.regN[at]
+		if not addressIsValid(vm, c: c, version: version) 'stale'
+			let what = "argument {i} of the call to {vm.prog.symbols[callee]}"
+			try requireValid(vm, c: c, version: version, what: what)
+		end 'stale'
+		return
+	end 'address'
+	if isManaged(f, r: r) 'managed'
+		let o = vm.ref(r)
+		if o == 0 or vm.h.oFreed[o] or vm.tracking 'check'
+			let what = "argument {i} of the call to {vm.prog.symbols[callee]}"
+			_ = try live(vm, o: o, what: what)
+		end 'check'
+	end 'managed'
+end 'checkArgument'
+
+// requireDisjoint is the law of exclusivity at one call: an argument that the callee may change, by address or by owning it,
+// must not reach any place that another argument reaches. The arguments are the ones in argN and argR. An argument that is a
+// value of no tracked storage, a scalar or a string in the executable or a shared value, reaches nothing.
+function requireDisjoint(mutates vm Vm, callee Count, count Count) throws Halt
+	if count < 2 'few'
+		return
+	end 'few'
+	var reaches = 0 as Count
+	for i in 0 upto count 'each'
+		if vm.argR[i] != 0 'reaching'
+			reaches = try reaches + 1 otherwise panic("interp: more arguments than memory")
+		end 'reaching'
+	end 'each'
+	if reaches < 2 'alone'
+		return
+	end 'alone'
+	for j in 1 upto count 'second'
+		for i in 0 upto j 'first'
+			let ai = argumentCell(vm, i: i)
+			let ao = argumentObject(vm, i: i)
+			let aj = argumentCell(vm, i: j)
+			let bo = argumentObject(vm, i: j)
+			let valid = (ai != 0 or ao != 0) and (aj != 0 or bo != 0)
+			if valid and (ai != 0 or aj != 0 or argumentConv(vm, callee: callee, i: i) != convLet or argumentConv(vm, callee: callee, i: j) != convLet) and vm.h.overlaps(ai, ao: ao, bc: aj, bo: bo) 'overlap'
+				let message = "arguments {i} and {j} of the call to {vm.prog.symbols[callee]} reach one place, {regionText(vm, c: ai, o: ao)} and {regionText(vm, c: aj, o: bo)}, and one of them is passed so that the callee may change it"
+				throw violation(vm, kind: exclusivity, message: message)
+			end 'overlap'
+		end 'first'
+	end 'second'
+end 'requireDisjoint'
+
+// argumentCell is the cell that an argument has the address of, or 0: a cell is always reached by the callee as one it may change.
+function argumentCell(vm Vm, i Count) returns Count
+	let word = vm.argR[i]
+	if word < 0 'address'
+		return try (0 - word) as Count otherwise panic("interp: an address past a word")
+	end 'address'
+	return 0
+end 'argumentCell'
+
+// argumentObject is the object that an argument holds when it is storage of the program's: not a string in the executable and
+// not a frozen value or a cown, which every thread reaches the same way.
+function argumentObject(vm Vm, i Count) returns Count
+	let word = vm.argR[i]
+	if word > 0 'object'
+		let o = word as Count
+		if not vm.h.oImmortal[o] and not vm.h.isShared(o) 'tracked'
+			return o
+		end 'tracked'
+	end 'object'
+	return 0
+end 'argumentObject'
+
+function execCall(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let found = vm.prog.fnByFunc.get(ir.callCallee(f, x: x) as Count)
+	let callee = match consumes found 'callee'
+		some(fi) gives fi
+		none gives panic("interp: a callee has no IR")
+	end 'callee'
+	let start = ir.callArgsStart(x)
+	let count = ir.callArgsCount(x)
+	clearArguments(vm)
+	for i in 0 upto count 'args'
+		let r = f.args[try start + i otherwise panic("interp: an argument past the pool")]
+		let at = vm.regAt(r)
+		vm.argN.push(vm.regN[at])
+		vm.argR.push(vm.regR[at])
+		try checkArgument(vm, f: f, callee: callee, i: i, r: r)
+	end 'args'
+	try requireDisjoint(vm, callee: callee, count: count)
+	let call = vm.curIdx
+	closeWindows(vm, call: call)
+	var err = -1 as ir.Word
+	if ir.callHasErrReg(x) 'throws'
+		err = x.imm
+	end 'throws'
+	vm.post = true
+	try enterFrame(vm, fn: callee, dst: x.dst as ir.Word, err: err)
+end 'execCall'
+
+// clearArguments empties the arguments of the call being made.
+function clearArguments(mutates vm Vm)
+	while vm.argN.count() > 0 'each'
+		try vm.argN.pop() otherwise ignore
+		try vm.argR.pop() otherwise ignore
+	end 'each'
+end 'clearArguments'

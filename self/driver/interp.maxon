@@ -1,0 +1,157 @@
+// The interp command runs a program under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown
+// and a behaviour, and reports a violation of the memory model. The program's output and exit code are its own, unless a
+// violation or a timeout ends the run. A program that schedules behaviours runs under the schedule that --seed picks.
+
+let seedFlagPrefix = "--seed="
+
+// freesFlag lists, after the run, each value that was freed in the order it was, which the tests of the order of frees compare.
+let freesFlag = "--frees"
+
+let violationExitCode = 4 as ExitCode
+
+let timeoutExitCode = 5 as ExitCode
+
+// parseSeed is the number a seed flag gives, as Go's strconv.ParseInt reads it in base 10: an optional sign and digits.
+function parseSeed(text String) returns table.Option with Count
+	var at = 0 as Count
+	var negative = false
+	if text.byteLength() > 0 and (text.byteAt(0) == 45 or text.byteAt(0) == 43) 'sign'
+		negative = text.byteAt(0) == 45
+		at = 1
+	end 'sign'
+	if at >= text.byteLength() 'empty'
+		return table.Option.none
+	end 'empty'
+	var magnitude = 0 as Count
+	while at < text.byteLength() 'digits'
+		let c = text.byteAt(at)
+		if c < 48 or c > 57 'notDigit'
+			return table.Option.none
+		end 'notDigit'
+		let digit = try (c - 48) as Count otherwise return table.Option.none
+		magnitude = try magnitude * 10 + digit otherwise return table.Option.none
+		at = try at + 1 otherwise return table.Option.none
+	end 'digits'
+	if negative 'negated'
+		// The schedule is named by the bits of the seed, which is the two's complement of a negative one.
+		if magnitude > 9223372036854775808 'tooLow'
+			return table.Option.none
+		end 'tooLow'
+		if magnitude == 0 'zero'
+			return table.Option.some(0 as Count)
+		end 'zero'
+		return table.Option.some(try (18446744073709551615 - magnitude) + 1 otherwise return table.Option.none)
+	end 'negated'
+	if magnitude > 9223372036854775807 'tooHigh'
+		return table.Option.none
+	end 'tooHigh'
+	return table.Option.some(magnitude)
+end 'parseSeed'
+
+// interpCommand is the interp command; args holds the command first, then its path and its flags in any order.
+function interpCommand(args CommandNames) returns ExitCode
+	var seedBits = 0 as Count
+	var wantFrees = false
+	var path = ""
+	var named = false
+	for i in 1 upto args.count() 'args'
+		if args[i].byteLength() >= seedFlagPrefix.byteLength() and args[i].sliceBytes(0, endPos: seedFlagPrefix.byteLength()) == seedFlagPrefix 'seed'
+			let number = parseSeed(args[i].sliceBytes(seedFlagPrefix.byteLength(), endPos: args[i].byteLength()))
+			if not number.isSome() 'invalid'
+				printError("--seed takes a number\n")
+				return usageExitCode
+			end 'invalid'
+			seedBits = number.unwrap()
+		end 'seed' else if args[i] == freesFlag 'frees'
+			wantFrees = true
+		end 'frees' else if not named 'path'
+			path = args[i].clone()
+			named = true
+		end 'path'
+	end 'args'
+	if not named 'unnamed'
+		printError(usage())
+		return usageExitCode
+	end 'unnamed'
+	var errs = diag.ErrorList.create(0)
+	let loaded = project.loadProject(path, errs: errs)
+	match consumes loaded 'load'
+		some(p) then return interpLoaded(p, seed: interp.seedOf(seedBits), wantFrees: wantFrees, errs: errs)
+		none then return report(errs)
+	end 'load'
+end 'interpCommand'
+
+// interpLoaded checks and lowers the project, as a build does but with no runtime and no backend, then runs it. What only the
+// interpreter runs is no refusal here.
+function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFrees bool, mutates errs diag.ErrorList) returns ExitCode
+	var p = loadedProject
+	let checked = frontEnd(p, makesProgram: true, errs: errs)
+	var lowered = interp.ModuleFunctions.create(0)
+	if errs.count() == 0 'lower'
+		lowered = lowerAll(p, checked: checked, errs: errs)
+	end 'lower'
+	if errs.count() == 0 'refusals'
+		refusalsBesidesInterpreterOnly(lowered, errs: errs)
+	end 'refusals'
+	ast.locateAllErrors(p.modules, errs: errs)
+	if errs.count() > 0 'failed'
+		return report(errs)
+	end 'failed'
+	let out = interp.run(p, modules: lowered, entry: checked.entry, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: wantFrees)
+	print(out.stdout)
+	printError(out.stderr)
+	for i in 0 upto out.violations.count() 'violations'
+		printError("{out.violations[i]}\n")
+	end 'violations'
+	for i in 0 upto out.frees.count() 'frees'
+		printError("freed: {out.frees[i]}\n")
+	end 'frees'
+	if out.violations.count() > 0 'violated'
+		return violationExitCode
+	end 'violated'
+	if out.timedOut 'timedOut'
+		printError("timed out\n")
+		return timeoutExitCode
+	end 'timedOut'
+	return interp.exitStatus(out.exitCode)
+end 'interpLoaded'
+
+// lowerAll lowers every module's functions and the instances they need, in the order the check visited the modules. An instance
+// whose type arguments nest without end fails every module that reaches it, so the program gets the failure of the first such
+// module in module order.
+function lowerAll(mutates p ast.Project, checked check.Checked, mutates errs diag.ErrorList) returns interp.ModuleFunctions
+	let count = p.modules.count()
+	var lowered = interp.ModuleFunctions.create(0)
+	var unfinite = ErrorLists.create(0)
+	for _ in 0 upto count 'slots'
+		lowered.push(ir.IrFunctionList.create(0))
+		unfinite.push(diag.ErrorList.create(0))
+	end 'slots'
+	for i in 0 upto checked.order.count() 'modules'
+		let m = ast.modIndex(checked.order[i])
+		lowered[m] = ir.lowerModule(p, functions: checked.functions[m], callers: checked.callers[m], errs: unfinite[m])
+	end 'modules'
+	for m in 0 upto count 'failures'
+		if unfinite[m].count() > 0 'first'
+			appendErrors(errs, found: unfinite[m])
+			return lowered
+		end 'first'
+	end 'failures'
+	return lowered
+end 'lowerAll'
+
+// refusalsBesidesInterpreterOnly reports what a function's lowering could not make that is not a construct the interpreter runs,
+// at the first of each function, as the backend's refusals are.
+function refusalsBesidesInterpreterOnly(lowered interp.ModuleFunctions, mutates errs diag.ErrorList)
+	for m in 0 upto lowered.count() 'modules'
+		for f in 0 upto lowered[m].count() 'functions'
+			for r in 0 upto lowered[m][f].refusals.count() 'refusals'
+				if lowered[m][f].refusals[r].code != diag.errInterpreterOnly 'blocked'
+					let refusal = lowered[m][f].refusals[r].clone()
+					diag.pushSiteError(errs, code: refusal.code.clone(), message: refusal.message.clone(), module: refusal.module, offset: refusal.offset)
+					break 'refusals'
+				end 'blocked'
+			end 'refusals'
+		end 'functions'
+	end 'modules'
+end 'refusalsBesidesInterpreterOnly'

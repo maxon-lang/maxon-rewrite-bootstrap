@@ -1,0 +1,182 @@
+// A Program is the lowered IR of a whole program, as the modules' lists of functions; the interpreter indexes every function in
+// it, a behaviour's body included, by a number from 1, in the order it finds them.
+
+// convsOf are the conventions of the parameters of a declared function, the receiver of a method counting as the first.
+function convsOf(p ast.Project, decl ast.FuncID) returns CountList
+	var convs = CountList.create(0)
+	if p.funcs.entries[decl as Count].hasReceiver 'receiver'
+		convs.push(p.funcs.entries[decl as Count].selfConv.ordinal)
+	end 'receiver'
+	for i in 0 upto p.funcs.entries[decl as Count].params.count() 'params'
+		convs.push(p.funcs.entries[decl as Count].params[i].conv.ordinal)
+	end 'params'
+	return convs
+end 'convsOf'
+
+// addFunction indexes a function and the bodies of the behaviours it holds.
+function addFunction(mutates prog Program, mutates paths CountLists, p ast.Project, f ir.IrFunction, path CountList, consumes convs CountList)
+	let fi = prog.symbols.count()
+	prog.add(ir.irSymbol(p, f: f), slots: f.slots.count(), regs: f.regs.count(), convs: convs)
+	paths.push(path.clone())
+	for b in 0 upto f.behaviours.count() 'behaviours'
+		var child = path.clone()
+		child.push(b)
+		prog.fnChildren[fi].push(prog.symbols.count())
+		addFunction(prog, paths: paths, p: p, f: f.behaviours[b], path: child, convs: CountList.create(0))
+	end 'behaviours'
+end 'addFunction'
+
+// prepareProgram indexes the functions of a program by their declarations, the first that the modules lower for each: an
+// instance that several modules need is lowered by each, and the first is the one that runs.
+function prepareProgram(mutates prog Program, mutates paths CountLists, p ast.Project, modules ModuleFunctions, entry ast.FuncID)
+	paths.push(CountList.create(0))
+	for m in 0 upto modules.count() 'modules'
+		for k in 0 upto modules[m].count() 'functions'
+			let decl = modules[m][k].decl
+			if prog.fnByFunc.has(decl as Count) 'again'
+				continue 'functions'
+			end 'again'
+			let fi = prog.symbols.count()
+			var path = CountList.create(0)
+			path.push(m)
+			path.push(k)
+			prog.fnByFunc.insert(decl as Count, value: fi)
+			addFunction(prog, paths: paths, p: p, f: modules[m][k], path: path, convs: convsOf(p, decl: decl))
+		end 'functions'
+	end 'modules'
+	prog.mainFn = match consumes prog.fnByFunc.get(entry as Count) 'main'
+		some(fi) gives fi
+		none gives panic("interp: main has no IR")
+	end 'main'
+end 'prepareProgram'
+
+// Outcome is what a run did. A program that panics or traps has an exit code like the executable's; a violation is separate from
+// that, and a run that has one stops there.
+export type Outcome
+	export var stdout as String
+	export var stderr as String
+	export var exitCode as ir.Word
+	export var timedOut as bool
+	// violations are the reports of the rules the program broke, one to each.
+	export var violations as ast.StringList
+	// frees is every value freed, in the order it was freed: a string by its text, anything else by its kind. Only a run that
+	// asked for it keeps them.
+	export var frees as ast.StringList
+	// behaviours is how many behaviours the program scheduled, so a caller knows whether the schedule mattered.
+	export var behaviours as Count
+	export var steps as Count
+
+	static function new() returns Outcome
+		return Outcome{stdout: "", stderr: "", exitCode: 0, timedOut: false, violations: ast.StringList.create(0), frees: ast.StringList.create(0), behaviours: 0, steps: 0}
+	end 'new'
+end 'Outcome'
+
+// leaks are the values still live when the program has ended, which no owner freed.
+function leaks(mutates vm Vm)
+	var count = 0 as Count
+	for o in 1 upto vm.h.oKind.count() 'objects'
+		if vm.h.oFreed[o] or vm.h.oImmortal[o] 'gone'
+			continue 'objects'
+		end 'gone'
+		count = try count + 1 otherwise panic("interp: more leaks than memory")
+		if count <= maxLeaksReported 'reported'
+			var owner = "no owner holds it"
+			if vm.h.oOwner[o] != 0 'owned'
+				owner = "owned by {cellText(vm, c: vm.h.oOwner[o])}"
+			end 'owned'
+			let message = "{objectText(vm, o: o)} is still live at the end of the program, and {owner}"
+			vm.violations.push(Violation.make(leak, fn: 0, block: 0, instr: 0, message: message))
+		end 'reported'
+	end 'objects'
+	if count > maxLeaksReported 'more'
+		let message = "and {count - maxLeaksReported} more values leaked"
+		vm.violations.push(Violation.make(leak, fn: 0, block: 0, instr: 0, message: message))
+	end 'more'
+end 'leaks'
+
+// CodeText is the text of the instruction, or of the terminator, at a place in a function.
+type CodeText implements FunctionJob
+	var block as Count
+	var pc as ir.Word
+	var text as String
+
+	static function new(block Count, pc ir.Word) returns CodeText
+		return CodeText{block: block, pc: pc, text: ""}
+	end 'new'
+
+	function run(mutates self, p ast.Project, f ir.IrFunction)
+		let first = f.blocks[block].first
+		if pc < 0 'terminator'
+			text = ir.termText(f, t: f.blocks[block].term)
+			return
+		end 'terminator'
+		let idx = try first + (pc as Count) otherwise panic("interp: an instruction past memory")
+		if idx < f.blocks[block].endAt 'instruction'
+			text = ir.instrText(p, f: f, x: f.instrs[idx])
+		end 'instruction'
+	end 'run'
+end 'CodeText'
+
+function codeAt(p ast.Project, modules ModuleFunctions, paths CountLists, fi Count, block Count, pc ir.Word) returns String
+	var job = CodeText.new(block, pc: pc)
+	withFunction(job, p: p, modules: modules, paths: paths, fi: fi)
+	return job.text.clone()
+end 'codeAt'
+
+// violationText is a violation as a report writes it, with the function, the block, the instruction and what happened.
+function violationText(p ast.Project, modules ModuleFunctions, paths CountLists, vm Vm, v Violation) returns String
+	var place = "the end of the program"
+	var code = ""
+	if v.fn != 0 'placed'
+		let name = vm.prog.symbols[v.fn].clone()
+		if v.instr < 0 'terminator'
+			place = "function {name}, block b{v.block}, terminator"
+		end 'terminator' else 'instruction'
+			place = "function {name}, block b{v.block}, instruction #{v.instr}"
+		end 'instruction'
+		let text = codeAt(p, modules: modules, paths: paths, fi: v.fn, block: v.block, pc: v.instr)
+		if text != "" 'code'
+			code = " (`{text}`)"
+		end 'code'
+	end 'placed'
+	var message = v.message.clone()
+	if v.takenAt != 0 'taken'
+		let taken = codeAt(p, modules: modules, paths: paths, fi: siteFn(v.takenAt), block: siteBlock(v.takenAt), pc: sitePc(v.takenAt))
+		message = "{v.message}{taken}{v.tail}"
+	end 'taken'
+	return "memory-model violation: {violationName(v.kind)} in {place}{code}: {message}"
+end 'violationText'
+
+// run executes the program from main under the schedule of a seed. A run that goes on for more than stepLimit instructions is
+// stopped. main is the first thread; a behaviour it schedules is another, which runs once it has every cown it names,
+// interleaved with the others where the seed says. The program ends when main has returned and every behaviour has run, with
+// main's exit code, unless a trap or a violation ends it sooner.
+export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, stepLimit Count, seed ir.Word, wantFrees bool) returns Outcome
+	var prog = Program.new()
+	var paths = CountLists.create(0)
+	prepareProgram(prog, paths: paths, p: p, modules: modules, entry: entry)
+	var job = Interp.new(Vm.new(prog, limit: stepLimit, seed: seed))
+	runScheduler(job, p: p, modules: modules, paths: paths)
+	var out = Outcome.new()
+	out.stdout = String.from(job.m.vm.stdout)
+	out.stderr = String.from(job.m.vm.stderr)
+	out.steps = job.m.vm.steps
+	out.behaviours = job.m.vm.scheduled
+	if job.m.vm.fatal == fatalNone 'finished'
+		out.exitCode = job.m.vm.mainExit
+		leaks(job.m.vm)
+	end 'finished' else if job.m.vm.fatal == fatalExit 'exited'
+		out.exitCode = job.m.vm.exitCode
+	end 'exited' else if job.m.vm.fatal == fatalTimeout 'timedOut'
+		out.timedOut = true
+	end 'timedOut'
+	for i in 0 upto job.m.vm.violations.count() 'violations'
+		out.violations.push(violationText(p, modules: modules, paths: paths, vm: job.m.vm, v: job.m.vm.violations[i]))
+	end 'violations'
+	if wantFrees 'frees'
+		for i in 0 upto job.m.vm.frees.count() 'each'
+			out.frees.push(freeLabel(job.m.vm, o: job.m.vm.frees[i]))
+		end 'each'
+	end 'frees'
+	return out
+end 'run'

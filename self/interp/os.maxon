@@ -1,0 +1,305 @@
+// The interpreter's OS entries do what the native ones do, through the OS functions of this compiler's own runtime. An entry
+// that can fail has the address of its error word last: the case plus 1 of the error, or 0 for none.
+
+// errorWord sets the error word of an entry that can fail.
+function errorWord(mutates vm Vm, f ir.IrFunction, x ir.Instr, word ir.Word) throws Halt
+	let last = try ir.callRuntimeArgsCount(x) - 1 otherwise panic("interp: an entry that can fail has no arguments")
+	let cell = try target(vm, addr: argAt(f, x: x, i: last), what: "an OS entry's error")
+	try changed(vm, c: cell, o: 0)
+	vm.h.cellN[cell] = word
+	vm.h.cellR[cell] = 0
+end 'errorWord'
+
+// caseWord is the error word of a failure that is a case of the operation's error.
+function caseWord(errorCase Count) returns ir.Word
+	return try (errorCase + 1) as ir.Word otherwise panic("interp: an error case past a word")
+end 'caseWord'
+
+// pathOf is the path that a string names: the paths the program gives are the ones FilePath.from made already.
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("interp: the program gave an OS entry a path that is no path")
+end 'pathOf'
+
+// stringArray is a new array of the strings.
+function stringArray(mutates vm Vm, texts ast.StringList) returns Count
+	let arr = newArray(vm)
+	for i in 0 upto texts.count() 'each'
+		let s = newString(vm, text: texts[i].clone())
+		let cell = vm.h.newCell(arr)
+		vm.h.cellR[cell] = try s as ir.Word otherwise panic("interp: a handle past a word")
+		vm.h.oOwner[s] = cell
+		vm.h.elements[vm.h.oData[arr]].push(cell)
+	end 'each'
+	return arr
+end 'stringArray'
+
+function entryOsArgs(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let args = CommandLine.args()
+	var texts = ast.StringList.create(0)
+	for i in 0 upto args.count() 'each'
+		texts.push(args[i].clone())
+	end 'each'
+	let made = stringArray(vm, texts: texts)
+	giveRef(vm, x: x, o: made)
+end 'entryOsArgs'
+
+function entryOsEnvironmentVariable(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an environment variable's name")
+	let name = vm.h.texts[at].clone()
+	var word = 0 as ir.Word
+	var value = ""
+	try 'read'
+		value = Process.environmentVariable(name)
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			pathUnavailable then word = caseWord(ast.errorPathUnavailable)
+			variableUnset then word = caseWord(ast.errorVariableUnset)
+			environmentUnreadable then word = caseWord(ast.errorEnvironmentUnreadable)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'found'
+		let made = newString(vm, text: value)
+		giveRef(vm, x: x, o: made)
+	end 'found'
+end 'entryOsEnvironmentVariable'
+
+function entryOsExecutablePath(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	var word = 0 as ir.Word
+	var value = ""
+	try 'read'
+		value = Process.executablePath().toString()
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			pathUnavailable then word = caseWord(ast.errorPathUnavailable)
+			variableUnset then word = caseWord(ast.errorVariableUnset)
+			environmentUnreadable then word = caseWord(ast.errorEnvironmentUnreadable)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'found'
+		let made = newString(vm, text: value)
+		giveRef(vm, x: x, o: made)
+	end 'found'
+end 'entryOsExecutablePath'
+
+function entryOsCurrentPath(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newString(vm, text: Directory.currentPath().toString())
+	giveRef(vm, x: x, o: made)
+end 'entryOsCurrentPath'
+
+function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let text = vm.h.texts[at].clone()
+	var word = 0 as ir.Word
+	var value = ""
+	try 'convert'
+		value = FilePath.from(text).toString()
+	end 'convert' otherwise (e) 'failed'
+		match e 'kind'
+			invalidCharacter then word = caseWord(ast.errorPathInvalidCharacter)
+			notFileURL then word = caseWord(ast.errorPathNotFileURL)
+			malformedURL then word = caseWord(ast.errorPathMalformedURL)
+			noParent then word = caseWord(ast.errorPathNoParent)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'converted'
+		let made = newString(vm, text: value)
+		giveRef(vm, x: x, o: made)
+	end 'converted'
+end 'entryOsPathFrom'
+
+function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[at].clone())
+	var word = 0 as ir.Word
+	var value = ""
+	try 'read'
+		value = File.readText(path)
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then word = caseWord(ast.errorReadNotFound)
+			accessDenied then word = caseWord(ast.errorReadAccessDenied)
+			busy then word = caseWord(ast.errorReadBusy)
+			failed then word = caseWord(ast.errorReadFailed)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'read'
+		let made = newString(vm, text: value)
+		giveRef(vm, x: x, o: made)
+	end 'read'
+end 'entryOsReadText'
+
+// writeBytes writes a file and gives the error word of its failure, or 0.
+function writeBytes(path FilePath, content ByteArray) returns ir.Word
+	try 'write'
+		File.writeBinary(path, content: content)
+	end 'write' otherwise (e) 'failed'
+		match e 'kind'
+			failed then return caseWord(ast.errorWriteFailed)
+			notFound then return caseWord(ast.errorWriteNotFound)
+			accessDenied then return caseWord(ast.errorWriteAccessDenied)
+			alreadyExists then return caseWord(ast.errorWriteAlreadyExists)
+			busy then return caseWord(ast.errorWriteBusy)
+			partialFileLeft then return caseWord(ast.errorWritePartialFileLeft)
+		end 'kind'
+	end 'failed'
+	return 0
+end 'writeBytes'
+
+function entryOsWriteText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[pathAt].clone())
+	let contentAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a file's content")
+	let word = writeBytes(path, content: vm.h.texts[contentAt].toByteArray())
+	try errorWord(vm, f: f, x: x, word: word)
+end 'entryOsWriteText'
+
+function entryOsWriteBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[pathAt].clone())
+	let bytes = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindBytes, what: "a file's content")
+	let word = writeBytes(path, content: vm.h.buffers[vm.h.oData[bytes]].clone())
+	try errorWord(vm, f: f, x: x, word: word)
+end 'entryOsWriteBinary'
+
+function entryOsRename(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let fromAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let source = pathOf(vm.h.texts[fromAt].clone())
+	let toAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a path")
+	let dest = pathOf(vm.h.texts[toAt].clone())
+	var word = 0 as ir.Word
+	try 'rename'
+		File.rename(source, to: dest)
+	end 'rename' otherwise (e) 'failed'
+		match e 'kind'
+			failed then word = caseWord(ast.errorRenameFailed)
+			notFound then word = caseWord(ast.errorRenameNotFound)
+			accessDenied then word = caseWord(ast.errorRenameAccessDenied)
+			busy then word = caseWord(ast.errorRenameBusy)
+			alreadyExists then word = caseWord(ast.errorRenameAlreadyExists)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+end 'entryOsRename'
+
+function entryOsDelete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[at].clone())
+	var word = 0 as ir.Word
+	try 'delete'
+		File.delete(path)
+	end 'delete' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then word = caseWord(ast.errorDeleteNotFound)
+			accessDenied then word = caseWord(ast.errorDeleteAccessDenied)
+			busy then word = caseWord(ast.errorDeleteBusy)
+			failed then word = caseWord(ast.errorDeleteFailed)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+end 'entryOsDelete'
+
+function entryOsIsDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	giveFlag(vm, x: x, b: Directory.isDirectory(pathOf(vm.h.texts[at].clone())))
+end 'entryOsIsDirectory'
+
+function entryOsCreateDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	giveFlag(vm, x: x, b: Directory.create(pathOf(vm.h.texts[at].clone())))
+end 'entryOsCreateDirectory'
+
+function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[at].clone())
+	var word = 0 as ir.Word
+	var texts = ast.StringList.create(0)
+	try 'list'
+		let entries = Directory.list(path)
+		for i in 0 upto entries.count() 'each'
+			texts.push(entries[i].toString())
+		end 'each'
+	end 'list' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then word = caseWord(ast.errorListNotFound)
+			accessDenied then word = caseWord(ast.errorListAccessDenied)
+			listFailed then word = caseWord(ast.errorListFailed)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'listed'
+		let made = stringArray(vm, texts: texts)
+		giveRef(vm, x: x, o: made)
+	end 'listed'
+end 'entryOsList'
+
+// The arguments of rt.os.run that are the addresses its output is stored at.
+let runStdoutArg = 2 as Count
+
+let runStderrArg = 3 as Count
+
+// output stores what the child wrote to a stream at the address the argument at index gives.
+function output(mutates vm Vm, f ir.IrFunction, x ir.Instr, index Count, consumes text String) throws Halt
+	let cell = try target(vm, addr: argAt(f, x: x, i: index), what: "a child's output")
+	try changed(vm, c: cell, o: 0)
+	let o = newString(vm, text: text)
+	try adopt(vm, c: cell, o: o, what: "a child's output")
+end 'output'
+
+// isPath is whether the text of an executable says where it is, rather than naming it for the system to search for.
+function isPath(text String) returns bool
+	for i in 0 upto text.byteLength() 'each'
+		let c = text.byteAt(i)
+		if c == 92 or c == 47 or c == 58 'separator'
+			return true
+		end 'separator'
+	end 'each'
+	return false
+end 'isPath'
+
+function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let exeAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an executable")
+	let exeText = vm.h.texts[exeAt].clone()
+	let argsObj = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindArray, what: "the arguments")
+	var args = ast.StringList.create(0)
+	for i in 0 upto vm.h.elements[vm.h.oData[argsObj]].count() 'args'
+		let element = vm.h.elements[vm.h.oData[argsObj]][i]
+		let textAt = try textIndex(vm, o: vm.h.refOf(element), what: "an argument")
+		args.push(vm.h.texts[textAt].clone())
+	end 'args'
+	var executable = Executable.name(exeText.clone())
+	if isPath(exeText) 'path'
+		executable = Executable.path(pathOf(exeText.clone()))
+	end 'path'
+	var word = 0 as ir.Word
+	var stdout = ""
+	var stderr = ""
+	var code = 0 as ir.Word
+	try 'run'
+		let out = Subprocess.run(executable, arguments: args)
+		stdout = out.stdout.clone()
+		stderr = out.stderr.clone()
+		code = out.exitCode() as ir.Word
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound then word = caseWord(ast.errorExecutableNotFound)
+			spawnFailed then word = caseWord(ast.errorSpawnFailed)
+			busy then word = caseWord(ast.errorSpawnBusy)
+			ioFailed then word = caseWord(ast.errorIoFailed)
+			timeout then word = caseWord(ast.errorTimeout)
+			treeNotEnded then word = caseWord(ast.errorTreeNotEnded)
+			detachRefused then word = caseWord(ast.errorDetachRefused)
+			inputTooLarge then word = caseWord(ast.errorInputTooLarge)
+			statusLost then word = caseWord(ast.errorStatusLost)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'ran'
+		try output(vm, f: f, x: x, index: runStdoutArg, text: stdout)
+		try output(vm, f: f, x: x, index: runStderrArg, text: stderr)
+		giveNum(vm, x: x, n: code)
+	end 'ran'
+end 'entryOsRun'

@@ -1,0 +1,756 @@
+// The entries are the primitives that the backend has no code for, and the ones it has, which the interpreter gives their meaning:
+// an array, a map, a list and a pool, each with the generational handles that the README's "Primitives" describes, strings, byte
+// arrays, a frozen value and a cown, and standard output. builtins_gen.maxon dispatches a call of an entry to the function of
+// its name here.
+
+let indexOutOfRangeMessage = "index out of range"
+
+let missingKeyMessage = "map has no such key"
+
+let staleHandleMessage = "handle names no element"
+
+let emptyListMessage = "pop from an empty list"
+
+// argAt is the register of an entry's i-th argument.
+function argAt(f ir.IrFunction, x ir.Instr, i Count) returns ir.Reg
+	return f.args[try ir.callRuntimeArgsStart(x) + i otherwise panic("interp: an argument past the pool")]
+end 'argAt'
+
+function argNum(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns ir.Word
+	return vm.num(argAt(f, x: x, i: i))
+end 'argNum'
+
+function argRef(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns Count
+	return vm.ref(argAt(f, x: x, i: i))
+end 'argRef'
+
+// result is the register that gets what an entry gives, which must be one that the call receives.
+function result(x ir.Instr) returns ir.Reg
+	if x.dst == ir.noReg 'unreceived'
+		panic("interp: {ir.rtSymbol(ir.callRuntimeSymbol(x))} gives a value that its call does not receive")
+	end 'unreceived'
+	return x.dst
+end 'result'
+
+function giveNum(mutates vm Vm, x ir.Instr, n ir.Word)
+	vm.setNum(result(x), n: n)
+end 'giveNum'
+
+function giveRef(mutates vm Vm, x ir.Instr, o Count)
+	vm.setRef(result(x), o: o)
+end 'giveRef'
+
+function giveFlag(mutates vm Vm, x ir.Instr, b bool)
+	if b 'yes'
+		giveNum(vm, x: x, n: 1)
+	end 'yes' else 'no'
+		giveNum(vm, x: x, n: 0)
+	end 'no'
+end 'giveFlag'
+
+// giveCell gives the value that a place holds.
+function giveCell(mutates vm Vm, x ir.Instr, c Count)
+	copyToReg(vm, dst: result(x), c: c)
+end 'giveCell'
+
+// addressOf is the address of an element, valid until its structure changes.
+function giveAddress(mutates vm Vm, x ir.Instr, c Count)
+	let version = vm.h.oVersion[vm.h.cellHolder[c]]
+	vm.setAddress(result(x), c: c, version: version)
+end 'giveAddress'
+
+// textIndex is where the contents of a string that must exist and be live are.
+function textIndex(mutates vm Vm, o Count, what String) returns Count throws Halt
+	let live = try live(vm, o: o, what: what)
+	if vm.h.oKind[live] != kindString 'notString'
+		panic("interp: {what} reads {objectText(vm, o: live)} as a string")
+	end 'notString'
+	return vm.h.oData[live]
+end 'textIndex'
+
+// collection is an object of a kind that an entry works on.
+function collection(mutates vm Vm, o Count, kind Count, what String) returns Count throws Halt
+	let live = try live(vm, o: o, what: what)
+	if vm.h.oKind[live] != kind 'wrongKind'
+		panic("interp: {what} expects a {kindName(kind)}, found {objectText(vm, o: live)}")
+	end 'wrongKind'
+	return live
+end 'collection'
+
+function entryWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a write")
+	let handle = argNum(vm, f: f, x: x, i: 0)
+	if handle == stdoutHandle 'stdout'
+		vm.stdout.append(vm.h.texts[at].toByteArray())
+	end 'stdout' else if handle == stderrHandle 'stderr'
+		vm.stderr.append(vm.h.texts[at].toByteArray())
+	end 'stderr' else 'unknown'
+		panic("interp: write to handle {handle}")
+	end 'unknown'
+end 'entryWrite'
+
+function entryPanic(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a panic message")
+	let message = vm.h.texts[at].clone()
+	throw trap(vm, message: message)
+end 'entryPanic'
+
+function entryConcat(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a concatenation")
+	let b = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a concatenation")
+	let text = "{vm.h.texts[a]}{vm.h.texts[b]}"
+	let made = newString(vm, text: text)
+	giveRef(vm, x: x, o: made)
+end 'entryConcat'
+
+function entryItoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let n = argNum(vm, f: f, x: x, i: 0)
+	var text = "{n}"
+	if argNum(vm, f: f, x: x, i: 1) != 0 'unsigned'
+		text = "{bitsOf(n)}"
+	end 'unsigned'
+	let made = newString(vm, text: text)
+	giveRef(vm, x: x, o: made)
+end 'entryItoa'
+
+function entryStreq(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a comparison")
+	let b = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a comparison")
+	giveFlag(vm, x: x, b: vm.h.texts[a] == vm.h.texts[b])
+end 'entryStreq'
+
+function entryStrLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string byteLength")
+	giveNum(vm, x: x, n: try vm.h.texts[at].byteLength() as ir.Word otherwise panic("interp: a string past a word"))
+end 'entryStrLen'
+
+function entryStrByteAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string byteAt")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	if i >= vm.h.texts[at].byteLength() 'outside'
+		throw trap(vm, message: "string byte position out of bounds")
+	end 'outside'
+	giveNum(vm, x: x, n: vm.h.texts[at].byteAt(i) as ir.Word)
+end 'entryStrByteAt'
+
+function entryStrSlice(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string slice")
+	let start = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let stop = bitsOf(argNum(vm, f: f, x: x, i: 2))
+	if start > stop or stop > vm.h.texts[at].byteLength() 'outside'
+		throw trap(vm, message: "string slice out of bounds")
+	end 'outside'
+	let text = vm.h.texts[at].sliceBytes(start, endPos: stop)
+	let made = newString(vm, text: text)
+	giveRef(vm, x: x, o: made)
+end 'entryStrSlice'
+
+// newShared makes a frozen value or a cown that owns a value the entry takes, with one owner: the reference it returns.
+function newShared(mutates vm Vm, f ir.IrFunction, kind Count, src ir.Reg, what String) returns Count throws Halt
+	let box = newSharedBox(vm, kind: kind)
+	try store(vm, f: f, c: vm.h.field(box, i: 0), src: src, what: what)
+	return box
+end 'newShared'
+
+// shared is a frozen value or a cown an entry works on.
+function shared(mutates vm Vm, o Count, kind Count, what String) returns Count throws Halt
+	let live = try live(vm, o: o, what: what)
+	if vm.h.oKind[live] != kind 'wrongKind'
+		panic("interp: {what} expects a {kindName(kind)}, found {objectText(vm, o: live)}")
+	end 'wrongKind'
+	return live
+end 'shared'
+
+function entryFrozenFreeze(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	vm.tracking = true
+	let o = try newShared(vm, f: f, kind: kindFrozen, src: argAt(f, x: x, i: 0), what: "the freeze")
+	giveRef(vm, x: x, o: o)
+end 'entryFrozenFreeze'
+
+function entryCownNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	vm.tracking = true
+	let cown = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new cown")
+	match consumes ir.callRuntimeRoutine(f, x: x) 'routine'
+		some(routine) then vm.h.shareds[vm.h.oData[cown]].ending = functionOf(vm, id: routine)
+		none then _ = 0
+	end 'routine'
+	giveRef(vm, x: x, o: cown)
+end 'entryCownNew'
+
+// functionOf is the index of the function that a declaration has IR for.
+function functionOf(vm Vm, id ast.FuncID) returns Count
+	return match consumes vm.prog.fnByFunc.get(id as Count) 'found'
+		some(fi) gives fi
+		none gives panic("interp: a function has no IR")
+	end 'found'
+end 'functionOf'
+
+function entryFrozenGet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindFrozen, what: "reading a frozen value")
+	giveCell(vm, x: x, c: vm.h.field(o, i: 0))
+end 'entryFrozenGet'
+
+function entryShare(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a share")
+	if not vm.h.isShared(o) 'notShared'
+		panic("interp: a share of {objectText(vm, o: o)}, which is not a frozen value or a cown")
+	end 'notShared'
+	let at = vm.h.oData[o]
+	vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
+	giveRef(vm, x: x, o: o)
+end 'entryShare'
+
+// restructure is a change to the structure of a collection, which ends every address taken into it.
+function restructure(mutates vm Vm, o Count) throws Halt
+	try changed(vm, c: 0, o: o)
+	vm.h.oVersion[o] = try vm.h.oVersion[o] + 1 otherwise panic("interp: a version past a word")
+end 'restructure'
+
+// moveIn puts an element that an entry takes in a new place of a collection, which becomes its owner.
+function moveIn(mutates vm Vm, f ir.IrFunction, holder Count, src ir.Reg, what String) returns Count throws Halt
+	let c = vm.h.newCell(holder)
+	try store(vm, f: f, c: c, src: src, what: what)
+	return c
+end 'moveIn'
+
+// moveOutOfCollection gives an element to the caller and empties its place.
+function moveOutOfCollection(mutates vm Vm, x ir.Instr, c Count, what String) throws Halt
+	giveCell(vm, x: x, c: c)
+	_ = try release(vm, c: c, what: what)
+end 'moveOutOfCollection'
+
+function entryArrayNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newArray(vm)
+	giveRef(vm, x: x, o: made)
+end 'entryArrayNew'
+
+function entryArrayLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.elements[vm.h.oData[a]].count() as ir.Word otherwise panic("interp: an array past a word"))
+end 'entryArrayLen'
+
+function entryArrayElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an element address")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	let element = vm.h.elements[data][i]
+	giveAddress(vm, x: x, c: element)
+end 'entryArrayElem'
+
+function entryArrayInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an insert")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i > vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	let e = try moveIn(vm, f: f, holder: a, src: argAt(f, x: x, i: 2), what: "the insert")
+	try restructure(vm, o: a)
+	vm.h.elements[data].insert(i, value: e)
+end 'entryArrayInsert'
+
+function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a remove")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: a)
+	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
+	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
+end 'entryArrayRemove'
+
+function entryBytesNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newBytes(vm, buf: ByteArray.create(0))
+	giveRef(vm, x: x, o: made)
+end 'entryBytesNew'
+
+function entryBytesLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.buffers[vm.h.oData[b]].count() as ir.Word otherwise panic("interp: a buffer past a word"))
+end 'entryBytesLen'
+
+function entryBytesGet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a byte read")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[b]
+	if i >= vm.h.buffers[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	giveNum(vm, x: x, n: vm.h.buffers[data][i] as ir.Word)
+end 'entryBytesGet'
+
+// lowByte is the byte a word holds in its low 8 bits.
+function lowByte(n ir.Word) returns Byte
+	return (bitsOf(n) and 255) as Byte
+end 'lowByte'
+
+function entryBytesSet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a byte write")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[b]
+	if i >= vm.h.buffers[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: b)
+	vm.h.buffers[data][i] = lowByte(argNum(vm, f: f, x: x, i: 2))
+end 'entryBytesSet'
+
+function entryBytesInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an insert")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[b]
+	if i > vm.h.buffers[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: b)
+	vm.h.buffers[data].insert(i, value: lowByte(argNum(vm, f: f, x: x, i: 2)))
+end 'entryBytesInsert'
+
+function entryBytesRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a remove")
+	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[b]
+	if i >= vm.h.buffers[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: b)
+	let removed = try vm.h.buffers[data].remove(i) otherwise panic("interp: a byte that was there is gone")
+	giveNum(vm, x: x, n: removed as ir.Word)
+end 'entryBytesRemove'
+
+function entryBytesAppend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an append")
+	let other = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindBytes, what: "an append source")
+	try restructure(vm, o: b)
+	let from = vm.h.buffers[vm.h.oData[other]].clone()
+	vm.h.buffers[vm.h.oData[b]].append(from)
+end 'entryBytesAppend'
+
+function entryBytesAppendStr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an appendString")
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "an appendString source")
+	try restructure(vm, o: b)
+	let from = vm.h.texts[at].toByteArray()
+	vm.h.buffers[vm.h.oData[b]].append(from)
+end 'entryBytesAppendStr'
+
+function entryBytesToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a toString")
+	let text = String.from(vm.h.buffers[vm.h.oData[b]])
+	let made = newString(vm, text: text)
+	giveRef(vm, x: x, o: made)
+end 'entryBytesToString'
+
+// mapLookup is the entry of a map that a key names: a word, or the text of a string.
+function mapLookup(mutates vm Vm, f ir.IrFunction, data Count, key ir.Reg, what String) returns table.Option with Count throws Halt
+	if isManaged(f, r: key) 'text'
+		let at = try textIndex(vm, o: vm.ref(key), what: what)
+		return vm.h.maps[data].byText.get(vm.h.texts[at])
+	end 'text'
+	return vm.h.maps[data].byNumber.get(bitsOf(vm.num(key)))
+end 'mapLookup'
+
+function entryMapNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newMap(vm)
+	giveRef(vm, x: x, o: made)
+end 'entryMapNew'
+
+function entryMapLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.maps[vm.h.oData[m]].entries.count() as ir.Word otherwise panic("interp: a map past a word"))
+end 'entryMapLen'
+
+function entryMapHas(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a lookup")
+	let data = vm.h.oData[m]
+	let found = try mapLookup(vm, f: f, data: data, key: argAt(f, x: x, i: 1), what: "a lookup")
+	giveFlag(vm, x: x, b: found.isSome())
+end 'entryMapHas'
+
+function entryMapElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "an element address")
+	let data = vm.h.oData[m]
+	let found = try mapLookup(vm, f: f, data: data, key: argAt(f, x: x, i: 1), what: "a lookup")
+	if not found.isSome() 'missing'
+		throw trap(vm, message: missingKeyMessage)
+	end 'missing'
+	let element = vm.h.entryVal[found.unwrap()]
+	giveAddress(vm, x: x, c: element)
+end 'entryMapElem'
+
+function entryMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "an insert")
+	let data = vm.h.oData[m]
+	let keyReg = argAt(f, x: x, i: 1)
+	let valueReg = argAt(f, x: x, i: 2)
+	let found = try mapLookup(vm, f: f, data: data, key: keyReg, what: "an insert")
+	try restructure(vm, o: m)
+	if found.isSome() 'present'
+		// A key that is there keeps its place: the value that was there is dropped, and so is the key that came in, since the map
+		// holds one.
+		let e = found.unwrap()
+		let val = vm.h.entryVal[e]
+		try dropCell(vm, c: val)
+		try store(vm, f: f, c: val, src: valueReg, what: "the insert")
+		let incoming = vm.ref(keyReg)
+		if incoming != 0 and not vm.h.oImmortal[incoming] 'dropKey'
+			try drop(vm, o: incoming)
+		end 'dropKey'
+		return
+	end 'present'
+	let key = vm.h.newCell(m)
+	let val = vm.h.newCell(m)
+	let e = vm.h.entryKey.count()
+	vm.h.entryKey.push(key)
+	vm.h.entryVal.push(val)
+	try store(vm, f: f, c: key, src: keyReg, what: "the insert")
+	try store(vm, f: f, c: val, src: valueReg, what: "the insert")
+	vm.h.maps[data].entries.push(e)
+	if isManaged(f, r: keyReg) 'text'
+		let at = vm.h.oData[vm.h.refOf(key)]
+		vm.h.maps[data].byText.insert(vm.h.texts[at].clone(), value: e)
+	end 'text' else 'number'
+		vm.h.maps[data].byNumber.insert(bitsOf(vm.num(keyReg)), value: e)
+	end 'number'
+end 'entryMapInsert'
+
+function entryMapRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a remove")
+	let data = vm.h.oData[m]
+	let keyReg = argAt(f, x: x, i: 1)
+	let found = try mapLookup(vm, f: f, data: data, key: keyReg, what: "a remove")
+	if not found.isSome() 'missing'
+		throw trap(vm, message: missingKeyMessage)
+	end 'missing'
+	let e = found.unwrap()
+	try restructure(vm, o: m)
+	if isManaged(f, r: keyReg) 'text'
+		let at = try textIndex(vm, o: vm.ref(keyReg), what: "a remove")
+		_ = vm.h.maps[data].byText.remove(vm.h.texts[at])
+	end 'text' else 'number'
+		_ = vm.h.maps[data].byNumber.remove(bitsOf(vm.num(keyReg)))
+	end 'number'
+	for i in 0 upto vm.h.maps[data].entries.count() 'entries'
+		if vm.h.maps[data].entries[i] == e 'same'
+			try vm.h.maps[data].entries.remove(i) otherwise ignore
+			break 'entries'
+		end 'same'
+	end 'entries'
+	let key = vm.h.entryKey[e]
+	let val = vm.h.entryVal[e]
+	try freeCell(vm, c: key)
+	try moveOutOfCollection(vm, x: x, c: val, what: "the remove")
+end 'entryMapRemove'
+
+function entryMapCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a copy")
+	let copy = try copyObject(vm, o: m)
+	giveRef(vm, x: x, o: copy)
+end 'entryMapCopy'
+
+function entryListNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newTable(vm, kind: kindList)
+	giveRef(vm, x: x, o: made)
+end 'entryListNew'
+
+function entryListLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.tables[vm.h.oData[l]].order.count() as ir.Word otherwise panic("interp: a list past a word"))
+end 'entryListLen'
+
+function entryListContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a lookup")
+	giveFlag(vm, x: x, b: vm.h.tables[vm.h.oData[l]].lookup(argNum(vm, f: f, x: x, i: 1)).isSome())
+end 'entryListContains'
+
+// slotOf is the slot of a list or a pool that a handle names, which must still be there.
+function slotOf(mutates vm Vm, o Count, handle ir.Word) returns Count throws Halt
+	match consumes vm.h.tables[vm.h.oData[o]].lookup(handle) 'slot'
+		some(slot) then return slot
+		none then throw trap(vm, message: staleHandleMessage)
+	end 'slot'
+end 'slotOf'
+
+function entryListElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "an element address")
+	let slot = try slotOf(vm, o: l, handle: argNum(vm, f: f, x: x, i: 1))
+	let element = vm.h.tables[vm.h.oData[l]].cells[slot]
+	giveAddress(vm, x: x, c: element)
+end 'entryListElem'
+
+function entryListPushFront(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listPush(vm, f: f, x: x, front: true)
+end 'entryListPushFront'
+
+function entryListPushBack(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listPush(vm, f: f, x: x, front: false)
+end 'entryListPushBack'
+
+// listPush adds an element at the front of a list or at its back.
+function listPush(mutates vm Vm, f ir.IrFunction, x ir.Instr, front bool) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a push")
+	let e = try moveIn(vm, f: f, holder: l, src: argAt(f, x: x, i: 1), what: "the push")
+	try restructure(vm, o: l)
+	let data = vm.h.oData[l]
+	let slot = vm.h.tables[data].acquire(e)
+	if front 'front'
+		vm.h.tables[data].order.insert(0, value: slot)
+	end 'front' else 'back'
+		vm.h.tables[data].order.push(slot)
+	end 'back'
+	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(slot))
+end 'listPush'
+
+function entryListPopFront(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listPop(vm, f: f, x: x, back: false)
+end 'entryListPopFront'
+
+function entryListPopBack(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listPop(vm, f: f, x: x, back: true)
+end 'entryListPopBack'
+
+// listPop takes the element at the front of a list or at its back.
+function listPop(mutates vm Vm, f ir.IrFunction, x ir.Instr, back bool) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a pop")
+	let data = vm.h.oData[l]
+	if vm.h.tables[data].order.count() == 0 'empty'
+		throw trap(vm, message: emptyListMessage)
+	end 'empty'
+	var slot = vm.h.tables[data].order[0]
+	if back 'last'
+		slot = vm.h.tables[data].order[try vm.h.tables[data].order.count() - 1 otherwise panic("interp: an empty list")]
+	end 'last'
+	try takeSlot(vm, x: x, o: l, slot: slot, what: "the pop")
+end 'listPop'
+
+function entryListFirst(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listEnd(vm, f: f, x: x, last: false)
+end 'entryListFirst'
+
+function entryListLast(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listEnd(vm, f: f, x: x, last: true)
+end 'entryListLast'
+
+// listEnd is the handle of the first element of a list or of its last, or 0 for an empty list.
+function listEnd(mutates vm Vm, f ir.IrFunction, x ir.Instr, last bool) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a walk")
+	let data = vm.h.oData[l]
+	if vm.h.tables[data].order.count() == 0 'empty'
+		giveNum(vm, x: x, n: 0)
+		return
+	end 'empty'
+	var slot = vm.h.tables[data].order[0]
+	if last 'last'
+		slot = vm.h.tables[data].order[try vm.h.tables[data].order.count() - 1 otherwise panic("interp: an empty list")]
+	end 'last'
+	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(slot))
+end 'listEnd'
+
+function entryListNext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listStep(vm, f: f, x: x, next: true)
+end 'entryListNext'
+
+function entryListPrev(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try listStep(vm, f: f, x: x, next: false)
+end 'entryListPrev'
+
+// listStep is the handle of the element after the one a handle names or before it, or 0 past the end.
+function listStep(mutates vm Vm, f ir.IrFunction, x ir.Instr, next bool) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a walk")
+	let data = vm.h.oData[l]
+	let slot = try slotOf(vm, o: l, handle: argNum(vm, f: f, x: x, i: 1))
+	let at = vm.h.tables[data].position(slot)
+	var step = at
+	if next 'forward'
+		step = try at + 1 otherwise panic("interp: a position past memory")
+	end 'forward' else 'backward'
+		if at == 0 'start'
+			giveNum(vm, x: x, n: 0)
+			return
+		end 'start'
+		step = try at - 1 otherwise panic("interp: a position before the first")
+	end 'backward'
+	if step >= vm.h.tables[data].order.count() 'end'
+		giveNum(vm, x: x, n: 0)
+		return
+	end 'end'
+	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(vm.h.tables[data].order[step]))
+end 'listStep'
+
+function entryListRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a remove")
+	let slot = try slotOf(vm, o: l, handle: argNum(vm, f: f, x: x, i: 1))
+	try takeSlot(vm, x: x, o: l, slot: slot, what: "the remove")
+end 'entryListRemove'
+
+function entryListMoveToFront(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a move")
+	let slot = try slotOf(vm, o: l, handle: argNum(vm, f: f, x: x, i: 1))
+	try restructure(vm, o: l)
+	let data = vm.h.oData[l]
+	vm.h.tables[data].unlink(slot)
+	vm.h.tables[data].order.insert(0, value: slot)
+end 'entryListMoveToFront'
+
+function entryListCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a copy")
+	let copy = try copyObject(vm, o: l)
+	giveRef(vm, x: x, o: copy)
+end 'entryListCopy'
+
+function entryPoolNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newTable(vm, kind: kindPool)
+	giveRef(vm, x: x, o: made)
+end 'entryPoolNew'
+
+function entryPoolLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.tables[vm.h.oData[p]].count() as ir.Word otherwise panic("interp: a pool past a word"))
+end 'entryPoolLen'
+
+function entryPoolContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a lookup")
+	giveFlag(vm, x: x, b: vm.h.tables[vm.h.oData[p]].lookup(argNum(vm, f: f, x: x, i: 1)).isSome())
+end 'entryPoolContains'
+
+function entryPoolElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "an element address")
+	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
+	let element = vm.h.tables[vm.h.oData[p]].cells[slot]
+	giveAddress(vm, x: x, c: element)
+end 'entryPoolElem'
+
+function entryPoolInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "an insert")
+	let e = try moveIn(vm, f: f, holder: p, src: argAt(f, x: x, i: 1), what: "the insert")
+	try restructure(vm, o: p)
+	let data = vm.h.oData[p]
+	let slot = vm.h.tables[data].acquire(e)
+	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(slot))
+end 'entryPoolInsert'
+
+function entryPoolRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a remove")
+	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
+	try takeSlot(vm, x: x, o: p, slot: slot, what: "the remove")
+end 'entryPoolRemove'
+
+function entryPoolCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a copy")
+	let copy = try copyObject(vm, o: p)
+	giveRef(vm, x: x, o: copy)
+end 'entryPoolCopy'
+
+// takeSlot gives the element of a list or a pool slot to the caller and releases the slot, so a handle to it finds nothing from
+// now on, even when the slot is used again.
+function takeSlot(mutates vm Vm, x ir.Instr, o Count, slot Count, what String) throws Halt
+	try restructure(vm, o: o)
+	let data = vm.h.oData[o]
+	let c = vm.h.tables[data].cells[slot]
+	vm.h.tables[data].release(slot)
+	if vm.h.oKind[o] == kindList 'list'
+		vm.h.tables[data].unlink(slot)
+	end 'list'
+	try moveOutOfCollection(vm, x: x, c: c, what: what)
+end 'takeSlot'
+
+// copyObject is a deep copy of an object: a new object for each one inside it, in the same order. A string literal is never
+// freed, so it is shared.
+function copyObject(mutates vm Vm, o Count) returns Count throws Halt
+	try requireLive(vm, o: o, what: "copied")
+	let kind = vm.h.oKind[o]
+	let data = vm.h.oData[o]
+	if kind == kindFrozen or kind == kindCown 'shared'
+		// The copy of a shared value is another owner of it.
+		vm.h.shareds[data].count = try vm.h.shareds[data].count + 1 otherwise panic("interp: a count past a word")
+		return o
+	end 'shared'
+	if kind == kindString 'string'
+		if vm.h.oImmortal[o] 'immortal'
+			return o
+		end 'immortal'
+		return newString(vm, text: vm.h.texts[data].clone())
+	end 'string'
+	if kind == kindBytes 'bytes'
+		return newBytes(vm, buf: vm.h.buffers[data].clone())
+	end 'bytes'
+	if kind == kindBox 'box'
+		let size = vm.h.oSize[o]
+		let out = newBox(vm, words: size)
+		for i in 0 upto size 'fields'
+			try copyCell(vm, dst: vm.h.field(out, i: i), source: vm.h.field(o, i: i))
+		end 'fields'
+		return out
+	end 'box'
+	if kind == kindArray 'array'
+		let out = newArray(vm)
+		for i in 0 upto vm.h.elements[data].count() 'elements'
+			let dst = vm.h.newCell(out)
+			let source = vm.h.elements[data][i]
+			try copyCell(vm, dst: dst, source: source)
+			vm.h.elements[vm.h.oData[out]].push(dst)
+		end 'elements'
+		return out
+	end 'array'
+	if kind == kindMap 'map'
+		let out = newMap(vm)
+		let outData = vm.h.oData[out]
+		for i in 0 upto vm.h.maps[data].entries.count() 'entries'
+			let e = vm.h.maps[data].entries[i]
+			let key = vm.h.newCell(out)
+			let val = vm.h.newCell(out)
+			let copied = vm.h.entryKey.count()
+			vm.h.entryKey.push(key)
+			vm.h.entryVal.push(val)
+			let sourceKey = vm.h.entryKey[e]
+			let sourceVal = vm.h.entryVal[e]
+			try copyCell(vm, dst: key, source: sourceKey)
+			try copyCell(vm, dst: val, source: sourceVal)
+			vm.h.maps[outData].entries.push(copied)
+			let ref = vm.h.refOf(key)
+			if ref != 0 'text'
+				vm.h.maps[outData].byText.insert(vm.h.texts[vm.h.oData[ref]].clone(), value: copied)
+			end 'text' else 'number'
+				vm.h.maps[outData].byNumber.insert(bitsOf(vm.h.cellN[key]), value: copied)
+			end 'number'
+		end 'entries'
+		return out
+	end 'map'
+	if kind == kindList or kind == kindPool 'table'
+		let out = newTable(vm, kind: kind)
+		let outData = vm.h.oData[out]
+		vm.h.tables[outData].gens = vm.h.tables[data].gens.clone()
+		vm.h.tables[outData].live = vm.h.tables[data].live.clone()
+		vm.h.tables[outData].free = vm.h.tables[data].free.clone()
+		vm.h.tables[outData].order = vm.h.tables[data].order.clone()
+		for slot in 0 upto vm.h.tables[data].cells.count() 'slots'
+			let source = vm.h.tables[data].cells[slot]
+			var dst = 0 as Count
+			if source != 0 'there'
+				dst = vm.h.newCell(out)
+				try copyCell(vm, dst: dst, source: source)
+			end 'there'
+			vm.h.tables[outData].cells.push(dst)
+		end 'slots'
+		return out
+	end 'table'
+	panic("interp: cannot copy {objectText(vm, o: o)}")
+end 'copyObject'
+
+// copyCell fills a new place with a copy of what another place holds: a scalar as it is, an object as a new one that the place
+// owns.
+function copyCell(mutates vm Vm, dst Count, source Count) throws Halt
+	let ref = vm.h.refOf(source)
+	if ref == 0 'scalar'
+		vm.h.cellN[dst] = vm.h.cellN[source]
+		vm.h.cellR[dst] = vm.h.cellR[source]
+		return
+	end 'scalar'
+	let copy = try copyObject(vm, o: ref)
+	try adopt(vm, c: dst, o: copy, what: "the copy")
+end 'copyCell'

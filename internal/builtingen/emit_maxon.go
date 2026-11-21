@@ -403,3 +403,25 @@ func emitMaxonCheck(t table) string {
 	sb.WriteString("\tpanic(\"check: {op.name} is no intrinsic\")\nend 'checkIntrinsicArgs'\n")
 	return sb.String()
 }
+
+// emitMaxonInterp writes self/interp's dispatch from a runtime entry to the function of the interpreter that runs it, which
+// is entry+Name, as the Go interpreter's is.
+func emitMaxonInterp(t table) string {
+	var sb strings.Builder
+	sb.WriteString(maxonHeader)
+	sb.WriteString("// runtimeEntry runs a call of a runtime entry.\nfunction runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt\n\tlet symbol = ir.callRuntimeSymbol(x)\n")
+	var others []string
+	for _, e := range entries {
+		if e.Role != roleCall {
+			others = append(others, "symbol == ir.Rt.rt"+e.Name)
+			continue
+		}
+		fmt.Fprintf(&sb, "\tif symbol == ir.Rt.rt%s 'rt%s'\n\t\ttry entry%s(vm, f: f, x: x)\n\t\treturn\n\tend 'rt%s'\n", e.Name, e.Name, e.Name, e.Name)
+	}
+	for i := 0; i < len(others); i += 4 {
+		end := min(i+4, len(others))
+		fmt.Fprintf(&sb, "\tif %s 'internal%d'\n\t\tpanic(\"interp: {ir.rtText(symbol)} is no entry the IR calls\")\n\tend 'internal%d'\n", strings.Join(others[i:end], " or "), i/4, i/4)
+	}
+	sb.WriteString("\tpanic(\"interp: a call of no runtime entry\")\nend 'runtimeEntry'\n")
+	return sb.String()
+}

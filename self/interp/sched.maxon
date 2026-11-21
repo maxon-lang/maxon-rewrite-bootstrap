@@ -1,0 +1,440 @@
+// The scheduler runs the threads of a program the way Verona's behaviour-oriented concurrency describes it, and decides by a
+// seeded random choice which of them takes the next step. main is the first thread. A `when` makes a behaviour: it is queued
+// on every cown it names, in the order the behaviours were scheduled, and it runs once it is first in all of those queues.
+// Behaviours on disjoint cowns can run at once and in any order, and several that run at once are interleaved a few
+// instructions at a time. Only one thread executes at any moment, so the run is deterministic for a seed; what is simulated
+// is the interleaving, which is where a data race would show.
+//
+// A thread is a stack of frames that runs only while the scheduler has handed it the turn. It gives the turn back after a
+// random number of instructions (its burst), and again when it finishes.
+
+// shortBurst, mediumBurst and longBurst are the longest stretches of instructions a thread runs without giving the turn
+// back. Each stretch is a random length up to one of them, so a run has a few very fine interleavings and a few coarse ones.
+let shortBurst = 2 as Count
+
+let mediumBurst = 8 as Count
+
+let longBurst = 64 as Count
+
+function burstLimit(i Count) returns Count
+	return match i 'which'
+		0 gives shortBurst
+		1 gives mediumBurst
+		2 gives longBurst
+		default gives panic("interp: {i} is no burst limit")
+	end 'which'
+end 'burstLimit'
+
+let burstLimitCount = 3 as Count
+
+// describeThread names a thread for a report.
+function describeThread(vm Vm, t Count) returns String
+	let name = vm.prog.symbols[vm.threads[t].name].clone()
+	let b = vm.threads[t].behaviour
+	if b == 0 'main'
+		return name
+	end 'main'
+	return "{name} (behaviour #{vm.behaviours.seq[b]})"
+end 'describeThread'
+
+// runnable is whether a behaviour is first in the queue of each cown it names.
+function runnable(vm Vm, b Count) returns bool
+	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
+		let c = vm.behaviours.cowns[b][i]
+		if vm.h.shareds[vm.h.oData[c]].queue[0] != b 'waiting'
+			return false
+		end 'waiting'
+	end 'cowns'
+	return true
+end 'runnable'
+
+// A value belongs to the thread, the cown or the frozen value that owns it, found by following its owners up to a frame's
+// slot, the value of a cown, or the contents of a frozen value. A value that nothing owns yet, such as the result of a call,
+// belongs to whoever holds it.
+let domainNone = 0 as Count
+
+let domainThread = 1 as Count
+
+let domainCown = 2 as Count
+
+let domainFrozen = 3 as Count
+
+type Domain
+	var kind as Count
+	var thread as Count
+	var cown as Count
+	// settled is whether the place alone decided the domain, so that what holds it need not be asked.
+	var settled as bool
+
+	static function make(kind Count, thread Count, cown Count, settled bool) returns Domain
+		return Domain{kind: kind, thread: thread, cown: cown, settled: settled}
+	end 'make'
+end 'Domain'
+
+// domainOfCell is where a place belongs, when that is settled by the place alone: a slot of a frame, or a place in a frozen
+// value or a cown. A place in any other object belongs wherever that object does, which is for the caller to ask.
+function domainOfCell(vm Vm, c Count) returns Domain
+	let frame = vm.h.cellFrame[c]
+	if frame != 0 'slot'
+		return Domain.make(domainThread, thread: vm.fr.thread[frame], cown: 0, settled: true)
+	end 'slot'
+	let holder = vm.h.cellHolder[c]
+	if holder == 0 'bare'
+		return Domain.make(domainNone, thread: 0, cown: 0, settled: true)
+	end 'bare'
+	if vm.h.oKind[holder] == kindFrozen 'frozen'
+		return Domain.make(domainFrozen, thread: 0, cown: 0, settled: true)
+	end 'frozen'
+	if vm.h.oKind[holder] == kindCown 'cown'
+		return Domain.make(domainCown, thread: 0, cown: holder, settled: true)
+	end 'cown'
+	return Domain.make(domainNone, thread: 0, cown: 0, settled: false)
+end 'domainOfCell'
+
+// domainOfObject is where an object belongs. A frozen value or a cown, which any thread may hold a reference to, belongs to no
+// one: it is what is inside that belongs to it.
+function domainOfObject(vm Vm, o Count) returns Domain
+	if vm.h.oImmortal[o] or vm.h.isShared(o) 'untracked'
+		return Domain.make(domainNone, thread: 0, cown: 0, settled: true)
+	end 'untracked'
+	var at = o
+	while true 'owners'
+		let c = vm.h.oOwner[at]
+		if c == 0 'unowned'
+			return Domain.make(domainNone, thread: 0, cown: 0, settled: true)
+		end 'unowned'
+		let d = domainOfCell(vm, c: c)
+		if d.settled 'ended'
+			return d
+		end 'ended'
+		at = vm.h.cellHolder[c]
+	end 'owners'
+	panic("interp: the owners of an object do not end")
+end 'domainOfObject'
+
+function domainOfPlace(vm Vm, c Count) returns Domain
+	let d = domainOfCell(vm, c: c)
+	if d.settled 'ended'
+		return d
+	end 'ended'
+	return domainOfObject(vm, o: vm.h.cellHolder[c])
+end 'domainOfPlace'
+
+// requireReachable is the rule against a data race: a thread touches only what it owns, the value of a cown while its own
+// behaviour holds the cown, and what is frozen.
+function requireReachable(mutates vm Vm, o Count, what String) throws Halt
+	let d = domainOfObject(vm, o: o)
+	try requireDomain(vm, d: d, what: objectText(vm, o: o), use: what)
+end 'requireReachable'
+
+function requireReachableCell(mutates vm Vm, c Count, what String) throws Halt
+	let d = domainOfPlace(vm, c: c)
+	try requireDomain(vm, d: d, what: cellText(vm, c: c), use: what)
+end 'requireReachableCell'
+
+function requireDomain(mutates vm Vm, d Domain, what String, use String) throws Halt
+	if d.kind == domainThread 'thread'
+		if d.thread != vm.cur 'foreign'
+			let message = "{use} uses {what}, which belongs to the thread {describeThread(vm, t: d.thread)}, and this is the thread {describeThread(vm, t: vm.cur)}: a data race"
+			throw violation(vm, kind: race, message: message)
+		end 'foreign'
+	end 'thread'
+	if d.kind == domainCown 'cown'
+		let running = vm.h.shareds[vm.h.oData[d.cown]].running
+		if running == 0 or running != vm.threads[vm.cur].behaviour 'unheld'
+			let message = "{use} uses {what}, the value of {objectText(vm, o: d.cown)}, but the thread {describeThread(vm, t: vm.cur)} holds no behaviour that has the cown: a data race"
+			throw violation(vm, kind: race, message: message)
+		end 'unheld'
+	end 'cown'
+end 'requireDomain'
+
+// requireMutable refuses a change to what is frozen.
+function requireMutable(mutates vm Vm, c Count, o Count) throws Halt
+	var d = domainOfObject(vm, o: o)
+	if c != 0 'place'
+		d = domainOfPlace(vm, c: c)
+	end 'place'
+	if d.kind == domainFrozen 'frozen'
+		let message = "{regionText(vm, c: c, o: o)} is part of a frozen value, which nothing may change"
+		throw violation(vm, kind: immutability, message: message)
+	end 'frozen'
+end 'requireMutable'
+
+// schedule is a `when`: the behaviour joins the queue of each cown it names and holds a count on each until it has run.
+function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	vm.tracking = true
+	vm.concurrent = true
+	let body = vm.prog.fnChildren[vm.curFn][ir.whenBody(f, x: x)]
+	let cownsStart = ir.whenCownsStart(x)
+	let cownsCount = ir.whenCownsCount(x)
+	var cowns = CountList.create(0)
+	for i in 0 upto cownsCount 'cowns'
+		let r = f.args[try cownsStart + i otherwise panic("interp: a cown past the pool")]
+		let o = try live(vm, o: vm.ref(r), what: "a behaviour's cown")
+		if vm.h.oKind[o] != kindCown 'notCown'
+			panic("interp: a behaviour names {objectText(vm, o: o)}, which is not a cown")
+		end 'notCown'
+		for j in 0 upto cowns.count() 'twice'
+			if cowns[j] == o 'same'
+				throw trap(vm, message: "a behaviour names the same cown twice")
+			end 'same'
+		end 'twice'
+		cowns.push(o)
+	end 'cowns'
+	let capturesStart = ir.whenCapturesStart(x)
+	let capturesCount = ir.whenCapturesCount(x)
+	var capturesN = ir.WordList.create(0)
+	var capturesR = ir.WordList.create(0)
+	for i in 0 upto capturesCount 'captures'
+		let r = f.args[try capturesStart + i otherwise panic("interp: a capture past the pool")]
+		if isManaged(f, r: r) 'managed'
+			let o = try live(vm, o: vm.ref(r), what: "a captured value")
+			if not vm.h.oImmortal[o] and not vm.h.isShared(o) and vm.h.oOwner[o] != 0 'owned'
+				let message = "the behaviour captures {objectText(vm, o: o)}, which {cellText(vm, c: vm.h.oOwner[o])} still owns: the enclosing thread and the behaviour would both reach it"
+				throw violation(vm, kind: race, message: message)
+			end 'owned'
+		end 'managed'
+		let at = vm.regAt(r)
+		capturesN.push(vm.regN[at])
+		capturesR.push(vm.regR[at])
+	end 'captures'
+	let b = vm.behaviours.body.count()
+	vm.behaviours.body.push(body)
+	vm.behaviours.capturesN.push(capturesN)
+	vm.behaviours.capturesR.push(capturesR)
+	vm.behaviours.seq.push(vm.scheduled)
+	vm.behaviours.started.push(false)
+	vm.scheduled = try vm.scheduled + 1 otherwise panic("interp: more behaviours than memory")
+	for i in 0 upto cowns.count() 'queues'
+		let at = vm.h.oData[cowns[i]]
+		vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
+		vm.h.shareds[at].queue.push(b)
+	end 'queues'
+	vm.behaviours.cowns.push(cowns)
+	vm.pending.push(b)
+end 'schedule'
+
+// beginBehaviour starts the thread of a behaviour that has every cown it named. The body takes access to each cown's value, and
+// then what was captured. The thread's frame is made when it first has the turn.
+function beginBehaviour(mutates vm Vm, b Count) returns Count
+	vm.behaviours.started[b] = true
+	for i in 0 upto vm.pending.count() 'pending'
+		if vm.pending[i] == b 'found'
+			try vm.pending.remove(i) otherwise ignore
+			break 'pending'
+		end 'found'
+	end 'pending'
+	let t = vm.threads.count()
+	vm.threads.push(Thread.new(vm.behaviours.body[b], behaviour: b))
+	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
+		vm.h.shareds[vm.h.oData[vm.behaviours.cowns[b][i]]].running = b
+	end 'cowns'
+	return t
+end 'beginBehaviour'
+
+// finishBehaviour releases the cowns of a behaviour that has run: the next behaviour in each queue may now start, and the count
+// the behaviour held on each is given back, which frees a cown that nothing else refers to.
+function finishBehaviour(mutates vm Vm, b Count) throws Halt
+	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
+		let c = vm.behaviours.cowns[b][i]
+		let at = vm.h.oData[c]
+		if vm.h.shareds[at].queue[0] != b 'order'
+			panic("interp: a behaviour finished that was not first in the queue of its cown")
+		end 'order'
+		try vm.h.shareds[at].queue.remove(0) otherwise ignore
+		vm.h.shareds[at].running = 0
+		try unref(vm, o: c)
+	end 'cowns'
+end 'finishBehaviour'
+
+// FunctionJob is work to do on a function that is found by where it is in the program: the function is a borrow of the lists
+// the program is in, so what is done with it is the job's, and the job is handed to withFunction.
+interface FunctionJob
+	function run(mutates self, p ast.Project, f ir.IrFunction)
+end 'FunctionJob'
+
+export typealias ModuleFunctions = Array with ir.IrFunctionList
+
+// withFunction does a job on the function that a path names: its module, its place among the module's functions, and then the
+// behaviour bodies down to it.
+function withFunction(mutates job J, p ast.Project, modules ModuleFunctions, paths CountLists, fi Count) uses J where J implements FunctionJob
+	let module = paths[fi][0]
+	let at = paths[fi][1]
+	withNested(job, p: p, f: modules[module][at], path: paths[fi], depth: 2)
+end 'withFunction'
+
+function withNested(mutates job J, p ast.Project, f ir.IrFunction, path CountList, depth Count) uses J where J implements FunctionJob
+	if depth >= path.count() 'found'
+		job.run(p, f: f)
+		return
+	end 'found'
+	withNested(job, p: p, f: f.behaviours[path[depth]], path: path, depth: try depth + 1 otherwise panic("interp: a path past memory"))
+end 'withNested'
+
+// Interp is a run: the Vm, with the machine that runs its operations.
+type Interp implements FunctionJob
+	var m as Machine
+
+	static function new(consumes vm Vm) returns Interp
+		return Interp{m: Machine.new(vm)}
+	end 'new'
+
+	function run(mutates self, p ast.Project, f ir.IrFunction)
+		runFrame(m, f: f)
+	end 'run'
+end 'Interp'
+
+// int32Of is the word that the low 32 bits of a word spell as a signed number, which is what main's exit code is.
+function int32Of(n ir.Word) returns ir.Word
+	let low = bitsOf(n) and mask32
+	if low >= 2147483648 'negative'
+		return (try low - 4294967296 otherwise panic("interp: a low half past 32 bits")) as ir.Word
+	end 'negative'
+	return low as ir.Word
+end 'int32Of'
+
+// saveThread keeps the interpreter's registers that belong to the thread that has the turn in the thread, for whoever resumes it.
+function saveThread(mutates vm Vm)
+	let t = vm.cur
+	if vm.top != 0 'frame'
+		vm.fr.block[vm.top] = vm.curBlock
+		vm.fr.pc[vm.top] = vm.curPc
+		vm.fr.idx[vm.top] = vm.curIdx
+		vm.fr.post[vm.top] = vm.post
+	end 'frame'
+	vm.threads[t].regN = exchange(vm.regN, value: ir.WordList.create(0))
+	vm.threads[t].regR = exchange(vm.regR, value: ir.WordList.create(0))
+	vm.threads[t].frames = exchange(vm.frames, value: CountList.create(0))
+	vm.threads[t].windows = exchange(vm.windows, value: Windows.create(0))
+	vm.threads[t].stackTop = vm.stackTop
+	vm.threads[t].ticked = vm.ticked
+end 'saveThread'
+
+// restoreThread makes a thread's registers the interpreter's.
+function restoreThread(mutates vm Vm, t Count)
+	vm.regN = exchange(vm.threads[t].regN, value: ir.WordList.create(0))
+	vm.regR = exchange(vm.threads[t].regR, value: ir.WordList.create(0))
+	vm.frames = exchange(vm.threads[t].frames, value: CountList.create(0))
+	vm.windows = exchange(vm.threads[t].windows, value: Windows.create(0))
+	vm.stackTop = vm.threads[t].stackTop
+	vm.ticked = vm.threads[t].ticked
+	vm.top = 0
+	if vm.frames.count() > 0 'frames'
+		vm.top = vm.frames[try vm.frames.count() - 1 otherwise panic("interp: no frames")]
+		loadTop(vm)
+	end 'frames'
+end 'restoreThread'
+
+// beginFrame makes the first frame of a thread: main, or the body of a behaviour, which takes access to each cown's value and
+// then what was captured.
+function beginFrame(mutates vm Vm, t Count) throws Halt
+	vm.threads[t].begun = true
+	clearArguments(vm)
+	let b = vm.threads[t].behaviour
+	if b != 0 'behaviour'
+		for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
+			let cown = vm.behaviours.cowns[b][i]
+			let cell = vm.h.field(cown, i: 0)
+			vm.argN.push(try vm.h.oVersion[cown] as ir.Word otherwise panic("interp: a version past a word"))
+			vm.argR.push(try 0 - (cell as ir.Word) otherwise panic("interp: a handle past a word"))
+		end 'cowns'
+		for i in 0 upto vm.behaviours.capturesN[b].count() 'captures'
+			vm.argN.push(vm.behaviours.capturesN[b][i])
+			vm.argR.push(vm.behaviours.capturesR[b][i])
+		end 'captures'
+	end 'behaviour'
+	let body = vm.threads[t].name
+	try enterFrame(vm, fn: body, dst: -1, err: -1)
+end 'beginFrame'
+
+// endThread ends the thread that has the turn when its last frame has returned, and gives whether it has more to run: a behaviour
+// that has run gives back its cowns, which may free a cown whose destructor then runs in the thread.
+function endThread(mutates vm Vm) returns bool
+	let t = vm.cur
+	if vm.threads[t].finished 'finished'
+		vm.threads[t].done = true
+		return false
+	end 'finished'
+	vm.threads[t].finished = true
+	let b = vm.threads[t].behaviour
+	if b == 0 'main'
+		vm.mainExit = int32Of(vm.baseN)
+		vm.threads[t].done = true
+		return false
+	end 'main'
+	try finishBehaviour(vm, b: b) otherwise return false
+	if vm.endingFn.count() > 0 'endings'
+		try runEndings(vm) otherwise return false
+		return true
+	end 'endings'
+	vm.threads[t].done = true
+	return false
+end 'endThread'
+
+// runThread runs the thread that has the turn until it gives the turn back, finishes, or the run ends.
+function runThread(mutates job Interp, p ast.Project, modules ModuleFunctions, paths CountLists)
+	while job.m.vm.fatal == fatalNone and not job.m.vm.yielded 'frames'
+		if job.m.vm.frames.count() == 0 'empty'
+			if not endThread(job.m.vm) 'ended'
+				return
+			end 'ended'
+			continue 'frames'
+		end 'empty'
+		let fi = job.m.vm.curFn
+		withFunction(job, p: p, modules: modules, paths: paths, fi: fi)
+	end 'frames'
+end 'runThread'
+
+// resume gives the turn to a thread, or starts a behaviour that has become runnable and gives it the turn, and returns when it
+// gives the turn back.
+function resumeThread(mutates job Interp, p ast.Project, modules ModuleFunctions, paths CountLists, t Count)
+	job.m.vm.cur = t
+	restoreThread(job.m.vm, t: t)
+	let which = job.m.vm.rng.intN(burstLimitCount)
+	let longest = burstLimit(which)
+	job.m.vm.burst = try 1 + job.m.vm.rng.intN(longest) otherwise panic("interp: a burst past memory")
+	job.m.vm.yielded = false
+	if not job.m.vm.threads[t].begun 'first'
+		try beginFrame(job.m.vm, t: t) otherwise return
+	end 'first'
+	runThread(job, p: p, modules: modules, paths: paths)
+	saveThread(job.m.vm)
+end 'resumeThread'
+
+// runScheduler executes the program: main first, then behaviours until none is left. A signal that ends the program (a trap, a
+// violation, a timeout) ends it at once and is left in the Vm.
+function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions, paths CountLists)
+	job.m.vm.threads.push(Thread.new(job.m.vm.prog.mainFn, behaviour: 0))
+	while job.m.vm.fatal == fatalNone 'turns'
+		// The threads that can take the next step: every one that has started and not finished, and every behaviour that has not
+		// started and holds the front of the queue of each cown it names.
+		var threadIds = CountList.create(0)
+		for t in 1 upto job.m.vm.threads.count() 'threads'
+			if not job.m.vm.threads[t].done 'running'
+				threadIds.push(t)
+			end 'running'
+		end 'threads'
+		var startable = CountList.create(0)
+		for i in 0 upto job.m.vm.pending.count() 'pending'
+			let b = job.m.vm.pending[i]
+			if runnable(job.m.vm, b: b) 'ready'
+				startable.push(b)
+			end 'ready'
+		end 'pending'
+		let total = try threadIds.count() + startable.count() otherwise panic("interp: more threads than memory")
+		if total == 0 'none'
+			break 'turns'
+		end 'none'
+		let choice = job.m.vm.rng.intN(total)
+		var t = 0 as Count
+		if choice < threadIds.count() 'thread'
+			t = threadIds[choice]
+		end 'thread' else 'behaviour'
+			t = beginBehaviour(job.m.vm, b: startable[try choice - threadIds.count() otherwise panic("interp: a choice before the behaviours")])
+		end 'behaviour'
+		resumeThread(job, p: p, modules: modules, paths: paths, t: t)
+	end 'turns'
+	if job.m.vm.fatal == fatalNone and job.m.vm.pending.count() > 0 'stuck'
+		panic("interp: {job.m.vm.pending.count()} behaviours are queued and none can run")
+	end 'stuck'
+end 'runScheduler'
