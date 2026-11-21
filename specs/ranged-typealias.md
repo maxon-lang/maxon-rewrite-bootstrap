@@ -1308,7 +1308,7 @@ function main() returns ExitCode
 	let sum = a + b
 	let diff = a - b
 	let prod = a * b
-	let quot = try a / b otherwise panic("out of range")
+	let quot = a / b
 	return try trunc(sum + diff + prod + quot) as ExitCode otherwise panic("out of range")
 end 'main'
 ```

@@ -1426,13 +1426,11 @@ error E3197: <fragment>:25:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-closure-built-by-a-clean-call-stays-callable-through-a-var-rebound-to-a-copy -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `relay` returns the closure `make` builds, so the closure is fresh on every path and a caller that calls it, rebinds a `var` to it or calls the `var` is calling writable data.
 
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Total
@@ -1442,8 +1440,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump() returns Tally
-		self.n = self.n + 1
+	function bump(mutates self) returns Tally
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Total'
@@ -1475,14 +1473,12 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Total

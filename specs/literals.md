@@ -865,6 +865,7 @@ end 'main'
 error E3005: <fragment>:13:12: Value -1 is outside the range of 'Count' (int(0 to 18446744073709551615))
 ```
 <!-- test: a-negative-difference-through-a-function-value-panics-at-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The run-time twin of the refusal above: the `Count` difference is unknown to the compiler, so the call through the function value catches the borrow where it is made.
 ```maxon
 typealias Show = function(Count) returns Count

@@ -2961,7 +2961,7 @@ end 'apply'
 type Holder
 	let f as SqFn
 
-	static function create(f SqFn) returns Self
+	static function create(consumes f SqFn) returns Self
 		return Self{f: f}
 	end 'create'
 

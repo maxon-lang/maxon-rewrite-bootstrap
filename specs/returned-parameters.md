@@ -582,7 +582,7 @@ typealias Step = function(mutates TallyArray) returns TallyArray
 
 function touch(mutates cells TallyArray) returns TallyArray
 	cells.push(1)
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode

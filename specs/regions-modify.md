@@ -1702,7 +1702,6 @@ error E3207: <fragment>:22:7: 'Edit' needs a writable parameter; 'row' is read-o
 ```
 
 <!-- test: closure-written-inside-modify-sees-outer-data-as-read-only -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1713,7 +1712,6 @@ typealias Tally = int(0 to u64.max)
 
 typealias LineArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Rename = function() returns Tally mutates captures
 
 type Row

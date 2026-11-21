@@ -2595,7 +2595,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 
@@ -2747,7 +2747,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(pick Pick) returns Self
+	static function make(consumes pick Pick) returns Self
 		return Self{pick: pick}
 	end 'make'
 end 'Cell'

@@ -656,7 +656,7 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	return hooks.emitted() as ExitCode
+	return try hooks.emitted() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

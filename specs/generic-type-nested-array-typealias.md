@@ -3716,7 +3716,7 @@ type Pipe uses T
 	typealias Step = function(T) returns T
 	var step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -3735,7 +3735,7 @@ type Gate uses U
 	typealias Step = function(U) returns U
 	var step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 

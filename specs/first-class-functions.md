@@ -899,7 +899,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -929,7 +929,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -960,7 +960,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -999,7 +999,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 
@@ -1071,7 +1071,7 @@ typealias Pass = function(Integer)
 type PassEntry
 	export var run as Pass
 
-	static function create(run Pass) returns Self
+	static function create(consumes run Pass) returns Self
 		return Self{run: run}
 	end 'create'
 end 'PassEntry'
@@ -1248,7 +1248,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -1391,7 +1391,7 @@ typealias Msg = function() returns String
 type Holder
 	export var op as Msg
 
-	static function create(op Msg) returns Self
+	static function create(consumes op Msg) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Holder'
@@ -1485,7 +1485,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 
@@ -1527,7 +1527,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -1560,7 +1560,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -1748,7 +1748,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -1772,7 +1772,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias UnaryOp = function(Integer) returns Integer
 
-function identity(f UnaryOp) returns UnaryOp
+function identity(consumes f UnaryOp) returns UnaryOp
 	return f
 end 'identity'
 
@@ -1830,20 +1830,20 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
 
-function hop3(f UnaryOp) returns Handler
+function hop3(consumes f UnaryOp) returns Handler
 	return Handler.create(f)
 end 'hop3'
 
-function hop2(f UnaryOp) returns Handler
+function hop2(consumes f UnaryOp) returns Handler
 	return hop3(f)
 end 'hop2'
 
-function hop1(f UnaryOp) returns Handler
+function hop1(consumes f UnaryOp) returns Handler
 	return hop2(f)
 end 'hop1'
 
@@ -1867,19 +1867,19 @@ typealias UnaryOp = function(Integer) returns Integer
 type Holder
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Holder'
 
-function ping(f UnaryOp, n Integer) returns Holder
+function ping(consumes f UnaryOp, n Integer) returns Holder
 	if n <= 0 'done'
 		return Holder.create(f)
 	end 'done'
 	return pong(f, n: n - 1)
 end 'ping'
 
-function pong(f UnaryOp, n Integer) returns Holder
+function pong(consumes f UnaryOp, n Integer) returns Holder
 	return ping(f, n: try n - 1 otherwise panic("out of range"))
 end 'pong'
 
@@ -2083,7 +2083,7 @@ typealias UnaryOp = function(Integer) returns Integer
 type Handler
 	export var op as UnaryOp
 
-	static function create(op UnaryOp) returns Self
+	static function create(consumes op UnaryOp) returns Self
 		return Self{op: op}
 	end 'create'
 end 'Handler'
@@ -2097,7 +2097,7 @@ function usesClosure(bump Integer) returns Integer
 	return op(1)
 end 'usesClosure'
 
-function storeIt(h Handler, op UnaryOp) returns Handler
+function storeIt(h Handler, consumes op UnaryOp) returns Handler
 	var hh = h.clone()
 	hh.op = op
 	return hh
@@ -2195,14 +2195,14 @@ A capturing closure merged through a ternary and called in the same frame.
 typealias Integer = int(i64.min to i64.max)
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function main() returns ExitCode
 	let bump = 20
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let h = f if bump > 0 else dbl
-	return h(22)
+	return try h(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2216,18 +2216,18 @@ A capturing closure as a `gives` arm of a match expression merges with the other
 typealias Integer = int(i64.min to i64.max)
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function main() returns ExitCode
 	let bump = 20
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let sel = 1 as Integer
 	let h = match sel 'pick'
 		1 gives f
 		default gives dbl
 	end 'pick'
-	return h(22)
+	return try h(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2243,7 +2243,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias UnaryOp = function(Integer) returns Integer
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 enum E implements Error
@@ -2259,9 +2259,9 @@ end 'pick'
 
 function main() returns ExitCode
 	let bump = 20
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let h = try pick(-1) otherwise f
-	return h(22) as ExitCode
+	return try h(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4900,7 +4900,7 @@ end 'twice'
 
 function main() returns ExitCode
 	let f = twice as Scaler
-	return trunc(f(3.0)) as ExitCode
+	return try trunc(f(3.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6114,7 +6114,7 @@ typealias Thunk = function() returns ExitCode
 type Holder
 	export let cb as Thunk
 
-	static function create(cb Thunk) returns Self
+	static function create(consumes cb Thunk) returns Self
 		return Self{cb: cb}
 	end 'create'
 end 'Holder'
@@ -6523,7 +6523,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6556,7 +6556,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(Self) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6588,7 +6588,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6625,7 +6625,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 
@@ -6664,7 +6664,7 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, pick Pick) returns Self
+	static function make(consumes v T, consumes pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6826,7 +6826,7 @@ function mix(f Op, r Real, g Scale, n Integer) returns Real
 	return g(r) + (f(n) as Real)
 end 'mix'
 
-function chosen(m Mixer) returns Mixer
+function chosen(consumes m Mixer) returns Mixer
 	return m
 end 'chosen'
 
@@ -6854,12 +6854,12 @@ typealias Op = function(Integer) returns Integer
 type Keeper
 	export var kept as Op
 
-	static function create(f Op) returns Keeper
+	static function create(consumes f Op) returns Keeper
 		return Keeper{kept: f}
 	end 'create'
 end 'Keeper'
 
-function keep(f Op, x Integer) returns Integer
+function keep(consumes f Op, x Integer) returns Integer
 	let k = Keeper.create(f)
 	return k.kept(x)
 end 'keep'
@@ -7302,11 +7302,11 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.op = nine
-	let t = (seven as Thunk, 1 as Integer)
+	var t = (seven as Thunk, 1 as Integer)
 	t.0 = nine
-	let xs = ThunkArray from [seven, seven]
+	var xs = ThunkArray from [seven, seven]
 	xs.push(nine)
 	try xs.set(0, value: nine) otherwise panic("set")
 	let fromTuple = t.0

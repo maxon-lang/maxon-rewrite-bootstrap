@@ -102,13 +102,11 @@ error E3210: <fragment>:15:11: 'Bag.grow' writes its receiver, but 'Grows.grow' 
 ```
 
 <!-- test: mutable-function-type-accepts-writer -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `Tallier` is a `mutable function`, so a closure that writes the record it captured converts to it, and the running total survives between the two calls.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Total
@@ -118,8 +116,8 @@ type Total
 		return Self{sum: 0}
 	end 'create'
 
-	function bump(n Tally) returns Tally
-		self.sum = self.sum + n
+	function bump(mutates self, n Tally) returns Tally
+		self.sum = try self.sum + n otherwise panic("out of range")
 		return self.sum
 	end 'bump'
 end 'Total'
@@ -127,7 +125,7 @@ end 'Total'
 function feed(tallier Tallier) returns Tally
 	let first = tallier(3)
 	let second = tallier(4)
-	return first + second
+	return try first + second otherwise panic("out of range")
 end 'feed'
 
 function main() returns ExitCode
@@ -182,7 +180,6 @@ error E3210: <fragment>:20:16: function value for 'Step' may yield (it awaits a 
 ```
 
 <!-- test: mutable-function-called-through-frozen -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable function` may write what it captured, so it cannot be called through frozen data.
@@ -190,7 +187,6 @@ A `mutable function` may write what it captured, so it cannot be called through 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Holder
@@ -440,14 +436,12 @@ error E3197: <fragment>:23:37: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-writing-frozen-data-it-captured-is-refused -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Bump` is a `mutable function`, but `e` holds frozen data, so the closure would write through it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Box
@@ -479,7 +473,6 @@ error E3197: <fragment>:24:38: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-capturing-a-variable-the-back-edge-assigns-frozen-data-is-refused -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure is a `mutable function`, but `e = pinned` hands the next trip frozen data, so at the loop header `e` joins immutable and mutable data and the closure's write through it is refused.
@@ -487,7 +480,6 @@ The closure is a `mutable function`, but `e = pinned` hands the next trip frozen
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Box
@@ -580,12 +572,11 @@ error E3210: <fragment>:23:11: 'Counter.take' takes its parameter 'box' without 
 ```
 
 <!-- test: mutable-function-alias-declared-in-an-extension-is-called-with-two-arguments -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 `Joiner` is a `mutable function` alias declared inside an extension, and `join(first, second)` calls it with two arguments through the alias's function type like any other function value.
 
 ```maxon
 extension Array
-	// TODO: a function type that 'mutates captures' is not supported in minimaxon
 	typealias Joiner = function(Element, Element) returns Ordering mutates captures
 	function best(join Joiner) returns Ordering
 		return join(try self.get(0) otherwise panic("first"), try self.get(1) otherwise panic("second"))

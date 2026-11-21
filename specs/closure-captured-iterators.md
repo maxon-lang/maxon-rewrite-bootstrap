@@ -24,14 +24,12 @@ to an `immutable` parameter is refused, because the iterator's collection may be
 ## Tests
 
 <!-- test: error.a-mutates-captures-closure-over-an-array-iterator-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `bumpFirst` captures an iterator over its parameter in a closure that writes the element it reads, so the frozen array is refused where `bumpFirst` is called.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -76,14 +74,12 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: error.a-returned-mutates-captures-closure-over-an-array-iterator-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `makeBump` returns the closure, so the write happens wherever the closure is called; the closure still holds the iterator over the parameter, so the frozen array is refused where `makeBump` is called.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -128,14 +124,12 @@ error E3207: <fragment>:36:19: 'makeBump' writes 'boxes' (it calls the closure a
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-a-list-iterator-is-refused-for-a-frozen-list -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same closure over a `List` iterator writes the list's elements, so the frozen list is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -180,14 +174,12 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-a-map-iterator-is-refused-for-a-frozen-map -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same closure over a `Map` iterator writes a value of the map, so the frozen map is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -232,12 +224,10 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-of-a-records-collection-is-refused-for-a-frozen-record -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator runs over the `items` field of the parameter record, so the closure writes the record's data and the frozen record is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -290,12 +280,10 @@ error E3207: <fragment>:45:20: 'bumpFirst' writes 'coll' (it calls the closure a
 ```
 
 <!-- test: error.a-returned-mutates-captures-closure-over-an-iterator-through-a-holder-is-refused-for-a-frozen-record -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 `makeBump` reaches the collection through a `Cur` that holds its parameter and returns a closure over the iterator, so the frozen record is refused where `makeBump` is called.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -358,14 +346,12 @@ error E3207: <fragment>:54:19: 'makeBump' writes 'coll' (it calls the closure at
 ```
 
 <!-- test: error.a-mutates-captures-closure-inside-a-mutates-captures-closure-over-an-iterator-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The inner closure writes through the iterator the outer closure captured, so the outer closure writes the array too and the frozen array is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -410,14 +396,12 @@ error E3207: <fragment>:36:19: 'makeBump' writes 'boxes' (it calls the closure a
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-a-user-iterator-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An iterator type of the program's own that holds the array is captured the same way: the closure writes through it and the frozen array is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -564,11 +548,9 @@ end 'main'
 ```
 
 <!-- test: a-mutates-captures-closure-writes-through-an-iterator-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The array handed to `bumpFirst` is mutable, so the closure's write through its iterator is allowed and the caller sees it.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -609,11 +591,9 @@ end 'main'
 ```
 
 <!-- test: a-returned-mutates-captures-closure-writes-through-an-iterator-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `makeBump` returns the closure over a mutable array's iterator, and calling it on that array writes the element.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -650,7 +630,6 @@ end 'main'
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-a-with-iterator-pair-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -658,7 +637,6 @@ end 'main'
 The iterator `for (it, _) in boxes.withIterator()` binds runs over `boxes`, so the closure that writes through it writes the array, and the frozen array is refused where `bumpAll` is called.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -707,14 +685,12 @@ error E3207: <fragment>:42:18: 'bumpAll' writes 'boxes' (it calls the closure at
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-held-in-a-tuple-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator is held in a tuple (`(it, 1)`) and the closure writes through `pair.0`, so the closure still writes the array the iterator runs over and the frozen array is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -760,12 +736,10 @@ error E3207: <fragment>:38:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: a-mutates-captures-closure-writes-through-a-with-iterator-pair-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The array handed to `bumpAll` is mutable, so the closure's write through the iterator the loop binds is allowed and the caller sees both writes.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -811,11 +785,9 @@ end 'main'
 ```
 
 <!-- test: a-mutates-captures-closure-writes-through-an-iterator-held-in-a-tuple-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The array handed to `bumpFirst` is mutable, so the closure's write through the iterator in the tuple is allowed and the caller sees it.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -857,11 +829,9 @@ end 'main'
 ```
 
 <!-- test: a-returned-mutates-captures-closure-hands-back-an-element-of-an-iterator-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `makeFetch` returns a `mutates captures` closure that hands back the element its iterator reads. The caller passes a mutable array, so the element is the array's own and a write through the result reaches `first`.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Fetch = function() returns Box mutates captures
 
 type Box
@@ -895,14 +865,12 @@ end 'main'
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-held-in-a-record-is-refused-for-a-frozen-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator is held in a `Lens` record the closure captures, so the closure that writes through `lens.it` writes the array the iterator runs over, and the frozen array is refused.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -957,11 +925,9 @@ error E3207: <fragment>:46:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: a-mutates-captures-closure-writes-through-an-iterator-held-in-a-record-over-a-mutable-array -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The array handed to `bumpFirst` is mutable, so the closure's write through the iterator the `Lens` holds is allowed and the caller sees it.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box

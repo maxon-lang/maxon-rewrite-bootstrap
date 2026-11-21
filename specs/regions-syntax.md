@@ -207,13 +207,11 @@ end 'main'
 
 <!-- test: a-mutates-captures-clause-converts-a-capture-writing-closure -->
 <!-- skip: 'mutates' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `Tallier` ends in `mutates captures`, so a closure that writes the record it captured converts to it, and the running total survives between the two calls. A local named `mutates` or `captures` keeps its meaning.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Total

@@ -1732,7 +1732,6 @@ error E3207: <fragment>:10:9: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.a-closure-capturing-a-let-map-cannot-write-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 A closure that captures a `let` map and writes it through its receiver is refused at the write, so the captured
 record keeps the values its range column was read from.
 ```maxon

@@ -850,13 +850,11 @@ instance.
 type"*.
 
 <!-- test: closure-capture.a-bare-var-field-in-a-closure-is-written-like-self-dot-field -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 A bare field name inside a closure is `self.field`: the closure writes the `var` field `held` through the call exactly as the spelled-out `self.held` does, and both are accepted.
 
 ```maxon
 typealias NameArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns bool mutates captures
 
 type Held
@@ -904,13 +902,11 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-bare-let-field-in-a-closure-is-written-like-self-dot-field -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The same bare spelling over a `let` field: the field is only never reassigned, so the closure writes the record it holds through the call, as it does over a `var` field.
 
 ```maxon
 typealias NameArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns bool mutates captures
 
 type Held
@@ -953,13 +949,11 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-self-let-field-in-a-closure-is-written -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The spelled-out twin of the case above, accepted identically.
 
 ```maxon
 typealias NameArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns bool mutates captures
 
 type Held
@@ -969,8 +963,8 @@ type Held
 		return Self{names: NameArray.create(0)}
 	end 'create'
 
-	function hold(key String) returns bool
-		self.names.push(key)
+	function hold(mutates self, key String) returns bool
+		self.names.push(key.clone())
 		return true
 	end 'hold'
 end 'Held'
@@ -2219,7 +2213,7 @@ typealias Step = function(mutates Holder) returns Integer
 type Holder
 	export var step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -2257,7 +2251,7 @@ typealias Step = function(Integer) returns Integer
 type Holder
 	export var step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -3967,13 +3961,11 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-parameter-written-through-a-closure-handed-to-a-callee-or-nested-in-another -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The write happens wherever the closure is called, so a closure handed to a callee that calls it, and a closure written inside another closure, write the captured parameter alike.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Thunk = function() returns Count mutates captures
 
 type Box
@@ -3984,7 +3976,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -4097,7 +4089,6 @@ error E3207: <fragment>:32:15: 'bump' writes 'o' (line 26: `let f = function() g
 ```
 
 <!-- test: closure-capture.error.a-captured-parameter-written-within-by-a-closure-handed-to-a-callee-writes-a-frozen-record -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure is handed to a callee that calls it; the write is the same wherever the closure runs.
 
@@ -4125,7 +4116,6 @@ function zero(i Inner) returns Count
 	return 0
 end 'zero'
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Thunk = function() returns Count mutates captures
 
 function apply(g Thunk) returns Count
@@ -4195,13 +4185,11 @@ end 'main'
 ```
 
 <!-- test: closure-capture.an-escaping-closure-that-writes-a-captured-parameter-keeps-it -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `arm` returns a closure that captures `b` and writes it, so the parameter outlives the call; handing `arm` a `let` is accepted, and `main` reads the write.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Box
@@ -4212,7 +4200,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 9
 	return 0
 end 'zero'
@@ -4462,13 +4450,11 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-writing-closure-in-a-returned-array-literal-takes-a-let-argument -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The returned literal carries a closure that writes `b`; handing `arm` the `let` is accepted.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 typealias Bumps = Array with Bump
@@ -4481,7 +4467,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 9
 	return 0
 end 'zero'
@@ -5400,11 +5386,9 @@ error E3183: <fragment>:43:34: this value holds a closure that captures 'x' and 
 `var g = b` and `g = b` hold the one closure `b` names, whatever the type of `b` says about its captures.
 
 <!-- test: closure-capture.a-mutates-captures-closure-held-in-a-local-let-is-copied-into-a-var -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Total
@@ -5414,8 +5398,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump() returns Tally
-		self.n = self.n + 1
+	function bump(mutates self) returns Tally
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Total'
@@ -5455,7 +5439,7 @@ typealias Callback = function() returns Small
 typealias Other = function() returns Small
 
 function make(label String) returns Callback
-	return function() gives label.count() as Small
+	return function() gives try label.count() as Small otherwise panic("out of range")
 end 'make'
 
 function main() returns ExitCode

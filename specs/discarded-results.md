@@ -1634,12 +1634,10 @@ probe 2
 ```
 
 <!-- test: a-search-whose-predicate-writes-captured-state-keeps-its-result-droppable -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 A predicate that writes the receiver it captured writes state the caller can see.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias PositionTest = function(Position) returns bool mutates captures
 
 typealias PositionArray = Array with Position
@@ -1664,7 +1662,7 @@ type Recorder
 		return Recorder{seen: PositionArray.create(0)}
 	end 'create'
 
-	function record(position Position) returns bool
+	function record(mutates self, position Position) returns bool
 		self.seen.push(position)
 		return position > 1
 	end 'record'
@@ -1674,7 +1672,7 @@ type Recorder
 	end 'firstRecorded'
 
 	function recorded() returns Position
-		return self.seen.count() as Position
+		return try self.seen.count() as Position otherwise panic("out of range")
 	end 'recorded'
 end 'Recorder'
 
@@ -1692,12 +1690,10 @@ end 'main'
 ```
 
 <!-- test: a-let-whose-method-hands-a-closure-writing-its-captured-self-is-written -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The same program with the recorder bound by `let`: the closure writes the receiver it captured, and a `let` forbids only reassigning `recorder`, so the call is accepted and the writes land in the recorder.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias PositionTest = function(Position) returns bool mutates captures
 
 typealias PositionArray = Array with Position
@@ -1722,7 +1718,7 @@ type Recorder
 		return Recorder{seen: PositionArray.create(0)}
 	end 'create'
 
-	function record(position Position) returns bool
+	function record(mutates self, position Position) returns bool
 		self.seen.push(position)
 		return position > 1
 	end 'record'
@@ -1732,7 +1728,7 @@ type Recorder
 	end 'firstRecorded'
 
 	function recorded() returns Position
-		return self.seen.count() as Position
+		return try self.seen.count() as Position otherwise panic("out of range")
 	end 'recorded'
 end 'Recorder'
 
@@ -1763,7 +1759,7 @@ end 'SearchError'
 type Probe
 	var test as PositionTest
 
-	static function create(test PositionTest) returns Probe
+	static function create(consumes test PositionTest) returns Probe
 		return Probe{test: test}
 	end 'create'
 
@@ -2940,21 +2936,19 @@ end 'main'
 ```
 
 <!-- test: a-closure-calling-a-method-that-writes-two-levels-down-keeps-its-result-droppable -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The same, reached from a closure that captured the record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns Integer mutates captures
 
 type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data}
+		return Child{data: data.clone()}
 	end 'over'
 end 'Child'
 
@@ -2965,7 +2959,7 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function growCount() returns Integer
+	function growCount(mutates self) returns Integer
 		self.child.data.push(1)
 		return 1
 	end 'growCount'

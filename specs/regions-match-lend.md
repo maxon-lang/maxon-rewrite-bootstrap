@@ -757,7 +757,7 @@ end 'Ut'
 function sum(u Ut, t Tk) returns Num
 	return match u 'inner'
 		none gives t.n
-		have(x) gives t.n + x.n
+		have(x) gives try t.n + x.n otherwise panic("out of range")
 	end 'inner'
 end 'sum'
 

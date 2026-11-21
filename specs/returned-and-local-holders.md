@@ -1155,11 +1155,9 @@ error E3207: <fragment>:37:20: 'record' writes 'signature' (it calls 'add', whic
 
 
 <!-- test: a-closure-building-a-record-from-its-capture-runs-on-mutable-data-outside-a-window -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 M3V: a closure that builds a record from data it captured is a `mutates captures` closure. Called on mutable data outside any window, held in a local and under a `mutates captures` field type, it is accepted.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1174,7 +1172,7 @@ type Reader
 	var row as Row
 
 	static function over(row Row) returns Self
-		return Self{row: row}
+		return Self{row: row.clone()}
 	end 'over'
 
 	function size() returns Count
@@ -1185,7 +1183,7 @@ end 'Reader'
 type Holder
 	export var probe as Probe
 
-	static function over(probe Probe) returns Self
+	static function over(consumes probe Probe) returns Self
 		return Self{probe: probe}
 	end 'over'
 end 'Holder'
@@ -1245,7 +1243,6 @@ error E3210: <fragment>:30:10: function value for 'Probe' builds a record from d
 ```
 
 <!-- test: error.a-mutable-function-returned-from-a-function-is-refused-when-called-inside-modify -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1254,7 +1251,6 @@ M3V: `makeProbe` returns the closure under a `mutates captures` type. The caller
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1299,7 +1295,6 @@ error E3211: <fragment>:35:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-field-is-refused-when-called-inside-modify -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1308,7 +1303,6 @@ M3V: the closure is held in a field of an outer record under a `mutates captures
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1357,7 +1351,6 @@ error E3211: <fragment>:39:23: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-an-array-is-refused-when-called-inside-modify -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1366,7 +1359,6 @@ M3V: the closure is an element of an outer array whose element type is a `mutate
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 typealias ProbeArray = Array with Probe
@@ -1411,13 +1403,11 @@ error E3211: <fragment>:34:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-frozen-holder-is-refused-when-called -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: a `mutates captures` function value read out of frozen data cannot be called, whatever the closure does.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Holder
@@ -1481,11 +1471,9 @@ error E3207: <fragment>:23:12: the function value writes data it captured, and t
 ```
 
 <!-- test: a-closure-writing-its-capture-runs-under-a-mutates-captures-type-on-mutable-data -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 M3V: a closure that writes data it captured is inferred `mutates captures`, like one that builds a record from it. `drive` takes mutable data, so `runIt` calls the closure twice and the caller sees both writes.
 
 ```maxon
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Counter
@@ -1496,8 +1484,8 @@ type Counter
 	end 'create'
 end 'Counter'
 
-function bump(counter Counter) returns Count
-	counter.n = counter.n + 1
+function bump(mutates counter Counter) returns Count
+	counter.n = try counter.n + 1 otherwise panic("out of range")
 	return counter.n
 end 'bump'
 
@@ -1508,7 +1496,7 @@ end 'runIt'
 function drive(counter Counter) returns Count
 	let g = function() gives bump(counter)
 	let first = runIt(g)
-	return first + runIt(g)
+	return try first + runIt(g) otherwise panic("out of range")
 end 'drive'
 
 function main() returns ExitCode
@@ -1522,7 +1510,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-writing-its-capture-returned-under-a-mutates-captures-type-is-refused-when-called-inside-modify -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1531,7 +1518,6 @@ M3V: `makeBump` returns the capture-writing closure under a `mutates captures` t
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Counter

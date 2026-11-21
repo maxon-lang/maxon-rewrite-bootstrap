@@ -2815,7 +2815,7 @@ typealias Reader = function() returns Integer
 type Slot
 	export var read as Reader
 
-	static function create(read Reader) returns Self
+	static function create(consumes read Reader) returns Self
 		return Self{read: read}
 	end 'create'
 end 'Slot'
@@ -2868,7 +2868,7 @@ typealias Reader = function() returns Integer
 type Slot
 	export var read as Reader
 
-	static function create(read Reader) returns Self
+	static function create(consumes read Reader) returns Self
 		return Self{read: read}
 	end 'create'
 end 'Slot'
@@ -5023,7 +5023,7 @@ typealias Op = function(Integer) returns Integer
 type Holder
 	export var op as Op
 
-	static function create(op Op) returns Self
+	static function create(consumes op Op) returns Self
 		return Self{op: op}
 	end 'create'
 

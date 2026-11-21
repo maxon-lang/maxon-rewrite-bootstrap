@@ -766,12 +766,12 @@ function runCallback(f Callback) returns Integer
 end 'runCallback'
 
 function pickHandler() returns Handler
-	return function(n Integer) gives n + 1
+	return function(n Integer) gives try n + 1 otherwise panic("out of range")
 end 'pickHandler'
 
 function main() returns ExitCode
 	let base = 30 as Integer
-	let capturing = function(n Integer) gives n + base
+	let capturing = function(n Integer) gives try n + base otherwise panic("out of range")
 	let asCallback = capturing as Callback
 	let h = pickHandler()
 	print("{runCallback(asCallback)} {runCallback(h as Callback)}")

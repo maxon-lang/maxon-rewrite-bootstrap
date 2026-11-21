@@ -2866,7 +2866,7 @@ type Outer
 	export var hook as Hook
 	export var mid as Mid
 
-	static function create(hook Hook, mid Mid) returns Self
+	static function create(consumes hook Hook, mid Mid) returns Self
 		return Self{hook: hook, mid: mid.clone()}
 	end 'create'
 end 'Outer'

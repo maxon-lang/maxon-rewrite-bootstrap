@@ -3728,7 +3728,6 @@ error E3197: <fragment>:10:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: error.a-closure-capturing-a-let-array-cannot-write-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 A closure that captures a `let` array and writes it is refused.
 ```maxon
 function main() returns ExitCode

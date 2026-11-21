@@ -542,7 +542,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: a-closure-in-a-generic-method-stores-the-parameter-through-its-descriptor -->
-<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 A closure inside a generic method stores a type-parameter value through the enclosing method's descriptor, so the stored record is the shared one.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -581,7 +580,6 @@ type Held uses Value
 	end 'get'
 end 'Held'
 
-// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns bool mutates captures
 
 function perform(action Action) returns bool

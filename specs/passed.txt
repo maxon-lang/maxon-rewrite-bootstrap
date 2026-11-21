@@ -954,6 +954,7 @@ duplicate-functions.md: error.two-free-functions-of-one-name-in-two-files-of-one
 duplicate-functions.md: error.two-free-functions-of-one-name-with-different-parameters
 duplicate-functions.md: error.two-instance-methods-of-one-name-with-different-parameters
 duplicate-functions.md: error.two-unmarked-functions-of-one-name-and-different-arity-in-one-directory
+emitted-symbol-name-collision.md: an-unemitted-lookalike-name-is-legal
 empty-block.md: valid-nonempty-if
 end-labels.md: error.a-for-end-label-names-another-block
 end-labels.md: error.a-function-end-label-names-another-function
@@ -1208,6 +1209,7 @@ filepath.md: filepath-from-string
 filepath.md: filepath-path-immutable
 first-class-functions.md: a-body-factory-through-a-generic-instance-alias-is-called
 first-class-functions.md: a-call-through-a-directory-named-like-a-primitive-reaches-the-directory
+first-class-functions.md: a-call-through-a-function-typed-variable-assigned-on-one-branch-calls-the-function-it-holds
 first-class-functions.md: a-closure-literal-result-takes-the-exit-code-its-function-type-returns
 first-class-functions.md: a-closure-returned-from-a-function-declared-to-return-a-function-type-takes-its-result
 first-class-functions.md: a-closure-written-at-a-function-typed-field-takes-the-fields-result
@@ -1220,11 +1222,17 @@ first-class-functions.md: a-directory-lets-are-read-at-module-scope-through-an-o
 first-class-functions.md: a-directory-lets-are-read-in-a-body-through-a-directory-named-like-a-primitive
 first-class-functions.md: a-directory-lets-are-read-in-a-body-through-an-ordinary-directory
 first-class-functions.md: a-factory-through-a-generic-instance-alias-is-called
+first-class-functions.md: a-function-of-the-declared-shape-is-accepted-by-every-store-into-a-function-typed-slot
 first-class-functions.md: a-module-binding-named-like-a-primitive-calls-the-binding
 first-class-functions.md: a-statement-call-through-a-directory-named-like-a-primitive-reaches-the-directory
 first-class-functions.md: a-statement-call-through-an-ordinary-directory-reaches-the-directory
 first-class-functions.md: error.a-closure-literal-result-outside-its-function-types-ranged-return-is-refused
 first-class-functions.md: error.a-closure-returned-from-a-function-declared-to-return-a-function-type-is-range-checked
+first-class-functions.md: error.a-function-held-at-a-function-type-is-judged-at-that-type-by-every-door
+first-class-functions.md: error.a-function-of-the-wrong-shape-inserted-into-an-array-of-functions-is-refused
+first-class-functions.md: error.a-function-of-the-wrong-shape-upserted-into-a-map-of-functions-is-refused
+first-class-functions.md: error.a-function-typed-parameter-is-judged-at-its-declared-type-at-an-argument-door
+first-class-functions.md: error.a-function-value-called-with-three-hundred-arguments-is-an-arity-error
 first-class-functions.md: error.an-undeclared-base-as-a-named-argument-is-an-undefined-variable
 first-class-functions.md: error.an-undeclared-base-is-an-undefined-variable
 first-class-functions.md: first-class-function.a-function-field-naming-self-is-called-with-the-instance
@@ -1247,9 +1255,12 @@ first-class-functions.md: first-class-function.capturing-closure-called-from-nes
 first-class-functions.md: first-class-function.capturing-closure-forwarded-through-an-indirect-call
 first-class-functions.md: first-class-function.capturing-closure-in-container
 first-class-functions.md: first-class-function.capturing-closure-in-field
+first-class-functions.md: first-class-function.capturing-closure-in-match-arm
+first-class-functions.md: first-class-function.capturing-closure-in-otherwise
 first-class-functions.md: first-class-function.capturing-closure-in-payload-binding
 first-class-functions.md: first-class-function.capturing-closure-in-struct-construction
 first-class-functions.md: first-class-function.capturing-closure-in-ternary-arm
+first-class-functions.md: first-class-function.capturing-closure-in-ternary-used-in-frame
 first-class-functions.md: first-class-function.capturing-closure-in-union-payload
 first-class-functions.md: first-class-function.capturing-closure-into-container
 first-class-functions.md: first-class-function.capturing-closure-name-not-leaked
@@ -1270,6 +1281,10 @@ first-class-functions.md: first-class-function.closure-as-argument
 first-class-functions.md: first-class-function.closure-in-variable
 first-class-functions.md: first-class-function.closure-inferred-enum-return-agrees
 first-class-functions.md: first-class-function.closure-into-alias-typed-param-accepted
+first-class-functions.md: first-class-function.error.different-enum-return-into-function-param
+first-class-functions.md: first-class-function.error.indirect-call-too-few-args
+first-class-functions.md: first-class-function.error.nested-function-type-mismatch
+first-class-functions.md: first-class-function.error.wrong-signature-returned
 first-class-functions.md: first-class-function.exitcode-param-through-alias
 first-class-functions.md: first-class-function.exitcode-return-through-alias
 first-class-functions.md: first-class-function.exitcode-return-through-alias-computed
@@ -1302,6 +1317,7 @@ first-class-functions.md: first-class-function.int-literal-widens-through-closur
 first-class-functions.md: first-class-function.int-literal-widens-through-function-ref
 first-class-functions.md: first-class-function.let-from-call-returning-fn
 first-class-functions.md: first-class-function.matching-enum-shape-agrees-across-doors
+first-class-functions.md: first-class-function.matching-signature-cast-accepted
 first-class-functions.md: first-class-function.method-call-statement-still-direct
 first-class-functions.md: first-class-function.mixed-int-float-literal-args-indirect
 first-class-functions.md: first-class-function.mixed-int-float-params-indirect
@@ -1836,6 +1852,8 @@ linear-types.md: destruct-self-before-a-return-in-a-loop-runs
 literals.md: an-unsigned-literal-as-an-otherwise-fallback
 literals.md: an-unsigned-literal-in-a-ternary-arm-beside-an-unsigned-value
 literals.md: an-unsigned-literal-reassigned-to-an-unsigned-local
+literals.md: an-unsigned-literal-through-a-function-value
+literals.md: an-unsigned-value-above-i64-max-through-a-function-value
 literals.md: binary-integer
 literals.md: binary-underscore
 literals.md: boolean
@@ -2365,6 +2383,8 @@ nominal-function-alias.md: an-alias-over-a-string-merges-with-a-declared-functio
 nominal-function-alias.md: an-alias-over-a-struct-merges-with-a-declared-function
 nominal-function-alias.md: an-alias-over-an-enum-merges-with-a-declared-function
 nominal-function-alias.md: an-alias-with-a-nested-alias-parameter-merges-with-a-declared-function
+nominal-function-alias.md: as-rebrands-a-capturing-closure
+nominal-function-alias.md: error.a-different-shape-returned-is-still-refused
 nominal-generic-alias.md: a-clone-of-a-declared-generics-instance-is-a-record-of-its-own
 nominal-generic-alias.md: a-conditional-hands-the-slot-to-both-arms
 nominal-generic-alias.md: a-literal-decays-into-a-narrow-ranged-brand
@@ -2914,6 +2934,7 @@ regions-match-lend.md: a-call-result-bound-before-the-match-leaves-its-argument-
 regions-match-lend.md: a-lending-match-leaves-a-plain-union-readable
 regions-match-lend.md: a-read-only-lend-of-the-matched-variable-as-the-receiver-beside-an-arm-binding-is-accepted
 regions-match-lend.md: a-read-only-lend-of-the-matched-variable-beside-an-arm-binding-is-accepted
+regions-match-lend.md: a-read-only-lend-of-the-matched-variable-to-a-function-value-beside-an-arm-binding-is-accepted
 regions-match-lend.md: a-value-type-argument-of-a-call-subject-is-reassigned-in-a-binding-arm
 regions-match-lend.md: an-arm-that-binds-a-plain-payload-writes-a-field-of-the-matched-root
 regions-match-lend.md: an-arm-that-binds-nothing-may-move-the-matched-variable
@@ -3086,6 +3107,7 @@ return-statement.md: return-past-owners-whose-rebound-value-changes-type-between
 return-statement.md: return-past-owners-with-several-rebound-owners
 return-statement.md: simple-return
 return-statement.md: tail-return-is-last
+returned-and-local-holders.md: a-closure-building-a-record-from-its-capture-runs-on-mutable-data-outside-a-window
 returned-parameters.md: a-closure-that-returns-its-parameter-balances-through-a-rebound-var
 returned-parameters.md: a-function-that-returns-a-parameter-on-one-path-only-still-balances
 returned-parameters.md: a-generic-instantiation-of-a-returning-function-balances

@@ -1179,7 +1179,7 @@ end 'bump'
 type Holder
 	export let op as Step
 
-	static function create(op Step) returns Holder
+	static function create(consumes op Step) returns Holder
 		return Self{op: op}
 	end 'create'
 end 'Holder'
