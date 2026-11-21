@@ -131,12 +131,49 @@ export let stdlibQualifier = "stdlib"
 // calls them by (ir.rtSymbol).
 export let runtimeQualifier = "runtime"
 
+// moduleDecl is a copy of a declaration, with everything in it: a caller that needs one fact of it asks the accessor of that
+// fact below, which reads the declaration where it is.
 export function moduleDecl(p Project, ref DeclRef) returns Decl
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.decls[ref.ordinal as Count].clone()
 	end 'std'
 	return p.modules[ref.module as Count].decls[ref.ordinal as Count].clone()
 end 'moduleDecl'
+
+export function declName(p Project, ref DeclRef) returns String
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].name()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].name()
+end 'declName'
+
+export function declLevel(p Project, ref DeclRef) returns Visibility
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].level()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].level()
+end 'declLevel'
+
+export function declNodeID(p Project, ref DeclRef) returns NodeID
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].nodeID()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].nodeID()
+end 'declNodeID'
+
+export function declIsType(p Project, ref DeclRef) returns bool
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].isType()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].isType()
+end 'declIsType'
+
+export function declIsConst(p Project, ref DeclRef) returns bool
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].isConst()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].isConst()
+end 'declIsConst'
 
 function joinWithComma(items StringList) returns String
 	var b = ByteArray.create(0)

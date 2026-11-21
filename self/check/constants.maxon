@@ -18,7 +18,7 @@ type ConstOrder
 end 'ConstOrder'
 
 function isConstantDecl(p ast.Project, ref ast.DeclRef) returns bool
-	return declIsConstant(ast.moduleDecl(p, ref: ref))
+	return ast.declIsConst(p, ref: ref)
 end 'isConstantDecl'
 
 function pushIfConstant(p ast.Project, consumes ref ast.DeclRef, mutates out DeclRefList)

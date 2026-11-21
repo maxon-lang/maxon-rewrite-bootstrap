@@ -186,8 +186,7 @@ end 'selfFieldType'
 
 function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
-	let d = ast.moduleDecl(p, ref: ref)
-	if d.isType() 'type'
+	if ast.declIsType(p, ref: ref) 'type'
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'{name}' is a type, not a value", errs: errs)
 		return ast.noType
 	end 'type'
@@ -195,25 +194,13 @@ function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeI
 		some(value) then return typeOfConstant(c, e: e, ref: ref, value: value)
 		none then _ = 0
 	end 'const'
-	if declIsConstant(d) 'unvalued'
+	if ast.declIsConst(p, ref: ref) 'unvalued'
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "constant '{name}' has no value", errs: errs)
 		return ast.noType
 	end 'unvalued'
 	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a function value is not supported by minimaxon; call the function", errs: errs)
 	return ast.noType
 end 'checkDeclaredName'
-
-function declIsConstant(d ast.Decl) returns bool
-	return match d 'k'
-		constDecl(_) gives true
-		funcDecl(_) gives false
-		typeDecl(_) gives false
-		enumDecl(_) gives false
-		unionDecl(_) gives false
-		aliasDecl(_) gives false
-		interfaceDecl(_) gives false
-	end 'k'
-end 'declIsConstant'
 
 function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue) returns ast.TypeID
 	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))

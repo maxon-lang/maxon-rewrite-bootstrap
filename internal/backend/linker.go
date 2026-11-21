@@ -2,10 +2,13 @@ package backend
 
 import (
 	"encoding/binary"
+	"fmt"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
 	"minimaxon/internal/par"
+	"os"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -114,8 +117,8 @@ func (l *linkUnit) definitions() int { return len(l.u.CodeSymbols) + len(l.u.Dat
 // the units, and of the sections and pieces in each, so the executable does not depend on the number of jobs. Every step
 // runs on all jobs: the definitions are entered into one table, the mark follows the calls a round at a time, each
 // unit finds its own places and then the units are given theirs by a running sum, and each unit copies and patches
-// its own code into the image.
-func Link(out string, units []*CodeUnit, entry string, jobs int) {
+// its own code into the image. When symbolMap is not empty, the map of the code's symbols is written there (see writeSymbolMap).
+func Link(out string, units []*CodeUnit, entry string, jobs int, symbolMap string) {
 	output := OpenPeOutput(out)
 	defer output.Abandon()
 	links := make([]*linkUnit, len(units))
@@ -144,6 +147,9 @@ func Link(out string, units []*CodeUnit, entry string, jobs int) {
 
 	image := NewPeImage(codeSize, dataSize, ir.RtDll, ir.RtImports, finalOffset(links, start))
 	output.Start(image)
+	if symbolMap != "" {
+		writeSymbolMap(symbolMap, links, table, defined, image.TextRva, codeSize)
+	}
 	progress := &codeProgress{done: make([]bool, len(links))}
 	par.ForEachIndex(len(links), jobs, func(i int) {
 		links[i].copyAndPatch(links, defined, image)
@@ -344,6 +350,41 @@ func (l *linkUnit) copyAndPatch(links []*linkUnit, defined []linkTarget, image *
 			}
 			linkPatch(code, a.SymbolFixups[j].Pos+shift, image.TextRva, target)
 		}
+	}
+}
+
+// mapEntry is one function or routine in the executable's code, as the symbol map lists it.
+type mapEntry struct {
+	rva    uint32
+	symbol string
+}
+
+// writeSymbolMap writes, for every function and routine the executable keeps, its RVA, its size and its symbol, one per
+// line in address order, so that a profiler (cmd/sample) can name the code an address is in. A symbol's size runs to the
+// next symbol, so it takes in the padding after it.
+func writeSymbolMap(path string, links []*linkUnit, table *symbolTable, defined []linkTarget, textRva uint32, codeSize int) {
+	var entries []mapEntry
+	for _, l := range links {
+		for i, d := range l.u.CodeSymbols {
+			id := l.firstID + symbolID(i)
+			t := defined[id]
+			if table.lookup(d.Symbol) != id || !l.liveCode[t.part].Load() {
+				continue
+			}
+			entries = append(entries, mapEntry{textRva + uint32(finalOffset(links, t)), d.Symbol})
+		}
+	}
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].rva < entries[j].rva })
+	var text strings.Builder
+	for i, e := range entries {
+		end := textRva + uint32(codeSize)
+		if i+1 < len(entries) {
+			end = entries[i+1].rva
+		}
+		fmt.Fprintf(&text, "%08x %08x %s\n", e.rva, end-e.rva, e.symbol)
+	}
+	if err := os.WriteFile(path, []byte(text.String()), 0o644); err != nil {
+		panic(diag.Internal("cannot write %s: %v", path, err))
 	}
 }
 

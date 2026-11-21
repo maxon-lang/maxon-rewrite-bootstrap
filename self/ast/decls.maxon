@@ -84,6 +84,18 @@ export union Decl
 		end 'd'
 	end 'isType'
 
+	export function isConst() returns bool
+		return match self 'd'
+			constDecl(_) gives true
+			funcDecl(_) gives false
+			typeDecl(_) gives false
+			enumDecl(_) gives false
+			unionDecl(_) gives false
+			aliasDecl(_) gives false
+			interfaceDecl(_) gives false
+		end 'd'
+	end 'isConst'
+
 	export function offset(t Tree) returns diag.U32
 		let id = self.nodeID() as Count
 		return t.records[id].start

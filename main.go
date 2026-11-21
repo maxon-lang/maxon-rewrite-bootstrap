@@ -42,7 +42,7 @@ const usage = `usage:
 A directory is a project: each directory under it is a module. --jobs=N sets how many modules
 compile at once (default: one fewer than the processor count). --timings prints each phase's time and busy cores;
 --trace=FILE writes an execution trace of the compile for go tool trace. --emit-ir writes the IR beside the
-executable, as <out>.ir.
+executable, as <out>.ir; --emit-map writes the map of its code symbols, as <out>.map, which cmd/sample profiles with.
 --no-cache does not use the build cache (see MINIMAXON_CACHE in the README).
 --seed=N picks the schedule of behaviours that interp runs. --count-allocations builds executables that count their live
 heap boxes and fail at exit with code 99 if any is left (development only). --update-positions makes test rewrite
@@ -58,6 +58,7 @@ const (
 	traceFlagPrefix       = "--trace="
 	timingsFlag           = "--timings"
 	emitIrFlag            = "--emit-ir"
+	emitMapFlag           = "--emit-map"
 	countAllocationsFlag  = "--count-allocations"
 	noCacheFlag           = "--no-cache"
 	cacheEnvironment      = "MINIMAXON_CACHE"
@@ -89,6 +90,7 @@ var (
 	// tracePath is where build, run and check write an execution trace of the compile, when it is not empty.
 	tracePath string
 	emitIR    bool
+	emitMap   bool
 	// countAllocations builds executables that count their live heap boxes (see the README, "Counting allocations").
 	countAllocations bool
 	// noCache turns the build cache off for a build or a run.
@@ -143,7 +145,7 @@ func buildCache() *cache.Cache {
 }
 
 func flagOptions() driver.Options {
-	return driver.Options{Jobs: jobs, Timings: timings, Trace: tracePath, EmitIr: emitIR, CountAllocations: countAllocations}
+	return driver.Options{Jobs: jobs, Timings: timings, Trace: tracePath, EmitIr: emitIR, EmitMap: emitMap, CountAllocations: countAllocations}
 }
 
 func describeInternal(r any, stack []byte) string {
@@ -219,12 +221,13 @@ func runMain(args []string) (code int) {
 	for _, a := range args {
 		timings = timings || a == timingsFlag
 		emitIR = emitIR || a == emitIrFlag
+		emitMap = emitMap || a == emitMapFlag
 		countAllocations = countAllocations || a == countAllocationsFlag
 		noCache = noCache || a == noCacheFlag
 		updatePositions = updatePositions || a == updatePositionsFlag
 	}
 	args = filterArgs(args, func(a string) bool {
-		return a != timingsFlag && a != emitIrFlag && a != countAllocationsFlag && a != noCacheFlag && a != updatePositionsFlag
+		return a != timingsFlag && a != emitIrFlag && a != emitMapFlag && a != countAllocationsFlag && a != noCacheFlag && a != updatePositionsFlag
 	})
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, usage)

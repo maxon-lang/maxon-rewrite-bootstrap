@@ -10,26 +10,37 @@ typealias Strings = Array with String
 
 typealias Counts = Array with Count
 
-let fnvOffset = 14695981039346656037 as Count
+// The hashes work on 32 bits, as maxon's stdlib does (PrimitiveExtensions.maxon, String.maxon): a 32-bit value times a
+// 32-bit multiplier fits a Count, so no product overflows. A product that overflowed would fail its `try` and give every
+// key one hash, and each probe would then walk the whole table.
+let hashLow32Mask = 4294967295 as Count
 
-let fnvPrime = 1099511628211 as Count
+let hashHalfShift = 32 as Count
 
+let fnvOffset32 = 2166136261 as Count
+
+let fnvPrime32 = 16777619 as Count
+
+// fibonacciMultiplier is 2^32 divided by the golden ratio, which spreads consecutive keys, such as node handles, over
+// the low bits that a table's mask keeps.
+let fibonacciMultiplier = 2654435761 as Count
+
+let foldShift = 15 as Count
+
+// hashString is 32-bit FNV-1a.
 function hashString(s String) returns Count
-	var h = fnvOffset
+	var h = fnvOffset32
 	for i in 0 upto s.byteLength() 'each'
 		let b = s.byteAt(i) as Count
-		h = h xor b
-		h = try h * fnvPrime otherwise 0 as Count
+		h = (try (h xor b) * fnvPrime32 otherwise 0 as Count) and hashLow32Mask
 	end 'each'
 	return h
 end 'hashString'
 
 function hashCount(k Count) returns Count
-	var x = k
-	x = x xor (x shr 33)
-	x = try x * (18397679294719823053 as Count) otherwise 0 as Count
-	x = x xor (x shr 33)
-	return x
+	let folded = (k xor (k shr hashHalfShift)) and hashLow32Mask
+	let x = try folded * fibonacciMultiplier otherwise 0 as Count
+	return (x xor (x shr foldShift)) and hashLow32Mask
 end 'hashCount'
 
 // StringMap is an open-addressing hash map from String to V built on array.

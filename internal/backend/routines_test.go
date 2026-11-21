@@ -283,7 +283,7 @@ func runNative(t *testing.T, main *ir.IrFunction, options RuntimeOptions) (stder
 	t.Helper()
 	units := []*CodeUnit{EmitRuntime(main.Decl, options), EmitModule([]*ir.IrFunction{main})}
 	exe := filepath.Join(t.TempDir(), "main.exe")
-	Link(exe, units, ir.RtEntry.String(), 1)
+	Link(exe, units, ir.RtEntry.String(), 1, "")
 	var errors bytes.Buffer
 	cmd := exec.Command(exe)
 	cmd.Stderr = &errors

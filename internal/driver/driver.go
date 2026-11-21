@@ -39,6 +39,8 @@ type Options struct {
 	Trace string
 	// EmitIr writes the IR of every function beside the executable, as <output>.ir.
 	EmitIr bool
+	// EmitMap writes the map of the executable's code symbols beside it, as <output>.map, for cmd/sample.
+	EmitMap bool
 	// CountAllocations makes the executable count its live heap boxes and fail at exit if any is left (README, "Counting
 	// allocations"): a development flag, so a normal executable pays nothing for it.
 	CountAllocations bool

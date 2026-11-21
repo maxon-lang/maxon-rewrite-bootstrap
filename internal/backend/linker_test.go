@@ -49,7 +49,7 @@ func linkUnits(seed uint64) []*CodeUnit {
 func linkToBytes(t *testing.T, units []*CodeUnit, entry string, jobs int) []byte {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "out.exe")
-	Link(out, units, entry, jobs)
+	Link(out, units, entry, jobs, "")
 	exe, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func TestLinkRefusesASymbolThatTwoUnitsDefine(t *testing.T) {
 		units = append(units, u)
 	}
 	for _, jobs := range []int{1, 4} {
-		message := catchInternal(t, func() { Link(filepath.Join(t.TempDir(), "out.exe"), units, testLinkEntry, jobs) })
+		message := catchInternal(t, func() { Link(filepath.Join(t.TempDir(), "out.exe"), units, testLinkEntry, jobs, "") })
 		if !strings.Contains(message, "defined") || !strings.Contains(message, testLinkEntry) {
 			t.Errorf("jobs=%d: got %q, want an error naming the symbol that is defined twice", jobs, message)
 		}
@@ -147,7 +147,7 @@ func TestLinkRefusesASymbolThatOneUnitDefinesTwice(t *testing.T) {
 		u.BeginSection()
 		u.DefineCode(testLinkEntry)
 		u.Asm.Raw(0xC3)
-		Link(filepath.Join(t.TempDir(), "out.exe"), []*CodeUnit{u}, testLinkEntry, 1)
+		Link(filepath.Join(t.TempDir(), "out.exe"), []*CodeUnit{u}, testLinkEntry, 1, "")
 	})
 	if !strings.Contains(message, "defined") || !strings.Contains(message, testLinkEntry) {
 		t.Errorf("got %q, want an error naming the symbol that is defined twice", message)

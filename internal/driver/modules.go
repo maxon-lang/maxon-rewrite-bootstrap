@@ -597,7 +597,11 @@ func (p *modulePhase) conclude(output string, mark func(string)) []*diag.Compile
 		units = append(units, backend.EmitOsRuntime())
 	}
 	mark("routines")
-	backend.Link(output, units, ir.RtEntry.String(), p.options.Jobs)
+	symbolMap := ""
+	if p.options.EmitMap {
+		symbolMap = output + ".map"
+	}
+	backend.Link(output, units, ir.RtEntry.String(), p.options.Jobs, symbolMap)
 	mark("link")
 	return nil
 }

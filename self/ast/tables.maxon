@@ -199,7 +199,37 @@ export typealias NodeStrMap = table.IntMap with String
 
 export typealias NodeStrListMap = table.IntMap with StringList
 
-export typealias NodeTypeMap = table.IntMap with TypeID
+// NodeTypes is the type of each node, indexed by the node as Go's Typing.types is, so that a lookup is an index and no
+// hash; noType is a node the checker never typed, which no type the checker gives is.
+export type NodeTypes
+	var entries as TypeIDList
+
+	export static function new() returns Self
+		return Self{entries: TypeIDList.create(0)}
+	end 'new'
+
+	export function at(key Count) returns TypeID
+		if key >= entries.count() 'past'
+			return noType
+		end 'past'
+		return entries[key]
+	end 'at'
+
+	export function get(key Count) returns table.Option with TypeID
+		let t = self.at(key)
+		if t == noType 'untyped'
+			return table.Option.none
+		end 'untyped'
+		return table.Option.some(t)
+	end 'get'
+
+	export function insert(mutates self, key Count, value TypeID)
+		while entries.count() <= key 'grow'
+			entries.push(noType)
+		end 'grow'
+		entries[key] = value
+	end 'insert'
+end 'NodeTypes'
 
 export typealias NodeArithMap = table.IntMap with ArithInfo
 
@@ -306,7 +336,7 @@ export typealias NodeUsesMap = table.IntMap with NodeIDList
 
 export type Typing
 	export var module as diag.ModuleID
-	export var types as NodeTypeMap
+	export var types as NodeTypes
 	export var arith as NodeArithMap
 	export var names as NodeNameMap
 	export var members as NodeMemberMap
@@ -326,7 +356,7 @@ export type Typing
 	export static function new(module diag.ModuleID) returns Typing
 		var ls = LocalEntryList.create(0)
 		ls.push(LocalEntry.make("<invalid>", ty: noType, isVar: false, isParam: false, conv: Convention.convLet, definedAt: 0 as NodeID))
-		let tm = NodeTypeMap.new()
+		let tm = NodeTypes.new()
 		let am = NodeArithMap.new()
 		let nm = NodeNameMap.new()
 		let mm = NodeMemberMap.new()
@@ -358,8 +388,5 @@ export function setNodeType(mutates tp Typing, node NodeID, ty TypeID)
 end 'setNodeType'
 
 export function nodeType(tp Typing, node NodeID) returns TypeID
-	return match tp.types.get(node as Count) 'hit'
-		some(t) gives t
-		none gives noType
-	end 'hit'
+	return tp.types.at(node as Count)
 end 'nodeType'

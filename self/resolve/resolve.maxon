@@ -72,13 +72,12 @@ function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
 	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
 		return true
 	end 'ownOrStd'
-	return ast.isVisibleFrom(p, v: ast.moduleDecl(p, ref: ref).level(), owner: ref.module, from: r.modID)
+	return ast.isVisibleFrom(p, v: ast.declLevel(p, ref: ref), owner: ref.module, from: r.modID)
 end 'isDeclVisible'
 
 // hiddenMessage is the message for naming, from the resolver's module, a declaration that isDeclVisible refused.
 function hiddenMessage(r Resolver, p ast.Project, ref ast.DeclRef) returns String
-	let d = ast.moduleDecl(p, ref: ref)
-	return ast.notVisible(p, name: d.name(), v: d.level(), owner: ref.module, from: r.modID)
+	return ast.notVisible(p, name: ast.declName(p, ref: ref), v: ast.declLevel(p, ref: ref), owner: ref.module, from: r.modID)
 end 'hiddenMessage'
 
 function modDisplayFor(p ast.Project, modID diag.ModuleID) returns String
@@ -647,15 +646,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 	end 'bound'
 	let bare = bareLookup(r, p: p, name: headName)
 	if bare.found 'hasBare'
-		let isConst = ast.moduleDecl(p, ref: bare.decl).nodeID() != 0 and match ast.moduleDecl(p, ref: bare.decl) 'k'
-			constDecl(_) gives true
-			funcDecl(_) gives false
-			typeDecl(_) gives false
-			enumDecl(_) gives false
-			unionDecl(_) gives false
-			aliasDecl(_) gives false
-			interfaceDecl(_) gives false
-		end 'k'
+		let isConst = ast.declNodeID(p, ref: bare.decl) != 0 and ast.declIsConst(p, ref: bare.decl)
 		let isTy = isRefType(p, ref: bare.decl)
 		let hasMem = isTy and resolvesDeclMember(p, ref: bare.decl, memberName: segs[0].name)
 		if isConst or hasMem or (not isModuleRoot(p, name: headName)) 'keepBare'
@@ -766,7 +757,7 @@ function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	var constructsCown = false
 	if r.tree.kindOf(callee) == ast.NodeKind.nameExpr 'nm'
 		match r.res.decls.get(callee as Count) 'd'
-			some(ref) then constructsCown = (ref.module == diag.stdlibID and ast.moduleDecl(p, ref: ref).name() == "cown")
+			some(ref) then constructsCown = (ref.module == diag.stdlibID and ast.declName(p, ref: ref) == "cown")
 			none then _ = 0
 		end 'd'
 	end 'nm'
@@ -840,7 +831,7 @@ end 'signatureType'
 
 function requireExposable(mutates r Resolver, p ast.Project, s Surface, position String, tr ast.NodeID, mutates errs diag.ErrorList)
 	match r.res.decls.get(tr as Count) 'bound'
-		some(ref) then reportIfHidden(p, s: s, position: position, d: ast.moduleDecl(p, ref: ref), modID: r.modID, errs: errs)
+		some(ref) then reportIfHidden(p, s: s, position: position, ref: ref, modID: r.modID, errs: errs)
 		none then _ = 0
 	end 'bound'
 	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
@@ -849,11 +840,12 @@ function requireExposable(mutates r Resolver, p ast.Project, s Surface, position
 	end 'args'
 end 'requireExposable'
 
-function reportIfHidden(p ast.Project, s Surface, position String, d ast.Decl, modID diag.ModuleID, mutates errs diag.ErrorList)
-	let level = d.level()
+function reportIfHidden(p ast.Project, s Surface, position String, ref ast.DeclRef, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let level = ast.declLevel(p, ref: ref)
 	if level.ordinal >= s.tier.ordinal 'wide'
 		return
 	end 'wide'
+	let d = ast.moduleDecl(p, ref: ref)
 	let tName = d.name()
 	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(s.tier), noun: s.noun, name: s.name, typeTier: ast.visibilityWord(level), typeNoun: typeNoun(d), typeName: tName, position: position))
 end 'reportIfHidden'

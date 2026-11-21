@@ -40,8 +40,12 @@ go test ./...
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
 | `go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules) |
+| `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
-`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
+`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,
+as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
+and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
+`.\minimaxon.exe build self -o c1.exe --emit-map`, then `go run ./cmd/sample c1.exe check self`. `--jobs=N` sets how many
 modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
 whatever the value. `--no-cache` makes a `build` or `run` neither read nor write the build cache, and the environment variable
 `MINIMAXON_CACHE` names the directory it lives in, or says `off` (see "Build cache"). `--timings` prints to stderr each phase's wall time, busy cores, the kernel's share of that work,
@@ -173,7 +177,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
 that generates code from the grammar, `internal/builtingen` the one that generates the built-ins from their table, `internal/irgen` the one that generates the IR's records and what reads them from the table of IR operations, `internal/diaggen` the one that generates the error code constants and message functions of `internal/diag` and `self/diag` from `internal/diag/codes.tsv` and `internal/diag/messages.tsv`, `internal/x64gen` the one that generates the x64 encoder of `self/backend` from its instruction table, `internal/abigen` the one that generates the ABI layout constants from their table, and `cmd/convert` is the standalone tool that converts existing Maxon source
-to minimaxon syntax and layout; nothing imports either.
+to minimaxon syntax and layout, and `cmd/sample` the profiler of the executables minimaxon builds (see "Use"); nothing imports any of them.
 
 ### Generated code
 
