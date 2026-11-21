@@ -35,7 +35,7 @@ generator.
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory, and a path in a project that a `.maxproj` file marks compiles that whole project (see "Modules") |
+| `minimaxon build <file\|dir> [-o out.exe]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules") |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
 | `minimaxon test [--update-positions] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
@@ -129,7 +129,6 @@ Directives in comments say what the program must do:
 | `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column. A program may have several, and each must be reported (`E9900`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
 | `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `pool`) |
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
-| `// compile-path: app` | in a project of `tests/modules`: compile the path `app` below the project's directory in place of the directory, so that the compiler finds the project by its `.maxproj` file |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
 
 ### Errors
@@ -163,16 +162,14 @@ depth, is a module of its own. `main` may be declared in any module: a project h
 second `main` anywhere is `E3006`, reported at the later one in the byte order of the files' paths, as maxon reports two. The program's link name for it
 is that of its module (`app::main`), and a project with no `main` in any module is `E3001`.
 
-- **A project is marked by a `<name>.maxproj` file at its root**, as maxon's. `build`, `run` and `check` given a directory
-  or a file look from that directory (the file's own directory, for a file) upward for the nearest directory that holds
-  a file ending in `.maxproj`: when there is one, it is the project's root, every module is named from it, and the
-  whole project is compiled whatever path inside it was named; when there is none, the path given is the project, as
-  before. A `.maxproj` file is only the marker for now: minimaxon does not compile or run it as a program, and it has no
-  `Build` library or targets, so `build` with no path is still a usage error. A `.maxproj` file in a directory below another
-  project's `.maxproj` file, found either way (a root inside a project, or a directory met in the walk of a project), is `E2074`,
-  reported at the nested file with maxon's message. A directory that holds a `.maxonignore` file is left out of the walk, with
-  everything below it, unless it is the root of the compile. A project held in memory (the spec runner) has no `.maxproj`: its
-  files are the project. The compiler finds `runtime/` from its own executable, so none of this changes where it is looked for.
+- **The path given to `build`, `run` or `check` is the project's root**, as maxon's: only what lies beneath it is compiled, and
+  no project file above it changes that. A `.maxproj` file is only a marker for now: minimaxon does not compile or run it as a
+  program, and it has no `Build` library or targets, so `build` with no path is still a usage error. A directory of the walk,
+  the root included, that holds a `.maxproj` file is `E2074` when the directory above it, or one higher, holds another
+  `.maxproj` file, whichever of the two projects is built; it is reported at the nested file with maxon's message. A directory
+  that holds a `.maxonignore` file is left out of the walk, with everything below it, unless it is the root of the compile. A
+  project held in memory (the spec runner) has no `.maxproj`: its files are the project. The compiler finds `runtime/` from its
+  own executable, so none of this changes where it is looked for.
 
 - **Another module's names are always qualified**, by the module's path read from the root: `geometry.area()`,
   `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are

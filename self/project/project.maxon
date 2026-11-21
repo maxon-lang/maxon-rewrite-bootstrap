@@ -503,8 +503,8 @@ function reportEnclosed(nested String, above String, mutates errs diag.ErrorList
 	return true
 end 'reportEnclosed'
 
-// reportNestedBelow reports the project file nested when the directory of the project file's directory, or one above it, holds
-// another one.
+// reportNestedBelow reports the project file nested when the directory above the one that holds it, or one above that, holds
+// another project file.
 function reportNestedBelow(nested String, dir String, mutates errs diag.ErrorList) returns bool
 	match consumes enclosingDirectory(absolutePath(dir)) 'above'
 		some(above) then return reportEnclosed(nested, above: above, errs: errs)
@@ -512,49 +512,15 @@ function reportNestedBelow(nested String, dir String, mutates errs diag.ErrorLis
 	end 'above'
 end 'reportNestedBelow'
 
-// reportNestedProject reports the first directory of the walk, in order, that holds a project file below the project of
-// another project file: projects do not nest, whichever of the two is built.
+// reportNestedProject reports the first directory of the walk, in order and the root first, that holds a project file below
+// the project of another project file: projects do not nest, whichever of the two is built.
 function reportNestedProject(nodes DiscDirList, mutates errs diag.ErrorList)
-	for i in 1 upto nodes.count() 'each'
+	for i in 0 upto nodes.count() 'each'
 		if nodes[i].projectFiles.count() > 0 and reportNestedBelow(nodes[i].projectFiles[0], dir: nodes[i].dir, errs: errs) 'reported'
 			return
 		end 'reported'
 	end 'each'
 end 'reportNestedProject'
-
-// projectRootOf is the directory that the project holding path is rooted at: the nearest directory, from path's upward, that
-// holds a project file, and path itself when none does, or when path names no file or directory. A project file below another
-// one is reported.
-export function projectRootOf(path String, mutates errs diag.ErrorList) returns String
-	let absolute = absolutePath(path)
-	var start = absolute.clone()
-	if not isDirectoryPath(absolute) 'file'
-		if not readTextFile(absolute).isSome() 'missing'
-			return path.clone()
-		end 'missing'
-		start = parentDir(absolute)
-	end 'file'
-	if isDriveName(start) 'drive'
-		start = "{start}\\"
-	end 'drive'
-	match consumes nearestProjectFile(start) 'marked'
-		some(file) then return markedRoot(file, path: path, errs: errs)
-		none then return path.clone()
-	end 'marked'
-end 'projectRootOf'
-
-// markedRoot is the directory of the project file, spelled as path when that is the directory.
-function markedRoot(file String, path String, mutates errs diag.ErrorList) returns String
-	let root = parentDir(file)
-	match consumes enclosingDirectory(root) 'above'
-		some(above) then _ = reportEnclosed(file, above: above, errs: errs)
-		none then _ = 0
-	end 'above'
-	if isDirectoryPath(path) and sameText(absolutePath(path), b: root) 'same'
-		return path.clone()
-	end 'same'
-	return root
-end 'markedRoot'
 
 function collectModuleTree(nodes DiscDirList, nodeIdx Count, mutates p ast.Project) returns diag.ModuleID
 	var m = ast.Module.new(0 as diag.ModuleID, path: nodes[nodeIdx].modPath.clone(), text: "", files: ast.FileSpanList.create(0))
