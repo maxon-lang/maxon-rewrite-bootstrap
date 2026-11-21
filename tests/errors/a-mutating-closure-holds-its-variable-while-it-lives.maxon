@@ -1,0 +1,18 @@
+typealias Bump = function() returns Count mutates captures
+
+function increment(mutates n Count) returns Count
+	n = try n + 1 otherwise 0
+	return n
+end 'increment'
+
+function run(f Bump, n Count) returns Count
+	return try f() + n otherwise 0
+end 'run'
+
+function main() returns ExitCode
+	var count = 0 as Count
+	print("{run(function() gives increment(count), n: count)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3186 at 14:52

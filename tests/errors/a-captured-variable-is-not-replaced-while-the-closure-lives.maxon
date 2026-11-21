@@ -1,0 +1,23 @@
+typealias Reader = function() returns Count
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function renew(mutates b Box) returns Count
+	let f = function() gives b.n
+	b = Box.make(2)
+	return f()
+end 'renew'
+
+function main() returns ExitCode
+	var b = Box.make(1)
+	print("{renew(b)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3186 at 13:2

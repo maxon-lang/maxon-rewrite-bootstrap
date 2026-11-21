@@ -1,0 +1,54 @@
+typealias Reader = function() returns Count
+
+typealias Bump = function() returns Count mutates captures
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function read(f Reader) returns Count
+	return f()
+end 'read'
+
+function relay(f Reader) returns Count
+	return read(f)
+end 'relay'
+
+function increment(mutates n Count) returns Count
+	n = try n + 1 otherwise 0
+	return n
+end 'increment'
+
+function twice(f Bump) returns Count
+	_ = f()
+	return f()
+end 'twice'
+
+function watch(mutates b Box, label String) returns String
+	let f = function() gives try b.n + label.byteLength() otherwise 0
+	b.n = 7
+	return "{f()} {relay(f)} {read(function() gives b.n)}"
+end 'watch'
+
+function main() returns ExitCode
+	var b = Box.make(1)
+	print("{watch(b, label: "ab")}\n")
+	var count = 0 as Count
+	print("{twice(function() gives increment(count))}\n")
+	print("{count}\n")
+	let pair = (3, "x")
+	let ratio = 2.5
+	let f = function() gives pair.0
+	let g = function() gives ratio * 2.0
+	print("{read(f)} {g()}\n")
+	return 0
+end 'main'
+
+//> 9 9 7
+//> 2
+//> 2
+//> 3 5.0

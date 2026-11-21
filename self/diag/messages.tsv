@@ -111,3 +111,5 @@ throwingFunctionAsValue	ErrFunctionValueThrows	Cannot use throwing function '{na
 destructureArity	ErrUnsupportedFeature	Unsupported: a destructuring binding of {names} names against a tuple of {elements} elements (every element must be named)
 destructureNonTuple	ErrUnsupportedFeature	Unsupported: a destructuring binding of a '{valueType}' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)
 tupleAssignArity	ErrTypeMismatch	Tuple has {elements} elements but destructuring has {names} bindings
+writesCaptures	ErrCapabilityConversion	function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`
+funcReturnMismatch	ErrTypeMismatch	function type mismatch in return: expected '{expected}', got '{got}'

@@ -1,0 +1,185 @@
+// The borrows of function values in the ownership pass. A closure never copies what it captures: it borrows what the code
+// around it borrows, and a mutating closure borrows the variables it changes, so a function value that holds a borrow may
+// be called, bound to a local and passed to a parameter that borrows it, but it may not escape, which is storing it,
+// returning it, passing it to consumes, copying it or capturing it in something that escapes. While it lives, what it
+// borrows is held as a match subject is.
+
+// borrowsOf is what the function value of e borrows: none for one that owns everything it holds, which a closure that
+// only moved owners and scalars in is, and so is a value of unknown origin that is owned (a call's result, a field, a
+// consumes parameter). A borrowed one of unknown origin, a parameter or what a closure captured, is assumed to hold
+// borrows.
+function borrowsOf(o Ownership, p ast.Project, e ast.NodeID) returns OwnBorrows
+	var out = OwnBorrows.new()
+	let k = p.modules[o.c.modIdx].tree.kindOf(e)
+	if k == ast.NodeKind.castExpr 'cast'
+		return borrowsOf(o, p: p, e: ast.castExprE(p.modules[o.c.modIdx].tree, id: e))
+	end 'cast'
+	if k == ast.NodeKind.condExpr 'cond'
+		out.addAll(borrowsOf(o, p: p, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e)))
+		out.addAll(borrowsOf(o, p: p, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e)))
+		return out
+	end 'cond'
+	if k == ast.NodeKind.closureExpr 'closure'
+		match consumes o.c.typing.closures.get(e as Count) 'info'
+			some(info) then closureBorrows(o, info: info, out: out)
+			none then _ = 0
+		end 'info'
+		return out
+	end 'closure'
+	if k != ast.NodeKind.nameExpr 'notName'
+		return out
+	end 'notName'
+	let name = ownName(o, node: e)
+	if name.kind != ast.NameKind.nameLocal 'notLocal'
+		return out
+	end 'notLocal'
+	localBorrows(o, p: p, local: name.local, out: out)
+	return out
+end 'borrowsOf'
+
+// closureBorrows adds what a closure borrows: each capture it borrows or changes, and what a function value it took
+// over borrows.
+function closureBorrows(o Ownership, info ast.ClosureInfo, mutates out OwnBorrows)
+	for i in 0 upto info.captures.count() 'captures'
+		let conv = info.captures[i].conv
+		if conv == ast.Convention.convConsumes 'moved'
+			match consumes heldBy(o, local: info.captures[i].outerLocal) 'holder'
+				some(held) then out.addAll(held)
+				none then _ = 0
+			end 'holder'
+		end 'moved' else 'borrowed'
+			out.add(info.captures[i].name, root: info.captures[i].outerLocal, changes: conv == ast.Convention.convMutates)
+		end 'borrowed'
+	end 'captures'
+end 'closureBorrows'
+
+// localBorrows adds what the function value in a local borrows: what was bound to it, or, for a borrowed parameter or
+// capture of a function type, the local itself.
+function localBorrows(o Ownership, p ast.Project, local ast.LocalID, mutates out OwnBorrows)
+	let held = heldBy(o, local: local)
+	if held.isSome() 'holder'
+		out.addAll(held.unwrap())
+		return
+	end 'holder'
+	let entry = o.c.typing.locals[local as Count].clone()
+	if not ast.sharesOnCopy(p.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
+		return
+	end 'owned'
+	out.name = entry.name.clone()
+	if entry.isCapture 'capture'
+		out.capture = local
+	end 'capture' else 'parameter'
+		out.param = local
+	end 'parameter'
+end 'localBorrows'
+
+// heldBy is what the function value bound to a local borrows, from its innermost binding: none for a local bound to no
+// value that holds borrows.
+function heldBy(o Ownership, local ast.LocalID) returns table.Option with OwnBorrows
+	var i = o.holders.count()
+	while i > 0 'each'
+		i = i - 1
+		if o.holders[i].local == local 'found'
+			return table.Option.some(o.holders[i].borrows.clone())
+		end 'found'
+	end 'each'
+	return table.Option.none
+end 'heldBy'
+
+// requireNoBorrows refuses a function value that holds a borrow where it escapes, which what says.
+function requireNoBorrows(mutates o Ownership, mutates p ast.Project, e ast.NodeID, what String)
+	let b = borrowsOf(o, p: p, e: e)
+	if not b.any() 'owns'
+		return
+	end 'owns'
+	let site = offsetOfOwn(o, p: p, node: e)
+	if b.mutableName != "" 'mutable'
+		fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.mutableName}' to change it, which it captured, so it cannot be {what}: it could outlive the borrow; call it here, or pass it to a parameter that borrows it")
+		return
+	end 'mutable'
+	if b.param != ast.noLocal 'parameter'
+		let param = o.c.typing.locals[b.param as Count].clone()
+		var fix = diag.Fix.none()
+		if param.conv == ast.Convention.convLet 'let'
+			fix = conventionFix(p.modules[o.c.modIdx].tree, param: param.definedAt, keyword: fixKindConsumes)
+		end 'let'
+		failFixed(o, p: p, site: site, code: diag.errClosureBorrow, msg: "'{b.name}' is a borrowed function value, which may hold borrows of its caller's values, so it cannot be {what}; declare the parameter 'consumes {b.name}' to own it", fix: fix)
+		return
+	end 'parameter'
+	if b.capture != ast.noLocal 'capture'
+		fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "'{b.name}' is a function value this closure captured, which it only borrows, so it cannot be {what}")
+		return
+	end 'capture'
+	let advice = copyAdvice(o, p: p, t: borrowedType(o, b: b), ifCopyable: "clone the value into a local first ('let copy = {b.name}.clone()') and capture that", fallback: "pass the value to the function value's call as an argument instead")
+	fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.name}', which it captured, so it cannot be {what}: it could outlive the borrow; {advice}")
+end 'requireNoBorrows'
+
+// borrowedType is the type of the borrow a message names.
+function borrowedType(o Ownership, b OwnBorrows) returns ast.TypeID
+	for i in 0 upto b.roots.count() 'roots'
+		if not b.mutable[i] and o.c.typing.locals[b.roots[i] as Count].name == b.name 'named'
+			return o.c.typing.locals[b.roots[i] as Count].ty
+		end 'named'
+	end 'roots'
+	panic("ownership: a function value borrows '{b.name}', which it did not capture")
+end 'borrowedType'
+
+// bindHolder records that a local declared here is bound to a function value that borrows, and holds what it borrows for
+// as long as the local's scope lasts.
+function bindHolder(mutates o Ownership, mutates p ast.Project, local ast.LocalID, e ast.NodeID)
+	if not ast.sharesOnCopy(p.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
+		return
+	end 'notFunction'
+	let b = borrowsOf(o, p: p, e: e)
+	if not b.any() 'owns'
+		return
+	end 'owns'
+	holdBorrows(o, p: p, b: b, holder: "'{o.c.typing.locals[local as Count].name}'")
+	o.holders.push(OwnHolder.make(local, borrows: b))
+end 'bindHolder'
+
+// holdArgument holds what a closure written as an argument borrows while the rest of the call is evaluated. A local
+// holds its own for its whole scope.
+function holdArgument(mutates o Ownership, mutates p ast.Project, e ast.NodeID)
+	let k = p.modules[o.c.modIdx].tree.kindOf(e)
+	if k != ast.NodeKind.closureExpr and k != ast.NodeKind.castExpr 'notClosure'
+		return
+	end 'notClosure'
+	let b = borrowsOf(o, p: p, e: e)
+	if b.any() 'borrows'
+		holdBorrows(o, p: p, b: b, holder: "the closure passed to this call")
+	end 'borrows'
+end 'holdArgument'
+
+// holdBorrows holds the variables a function value borrows: one it changes against every other use, and one it reads
+// against being replaced, which only a mutable variable can be.
+function holdBorrows(mutates o Ownership, p ast.Project, b OwnBorrows, holder String)
+	for i in 0 upto b.roots.count() 'roots'
+		let root = o.c.typing.locals[b.roots[i] as Count].clone()
+		if b.mutable[i] 'mutable'
+			o.projections.push(OwnProjection.capture(AccessPath.at(b.roots[i]), kind: OwnProjectionKind.projectMutableCapture, ty: root.ty, holder: holder.clone()))
+			o.mutableHeld = true
+		end 'mutable' else if isMutableLocal(root) and not root.isSelf 'replaceable'
+			o.projections.push(OwnProjection.capture(AccessPath.at(b.roots[i]), kind: OwnProjectionKind.projectCapture, ty: root.ty, holder: holder.clone()))
+		end 'replaceable'
+	end 'roots'
+end 'holdBorrows'
+
+// requireNotMutablyHeld refuses a read of a variable that a mutating closure borrows to change while it lives.
+function requireNotMutablyHeld(mutates o Ownership, mutates p ast.Project, local ast.LocalID, site diag.U32)
+	if not o.mutableHeld 'none'
+		return
+	end 'none'
+	for i in 0 upto o.projections.count() 'each'
+		if o.projections[i].kind == OwnProjectionKind.projectMutableCapture and o.projections[i].subject.root == local 'held'
+			let name = o.c.typing.locals[local as Count].name.clone()
+			fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{name}' is borrowed to be changed by {o.projections[i].holder}, a mutating closure that lives until its scope ends, so it cannot be used here; use it after that, or pass the closure to the call that runs it where it is made")
+			return
+		end 'held'
+	end 'each'
+end 'requireNotMutablyHeld'
+
+// releaseHolders ends the holders declared since mark, whose scope ends.
+function releaseHolders(mutates o Ownership, mark Count)
+	truncate(o.holders, mark: mark)
+end 'releaseHolders'

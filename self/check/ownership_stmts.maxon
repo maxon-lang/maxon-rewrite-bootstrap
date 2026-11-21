@@ -4,11 +4,16 @@
 // walk checks a block, which is a scope: the locals it declares end with it.
 function walk(mutates o Ownership, mutates p ast.Project, body diag.U32, consumes s OwnState) returns OwnState
 	let mark = o.obliged.count()
+	let held = o.projections.count()
+	let holders = o.holders.count()
 	var cur = s
 	for i in 0 upto p.modules[o.c.modIdx].tree.listLen(body) 'each'
 		let st = p.modules[o.c.modIdx].tree.listAt(body, index: i) as ast.NodeID
 		cur = stmt(o, p: p, st: st, s: cur)
 	end 'each'
+	// The function values that the block's locals hold end with it, and so do their holds.
+	release(o, mark: held)
+	releaseHolders(o, mark: holders)
 	return endScope(o, p: p, mark: mark, s: cur)
 end 'walk'
 
@@ -105,7 +110,8 @@ function letStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, c
 		return withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 	end 'uninitialised'
 	let name = ast.letStmtName(p.modules[o.c.modIdx].tree, id: st)
-	let out = consume(o, p: p, e: init, dest: OwnDest.make(OwnDestKind.destVariable, name: name), s: s)
+	let out = consume(o, p: p, e: init, dest: OwnDest.make(OwnDestKind.destBinding, name: name), s: s)
+	bindHolder(o, p: p, local: sym, e: init)
 	oblige(o, p: p, l: sym, site: site)
 	return without(out, l: sym)
 end 'letStmtOwn'
@@ -215,12 +221,12 @@ function behaviourOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID,
 	for i in 0 upto behaviour.captures.count() 'captures'
 		out = consume(o, p: p, e: behaviour.captures[i].refNode, dest: OwnDest.of(OwnDestKind.destBehaviour), s: out)
 	end 'captures'
-	runNested(o, p: p, fid: behaviour.fn, body: ast.whenStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), site: st)
+	runNested(o, p: p, fid: behaviour.fn, body: ast.whenStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), site: st, closureTy: ast.noType)
 	return out
 end 'behaviourOwn'
 
 // runNested checks the body of a behaviour or a closure, written at site, as a function of its own.
-function runNested(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, site ast.NodeID)
+function runNested(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, site ast.NodeID, closureTy ast.TypeID)
 	var sites = ast.NodeIDList.create(0)
 	for _ in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
 		sites.push(site)
@@ -229,6 +235,7 @@ function runNested(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, b
 	let checker = exchange(o.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 	let found = exchange(o.errs, value: diag.ErrorList.create(0))
 	var inner = Ownership.make(checker, errs: found)
+	inner.closureTy = closureTy
 	run(inner, p: p, fid: fid, body: body, paramSites: sites)
 	o.errs = exchange(inner.errs, value: diag.ErrorList.create(0))
 	o.c = exchange(inner.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))

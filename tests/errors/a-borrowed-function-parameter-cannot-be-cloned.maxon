@@ -1,0 +1,17 @@
+typealias Reader = function() returns Count
+
+function keep(f Reader) returns Reader
+	return f.clone()
+end 'keep'
+
+function one() returns Count
+	return 1
+end 'one'
+
+function main() returns ExitCode
+	let r = keep(one)
+	print("{r()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 4:9

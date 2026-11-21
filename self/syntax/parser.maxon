@@ -47,6 +47,9 @@ type Fault
 	end 'make'
 end 'Fault'
 
+// capturesWord is the word after `mutates` that ends a function type which mutates its captures.
+let capturesWord = "captures"
+
 let blankInBody = "a blank line is only allowed between declarations, and before a function of a type, an enum or a union"
 
 let blankBeforeFunction = "expected a blank line before this function, which is not the first line of its type, enum or union"
@@ -262,6 +265,12 @@ type Parser
 		let scan = self.scanParen()
 		return scan.hasComma and after(scan.closing) < toks.count() and toks[after(scan.closing)].kind == TokenKind.assign
 	end 'atTupleAssignment'
+
+	// atMutatesCaptures is whether `mutates` here begins the clause `mutates captures` that ends a function type, whose
+	// second word is a name everywhere else.
+	function atMutatesCaptures() returns bool
+		return self.at(TokenKind.kw_mutates) and self.peekIs(TokenKind.name) and self.text(self.peekTok()) == capturesWord
+	end 'atMutatesCaptures'
 
 	function atEndOfInput() returns bool
 		return self.at(TokenKind.fileEnd) or self.at(TokenKind.eof)

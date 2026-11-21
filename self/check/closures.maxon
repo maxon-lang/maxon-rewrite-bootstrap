@@ -32,13 +32,51 @@ function signatureType(mutates p ast.Project, fid ast.FuncID) returns ast.TypeID
 	end 'params'
 	let params = p.funcs.entries[fid as Count].paramTypes.clone()
 	let result = p.funcs.entries[fid as Count].retTy
-	return ast.internFuncType(p.types, params: params, convs: convs, result: result)
+	return ast.internFuncType(p.types, params: params, shape: ast.FuncShape.make(convs, mutatesCaptures: false), result: result)
 end 'signatureType'
 
 // funcFits is whether a value of the function type src may stand where the function type dst is needed: the same
 // conventions, each parameter that is only read or taken at least as wide as dst's, each one passed by address exactly
-// dst's, and a result that fits dst's.
+// dst's, a result that fits dst's, no writes to what it captured unless dst allows them, and, as in maxon, not one brand
+// where another is needed.
 function funcFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+	if ast.funcIsBrand(p.types, t: src) and ast.funcIsBrand(p.types, t: dst) and ast.originOf(p.types, t: src) != ast.originOf(p.types, t: dst) 'brands'
+		return false
+	end 'brands'
+	return shapeFits(p, src: src, dst: dst)
+end 'funcFits'
+
+// sameShape is whether two function types differ at most by their own brands.
+function sameShape(p ast.Project, a ast.TypeID, b ast.TypeID) returns bool
+	return shapeFits(p, src: a, dst: b) and shapeFits(p, src: b, dst: a)
+end 'sameShape'
+
+// clashName is how a message names the function type t that it holds against other, as maxon's do: by its brand where
+// only the brands differ, and by its shape where more does. Any other type is named as always.
+function clashName(p ast.Project, t ast.TypeID, other ast.TypeID) returns String
+	if typeHasKind(p, t: t, kind: ast.TypeKind.funcTy) and typeHasKind(p, t: other, kind: ast.TypeKind.funcTy) and not sameShape(p, a: t, b: other) 'shapes'
+		return ast.funcShapeSpelling(p.types, t: t)
+	end 'shapes'
+	return gotName(p, t: t)
+end 'clashName'
+
+// joinFunctions is the type of a conditional or a match whose values are function values: the brand where one value
+// has it and the other fits it, and either one where they fit each other. Two brands do not join.
+function joinFunctions(p ast.Project, a ast.TypeID, b ast.TypeID) returns ast.TypeID
+	if funcFits(p, src: b, dst: a) and (ast.funcIsBrand(p.types, t: a) or not funcFits(p, src: a, dst: b)) 'first'
+		return a
+	end 'first'
+	if funcFits(p, src: a, dst: b) 'second'
+		return b
+	end 'second'
+	return ast.noType
+end 'joinFunctions'
+
+// shapeFits is funcFits without the brands, which a cast changes and a return changes implicitly.
+function shapeFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+	if ast.funcMutatesCaptures(p.types, t: src) and not ast.funcMutatesCaptures(p.types, t: dst) 'captures'
+		return false
+	end 'captures'
 	let n = ast.funcParamCount(p.types, t: src)
 	if n != ast.funcParamCount(p.types, t: dst) 'arity'
 		return false
@@ -64,7 +102,7 @@ function funcFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
 		return result == wanted
 	end 'void'
 	return assignable(p, src: result, dst: wanted)
-end 'funcFits'
+end 'shapeFits'
 
 // checkClosure types a closure. A parameter written without a type takes the type of the function type the closure is
 // written for, and so does the result when the closure does not say it; otherwise the result is what the body gives.
@@ -111,7 +149,8 @@ function checkClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 	end 'declared' else if shape != ast.noType 'expected'
 		result = ast.funcResult(p.types, t: shape)
 	end 'expected'
-	let fid = enterClosure(c, p: p, e: e, types: types, convs: convs, result: result, errs: errs)
+	let mutating = shape != ast.noType and ast.funcMutatesCaptures(p.types, t: shape)
+	let fid = enterClosure(c, p: p, e: e, types: types, convs: convs, result: result, mutating: mutating, errs: errs)
 	if fid != ast.noFunc 'entered'
 		checkBlock(c, p: p, body: ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e), errs: errs)
 	end 'entered'
@@ -119,7 +158,7 @@ function checkClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 	if fid == ast.noFunc or p.funcs.entries[made as Count].retTy == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let t = ast.internFuncType(p.types, params: types, convs: convs, result: p.funcs.entries[made as Count].retTy)
+	let t = ast.internFuncType(p.types, params: types, shape: ast.FuncShape.make(convs, mutatesCaptures: mutating), result: p.funcs.entries[made as Count].retTy)
 	var info = ast.ClosureInfo.make(made, ty: t, captures: ast.CaptureList.create(0))
 	match consumes c.typing.closures.get(e as Count) 'captured'
 		some(found) then info.captures = found.captures
@@ -130,15 +169,17 @@ function checkClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, mu
 end 'checkClosure'
 
 // enterClosure starts checking the body of a closure as a function of its own, which takes the closure first and then its
-// parameters. It gives none when a parameter cannot be bound, after reporting why.
-function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.FuncID
+// parameters. A mutating closure, one written for a type that mutates its captures, borrows the mutable variables it
+// captures to change them. It gives none when a parameter cannot be bound, after reporting why.
+function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutating bool, mutates errs diag.ErrorList) returns ast.FuncID
 	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[c.fn as Count].visibility.clone(), module: c.modID, nodeID: e)
 	entry.bodyRef = ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e)
 	entry.retTy = result
 	entry.isClosure = true
 	let fid = ast.allocFunc(p.funcs, f: entry)
 	c.whens = try c.whens + 1 otherwise panic("too many closures in one function")
-	_ = enterNested(c, fid: fid, closure: true)
+	let frame = enterNested(c, fid: fid, closure: true)
+	c.bFrames[frame].mutatesCaptures = mutating
 	let paramsRef = ast.closureExprParamsRef(p.modules[c.modIdx].tree, id: e)
 	var failedParam = false
 	for i in 0 upto types.count() 'params'

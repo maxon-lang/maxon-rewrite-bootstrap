@@ -126,7 +126,8 @@ function funcTypeRefs(p ast.Project, modIdx Count, fn ast.NodeID) returns ast.No
 	return out
 end 'funcTypeRefs'
 
-// declareFuncAlias gives a typealias of a function type its type.
+// declareFuncAlias gives a typealias of a function type its type. One at the top of a module is a brand, as in maxon: a
+// name an author chose to tell two shapes apart. One in a type's body spells the type's own signature and is not.
 function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	let selfTy = aliasSelf(c, p: p, a: a)
 	let paramsRef = ast.funcTypeParamsRef(p.modules[c.modIdx].tree, id: a.fn)
@@ -149,7 +150,11 @@ function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasD
 			return
 		end 'failed'
 	end 'returns'
-	p.declTypes.insert(ast.declKey(ref), value: ast.internFuncType(p.types, params: params, convs: convs, result: result))
+	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(p.modules[c.modIdx].tree, id: a.fn) != 0)
+	if selfTy == ast.noType 'brand'
+		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
+	end 'brand'
+	p.declTypes.insert(ast.declKey(ref), value: ast.internFuncType(p.types, params: params, shape: shape, result: result))
 end 'declareFuncAlias'
 
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.

@@ -22,6 +22,13 @@ export enum OwnDestKind
 	destMatch
 	destDestructor
 	destClosure
+	// destBinding is a variable that a let or var declares, which a function value that holds a borrow may be bound to:
+	// it ends with its scope, inside the scope of everything that the value borrows.
+	destBinding
+	// destCast is a function value cast to another function type, and destBranch a branch of a conditional, each of
+	// which gives the value on to what takes the whole.
+	destCast
+	destBranch
 end 'OwnDestKind'
 
 // OwnDest is where a moved value went, for the message that names the move.
@@ -50,6 +57,9 @@ export type OwnDest
 			destMatch gives "a 'match consumes'"
 			destDestructor gives "a destructor"
 			destClosure gives "the closure that captures it"
+			destBinding gives "variable '{name}'"
+			destCast gives "a cast"
+			destBranch gives "the result of a conditional or match"
 		end 'k'
 	end 'text'
 end 'OwnDest'
@@ -284,6 +294,12 @@ export enum OwnProjectionKind
 	projectCollection
 	projectPart
 	projectLoop
+	// projectCapture is a variable that a function value bound to a local, or passed to a call, borrows: what it holds
+	// may not be replaced while the value lives, though its parts may change, since the value reads them when it is
+	// called. projectMutableCapture is a variable that a mutating closure borrows to change, which nothing else may read
+	// or change while the closure lives.
+	projectCapture
+	projectMutableCapture
 end 'OwnProjectionKind'
 
 // OwnProjection is a place that stays borrowed while code runs which must not change it: a match subject whose payload
@@ -300,11 +316,76 @@ export type OwnProjection
 	export var kind as OwnProjectionKind
 	// ty is the type of the borrowed place, which a message needs to say whether a copy of it can be had.
 	export var ty as ast.TypeID
+	// holder names, for a capture, the function value that borrows the place.
+	export var holder as String
 
 	export static function make(consumes subject AccessPath, place ast.NodeID, kind OwnProjectionKind, ty ast.TypeID) returns OwnProjection
-		return OwnProjection{subject: subject, place: place, kind: kind, ty: ty}
+		return OwnProjection{subject: subject, place: place, kind: kind, ty: ty, holder: ""}
 	end 'make'
+
+	export static function capture(consumes subject AccessPath, kind OwnProjectionKind, ty ast.TypeID, consumes holder String) returns OwnProjection
+		return OwnProjection{subject: subject, place: 0 as ast.NodeID, kind: kind, ty: ty, holder: holder}
+	end 'capture'
 end 'OwnProjection'
+
+// OwnBorrows is what a function value borrows, which it may not outlive: the variables its closure captured as borrows
+// (mutable is whether it changes each), or, for a borrowed function value of unknown origin, the parameter or the capture
+// it is (param or capture), which is assumed to hold borrows of its own. name is the first borrow it holds and
+// mutableName the first variable it changes, for a message.
+export type OwnBorrows
+	export var name as String
+	export var mutableName as String
+	export var param as ast.LocalID
+	export var capture as ast.LocalID
+	export var roots as ast.LocalIDList
+	export var mutable as Array with bool
+
+	export static function new() returns OwnBorrows
+		return OwnBorrows{name: "", mutableName: "", param: ast.noLocal, capture: ast.noLocal, roots: ast.LocalIDList.create(0), mutable: Array.create(0)}
+	end 'new'
+
+	export function any() returns bool
+		return name != "" or mutableName != ""
+	end 'any'
+
+	// add records a variable the value borrows.
+	export function add(mutates self, borrowed String, root ast.LocalID, changes bool)
+		if changes and self.mutableName == "" 'firstMutable'
+			self.mutableName = borrowed.clone()
+		end 'firstMutable' else if not changes and self.name == "" 'first'
+			self.name = borrowed.clone()
+		end 'first'
+		roots.push(root)
+		mutable.push(changes)
+	end 'add'
+
+	export function addAll(mutates self, other OwnBorrows)
+		if self.name == "" 'first'
+			self.name = other.name.clone()
+			self.param = other.param
+			self.capture = other.capture
+		end 'first'
+		if self.mutableName == "" 'firstMutable'
+			self.mutableName = other.mutableName.clone()
+		end 'firstMutable'
+		for i in 0 upto other.roots.count() 'each'
+			roots.push(other.roots[i])
+			mutable.push(other.mutable[i])
+		end 'each'
+	end 'addAll'
+end 'OwnBorrows'
+
+// OwnHolder is a local bound to a function value that holds borrows, for as long as its scope lasts.
+export type OwnHolder
+	export var local as ast.LocalID
+	export var borrows as OwnBorrows
+
+	export static function make(local ast.LocalID, consumes borrows OwnBorrows) returns OwnHolder
+		return OwnHolder{local: local, borrows: borrows}
+	end 'make'
+end 'OwnHolder'
+
+export typealias OwnHolders = Array with OwnHolder
 
 export typealias OwnProjections = Array with OwnProjection
 
@@ -374,9 +455,15 @@ export type Ownership
 	// lenders are the collections that the variables of the enclosing for loops borrow their elements from, innermost
 	// last.
 	export var lenders as OwnLenders
+	// holders are the locals in scope bound to function values that hold borrows, innermost last, and mutableHeld whether
+	// the function has made a hold that refuses reads, which only then are looked at.
+	export var holders as OwnHolders
+	export var mutableHeld as bool
+	// closureTy is, for the body of a closure, the closure's function type, which a message names.
+	export var closureTy as ast.TypeID
 
 	export static function make(consumes c Checker, consumes errs diag.ErrorList) returns Ownership
-		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0)}
+		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType}
 	end 'make'
 end 'Ownership'
 
@@ -463,6 +550,8 @@ function resetOwn(mutates o Ownership, fid ast.FuncID)
 	o.partials = 0 as Count
 	o.catches = OwnCatches.create(0)
 	o.inFlight = ast.NodeIDList.create(0)
+	o.holders = OwnHolders.create(0)
+	o.mutableHeld = false
 end 'resetOwn'
 
 // run checks a function, or the body of a behaviour in it, which has the bounds of the function around it. paramSites are

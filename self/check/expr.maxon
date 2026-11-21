@@ -592,6 +592,9 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if target == ast.noType 'badTarget'
 		return ast.noType
 	end 'badTarget'
+	if typeHasKind(p, t: target, kind: ast.TypeKind.funcTy) 'function'
+		return checkFunctionCast(c, p: p, e: e, operand: operand, target: target, errs: errs)
+	end 'function'
 	let toFloat = typeHasKind(p, t: target, kind: ast.TypeKind.floatRange)
 	if not typeHasKind(p, t: target, kind: ast.TypeKind.intRange) and not toFloat 'notNumber'
 		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
@@ -625,6 +628,20 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)
 	return ast.noType
 end 'checkCast'
+
+// checkFunctionCast casts a function value to another function type of its shape, which re-brands it, as in maxon: the
+// value is the same closure. A closure written in the cast takes the target as the type it is written for.
+function checkFunctionCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let src = checkExpecting(c, p: p, e: operand, want: target, errs: errs)
+	if src == ast.noType 'badSource'
+		return ast.noType
+	end 'badSource'
+	if not typeHasKind(p, t: src, kind: ast.TypeKind.funcTy) or not shapeFits(p, src: src, dst: target) 'shape'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: "cannot cast {clashName(p, t: src, other: target)} to {clashName(p, t: target, other: src)}", errs: errs)
+		return ast.noType
+	end 'shape'
+	return target
+end 'checkFunctionCast'
 
 function checkPanic(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let message = ast.panicExprMessage(p.modules[c.modIdx].tree, id: e)

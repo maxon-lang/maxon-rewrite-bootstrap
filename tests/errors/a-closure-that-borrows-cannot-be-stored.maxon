@@ -1,0 +1,35 @@
+typealias Reader = function() returns Count
+
+type Holder
+	export var read as Reader
+
+	static function make(consumes read Reader) returns Self
+		return Self{read: read}
+	end 'make'
+end 'Holder'
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function one() returns Count
+	return 1
+end 'one'
+
+function hold(b Box, mutates h Holder)
+	let f = function() gives b.n
+	h.read = f
+end 'hold'
+
+function main() returns ExitCode
+	var h = Holder.make(one)
+	hold(Box.make(2), h: h)
+	print("{h.read()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 25:11

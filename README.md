@@ -682,13 +682,15 @@ a function is named as a value; a static, immortal box for it would save that an
 
 | Instruction | Does |
 |---|---|
-| `%r = closure body [%a, %b]` | a new closure of the body `body` of the function, holding the captures `%a` and `%b`: it owns each that the body's `captureOwned` says it owns, which was moved out of its owner by the instruction before, and holds the others as they are, a scalar it copied or a borrow |
+| `%r = closure body [%a, %b]` | a new closure of the body `body` of the function, holding the captures `%a` and `%b`: it owns each that the body's `captureOwned` says it owns, which was moved out of its owner by the instruction before, and holds the others as they are, a scalar it copied, a borrow, or the address of a variable that a mutating closure changes |
 | `%r = funcvalue f` | a new closure of the function `f`, which captures nothing |
 | `%r = callvalue(%c, %x, %y)` | calls the code that the closure `%c` holds with `%c` first and then the arguments |
 
 **The body is a function of its own**, in `bodies` of the function around it and printed after it, named for it with `$fn`
 and its number among the bodies (`main$fn0`). It takes the closure first and its parameters after it, and reads what it
-captured from the closure (`field %c+24`), which keeps it for every call: a capture is a borrow in the body. Arguments are
+captured from the closure (`field %c+24`), which keeps it for every call: a capture is a borrow in the body, and one that a
+mutating closure changes is the address of the variable, which the body reads and writes through as it does a `mutates`
+parameter. Arguments are
 pushed left to right, so the closure is the farthest from the return address, and the code of a named function, which
 takes only its parameters, never reaches it: `callvalue` needs no case for it, and the interpreter skips it for one.
 
@@ -941,9 +943,10 @@ and nothing else.
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
   destructors").
 - Function values (see "Function values"): a function type, named by a typealias
-  (`typealias Step = function(Count, mutates Box) returns Count`, also in a type's body), a function named without a
-  call, a closure `function(n Count) gives n + offset` (its parameters' types and its result may be left to the function
-  type it is written for), and a call through a value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`).
+  (`typealias Step = function(Count, mutates Box) returns Count`, also in a type's body, and `... mutates captures` for
+  one whose closures change what they capture), a function named without a call, a closure `function(n Count) gives n +
+  offset` (its parameters' types and its result may be left to the function type it is written for), a call through a
+  value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`), and a cast to another function type (`h as Callback`).
 - `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
@@ -1256,33 +1259,69 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
 
 A function type is written with `function` and always named by a typealias, as in Maxon:
 `typealias UnaryOp = function(Score) returns Score`, with a convention before a parameter's type where it has one
-(`function(mutates Tally)`) and no `returns` for one that returns nothing. A function value is a value of one: a function
-named without a call (`apply(double, x: 4)`), or a closure, an anonymous function whose body is one expression,
+(`function(mutates Tally)`), no `returns` for one that returns nothing, and `mutates captures` at the end for one whose
+values may change what they captured (`function() returns Count mutates captures`). A function value is a value of one: a
+function named without a call (`apply(double, x: 4)`), or a closure, an anonymous function whose body is one expression,
 `function(n Score) gives n + offset`. A function type has no `throws`, so a function that throws is not a value (`E3101`),
 and neither is a generic or built-in function or a method: pass a closure that calls it. A value fits a function type with
-the same conventions whose parameters it takes at least as wide (exactly, for one passed by address) and whose result
-takes what it returns (`E3005`). A closure written where a function type is expected (an argument, a `return`, the value
-of a typed place) may leave out its parameters' types and its result, which it takes from that type; anywhere else a
-parameter without a type is `E2015`.
+the same conventions whose parameters it takes at least as wide (exactly, for one passed by address), whose result
+takes what it returns, and that mutates its captures only if the type allows it (`E3005`). A closure written where a
+function type is expected (an argument, a `return`, the value of a typed place, a cast) may leave out its parameters'
+types and its result, which it takes from that type; anywhere else a parameter without a type is `E2015`.
+
+**Brands.** A typealias of a function type at the top of a module is a type of its own, a brand, as in Maxon: two of one
+shape (`Handler` and `Callback`, each `function(Count) returns Count`) do not take each other's values (`E3005`, naming
+both), at any depth (a parameter of type `Handler` in a function type is not one of type `Callback`). A closure and a named
+function carry no brand and fit every alias of their shape, and so does a function typealias in a type's body, which
+spells the type's own signature. `h as Callback` re-brands a value of the same shape (another shape is `E3005`), and so does
+a `return` without a cast. A conditional of a branded value and an unbranded one of its shape is of the brand; of two
+brands it is `E2028`. A message names a function type by its brand where only the brands differ, and by its shape
+(`fn(Count) returns Count`) where more does, as Maxon's do.
 
 **What a closure captures.** A closure's body is a function of its own, checked as a behaviour's is (see "Immutable
-values, cowns and behaviours"), that sees the variables around it by capturing them when the closure is made:
+values, cowns and behaviours"), that sees the variables around it by capturing them when the closure is made. A closure
+never copies what it captures on its own:
 
 | Captured | Effect |
 |---|---|
-| a scalar | copied into the closure |
+| a scalar | copied into the closure, as any scalar is |
 | a local that owns its value (or a `consumes` parameter) | **moved** into the closure, which owns it from then on: using the local afterwards is `E3102` (`its ownership moved to the closure that captures it`), and so is capturing it in a loop; a value with destructors cannot be captured (`E3919`) |
-| a borrow: a `let`, `mutates` or `sets` parameter, `self` in a method, a match binding, the variable of a loop over a collection, or what an enclosing closure captured | **copied** into the closure (a `clone()`), since the closure is a value that can outlive the borrow; one whose type is not `Copyable` cannot be captured (`E3925`) |
+| a borrow: a `let`, `mutates` or `sets` parameter, `self` in a method, a match binding, the variable of a loop over a collection, or what an enclosing closure captured | **borrowed** by the closure, which holds the borrowed reference and neither copies nor drops it, so the closure sees every later change to the value's parts |
+| in a mutating closure (one written for a type that `mutates captures`), a variable that can be changed: a `var`, a `mutates` parameter, `mutates self` | **borrowed to be changed**: the closure holds the variable's address and its writes are the variable's |
 
-The body reads every capture as a `let` borrow of what the closure holds, since it may be called again: it cannot move,
-assign or pass it to `mutates` (`E3900`, `E2013`). A field named bare in a method (`count` for `self.count`) is not
-captured yet: write `self.count`.
+The body reads every other capture as a `let` borrow of what the closure holds, since it may be called again: it cannot
+move it, and changing it, or passing it to `mutates`, is `E3210`, Maxon's refusal of a function value that writes what it
+captured where its type does not declare `mutates captures` (in a mutating closure, of a capture that is not a mutable
+variable, `E2013`). A
+field named bare in a method (`count` for `self.count`) is not captured yet: write `self.count`.
+
+**A closure that borrows does not escape.** A function value holds a borrow when its closure captured one, when it took
+over a value that holds one, and when it is borrowed itself and its origin is unknown: a `let`, `mutates` or `sets`
+parameter of a function type, or a function value a closure captured. One that is owned (a `consumes` parameter, a field,
+an element, a call's result) holds none. A value that holds a borrow may be called, bound to a local with `let` or `var`
+(which ends with its scope, inside the scope of what it borrows), given on by a conditional or a cast, captured by a
+closure that does the same, and passed to a parameter that borrows it. Storing it in a field, an element or a payload,
+returning it, assigning it to a variable declared before it, passing it to `consumes`, copying it with `clone()` and
+capturing it in a behaviour (`when`) are `E3925` at the place it escapes, naming the captured borrow and the fix: clone the
+value into a local first (`let copy = value.clone()`) and capture that. For a borrowed parameter of a function type the fix
+is to declare it `consumes`, which `minimaxon fix` writes: a `consumes` parameter receives only values that own what they
+hold, which may be stored and shared.
+
+While a function value that borrows lives (the scope of the local it is bound to, or the rest of the call it is an
+argument of), what it borrows is held as a match subject is (`E3186` otherwise): a variable it reads may not be replaced as
+a whole, which only a `mutates` or `sets` parameter could be, though its parts may change, and a variable that a mutating
+closure changes may not be read, changed, moved or captured again by anything else. Within one call, a closure argument
+that borrows a place may not be passed beside an earlier argument that passes that place `mutates`, `consumes` or `sets`,
+and one that changes it beside any earlier argument that names it.
 
 **Ownership of a function value.** A closure is immutable, so a function value is never moved: binding it, storing it,
 passing it to `consumes` and returning it give another value that shares the closure (the closure's count says how many),
-and the place keeps its own, as Maxon's copies share (`var g = f`, `f.clone()`). This holds for a borrowed one too, so a
-`let` parameter of a function type can be stored. Each value is dropped where its owner dies, and the last one frees the
-closure.
+and the place keeps its own, as Maxon's copies share (`var g = f`, `f.clone()`). Each value is dropped where its owner
+dies, and the last one frees the closure, which drops what it owns and nothing it borrows.
+
+Not yet: the purity and capability rules of closures (`E3207`, `E3210` beyond writes to captures, `E3064` through a
+closure, the cycle check `E3183`), which Phase 3 adds; `returns immutable`; a field named bare in a closure; and the
+collection methods that take a closure (`map`, `filter`, `sortBy`).
 
 ### Generics
 
@@ -1549,7 +1588,8 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   anything but such a destructor is `E3921` too. This is the only place a destructor runs without being called.
 - **Behaviours.** The captures move into the body, so a captured value that is not `Droppable` is ended there like any
   owned local.
-- **Closures.** A closure drops what it captured with its last copy, so a value it owns must be `Droppable` (`E3919`).
+- **Closures.** A closure drops what it owns with its last copy, so a value it owns must be `Droppable` (`E3919`); what it
+  borrows it does not drop.
 - A message that would have the reader write `.clone()` suggests it only for a type that has `Copyable`; for another it
   names what removes it and says to move the value instead.
 
@@ -1944,14 +1984,15 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 - A `b"..."` literal is a fresh `ByteArray` each time it is evaluated, copied from its bytes in the executable's data, and the
   program may write it: there is no `immutable` image data, so `E3207`, `E3196` and `E3209` do not exist, and a module-level
   `let` of one is built again at each use, as a literal array is. `\{` and `\}` in one are the unknown escape of a string (`E2001`), and a raw newline in one ends it unterminated, as in a string, where maxon keeps the newline as a byte: write `\n`.
-- Function values (see "Function values"): a closure that captures a
-  borrow (a parameter, `self`, a field of one) holds a copy of it made when the closure is made, where Maxon retains a
-  counted reference to the borrowed record, so a closure here does not see a write to the record made after it, and a
-  borrow that cannot be copied is refused (`E3925`). A field named bare in a method is not captured yet. A function
-  typealias names its shape, so two aliases of one shape are one type, where Maxon makes each a brand of its own; there is no `mutates captures`, no `returns immutable`, and none of the purity and
-  capability rules about closures (`E3207`, `E3210`, `E3064` through a closure). A closure owns what it captures and
-  nothing can be stored into a value it captured, so Maxon's cycle check (`E3183`) has nothing to refuse. The
-  collections have no methods that take a closure (`map`, `filter`, `sortBy`).
+- Function values (see "Function values"): a closure that captures a borrow (a parameter, `self`, a match binding)
+  holds the borrow, so it may not escape (`E3925`), where Maxon's closure retains a counted reference to the borrowed
+  record and may escape with it; a closure that escapes here owns everything it captures. So a borrowed parameter of a
+  function type may not be stored, returned or cloned (declare it `consumes`), and a closure writes a captured variable
+  only when its function type `mutates captures` and the variable is mutable (a `var`, a `mutates` parameter, `mutates
+  self`), where Maxon writes through any captured record. Maxon infers whether a closure mutates its captures and refuses
+  one that does at a plain function type (`E3210`); here a closure mutates its captures when it is written where a
+  `mutates captures` type is expected, and a write in any other is `E3210`. The collections have no methods that take a closure (`map`,
+  `filter`, `sortBy`).
 - Floats (see "Floats") have no interval analysis: an operation over a float that is not a constant gives `FullRangeFloat`,
   where maxon carries the interval of its operands, so a value maxon proves fits a narrower float alias needs `try ... as`
   here. A float `as` and a `return` to a narrower float alias that may not fit fail with `ArithmeticError.overflow` (a NaN

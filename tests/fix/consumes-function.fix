@@ -1,0 +1,19 @@
+// A borrowed function value, stored, is taken with consumes.
+typealias Step = function(Count) returns Count
+
+type Holder
+	export var step as Step
+
+	static function make(step Step) returns Self
+		return Self{step: step}
+	end 'make'
+end 'Holder'
+
+function main() returns ExitCode
+	let label = "n".clone()
+	let f = function(n Count) gives try n + label.byteLength() otherwise 0
+	let g = f
+	let h = Holder.make(g)
+	print("{f(1)} {g(2)} {h.step(3)}\n")
+	return 0
+end 'main'

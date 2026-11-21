@@ -423,6 +423,8 @@ end 'newAliasDecl'
 
 export function newFuncType(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.funcType, start: start)
+	let blk = t.reserve(2 as Count)
+	t.records[id as Count].b = blk
 	return id
 end 'newFuncType'
 
@@ -435,12 +437,24 @@ export function setFuncTypeParamsRef(mutates t Tree, id NodeID, ref diag.U32)
 end 'setFuncTypeParamsRef'
 
 export function funcTypeReturns(t Tree, id NodeID) returns NodeID
-	return t.records[id as Count].b as NodeID
+	return t.blockWordAt(id, offset: 0 as Count) as NodeID
 end 'funcTypeReturns'
 
 export function setFuncTypeReturns(mutates t Tree, id NodeID, value NodeID)
-	t.records[id as Count].b = value as diag.U32
+	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setFuncTypeReturns'
+
+export function funcTypeCaptures(t Tree, id NodeID) returns String
+	return t.nameAt(t.blockWordAt(id, offset: 1 as Count))
+end 'funcTypeCaptures'
+
+export function funcTypeCapturesRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 1 as Count)
+end 'funcTypeCapturesRef'
+
+export function setFuncTypeCapturesRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
+end 'setFuncTypeCapturesRef'
 
 export function newFuncTypeParam(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.funcTypeParam, start: start)

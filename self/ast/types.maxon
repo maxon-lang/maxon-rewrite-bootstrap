@@ -246,10 +246,14 @@ export type TypeEntry
 	// them is an instance of: its type arguments are the parameters' types and then the result's.
 	export var paramConvs as ConventionList
 	export var isTuple as bool
+	// mutatesCaptures is, on the origin of a function type, whether a value of it may write what it captured, and isBrand
+	// whether a typealias named it as a brand of its own (see FuncBrand).
+	export var mutatesCaptures as bool
+	export var isBrand as bool
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -339,6 +343,8 @@ export type LocalEntry
 	export var definedAt as NodeID
 	export var isUninitialized as bool
 	export var isCapture as bool
+	// captureConv is, for a capture, how the closure holds it: as its value (let), or as the address of the variable that
+	// a mutating closure changes (mutates).
 	export var captureConv as Convention
 	// slot is the place of a local that is not a parameter among the slots of its function's IR: dense from 0, in the
 	// order the checker declared them.
@@ -631,14 +637,50 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 	return instantiateType(tt, origin: orig, args: nextArgs)
 end 'substituteType'
 
-// internFuncType is the function type with these parameters and result: an instance of the origin of its conventions, so
-// that two spellings of one shape are one type and a generic one is substituted as any instance is.
-export function internFuncType(mutates tt TypeTable, params TypeIDList, convs ConventionList, result TypeID) returns TypeID
+// FuncBrand is the typealias that makes a function type a brand of its own, as in maxon: a typealias at the top of a
+// module, whose values flow into no other alias of the same shape without a cast. key tells two declarations apart and
+// name is how the type is spelled; an empty key is no brand, the type of a closure, a named function and a typealias in a
+// type's body.
+export type FuncBrand
+	export var key as String
+	export var name as String
+
+	export static function none() returns FuncBrand
+		return FuncBrand{key: "", name: ""}
+	end 'none'
+
+	export static function make(consumes key String, consumes name String) returns FuncBrand
+		return FuncBrand{key: key, name: name}
+	end 'make'
+end 'FuncBrand'
+
+// FuncShape is what a function type says besides its parameters' types and its result: the conventions of its
+// parameters, whether it mutates what it captures, and its brand.
+export type FuncShape
+	export var convs as ConventionList
+	export var mutatesCaptures as bool
+	export var brand as FuncBrand
+
+	export static function make(consumes convs ConventionList, mutatesCaptures bool) returns FuncShape
+		return FuncShape{convs: convs, mutatesCaptures: mutatesCaptures, brand: FuncBrand.none()}
+	end 'make'
+end 'FuncShape'
+
+// internFuncType is the function type with these parameters and result: an instance of the origin of its shape, so
+// that two spellings of one shape are one type and a generic one is substituted as any instance is. A brand is an origin
+// of its own.
+export function internFuncType(mutates tt TypeTable, params TypeIDList, shape FuncShape, result TypeID) returns TypeID
 	var key = ByteArray.create(0)
 	key.append("function:".toByteArray())
-	for i in 0 upto convs.count() 'convs'
-		key.append("{convs[i].keyword()},".toByteArray())
+	for i in 0 upto shape.convs.count() 'convs'
+		key.append("{shape.convs[i].keyword()},".toByteArray())
 	end 'convs'
+	if shape.mutatesCaptures 'captures'
+		key.append("|mutates captures".toByteArray())
+	end 'captures'
+	if shape.brand.key != "" 'brand'
+		key.append("|brand {shape.brand.key}".toByteArray())
+	end 'brand'
 	let keyText = String.from(key)
 	var origin = noType
 	match tt.instCache.get(keyText) 'hit'
@@ -646,8 +688,14 @@ export function internFuncType(mutates tt TypeTable, params TypeIDList, convs Co
 		none then _ = 0
 	end 'hit'
 	if origin == noType 'new'
-		var e = TypeEntry.make(TypeKind.funcTy, name: "function")
-		e.paramConvs = convs.clone()
+		var name = "function"
+		if shape.brand.key != "" 'branded'
+			name = shape.brand.name.clone()
+		end 'branded'
+		var e = TypeEntry.make(TypeKind.funcTy, name: name)
+		e.paramConvs = shape.convs.clone()
+		e.mutatesCaptures = shape.mutatesCaptures
+		e.isBrand = shape.brand.key != ""
 		origin = allocType(tt, e: e)
 		tt.instCache.insert(keyText, value: origin)
 	end 'new'
@@ -655,6 +703,16 @@ export function internFuncType(mutates tt TypeTable, params TypeIDList, convs Co
 	args.push(result)
 	return instantiateType(tt, origin: origin, args: args)
 end 'internFuncType'
+
+// funcMutatesCaptures is whether a value of the function type may write what it captured.
+export function funcMutatesCaptures(tt TypeTable, t TypeID) returns bool
+	return tt.entries[originOf(tt, t: t) as Count].mutatesCaptures
+end 'funcMutatesCaptures'
+
+// funcIsBrand is whether a typealias made the function type a brand of its own.
+export function funcIsBrand(tt TypeTable, t TypeID) returns bool
+	return tt.entries[originOf(tt, t: t) as Count].isBrand
+end 'funcIsBrand'
 
 // funcParamCount is how many parameters a function type takes.
 export function funcParamCount(tt TypeTable, t TypeID) returns Count
@@ -674,10 +732,19 @@ export function funcResult(tt TypeTable, t TypeID) returns TypeID
 	return tt.entries[t as Count].typeArgs[funcParamCount(tt, t: t)]
 end 'funcResult'
 
-// funcTypeSpelling is how a function type is written: 'function(Count, mutates Box) returns Count'.
+// funcTypeSpelling is how a message spells a function type, as maxon's do: its brand's name, or its shape.
 function funcTypeSpelling(tt TypeTable, t TypeID) returns String
+	if funcIsBrand(tt, t: t) 'brand'
+		return tt.entries[originOf(tt, t: t) as Count].name.clone()
+	end 'brand'
+	return funcShapeSpelling(tt, t: t)
+end 'funcTypeSpelling'
+
+// funcShapeSpelling is the shape of a function type, 'fn(Count, mutates Box) returns Count', which a message names
+// where two function types differ by more than their brands.
+export function funcShapeSpelling(tt TypeTable, t TypeID) returns String
 	var b = ByteArray.create(0)
-	b.append("function(".toByteArray())
+	b.append("fn(".toByteArray())
 	for i in 0 upto funcParamCount(tt, t: t) 'params'
 		if i > 0 'sep'
 			b.append(", ".toByteArray())
@@ -693,8 +760,11 @@ function funcTypeSpelling(tt TypeTable, t TypeID) returns String
 	if tt.entries[result as Count].kind != TypeKind.primVoid 'returns'
 		b.append(" returns {typeName(tt, t: result)}".toByteArray())
 	end 'returns'
+	if funcMutatesCaptures(tt, t: t) 'captures'
+		b.append(" mutates captures".toByteArray())
+	end 'captures'
 	return String.from(b)
-end 'funcTypeSpelling'
+end 'funcShapeSpelling'
 
 // mentionsTypeParam is whether the type is a type parameter or an instance with one anywhere in its arguments.
 export function mentionsTypeParam(tt TypeTable, t TypeID) returns bool

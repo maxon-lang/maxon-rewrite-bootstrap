@@ -1,0 +1,22 @@
+typealias Reader = function() returns Count
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function wrap(b Box) returns Reader
+	let f = function() gives b.n
+	return function() gives f()
+end 'wrap'
+
+function main() returns ExitCode
+	let r = wrap(Box.make(1))
+	print("{r()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 13:9

@@ -1235,10 +1235,7 @@ func rewriteFunctionType(rhs []token, line *sourceLine, warn func(*sourceLine, s
 		params = append(params, g...)
 	}
 	tail := rhs[closeIdx:]
-	for i, t := range tail {
-		if t.text == "captures" && i > 0 && tail[i-1].text == "mutates" {
-			warn(line, "a function type that 'mutates captures' is not supported in minimaxon")
-		}
+	for _, t := range tail {
 		if t.text == "immutable" || t.text == "isolated" {
 			warn(line, fmt.Sprintf("region capability '%s' is not supported in minimaxon", t.text))
 		}

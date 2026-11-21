@@ -3,7 +3,7 @@ typealias Step = function(Count) returns Count
 type Holder
 	export var step as Step
 
-	static function make(step Step) returns Self
+	static function make(consumes step Step) returns Self
 		return Self{step: step}
 	end 'make'
 end 'Holder'

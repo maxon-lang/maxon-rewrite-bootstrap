@@ -762,6 +762,9 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
 	let v = rangeEval(r, p: p, e: operand)
 	let ty = typeOf(r, e: e)
+	if ast.sharesOnCopy(p.types, t: ty) 'function'
+		return noSpan()
+	end 'function'
 	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 

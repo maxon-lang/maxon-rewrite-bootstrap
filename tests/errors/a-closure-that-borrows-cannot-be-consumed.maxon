@@ -1,0 +1,23 @@
+typealias Reader = function() returns Count
+
+typealias Readers = Array with Reader
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function collect(b Box, mutates readers Readers)
+	readers.push(function() gives b.n)
+end 'collect'
+
+function main() returns ExitCode
+	var readers = Readers.create(0)
+	collect(Box.make(1), readers: readers)
+	return 0
+end 'main'
+
+// expect-error: E3925 at 14:15

@@ -8,21 +8,23 @@ function closureBodyName(enclosing String, index Count) returns String
 end 'closureBodyName'
 
 // visitClosureExpr makes a closure. Its body is a function of its own, which reads what the closure captured from the
-// closure it is called with. The closure owns every managed value it captures: one the ownership pass marked consumed moves
-// in, and one the code around it only borrows is copied in. A scalar is copied.
+// closure it is called with. The closure owns each managed value that the ownership pass marked consumed, which moves in,
+// and only holds the others: a scalar it copied, a borrow of what the code around it borrows, and the address of a
+// variable that a mutating closure changes.
 function visitClosureExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let info = closureInfoAt(p, module: l.module, node: e)
 	var body = lowerNested(l, p: p, fn: info.fn, name: closureBodyName(irSymbol(p, f: l.b.f), index: l.b.f.bodies.count()))
 	var captures = RegList.create(0)
 	for i in 0 upto info.captures.count() 'captures'
 		let ref = info.captures[i].refNode
-		let t = applyType(l, p: p, t: localEntry(p, module: l.fnModule, id: info.captures[i].innerLocal).ty)
-		let owned = kindOf(l, p: p, t: t) == IrKind.kindManaged
-		var v = lowerExpr(l, p: p, e: ref)
-		if owned and info.captures[i].conv == ast.Convention.convLet 'borrowed'
-			v = copyValue(l, p: p, site: siteOf(l, p: p, node: ref), v: v, t: t)
-		end 'borrowed'
-		captures.push(v)
+		let inner = localEntry(p, module: l.fnModule, id: info.captures[i].innerLocal)
+		let t = applyType(l, p: p, t: inner.ty)
+		let owned = kindOf(l, p: p, t: t) == IrKind.kindManaged and info.captures[i].conv == ast.Convention.convConsumes
+		if inner.captureConv == ast.Convention.convMutates 'address'
+			captures.push(address(l, p: p, e: ref))
+		end 'address' else 'value'
+			captures.push(lowerExpr(l, p: p, e: ref))
+		end 'value'
 		body.captureTypes.push(t)
 		body.captureOwned.push(owned)
 		if owned and l.b.f.refusals.count() == 0 'native'
@@ -44,12 +46,25 @@ function functionValue(mutates l Lowerer, fn ast.FuncID) returns Reg
 	return d
 end 'functionValue'
 
-// captureRead is the value a closure's body reads of what the closure captured: a borrow of the word the closure holds,
-// which the closure keeps for every call.
+// captureRead is the word a closure's body reads of what the closure captured: a borrow of the value the closure holds,
+// which it keeps for every call, or the address of a variable that a mutating closure changes.
 function captureRead(mutates l Lowerer, mutates p ast.Project, loc ast.LocalEntry) returns Reg
 	let closure = paramReg(l, index: 0, kind: IrKind.kindManaged)
-	let d = newReg(l, kind: kindOf(l, p: p, t: loc.ty))
+	var kind = IrKind.kindScalar
+	if loc.captureConv != ast.Convention.convMutates 'value'
+		kind = kindOf(l, p: p, t: loc.ty)
+	end 'value'
+	let d = newReg(l, kind: kind)
 	let offset = try closureCapturesOffset + wordOffset(loc.paramIndex) otherwise panic("lower: a capture past memory")
 	emit(l, i: newLoadField(d, obj: closure, offset: offset))
 	return d
 end 'captureRead'
+
+// refAddress is the address of the caller's place that a local passed by address stands for: a parameter's, or the one a
+// mutating closure holds of a variable it captured.
+function refAddress(mutates l Lowerer, mutates p ast.Project, loc ast.LocalEntry) returns Reg
+	if loc.isCapture 'captured'
+		return captureRead(l, p: p, loc: loc)
+	end 'captured'
+	return paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+end 'refAddress'

@@ -258,6 +258,10 @@ end 'visitStructLitExpr'
 function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let inner = ast.castExprE(p.modules[l.mi].tree, id: e)
 	let v = lowerExpr(l, p: p, e: inner)
+	if ast.sharesOnCopy(p.types, t: exprType(p, module: l.module, node: e)) 'function'
+		// A function cast changes only the type: the value is the operand's, which the ownership pass gave it.
+		return v
+	end 'function'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let fail = overflowTo(l, p: p, fails: fails)
 	let target = exprType(p, module: l.module, node: e)
@@ -289,7 +293,7 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 		if not loc.isParam 'variable'
 			return ownedRead(l, p: p, slot: slotOf(loc), e: e)
 		end 'variable'
-		if loc.isCapture 'captured'
+		if loc.isCapture and not isByRef(loc) 'captured'
 			return captureRead(l, p: p, loc: loc)
 		end 'captured'
 		if not isByRef(loc) 'byValue'
@@ -300,7 +304,7 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 			return paramReg(l, index: loc.paramIndex, kind: kindOf(l, p: p, t: loc.ty))
 		end 'byValue'
 		let d = newReg(l, kind: kindOf(l, p: p, t: loc.ty))
-		let addr = paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+		let addr = refAddress(l, p: p, loc: loc)
 		emit(l, i: newLoadAt(d, addr: addr))
 		return d
 	end 'local'
@@ -341,7 +345,7 @@ function address(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let loc = localEntry(p, module: l.fnModule, id: name.local)
 			if isByRef(loc) 'byRef'
-				return paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+				return refAddress(l, p: p, loc: loc)
 			end 'byRef'
 			let d = newReg(l, kind: IrKind.kindScalar)
 			emit(l, i: newSlotAddr(d, slot: slotOf(loc)))

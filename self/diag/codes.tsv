@@ -69,6 +69,7 @@ ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program 
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
+ErrCapabilityConversion	E3210	semanticCapabilityConversionRefused	A function value writes what it captured, which its function type does not allow.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.
 ErrModuleLetCallsFunction	E3220	semanticModuleLetCallsAFunction	The initializer of a constant calls a function.
 ErrEntryTakesParameters	E3225	entryFunctionTakesParameters	'main' declares parameters.
@@ -96,7 +97,7 @@ ErrDestructorMisuse	E3920	-	A destructor is declared on a type that has nothing 
 ErrCapabilityMisuse	E3921	-	An argument naming a type's capability is wrong for the type it is given.
 ErrTakeApartDestructible	E3922	-	A value of a type with destructors is taken apart outside them.
 ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
-ErrClosureBorrow	E3925	-	A closure captures a borrowed value that cannot be copied, which it would outlive.
+ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

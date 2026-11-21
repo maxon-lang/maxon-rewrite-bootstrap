@@ -45,9 +45,11 @@ function captureFrom(mutates c Checker, mutates p ast.Project, behaviour Count, 
 end 'captureFrom'
 
 // captureLocal gives the body b a local of its own for the variable outer of the function around it, which ref names
-// there. A behaviour takes it as a parameter that it owns. A closure reads it from itself each time it runs, so its
-// local is a let borrow there, whatever it was outside: one that owns its value moves it into the closure, and one that
-// borrows it gives the closure a copy, since the closure may outlive the borrow.
+// there. A behaviour takes it as a parameter that it owns. A closure reads it from itself each time it runs, and never
+// copies it on its own: a scalar is a value, one that owns its value moves it into the closure, and one that borrows it
+// is borrowed by the closure, which then cannot outlive the borrow. Each is a let borrow in the body. A mutating closure
+// borrows a mutable variable to change it instead: the closure holds its address, and its 'self' the receiver itself,
+// which a method cannot replace.
 function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count, outer ast.LocalID, ref ast.NodeID, use ast.NodeID) returns ast.LocalID
 	let source = c.typing.locals[outer as Count].clone()
 	ast.setNodeType(c.typing, node: ref, ty: source.ty)
@@ -57,7 +59,14 @@ function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count,
 		inner.conv = ast.Convention.convLet
 		inner.isCapture = true
 		inner.paramIndex = c.bFrames[behaviour].captures.count()
-		if ast.isManagedType(p.types, t: source.ty) and borrowsValue(source) 'borrowed'
+		if c.bFrames[behaviour].mutatesCaptures and isMutableLocal(source) 'mutable'
+			conv = ast.Convention.convMutates
+			inner.conv = ast.Convention.convMutates
+			inner.isSelf = source.isSelf
+			if not source.isSelf 'byAddress'
+				inner.captureConv = ast.Convention.convMutates
+			end 'byAddress'
+		end 'mutable' else if ast.isManagedType(p.types, t: source.ty) and borrowsValue(source) 'borrowed'
 			conv = ast.Convention.convLet
 		end 'borrowed'
 	end 'closure' else 'behaviour'

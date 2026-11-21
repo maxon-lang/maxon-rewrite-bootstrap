@@ -241,7 +241,8 @@ end 'closureName'
 
 // ClosureInfo is what the check found of a closure: the function its body is, its function type, and what it captures. A
 // capture whose convention is consumes moves into the closure, or is copied when it is a scalar; one whose convention is
-// let is a value the code around the closure only borrows, which the closure holds a copy of.
+// let is a value the code around the closure only borrows, which the closure borrows too; and one whose convention is
+// mutates is a variable that a mutating closure borrows to change.
 export type ClosureInfo
 	export var fn as FuncID
 	export var ty as TypeID

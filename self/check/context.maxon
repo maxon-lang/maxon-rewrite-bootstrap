@@ -75,17 +75,18 @@ export type OuterLevel
 end 'OuterLevel'
 
 // BehaviourFrame is the body of a behaviour or of a closure being checked, and what it captured. A closure has no
-// accesses.
+// accesses; mutatesCaptures is whether it is written for a function type that mutates its captures.
 export type BehaviourFrame
 	export var fn as ast.FuncID
 	export var isClosure as bool
+	export var mutatesCaptures as bool
 	export var accesses as ast.LocalIDList
 	export var capturedOuter as ast.LocalIDList
 	export var capturedInner as ast.LocalIDList
 	export var captures as ast.CaptureList
 
 	export static function make(fn ast.FuncID) returns BehaviourFrame
-		return BehaviourFrame{fn: fn, isClosure: false, accesses: ast.LocalIDList.create(0), capturedOuter: ast.LocalIDList.create(0), capturedInner: ast.LocalIDList.create(0), captures: ast.CaptureList.create(0)}
+		return BehaviourFrame{fn: fn, isClosure: false, mutatesCaptures: false, accesses: ast.LocalIDList.create(0), capturedOuter: ast.LocalIDList.create(0), capturedInner: ast.LocalIDList.create(0), captures: ast.CaptureList.create(0)}
 	end 'make'
 end 'BehaviourFrame'
 
@@ -413,7 +414,7 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	if integers 'cast'
 		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
 	end 'cast'
-	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: integers), fix: fix, errs: errs)
+	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(clashName(p, t: target, other: src), got: clashName(p, t: src, other: target), castable: integers), fix: fix, errs: errs)
 	return false
 end 'coerce'
 
@@ -459,9 +460,9 @@ end 'failAlias'
 // failJoin reports two types that no one type holds, of which the first came before the second.
 function failJoin(c Checker, p ast.Project, off diag.U32, clash Clash, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList)
 	match clash 'k'
-		arms then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.giveTypeMismatch(gotName(p, t: b), expected: gotName(p, t: a)), errs: errs)
-		branches then checkFail(c.modID, off: off, code: diag.errMatchTypeMismatch, msg: diag.ternaryValueTypeMismatch(gotName(p, t: a), falseType: gotName(p, t: b)), errs: errs)
-		other then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the branches produce {gotName(p, t: a)} and {gotName(p, t: b)}", errs: errs)
+		arms then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.giveTypeMismatch(clashName(p, t: b, other: a), expected: clashName(p, t: a, other: b)), errs: errs)
+		branches then checkFail(c.modID, off: off, code: diag.errMatchTypeMismatch, msg: diag.ternaryValueTypeMismatch(clashName(p, t: a, other: b), falseType: clashName(p, t: b, other: a)), errs: errs)
+		other then checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the branches produce {clashName(p, t: a, other: b)} and {clashName(p, t: b, other: a)}", errs: errs)
 		operator(op) then panic("the operator '{op}' joins no types")
 	end 'k'
 end 'failJoin'
@@ -585,6 +586,12 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, clash 
 		end 'aliasB'
 		return p.builtins.anonFloatTy
 	end 'floats'
+	if typeHasKind(p, t: a, kind: ast.TypeKind.funcTy) and typeHasKind(p, t: b, kind: ast.TypeKind.funcTy) 'functions'
+		let joined = joinFunctions(p, a: a, b: b)
+		if joined != ast.noType 'joined'
+			return joined
+		end 'joined'
+	end 'functions'
 	failJoin(c, p: p, off: off, clash: clash, a: a, b: b, errs: errs)
 	return ast.noType
 end 'joinTypes'

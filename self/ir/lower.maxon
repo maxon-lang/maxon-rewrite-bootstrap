@@ -364,7 +364,7 @@ function visitAssignStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 			let v = lowerExpr(l, p: p, e: value)
 			let loc = localEntry(p, module: l.fnModule, id: name.local)
 			if isByRef(loc) 'byRef'
-				let addr = paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+				let addr = refAddress(l, p: p, loc: loc)
 				dropAt(l, p: p, addr: addr, t: loc.ty)
 				emit(l, i: newStoreAt(addr, src: v))
 			end 'byRef' else 'slot'

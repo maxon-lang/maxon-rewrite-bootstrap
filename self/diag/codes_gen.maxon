@@ -189,6 +189,9 @@ export let errExclusivity = "E3186"
 // A write or a consuming call goes through the contents of a frozen value.
 export let errFrozenChange = "E3197"
 
+// A function value writes what it captured, which its function type does not allow.
+export let errCapabilityConversion = "E3210"
+
 // An unsigned value is negated.
 export let errUnsignedNegation = "E3218"
 
@@ -270,7 +273,7 @@ export let errTakeApartDestructible = "E3922"
 // A function that takes a 'sets' parameter declares 'throws'.
 export let errThrows = "E3924"
 
-// A closure captures a borrowed value that cannot be copied, which it would outlive.
+// A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 export let errClosureBorrow = "E3925"
 
 // A type contains itself.

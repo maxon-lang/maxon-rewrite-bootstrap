@@ -524,3 +524,13 @@ end 'destructureNonTuple'
 export function tupleAssignArity(elements String, names String) returns String
 	return "Tuple has {elements} elements but destructuring has {names} bindings"
 end 'tupleAssignArity'
+
+// The text of errCapabilityConversion for: function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`
+export function writesCaptures(alias String) returns String
+	return "function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`"
+end 'writesCaptures'
+
+// The text of errTypeMismatch for: function type mismatch in return: expected '{expected}', got '{got}'
+export function funcReturnMismatch(expected String, got String) returns String
+	return "function type mismatch in return: expected '{expected}', got '{got}'"
+end 'funcReturnMismatch'

@@ -1,0 +1,19 @@
+typealias Bump = function() returns Count mutates captures
+
+function increment(mutates n Count) returns Count
+	n = try n + 1 otherwise 0
+	return n
+end 'increment'
+
+function counter(mutates n Count) returns Bump
+	return function() gives increment(n)
+end 'counter'
+
+function main() returns ExitCode
+	var n = 0 as Count
+	let bump = counter(n)
+	print("{bump()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 9:9

@@ -1,0 +1,23 @@
+typealias Handler = function(Count) returns Count
+
+typealias Callback = function(Count) returns Count
+
+function twice(n Count) returns Count
+	return try n * 2 otherwise 0
+end 'twice'
+
+function pick() returns Handler
+	return twice
+end 'pick'
+
+function run(f Callback) returns Count
+	return f(4)
+end 'run'
+
+function main() returns ExitCode
+	let h = pick()
+	print("{run(h as Callback)} {run(twice)}\n")
+	return run(h) as ExitCode
+end 'main'
+
+// expect-error: E3005 at 20:9

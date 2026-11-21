@@ -190,9 +190,10 @@ aliasDecl
       )
     ;
 
-// A function type, which only a typealias names.
+// A function type, which only a typealias names. `mutates captures` is maxon's: a value of it may write what it captured,
+// where `captures` is a word only there.
 funcType
-    : 'function' ^'(' (params+=funcTypeParam (',' params+=funcTypeParam)*)? ')' ('returns' returns=typeRef)?
+    : 'function' ^'(' (params+=funcTypeParam (',' params+=funcTypeParam)*)? ')' ('returns' returns=typeRef)? ({atMutatesCaptures}? 'mutates' captures=Name)?
     ;
 
 funcTypeParam

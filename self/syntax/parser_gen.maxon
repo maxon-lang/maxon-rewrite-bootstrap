@@ -748,8 +748,14 @@ function parseFuncType(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v5 = try parseTypeRef(p)
 		ast.setFuncTypeReturns(p.tree, id: n, value: v5)
 	end 'b3'
-	let v6 = takeIDs(p.tree, stack: p.lists.ids_FuncType_Params, mark: mark_n_Params)
-	ast.setFuncTypeParamsRef(p.tree, id: n, ref: v6)
+	if p.at(TokenKind.kw_mutates) and p.atMutatesCaptures() 'b4'
+		_ = try p.expect(TokenKind.kw_mutates, what: "'mutates'")
+		let v6 = try p.expect(TokenKind.name, what: "a name")
+		let v7 = p.textRef(v6)
+		ast.setFuncTypeCapturesRef(p.tree, id: n, ref: v7)
+	end 'b4'
+	let v8 = takeIDs(p.tree, stack: p.lists.ids_FuncType_Params, mark: mark_n_Params)
+	ast.setFuncTypeParamsRef(p.tree, id: n, ref: v8)
 	return n
 end 'parseFuncType'
 

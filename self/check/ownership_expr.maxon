@@ -42,6 +42,9 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	end 'dead'
 	o.c.typing.consumed.insert(e as Count, value: true)
 	let t = ownType(o, node: e)
+	if ast.sharesOnCopy(p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
+		requireNoBorrows(o, p: p, e: e, what: "moved into {dest.text()}")
+	end 'escapes'
 	if not isManagedOwn(p, t: t) or ast.sharesOnCopy(p.types, t: t) 'scalar'
 		return out
 	end 'scalar'
@@ -139,6 +142,14 @@ function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U3
 			return false
 		end 'letField'
 	end 'steps'
+	if root.isCapture and not isMutableLocal(root) 'capture'
+		if ast.funcMutatesCaptures(p.types, t: o.closureTy) 'immutable'
+			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' is not a mutable variable where the closure captures it, so even a closure that mutates its captures only reads it; a mutating closure changes a 'var', a 'mutates' parameter or 'mutates self'")
+			return false
+		end 'immutable'
+		fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.writesCaptures(nameOfType(p, t: o.closureTy)))
+		return false
+	end 'capture'
 	if root.isSelf and not isMutableLocal(root) 'self'
 		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt))
 		return false
@@ -207,6 +218,9 @@ function requireNotProjected(mutates o Ownership, mutates p ast.Project, path Ac
 		if not o.projections[i].subject.isPlace() or not o.projections[i].subject.overlaps(path) 'apart'
 			continue 'each'
 		end 'apart'
+		if o.projections[i].kind == OwnProjectionKind.projectCapture and path.steps.count() > 0 'part'
+			continue 'each'
+		end 'part'
 		let pr = o.projections[i].clone()
 		projectionConflict(o, p: p, pr: pr, path: path, site: site)
 		return
@@ -250,6 +264,14 @@ function projectionConflict(mutates o Ownership, mutates p ast.Project, pr OwnPr
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the enclosing loop over '{held}', which lends its elements while the body runs; {advice}")
 		return
 	end 'loop'
+	if k == OwnProjectionKind.projectCapture 'capture'
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed by {pr.holder}, a function value that reads it when it is called, so it cannot be replaced while that lives; change its fields instead, or replace it after the function value's scope ends")
+		return
+	end 'capture'
+	if k == OwnProjectionKind.projectMutableCapture 'mutableCapture'
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed to be changed by {pr.holder}, a mutating closure that lives until its scope ends, so it cannot be changed here; change it after that, or through the closure")
+		return
+	end 'mutableCapture'
 	panic("ownership: unknown projection kind {k.name}")
 end 'projectionConflict'
 
@@ -290,7 +312,12 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 		return failed(o, p: p, e: e, s: out)
 	end 'unary'
 	if k == ast.NodeKind.castExpr 'cast'
-		let out = expr(o, p: p, e: ast.castExprE(p.modules[o.c.modIdx].tree, id: e), s: s)
+		let operand = ast.castExprE(p.modules[o.c.modIdx].tree, id: e)
+		if ast.sharesOnCopy(p.types, t: ownType(o, node: e)) 'function'
+			// The cast gives the same closure, which the value it makes shares.
+			return consume(o, p: p, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
+		end 'function'
+		let out = expr(o, p: p, e: operand, s: s)
 		return failed(o, p: p, e: e, s: out)
 	end 'cast'
 	if k == ast.NodeKind.condExpr 'cond'
@@ -371,9 +398,11 @@ function nameExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	let name = ownName(o, node: e)
 	let site = offsetOfOwn(o, p: p, node: e)
 	if name.kind == ast.NameKind.nameLocal 'local'
+		requireNotMutablyHeld(o, p: p, local: name.local, site: site)
 		return readRoot(o, p: p, l: name.local, site: site, s: s)
 	end 'local'
 	if name.kind == ast.NameKind.nameSelfField 'selfField'
+		requireNotMutablyHeld(o, p: p, local: selfLocalOf(o, p: p), site: site)
 		if o.partials > 0 and readPart(o, p: p, e: e, s: s) 'part'
 			return s
 		end 'part'
@@ -438,9 +467,9 @@ end 'failed'
 function condExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let cond = expr(o, p: p, e: ast.condExprCond(p.modules[o.c.modIdx].tree, id: e), s: s)
 	let mark = o.inFlight.count()
-	let yes = consume(o, p: p, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destResult), s: cond.clone())
+	let yes = consume(o, p: p, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destBranch), s: cond.clone())
 	land(o, mark: mark)
-	let no = consume(o, p: p, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destResult), s: cond)
+	let no = consume(o, p: p, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destBranch), s: cond)
 	return join(o, p: p, a: yes, b: no)
 end 'condExprOwn'
 
@@ -449,6 +478,9 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	let receiver = ast.callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
 	let k = call.kind
 	if k == ast.CallKind.callCopy 'copy'
+		if ast.sharesOnCopy(p.types, t: ownType(o, node: receiver)) 'function'
+			requireNoBorrows(o, p: p, e: receiver, what: "copied with 'clone()'")
+		end 'function'
 		return expr(o, p: p, e: receiver, s: s)
 	end 'copy'
 	if k == ast.CallKind.callPrint or k == ast.CallKind.callPrintError 'print'
@@ -489,7 +521,7 @@ end 'callError'
 function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, call ast.CallInfo, receiver ast.NodeID, consumes s OwnState) returns OwnState
 	var exclusive = receiver != 0 and call.selfConv != ast.Convention.convLet
 	for i in 0 upto call.paramSpecs.count() 'specs'
-		exclusive = exclusive or call.paramSpecs[i].conv != ast.Convention.convLet
+		exclusive = exclusive or call.paramSpecs[i].conv != ast.Convention.convLet or p.modules[o.c.modIdx].tree.kindOf(call.ordered[i]) == ast.NodeKind.closureExpr
 	end 'specs'
 	if exclusive and not ast.intrinsicMayOverlap(call.intrinsic) 'exclusive'
 		requireExclusive(o, p: p, call: call, receiver: receiver)
@@ -516,6 +548,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 		let next = try i + 1 otherwise n
 		if next < n 'more'
 			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: ast.isByAddress(conv))
+			holdArgument(o, p: p, e: arg)
 		end 'more'
 	end 'args'
 	release(o, mark: held)
@@ -534,13 +567,26 @@ end 'userCall'
 // requireNotReceiver refuses 'self' as a mutates argument. A mutates parameter may be assigned as a whole, which replaces
 // the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
 function requireNotReceiver(mutates o Ownership, p ast.Project, arg ast.NodeID, param String)
-	if p.modules[o.c.modIdx].tree.kindOf(arg) != ast.NodeKind.selfExpr 'notSelf'
+	let k = p.modules[o.c.modIdx].tree.kindOf(arg)
+	var receiver = ast.noLocal
+	if k == ast.NodeKind.selfExpr 'self'
+		receiver = selfLocalOf(o, p: p)
+	end 'self' else if k == ast.NodeKind.nameExpr and isCapturedReceiver(o, e: arg) 'captured'
+		receiver = ownName(o, node: arg).local
+	end 'captured'
+	if receiver == ast.noLocal 'notSelf'
 		return
 	end 'notSelf'
-	if isMutableLocal(o.c.typing.locals[selfLocalOf(o, p: p) as Count]) 'mutable'
+	if isMutableLocal(o.c.typing.locals[receiver as Count]) 'mutable'
 		fail(o, p: p, site: offsetOfOwn(o, p: p, node: arg), code: diag.errAssignToImmutable, msg: "'self' cannot be passed to the 'mutates' parameter '{param}', which could replace the whole value; pass a field of it, or call a method on it")
 	end 'mutable'
 end 'requireNotReceiver'
+
+// isCapturedReceiver is whether a name is the receiver that a mutating closure captured to change.
+function isCapturedReceiver(o Ownership, e ast.NodeID) returns bool
+	let name = ownName(o, node: e)
+	return name.kind == ast.NameKind.nameLocal and o.c.typing.locals[name.local as Count].isSelf
+end 'isCapturedReceiver'
 
 // hold keeps the place that an expression has evaluated to a borrow borrowed until release, for an expression that uses
 // the borrow again after evaluating more: a call nested in the rest that changes an overlapping place would otherwise
@@ -587,9 +633,9 @@ function argument(mutates o Ownership, mutates p ast.Project, e ast.NodeID, conv
 	end 'conv'
 end 'argument'
 
-// closureOwn makes a closure. What it captures moves into it, and what the code around it only borrows is copied into it:
-// a closure is a value that can outlive the call it is made in, and the borrow cannot. Its body is checked as a function of
-// its own.
+// closureOwn makes a closure. What it owns moves into it, and what the code around it borrows it borrows too, or, for a
+// mutating closure, borrows to change: either is held while the closure lives, which is where it is bound or passed. Its
+// body is checked as a function of its own.
 function closureOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	return match consumes o.c.typing.closures.get(e as Count) 'closure'
 		some(info) gives closureCaptures(o, p: p, e: e, info: info, s: s)
@@ -601,23 +647,20 @@ function closureCaptures(mutates o Ownership, mutates p ast.Project, e ast.NodeI
 	var out = s
 	for i in 0 upto info.captures.count() 'captures'
 		let ref = info.captures[i].refNode
-		if info.captures[i].conv == ast.Convention.convConsumes 'moved'
+		let conv = info.captures[i].conv
+		if conv == ast.Convention.convConsumes 'moved'
 			out = consume(o, p: p, e: ref, dest: OwnDest.of(OwnDestKind.destClosure), s: out)
 			let t = ownType(o, node: ref)
 			if isManagedOwn(p, t: t) and lacksDroppable(o, p: p, t: t) 'obliged'
-				fail(o, p: p, site: offsetOfOwn(o, p: p, node: ref), code: diag.errNotDroppable, msg: "'{info.captures[i].name}' has a destructor, so it must be ended by one, and a closure drops what it captures; end it before the closure, or pass it to the closure's call as an argument")
+				fail(o, p: p, site: offsetOfOwn(o, p: p, node: ref), code: diag.errNotDroppable, msg: "'{info.captures[i].name}' has a destructor, so it must be ended by one, and a closure drops what it owns; end it before the closure, or pass it to the closure's call as an argument")
 			end 'obliged'
-		end 'moved' else 'copied'
+		end 'moved' else if conv == ast.Convention.convMutates 'changed'
+			out = mutatesArgument(o, p: p, e: ref, dest: OwnDest.of(OwnDestKind.destClosure), s: out)
+		end 'changed' else 'borrowed'
 			out = expr(o, p: p, e: ref, s: out)
-			let t = ownType(o, node: ref)
-			if not canCopy(o, p: p, t: t) 'uncopyable'
-				let name = info.captures[i].name.clone()
-				let advice = copyAdvice(o, p: p, t: t, ifCopyable: "", fallback: "pass it to the closure as an argument instead")
-				fail(o, p: p, site: offsetOfOwn(o, p: p, node: ref), code: diag.errClosureBorrow, msg: "'{name}' only borrows its value, and a closure can outlive the borrow, so it captures a copy; {advice}")
-			end 'uncopyable'
-		end 'copied'
+		end 'borrowed'
 	end 'captures'
-	runNested(o, p: p, fid: info.fn, body: ast.closureExprBodyRef(p.modules[o.c.modIdx].tree, id: e), site: e)
+	runNested(o, p: p, fid: info.fn, body: ast.closureExprBodyRef(p.modules[o.c.modIdx].tree, id: e), site: e, closureTy: info.ty)
 	return out
 end 'closureCaptures'
 
@@ -667,6 +710,7 @@ function requireExclusive(mutates o Ownership, mutates p ast.Project, call ast.C
 		addAccess(o, p: p, e: receiver, conv: call.selfConv)
 	end 'receiver'
 	for i in 0 upto call.ordered.count() 'args'
+		requireApartFromClosure(o, p: p, e: call.ordered[i])
 		addAccess(o, p: p, e: call.ordered[i], conv: call.paramSpecs[i].conv)
 	end 'args'
 	for j in 1 upto o.accesses.count() 'later'
@@ -681,6 +725,28 @@ function requireExclusive(mutates o Ownership, mutates p ast.Project, call ast.C
 		end 'earlier'
 	end 'later'
 end 'requireExclusive'
+
+// requireApartFromClosure refuses a closure written as an argument that borrows a place an earlier argument passes
+// mutates, consumes or sets, or that changes a place an earlier argument names: the callee would reach it through both.
+// A later argument meets the closure's hold instead.
+function requireApartFromClosure(mutates o Ownership, mutates p ast.Project, e ast.NodeID)
+	if p.modules[o.c.modIdx].tree.kindOf(e) != ast.NodeKind.closureExpr 'notClosure'
+		return
+	end 'notClosure'
+	let b = borrowsOf(o, p: p, e: e)
+	for r in 0 upto b.roots.count() 'roots'
+		let path = AccessPath.at(b.roots[r])
+		for i in 0 upto o.accesses.count() 'earlier'
+			let a = o.accesses[i].clone()
+			if (a.conv == ast.Convention.convLet and not b.mutable[r]) or not a.path.overlaps(path) 'apart'
+				continue 'earlier'
+			end 'apart'
+			let text = pathText(o, p: p, path: a.path)
+			let name = o.c.typing.locals[b.roots[r] as Count].name.clone()
+			fail(o, p: p, site: offsetOfOwn(o, p: p, node: e), code: diag.errExclusivity, msg: "'{text}' is passed {a.conv.keyword()} to this call, and the closure passed after it borrows '{name}', which overlaps it, so the callee would reach one place through two names; pass separate values")
+		end 'earlier'
+	end 'roots'
+end 'requireApartFromClosure'
 
 function addAccess(mutates o Ownership, p ast.Project, e ast.NodeID, conv ast.Convention)
 	let path = pathOf(o, p: p, e: e)
