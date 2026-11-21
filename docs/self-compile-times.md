@@ -56,3 +56,4 @@ of C2 building it again.
 | 2026-11-21 | bd64be8 | Phase 2: message texts, Type from value | 55242 | 9102 | 8231 | 4247 |
 | 2026-11-21 | fa4b30a | seed renewed; closures; one-compiler gate | 56765 | 4217 | 4086 | 4014 |
 | 2026-11-21 | 98aae37 | Phase 2: closures, floats, tuples, extensions, interfaces, raw values | 64354 | 5114 | 5546 | 5500 |
+| 2026-11-21 | a65524a | Phase 2: third batch (extensions, sibling calls, project model, fixed arrays, directives) | 66926 | 5506 | — | — |
