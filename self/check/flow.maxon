@@ -1,0 +1,13 @@
+// What follows the values of a module once its calls are verified: the ranges of its integers, which decide what can fail
+// and must be caught, then ownership, which follows the failures to their handlers. Both are later steps of the port; until
+// then each of them accepts what it is given.
+
+// checkRanges is the call site of the range analysis (checked math proofs), for the constants and the functions of a module.
+function checkRanges(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkRanges'
+
+// checkOwnership is the call site of the ownership pass, for the constants and the functions of a module.
+function checkOwnership(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkOwnership'

@@ -263,7 +263,7 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 	if name.kind == ast.NameKind.nameLocal 'local'
 		let loc = localEntry(p, module: l.fnModule, id: name.local)
 		if not loc.isParam 'variable'
-			return ownedRead(l, p: p, slot: loc.slot, e: e)
+			return ownedRead(l, p: p, slot: slotOf(loc), e: e)
 		end 'variable'
 		if not isByRef(loc) 'byValue'
 			let owner = ownerOf(l, id: name.local, isSelf: loc.isSelf)
@@ -314,7 +314,7 @@ function address(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns
 				return paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
 			end 'byRef'
 			let d = newReg(l, kind: IrKind.kindScalar)
-			emit(l, i: newSlotAddr(d, slot: loc.slot))
+			emit(l, i: newSlotAddr(d, slot: slotOf(loc)))
 			return d
 		end 'local'
 		if name.kind == ast.NameKind.nameSelfField 'field'
@@ -356,11 +356,7 @@ end 'CallSite'
 function callSite(l Lowerer, p ast.Project, node ast.NodeID) returns CallSite
 	let info = callInfoAt(p, module: l.module, node: node)
 	let receiver = receiverOf(p, module: l.module, node: node, kind: info.kind)
-	let argsRef = ast.callExprArgsRef(p.modules[l.mi].tree, id: node)
-	var ordered = ast.NodeIDList.create(0)
-	for i in 0 upto info.argOrder.count() 'each'
-		ordered.push(ast.argValue(p.modules[l.mi].tree, id: p.modules[l.mi].tree.listAt(argsRef, index: info.argOrder[i]) as ast.NodeID))
-	end 'each'
+	let ordered = info.ordered.clone()
 	return CallSite.make(node, info: info, receiver: receiver, ordered: ordered)
 end 'callSite'
 
@@ -414,7 +410,7 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 		end 'value'
 		var errTy = p.funcs.entries[target as Count].errTy
 		if kind == ast.CallKind.callBound 'bound'
-			errTy = p.funcs.entries[c.info.fn as Count].errTy
+			errTy = p.funcs.entries[c.info.method as Count].errTy
 		end 'bound'
 		if errTy == ast.noType 'plain'
 			emitCall(l, dst: dst, target: target, args: argsSince(l, base: base))

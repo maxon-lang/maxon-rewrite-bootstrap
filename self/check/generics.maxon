@@ -1,0 +1,256 @@
+// What a declaration owes the rest of the program, checked once its members are known: that a type does not contain
+// itself, that it implements the interfaces it names, and that the type arguments of an instance meet the bounds of the
+// parameters they stand for.
+
+// checkCycle refuses a type or a union that contains itself, which would have no finite size.
+function checkCycle(mutates c Checker, mutates p ast.Project, site ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	let own = ast.selfType(p.types, declTy: t)
+	var path = ast.StringList.create(0)
+	var visited = BoolIntMap.new()
+	var growing = false
+	if not reaches(p, from: own, target: own, path: path, visited: visited, growing: growing) 'finite'
+		return
+	end 'finite'
+	let name = p.types.entries[ast.originOf(p.types, t: t) as Count].name.clone()
+	if growing 'growing'
+		failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: "type '{name}' has no finite size: via {path[0]} it contains itself with a larger type argument each time", errs: errs)
+		return
+	end 'growing'
+	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: joinNames(path, sep: " -> ")), errs: errs)
+end 'checkCycle'
+
+// reaches is whether a value of type from contains one of type target. A type that contains itself with a larger type
+// argument each time never repeats, so it is found by how deeply its instances nest, and sets growing.
+function reaches(mutates p ast.Project, from ast.TypeID, target ast.TypeID, mutates path ast.StringList, mutates visited BoolIntMap, mutates growing bool) returns bool
+	let kind = p.types.entries[from as Count].kind
+	let orig = ast.originOf(p.types, t: from)
+	let holder = ast.typeName(p.types, t: from)
+	if kind == ast.TypeKind.record 'record'
+		for fi in 0 upto p.types.entries[orig as Count].fields.count() 'fields'
+			let edge = "{holder}.{p.types.entries[orig as Count].fields[fi].name}"
+			let held = typeFieldType(p, ownerTy: from, fieldIdx: fi)
+			if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
+				return true
+			end 'found'
+		end 'fields'
+	end 'record' else if kind == ast.TypeKind.unionTy 'union'
+		for ci in 0 upto p.types.entries[orig as Count].cases.count() 'cases'
+			let edge = "{holder}.{p.types.entries[orig as Count].cases[ci].name}"
+			for pi in 0 upto p.types.entries[orig as Count].cases[ci].payload.count() 'payload'
+				let held = typePayloadType(p, ownerTy: from, caseIdx: ci, fieldIdx: pi)
+				if followEdge(p, edge: edge, held: held, target: target, path: path, visited: visited, growing: growing) 'found'
+					return true
+				end 'found'
+			end 'payload'
+		end 'cases'
+	end 'union'
+	return false
+end 'reaches'
+
+// followEdge follows one edge of the search for target: a field or a payload that holds the type held.
+function followEdge(mutates p ast.Project, edge String, held ast.TypeID, target ast.TypeID, mutates path ast.StringList, mutates visited BoolIntMap, mutates growing bool) returns bool
+	path.push(edge.clone())
+	if held == target 'found'
+		return true
+	end 'found'
+	if ast.hasTypeDepthOverflow(p.types, t: held, depth: 0 as Count) 'deep'
+		growing = true
+		return true
+	end 'deep'
+	if not visited.has(held as Count) 'unseen'
+		visited.insert(held as Count, value: true)
+		if reaches(p, from: held, target: target, path: path, visited: visited, growing: growing) 'inside'
+			return true
+		end 'inside'
+	end 'unseen'
+	_ = try path.pop() otherwise panic("an edge left that was never followed")
+	return false
+end 'followEdge'
+
+// checkConformance checks a declaration against each interface it says it implements: every method is there with the
+// signature the interface gives, so a bound that the declaration meets is never wrong at an instance.
+function checkConformance(mutates c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList)
+	let own = ast.selfType(p.types, declTy: nt)
+	let orig = ast.originOf(p.types, t: nt)
+	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
+	for i in 0 upto conforms.count() 'interfaces'
+		let sigs = p.types.entries[conforms[i] as Count].sigs.clone()
+		for j in 0 upto sigs.count() 'sigs'
+			let mark = errs.count()
+			requireImplements(c, p: p, site: site, nt: orig, own: own, iface: conforms[i], sig: sigs[j], errs: errs)
+			if failedSince(errs, mark: mark) 'failed'
+				return
+			end 'failed'
+		end 'sigs'
+	end 'interfaces'
+end 'checkConformance'
+
+function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, mutates errs diag.ErrorList)
+	let selfParams = oneType(p.types.entries[iface as Count].selfParam)
+	let bound = oneType(own)
+	let wantSpecs = applySpecs(p, specs: p.funcs.entries[sig as Count].params.clone(), params: selfParams, args: bound)
+	let wantReturn = ast.substituteType(p.types, t: p.funcs.entries[sig as Count].retTy, params: selfParams, args: bound)
+	let sigName = p.funcs.entries[sig as Count].name.clone()
+	let typeName = p.types.entries[nt as Count].name.clone()
+	let ifaceName = p.types.entries[iface as Count].name.clone()
+	let m = methodNamed(p, t: nt, name: sigName)
+	if m != ast.noFunc and p.funcs.entries[m as Count].bounds.count() > 0 'ownBounds'
+		failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
+		return
+	end 'ownBounds'
+	let sigConv = p.funcs.entries[sig as Count].selfConv
+	let sigError = p.funcs.entries[sig as Count].errTy
+	if m != ast.noFunc and not p.funcs.entries[m as Count].isStatic and p.funcs.entries[m as Count].selfConv == sigConv and sameSpecs(p.funcs.entries[m as Count].params, b: wantSpecs) and p.funcs.entries[m as Count].retTy == wantReturn and p.funcs.entries[m as Count].errTy == sigError 'matches'
+		return
+	end 'matches'
+	var problem = "does not have it"
+	if m != ast.noFunc 'found'
+		problem = "has it as '{signatureText(p, name: p.funcs.entries[m as Count].name, selfConv: p.funcs.entries[m as Count].selfConv, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)}'"
+	end 'found'
+	failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, which needs '{signatureText(p, name: sigName, selfConv: sigConv, specs: wantSpecs, ret: wantReturn, err: sigError)}', but '{typeName}' {problem}: add or change the method to match it", errs: errs)
+end 'requireImplements'
+
+function sameSpecs(a ast.ParamSpecList, b ast.ParamSpecList) returns bool
+	if a.count() != b.count() 'count'
+		return false
+	end 'count'
+	for i in 0 upto a.count() 'each'
+		if a[i].name != b[i].name or a[i].ty != b[i].ty or a[i].conv != b[i].conv 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameSpecs'
+
+// signatureText is a method as it is written in a declaration.
+function signatureText(p ast.Project, name String, selfConv ast.Convention, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID) returns String
+	var parts = ast.StringList.create(0)
+	if selfConv != ast.Convention.convLet 'receiver'
+		parts.push("{selfConv.keyword()} self")
+	end 'receiver'
+	for i in 0 upto specs.count() 'each'
+		var word = ""
+		if specs[i].conv != ast.Convention.convLet 'convention'
+			word = "{specs[i].conv.keyword()} "
+		end 'convention'
+		parts.push("{word}{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
+	end 'each'
+	var text = "function {name}({joinNames(parts, sep: ", ")})"
+	if ret != p.builtins.voidTy 'returns'
+		text = "{text} returns {nameOfType(p, t: ret)}"
+	end 'returns'
+	if err != ast.noType 'throws'
+		text = "{text} throws {nameOfType(p, t: err)}"
+	end 'throws'
+	return text
+end 'signatureText'
+
+// verifyBounds checks the type arguments that the module's instances and inferred calls give against their parameters'
+// bounds. All the bounds of one argument stop at the first it fails.
+export function verifyBounds(mutates c Checker, mutates p ast.Project, bounds PendingBoundList, mutates errs diag.ErrorList)
+	var failedSame = false
+	for i in 0 upto bounds.count() 'each'
+		if i > 0 and failedSame and sameArgument(bounds[i], b: bounds[(try i - 1 otherwise 0 as Count)]) 'skipped'
+			continue 'each'
+		end 'skipped'
+		let mark = errs.count()
+		c.boundedFn = bounds[i].withinFn
+		requireConforms(c, p: p, off: bounds[i].off, arg: bounds[i].argTy, iface: bounds[i].ifaceTy, param: bounds[i].paramTy, errs: errs)
+		failedSame = failedSince(errs, mark: mark)
+	end 'each'
+end 'verifyBounds'
+
+function sameArgument(a PendingBound, b PendingBound) returns bool
+	return a.off == b.off and a.paramTy == b.paramTy and a.argTy == b.argTy and a.hasMethod == b.hasMethod and a.methodFn == b.methodFn
+end 'sameArgument'
+
+// requireConforms checks one type argument against one bound of its parameter.
+function requireConforms(mutates c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
+	let argName = nameOfType(p, t: arg)
+	let paramName = nameOfType(p, t: param)
+	let ifaceName = p.types.entries[iface as Count].name.clone()
+	if p.builtins.isCapability(iface) 'structural'
+		let lacking = lacksCap(c, p: p, wantCopy: iface == p.builtins.copyableTy, t: arg)
+		if lacking.missing 'lacks'
+			let why = lackWhyText(p.types, info: lacking, capName: ifaceName)
+			let fix = lackFixText(p.types, info: lacking, capName: ifaceName)
+			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type argument '{argName}' for '{paramName}' must be {ifaceName}, but {why}: {fix}", errs: errs)
+		end 'lacks'
+		return
+	end 'structural'
+	if typeHasKind(p, t: arg, kind: ast.TypeKind.typeParam) 'parameter'
+		if not typeIn(boundsOfParam(p, boundedFn: c.boundedFn, paramTy: arg), t: iface) 'unbounded'
+			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type parameter '{argName}' is not known to be {ifaceName}, which the type argument for '{paramName}' must be: add the bound, '{argName} implements {ifaceName}'", errs: errs)
+		end 'unbounded'
+		return
+	end 'parameter'
+	if arg != ast.noType and typeIsNominal(p.types, t: arg) 'nominal'
+		requireDeclared(c, p: p, off: off, arg: arg, iface: iface, param: param, errs: errs)
+		return
+	end 'nominal'
+	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}', but only a type, enum or union implements an interface", errs: errs)
+end 'requireConforms'
+
+function typeIn(types ast.TypeIDList, t ast.TypeID) returns bool
+	return indexOfType(types, t: t).isSome()
+end 'typeIn'
+
+// requireDeclared refuses a nominal type argument whose declaration does not say it implements the interface.
+function requireDeclared(c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
+	let orig = ast.originOf(p.types, t: arg)
+	if typeIn(p.types.entries[orig as Count].conforms, t: iface) 'declared'
+		return
+	end 'declared'
+	let argName = nameOfType(p, t: arg)
+	let paramName = nameOfType(p, t: param)
+	let ifaceName = p.types.entries[iface as Count].name.clone()
+	if p.types.entries[orig as Count].hasDecl and p.types.entries[orig as Count].decl.module == diag.stdlibID 'builtIn'
+		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' is built in and implements no interface, so it cannot be {ifaceName} for '{paramName}'; wrap it in a type of your own that declares 'implements {spelled(c, p: p, iface: iface)}'", errs: errs)
+		return
+	end 'builtIn'
+	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}': declare '{declarationWord(p, t: arg)} {p.types.entries[orig as Count].name} implements {spelled(c, p: p, iface: iface)}'{missingMethods(p, t: arg, iface: iface)}", errs: errs)
+end 'requireDeclared'
+
+// spelled is how code in this module names an interface: qualified when another module declares it.
+function spelled(c Checker, p ast.Project, iface ast.TypeID) returns String
+	let name = p.types.entries[iface as Count].name.clone()
+	if not p.types.entries[iface as Count].hasDecl 'none'
+		return name
+	end 'none'
+	let owner = p.types.entries[iface as Count].decl.module
+	if owner != c.modID and owner != diag.stdlibID and p.modules[ast.modIndex(owner)].path != "" 'qualified'
+		return "{p.modules[ast.modIndex(owner)].path}.{name}"
+	end 'qualified'
+	return name
+end 'spelled'
+
+function declarationWord(p ast.Project, t ast.TypeID) returns String
+	let kind = p.types.entries[t as Count].kind
+	if kind == ast.TypeKind.record 'record'
+		return "type"
+	end 'record'
+	if kind == ast.TypeKind.enumTy 'enum'
+		return "enum"
+	end 'enum'
+	if kind == ast.TypeKind.unionTy 'union'
+		return "union"
+	end 'union'
+	panic("{ast.typeName(p.types, t: t)} is not declared as a type, enum or union")
+end 'declarationWord'
+
+// missingMethods names the methods of the interface that the type lacks, for the error that asks it to declare one.
+function missingMethods(p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
+	var missing = ast.StringList.create(0)
+	for i in 0 upto p.types.entries[iface as Count].sigs.count() 'each'
+		let sig = p.types.entries[iface as Count].sigs[i]
+		let name = p.funcs.entries[sig as Count].name.clone()
+		let m = methodNamed(p, t: t, name: name)
+		if m == ast.noFunc or p.funcs.entries[m as Count].isStatic 'lacking'
+			missing.push(name)
+		end 'lacking'
+	end 'each'
+	if missing.count() == 0 'none'
+		return ""
+	end 'none'
+	return " and add the method(s) {joinNames(missing, sep: ", ")}"
+end 'missingMethods'

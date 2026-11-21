@@ -81,7 +81,7 @@ function borrowPayloads(mutates l Lowerer, mutates p ast.Project, arm ast.NodeID
 				let kind = kindOf(l, p: p, t: local.ty)
 				let d = newReg(l, kind: kind)
 				emit(l, i: newLoadField(d, obj: subject, offset: fieldOffset(j, tagged: true)))
-				emit(l, i: newStoreSlot(local.slot, src: d, borrow: kind == IrKind.kindManaged))
+				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: kind == IrKind.kindManaged))
 			end 'named'
 		end 'bindings'
 	end 'patterns'
@@ -109,8 +109,8 @@ function takeApart(mutates l Lowerer, mutates p ast.Project, arm ast.NodeID, sub
 				end 'managed' else 'scalar'
 					emit(l, i: newLoadField(d, obj: subject, offset: offset))
 				end 'scalar'
-				emit(l, i: newStoreSlot(local.slot, src: d, borrow: false))
-				ownLocal(l, p: p, slot: local.slot, t: local.ty)
+				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: false))
+				ownLocal(l, p: p, slot: slotOf(local), t: local.ty)
 			end 'named'
 		end 'bindings'
 	end 'patterns'

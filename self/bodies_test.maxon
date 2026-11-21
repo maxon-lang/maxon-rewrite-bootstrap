@@ -1,0 +1,45 @@
+function loadProjectAt(path String, mutates errs diag.ErrorList) returns ast.Project
+	return match consumes project.loadProject(path, errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("{path}: cannot be loaded")
+	end 'pr'
+end 'loadProjectAt'
+
+function expectChecked(path String)
+	var errs = diag.ErrorList.create(0)
+	var p = loadProjectAt(path, errs: errs)
+	driver.frontEnd(p, errs: errs)
+	if errs.count() > 0 'failed'
+		ast.locateAllErrors(p.modules, errs: errs)
+		panic("{path}: unexpected error {errs[0].format()}")
+	end 'failed'
+end 'expectChecked'
+
+function expectCheckError(path String, code String, line Count, col Count)
+	var errs = diag.ErrorList.create(0)
+	var p = loadProjectAt(path, errs: errs)
+	driver.frontEnd(p, errs: errs)
+	ast.locateAllErrors(p.modules, errs: errs)
+	if errs.count() == 0 'none'
+		panic("{path}: expected {code}, got none")
+	end 'none'
+	if errs[0].code != code or errs[0].line != line or errs[0].col != col 'where'
+		panic("{path}: expected {code} at {line}:{col}, got {errs[0].format()}")
+	end 'where'
+end 'expectCheckError'
+
+function testBodies()
+	expectChecked("tests/run/generics.maxon")
+	expectChecked("tests/run/lru-cache.maxon")
+	expectChecked("tests/run/handle-stack.maxon")
+	expectChecked("tests/modules/generics")
+	expectChecked("tests/modules/throws")
+	expectCheckError("tests/errors/array-create-of-an-element-without-zero.maxon", code: "E3106", line: 5, col: 31)
+	expectCheckError("tests/errors/generic-case-without-a-context.maxon", code: "E3179", line: 21, col: 16)
+	expectCheckError("tests/errors/generic-conformance-missing-method.maxon", code: "E3016", line: 51, col: 1)
+	expectCheckError("tests/errors/expression-statement-not-a-call.maxon", code: "E2001", line: 3, col: 2)
+	expectCheckError("tests/errors/block-statement-as-arm-action.maxon", code: "E2049", line: 4, col: 10)
+	expectCheckError("tests/errors/clone-of-a-noncopyable-type.maxon", code: "E3918", line: 11, col: 17)
+	expectCheckError("tests/errors/generic-bound-not-met-in-a-body.maxon", code: "E3017", line: 52, col: 15)
+	expectCheckError("tests/errors/generic-bound-is-not-an-interface.maxon", code: "E3907", line: 51, col: 59)
+end 'testBodies'

@@ -77,7 +77,7 @@ end 'checkLoaded'
 
 // frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
 // first stage that has any, as the Go compiler reports them. A later step adds its stage after the last one.
-function frontEnd(mutates p ast.Project, mutates errs diag.ErrorList)
+export function frontEnd(mutates p ast.Project, mutates errs diag.ErrorList)
 	if errs.count() > 0 'discovered'
 		return
 	end 'discovered'
@@ -90,7 +90,38 @@ function frontEnd(mutates p ast.Project, mutates errs diag.ErrorList)
 		some(cycleError) then errs.push(cycleError.clone())
 		none then _ = 0
 	end 'cycle'
+	if errs.count() > 0 'cyclic'
+		return
+	end 'cyclic'
+	var checks = check.startChecks(p, order: project.topoOrder(graph))
+	checkStages(checks, p: p, errs: errs)
+	check.endChecks(p, ch: checks)
 end 'frontEnd'
+
+// checkStages runs the stages of the check over every module, each when the ones before it found nothing.
+function checkStages(mutates checks check.Checks, mutates p ast.Project, mutates errs diag.ErrorList)
+	check.stageAliases(checks, p: p, errs: errs)
+	if errs.count() > 0 'aliased'
+		return
+	end 'aliased'
+	check.stageDeclare(checks, p: p, errs: errs)
+	if errs.count() > 0 'declared'
+		return
+	end 'declared'
+	check.stageConstantOrder(checks, p: p, errs: errs)
+	if errs.count() > 0 'ordered'
+		return
+	end 'ordered'
+	check.stageConstants(checks, p: p, errs: errs)
+	if errs.count() > 0 'constants'
+		return
+	end 'constants'
+	check.stageBodies(checks, p: p, errs: errs)
+	if errs.count() > 0 'bodies'
+		return
+	end 'bodies'
+	check.stageVerify(checks, p: p, errs: errs)
+end 'checkStages'
 
 function report(mutates errs diag.ErrorList) returns ExitCode
 	diag.sortErrors(errs)

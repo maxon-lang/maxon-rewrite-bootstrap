@@ -109,7 +109,7 @@ function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	var binding = noSlot
 	let local = localOfNode(p, module: l.module, node: s)
 	if local != ast.noLocal 'bound'
-		binding = indexOf(localEntry(p, module: l.fnModule, id: local).slot)
+		binding = indexOf(slotOf(localEntry(p, module: l.fnModule, id: local)))
 	end 'bound'
 	_ = enterTry(l, target: handler, binding: binding)
 	lowerBlock(l, p: p, ref: ast.tryStmtBodyRef(p.modules[l.mi].tree, id: s))

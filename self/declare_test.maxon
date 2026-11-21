@@ -1,28 +1,19 @@
-function declareModuleStages(mutates p ast.Project, modIdx Count, mutates errs diag.ErrorList) returns ast.FuncID
-	var c = check.checkerStartMod(p, modIdx: modIdx)
-	let paramsOk = check.declareTypeParamBounds(c, p: p, errs: errs)
-	check.declareAliases(c, p: p, errs: errs)
-	_ = check.declareModule(c, p: p, paramsOk: paramsOk, errs: errs)
-	var entry = ast.noFunc
-	if modIdx == ast.modIndex(p.rootModule) 'root'
-		entry = check.checkMain(c, p: p, errs: errs)
-	end 'root'
-	check.checkConstants(c, p: p, errs: errs)
-	check.checkerEndMod(p, c: c)
-	return entry
-end 'declareModuleStages'
-
-// declareProject runs the aliases, declare and constants stages over each module after the modules it names, and gives
-// the entry function.
+// declareProject runs the stages up to the constants over every module, each after the modules it names, and gives the
+// entry function.
 function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
-	var entry = ast.noFunc
-	let order = project.topoOrder(project.newGraph(p))
-	for i in 0 upto order.count() 'each'
-		let declaredMain = declareModuleStages(p, modIdx: ast.modIndex(order[i]), errs: errs)
-		if declaredMain != ast.noFunc 'main'
-			entry = declaredMain
-		end 'main'
-	end 'each'
+	var checks = check.startChecks(p, order: project.topoOrder(project.newGraph(p)))
+	check.stageAliases(checks, p: p, errs: errs)
+	if errs.count() == 0 'aliased'
+		check.stageDeclare(checks, p: p, errs: errs)
+	end 'aliased'
+	if errs.count() == 0 'declared'
+		check.stageConstantOrder(checks, p: p, errs: errs)
+	end 'declared'
+	if errs.count() == 0 'ordered'
+		check.stageConstants(checks, p: p, errs: errs)
+	end 'ordered'
+	let entry = checks.entry
+	check.endChecks(p, ch: checks)
 	return entry
 end 'declareProject'
 

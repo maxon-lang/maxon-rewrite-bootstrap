@@ -16,6 +16,11 @@ export let noFunc = 0 as FuncID
 
 export let noLocal = 0 as LocalID
 
+// SlotIndex is the place of a local among the slots of its function's frame, or noSlot for a parameter, which has none.
+export typealias SlotIndex = int(-1 to 2147483647)
+
+export let noSlot = -1 as SlotIndex
+
 export let maxTypeDepth = 16 as Count
 
 export enum TypeKind
@@ -288,17 +293,17 @@ export type LocalEntry
 	export var isSelf as bool
 	export var projected as bool
 	export var paramIndex as Count
-	// slot is the place of a local that is not a parameter among the slots of its function's IR: dense from 0, in the
-	// order the checker declared them.
-	export var slot as Count
 	export var conv as Convention
 	export var definedAt as NodeID
 	export var isUninitialized as bool
 	export var isCapture as bool
 	export var captureConv as Convention
+	// slot is the place of a local that is not a parameter among the slots of its function's IR: dense from 0, in the
+	// order the checker declared them.
+	export var slot as SlotIndex
 
 	export static function make(consumes name String, ty TypeID, isVar bool, isParam bool, conv Convention, definedAt NodeID) returns LocalEntry
-		return LocalEntry{id: noLocal, name: name, ty: ty, isVar: isVar, isParam: isParam, isSelf: false, projected: false, paramIndex: 0 as Count, slot: 0 as Count, conv: conv, definedAt: definedAt, isUninitialized: false, isCapture: false, captureConv: Convention.convLet}
+		return LocalEntry{id: noLocal, name: name, ty: ty, isVar: isVar, isParam: isParam, isSelf: false, projected: false, paramIndex: 0 as Count, conv: conv, definedAt: definedAt, isUninitialized: false, isCapture: false, captureConv: Convention.convLet, slot: noSlot}
 	end 'make'
 end 'LocalEntry'
 

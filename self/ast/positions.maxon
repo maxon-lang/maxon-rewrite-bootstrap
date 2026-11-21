@@ -82,10 +82,45 @@ export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocatio
 	return locateModuleOffset(mods[idx], offset: site.offset)
 end 'locateSite'
 
+// qualifierOf is how a name is qualified by the module that declares it.
+function qualifierOf(m Module) returns String
+	if m.path == "" 'root'
+		return rootQualifier
+	end 'root'
+	return m.path.clone()
+end 'qualifierOf'
+
+// qualifyHint is how to name the declarations of the bare name that an error did not find that other modules declare, or
+// "" if none does: another module's declarations are always qualified.
+function qualifyHint(mods ModuleList, e diag.CompileError) returns String
+	if e.unqualified == "" 'none'
+		return ""
+	end 'none'
+	var spellings = StringList.create(0)
+	for i in 0 upto mods.count() 'each'
+		if mods[i].names.has(e.unqualified) and mods[i].id != e.site.module 'declared'
+			spellings.push("'{qualifierOf(mods[i])}.{e.unqualified}'")
+		end 'declared'
+	end 'each'
+	if spellings.count() == 0 'noOther'
+		return ""
+	end 'noOther'
+	var buf = ByteArray.create(0)
+	for i in 0 upto spellings.count() 'join'
+		if i > 0 'sep'
+			buf.append(" or ".toByteArray())
+		end 'sep'
+		buf.append(spellings[i].toByteArray())
+	end 'join'
+	return ": a declaration of another module is named with its module, as {String.from(buf)}"
+end 'qualifyHint'
+
 export function locateError(mods ModuleList, mutates e diag.CompileError)
 	if e.located 'already'
 		return
 	end 'already'
+	e.message = "{e.message}{qualifyHint(mods, e: e)}"
+	e.unqualified = ""
 	let loc = locateSite(mods, site: e.site)
 	e.file = loc.file
 	e.line = loc.line

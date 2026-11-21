@@ -40,7 +40,7 @@ function irFunction(mutates p ast.Project, name String, params Count) returns as
 end 'irFunction'
 
 // irLocal declares a local of a function that is not a parameter, in the slot it is given.
-function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeID, slot Count)
+function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeID, slot ast.SlotIndex)
 	var entry = ast.LocalEntry.make(name.clone(), ty: ty, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
 	entry.slot = slot
 	let id = p.typings[0].allocLocal(entry)
@@ -183,8 +183,8 @@ function testMain()
 	ofCount.push(countTy)
 	let arrayOrigin = p.builtins.arrayOrigin
 	let arrayTy = ast.instantiateType(p.types, origin: arrayOrigin, args: ofCount)
-	irLocal(p, fn: main, name: "xs", ty: arrayTy, slot: 0 as Count)
-	irLocal(p, fn: main, name: "h", ty: countTy, slot: 1 as Count)
+	irLocal(p, fn: main, name: "xs", ty: arrayTy, slot: 0 as ast.SlotIndex)
+	irLocal(p, fn: main, name: "h", ty: countTy, slot: 1 as ast.SlotIndex)
 	let createNode = irNode(p, kind: ast.NodeKind.callExpr, ty: arrayTy)
 	let receiverNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: arrayTy)
 	let createSite = ir.CallSite.make(createNode, info: ast.CallInfo.make(ast.CallKind.callStatic, fn: ast.noFunc, receiverTy: ast.noType), receiver: 0 as ast.NodeID, ordered: ast.NodeIDList.create(0))

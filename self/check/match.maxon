@@ -21,8 +21,8 @@ function popScope(mutates c Checker)
 	try c.scopes.pop() otherwise ignore
 end 'popScope'
 
-function pushBlock(mutates c Checker, consumes label String, node ast.NodeID)
-	c.blocks.push(BlockFrame.make(label, isLoop: false, node: node))
+function pushBlock(mutates c Checker, consumes label String, isLoop bool, node ast.NodeID)
+	c.blocks.push(BlockFrame.make(label, isLoop: isLoop, node: node))
 end 'pushBlock'
 
 function popBlock(mutates c Checker)
@@ -57,8 +57,9 @@ function nominalRecordOrNone(p ast.Project, t ast.TypeID) returns ast.TypeID
 	return ast.noType
 end 'nominalRecordOrNone'
 
-// declareLocal makes a local of the code being checked, visible in the innermost scope.
-function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
+// bindLocal makes a local of the code being checked, visible in the innermost scope, and lists it with the function's.
+function bindLocal(mutates c Checker, p ast.Project, consumes entry ast.LocalEntry, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
+	let name = entry.name.clone()
 	let rt = selfRecord(c, p: p)
 	if rt != ast.noType and p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(name).isSome() 'shadows'
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.localShadowsSelfField(name, typeName: p.types.entries[rt as Count].name), errs: errs)
@@ -69,8 +70,20 @@ function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeI
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{name}' is declared twice in this scope", errs: errs)
 		return ast.noLocal
 	end 'twice'
-	let id = c.typing.allocLocal(ast.LocalEntry.make(name.clone(), ty: t, isVar: isVar, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID))
-	c.scopes[top].insert(name.clone(), value: id)
+	let id = c.typing.allocLocal(entry)
+	c.scopes[top].insert(name, value: id)
+	c.fnLocals.push(id)
+	return id
+end 'bindLocal'
+
+// declareLocal makes a variable of the code being checked.
+function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
+	var entry = ast.LocalEntry.make(name.clone(), ty: t, isVar: isVar, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
+	entry.slot = try c.nextSlot as ast.SlotIndex otherwise panic("too many locals in one function")
+	let id = bindLocal(c, p: p, entry: entry, off: off, errs: errs)
+	if id != ast.noLocal 'declared'
+		c.nextSlot = try c.nextSlot + 1 otherwise panic("too many locals in one function")
+	end 'declared'
 	return id
 end 'declareLocal'
 
@@ -95,13 +108,14 @@ function checkMatch(mutates c Checker, mutates p ast.Project, core ast.NodeID, i
 	if subjectTy == ast.noType 'badSubject'
 		return ast.noType
 	end 'badSubject'
+	markMatchedBinding(c, p: p, subject: subject)
 	let st = ast.contentType(p.types, t: subjectTy)
 	if not checkSubject(c, p: p, core: core, subject: subject, subjectTy: subjectTy, st: st, errs: errs) 'unfit'
 		return ast.noType
 	end 'unfit'
 	let expect = c.expect
 	var state = MatchState.make()
-	pushBlock(c, label: ast.matchCoreLabel(p.modules[c.modIdx].tree, id: core), node: core)
+	pushBlock(c, label: ast.matchCoreLabel(p.modules[c.modIdx].tree, id: core), isLoop: false, node: core)
 	let armsRef = ast.matchCoreArmsRef(p.modules[c.modIdx].tree, id: core)
 	let owned = ast.matchCoreConsumes(p.modules[c.modIdx].tree, id: core)
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(armsRef) 'arms'
@@ -184,7 +198,14 @@ function checkArm(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st a
 			checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "an arm of a match expression 'gives' a value", errs: errs)
 			return
 		end 'inExpr'
-		panic("the statement of a match arm is checked by the bodies check")
+		let action = ast.matchArmAction(p.modules[c.modIdx].tree, id: arm)
+		let keyword = blockStatementKeyword(p.modules[c.modIdx].tree.kindOf(action))
+		if keyword != "" 'block'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: action), code: diag.errMatchBlockStatement, msg: diag.matchBlockStatement(keyword), errs: errs)
+			return
+		end 'block'
+		checkStmt(c, p: p, s: action, errs: errs)
+		return
 	end 'then'
 	if form == ast.ArmKind.armGives 'gives'
 		if not isExpr 'inStatement'
@@ -196,6 +217,26 @@ function checkArm(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st a
 	end 'gives'
 	_ = checkExpr(c, p: p, e: value, errs: errs)
 end 'checkArm'
+
+// blockStatementKeyword is the word that opens a statement that holds a block, or "" for one that does not.
+function blockStatementKeyword(kind ast.NodeKind) returns String
+	if kind == ast.NodeKind.ifStmt 'if'
+		return "if"
+	end 'if'
+	if kind == ast.NodeKind.whileStmt 'while'
+		return "while"
+	end 'while'
+	if kind == ast.NodeKind.forStmt 'for'
+		return "for"
+	end 'for'
+	if kind == ast.NodeKind.matchStmt 'match'
+		return "match"
+	end 'match'
+	if kind == ast.NodeKind.whenStmt 'when'
+		return "when"
+	end 'when'
+	return ""
+end 'blockStatementKeyword'
 
 // joinArm types the value an arm gives and joins its type with the types of the arms before it.
 function joinArm(mutates c Checker, mutates p ast.Project, value ast.NodeID, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)

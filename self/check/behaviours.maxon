@@ -1,0 +1,65 @@
+// What the behaviours of the language need from the bodies check: the 'when' statement, which checks its body as a
+// function of its own that captures the variables around it; the checks that 'freeze', 'share' and 'thaw' make of their
+// argument; the destructor that a cown ends its content with; and the refusal of a type that can reach itself through a
+// cown. The pass that checks them is a later step of the port. Until then each of them accepts what it is given and types
+// nothing: a program that has a behaviour passes the bodies check without its behaviours being looked at.
+
+// checkBehaviour is the call site of the behaviours pass for a 'when' statement.
+function checkBehaviour(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkBehaviour'
+
+// checkCownCycle is the call site of the behaviours pass for the declaration of a type or a union, which it refuses when
+// a cown can reach itself through it.
+function checkCownCycle(mutates c Checker, mutates p ast.Project, site ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkCownCycle'
+
+// checkFreezeArgs, checkShareArgs and checkThawArgs are the call sites of the behaviours pass for the argument of the
+// built-ins that make and take apart shared values.
+function checkFreezeArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkFreezeArgs'
+
+function checkShareArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkShareArgs'
+
+function checkThawArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkThawArgs'
+
+// checkDropWith is the call site of the behaviours pass for the destructor named by the 'dropWith:' of a cown, which the
+// call of the constructor leaves out of its arguments.
+function checkDropWith(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList)
+	_ = 0
+end 'checkDropWith'
+
+// cownCall types cown(x) and cown(x, dropWith: d). The content of the first is dropped with the last reference, so it
+// must be Droppable. The content of the second is ended by its destructor d, which is a method name and no value, so the
+// argument is taken out of the call before the ordinary arguments are checked.
+function cownCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
+	var dropAt = 0 as Count
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(argsRef) 'args'
+		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
+		if ast.argLabel(p.modules[c.modIdx].tree, id: arg) == ast.dropWithLabel 'found'
+			dropAt = i
+			break 'args'
+		end 'found'
+	end 'args'
+	let newFn = p.builtins.cownNewFunc
+	let newDropFn = p.builtins.cownNewDropWithFunc
+	if dropAt == 0 'plain'
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callFunction, target: newFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	end 'plain'
+	c.hasOmitted = true
+	c.omittedCall = call
+	c.omittedArgIdx = dropAt
+	let t = callFunction(c, p: p, call: call, kind: ast.CallKind.callFunction, target: newDropFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	c.hasOmitted = false
+	if t != ast.noType 'typed'
+		checkDropWith(c, p: p, call: call, errs: errs)
+	end 'typed'
+	return t
+end 'cownCall'

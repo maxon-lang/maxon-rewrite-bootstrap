@@ -113,28 +113,28 @@ export type CallInfo
 	export var paramSpecs as ParamSpecList
 	export var selfConv as Convention
 	export var receiverTy as TypeID
-	export var argOrder as Array with Count
+	export var ordered as NodeIDList
+	export var method as FuncID
 	export var unionTy as TypeID
 	export var unionCase as Count
 	export var hasDrop as bool
 	export var dropFn as FuncID
-	export var dropArgOrder as Array with Count
+	export var dropOrdered as NodeIDList
 	export var intrinsic as Intrinsic
 
 	export static function make(kind CallKind, fn FuncID, receiverTy TypeID) returns CallInfo
-		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, argOrder: Array.create(0), unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropArgOrder: Array.create(0), intrinsic: Intrinsic.intrNone}
+		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, ordered: NodeIDList.create(0), method: noFunc, unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropOrdered: NodeIDList.create(0), intrinsic: Intrinsic.intrNone}
 	end 'make'
 end 'CallInfo'
 
 export type StructLitInfo
 	export var ty as TypeID
-	export var fieldOrder as Array with Count
 	// ordered are the value expressions of the fields in the order of the record's fields; a field the literal leaves to
 	// its default has none (the node 0).
 	export var ordered as NodeIDList
 
-	export static function make(ty TypeID, consumes fieldOrder Array with Count) returns StructLitInfo
-		return StructLitInfo{ty: ty, fieldOrder: fieldOrder, ordered: NodeIDList.create(0)}
+	export static function make(ty TypeID, consumes ordered NodeIDList) returns StructLitInfo
+		return StructLitInfo{ty: ty, ordered: ordered}
 	end 'make'
 end 'StructLitInfo'
 

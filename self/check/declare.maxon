@@ -29,7 +29,7 @@ end 'declTypeOf'
 
 // typeParamOfNode is the type of the type parameter that a node of the module declares.
 function typeParamOfNode(c Checker, p ast.Project, node ast.NodeID) returns ast.TypeID
-	match p.declTypes.get(ast.nodeKey(c.modID, node: node)) 'tp'
+	match p.declTypes.get(ast.typeParamKey(c.modID, node: node)) 'tp'
 		some(tid) then return tid
 		none then _ = 0
 	end 'tp'
@@ -97,7 +97,7 @@ function declareFunctionTypeParams(mutates c Checker, mutates p ast.Project, par
 			return
 		end 'dup'
 		let tid = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: params[i].name.clone()))
-		p.declTypes.insert(ast.nodeKey(c.modID, node: params[i].id), value: tid)
+		p.declTypes.insert(ast.typeParamKey(c.modID, node: params[i].id), value: tid)
 		generics.push(tid)
 	end 'each'
 	declareBounds(c, p: p, constraints: constraints, errs: errs)
@@ -108,7 +108,7 @@ end 'declareFunctionTypeParams'
 function declareNominalTypeParams(mutates c Checker, mutates p ast.Project, owner ast.TypeID, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList)
 	for i in 0 upto params.count() 'each'
 		match paramNamed(p, owner: owner, name: params[i].name) 'shell'
-			some(tid) then p.declTypes.insert(ast.nodeKey(c.modID, node: params[i].id), value: tid)
+			some(tid) then p.declTypes.insert(ast.typeParamKey(c.modID, node: params[i].id), value: tid)
 			none then panic("the shell of '{p.types.entries[owner as Count].name}' has no type parameter '{params[i].name}'")
 		end 'shell'
 	end 'each'
@@ -244,12 +244,20 @@ end 'declareSignature'
 // its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
 // else. A typealias of an instance names the instance. It reports why a 'Self' outside a type names none.
 function typeNamed(c Checker, p ast.Project, name ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if ast.nameExprName(p.modules[c.modIdx].tree, id: name) == "Self" 'selfName'
+	let spelling = ast.nameExprName(p.modules[c.modIdx].tree, id: name)
+	if spelling == "Self" 'selfName'
 		if c.owner == ast.noType 'noOwner'
 			checkFail(c.modID, off: offsetOf(c, p: p, node: name), code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)
 		end 'noOwner'
 		return c.owner
 	end 'selfName'
+	if lookupLocal(c, name: spelling) != ast.noLocal 'local'
+		return ast.noType
+	end 'local'
+	let rt = selfRecord(c, p: p)
+	if rt != ast.noType and p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(spelling).isSome() 'field'
+		return ast.noType
+	end 'field'
 	match consumes p.resolutions[c.modIdx].decls.get(name as Count) 'bound'
 		some(ref) then return nominalTypeOf(p, ref: ref)
 		none then return ast.noType

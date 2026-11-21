@@ -1,6 +1,6 @@
 typealias DeclRefList = Array with ast.DeclRef
 
-typealias OrdinalList = Array with ast.DeclOrdinal
+export typealias OrdinalList = Array with ast.DeclOrdinal
 
 let aliasUnvisited = 0 as Byte
 

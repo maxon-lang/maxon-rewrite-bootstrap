@@ -1,0 +1,523 @@
+// checkCall types a call, whose failure, if the function it runs throws, goes to the try around it.
+function checkCall(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let t = typeCall(c, p: p, call: e, errs: errs)
+	if t == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	recordCallFailure(c, p: p, call: e)
+	return t
+end 'checkCall'
+
+// recordCallFailure notes that the function a call runs can fail, for the try that catches it.
+function recordCallFailure(mutates c Checker, p ast.Project, call ast.NodeID)
+	match consumes c.typing.calls.get(call as Count) 'info'
+		some(info) then recordFailureOf(c, p: p, info: info)
+		none then _ = 0
+	end 'info'
+end 'recordCallFailure'
+
+function recordFailureOf(mutates c Checker, p ast.Project, info ast.CallInfo)
+	var failure = ast.noType
+	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'target'
+		failure = p.funcs.entries[info.fn as Count].errTy
+	end 'target' else if info.kind == ast.CallKind.callBound 'bound'
+		failure = p.funcs.entries[info.method as Count].errTy
+	end 'bound'
+	if failure != ast.noType 'fails'
+		recordFailure(c, e: failure)
+	end 'fails'
+end 'recordFailureOf'
+
+function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not c.allowCalls 'forbidden'
+		failAt(c, p: p, node: call, code: diag.errModuleLetCallsFunction, msg: "a constant calls nothing", errs: errs)
+		return ast.noType
+	end 'forbidden'
+	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
+	let k = p.modules[c.modIdx].tree.kindOf(callee)
+	if k == ast.NodeKind.nameExpr and lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal 'named'
+		return callNamed(c, p: p, call: call, callee: callee, errs: errs)
+	end 'named'
+	if k == ast.NodeKind.memberExpr 'member'
+		return callMember(c, p: p, call: call, callee: callee, errs: errs)
+	end 'member'
+	failAt(c, p: p, node: call, code: diag.errUnsupported, msg: "only a named function or method can be called", errs: errs)
+	return ast.noType
+end 'typeCall'
+
+function unknownFunction(c Checker, p ast.Project, call ast.NodeID, name String, qualifiers Count, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: call)
+	if qualifiers == 0 'bare'
+		diag.pushUnqualifiedError(errs, code: diag.errUnknownFunction, message: diag.undefinedFunction(name), module: c.modID, offset: off, name: name.clone())
+		return ast.noType
+	end 'bare'
+	checkFail(c.modID, off: off, code: diag.errUnknownFunction, msg: diag.undefinedFunction(name), errs: errs)
+	return ast.noType
+end 'unknownFunction'
+
+// callNamed types a call of a name that no local stands for: print, a function, or the cown type.
+function callNamed(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: callee)
+	match consumes p.resolutions[c.modIdx].decls.get(callee as Count) 'bound'
+		some(ref) then return callDeclared(c, p: p, call: call, ref: ref, name: name, errs: errs)
+		none then _ = 0
+	end 'bound'
+	if name == "print" or name == "printError" 'print'
+		return callPrint(c, p: p, call: call, name: name, errs: errs)
+	end 'print'
+	return unknownFunction(c, p: p, call: call, name: name, qualifiers: 0 as Count, errs: errs)
+end 'callNamed'
+
+function callDeclared(mutates c Checker, mutates p ast.Project, call ast.NodeID, ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let fid = declaredFunction(p, ref: ref)
+	if fid != ast.noFunc 'function'
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callFunction, target: fid, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	end 'function'
+	if typeHasKind(p, t: declaredTypeOrNone(p, ref: ref), kind: ast.TypeKind.builtinCown) 'cown'
+		return cownCall(c, p: p, call: call, errs: errs)
+	end 'cown'
+	return unknownFunction(c, p: p, call: call, name: name, qualifiers: 0 as Count, errs: errs)
+end 'callDeclared'
+
+// declaredFunction is the function that a declaration is, or none for a declaration of another kind.
+function declaredFunction(p ast.Project, ref ast.DeclRef) returns ast.FuncID
+	match p.declFuncs.get(ast.declKey(ref)) 'fn'
+		some(fid) then return fid
+		none then return ast.noFunc
+	end 'fn'
+end 'declaredFunction'
+
+// methodNamed is the method of that name that the declaration of a type has, or none.
+function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncID
+	match p.types.entries[ast.originOf(p.types, t: t) as Count].findMethod(name) 'method'
+		some(fid) then return fid
+		none then return ast.noFunc
+	end 'method'
+end 'methodNamed'
+
+// stringMethodNamed is the method of String of that name, or none.
+function stringMethodNamed(p ast.Project, name String) returns ast.FuncID
+	match p.builtins.stringMethods.get(name) 'method'
+		some(fid) then return fid
+		none then return ast.noFunc
+	end 'method'
+end 'stringMethodNamed'
+
+// callPrint types print and printError, which take the text to write.
+function callPrint(mutates c Checker, mutates p ast.Project, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	var specs = ast.ParamSpecList.create(0)
+	specs.push(ast.ParamSpec.make("text", ty: p.builtins.stringTy, conv: ast.Convention.convLet))
+	let mark = errs.count()
+	let ordered = bindArgs(c, p: p, call: call, callee: name, specs: specs, argsChecked: false, errs: errs)
+	if failedSince(errs, mark: mark) 'failed'
+		return ast.noType
+	end 'failed'
+	var kind = ast.CallKind.callPrintError
+	if name == "print" 'plain'
+		kind = ast.CallKind.callPrint
+	end 'plain'
+	var info = ast.CallInfo.make(kind, fn: ast.noFunc, receiverTy: ast.noType)
+	info.ordered = ordered
+	info.paramSpecs = specs
+	c.typing.calls.insert(call as Count, value: info)
+	return p.builtins.voidTy
+end 'callPrint'
+
+// namesString is whether e is the name String, a primitive type with no declaration, where no local shadows it.
+function namesString(c Checker, p ast.Project, e ast.NodeID) returns bool
+	if p.modules[c.modIdx].tree.kindOf(e) != ast.NodeKind.nameExpr 'notName'
+		return false
+	end 'notName'
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
+	return name == "String" and lookupLocal(c, name: name) == ast.noLocal
+end 'namesString'
+
+// callMember types 'Type.function(...)', 'Union.case(...)' and 'object.method(...)'.
+function callMember(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)
+	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
+	if namesString(c, p: p, e: obj) 'string'
+		return callStringStatic(c, p: p, call: call, name: name, errs: errs)
+	end 'string'
+	var named = ast.noType
+	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
+		let mark = errs.count()
+		named = typeNamed(c, p: p, name: obj, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return ast.noType
+		end 'failed'
+	end 'headIsName'
+	if named != ast.noType 'type'
+		return callOnType(c, p: p, call: call, nt: named, name: name, errs: errs)
+	end 'type'
+	let receiver = checkExpr(c, p: p, e: obj, errs: errs)
+	if receiver == ast.noType 'badReceiver'
+		return ast.noType
+	end 'badReceiver'
+	return callOnValue(c, p: p, call: call, receiver: receiver, name: name, errs: errs)
+end 'callMember'
+
+function callStringStatic(mutates c Checker, mutates p ast.Project, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let sf = stringMethodNamed(p, name: name)
+	if sf != ast.noFunc and p.funcs.entries[sf as Count].isStatic 'static'
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	end 'static'
+	return unknownFunction(c, p: p, call: call, name: "String.{name}", qualifiers: 1 as Count, errs: errs)
+end 'callStringStatic'
+
+// callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
+function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if p.types.entries[nt as Count].kind == ast.TypeKind.unionTy and p.types.entries[ast.originOf(p.types, t: nt) as Count].findCase(name).isSome() 'union'
+		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
+	end 'union'
+	let sm = methodNamed(p, t: nt, name: name)
+	if sm != ast.noFunc and p.funcs.entries[sm as Count].isStatic 'static'
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.entries[nt as Count].typeArgs.count() > 0, given: p.types.entries[nt as Count].typeArgs.clone(), errs: errs)
+	end 'static'
+	return unknownFunction(c, p: p, call: call, name: "{nameOfType(p, t: nt)}.{name}", qualifiers: 1 as Count, errs: errs)
+end 'callOnType'
+
+// callOnValue types 'value.method(...)'.
+function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if name == cloneMethod 'clone'
+		return copyCall(c, p: p, call: call, t: receiver, errs: errs)
+	end 'clone'
+	let content = ast.contentType(p.types, t: receiver)
+	if not requireNotCown(c, p: p, off: offsetOf(c, p: p, node: call), t: content, use: "calling '{name}'", errs: errs) 'cown'
+		return ast.noType
+	end 'cown'
+	if typeHasKind(p, t: content, kind: ast.TypeKind.typeParam) 'parameter'
+		return boundCall(c, p: p, call: call, param: content, receiver: receiver, name: name, errs: errs)
+	end 'parameter'
+	if typeIsNominal(p.types, t: content) 'nominal'
+		let method = methodNamed(p, t: content, name: name)
+		if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
+			return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
+		end 'instance'
+	end 'nominal'
+	if content == p.builtins.stringTy 'string'
+		let method = stringMethodNamed(p, name: name)
+		if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
+			return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+		end 'instance'
+	end 'string'
+	return unknownFunction(c, p: p, call: call, name: "{nameOfType(p, t: receiver)}.{name}", qualifiers: 1 as Count, errs: errs)
+end 'callOnValue'
+
+function callMethod(mutates c Checker, mutates p ast.Project, call ast.NodeID, receiver ast.TypeID, content ast.TypeID, method ast.FuncID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.entries[method as Count].selfConv, method: name, errs: errs) 'frozen'
+		return ast.noType
+	end 'frozen'
+	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.entries[content as Count].typeArgs.count() > 0, given: p.types.entries[content as Count].typeArgs.clone(), errs: errs)
+end 'callMethod'
+
+// requireNotFrozenChange refuses a call that would change or consume the contents of a frozen value.
+function requireNotFrozenChange(c Checker, p ast.Project, call ast.NodeID, recv ast.TypeID, conv ast.Convention, method String, mutates errs diag.ErrorList) returns bool
+	if isFrozenType(p, t: recv) and conv != ast.Convention.convLet 'frozen'
+		failAt(c, p: p, node: call, code: diag.errFrozenChange, msg: "'{method}' takes its receiver as {conv.keyword()}, and the contents of a frozen value are immutable and owned by it; call it on a copy: 'thaw(x).{method}(...)' gives an owned value", errs: errs)
+		return false
+	end 'frozen'
+	return true
+end 'requireNotFrozenChange'
+
+// callFunction types a call of a function, a method or a static function, once it is known which. given are the type
+// arguments of the instance a method or a static function is called on, which a generic callee takes as they are.
+function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireVisible(c, p: p, node: call, target: target, errs: errs) 'hidden'
+		return ast.noType
+	end 'hidden'
+	if p.funcs.entries[target as Count].generics.count() > 0 'generic'
+		return callGeneric(c, p: p, call: call, kind: kind, target: target, hasGiven: hasGiven, given: given, errs: errs)
+	end 'generic'
+	let specs = p.funcs.entries[target as Count].params.clone()
+	let callee = funcSymbol(p, f: target)
+	var info = ast.CallInfo.make(kind, fn: target, receiverTy: ast.noType)
+	info.paramSpecs = specs.clone()
+	info.selfConv = p.funcs.entries[target as Count].selfConv
+	info.intrinsic = p.funcs.entries[target as Count].intrinsic
+	if declares(c, p: p, f: target) 'declared'
+		let mark = errs.count()
+		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return ast.noType
+		end 'failed'
+		c.typing.calls.insert(call as Count, value: info)
+		return p.funcs.entries[target as Count].retTy
+	end 'declared'
+	c.typing.calls.insert(call as Count, value: info)
+	if not typeArgumentsOfOtherModule(c, p: p, call: call, specs: specs, errs: errs) 'badArgs'
+		return ast.noType
+	end 'badArgs'
+	queuePending(c, call: call, callee: callee, fn: target, specs: specs)
+	return p.funcs.entries[target as Count].retTy
+end 'callFunction'
+
+// typeArgumentsOfOtherModule types the arguments of a call that is verified later, each with the type of the parameter it
+// stands for as its expected type, as a call in the module does, so an argument means the same whichever module the
+// callee is in. One that stands for no parameter is an error that verify reports.
+function typeArgumentsOfOtherModule(mutates c Checker, mutates p ast.Project, call ast.NodeID, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns bool
+	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
+	let count = p.modules[c.modIdx].tree.listLen(argsRef)
+	for i in 0 upto count 'each'
+		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
+		var want = ast.noType
+		match consumes argSlot(i, label: ast.argLabel(p.modules[c.modIdx].tree, id: arg), specs: specs) 'slot'
+			some(slot) then want = expectedFor(specs, slot: slot, given: count)
+			none then _ = 0
+		end 'slot'
+		if checkExpecting(c, p: p, e: ast.argValue(p.modules[c.modIdx].tree, id: arg), want: want, errs: errs) == ast.noType 'failed'
+			return false
+		end 'failed'
+	end 'each'
+	return true
+end 'typeArgumentsOfOtherModule'
+
+function expectedFor(specs ast.ParamSpecList, slot Count, given Count) returns ast.TypeID
+	if slot < specs.count() and given == specs.count() 'fits'
+		return specs[slot].ty
+	end 'fits'
+	return ast.noType
+end 'expectedFor'
+
+// callGeneric types a call whose callee has type parameters. given are the arguments of the instance the callee is called
+// on, which were checked against their bounds where the instance was written; without them they are inferred.
+function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	let callee = funcSymbol(p, f: target)
+	let generics = ast.cloneTypeArgs(p.funcs.entries[target as Count].generics)
+	let declared = p.funcs.entries[target as Count].params.clone()
+	var args = given.clone()
+	var specs = declared.clone()
+	var ordered = ast.NodeIDList.create(0)
+	let mark = errs.count()
+	if hasGiven 'instance'
+		specs = applySpecs(p, specs: declared, params: generics, args: given)
+		ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+		if failedSince(errs, mark: mark) 'badOrder'
+			return ast.noType
+		end 'badOrder'
+		for i in 0 upto specs.count() 'typed'
+			if checkExpecting(c, p: p, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
+				return ast.noType
+			end 'failed'
+		end 'typed'
+	end 'instance' else 'inferred'
+		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: declared, errs: errs)
+		if failedSince(errs, mark: mark) 'badArgs'
+			return ast.noType
+		end 'badArgs'
+	end 'inferred'
+	let intrinsic = p.funcs.entries[target as Count].intrinsic
+	let isFree = intrinsic != ast.Intrinsic.intrNone and p.funcs.entries[target as Count].ownerTy == ast.noType
+	if isFree 'checkFirst'
+		checkIntrinsicArgs(c, p: p, call: call, target: target, ordered: ordered, errs: errs)
+		if failedSince(errs, mark: mark) 'badIntrinsic'
+			return ast.noType
+		end 'badIntrinsic'
+	end 'checkFirst'
+	let off = offsetOf(c, p: p, node: call)
+	if not hasGiven 'infer'
+		args = infer(c, p: p, node: call, callee: callee, params: generics, specs: declared, ordered: ordered, result: p.funcs.entries[target as Count].retTy, errs: errs)
+		if failedSince(errs, mark: mark) 'cannotInfer'
+			return ast.noType
+		end 'cannotInfer'
+		queueBounds(c, p: p, off: off, params: generics, args: args)
+		specs = applySpecs(p, specs: declared, params: generics, args: args)
+	end 'infer'
+	queueMethodBounds(c, p: p, off: off, method: target, args: args)
+	var info = ast.CallInfo.make(kind, fn: target, receiverTy: ast.noType)
+	info.typeArgs = args.clone()
+	info.paramSpecs = specs.clone()
+	info.selfConv = p.funcs.entries[target as Count].selfConv
+	info.intrinsic = intrinsic
+	info.ordered = ordered.clone()
+	c.typing.calls.insert(call as Count, value: info)
+	if intrinsic == ast.Intrinsic.intrNone 'user'
+		recordUse(c, call: call)
+	end 'user' else if not isFree 'checkAfter'
+		checkIntrinsicArgs(c, p: p, call: call, target: target, ordered: ordered, errs: errs)
+		if failedSince(errs, mark: mark) 'badIntrinsic'
+			return ast.noType
+		end 'badIntrinsic'
+	end 'checkAfter'
+	if not declares(c, p: p, f: target) 'pending'
+		queuePending(c, call: call, callee: callee, fn: target, specs: specs)
+	end 'pending' else 'bound'
+		for i in 0 upto specs.count() 'each'
+			if not coerceArg(c, p: p, value: ordered[i], callee: callee, spec: specs[i], errs: errs) 'badArg'
+				return ast.noType
+			end 'badArg'
+		end 'each'
+	end 'bound'
+	return ast.substituteType(p.types, t: p.funcs.entries[target as Count].retTy, params: generics, args: args)
+end 'callGeneric'
+
+// unionConstructor types 'Union.case(payload)'. A generic union written without type arguments takes them from the
+// payload.
+function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.NodeID, ut ast.TypeID, caseName String, mutates errs diag.ErrorList) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: ut)
+	let caseIndex = caseIndexNamed(p, orig: orig, name: caseName)
+	let unionName = nameOfType(p, t: ut)
+	if p.types.entries[orig as Count].cases[caseIndex].payload.count() == 0 'noPayload'
+		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: "case '{caseName}' carries no payload: write '{unionName}.{caseName}'", errs: errs)
+		return ast.noType
+	end 'noPayload'
+	var info = ast.CallInfo.make(ast.CallKind.callUnionCtor, fn: ast.noFunc, receiverTy: ast.noType)
+	info.unionCase = caseIndex
+	var specs = payloadSpecs(p, ut: ut, caseIndex: caseIndex)
+	let callee = "{unionName}.{caseName}"
+	var resolved = ut
+	let mark = errs.count()
+	var ordered = ast.NodeIDList.create(0)
+	if p.types.entries[ut as Count].typeParams.count() > 0 'generic'
+		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+		if failedSince(errs, mark: mark) 'badArgs'
+			return ast.noType
+		end 'badArgs'
+		let params = ast.cloneTypeArgs(p.types.entries[ut as Count].typeParams)
+		let own = ast.selfType(p.types, declTy: ut)
+		let args = infer(c, p: p, node: call, callee: unionName, params: params, specs: specs, ordered: ordered, result: own, errs: errs)
+		if failedSince(errs, mark: mark) 'cannotInfer'
+			return ast.noType
+		end 'cannotInfer'
+		resolved = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: call), orig: ut, args: args, errs: errs)
+		if resolved == ast.noType 'badInstance'
+			return ast.noType
+		end 'badInstance'
+		specs = payloadSpecs(p, ut: resolved, caseIndex: caseIndex)
+		for i in 0 upto specs.count() 'each'
+			if not coerceArg(c, p: p, value: ordered[i], callee: callee, spec: specs[i], errs: errs) 'badArg'
+				return ast.noType
+			end 'badArg'
+		end 'each'
+	end 'generic' else 'plain'
+		ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, errs: errs)
+		if failedSince(errs, mark: mark) 'badBind'
+			return ast.noType
+		end 'badBind'
+	end 'plain'
+	info.ordered = ordered
+	info.unionTy = resolved
+	info.paramSpecs = specs
+	c.typing.calls.insert(call as Count, value: info)
+	return resolved
+end 'unionConstructor'
+
+// caseIndexNamed is the place of the case of that name among those of a union or an enum, which has one.
+function caseIndexNamed(p ast.Project, orig ast.TypeID, name String) returns Count
+	match p.types.entries[orig as Count].findCase(name) 'case'
+		some(i) then return i
+		none then _ = 0
+	end 'case'
+	panic("'{p.types.entries[orig as Count].name}' has no case '{name}'")
+end 'caseIndexNamed'
+
+// payloadSpecs are the parameters a union's constructor of a case takes: the payload, each consumed.
+function payloadSpecs(mutates p ast.Project, ut ast.TypeID, caseIndex Count) returns ast.ParamSpecList
+	let orig = ast.originOf(p.types, t: ut)
+	var specs = ast.ParamSpecList.create(0)
+	for i in 0 upto p.types.entries[orig as Count].cases[caseIndex].payload.count() 'each'
+		let name = p.types.entries[orig as Count].cases[caseIndex].payload[i].name.clone()
+		let t = typePayloadType(p, ownerTy: ut, caseIdx: caseIndex, fieldIdx: i)
+		specs.push(ast.ParamSpec.make(name, ty: t, conv: ast.Convention.convConsumes))
+	end 'each'
+	return specs
+end 'payloadSpecs'
+
+// boundCall types a call of a method that a type parameter's bounds declare. It is the only method a value of a type
+// parameter has, and it runs the method of whatever type the parameter becomes.
+function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, param ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let bounds = boundsOfParam(p, boundedFn: c.boundedFn, paramTy: param)
+	var iface = ast.noType
+	var sig = ast.noFunc
+	for i in 0 upto bounds.count() 'candidates'
+		if bounds[i] == iface 'again'
+			continue 'candidates'
+		end 'again'
+		let found = signatureNamed(p, iface: bounds[i], name: name)
+		if found == ast.noFunc 'absent'
+			continue 'candidates'
+		end 'absent'
+		if sig != ast.noFunc 'ambiguous'
+			failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "the bounds '{nameOfType(p, t: iface)}' and '{nameOfType(p, t: bounds[i])}' of '{nameOfType(p, t: param)}' both declare '{name}'; keep only one bound that declares it", errs: errs)
+			return ast.noType
+		end 'ambiguous'
+		iface = bounds[i]
+		sig = found
+	end 'candidates'
+	if sig == ast.noFunc 'unknown'
+		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "{nameOfType(p, t: param)} has no method '{name}'{boundsText(p, bounds: bounds, param: param)}", errs: errs)
+		return ast.noType
+	end 'unknown'
+	let selfConv = p.funcs.entries[sig as Count].selfConv
+	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: selfConv, method: name, errs: errs) 'frozen'
+		return ast.noType
+	end 'frozen'
+	let selfParams = oneType(p.types.entries[iface as Count].selfParam)
+	let specs = applySpecs(p, specs: p.funcs.entries[sig as Count].params.clone(), params: selfParams, args: oneType(param))
+	let calleeName = "{nameOfType(p, t: param)}.{name}"
+	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
+	info.method = sig
+	info.selfConv = selfConv
+	info.paramSpecs = specs.clone()
+	let mark = errs.count()
+	info.ordered = bindArgs(c, p: p, call: call, callee: calleeName, specs: specs, argsChecked: false, errs: errs)
+	if failedSince(errs, mark: mark) 'badArgs'
+		return ast.noType
+	end 'badArgs'
+	c.typing.calls.insert(call as Count, value: info)
+	recordUse(c, call: call)
+	return ast.substituteType(p.types, t: p.funcs.entries[sig as Count].retTy, params: selfParams, args: oneType(param))
+end 'boundCall'
+
+function oneType(t ast.TypeID) returns ast.TypeIDList
+	var list = ast.TypeIDList.create(0)
+	list.push(t)
+	return list
+end 'oneType'
+
+// signatureNamed is the method an interface requires by that name, or none.
+function signatureNamed(p ast.Project, iface ast.TypeID, name String) returns ast.FuncID
+	for i in 0 upto p.types.entries[iface as Count].sigs.count() 'each'
+		let sig = p.types.entries[iface as Count].sigs[i]
+		if p.funcs.entries[sig as Count].name == name 'hit'
+			return sig
+		end 'hit'
+	end 'each'
+	return ast.noFunc
+end 'signatureNamed'
+
+// boundsText says what a type parameter can call, for the error that names a method it cannot.
+function boundsText(p ast.Project, bounds ast.TypeIDList, param ast.TypeID) returns String
+	let name = nameOfType(p, t: param)
+	if bounds.count() == 0 'none'
+		return ": a type parameter has only the methods of its bounds, and '{name}' has none; constrain it with 'where {name} implements <Interface>'"
+	end 'none'
+	var names = ast.StringList.create(0)
+	for i in 0 upto bounds.count() 'each'
+		names.push(nameOfType(p, t: bounds[i]))
+	end 'each'
+	return ": a type parameter has only the methods of its bounds ({joinNames(names, sep: ", ")})"
+end 'boundsText'
+
+// copyCall types 'value.clone()'.
+function copyCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
+		failAt(c, p: p, node: call, code: diag.errTypeMismatch, msg: "an expression with no value cannot be copied", errs: errs)
+		return ast.noType
+	end 'noValue'
+	let lacking = lacksCap(c, p: p, wantCopy: true, t: t)
+	if lacking.missing 'noCopy'
+		let why = lackWhyText(p.types, info: lacking, capName: "Copyable")
+		let fix = lackFixText(p.types, info: lacking, capName: "Copyable")
+		failAt(c, p: p, node: call, code: diag.errNotCopyable, msg: "a value of '{nameOfType(p, t: t)}' cannot be copied: {why}; {fix}, or move the value instead of copying it", errs: errs)
+		return ast.noType
+	end 'noCopy'
+	var info = ast.CallInfo.make(ast.CallKind.callCopy, fn: ast.noFunc, receiverTy: t)
+	let mark = errs.count()
+	info.ordered = bindArgs(c, p: p, call: call, callee: cloneMethod, specs: ast.ParamSpecList.create(0), argsChecked: false, errs: errs)
+	if failedSince(errs, mark: mark) 'badArgs'
+		return ast.noType
+	end 'badArgs'
+	c.typing.calls.insert(call as Count, value: info)
+	return t
+end 'copyCall'

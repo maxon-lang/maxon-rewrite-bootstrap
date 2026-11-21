@@ -1,0 +1,341 @@
+// The arguments of a call: put in the order of the parameters, typed, and bound to them. A function here stops at its first
+// error, which its caller finds by comparing the number of errors with the mark it took before.
+
+// funcSymbol is how a message names a function: a method is written with its type, in parentheses where the type is an
+// instance, and an instance of a generic function with its type arguments.
+function funcSymbol(p ast.Project, f ast.FuncID) returns String
+	let name = p.funcs.entries[f as Count].name.clone()
+	let owner = p.funcs.entries[f as Count].ownerTy
+	if owner == ast.noType 'free'
+		if p.funcs.entries[f as Count].genericOrigin != ast.noFunc 'instance'
+			var names = ast.StringList.create(0)
+			for i in 0 upto p.funcs.entries[f as Count].typeArgs.count() 'args'
+				names.push(ast.typeName(p.types, t: p.funcs.entries[f as Count].typeArgs[i]))
+			end 'args'
+			return "{name}[{joinNames(names, sep: ", ")}]"
+		end 'instance'
+		return name
+	end 'free'
+	let ownerName = ast.typeName(p.types, t: owner)
+	if p.types.entries[owner as Count].typeArgs.count() > 0 'instance'
+		return "({ownerName}).{name}"
+	end 'instance'
+	return "{ownerName}.{name}"
+end 'funcSymbol'
+
+function joinNames(items ast.StringList, sep String) returns String
+	var buf = ByteArray.create(0)
+	for i in 0 upto items.count() 'each'
+		if i > 0 'sep'
+			buf.append(sep.toByteArray())
+		end 'sep'
+		buf.append(items[i].toByteArray())
+	end 'each'
+	return String.from(buf)
+end 'joinNames'
+
+// argSlot is the parameter that the index-th argument given stands for: the first by its place, every other by its label.
+// It is none for an argument that names no parameter after the first, or that no label names.
+function argSlot(index Count, label String, specs ast.ParamSpecList) returns table.Option with Count
+	if index == 0 'first'
+		return table.Option.some(0 as Count)
+	end 'first'
+	for j in 1 upto specs.count() 'each'
+		if specs[j].name == label 'named'
+			return table.Option.some(j)
+		end 'named'
+	end 'each'
+	return table.Option.none
+end 'argSlot'
+
+// omittedIndex is the place among the arguments of the call of the argument that the call's ordering leaves out (the
+// 'dropWith:' of a cown), or none.
+function omittedIndex(c Checker, call ast.NodeID) returns table.Option with Count
+	if c.hasOmitted and c.omittedCall == call 'omitted'
+		return table.Option.some(c.omittedArgIdx)
+	end 'omitted'
+	return table.Option.none
+end 'omittedIndex'
+
+function argumentCount(c Checker, p ast.Project, call ast.NodeID) returns Count
+	return p.modules[c.modIdx].tree.listLen(ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call))
+end 'argumentCount'
+
+// orderArgs puts a call's arguments in the order of the parameters, which labels name after the first.
+function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.NodeIDList
+	var ordered = ast.NodeIDList.create(0)
+	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
+	let total = p.modules[c.modIdx].tree.listLen(argsRef)
+	let skipped = omittedIndex(c, call: call)
+	var given = total
+	if skipped.isSome() 'skips'
+		given = try total - 1 otherwise 0 as Count
+	end 'skips'
+	if given != specs.count() 'arity'
+		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{specs.count()}", got: "{given}"), errs: errs)
+		return ordered
+	end 'arity'
+	for _ in 0 upto specs.count() 'slots'
+		ordered.push(0 as ast.NodeID)
+	end 'slots'
+	var seen = 0 as Count
+	for ai in 0 upto total 'args'
+		if omittedAt(skipped, index: ai) 'left'
+			continue 'args'
+		end 'left'
+		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: ai) as ast.NodeID
+		let label = ast.argLabel(p.modules[c.modIdx].tree, id: arg)
+		var slot = 0 as Count
+		if seen == 0 'first'
+			if label != "" 'labelled'
+				failAt(c, p: p, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
+				return ordered
+			end 'labelled'
+		end 'first' else 'later'
+			if label == "" 'unlabelled'
+				failAt(c, p: p, node: arg, code: diag.errCallArgMissingLabel, msg: diag.argMissingLabel(), errs: errs)
+				return ordered
+			end 'unlabelled'
+			let found = argSlot(seen, label: label, specs: specs)
+			if not found.isSome() 'unknown'
+				failAt(c, p: p, node: arg, code: diag.errCallUnknownArgLabel, msg: diag.argUnknownLabel(callee, label: label), errs: errs)
+				return ordered
+			end 'unknown'
+			match consumes found 'slotOf'
+				some(j) then slot = j
+				none then _ = 0
+			end 'slotOf'
+			if ordered[slot] != 0 'duplicate'
+				failAt(c, p: p, node: arg, code: diag.errCallDuplicateArg, msg: diag.argDuplicate(label, callee: callee), errs: errs)
+				return ordered
+			end 'duplicate'
+		end 'later'
+		ordered[slot] = ast.argValue(p.modules[c.modIdx].tree, id: arg)
+		seen = try seen + 1 otherwise seen
+	end 'args'
+	return ordered
+end 'orderArgs'
+
+function omittedAt(skipped table.Option with Count, index Count) returns bool
+	return match skipped 'k'
+		some(at) gives at == index
+		none gives false
+	end 'k'
+end 'omittedAt'
+
+// checkedArgs orders a call's arguments and types them, before the parameters' types are known: a generic callee's type
+// arguments come from them.
+function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.NodeIDList
+	let mark = errs.count()
+	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+	if failedSince(errs, mark: mark) 'badOrder'
+		return ordered
+	end 'badOrder'
+	for i in 0 upto ordered.count() 'each'
+		if checkExpr(c, p: p, e: ordered[i], errs: errs) == ast.noType 'failed'
+			return ordered
+		end 'failed'
+	end 'each'
+	return ordered
+end 'checkedArgs'
+
+// bindArgs orders a call's arguments and checks each against its parameter, typing it first unless it was typed already.
+function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, argsChecked bool, mutates errs diag.ErrorList) returns ast.NodeIDList
+	let mark = errs.count()
+	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+	if failedSince(errs, mark: mark) 'badOrder'
+		return ordered
+	end 'badOrder'
+	for i in 0 upto specs.count() 'each'
+		if not argsChecked 'type'
+			if checkExpecting(c, p: p, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
+				return ordered
+			end 'failed'
+		end 'type'
+		if not coerceArg(c, p: p, value: ordered[i], callee: callee, spec: specs[i], errs: errs) 'badArg'
+			return ordered
+		end 'badArg'
+	end 'each'
+	return ordered
+end 'bindArgs'
+
+// coerceArg checks an argument against its parameter, which a 'mutates' or 'sets' parameter takes exactly, and a let
+// parameter takes the contents of a frozen value for.
+function coerceArg(mutates c Checker, mutates p ast.Project, value ast.NodeID, callee String, spec ast.ParamSpec, mutates errs diag.ErrorList) returns bool
+	let t = ast.nodeType(c.typing, node: value)
+	if spec.conv == ast.Convention.convMutates or spec.conv == ast.Convention.convSets 'byAddress'
+		if t != spec.ty 'different'
+			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: diag.argTypeMismatch("'{spec.name}'", expected: nameOfType(p, t: spec.ty), got: nameOfType(p, t: t)), errs: errs)
+			return false
+		end 'different'
+		return true
+	end 'byAddress'
+	if isFrozenType(p, t: t) and ast.contentType(p.types, t: t) == spec.ty 'frozen'
+		if spec.conv != ast.Convention.convLet 'keeps'
+			failAt(c, p: p, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
+			return false
+		end 'keeps'
+		return true
+	end 'frozen'
+	return coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: spec.ty, wrong: Mismatch.argument("'{spec.name}'"), errs: errs)
+end 'coerceArg'
+
+// nameable is whether a type can be written as a type argument, so inference may choose it: an integer constant or the
+// range of an expression names no alias.
+function nameable(p ast.Project, t ast.TypeID) returns bool
+	if isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t) 'integer'
+		return false
+	end 'integer'
+	return t != p.builtins.voidTy and t != p.builtins.neverTy
+end 'nameable'
+
+function indexOfType(types ast.TypeIDList, t ast.TypeID) returns table.Option with Count
+	for i in 0 upto types.count() 'each'
+		if types[i] == t 'hit'
+			return table.Option.some(i)
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'indexOfType'
+
+// unifyType fixes the type parameters that the type of an argument gives, where the parameter's type mentions them.
+function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.TypeIDList, mutates args ast.TypeIDList)
+	if param == ast.noType or arg == ast.noType 'none'
+		return
+	end 'none'
+	let kind = p.types.entries[param as Count].kind
+	if kind == ast.TypeKind.typeParam 'parameter'
+		match consumes indexOfType(params, t: param) 'index'
+			some(i) then fixArg(p, arg: arg, index: i, args: args)
+			none then _ = 0
+		end 'index'
+		return
+	end 'parameter'
+	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy or kind.isBuiltin() 'instance'
+		if p.types.entries[arg as Count].kind == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
+			unifyAll(p, param: p.types.entries[param as Count].typeArgs.clone(), arg: p.types.entries[arg as Count].typeArgs.clone(), params: params, args: args)
+		end 'sameDeclaration'
+	end 'instance'
+end 'unifyType'
+
+function fixArg(p ast.Project, arg ast.TypeID, index Count, mutates args ast.TypeIDList)
+	if args[index] == ast.noType and nameable(p, t: arg) 'open'
+		args[index] = arg
+	end 'open'
+end 'fixArg'
+
+function unifyAll(p ast.Project, param ast.TypeIDList, arg ast.TypeIDList, params ast.TypeIDList, mutates args ast.TypeIDList)
+	for i in 0 upto param.count() 'each'
+		if i < arg.count() 'both'
+			unifyType(p, param: param[i], arg: arg[i], params: params, args: args)
+		end 'both'
+	end 'each'
+end 'unifyAll'
+
+function openArgs(count Count) returns ast.TypeIDList
+	var args = ast.TypeIDList.create(0)
+	for _ in 0 upto count 'each'
+		args.push(ast.noType)
+	end 'each'
+	return args
+end 'openArgs'
+
+// infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type the
+// context expects of result, the type the call gives before its type arguments are known.
+function infer(c Checker, p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+	var args = openArgs(params.count())
+	for i in 0 upto specs.count() 'each'
+		unifyType(p, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
+	end 'each'
+	return inferRest(c, p: p, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
+end 'infer'
+
+// inferRest fills the type arguments that are still open from the type the context expects of result.
+function inferRest(c Checker, p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, args ast.TypeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+	var filled = args.clone()
+	if c.expect != ast.noType 'expected'
+		unifyType(p, param: result, arg: c.expect, params: params, args: filled)
+	end 'expected'
+	for i in 0 upto filled.count() 'each'
+		if filled[i] == ast.noType 'open'
+			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.entries[params[i] as Count].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			return filled
+		end 'open'
+	end 'each'
+	return filled
+end 'inferRest'
+
+// applySpecs is the parameters with the type parameters replaced by the arguments.
+function applySpecs(mutates p ast.Project, specs ast.ParamSpecList, params ast.TypeIDList, args ast.TypeIDList) returns ast.ParamSpecList
+	var out = ast.ParamSpecList.create(0)
+	for i in 0 upto specs.count() 'each'
+		let t = ast.substituteType(p.types, t: specs[i].ty, params: params, args: args)
+		out.push(ast.ParamSpec.make(specs[i].name.clone(), ty: t, conv: specs[i].conv))
+	end 'each'
+	return out
+end 'applySpecs'
+
+// declares is whether a call of the function is checked now: its signature is known, because this module declares it or
+// because it is built in. Another module may still be declaring its own, so a call into it waits for the verify phase.
+function declares(c Checker, p ast.Project, f ast.FuncID) returns bool
+	return p.funcs.entries[f as Count].module == c.modID or p.funcs.entries[f as Count].intrinsic != ast.Intrinsic.intrNone
+end 'declares'
+
+// requireVisible refuses a function of another module that the module cannot name.
+function requireVisible(c Checker, p ast.Project, node ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
+	if declares(c, p: p, f: target) 'declared'
+		return true
+	end 'declared'
+	let owner = p.funcs.entries[target as Count].module
+	let level = ast.visibilityOf(p.funcs.entries[target as Count].visibility)
+	if ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'visible'
+		return true
+	end 'visible'
+	failAt(c, p: p, node: node, code: diag.errNotExported, msg: ast.notVisible(p, name: funcSymbol(p, f: target), v: level, owner: owner, from: c.modID), errs: errs)
+	return false
+end 'requireVisible'
+
+// queuePending leaves a call of a function that another module declares to the verify phase, which binds its arguments to
+// the function's parameters once that module's signatures are known.
+function queuePending(mutates c Checker, call ast.NodeID, callee String, fn ast.FuncID, specs ast.ParamSpecList)
+	let skipped = omittedIndex(c, call: call)
+	var at = 0 as Count
+	if skipped.isSome() 'omitted'
+		at = c.omittedArgIdx
+	end 'omitted'
+	c.pendingCalls.push(PendingCall.make(c.modID, callNode: call, calleeName: callee.clone(), fnID: fn, params: specs.clone(), hasOmittedArg: skipped.isSome(), omittedArgIdx: at))
+end 'queuePending'
+
+// verifyCalls binds the arguments of the calls into other modules to the parameters of their functions, which those
+// modules have declared since the calls were checked. A call stops at its first error.
+export function verifyCalls(mutates c Checker, mutates p ast.Project, calls PendingCallList, mutates errs diag.ErrorList)
+	for i in 0 upto calls.count() 'each'
+		verifyCall(c, p: p, pending: calls[i], errs: errs)
+	end 'each'
+end 'verifyCalls'
+
+function verifyCall(mutates c Checker, mutates p ast.Project, pending PendingCall, mutates errs diag.ErrorList)
+	c.hasOmitted = pending.hasOmittedArg
+	c.omittedCall = pending.callNode
+	c.omittedArgIdx = pending.omittedArgIdx
+	let mark = errs.count()
+	let ordered = bindArgs(c, p: p, call: pending.callNode, callee: pending.calleeName, specs: pending.params, argsChecked: true, errs: errs)
+	c.hasOmitted = false
+	if failedSince(errs, mark: mark) 'failed'
+		return
+	end 'failed'
+	setCallOrdered(c, call: pending.callNode, ordered: ordered)
+end 'verifyCall'
+
+function setCallOrdered(mutates c Checker, call ast.NodeID, ordered ast.NodeIDList)
+	match consumes c.typing.calls.get(call as Count) 'info'
+		some(known) then c.typing.calls.insert(call as Count, value: withOrdered(known, ordered: ordered))
+		none then panic("the call at node {call} was verified without a record of what it is")
+	end 'info'
+end 'setCallOrdered'
+
+function withOrdered(consumes info ast.CallInfo, ordered ast.NodeIDList) returns ast.CallInfo
+	var updated = info
+	updated.ordered = ordered.clone()
+	return updated
+end 'withOrdered'

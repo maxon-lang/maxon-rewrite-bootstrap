@@ -38,6 +38,11 @@ function functionLocals(l Lowerer, p ast.Project) returns ast.LocalIDList
 	end 'hit'
 end 'functionLocals'
 
+// slotOf is the slot of a local that is not a parameter, which the checker numbered from 0.
+function slotOf(e ast.LocalEntry) returns Count
+	return try e.slot as Count otherwise panic("lower: a parameter has no slot")
+end 'slotOf'
+
 // declareSlots makes a slot for each local that is not a parameter, at the index the checker gave it.
 function declareSlots(mutates l Lowerer, mutates p ast.Project)
 	let ids = functionLocals(l, p: p)
@@ -55,11 +60,11 @@ function declareSlots(mutates l Lowerer, mutates p ast.Project)
 	for i in 0 upto ids.count() 'each'
 		let loc = localEntry(p, module: l.fnModule, id: ids[i])
 		if not loc.isParam 'slotted'
-			if loc.slot >= count or filled[loc.slot] 'dense'
+			if slotOf(loc) >= count or filled[slotOf(loc)] 'dense'
 				panic("lower: local slots of {funcSymbol(p, fid: l.fn)} are not dense")
 			end 'dense'
-			filled[loc.slot] = true
-			l.b.f.slots[loc.slot] = kindOf(l, p: p, t: loc.ty)
+			filled[slotOf(loc)] = true
+			l.b.f.slots[slotOf(loc)] = kindOf(l, p: p, t: loc.ty)
 		end 'slotted'
 	end 'each'
 end 'declareSlots'
@@ -260,9 +265,9 @@ function visitLetStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	let init = ast.letStmtInit(p.modules[l.mi].tree, id: s)
 	if init != 0 'init'
 		let v = lowerExpr(l, p: p, e: init)
-		emit(l, i: newStoreSlot(sym.slot, src: v, borrow: false))
+		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: false))
 	end 'init'
-	ownLocal(l, p: p, slot: sym.slot, t: sym.ty)
+	ownLocal(l, p: p, slot: slotOf(sym), t: sym.ty)
 end 'visitLetStmt'
 
 function visitIfStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
@@ -343,9 +348,9 @@ function visitAssignStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 			end 'byRef' else 'slot'
 				if kindOf(l, p: p, t: loc.ty) == IrKind.kindManaged 'managed'
 					let ty = dropType(l, p: p, t: loc.ty)
-					emitDropSlot(l, slot: loc.slot, ty: ty)
+					emitDropSlot(l, slot: slotOf(loc), ty: ty)
 				end 'managed'
-				emit(l, i: newStoreSlot(loc.slot, src: v, borrow: false))
+				emit(l, i: newStoreSlot(slotOf(loc), src: v, borrow: false))
 			end 'slot'
 			return
 		end 'local'
@@ -374,7 +379,7 @@ end 'visitAssignStmt'
 
 function visitForStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
-	let slot = sym.slot
+	let slot = slotOf(sym)
 	let limit = l.b.f.newSlot(IrKind.kindScalar)
 	let unsigned = ast.isUnsignedInt(p.types, t: sym.ty)
 	let body = l.b.newBlock()

@@ -81,6 +81,26 @@ export type BehaviourFrame
 	end 'make'
 end 'BehaviourFrame'
 
+// A TryFrame is a try whose covered code is being checked, which collects the errors of what can fail in it: the handler
+// of a try block names that error.
+export type TryFrame
+	export var errors as ast.TypeIDList
+
+	export static function make() returns TryFrame
+		return TryFrame{errors: ast.TypeIDList.create(0)}
+	end 'make'
+end 'TryFrame'
+
+// A TryBinding is the error that a try block's handler names, which the handler must match on to tell the failures apart.
+export type TryBinding
+	export var local as ast.LocalID
+	export var matched as bool
+
+	export static function make(local ast.LocalID) returns TryBinding
+		return TryBinding{local: local, matched: false}
+	end 'make'
+end 'TryBinding'
+
 export enum LackReason
 	lackNone
 	lackDeclared
@@ -159,11 +179,25 @@ export type Checker
 	export var omittedArgIdx as Count
 	export var capKnown as LackMap
 	export var capVisiting as VisitMap
+	// tries are the tries around the code being checked that catch its failures, innermost last; bindings are the errors
+	// that the handlers being checked name, innermost last.
+	export var tries as Array with TryFrame
+	export var bindings as Array with TryBinding
+	// statement is the try that stands alone as the statement being checked, which alone may ignore a failure.
+	export var statement as ast.NodeID
+	// usesNode is the function, or the field default, whose calls that need an instance of a generic are being recorded,
+	// and usesField whether it is a field default; hasUses is false outside both.
+	export var usesNode as ast.NodeID
+	export var usesField as bool
+	export var hasUses as bool
+	export var recorded as ast.NodeIDList
+	// fnLocals are the locals of the function being checked, in the order they were declared.
+	export var fnLocals as ast.LocalIDList
 
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new()}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -752,9 +786,25 @@ export function resolveBoundTypeRef(c Checker, p ast.Project, tr ast.NodeID, mut
 		some(ref) then return checkInterfaceRef(c, p: p, tr: tr, off: off, tName: tName, ref: ref, hasArgs: p.modules[c.modIdx].tree.listLen(argsRef) > 0, errs: errs)
 		none then _ = 0
 	end 'hit'
-	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
+	if p.resolutions[c.modIdx].typeParamSlots.has(tr as Count) 'typeParameter'
+		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
+		return ast.noType
+	end 'typeParameter'
+	failUnknownType(c, p: p, tr: tr, errs: errs)
 	return ast.noType
 end 'resolveBoundTypeRef'
+
+// failUnknownType reports a type reference that names no type. A bare name may name a declaration of another module, which
+// is always qualified, so the error is marked for locating to say how.
+function failUnknownType(c Checker, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList)
+	let off = p.modules[c.modIdx].tree.startOf(tr)
+	let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
+	if p.modules[c.modIdx].tree.listLen(ast.typeRefQualifierRef(p.modules[c.modIdx].tree, id: tr)) == 0 'bare'
+		diag.pushUnqualifiedError(errs, code: diag.errUnknownType, message: diag.unknownType(tName), module: c.modID, offset: off, name: tName.clone())
+		return
+	end 'bare'
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
+end 'failUnknownType'
 
 function checkInterfaceRef(c Checker, p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
 	match p.declTypes.get(ast.declKey(ref)) 'dt'
@@ -834,7 +884,7 @@ function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.No
 		some(ref) then return applyTypeArgs(c, p: p, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
 		none then _ = 0
 	end 'declHit'
-	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
+	failUnknownType(c, p: p, tr: tr, errs: errs)
 	return ast.noType
 end 'resolveNamedTypeRef'
 
@@ -843,7 +893,7 @@ function resolveBoundTP(c Checker, p ast.Project, off diag.U32, name String, slo
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{name}' is not generic and takes no type arguments", errs: errs)
 	end 'badA'
 	let tpNode = p.resolutions[c.modIdx].typeParams[slot].id
-	match p.declTypes.get(ast.nodeKey(c.modID, node: tpNode)) 'tid'
+	match p.declTypes.get(ast.typeParamKey(c.modID, node: tpNode)) 'tid'
 		some(id) then return id
 		none then _ = 0
 	end 'tid'
@@ -858,7 +908,7 @@ function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, 
 		none then target = ast.noType
 	end 'dt'
 	if target == ast.noType 'unk'
-		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
+		failUnknownType(c, p: p, tr: tr, errs: errs)
 		return ast.noType
 	end 'unk'
 	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)

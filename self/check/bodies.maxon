@@ -1,0 +1,210 @@
+// checkBodies types the type declarations and the functions of the module, whose signatures declareModule gave. A
+// declaration or a function that has an error is refused at its first, and the others are typed all the same. Type
+// declarations come first: the calls that a field's default makes are reused by every record literal that leaves the
+// field to it.
+export function checkBodies(mutates c Checker, mutates p ast.Project, declared ast.FuncIDList, mutates errs diag.ErrorList)
+	var isDeclared = BoolIntMap.new()
+	for i in 0 upto declared.count() 'mark'
+		isDeclared.insert(declared[i] as Count, value: true)
+	end 'mark'
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'types'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		checkDeclBody(c, p: p, ord: ord, errs: errs)
+	end 'types'
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'functions'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		checkFunctionsOf(c, p: p, ord: ord, isDeclared: isDeclared, errs: errs)
+	end 'functions'
+end 'checkBodies'
+
+// checkDeclBody checks what a type, a union or an enum declares beyond its signatures.
+function checkDeclBody(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
+	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
+		typeDecl(td) then checkRecordBody(c, p: p, td: td, tid: declTypeOf(p, ref: ref), errs: errs)
+		unionDecl(ud) then checkNominalBody(c, p: p, id: ud.id, tid: declTypeOf(p, ref: ref), errs: errs)
+		enumDecl(ed) then checkConformance(c, p: p, site: ed.id, nt: declTypeOf(p, ref: ref), errs: errs)
+		funcDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+	end 'k'
+end 'checkDeclBody'
+
+function checkRecordBody(mutates c Checker, mutates p ast.Project, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	checkFieldDefaults(c, p: p, tid: tid, errs: errs)
+	checkNominalBody(c, p: p, id: td.id, tid: tid, errs: errs)
+end 'checkRecordBody'
+
+// checkNominalBody checks a type or a union as a whole: that it does not contain itself, that a cown cannot reach itself
+// through it, and that it implements what it says.
+function checkNominalBody(mutates c Checker, mutates p ast.Project, id ast.NodeID, tid ast.TypeID, mutates errs diag.ErrorList)
+	checkCycle(c, p: p, site: id, t: tid, errs: errs)
+	checkCownCycle(c, p: p, site: id, t: tid, errs: errs)
+	checkConformance(c, p: p, site: id, nt: tid, errs: errs)
+end 'checkNominalBody'
+
+// checkFunctionsOf types the functions that the declaration at ord has: itself, or its methods.
+function checkFunctionsOf(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
+		funcDecl(f) then checkIfDeclared(c, p: p, f: f, isDeclared: isDeclared, errs: errs)
+		typeDecl(td) then checkMethodBodies(c, p: p, methods: td.methods, isDeclared: isDeclared, errs: errs)
+		unionDecl(ud) then checkMethodBodies(c, p: p, methods: ud.methods, isDeclared: isDeclared, errs: errs)
+		enumDecl(ed) then checkMethodBodies(c, p: p, methods: ed.methods, isDeclared: isDeclared, errs: errs)
+		constDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+	end 'k'
+end 'checkFunctionsOf'
+
+function checkMethodBodies(mutates c Checker, mutates p ast.Project, methods ast.FuncDeclList, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+	for i in 0 upto methods.count() 'each'
+		checkIfDeclared(c, p: p, f: methods[i], isDeclared: isDeclared, errs: errs)
+	end 'each'
+end 'checkMethodBodies'
+
+function checkIfDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+	match consumes p.nodeFuncs.get(ast.nodeKey(c.modID, node: f.id)) 'entry'
+		some(fid) then checkWhenDeclared(c, p: p, f: f, fid: fid, isDeclared: isDeclared, errs: errs)
+		none then panic("the function '{f.name}' of module {c.modID} has no entry")
+	end 'entry'
+end 'checkIfDeclared'
+
+function checkWhenDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+	if isDeclared.has(fid as Count) 'declared'
+		checkFunction(c, p: p, f: f, fid: fid, errs: errs)
+	end 'declared'
+end 'checkWhenDeclared'
+
+// checkFieldDefaults types the default of each field of a record as a value of the field's type.
+function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
+	let selfTy = ast.selfType(p.types, declTy: tid)
+	for i in 0 upto p.types.entries[tid as Count].fields.count() 'each'
+		if not p.types.entries[tid as Count].fields[i].hasDefault 'none'
+			continue 'each'
+		end 'none'
+		let defaultExpr = p.types.entries[tid as Count].fields[i].defaultExpr
+		let fieldTy = p.types.entries[tid as Count].fields[i].ty
+		enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: true)
+		startUses(c, node: defaultExpr, inField: true)
+		let t = checkExpecting(c, p: p, e: defaultExpr, want: fieldTy, errs: errs)
+		if t != ast.noType 'typed'
+			_ = coerce(c, p: p, off: offsetOf(c, p: p, node: defaultExpr), src: t, target: fieldTy, wrong: Mismatch.expectedGot, errs: errs)
+		end 'typed'
+		finishUses(c)
+	end 'each'
+end 'checkFieldDefaults'
+
+// startUses makes the calls that need an instance of a generic be recorded on the function, or the field default, at node.
+function startUses(mutates c Checker, node ast.NodeID, inField bool)
+	c.usesNode = node
+	c.usesField = inField
+	c.hasUses = true
+	c.recorded = ast.NodeIDList.create(0)
+end 'startUses'
+
+// finishUses keeps the calls recorded since startUses with the function or the field default they were made in.
+function finishUses(mutates c Checker)
+	c.hasUses = false
+	if c.recorded.count() == 0 'none'
+		return
+	end 'none'
+	if c.usesField 'field'
+		c.typing.fieldUses.insert(c.usesNode as Count, value: c.recorded.clone())
+		return
+	end 'field'
+	c.typing.funcUses.insert(c.usesNode as Count, value: c.recorded.clone())
+end 'finishUses'
+
+// recordUse notes a call that needs an instance of a generic, on the function or the field default being checked. Code
+// after the live statements of its block is never lowered, so its calls make no instance.
+function recordUse(mutates c Checker, call ast.NodeID)
+	if not c.hasUses 'outside'
+		panic("a call is checked outside a function or a field default")
+	end 'outside'
+	if c.dead 'dead'
+		return
+	end 'dead'
+	noteCaller(c)
+	c.recorded.push(call)
+end 'recordUse'
+
+// recordFieldUses records the calls that the default of a field made, for a record literal that leaves the field to it.
+function recordFieldUses(mutates c Checker, defaultExpr ast.NodeID)
+	if not c.hasUses 'outside'
+		panic("a call is checked outside a function or a field default")
+	end 'outside'
+	if c.dead 'dead'
+		return
+	end 'dead'
+	match consumes c.typing.fieldUses.get(defaultExpr as Count) 'defaultUses'
+		some(calls) then recordAll(c, calls: calls)
+		none then _ = 0
+	end 'defaultUses'
+end 'recordFieldUses'
+
+function recordAll(mutates c Checker, calls ast.NodeIDList)
+	noteCaller(c)
+	c.recorded.append(calls)
+end 'recordAll'
+
+// noteCaller lists the function being checked among those whose bodies need an instance of a generic, the first time one
+// of its calls does.
+function noteCaller(mutates c Checker)
+	if c.rootFn != ast.noFunc and c.recorded.count() == 0 and not c.callersSeen.has(c.rootFn as Count) 'first'
+		c.callersSeen.insert(c.rootFn as Count, value: true)
+		c.callers.push(c.rootFn)
+	end 'first'
+end 'noteCaller'
+
+// checkFunction types the body of a function or a method, whose parameters and receiver are locals of it.
+function checkFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+	enterContext(c, p: p, f: fid, owner: p.funcs.entries[fid as Count].ownerTy, calls: true)
+	startUses(c, node: f.id, inField: false)
+	let mark = errs.count()
+	declareReceiverAndParams(c, p: p, f: f, fid: fid, errs: errs)
+	if failedSince(errs, mark: mark) 'badParams'
+		finishFunction(c, node: f.id)
+		return
+	end 'badParams'
+	checkBlock(c, p: p, body: f.body, errs: errs)
+	if p.funcs.entries[fid as Count].retTy != p.builtins.voidTy and not bodyTerminates(p.modules[c.modIdx].tree, body: f.body) 'missingReturn'
+		failAt(c, p: p, node: f.id, code: diag.errMissingReturn, msg: diag.missingReturn(f.name), errs: errs)
+	end 'missingReturn'
+	finishFunction(c, node: f.id)
+end 'checkFunction'
+
+// finishFunction keeps what the check of a function recorded with the function.
+function finishFunction(mutates c Checker, node ast.NodeID)
+	finishUses(c)
+	if c.fnLocals.count() > 0 'locals'
+		c.typing.funcLocals.insert(node as Count, value: c.fnLocals.clone())
+	end 'locals'
+end 'finishFunction'
+
+function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+	var index = 0 as Count
+	if p.funcs.entries[fid as Count].hasReceiver 'receiver'
+		var receiver = ast.LocalEntry.make("self", ty: p.funcs.entries[fid as Count].ownerTy, isVar: false, isParam: true, conv: p.funcs.entries[fid as Count].selfConv, definedAt: f.id)
+		receiver.isSelf = true
+		receiver.paramIndex = index
+		let id = c.typing.allocLocal(receiver)
+		c.fnLocals.push(id)
+		p.funcs.entries[fid as Count].selfLocal = id
+		index = 1
+	end 'receiver'
+	for i in 0 upto f.params.count() 'params'
+		if f.params[i].name != "_" 'named'
+			var entry = ast.LocalEntry.make(f.params[i].name.clone(), ty: p.funcs.entries[fid as Count].paramTypes[i], isVar: false, isParam: true, conv: ast.parseConvention(f.params[i].convention), definedAt: f.params[i].id)
+			entry.paramIndex = index
+			let id = bindLocal(c, p: p, entry: entry, off: offsetOf(c, p: p, node: f.params[i].id), errs: errs)
+			if id == ast.noLocal 'failed'
+				return
+			end 'failed'
+			p.funcs.entries[fid as Count].paramLocals.push(id)
+		end 'named' else 'anonymous'
+			p.funcs.entries[fid as Count].paramLocals.push(ast.noLocal)
+		end 'anonymous'
+		index = try index + 1 otherwise index
+	end 'params'
+end 'declareReceiverAndParams'

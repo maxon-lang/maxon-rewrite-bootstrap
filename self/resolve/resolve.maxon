@@ -72,30 +72,14 @@ function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
 	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
 		return true
 	end 'ownOrStd'
-	let owner = p.modules[ast.modIndex(ref.module)].path.clone()
-	let from = p.modules[ast.modIndex(r.modID)].path.clone()
-	return ast.isVisible(ast.moduleDecl(p, ref: ref).level(), owner: ref.module, ownerPath: owner, from: r.modID, fromPath: from)
+	return ast.isVisibleFrom(p, v: ast.moduleDecl(p, ref: ref).level(), owner: ref.module, from: r.modID)
 end 'isDeclVisible'
 
 // hiddenMessage is the message for naming, from the resolver's module, a declaration that isDeclVisible refused.
 function hiddenMessage(r Resolver, p ast.Project, ref ast.DeclRef) returns String
 	let d = ast.moduleDecl(p, ref: ref)
-	let dName = d.name()
-	let from = describeModule(p, modID: r.modID)
-	if d.level() == ast.Visibility.unexported 'priv'
-		return "'{dName}' is not exported from {describeModule(p, modID: ref.module)}: mark it 'export' to use it from {from}"
-	end 'priv'
-	let parent = ast.parentPath(p.modules[ast.modIndex(ref.module)].path)
-	return "'{dName}' is exported only to module {parent} and the modules under it: mark it 'public' to use it from {from}"
+	return ast.notVisible(p, name: d.name(), v: d.level(), owner: ref.module, from: r.modID)
 end 'hiddenMessage'
-
-// describeModule names a module in a sentence.
-function describeModule(p ast.Project, modID diag.ModuleID) returns String
-	if modID != diag.stdlibID and p.modules[ast.modIndex(modID)].path == "" 'rt'
-		return "the project root"
-	end 'rt'
-	return "module {modDisplayFor(p, modID: modID)}"
-end 'describeModule'
 
 function modDisplayFor(p ast.Project, modID diag.ModuleID) returns String
 	if modID == diag.stdlibID 'std'

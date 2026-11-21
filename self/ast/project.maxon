@@ -36,6 +36,14 @@ export function nodeKey(module diag.ModuleID, node NodeID) returns Count
 	return (try m shl 32 otherwise 0 as Count) or (node as Count)
 end 'nodeKey'
 
+// typeParamKey is the key of a type parameter in the table of declared types, which a declaration's key shares and which
+// the key of a node would otherwise collide with.
+export function typeParamKey(module diag.ModuleID, node NodeID) returns Count
+	return nodeKey(module, node: node) or typeParamKeyBit
+end 'typeParamKey'
+
+let typeParamKeyBit = 9223372036854775808 as Count
+
 export function modIndex(m diag.ModuleID) returns Count
 	if m < 0 'neg'
 		panic("negative ModuleID")
@@ -185,3 +193,38 @@ export function funcLinkName(p Project, fid FuncID) returns String
 	end 'inst'
 	return base
 end 'funcLinkName'
+
+// modulePath is the path of a module, which the standard library has none of.
+function modulePath(p Project, modID diag.ModuleID) returns String
+	if modID == diag.stdlibID 'std'
+		return ""
+	end 'std'
+	return p.modules[modIndex(modID)].path.clone()
+end 'modulePath'
+
+// describeModule names a module in a sentence.
+export function describeModule(p Project, modID diag.ModuleID) returns String
+	if modID != diag.stdlibID and p.modules[modIndex(modID)].path == "" 'rt'
+		return "the project root"
+	end 'rt'
+	if modID == diag.stdlibID 'std'
+		return "module {p.stdlib.display()}"
+	end 'std'
+	return "module {p.modules[modIndex(modID)].display()}"
+end 'describeModule'
+
+// isVisibleFrom is whether something that the module owner declares with the visibility v can be named from the module
+// from.
+export function isVisibleFrom(p Project, v Visibility, owner diag.ModuleID, from diag.ModuleID) returns bool
+	return isVisible(v, owner: owner, ownerPath: modulePath(p, modID: owner), from: from, fromPath: modulePath(p, modID: from))
+end 'isVisibleFrom'
+
+// notVisible is the message for naming, from the module from, something named name that owner declares with the
+// visibility v, which isVisibleFrom refused.
+export function notVisible(p Project, name String, v Visibility, owner diag.ModuleID, from diag.ModuleID) returns String
+	let fromWord = describeModule(p, modID: from)
+	if v == Visibility.unexported 'priv'
+		return "'{name}' is not exported from {describeModule(p, modID: owner)}: mark it 'export' to use it from {fromWord}"
+	end 'priv'
+	return "'{name}' is exported only to module {parentPath(modulePath(p, modID: owner))} and the modules under it: mark it 'public' to use it from {fromWord}"
+end 'notVisible'

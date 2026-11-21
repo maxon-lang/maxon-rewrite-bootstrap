@@ -338,3 +338,31 @@ func emitMaxonIntrinsics(t table) string {
 	sb.WriteString("\tpanic(\"lower: a call names no intrinsic\")\nend 'ownsOperands'\n")
 	return sb.String()
 }
+
+// emitMaxonCheck is self's dispatch from each intrinsic to the check of the arguments its signature alone cannot refuse.
+func emitMaxonCheck(t table) string {
+	var sb strings.Builder
+	sb.WriteString(maxonHeader)
+	sb.WriteString("// checkIntrinsicArgs refuses an argument of a built-in that its signature alone cannot.\n")
+	sb.WriteString("function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)\n")
+	sb.WriteString("\tlet op = p.funcs.entries[target as Count].intrinsic\n")
+	var unchecked []string
+	for _, in := range t.intrinsics {
+		if in.checked {
+			fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'check%s'\n\t\tcheck%sArgs(c, p: p, call: call, ordered: ordered, errs: errs)\n\t\treturn\n\tend 'check%s'\n", in.name, in.name, in.name, in.name)
+		} else {
+			unchecked = append(unchecked, in.name)
+		}
+	}
+	// The signature checks every argument of the rest.
+	var conds []string
+	for _, name := range unchecked {
+		conds = append(conds, "op == ast.Intrinsic.intr"+name)
+	}
+	for i := 0; i < len(conds); i += 4 {
+		end := min(i+4, len(conds))
+		fmt.Fprintf(&sb, "\tif %s 'signature%d'\n\t\treturn\n\tend 'signature%d'\n", strings.Join(conds[i:end], " or "), i/4, i/4)
+	}
+	sb.WriteString("\tpanic(\"check: {op.name} is no intrinsic\")\nend 'checkIntrinsicArgs'\n")
+	return sb.String()
+}

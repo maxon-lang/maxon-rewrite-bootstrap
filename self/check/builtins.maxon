@@ -1,0 +1,32 @@
+// hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0, or
+// a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type parameter
+// have none.
+function hasZero(p ast.Project, t ast.TypeID) returns bool
+	if t == p.builtins.boolTy 'bool'
+		return true
+	end 'bool'
+	return typeHasKind(p, t: t, kind: ast.TypeKind.intRange) and p.types.entries[t as Count].minVal.le(ast.I128.zero()) and p.types.entries[t as Count].maxVal.ge(ast.I128.zero())
+end 'hasZero'
+
+// checkArrayCreateArgs refuses Array.create(n) of an element that has no zero value, whose n slots would hold no element,
+// unless n is the literal 0. A generic body is checked once, so an element of a type parameter has no zero there.
+function checkArrayCreateArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let count = ordered[0]
+	if p.modules[c.modIdx].tree.kindOf(count) == ast.NodeKind.intLit and ast.intLitMagnitude(p.modules[c.modIdx].tree, id: count).isZero() 'empty'
+		return
+	end 'empty'
+	var elem = ast.noType
+	match consumes c.typing.calls.get(call as Count) 'info'
+		some(info) then elem = info.typeArgs[0]
+		none then panic("the call at node {call} is checked for its arguments without a record of what it is")
+	end 'info'
+	if hasZero(p, t: elem) 'zero'
+		return
+	end 'zero'
+	let name = nameOfType(p, t: elem)
+	if typeHasKind(p, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
+		failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
+		return
+	end 'parameter'
+	failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
+end 'checkArrayCreateArgs'

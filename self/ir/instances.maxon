@@ -78,7 +78,7 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, recei
 		let received = ast.substituteType(p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
 		let recv = ast.contentType(p.types, t: received)
 		let origin = p.types.entries[recv as Count].effectiveOrigin()
-		let name = p.funcs.entries[info.fn as Count].name.clone()
+		let name = p.funcs.entries[info.method as Count].name.clone()
 		match consumes p.types.entries[origin as Count].findMethod(name) 'found'
 			some(method) then return instantiateMethod(p, method: method, recv: recv)
 			none then panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the bound that declares it")

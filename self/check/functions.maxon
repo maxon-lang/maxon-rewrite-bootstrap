@@ -16,6 +16,14 @@ function enterContext(mutates c Checker, p ast.Project, f ast.FuncID, owner ast.
 	c.blocks = BlockFrameList.create(0)
 	c.nextSlot = 0 as Count
 	c.dead = false
+	c.tries = Array.create(0)
+	c.bindings = Array.create(0)
+	c.statement = 0 as ast.NodeID
+	c.usesNode = 0 as ast.NodeID
+	c.usesField = false
+	c.hasUses = false
+	c.recorded = ast.NodeIDList.create(0)
+	c.fnLocals = ast.LocalIDList.create(0)
 end 'enterContext'
 
 // newFuncEntry makes the entry of a function or a method and registers it under its node, and a function of the
@@ -147,6 +155,9 @@ function addMethod(mutates c Checker, mutates p ast.Project, m ast.FuncDecl, nt 
 	end 'dup'
 	let fid = newFuncEntry(c, p: p, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
 	p.types.entries[nt as Count].methods.push(ast.MethodRef.make(m.name.clone(), func: fid))
+	if p.funcs.entries[fid as Count].isDestructor 'destructor'
+		p.types.entries[nt as Count].dropFunc = fid
+	end 'destructor'
 	addFunction(c, p: p, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
 end 'addMethod'
 

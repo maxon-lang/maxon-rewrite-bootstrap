@@ -1,8 +1,5 @@
-// The expressions that a constant can hold. A module-level constant is checked outside any function, so what the bodies
-// check adds (locals, calls, record literals, subscripts, match and the jumps of a try) is not here: an expression of
-// those kinds that a constant holds is refused by the same rules where it can be, and otherwise ends in a panic that
-// names the missing piece.
-
+// The expressions. A module-level constant is checked outside any function, where no call is made and no local is
+// declared, so the same expressions serve a constant, a field's default and the body of a function.
 // shiftLimit is the count from which a shift moves every bit out of a 64-bit word.
 let shiftLimit = 64 as Count
 
@@ -152,6 +149,13 @@ function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		c.typing.names.insert(e as Count, value: ast.NameInfo.localName(local))
 		return c.typing.locals[local as Count].ty
 	end 'local'
+	let rt = selfRecord(c, p: p)
+	if rt != ast.noType 'inMethod'
+		match consumes p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(name) 'field'
+			some(index) then return selfFieldType(c, p: p, e: e, rt: rt, name: name, index: index)
+			none then _ = 0
+		end 'field'
+	end 'inMethod'
 	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, e: e, ref: ref, name: name, errs: errs)
 		none then _ = 0
@@ -160,9 +164,15 @@ function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'Self' is a type, not a value", errs: errs)
 		return ast.noType
 	end 'selfName'
-	checkFail(c.modID, off: off, code: diag.errExpressionError, msg: diag.undefinedVariable(name), errs: errs)
+	diag.pushUnqualifiedError(errs, code: diag.errExpressionError, message: diag.undefinedVariable(name), module: c.modID, offset: off, name: name.clone())
 	return ast.noType
 end 'checkNameExpr'
+
+// selfFieldType records that a name stands for a field of the receiver, and gives the type the field has in the receiver.
+function selfFieldType(mutates c Checker, mutates p ast.Project, e ast.NodeID, rt ast.TypeID, consumes name String, index Count) returns ast.TypeID
+	c.typing.names.insert(e as Count, value: ast.NameInfo.selfFieldName(name, fieldIndex: index))
+	return typeFieldType(p, ownerTy: rt, fieldIdx: index)
+end 'selfFieldType'
 
 function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
@@ -201,11 +211,11 @@ function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRe
 end 'typeOfConstant'
 
 function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if c.fn == ast.noFunc 'outside'
+	if c.fn == ast.noFunc or not p.funcs.entries[c.fn as Count].hasReceiver 'outside'
 		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'outside'
-	panic("'self' in a method is typed by the bodies check")
+	return c.owner
 end 'checkSelfExpr'
 
 // foldOp is the value of an operator on two constants, or none after it reported why the operator gives none.
@@ -504,34 +514,68 @@ function checkPanic(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	return p.builtins.neverTy
 end 'checkPanic'
 
-// checkTry types a try: the value of its expression, or on a failure the value 'otherwise' gives. A constant has no
-// function to return from, and no loop to leave.
+// checkTry types a try: the value of its expression, or on a failure the value 'otherwise' gives or the jump it makes. One
+// that ignores a failure has no value, so it stands alone as a statement.
 function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
 	let guarded = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
-	let fallback = ast.tryExprValue(p.modules[c.modIdx].tree, id: e)
+	let propagates = tryPropagates(p.modules[c.modIdx].tree, e: e)
+	if not propagates 'catching'
+		beginCatching(c)
+	end 'catching'
 	let result = checkExpecting(c, p: p, e: guarded, want: want, errs: errs)
+	if not propagates 'caught'
+		_ = endCatching(c)
+	end 'caught'
 	if result == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let off = offsetOf(c, p: p, node: e)
 	if ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e) 'ignore'
-		checkFail(c.modID, off: off, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
-		return ast.noType
+		if c.statement != e 'notAlone'
+			failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
+			return ast.noType
+		end 'notAlone'
+		return p.builtins.voidTy
 	end 'ignore'
+	let fallback = ast.tryExprValue(p.modules[c.modIdx].tree, id: e)
 	if fallback != 0 'value'
 		return checkFallback(c, p: p, fallback: fallback, result: result, want: want, errs: errs)
 	end 'value'
-	let ret = ast.tryExprRet(p.modules[c.modIdx].tree, id: e)
-	if ret != 0 'return'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: ret), code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to return from: give 'otherwise' the value to use", errs: errs)
-		return ast.noType
-	end 'return'
-	if ast.tryExprBrk(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprCont(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprThr(p.modules[c.modIdx].tree, id: e) != 0 'jump'
-		panic("a try that leaves by a jump or a throw is typed by the bodies check, which a constant that holds one waits for")
-	end 'jump'
+	checkTryJump(c, p: p, e: e, errs: errs)
 	return result
 end 'checkTry'
+
+// tryPropagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
+function tryPropagates(tree ast.Tree, e ast.NodeID) returns bool
+	return ast.tryExprValue(tree, id: e) == 0 and not ast.tryExprIgnore(tree, id: e) and ast.tryExprRet(tree, id: e) == 0 and ast.tryExprBrk(tree, id: e) == 0 and ast.tryExprCont(tree, id: e) == 0 and ast.tryExprThr(tree, id: e) == 0
+end 'tryPropagates'
+
+// checkTryJump types the statement that a try with no value makes on a failure.
+function checkTryJump(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList)
+	let ret = ast.tryExprRet(p.modules[c.modIdx].tree, id: e)
+	if ret != 0 'return'
+		if c.fn == ast.noFunc 'noFunction'
+			failAt(c, p: p, node: ret, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to return from: give 'otherwise' the value to use", errs: errs)
+			return
+		end 'noFunction'
+		checkReturn(c, p: p, s: ret, errs: errs)
+		return
+	end 'return'
+	let brk = ast.tryExprBrk(p.modules[c.modIdx].tree, id: e)
+	if brk != 0 'break'
+		checkJump(c, p: p, s: brk, isBreak: true, errs: errs)
+		return
+	end 'break'
+	let cont = ast.tryExprCont(p.modules[c.modIdx].tree, id: e)
+	if cont != 0 'continue'
+		checkJump(c, p: p, s: cont, isBreak: false, errs: errs)
+		return
+	end 'continue'
+	let thr = ast.tryExprThr(p.modules[c.modIdx].tree, id: e)
+	if thr != 0 'throw'
+		checkThrow(c, p: p, s: thr, errs: errs)
+	end 'throw'
+end 'checkTryJump'
 
 function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var expected = want
@@ -544,183 +588,3 @@ function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.No
 	end 'failed'
 	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: fallback), a: result, b: other, errs: errs)
 end 'checkFallback'
-
-function checkCall(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if not c.allowCalls 'forbidden'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errModuleLetCallsFunction, msg: "a constant calls nothing", errs: errs)
-		return ast.noType
-	end 'forbidden'
-	panic("a call is typed by the bodies check")
-end 'checkCall'
-
-// checkStructLit types a record literal, which only a method of the record writes.
-function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let typeName = ast.structLitExprTypeName(p.modules[c.modIdx].tree, id: e)
-	let off = offsetOf(c, p: p, node: e)
-	var target = ast.noType
-	if typeName == "Self" 'selfType'
-		target = c.owner
-	end 'selfType' else 'named'
-		match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
-			some(ref) then target = declaredTypeOrNone(p, ref: ref)
-			none then _ = 0
-		end 'bound'
-	end 'named'
-	if not typeHasKind(p, t: target, kind: ast.TypeKind.record) 'notRecord'
-		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'{typeName}' is not a type with fields", errs: errs)
-		return ast.noType
-	end 'notRecord'
-	let tName = nameOfType(p, t: target)
-	if p.types.entries[target as Count].typeParams.count() > 0 'generic'
-		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "a literal of the generic '{tName}' is written 'Self\{...\}', which gives it its own type parameters", errs: errs)
-		return ast.noType
-	end 'generic'
-	if c.owner != target or c.fn == ast.noFunc 'restricted'
-		checkFail(c.modID, off: off, code: diag.errConstructorRestriction, msg: diag.constructorRestricted(tName), errs: errs)
-		return ast.noType
-	end 'restricted'
-	panic("a record literal in a method is typed by the bodies check")
-end 'checkStructLit'
-
-function declaredTypeOrNone(p ast.Project, consumes ref ast.DeclRef) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
-		some(tid) then return tid
-		none then return ast.noType
-	end 'dt'
-end 'declaredTypeOrNone'
-
-// checkIndex types a subscript, which only an array, a map, a list or a pool has.
-function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let obj = ast.indexExprObj(p.modules[c.modIdx].tree, id: e)
-	let typed = checkExpr(c, p: p, e: obj, errs: errs)
-	if typed == ast.noType 'failed'
-		return ast.noType
-	end 'failed'
-	let t = ast.contentType(p.types, t: typed)
-	let k = kindOfType(p, t: t)
-	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinMap and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinPool 'notSubscriptable'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: "{nameOfType(p, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
-		return ast.noType
-	end 'notSubscriptable'
-	panic("a subscript is typed by the bodies check")
-end 'checkIndex'
-
-// checkMember types 'Type.case' and the members that an enum or a union value has.
-function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
-	var named = ast.noType
-	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
-		let mark = errs.count()
-		named = typeNamed(c, p: p, name: obj, errs: errs)
-		if failedSince(errs, mark: mark) 'failed'
-			return ast.noType
-		end 'failed'
-	end 'headIsName'
-	if named != ast.noType 'typeMember'
-		return checkTypeMember(c, p: p, e: e, obj: obj, nt: named, errs: errs)
-	end 'typeMember'
-	let typed = checkExpr(c, p: p, e: obj, errs: errs)
-	if typed == ast.noType 'badObj'
-		return ast.noType
-	end 'badObj'
-	return checkValueMember(c, p: p, e: e, t: typed, errs: errs)
-end 'checkMember'
-
-// checkTypeMember types a case of an enum or a union written after the type's name.
-function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
-	let off = offsetOf(c, p: p, node: e)
-	let k = kindOfType(p, t: nt)
-	if k == ast.TypeKind.unionTy and p.types.entries[nt as Count].typeParams.count() > 0 and p.types.entries[nt as Count].findCase(member).isSome() 'inferred'
-		panic("a case of a generic union takes its type arguments from where it is used, which the bodies check infers")
-	end 'inferred'
-	let mark = errs.count()
-	_ = requireInstance(c, p: p, off: offsetOf(c, p: p, node: obj), nt: nt, errs: errs)
-	if failedSince(errs, mark: mark) 'generic'
-		return ast.noType
-	end 'generic'
-	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
-		return checkCaseMember(c, p: p, e: e, member: member, nt: nt, errs: errs)
-	end 'cases'
-	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, t: nt)}.{member}' is not a value", errs: errs)
-	return ast.noType
-end 'checkTypeMember'
-
-function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
-	let isEnum = kindOfType(p, t: nt) == ast.TypeKind.enumTy
-	var word = unionWord
-	if isEnum 'enumKind'
-		word = enumWord
-	end 'enumKind'
-	var caseIndex = 0 as Count
-	match consumes p.types.entries[nt as Count].findCase(member) 'found'
-		some(i) then caseIndex = i
-		none then return unknownCase(c, off: off, word: word, member: member, errs: errs)
-	end 'found'
-	if not isEnum and p.types.entries[nt as Count].cases[caseIndex].payload.count() > 0 'payload'
-		checkFail(c.modID, off: off, code: diag.errCallArgCountMismatch, msg: "case '{member}' carries a payload: construct it with arguments", errs: errs)
-		return ast.noType
-	end 'payload'
-	var kind = ast.MemberKind.memberUnionCase
-	if isEnum 'enumCase'
-		kind = ast.MemberKind.memberEnumCase
-	end 'enumCase'
-	var info = ast.MemberInfo.make(kind, ownerTy: nt)
-	info.enumCase = caseIndex
-	c.typing.members.insert(e as Count, value: info)
-	return nt
-end 'checkCaseMember'
-
-function unknownCase(c Checker, off diag.U32, word String, member String, mutates errs diag.ErrorList) returns ast.TypeID
-	checkFail(c.modID, off: off, code: diag.errEnumUnknownCase, msg: diag.enumUnknownCase(word, caseName: member), errs: errs)
-	return ast.noType
-end 'unknownCase'
-
-// checkValueMember types '.name', '.ordinal' and '.rawValue' of an enum value and '.name' and '.ordinal' of a union
-// value.
-function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
-	let k = kindOfType(p, t: t)
-	let off = offsetOf(c, p: p, node: e)
-	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal")) 'builtinMember'
-		return builtinMemberType(c, p: p, e: e, t: t, member: member, errs: errs)
-	end 'builtinMember'
-	if typeIsNominal(p.types, t: t) and p.types.entries[ast.originOf(p.types, t: t) as Count].findMethod(member).isSome() 'method'
-		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a method value is not supported by minimaxon; call the method", errs: errs)
-		return ast.noType
-	end 'method'
-	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, t: t), fieldName: member), errs: errs)
-	return ast.noType
-end 'checkValueMember'
-
-function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
-	let isEnum = kindOfType(p, t: t) == ast.TypeKind.enumTy
-	var kind = ast.MemberKind.memberUnionName
-	var result = p.builtins.stringTy
-	if member == "ordinal" 'ordinal'
-		result = p.builtins.countTy
-		kind = ast.MemberKind.memberUnionOrdinal
-		if isEnum 'enumOrdinal'
-			kind = ast.MemberKind.memberEnumOrdinal
-		end 'enumOrdinal'
-	end 'ordinal' else if member == "rawValue" 'raw'
-		kind = ast.MemberKind.memberEnumRaw
-		result = rawValueType(p, t: t)
-	end 'raw' else if isEnum 'enumName'
-		kind = ast.MemberKind.memberEnumName
-	end 'enumName'
-	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(kind, ownerTy: t))
-	return result
-end 'builtinMemberType'
-
-// rawValueType is the type of the raw value of an enum: a Count, or a FullRangeInt where a case has a negative one.
-function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
-	let orig = ast.originOf(p.types, t: t)
-	for i in 0 upto p.types.entries[orig as Count].cases.count() 'each'
-		if p.types.entries[orig as Count].cases[i].rawValue.isNeg() 'negative'
-			return p.builtins.fullRangeIntTy
-		end 'negative'
-	end 'each'
-	return p.builtins.countTy
-end 'rawValueType'

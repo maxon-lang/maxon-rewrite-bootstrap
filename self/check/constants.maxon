@@ -192,7 +192,7 @@ end 'visitConst'
 // after them. The constants of other modules that it names are typed already, since the module graph has no cycle and
 // the module's constants wait for those of the modules it depends on. A constant that names itself through others is
 // refused, and then no constant of the module is ordered.
-function constantOrder(c Checker, p ast.Project, mutates errs diag.ErrorList) returns OrdinalList
+export function constantOrder(c Checker, p ast.Project, mutates errs diag.ErrorList) returns OrdinalList
 	var w = ConstOrder.make(p.modules[c.modIdx].decls.count())
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
@@ -270,9 +270,8 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 	end 'typed'
 end 'checkConst'
 
-// checkConstants orders the module's constants, then types them in that order.
-export function checkConstants(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
-	let order = constantOrder(c, p: p, errs: errs)
+// checkConstants types the module's constants in the order constantOrder gave.
+export function checkConstants(mutates c Checker, mutates p ast.Project, order OrdinalList, mutates errs diag.ErrorList)
 	for i in 0 upto order.count() 'each'
 		checkConst(c, p: p, ord: order[i], errs: errs)
 	end 'each'

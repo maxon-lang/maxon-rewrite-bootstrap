@@ -560,6 +560,7 @@ function selfTest()
 	testDeclare()
 	testCodegen()
 	testIr()
+	testBodies()
 	print("self: all checks passed\n")
 end 'selfTest'
 

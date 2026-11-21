@@ -1,0 +1,502 @@
+// failAt reports an error at a node of the module being checked.
+function failAt(c Checker, p ast.Project, node ast.NodeID, consumes code String, consumes msg String, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: offsetOf(c, p: p, node: node), code: code, msg: msg, errs: errs)
+end 'failAt'
+
+// terminates is whether a statement never completes normally: it returns or panics on every path, so a function whose
+// body ends with it needs no return after it. A throw leaves the function, or goes to the handler of a try block around
+// it, which decides for that block whether it terminates.
+function terminates(tree ast.Tree, s ast.NodeID) returns bool
+	let k = tree.kindOf(s)
+	if k == ast.NodeKind.returnStmt or k == ast.NodeKind.throwStmt 'leaves'
+		return true
+	end 'leaves'
+	if k == ast.NodeKind.exprStmt 'expr'
+		return tree.kindOf(ast.exprStmtE(tree, id: s)) == ast.NodeKind.panicExpr
+	end 'expr'
+	if k == ast.NodeKind.ifStmt 'if'
+		return ast.ifStmtHasElse(tree, id: s) and bodyTerminates(tree, body: ast.ifStmtThenRef(tree, id: s)) and bodyTerminates(tree, body: ast.ifStmtElseRef(tree, id: s))
+	end 'if'
+	if k == ast.NodeKind.matchStmt 'match'
+		return armsTerminate(tree, core: ast.matchStmtMatch(tree, id: s))
+	end 'match'
+	if k == ast.NodeKind.tryStmt 'try'
+		return bodyTerminates(tree, body: ast.tryStmtBodyRef(tree, id: s)) and (not ast.tryStmtHasOtherwise(tree, id: s) or bodyTerminates(tree, body: ast.tryStmtHandlerRef(tree, id: s)))
+	end 'try'
+	if k == ast.NodeKind.letStmt or k == ast.NodeKind.assignStmt or k == ast.NodeKind.discardStmt or k == ast.NodeKind.whileStmt or k == ast.NodeKind.whenStmt or k == ast.NodeKind.forStmt or k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'continues'
+		return false
+	end 'continues'
+	panic("the node {s} of kind {k.name} is no statement")
+end 'terminates'
+
+function armsTerminate(tree ast.Tree, core ast.NodeID) returns bool
+	let armsRef = ast.matchCoreArmsRef(tree, id: core)
+	for i in 0 upto tree.listLen(armsRef) 'arms'
+		let arm = tree.listAt(armsRef, index: i) as ast.NodeID
+		let action = ast.matchArmAction(tree, id: arm)
+		if ast.matchArmForm(tree, id: arm) != ast.ArmKind.armPanic and (action == 0 or not terminates(tree, s: action)) 'continues'
+			return false
+		end 'continues'
+	end 'arms'
+	return true
+end 'armsTerminate'
+
+// bodyTerminates is whether the last statement of a body terminates.
+function bodyTerminates(tree ast.Tree, body diag.U32) returns bool
+	let n = tree.listLen(body)
+	if n == 0 'empty'
+		return false
+	end 'empty'
+	return terminates(tree, s: tree.listAt(body, index: try n - 1 otherwise 0 as Count) as ast.NodeID)
+end 'bodyTerminates'
+
+// endsBlock is whether control never reaches the statement after this one in its block.
+function endsBlock(tree ast.Tree, s ast.NodeID) returns bool
+	let k = tree.kindOf(s)
+	return k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt or terminates(tree, s: s)
+end 'endsBlock'
+
+// liveCount is how many statements of a block can run: those up to the first that terminates or jumps out of the block.
+// The rest are type-checked like any code, but record no calls and are not lowered, so they instantiate nothing. A break or
+// a continue ends only its own block's live statements: it may leave an enclosing block that is not a loop, so it never
+// makes that block terminate.
+function liveCount(tree ast.Tree, body diag.U32) returns Count
+	let n = tree.listLen(body)
+	for i in 0 upto n 'each'
+		if endsBlock(tree, s: tree.listAt(body, index: i) as ast.NodeID) 'ends'
+			return try i + 1 otherwise n
+		end 'ends'
+	end 'each'
+	return n
+end 'liveCount'
+
+function checkBlock(mutates c Checker, mutates p ast.Project, body diag.U32, mutates errs diag.ErrorList)
+	pushScope(c)
+	checkStmts(c, p: p, body: body, errs: errs)
+	popScope(c)
+end 'checkBlock'
+
+// checkStmts types the statements of a block. Each stops at its first error and the ones after it are typed all the same.
+function checkStmts(mutates c Checker, mutates p ast.Project, body diag.U32, mutates errs diag.ErrorList)
+	let live = liveCount(p.modules[c.modIdx].tree, body: body)
+	let outer = c.dead
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(body) 'each'
+		c.dead = outer or i >= live
+		checkStmt(c, p: p, s: p.modules[c.modIdx].tree.listAt(body, index: i) as ast.NodeID, errs: errs)
+	end 'each'
+	c.dead = outer
+end 'checkStmts'
+
+function checkStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let k = p.modules[c.modIdx].tree.kindOf(s)
+	if k == ast.NodeKind.letStmt 'let'
+		checkLet(c, p: p, s: s, errs: errs)
+		return
+	end 'let'
+	if k == ast.NodeKind.assignStmt 'assign'
+		checkAssign(c, p: p, s: s, errs: errs)
+		return
+	end 'assign'
+	if k == ast.NodeKind.exprStmt 'expr'
+		checkExprStmt(c, p: p, s: s, errs: errs)
+		return
+	end 'expr'
+	if k == ast.NodeKind.discardStmt 'discard'
+		_ = checkExpr(c, p: p, e: ast.discardStmtValue(p.modules[c.modIdx].tree, id: s), errs: errs)
+		return
+	end 'discard'
+	if k == ast.NodeKind.ifStmt 'if'
+		checkIf(c, p: p, s: s, errs: errs)
+		return
+	end 'if'
+	if k == ast.NodeKind.whileStmt 'while'
+		checkWhile(c, p: p, s: s, errs: errs)
+		return
+	end 'while'
+	if k == ast.NodeKind.forStmt 'for'
+		checkFor(c, p: p, s: s, errs: errs)
+		return
+	end 'for'
+	if k == ast.NodeKind.matchStmt 'match'
+		_ = checkMatch(c, p: p, core: ast.matchStmtMatch(p.modules[c.modIdx].tree, id: s), isExpr: false, errs: errs)
+		return
+	end 'match'
+	if k == ast.NodeKind.tryStmt 'try'
+		checkTryStmt(c, p: p, s: s, errs: errs)
+		return
+	end 'try'
+	if k == ast.NodeKind.throwStmt 'throw'
+		checkThrow(c, p: p, s: s, errs: errs)
+		return
+	end 'throw'
+	if k == ast.NodeKind.returnStmt 'return'
+		checkReturn(c, p: p, s: s, errs: errs)
+		return
+	end 'return'
+	if k == ast.NodeKind.breakStmt 'break'
+		checkJump(c, p: p, s: s, isBreak: true, errs: errs)
+		return
+	end 'break'
+	if k == ast.NodeKind.continueStmt 'continue'
+		checkJump(c, p: p, s: s, isBreak: false, errs: errs)
+		return
+	end 'continue'
+	if k == ast.NodeKind.whenStmt 'when'
+		checkBehaviour(c, p: p, s: s, errs: errs)
+		return
+	end 'when'
+	panic("the node {s} of kind {k.name} is no statement")
+end 'checkStmt'
+
+function checkExprStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let whole = ast.exprStmtE(p.modules[c.modIdx].tree, id: s)
+	var e = whole
+	if p.modules[c.modIdx].tree.kindOf(e) == ast.NodeKind.tryExpr 'try'
+		c.statement = e
+		e = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
+	end 'try'
+	let k = p.modules[c.modIdx].tree.kindOf(e)
+	if k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr 'notCall'
+		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
+		return
+	end 'notCall'
+	_ = checkExpr(c, p: p, e: whole, errs: errs)
+end 'checkExprStmt'
+
+function checkIf(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	if not requireBool(c, p: p, e: ast.ifStmtCond(p.modules[c.modIdx].tree, id: s), keyword: "if", errs: errs) 'badCond'
+		return
+	end 'badCond'
+	checkBlock(c, p: p, body: ast.ifStmtThenRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	if ast.ifStmtHasElse(p.modules[c.modIdx].tree, id: s) 'else'
+		checkBlock(c, p: p, body: ast.ifStmtElseRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	end 'else'
+end 'checkIf'
+
+function checkWhile(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	if not requireBool(c, p: p, e: ast.whileStmtCond(p.modules[c.modIdx].tree, id: s), keyword: "while", errs: errs) 'badCond'
+		return
+	end 'badCond'
+	pushBlock(c, label: ast.whileStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
+	checkBlock(c, p: p, body: ast.whileStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	popBlock(c)
+end 'checkWhile'
+
+function checkFor(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let lowerNode = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
+	let upperNode = ast.forStmtTo(p.modules[c.modIdx].tree, id: s)
+	let lowerTy = checkExpr(c, p: p, e: lowerNode, errs: errs)
+	if lowerTy == ast.noType 'badLower'
+		return
+	end 'badLower'
+	let upperTy = checkExpr(c, p: p, e: upperNode, errs: errs)
+	if upperTy == ast.noType 'badUpper'
+		return
+	end 'badUpper'
+	if not ast.isIntType(p.types, t: lowerTy) or not ast.isIntType(p.types, t: upperTy) 'notInts'
+		failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: "a range needs integer bounds, found {nameOfType(p, t: lowerTy)} and {nameOfType(p, t: upperTy)}", errs: errs)
+		return
+	end 'notInts'
+	let varType = forVariableType(c, p: p, s: s, lowerTy: lowerTy, upperTy: upperTy, errs: errs)
+	if varType == ast.noType 'badType'
+		return
+	end 'badType'
+	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
+	pushScope(c)
+	let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
+	let local = declareLocal(c, p: p, name: name, t: varType, isVar: false, off: offsetOf(c, p: p, node: s), errs: errs)
+	if local != ast.noLocal 'declared'
+		c.typing.nodeLocals.insert(s as Count, value: local)
+		checkStmts(c, p: p, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	end 'declared'
+	popScope(c)
+	popBlock(c)
+end 'checkFor'
+
+// forVariableType is the type of the variable of a for: the alias of a bound that has one, else the range from the first
+// value of the lower bound to the last of the upper.
+function forVariableType(mutates c Checker, mutates p ast.Project, s ast.NodeID, lowerTy ast.TypeID, upperTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: s)
+	if typeIsNamedInt(p.types, t: lowerTy) or typeIsNamedInt(p.types, t: upperTy) 'named'
+		return unifyInts(c, p: p, off: off, l: lowerTy, r: upperTy, errs: errs)
+	end 'named'
+	let lowerOff = offsetOf(c, p: p, node: ast.forStmtFrom(p.modules[c.modIdx].tree, id: s))
+	if not requireSigned64(c, off: lowerOff, t: lowerTy, p: p, errs: errs) 'wideLower'
+		return ast.noType
+	end 'wideLower'
+	let upperOff = offsetOf(c, p: p, node: ast.forStmtTo(p.modules[c.modIdx].tree, id: s))
+	if not requireSigned64(c, off: upperOff, t: upperTy, p: p, errs: errs) 'wideUpper'
+		return ast.noType
+	end 'wideUpper'
+	let lo = rangeLo(p.types, t: lowerTy)
+	var hi = rangeHi(p.types, t: upperTy)
+	if not ast.forStmtInclusive(p.modules[c.modIdx].tree, id: s) 'exclusive'
+		hi = hi.sub(ast.I128.one())
+	end 'exclusive'
+	return ast.internIntRange(p.types, aliasName: "", minVal: lo.clone(), maxVal: ast.maxI128(lo, b: hi), inferred: true)
+end 'forVariableType'
+
+function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let name = ast.letStmtName(p.modules[c.modIdx].tree, id: s)
+	if name == "_" 'discard'
+		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "write '_ = call()' to discard a result", errs: errs)
+		return
+	end 'discard'
+	let isVar = ast.letStmtIsVar(p.modules[c.modIdx].tree, id: s)
+	let initNode = ast.letStmtInit(p.modules[c.modIdx].tree, id: s)
+	let off = offsetOf(c, p: p, node: s)
+	if initNode == 0 'declaredOnly'
+		let owner = c.owner
+		let declared = resolveTypeRef(c, p: p, tr: ast.letStmtType(p.modules[c.modIdx].tree, id: s), selfTy: owner, errs: errs)
+		if declared == ast.noType 'badType'
+			return
+		end 'badType'
+		bindLet(c, p: p, s: s, name: name, t: declared, isVar: isVar, off: off, errs: errs)
+		return
+	end 'declaredOnly'
+	let t = checkExpr(c, p: p, e: initNode, errs: errs)
+	if t == ast.noType 'badInit'
+		return
+	end 'badInit'
+	let initOff = offsetOf(c, p: p, node: initNode)
+	if not requireSigned64(c, off: initOff, t: t, p: p, errs: errs) 'wide'
+		return
+	end 'wide'
+	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
+		failAt(c, p: p, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
+		return
+	end 'noValue'
+	if isVar and (isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t)) 'bareNumber'
+		failAt(c, p: p, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
+		return
+	end 'bareNumber'
+	bindLet(c, p: p, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
+end 'checkLet'
+
+function bindLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList)
+	let local = declareLocal(c, p: p, name: name, t: t, isVar: isVar, off: off, errs: errs)
+	if local != ast.noLocal 'declared'
+		c.typing.nodeLocals.insert(s as Count, value: local)
+	end 'declared'
+end 'bindLet'
+
+// checkAssign types an assignment to a variable, a field or an element.
+function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let targetNode = ast.assignStmtTarget(p.modules[c.modIdx].tree, id: s)
+	let valueNode = ast.assignStmtValue(p.modules[c.modIdx].tree, id: s)
+	let k = p.modules[c.modIdx].tree.kindOf(targetNode)
+	var target = ast.noType
+	var wrong = Mismatch.expectedGot
+	if k == ast.NodeKind.nameExpr 'name'
+		target = checkNameExpr(c, p: p, e: targetNode, errs: errs)
+		wrong = Mismatch.assignment("variable '{ast.nameExprName(p.modules[c.modIdx].tree, id: targetNode)}'")
+	end 'name' else if k == ast.NodeKind.memberExpr 'member'
+		target = checkMember(c, p: p, e: targetNode, errs: errs)
+		if target == ast.noType 'badMember'
+			return
+		end 'badMember'
+		let memberName = ast.memberExprName(p.modules[c.modIdx].tree, id: targetNode)
+		if memberKindOf(c, node: targetNode) != ast.MemberKind.memberField 'notField'
+			failAt(c, p: p, node: s, code: diag.errAssignToImmutable, msg: "'{memberName}' cannot be assigned", errs: errs)
+			return
+		end 'notField'
+		let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: targetNode)))
+		wrong = Mismatch.assignment("field '{memberName}' of '{nameOfType(p, t: holder)}'")
+	end 'member' else if k == ast.NodeKind.indexExpr 'index'
+		target = checkIndex(c, p: p, e: targetNode, errs: errs)
+	end 'index' else 'other'
+		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "only a variable, a field or an element can be assigned", errs: errs)
+		return
+	end 'other'
+	if target == ast.noType 'badTarget'
+		return
+	end 'badTarget'
+	ast.setNodeType(c.typing, node: targetNode, ty: target)
+	let value = checkExpecting(c, p: p, e: valueNode, want: target, errs: errs)
+	if value == ast.noType 'badValue'
+		return
+	end 'badValue'
+	_ = coerce(c, p: p, off: offsetOf(c, p: p, node: valueNode), src: value, target: target, wrong: wrong, errs: errs)
+end 'checkAssign'
+
+function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
+	match consumes c.typing.members.get(node as Count) 'info'
+		some(m) then return m.kind
+		none then _ = 0
+	end 'info'
+	panic("the member at node {node} was typed without a record of what it is")
+end 'memberKindOf'
+
+function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let ret = p.funcs.entries[c.fn as Count].retTy
+	let fnName = p.funcs.entries[c.fn as Count].name.clone()
+	let value = ast.returnStmtValue(p.modules[c.modIdx].tree, id: s)
+	if ret == p.builtins.voidTy 'void'
+		if value != 0 'given'
+			if c.inBehaviour 'behaviour'
+				failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour", errs: errs)
+				return
+			end 'behaviour'
+			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.returnValueFromVoid(fnName), errs: errs)
+		end 'given'
+		return
+	end 'void'
+	if value == 0 'missing'
+		failAt(c, p: p, node: s, code: diag.errMissingReturn, msg: diag.returnWithoutValue(fnName), errs: errs)
+		return
+	end 'missing'
+	let t = checkExpecting(c, p: p, e: value, want: ret, errs: errs)
+	if t == ast.noType 'badValue'
+		return
+	end 'badValue'
+	_ = coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
+end 'checkReturn'
+
+// checkThrow types a throw, which fails with a case of an error enum.
+function checkThrow(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let value = ast.throwStmtValue(p.modules[c.modIdx].tree, id: s)
+	let e = checkExpr(c, p: p, e: value, errs: errs)
+	if e == ast.noType 'badValue'
+		return
+	end 'badValue'
+	if not typeHasKind(p, t: e, kind: ast.TypeKind.enumTy) 'notEnum'
+		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
+		return
+	end 'notEnum'
+	recordFailure(c, e: e)
+end 'checkThrow'
+
+function checkJump(mutates c Checker, mutates p ast.Project, s ast.NodeID, isBreak bool, mutates errs diag.ErrorList)
+	var label = ast.continueStmtLabel(p.modules[c.modIdx].tree, id: s)
+	if isBreak 'break'
+		label = ast.breakStmtLabel(p.modules[c.modIdx].tree, id: s)
+	end 'break'
+	match consumes resolveJump(c, p: p, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
+		some(node) then c.typing.jumps.insert(s as Count, value: node)
+		none then _ = 0
+	end 'target'
+end 'checkJump'
+
+// resolveJump is the loop or match that a break or a continue leaves or repeats, or none after it reported why there is
+// none.
+function resolveJump(c Checker, p ast.Project, s ast.NodeID, label String, isBreak bool, mutates errs diag.ErrorList) returns table.Option with ast.NodeID
+	var word = "continue"
+	if isBreak 'break'
+		word = "break"
+	end 'break'
+	var i = c.blocks.count()
+	while i > 0 'blocks'
+		i = try i - 1 otherwise 0 as Count
+		let frame = c.blocks[i].clone()
+		if label == "" 'unlabelled'
+			if isBreak or frame.isLoop 'found'
+				return table.Option.some(frame.node)
+			end 'found'
+			continue 'blocks'
+		end 'unlabelled'
+		if frame.label != label 'other'
+			continue 'blocks'
+		end 'other'
+		if not isBreak and not frame.isLoop 'notLoop'
+			failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "'continue' names '{label}', which is not a loop", errs: errs)
+			return table.Option.none
+		end 'notLoop'
+		return table.Option.some(frame.node)
+	end 'blocks'
+	if label == "" 'noLoop'
+		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "'{word}' outside a loop", errs: errs)
+		return table.Option.none
+	end 'noLoop'
+	failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "no enclosing loop or match is labelled '{label}'", errs: errs)
+	return table.Option.none
+end 'resolveJump'
+
+// catching: beginCatching and endCatching surround code whose failures a try catches, and give the errors they fail with.
+function beginCatching(mutates c Checker)
+	c.tries.push(TryFrame.make())
+end 'beginCatching'
+
+function endCatching(mutates c Checker) returns ast.TypeIDList
+	let frame = try c.tries.pop() otherwise panic("a try ended that was never begun")
+	return frame.errors.clone()
+end 'endCatching'
+
+// recordFailure notes that the code being checked can fail with the error e, for the try that catches it.
+function recordFailure(mutates c Checker, e ast.TypeID)
+	if c.tries.count() == 0 'none'
+		return
+	end 'none'
+	let last = try c.tries.count() - 1 otherwise 0 as Count
+	for i in 0 upto c.tries[last].errors.count() 'seen'
+		if c.tries[last].errors[i] == e 'again'
+			return
+		end 'again'
+	end 'seen'
+	c.tries[last].errors.push(e)
+end 'recordFailure'
+
+// checkTryStmt types the body of a try block and its handler, which may name the error that failed.
+function checkTryStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+	let body = ast.tryStmtBodyRef(p.modules[c.modIdx].tree, id: s)
+	if not ast.tryStmtHasOtherwise(p.modules[c.modIdx].tree, id: s) 'plain'
+		checkBlock(c, p: p, body: body, errs: errs)
+		return
+	end 'plain'
+	beginCatching(c)
+	checkBlock(c, p: p, body: body, errs: errs)
+	let errors = endCatching(c)
+	let handler = ast.tryStmtHandlerRef(p.modules[c.modIdx].tree, id: s)
+	let binding = ast.tryStmtBinding(p.modules[c.modIdx].tree, id: s)
+	pushScope(c)
+	if binding == "" 'anonymous'
+		checkStmts(c, p: p, body: handler, errs: errs)
+		popScope(c)
+		return
+	end 'anonymous'
+	checkHandlerBinding(c, p: p, s: s, binding: binding, errors: errors, errs: errs)
+	popScope(c)
+end 'checkTryStmt'
+
+function checkHandlerBinding(mutates c Checker, mutates p ast.Project, s ast.NodeID, binding String, errors ast.TypeIDList, mutates errs diag.ErrorList)
+	let handled = handlerError(c, p: p, s: s, binding: binding, errors: errors, errs: errs)
+	if handled == ast.noType 'ambiguous'
+		return
+	end 'ambiguous'
+	let local = declareLocal(c, p: p, name: binding, t: handled, isVar: false, off: offsetOf(c, p: p, node: s), errs: errs)
+	if local == ast.noLocal 'failed'
+		return
+	end 'failed'
+	c.typing.nodeLocals.insert(s as Count, value: local)
+	c.bindings.push(TryBinding.make(local))
+	checkStmts(c, p: p, body: ast.tryStmtHandlerRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	let frame = try c.bindings.pop() otherwise panic("a handler ended that was never begun")
+	if not frame.matched 'unmatched'
+		failAt(c, p: p, node: s, code: diag.errTryBlockBindingNotMatched, msg: diag.tryBlockBindingNotMatched(binding), errs: errs)
+	end 'unmatched'
+end 'checkHandlerBinding'
+
+// handlerError is the error that a try block's handler names: the one error its body's calls and throws fail with, or with
+// none of those ArithmeticError, the error of an integer operation, which is all that is left to fail.
+function handlerError(c Checker, p ast.Project, s ast.NodeID, binding String, errors ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	if errors.count() == 0 'none'
+		return p.builtins.arithmeticErrorTy
+	end 'none'
+	if errors.count() == 1 'one'
+		return errors[0]
+	end 'one'
+	failAt(c, p: p, node: s, code: diag.errErrorTypeMismatch, msg: "the block fails with '{nameOfType(p, t: errors[0])}' and with '{nameOfType(p, t: errors[1])}', and '({binding})' names one error: give the calls of one of them a 'try ... otherwise' of their own, or drop '({binding})'", errs: errs)
+	return ast.noType
+end 'handlerError'
+
+// markMatchedBinding notes a match on the error that a handler names.
+function markMatchedBinding(mutates c Checker, p ast.Project, subject ast.NodeID)
+	if p.modules[c.modIdx].tree.kindOf(subject) != ast.NodeKind.nameExpr 'notName'
+		return
+	end 'notName'
+	let local = lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: subject))
+	for i in 0 upto c.bindings.count() 'each'
+		if c.bindings[i].local == local 'hit'
+			c.bindings[i].matched = true
+		end 'hit'
+	end 'each'
+end 'markMatchedBinding'
