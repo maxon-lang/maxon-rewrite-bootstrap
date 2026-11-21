@@ -380,7 +380,7 @@ end 'jumpOwn'
 // loop walks the body again from what the first walk added to the state, which is enough for a fact to reach the top of
 // the next iteration; a first walk that adds nothing needs no second.
 function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, consumes s OwnState, body diag.U32, cond ast.NodeID) returns OwnState
-	pushFrame(o, target: target)
+	pushFrameOwn(o, target: target)
 	let frame = try o.frames.count() - 1 otherwise 0 as Count
 	var entry = s
 	if cond != 0 'cond'
@@ -400,7 +400,7 @@ function loopOwn(mutates o Ownership, mutates p ast.Project, target ast.NodeID, 
 			entry = expr(o, p: p, e: cond, s: entry)
 		end 'again'
 	end 'walks'
-	let closed = popFrame(o)
+	let closed = popFrameOwn(o)
 	// A loop whose condition is the literal true is left by 'break' alone, so no path leaves it from the top or the
 	// bottom of the body.
 	if isTrue(p.modules[o.c.modIdx].tree, e: cond) 'forever'
@@ -424,7 +424,7 @@ function matchOwn(mutates o Ownership, mutates p ast.Project, core ast.NodeID, c
 	end 'consumes' else 'reads'
 		start = expr(o, p: p, e: subject, s: start)
 	end 'reads'
-	pushFrame(o, target: core)
+	pushFrameOwn(o, target: core)
 	var subjectPath = AccessPath.none()
 	var subjectKnown = false
 	var result = OwnState.unreachable()
@@ -462,7 +462,7 @@ function matchOwn(mutates o Ownership, mutates p ast.Project, core ast.NodeID, c
 		a = endScope(o, p: p, mark: mark, s: a)
 		result = join(o, p: p, a: result, b: a)
 	end 'arms'
-	let closed = popFrame(o)
+	let closed = popFrameOwn(o)
 	return join(o, p: p, a: result, b: closed.breaks)
 end 'matchOwn'
 

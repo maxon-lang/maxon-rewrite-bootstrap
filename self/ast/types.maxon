@@ -85,6 +85,11 @@ export enum Convention
 			convDestructs gives "destructs"
 		end 'c'
 	end 'keyword'
+
+	// byAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
+	export function byAddress() returns bool
+		return self == Convention.convMutates or self == Convention.convSets
+	end 'byAddress'
 end 'Convention'
 
 export function parseConvention(kw String) returns Convention

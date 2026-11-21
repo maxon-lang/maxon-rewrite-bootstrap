@@ -163,7 +163,7 @@ end 'bindArgs'
 // parameter takes the contents of a frozen value for.
 function coerceArg(mutates c Checker, mutates p ast.Project, value ast.NodeID, callee String, spec ast.ParamSpec, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
-	if spec.conv == ast.Convention.convMutates or spec.conv == ast.Convention.convSets 'byAddress'
+	if spec.conv.byAddress() 'byAddress'
 		if t != spec.ty 'different'
 			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: diag.argTypeMismatch("'{spec.name}'", expected: nameOfType(p, t: spec.ty), got: nameOfType(p, t: t)), errs: errs)
 			return false

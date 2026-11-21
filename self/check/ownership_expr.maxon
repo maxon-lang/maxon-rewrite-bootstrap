@@ -340,18 +340,6 @@ function condExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	return join(o, p: p, a: yes, b: no)
 end 'condExprOwn'
 
-// callReceiver is the object a call of the kind is made on, or 0 for a call that has none. A method call, a call through
-// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
-function callReceiver(tree ast.Tree, e ast.NodeID, kind ast.CallKind) returns ast.NodeID
-	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
-		let callee = ast.callExprCallee(tree, id: e)
-		if tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
-			return ast.memberExprObj(tree, id: callee)
-		end 'named'
-	end 'member'
-	return 0 as ast.NodeID
-end 'callReceiver'
-
 function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let call = ownCall(o, node: e)
 	let receiver = callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
@@ -401,7 +389,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 	if receiver != 0 'receiver'
 		out = argument(o, p: p, e: receiver, conv: call.selfConv, dest: OwnDest.make(OwnDestKind.destParameter, name: "self"), s: out)
 		if n > 0 'more'
-			hold(o, p: p, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: byAddress(call.selfConv))
+			hold(o, p: p, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: call.selfConv.byAddress())
 		end 'more'
 	end 'receiver'
 	for i in 0 upto n 'args'
@@ -414,7 +402,7 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 		out = argument(o, p: p, e: arg, conv: conv, dest: OwnDest.make(OwnDestKind.destParameter, name: name), s: out)
 		let next = try i + 1 otherwise n
 		if next < n 'more'
-			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: byAddress(conv))
+			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: conv.byAddress())
 		end 'more'
 	end 'args'
 	release(o, mark: held)

@@ -415,12 +415,16 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	end 'failed'
 	let off = offsetOf(c, p: p, node: e)
 	if op == "not" 'not'
+		if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'bits'
+			setOperand(c, node: e, operand: t)
+		end 'bits'
 		return checkNot(c, p: p, off: off, t: t, errs: errs)
 	end 'not'
 	if isConstInt(p, t: t) 'constant'
 		return ast.internConstInt(p.types, val: p.types.entries[t as Count].minVal.neg())
 	end 'constant'
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
+		setOperand(c, node: e, operand: t)
 		return checkNegation(c, p: p, off: off, t: t, want: want, errs: errs)
 	end 'range'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'-' needs an integer, found {nameOfType(p, t: t)}", errs: errs)
@@ -511,9 +515,11 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{value.toString()} does not fit {nameOfType(p, t: target)} ({lo} to {hi})", errs: errs)
 			return ast.noType
 		end 'doesNotFit'
+		setOperand(c, node: e, operand: target)
 		return target
 	end 'constant'
 	if typeHasKind(p, t: src, kind: ast.TypeKind.intRange) 'range'
+		setOperand(c, node: e, operand: target)
 		return target
 	end 'range'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)

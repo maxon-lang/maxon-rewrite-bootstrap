@@ -231,8 +231,8 @@ end 'checkBehaviour'
 
 // sameName is whether two cown operands are one variable or one field.
 function sameName(c Checker, a ast.NodeID, b ast.NodeID) returns bool
-	let x = nameInfoOf(c, node: a)
-	let y = nameInfoOf(c, node: b)
+	let x = nameInfoOf(c.typing, node: a)
+	let y = nameInfoOf(c.typing, node: b)
 	if x.kind != y.kind 'differ'
 		return false
 	end 'differ'
@@ -241,13 +241,6 @@ function sameName(c Checker, a ast.NodeID, b ast.NodeID) returns bool
 	end 'local'
 	return x.kind == ast.NameKind.nameSelfField and x.fieldIndex == y.fieldIndex
 end 'sameName'
-
-function nameInfoOf(c Checker, node ast.NodeID) returns ast.NameInfo
-	match consumes c.typing.names.get(node as Count) 'info'
-		some(info) then return info
-		none then panic("the name at node {node} was typed without a record of what it is")
-	end 'info'
-end 'nameInfoOf'
 
 function describeType(p ast.Project, t ast.TypeID) returns String
 	if isConstInt(p, t: t) 'integer'

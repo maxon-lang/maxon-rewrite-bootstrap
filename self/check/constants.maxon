@@ -266,7 +266,13 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 		return
 	end 'failed'
 	if checkConstantType(c, p: p, cd: cd, t: t, errs: errs) 'typed'
-		p.declConsts.insert(ast.declKey(ast.DeclRef.make(c.modID, ordinal: ord)), value: constantValue(p, t: t))
+		var value = constantValue(p, t: t)
+		let s = rangeConstant(c, p: p, value: cd.value, errs: errs)
+		if ast.isIntType(p.types, t: t) 'int'
+			value.low = s.lo.clone()
+			value.high = s.hi.clone()
+		end 'int'
+		p.declConsts.insert(ast.declKey(ast.DeclRef.make(c.modID, ordinal: ord)), value: value)
 	end 'typed'
 end 'checkConst'
 

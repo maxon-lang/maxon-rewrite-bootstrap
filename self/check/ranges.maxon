@@ -1,0 +1,827 @@
+// RangeHandler is a try that catches the failures of what it covers: the state where its handler starts is the join of
+// the states at those failures. A try with no handler passes them to the caller.
+type RangeHandler
+	export var propagates as bool
+	export var entry as Count
+	// takes is the one error the handler names, which every failure it catches must be, or none for a handler that names
+	// none and so catches any.
+	export var takes as ast.TypeID
+
+	static function make(propagates bool, takes ast.TypeID) returns RangeHandler
+		return RangeHandler{propagates: propagates, entry: deadState, takes: takes}
+	end 'make'
+end 'RangeHandler'
+
+typealias RangeHandlerList = Array with RangeHandler
+
+// RangeFrame is a loop or a match being walked, which a break leaves for the state after it.
+type RangeFrame
+	export var node as ast.NodeID
+	export var breaks as Count
+
+	static function make(node ast.NodeID) returns RangeFrame
+		return RangeFrame{node: node, breaks: deadState}
+	end 'make'
+end 'RangeFrame'
+
+typealias RangeFrameList = Array with RangeFrame
+
+// Ranges is the range analysis of the bodies: it follows the span of each integer local through the code, and of each
+// field that a condition narrows, and how places compare, and decides for each operator and cast how it can still fail
+// (ArithInfo.fails). An operation that can fail must be covered by a try, and so must a call of a function that throws;
+// lowering checks only what can fail.
+//
+// The analysis is one walk, linear in the code. What may be assigned (a var, a mutates or sets parameter, and their
+// fields) loses what is known of it at the top of a loop, and a place loses it when it is assigned or a call may change
+// it, so no loop is walked twice.
+type Ranges
+	export var modID as diag.ModuleID
+	export var modIdx as Count
+	// typing is the module's, which the analysis holds while it runs and records the failures in.
+	export var typing as ast.Typing
+	export var errs as diag.ErrorList
+	// failed is whether the walk of the function or the value has met its error, which ends the walk.
+	export var failed as bool
+	export var fn as ast.FuncID
+	// base is the local whose slot is 0: the locals of fn are by their slot, their distance from it.
+	export var base as Count
+	export var slots as Count
+	export var locals as ast.LocalIDList
+	// mutable says by slot whether a local may be assigned: a var, or a mutates or sets parameter.
+	export var mutable as ByteArray
+	export var st as Count
+	export var handlers as RangeHandlerList
+	export var frames as RangeFrameList
+	// behaviour is whether fn is the body of a behaviour, which nothing waits for.
+	export var behaviour as bool
+	// written are the places the walk has seen assigned or given to a call that may change them, in order: what a
+	// condition says of a place it changes itself, as 'a > 5 and reset(a)' does, is not known afterwards.
+	export var written as PlaceList
+	export var states as States
+	// bounds are the accumulators of the loops being walked, which keep a span through every loop inside theirs.
+	export var bounds as AccBoundList
+	// probing is set while the body of a loop is walked to learn how its accumulators move: the walk records no error and
+	// no failure, and the state it leaves behind is discarded.
+	export var probing as bool
+	export var probe as LoopProbe
+
+	static function make(modID diag.ModuleID, modIdx Count, consumes typing ast.Typing) returns Ranges
+		return Ranges{modID: modID, modIdx: modIdx, typing: typing, errs: diag.ErrorList.create(0), failed: false, fn: ast.noFunc, base: 0 as Count, slots: 0 as Count, locals: ast.LocalIDList.create(0), mutable: ByteArray.create(0), st: deadState, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0), behaviour: false, written: PlaceList.create(0), states: States.new(), bounds: AccBoundList.create(0), probing: false, probe: LoopProbe.new()}
+	end 'make'
+end 'Ranges'
+
+// checkRanges analyses the defaults of the module's record fields, then the bodies of its functions.
+function checkRanges(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+	var r = Ranges.make(c.modID, modIdx: c.modIdx, typing: exchange(c.typing, value: ast.Typing.new(c.modID)))
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		rangeCheckValues(r, p: p, ord: ord)
+	end 'decls'
+	for i in 0 upto functions.count() 'functions'
+		r.failed = false
+		rangeFunction(r, p: p, fid: functions[i], behaviour: false)
+	end 'functions'
+	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
+	rangeHandOver(r, errs: errs)
+end 'checkRanges'
+
+// rangeConstant analyses a constant's value and gives its span, which a name of the constant has wherever it is used.
+function rangeConstant(mutates c Checker, p ast.Project, value ast.NodeID, mutates errs diag.ErrorList) returns Span
+	var r = Ranges.make(c.modID, modIdx: c.modIdx, typing: exchange(c.typing, value: ast.Typing.new(c.modID)))
+	let s = rangeValue(r, p: p, e: value)
+	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
+	rangeHandOver(r, errs: errs)
+	return s
+end 'rangeConstant'
+
+// rangeHandOver gives the errors the analysis found to the list of the check.
+function rangeHandOver(r Ranges, mutates errs diag.ErrorList)
+	for i in 0 upto r.errs.count() 'each'
+		errs.push(r.errs[i].clone())
+	end 'each'
+end 'rangeHandOver'
+
+// rangeCheckValues analyses the defaults of a record's fields, which no function holds.
+function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
+	if not isRecordDecl(p.modules[r.modIdx].decls[ord as Count]) 'notRecord'
+		return
+	end 'notRecord'
+	let tid = declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord))
+	for i in 0 upto p.types.entries[tid as Count].fields.count() 'fields'
+		if p.types.entries[tid as Count].fields[i].hasDefault 'default'
+			r.failed = false
+			_ = rangeValue(r, p: p, e: p.types.entries[tid as Count].fields[i].defaultExpr)
+		end 'default'
+	end 'fields'
+end 'rangeCheckValues'
+
+function isRecordDecl(d ast.Decl) returns bool
+	return match d 'k'
+		typeDecl(_) gives true
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		aliasDecl(_) gives false
+		interfaceDecl(_) gives false
+	end 'k'
+end 'isRecordDecl'
+
+// rangeValue analyses an expression outside any function, a constant's value or a field's default, and gives its span.
+function rangeValue(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+	r.fn = ast.noFunc
+	r.handlers = RangeHandlerList.create(0)
+	r.frames = RangeFrameList.create(0)
+	r.bounds = AccBoundList.create(0)
+	let m = r.states.mark()
+	r.st = r.states.state(0 as Count)
+	let s = rangeEval(r, p: p, e: e)
+	r.states.release(m)
+	r.st = deadState
+	return s
+end 'rangeValue'
+
+// functionLocals are the locals that the bodies check declared in a function.
+function functionLocals(r Ranges, p ast.Project, fid ast.FuncID) returns ast.LocalIDList
+	return match r.typing.funcLocals.get(p.funcs.entries[fid as Count].nodeID as Count) 'locals'
+		some(ids) gives ids.clone()
+		none gives ast.LocalIDList.create(0)
+	end 'locals'
+end 'functionLocals'
+
+// rangeFunction analyses the body of a function, or of a behaviour, which runs later: neither what is known around it
+// nor a try around it reaches into it.
+function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviour bool)
+	let outerFn = r.fn
+	let outerSt = r.st
+	let outerBehaviour = r.behaviour
+	let outerWritten = r.written.count()
+	let outerBase = r.base
+	let outerSlots = r.slots
+	let outerHandlers = exchange(r.handlers, value: RangeHandlerList.create(0))
+	let outerFrames = exchange(r.frames, value: RangeFrameList.create(0))
+	let outerBounds = exchange(r.bounds, value: AccBoundList.create(0))
+	let outerLocals = exchange(r.locals, value: functionLocals(r, p: p, fid: fid))
+	let outerMutable = exchange(r.mutable, value: ByteArray.create(0))
+	r.fn = fid
+	r.behaviour = behaviour
+	enterLocals(r)
+	let m = r.states.mark()
+	r.st = r.states.state(r.slots)
+	for i in 0 upto r.locals.count() 'locals'
+		let id = r.locals[i]
+		let ty = r.typing.locals[id as Count].ty
+		if ast.isIntType(p.types, t: ty) 'int'
+			let slot = slotOf(r, local: id)
+			let st = r.st
+			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
+		end 'int'
+	end 'locals'
+	rangeBlock(r, p: p, body: p.funcs.entries[fid as Count].bodyRef)
+	r.states.release(m)
+	r.fn = outerFn
+	r.st = outerSt
+	r.behaviour = outerBehaviour
+	r.base = outerBase
+	r.slots = outerSlots
+	r.handlers = outerHandlers
+	r.frames = outerFrames
+	r.bounds = outerBounds
+	r.locals = outerLocals
+	r.mutable = outerMutable
+	truncatePlaces(r.written, count: outerWritten)
+end 'rangeFunction'
+
+// enterLocals gives the locals of the function being entered their slots, from the first of them to the last, and says
+// which may be assigned.
+function enterLocals(mutates r Ranges)
+	r.base = 0
+	r.slots = 0
+	if r.locals.count() == 0 'none'
+		return
+	end 'none'
+	var lo = r.locals[0] as Count
+	var hi = lo
+	for i in 1 upto r.locals.count() 'bounds'
+		let id = r.locals[i] as Count
+		if id < lo 'lower'
+			lo = id
+		end 'lower'
+		if id > hi 'higher'
+			hi = id
+		end 'higher'
+	end 'bounds'
+	r.base = lo
+	r.slots = try hi - lo + 1 otherwise panic("ranges: too many locals")
+	r.mutable = ByteArray.create(r.slots)
+	for i in 0 upto r.locals.count() 'mutable'
+		let id = r.locals[i]
+		if isMutableLocal(r.typing.locals[id as Count]) 'assignable'
+			let slot = slotOf(r, local: id)
+			r.mutable[slot] = 1
+		end 'assignable'
+	end 'mutable'
+end 'enterLocals'
+
+// slotOf is the slot of a local of the function being walked.
+function slotOf(r Ranges, local ast.LocalID) returns Count
+	let slot = try (local as Count) - r.base otherwise panic("ranges: the local {local} is not of the function being walked")
+	if slot >= r.slots 'outside'
+		panic("ranges: the local {local} is not of the function being walked")
+	end 'outside'
+	return slot
+end 'slotOf'
+
+// localAt is the local at a slot of the function being walked.
+function localAt(r Ranges, slot Count) returns ast.LocalID
+	return try (r.base + slot) as ast.LocalID otherwise panic("ranges: the slot {slot} names no local")
+end 'localAt'
+
+function truncatePlaces(mutates places PlaceList, count Count)
+	while places.count() > count 'pop'
+		try places.pop() otherwise panic("ranges: the places written are fewer than their mark")
+	end 'pop'
+end 'truncatePlaces'
+
+// rangeRaise reports the error that ends the walk of the function or the value.
+function rangeRaise(mutates r Ranges, p ast.Project, node ast.NodeID, consumes code String, consumes msg String)
+	if r.failed 'once'
+		return
+	end 'once'
+	r.failed = true
+	checkFail(r.modID, off: p.modules[r.modIdx].tree.startOf(node), code: code, msg: msg, errs: r.errs)
+end 'rangeRaise'
+
+function typeOf(r Ranges, e ast.NodeID) returns ast.TypeID
+	return ast.nodeType(r.typing, node: e)
+end 'typeOf'
+
+function isDead(r Ranges, s Count) returns bool
+	return r.states.list[s].dead
+end 'isDead'
+
+// rangeKeep marks the current state as one that something comes back to, and gives it.
+function rangeKeep(mutates r Ranges) returns Count
+	let st = r.st
+	r.states.list[st].kept = true
+	return st
+end 'rangeKeep'
+
+// rangeOwn makes the current state one that can be changed in place.
+function rangeOwn(mutates r Ranges)
+	let st = r.st
+	if r.states.list[st].kept 'kept'
+		r.st = r.states.copyOf(st)
+	end 'kept'
+end 'rangeOwn'
+
+function rangeBlock(mutates r Ranges, p ast.Project, body diag.U32)
+	for i in 0 upto p.modules[r.modIdx].tree.listLen(body) 'each'
+		if r.failed 'stop'
+			return
+		end 'stop'
+		rangeStmt(r, p: p, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID)
+	end 'each'
+end 'rangeBlock'
+
+// rangeForget makes what is known of what may be assigned its type's span again: the state at the top of a loop, which the
+// end of the body comes back to. What may be assigned is a var, a mutates or sets parameter, and the fields of either.
+// The accumulators of the loops around keep their bounds.
+function rangeForget(mutates r Ranges, p ast.Project)
+	if r.fn == ast.noFunc or isDead(r, s: r.st) 'nothing'
+		return
+	end 'nothing'
+	rangeOwn(r)
+	let st = r.st
+	for i in 0 upto r.locals.count() 'locals'
+		let id = r.locals[i]
+		let ty = r.typing.locals[id as Count].ty
+		let slot = slotOf(r, local: id)
+		if r.mutable[slot] != 0 and ast.isIntType(p.types, t: ty) 'forgotten'
+			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
+		end 'forgotten'
+	end 'locals'
+	for i in 0 upto r.bounds.count() 'bounds'
+		let slot = r.bounds[i].local
+		let bounded = r.states.list[st].spans[slot].clamp(r.bounds[i].span)
+		r.states.list[st].spans[slot] = bounded
+	end 'bounds'
+	r.states.list[st].drop(Gone.assignable(r.mutable.clone()))
+end 'rangeForget'
+
+// rangeWrite gives a place the value of the span s, after which nothing known of the place before holds.
+function rangeWrite(mutates r Ranges, p ast.Project, place Place, s Span, t ast.TypeID)
+	if isDead(r, s: r.st) 'dead'
+		return
+	end 'dead'
+	rangeOwn(r)
+	r.written.push(place.clone())
+	if r.probing and place.depth == 0 'probed'
+		r.probe.noteWrite(place.root)
+	end 'probed'
+	let st = r.st
+	r.states.list[st].drop(Gone.overlapping(place.clone()))
+	if ast.isIntType(p.types, t: t) 'int'
+		r.states.list[st].refine(place, v: s.clamp(typeSpan(p.types, t: t)))
+	end 'int'
+end 'rangeWrite'
+
+// rangeChanged is a place that a call may change: what was known of it no longer holds.
+function rangeChanged(mutates r Ranges, p ast.Project, place Place, t ast.TypeID)
+	if ast.isIntType(p.types, t: t) 'int'
+		rangeWrite(r, p: p, place: place, s: typeSpan(p.types, t: t), t: t)
+		return
+	end 'int'
+	rangeWrite(r, p: p, place: place, s: Span.make(ast.I128.zero(), hi: ast.I128.zero()), t: t)
+end 'rangeChanged'
+
+// rangePlaceOf is the place an expression names, if it names one the analysis follows: a local, a field of the receiver,
+// or a field of a place that is not too deep already.
+function rangePlaceOf(r Ranges, p ast.Project, e ast.NodeID) returns table.Option with Place
+	if r.fn == ast.noFunc 'outside'
+		return table.Option.none
+	end 'outside'
+	let k = p.modules[r.modIdx].tree.kindOf(e)
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = nameInfoOf(r.typing, node: e)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			return table.Option.some(Place.local(slotOf(r, local: name.local)))
+		end 'local'
+		if name.kind == ast.NameKind.nameSelfField 'selfField'
+			return placeField(selfPlace(r, p: p), field: name.fieldIndex)
+		end 'selfField'
+		return table.Option.none
+	end 'name'
+	if k == ast.NodeKind.selfExpr 'self'
+		return table.Option.some(selfPlace(r, p: p))
+	end 'self'
+	if k == ast.NodeKind.memberExpr 'member'
+		let info = memberInfoOf(r, e: e)
+		if info.kind == ast.MemberKind.memberField 'field'
+			return match consumes rangePlaceOf(r, p: p, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e)) 'obj'
+				some(obj) gives placeField(obj, field: info.fieldIndex)
+				none gives table.Option.none
+			end 'obj'
+		end 'field'
+	end 'member'
+	return table.Option.none
+end 'rangePlaceOf'
+
+function selfPlace(r Ranges, p ast.Project) returns Place
+	return Place.local(slotOf(r, local: p.funcs.entries[r.fn as Count].selfLocal))
+end 'selfPlace'
+
+function memberInfoOf(r Ranges, e ast.NodeID) returns ast.MemberInfo
+	return match consumes r.typing.members.get(e as Count) 'member'
+		some(info) gives info
+		none panic("ranges: the member at node {e} was typed without a record of what it is")
+	end 'member'
+end 'memberInfoOf'
+
+function nodeLocalOf(r Ranges, node ast.NodeID) returns table.Option with ast.LocalID
+	return r.typing.nodeLocals.get(node as Count)
+end 'nodeLocalOf'
+
+// rangeSpanAt is what is known of an integer place in the state s.
+function rangeSpanAt(r Ranges, p ast.Project, s Count, place Place, t ast.TypeID) returns Span
+	if isDead(r, s: s) 'dead'
+		return typeSpan(p.types, t: t)
+	end 'dead'
+	return match consumes r.states.list[s].at(place) 'known'
+		some(v) gives v
+		none gives typeSpan(p.types, t: t)
+	end 'known'
+end 'rangeSpanAt'
+
+function rangeStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let k = p.modules[r.modIdx].tree.kindOf(s)
+	if k == ast.NodeKind.letStmt 'let'
+		rangeLetStmt(r, p: p, s: s)
+		return
+	end 'let'
+	if k == ast.NodeKind.assignStmt 'assign'
+		rangeAssignStmt(r, p: p, s: s)
+		return
+	end 'assign'
+	if k == ast.NodeKind.discardStmt 'discard'
+		_ = rangeEval(r, p: p, e: ast.discardStmtValue(p.modules[r.modIdx].tree, id: s))
+		return
+	end 'discard'
+	if k == ast.NodeKind.exprStmt 'expr'
+		rangeExprStmt(r, p: p, s: s)
+		return
+	end 'expr'
+	if k == ast.NodeKind.ifStmt 'if'
+		rangeIfStmt(r, p: p, s: s)
+		return
+	end 'if'
+	if k == ast.NodeKind.whileStmt 'while'
+		rangeWhileStmt(r, p: p, s: s)
+		return
+	end 'while'
+	if k == ast.NodeKind.forStmt 'for'
+		rangeForStmt(r, p: p, s: s)
+		return
+	end 'for'
+	if k == ast.NodeKind.matchStmt 'match'
+		_ = rangeMatch(r, p: p, core: ast.matchStmtMatch(p.modules[r.modIdx].tree, id: s))
+		return
+	end 'match'
+	if k == ast.NodeKind.whenStmt 'when'
+		rangeWhenStmt(r, p: p, s: s)
+		return
+	end 'when'
+	if k == ast.NodeKind.tryStmt 'try'
+		rangeTryStmt(r, p: p, s: s)
+		return
+	end 'try'
+	if k == ast.NodeKind.throwStmt 'throw'
+		rangeThrowStmt(r, p: p, s: s)
+		return
+	end 'throw'
+	if k == ast.NodeKind.returnStmt 'return'
+		rangeReturnStmt(r, p: p, s: s)
+		return
+	end 'return'
+	if k == ast.NodeKind.breakStmt 'break'
+		rangeBreakStmt(r, s: s)
+		return
+	end 'break'
+	if k == ast.NodeKind.continueStmt 'continue'
+		r.st = deadState
+		return
+	end 'continue'
+	panic("ranges: the node {s} of kind {k.name} is no statement")
+end 'rangeStmt'
+
+function rangeLetStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let local = match consumes nodeLocalOf(r, node: s) 'local'
+		some(id) gives id
+		none panic("ranges: the let at node {s} declares no local")
+	end 'local'
+	let ty = r.typing.locals[local as Count].ty
+	let init = ast.letStmtInit(p.modules[r.modIdx].tree, id: s)
+	var v = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	if init != 0 'init'
+		v = rangeEval(r, p: p, e: init)
+	end 'init' else if ast.isIntType(p.types, t: ty) 'declared'
+		v = typeSpan(p.types, t: ty)
+	end 'declared'
+	rangeWrite(r, p: p, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
+end 'rangeLetStmt'
+
+function rangeAssignStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	match consumes rangeAccumulation(r, p: p, s: s) 'accumulation'
+		some(a) then rangeAccumulate(r, p: p, s: s, a: a)
+		none then rangeAssign(r, p: p, s: s)
+	end 'accumulation'
+end 'rangeAssignStmt'
+
+function rangeAssign(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let target = ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)
+	let value = ast.assignStmtValue(p.modules[r.modIdx].tree, id: s)
+	match consumes rangePlaceOf(r, p: p, e: target) 'place'
+		some(place) then rangeAssignPlace(r, p: p, place: place, target: target, value: value)
+		none then rangeAssignOther(r, p: p, target: target, value: value)
+	end 'place'
+end 'rangeAssign'
+
+function rangeAssignPlace(mutates r Ranges, p ast.Project, place Place, target ast.NodeID, value ast.NodeID)
+	let v = rangeEval(r, p: p, e: value)
+	rangeWrite(r, p: p, place: place, s: v, t: typeOf(r, e: target))
+end 'rangeAssignPlace'
+
+function rangeAssignOther(mutates r Ranges, p ast.Project, target ast.NodeID, value ast.NodeID)
+	_ = rangeEval(r, p: p, e: target)
+	_ = rangeEval(r, p: p, e: value)
+end 'rangeAssignOther'
+
+function rangeExprStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let e = ast.exprStmtE(p.modules[r.modIdx].tree, id: s)
+	_ = rangeEval(r, p: p, e: e)
+	if p.modules[r.modIdx].tree.kindOf(e) == ast.NodeKind.panicExpr 'panics'
+		r.st = deadState
+	end 'panics'
+end 'rangeExprStmt'
+
+function rangeIfStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let cond = ast.ifStmtCond(p.modules[r.modIdx].tree, id: s)
+	let since = rangeCondition(r, p: p, c: cond)
+	let start = rangeKeep(r)
+	let whenTrue = rangeNarrowed(r, p: p, from: start, c: cond, truth: true, since: since)
+	r.st = whenTrue
+	rangeBlock(r, p: p, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s))
+	let thenEnd = r.st
+	let whenFalse = rangeNarrowed(r, p: p, from: start, c: cond, truth: false, since: since)
+	r.st = whenFalse
+	if ast.ifStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
+		rangeBlock(r, p: p, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s))
+	end 'else'
+	let els = r.st
+	r.st = r.states.joined(thenEnd, b: els)
+end 'rangeIfStmt'
+
+function rangeWhileStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	rangeForget(r, p: p)
+	let cond = ast.whileStmtCond(p.modules[r.modIdx].tree, id: s)
+	let since = rangeCondition(r, p: p, c: cond)
+	let top = rangeKeep(r)
+	r.frames.push(RangeFrame.make(s))
+	let times = rangeScaleTimes(r, trips: pastEveryWord())
+	let whenTrue = rangeNarrowed(r, p: p, from: top, c: cond, truth: true, since: since)
+	r.st = whenTrue
+	rangeBlock(r, p: p, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeRestoreTimes(r, outer: times)
+	let breaks = rangePopFrame(r)
+	var exit = rangeNarrowed(r, p: p, from: top, c: cond, truth: false, since: since)
+	if isTrue(p.modules[r.modIdx].tree, e: cond) 'forever'
+		exit = deadState
+	end 'forever'
+	r.st = r.states.joined(exit, b: breaks)
+end 'rangeWhileStmt'
+
+// rangePopFrame ends the walk of the innermost loop or match, and gives the state its breaks leave it in.
+function rangePopFrame(mutates r Ranges) returns Count
+	let frame = try r.frames.pop() otherwise panic("ranges: a loop or a match ended that was never begun")
+	return frame.breaks
+end 'rangePopFrame'
+
+function rangeForStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let from = rangeEval(r, p: p, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
+	let upper = rangeEval(r, p: p, e: ast.forStmtTo(p.modules[r.modIdx].tree, id: s))
+	let trips = tripBound(from, upper: upper, inclusive: ast.forStmtInclusive(p.modules[r.modIdx].tree, id: s))
+	let times = rangeScaleTimes(r, trips: trips)
+	let bounded = r.bounds.count()
+	rangeLoopHead(r, p: p, s: s, from: from, upper: upper, trips: trips)
+	let top = rangeKeep(r)
+	r.frames.push(RangeFrame.make(s))
+	let body = rangeLoopBody(r, p: p, s: s, top: top, from: from, upper: upper)
+	r.st = body
+	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	let breaks = rangePopFrame(r)
+	r.st = r.states.joined(top, b: breaks)
+	while r.bounds.count() > bounded 'unbind'
+		try r.bounds.pop() otherwise panic("ranges: the bounds are fewer than their mark")
+	end 'unbind'
+	rangeRestoreTimes(r, outer: times)
+end 'rangeForStmt'
+
+// rangeLoopBody is the state in the body of a for loop, whose variable lies between the bounds: the state at the top of
+// the loop when the variable has no span to know.
+function rangeLoopBody(mutates r Ranges, p ast.Project, s ast.NodeID, top Count, from Span, upper Span) returns Count
+	let local = match consumes nodeLocalOf(r, node: s) 'local'
+		some(id) gives id
+		none gives ast.noLocal
+	end 'local'
+	if local == ast.noLocal or isDead(r, s: top) 'unknown'
+		return top
+	end 'unknown'
+	let ty = r.typing.locals[local as Count].ty
+	if not ast.isIntType(p.types, t: ty) 'notInt'
+		return top
+	end 'notInt'
+	var hi = upper.hi.clone()
+	if not ast.forStmtInclusive(p.modules[r.modIdx].tree, id: s) 'exclusive'
+		hi = hi.sub(ast.I128.one())
+	end 'exclusive'
+	let body = r.states.copyOf(top)
+	let v = Span.make(from.lo.clone(), hi: hi).clamp(typeSpan(p.types, t: ty))
+	if v.isEmpty() 'never'
+		r.states.list[body].dead = true
+	end 'never' else 'runs'
+		r.states.list[body].refine(Place.local(slotOf(r, local: local)), v: v)
+	end 'runs'
+	return body
+end 'rangeLoopBody'
+
+// rangeWhenStmt analyses the body of a behaviour as a function of its own: it runs later, so neither what is known here
+// nor a try around it reaches into it. A behaviour whose body the bodies check gave no function has nothing to follow.
+function rangeWhenStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	if r.probing 'probed'
+		r.probe.opaque = true
+		return
+	end 'probed'
+	match consumes r.typing.whens.get(s as Count) 'when'
+		some(info) then rangeFunction(r, p: p, fid: info.fn, behaviour: true)
+		none then _ = 0
+	end 'when'
+end 'rangeWhenStmt'
+
+// rangeEnterTry starts a try. One with a handler catches what it covers, and takes only the error takes if that is not
+// none; one without passes it to the try around it, and with none around it to the caller, which only a function that
+// throws has. It gives whether the try added a handler.
+function rangeEnterTry(mutates r Ranges, p ast.Project, site ast.NodeID, handles bool, takes ast.TypeID) returns bool
+	if not handles and r.handlers.count() > 0 'passes'
+		return false
+	end 'passes'
+	if not handles 'toCaller'
+		rangeRequirePropagates(r, p: p, site: site)
+		if r.failed 'refused'
+			return false
+		end 'refused'
+	end 'toCaller'
+	r.handlers.push(RangeHandler.make(not handles, takes: takes))
+	return true
+end 'rangeEnterTry'
+
+// rangeLeaveTry ends a try that rangeEnterTry added a handler for, and gives the handler.
+function rangeLeaveTry(mutates r Ranges) returns RangeHandler
+	return try r.handlers.pop() otherwise panic("ranges: a try ended that was never begun")
+end 'rangeLeaveTry'
+
+// fnErrorType is the error the function being walked throws, or none.
+function fnErrorType(r Ranges, p ast.Project) returns ast.TypeID
+	if r.fn == ast.noFunc 'outside'
+		return ast.noType
+	end 'outside'
+	return p.funcs.entries[r.fn as Count].errTy
+end 'fnErrorType'
+
+// rangeRequirePropagates refuses a try with no handler where there is no caller that takes its failure.
+function rangeRequirePropagates(mutates r Ranges, p ast.Project, site ast.NodeID)
+	if r.probing 'probed'
+		return
+	end 'probed'
+	if r.fn == ast.noFunc 'value'
+		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, and a constant or a default has none: give 'otherwise' the value to use")
+		return
+	end 'value'
+	if r.behaviour 'behaviour'
+		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do")
+		return
+	end 'behaviour'
+	if p.funcs.entries[r.fn as Count].errTy == ast.noType 'noThrows'
+		let name = p.funcs.entries[r.fn as Count].name.clone()
+		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, but '{name}' does not throw: give 'otherwise' what to do, or declare '{name}' 'throws' the error")
+	end 'noThrows'
+end 'rangeRequirePropagates'
+
+function rangeTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let takes = match consumes nodeLocalOf(r, node: s) 'local'
+		some(id) gives r.typing.locals[id as Count].ty
+		none gives ast.noType
+	end 'local'
+	let handles = ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s)
+	let added = rangeEnterTry(r, p: p, site: s, handles: handles, takes: takes)
+	rangeBlock(r, p: p, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	if not added 'passed'
+		return
+	end 'passed'
+	let h = rangeLeaveTry(r)
+	if not handles 'noHandler'
+		return
+	end 'noHandler'
+	let ended = rangeKeep(r)
+	r.st = h.entry
+	rangeBlock(r, p: p, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s))
+	let handled = r.st
+	r.st = r.states.joined(ended, b: handled)
+end 'rangeTryStmt'
+
+// rangeThrowStmt is a failure that always happens: a throw needs no 'try', and passes its error to the caller when no try
+// around it catches it.
+function rangeThrowStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let value = ast.throwStmtValue(p.modules[r.modIdx].tree, id: s)
+	_ = rangeEval(r, p: p, e: value)
+	if isDead(r, s: r.st) 'dead'
+		return
+	end 'dead'
+	let e = typeOf(r, e: value)
+	if r.handlers.count() == 0 'toCaller'
+		let thrown = fnErrorType(r, p: p)
+		if r.probing 'probed'
+			_ = 0
+		end 'probed' else if r.behaviour 'behaviour'
+			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour")
+		end 'behaviour' else if thrown == ast.noType 'noThrows'
+			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwNoThrows(nameOfType(p, t: e)))
+		end 'noThrows' else if thrown != e 'other'
+			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwMismatch(nameOfType(p, t: e), enclosing: nameOfType(p, t: thrown)))
+		end 'other'
+		r.st = deadState
+		return
+	end 'toCaller'
+	rangeFallible(r, p: p, site: s, err: e, why: Unchecked.thrown)
+	r.st = deadState
+end 'rangeThrowStmt'
+
+function rangeReturnStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+	let value = ast.returnStmtValue(p.modules[r.modIdx].tree, id: s)
+	if value != 0 'value'
+		_ = rangeEval(r, p: p, e: value)
+	end 'value'
+	r.st = deadState
+end 'rangeReturnStmt'
+
+function rangeBreakStmt(mutates r Ranges, s ast.NodeID)
+	let target = match consumes r.typing.jumps.get(s as Count) 'target'
+		some(node) gives node
+		none panic("ranges: the break at node {s} leaves nothing")
+	end 'target'
+	var i = r.frames.count()
+	while i > 0 'frames'
+		i = try i - 1 otherwise panic("ranges: the frames ran out")
+		if r.frames[i].node == target 'found'
+			let kept = rangeKeep(r)
+			let breaks = r.frames[i].breaks
+			let joined = r.states.joined(breaks, b: kept)
+			r.frames[i].breaks = joined
+			break 'frames'
+		end 'found'
+	end 'frames'
+	r.st = deadState
+end 'rangeBreakStmt'
+
+// rangeMatch walks each arm from the state after the subject, narrowed by the arm's patterns when the subject is an
+// integer place, and gives the span of the values the arms give.
+function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Span
+	let subject = ast.matchCoreSubject(p.modules[r.modIdx].tree, id: core)
+	_ = rangeEval(r, p: p, e: subject)
+	let start = rangeKeep(r)
+	let subjectTy = typeOf(r, e: subject)
+	var subjectPlace as table.Option with Place
+	if ast.isIntType(p.types, t: subjectTy) 'int'
+		subjectPlace = rangePlaceOf(r, p: p, e: subject)
+	end 'int' else 'other'
+		subjectPlace = table.Option.none
+	end 'other'
+	r.frames.push(RangeFrame.make(core))
+	var ended = deadState
+	var given = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	var anyGives = false
+	let armsRef = ast.matchCoreArmsRef(p.modules[r.modIdx].tree, id: core)
+	for i in 0 upto p.modules[r.modIdx].tree.listLen(armsRef) 'arms'
+		let arm = p.modules[r.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
+		var from = start
+		if not ast.matchArmIsDefault(p.modules[r.modIdx].tree, id: arm) 'patterns'
+			match subjectPlace 'place'
+				some(place) then from = rangeArmState(r, p: p, start: start, subject: place, t: subjectTy, arm: arm)
+				none then _ = 0
+			end 'place'
+		end 'patterns'
+		r.st = from
+		let form = ast.matchArmForm(p.modules[r.modIdx].tree, id: arm)
+		let value = ast.matchArmValue(p.modules[r.modIdx].tree, id: arm)
+		if form == ast.ArmKind.armThen 'then'
+			rangeStmt(r, p: p, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm))
+		end 'then' else if form == ast.ArmKind.armGives 'gives'
+			let v = rangeEval(r, p: p, e: value)
+			if not isDead(r, s: r.st) and ast.isIntType(p.types, t: typeOf(r, e: value)) 'int'
+				if anyGives 'more'
+					given = given.unionWith(v)
+				end 'more' else 'first'
+					given = v
+					anyGives = true
+				end 'first'
+			end 'int'
+		end 'gives' else 'panics'
+			_ = rangeEval(r, p: p, e: value)
+			r.st = deadState
+		end 'panics'
+		let kept = rangeKeep(r)
+		ended = r.states.joined(ended, b: kept)
+	end 'arms'
+	let breaks = rangePopFrame(r)
+	r.st = r.states.joined(ended, b: breaks)
+	return given
+end 'rangeMatch'
+
+// rangeArmState is the state in an arm of a match on an integer place: the place holds one of the values the patterns
+// name.
+function rangeArmState(mutates r Ranges, p ast.Project, start Count, subject Place, t ast.TypeID, arm ast.NodeID) returns Count
+	if isDead(r, s: start) 'dead'
+		return start
+	end 'dead'
+	var values = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	let patternsRef = ast.matchArmPatternsRef(p.modules[r.modIdx].tree, id: arm)
+	for i in 0 upto p.modules[r.modIdx].tree.listLen(patternsRef) 'patterns'
+		let pat = p.modules[r.modIdx].tree.listAt(patternsRef, index: i) as ast.NodeID
+		let form = ast.patternForm(p.modules[r.modIdx].tree, id: pat)
+		var s = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+		if form == ast.PatternKind.patLiteral 'literal'
+			s = typeSpan(p.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat)))
+		end 'literal' else if form == ast.PatternKind.patRange 'range'
+			let lo = typeSpan(p.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat))).lo.clone()
+			var hi = typeSpan(p.types, t: typeOf(r, e: ast.patternHigh(p.modules[r.modIdx].tree, id: pat))).hi.clone()
+			if not ast.patternInclusive(p.modules[r.modIdx].tree, id: pat) 'exclusive'
+				hi = hi.sub(ast.I128.one())
+			end 'exclusive'
+			s = Span.make(lo, hi: hi)
+		end 'range' else 'case'
+			return start
+		end 'case'
+		if i == 0 'first'
+			values = s
+		end 'first' else 'more'
+			values = values.unionWith(s)
+		end 'more'
+	end 'patterns'
+	let out = r.states.copyOf(start)
+	let narrowedTo = rangeSpanAt(r, p: p, s: start, place: subject, t: t).clamp(values)
+	if narrowedTo.isEmpty() 'never'
+		r.states.list[out].dead = true
+	end 'never' else 'matches'
+		r.states.list[out].refine(subject, v: narrowedTo)
+	end 'matches'
+	return out
+end 'rangeArmState'

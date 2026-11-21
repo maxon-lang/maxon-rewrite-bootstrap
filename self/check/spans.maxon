@@ -30,6 +30,14 @@ export type Span
 		return lo.gt(hi)
 	end 'isEmpty'
 
+	export function within(other Span) returns bool
+		return lo.ge(other.lo) and hi.le(other.hi)
+	end 'within'
+
+	export function same(other Span) returns bool
+		return lo.eq(other.lo) and hi.eq(other.hi) and nonZero == other.nonZero
+	end 'same'
+
 	export function unionWith(other Span) returns Span
 		return Span{lo: ast.minI128(lo, b: other.lo), hi: ast.maxI128(hi, b: other.hi), nonZero: self.excludesZero() and other.excludesZero()}
 	end 'unionWith'
@@ -40,6 +48,16 @@ export type Span
 end 'Span'
 
 typealias SpanList = Array with Span
+
+// signedWord and unsignedWord are the words an operation computes in: a signed word for a signed operand, an unsigned one
+// for an operand of an unsigned alias.
+function signedWord() returns Span
+	return Span.make(ast.I128.i64Min(), hi: ast.I128.i64Max())
+end 'signedWord'
+
+function unsignedWord() returns Span
+	return Span.make(ast.I128.zero(), hi: ast.I128.u64Max())
+end 'unsignedWord'
 
 // typeSpan is the values of an integer type.
 export function typeSpan(tt ast.TypeTable, t ast.TypeID) returns Span
@@ -71,9 +89,13 @@ function saturated() returns ast.I128
 	return ast.mulWide(ast.I128.u64Max(), b: ast.I128.u64Max())
 end 'saturated'
 
-function pow2(n Count) returns ast.I128
+// pow2 is 2 to the power n, and 1 for an n below 0, as for a count of no bits.
+function pow2(n ast.I128) returns ast.I128
 	var out = ast.I128.one()
-	for _ in 0 upto n 'double'
+	if n.isNeg() 'negative'
+		return out
+	end 'negative'
+	for _ in 0 upto n.lo 'double'
 		out = out.add(out)
 	end 'double'
 	return out
@@ -149,7 +171,7 @@ function shifted(left bool, l Span, count Span) returns Span
 	if hi.lt(lo) 'clamped'
 		lo = hi.clone()
 	end 'clamped'
-	var exact = corners(MonotonicOp.multiply, l: l, r: Span.make(pow2(lo.lo), hi: pow2(hi.lo)))
+	var exact = corners(MonotonicOp.multiply, l: l, r: Span.make(pow2(lo), hi: pow2(hi)))
 	if count.hi.gt(maxShift) 'wide'
 		// A count past the word moves any bit that is not 0 out of it.
 		if l.hi.gt(ast.I128.zero()) 'up'

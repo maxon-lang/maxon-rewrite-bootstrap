@@ -1,0 +1,297 @@
+// PlaceDepth is how many fields deep a place goes.
+typealias PlaceDepth = int(0 to 2)
+
+// placeDepth is how many fields deep the range analysis follows a place: 'x', 'x.f' and 'x.f.g'.
+let placeDepth = 2 as PlaceDepth
+
+// Place is storage that the range analysis follows: a local, or a field of one, or a field of that. Values have one owner
+// and nothing else reaches them, so a place changes only where the code names it: an assignment to it or to what holds
+// it, or a call that takes it to change it. The root is the local's slot in the function being walked, and a field is
+// its index in the record that holds it, which the path from the root decides.
+type Place
+	export var root as Count
+	export var depth as PlaceDepth
+	export var first as Count
+	export var second as Count
+
+	static function local(root Count) returns Place
+		return Place{root: root, depth: 0 as PlaceDepth, first: 0 as Count, second: 0 as Count}
+	end 'local'
+
+	// fieldAt is the field the path takes at a depth below the place's own.
+	function fieldAt(i Count) returns Count
+		if i == 0 'first'
+			return first
+		end 'first'
+		return second
+	end 'fieldAt'
+
+	function same(other Place) returns bool
+		return root == other.root and depth == other.depth and first == other.first and second == other.second
+	end 'same'
+
+	// holds is whether q is this place or lies inside it.
+	function holds(q Place) returns bool
+		if root != q.root or depth > q.depth 'apart'
+			return false
+		end 'apart'
+		for i in 0 upto depth as Count 'each'
+			if self.fieldAt(i) != q.fieldAt(i) 'differs'
+				return false
+			end 'differs'
+		end 'each'
+		return true
+	end 'holds'
+
+	// overlaps is whether a change to this place changes q, or the other way round.
+	function overlaps(q Place) returns bool
+		return self.holds(q) or q.holds(self)
+	end 'overlaps'
+end 'Place'
+
+typealias PlaceList = Array with Place
+
+// placeField is the place of a field of p, if p is not too deep to follow one.
+function placeField(p Place, field Count) returns table.Option with Place
+	if p.depth == placeDepth 'deep'
+		return table.Option.none
+	end 'deep'
+	var out = p.clone()
+	if p.depth == 0 'first'
+		out.first = field
+	end 'first' else 'second'
+		out.second = field
+	end 'second'
+	out.depth = p.depth + 1
+	return table.Option.some(out)
+end 'placeField'
+
+// changedIn is whether a place overlaps one of the places written from since on.
+function changedIn(p Place, written PlaceList, since Count) returns bool
+	for i in since upto written.count() 'each'
+		if p.overlaps(written[i]) 'overlaps'
+			return true
+		end 'overlaps'
+	end 'each'
+	return false
+end 'changedIn'
+
+// PlaceSpan is what is known of a field.
+type PlaceSpan
+	export var at as Place
+	export var span as Span
+
+	static function make(consumes at Place, consumes span Span) returns PlaceSpan
+		return PlaceSpan{at: at, span: span}
+	end 'make'
+end 'PlaceSpan'
+
+// Relation says that hi - lo >= gap: what 'hi >= lo' or 'hi > lo' proves, which a subtraction of the two reads.
+type Relation
+	export var hi as Place
+	export var lo as Place
+	export var gap as ast.I128
+
+	static function make(consumes hi Place, consumes lo Place, consumes gap ast.I128) returns Relation
+		return Relation{hi: hi, lo: lo, gap: gap}
+	end 'make'
+end 'Relation'
+
+// Gone says which places a state forgets: those that overlap a place that changed, or those whose root may be assigned,
+// which the flags by slot say.
+union Gone
+	overlapping(place Place)
+	assignable(mutable ByteArray)
+
+	function isGone(p Place) returns bool
+		return match self 'rule'
+			overlapping(q) gives q.overlaps(p)
+			assignable(mutable) gives mutable[p.root] != 0
+		end 'rule'
+	end 'isGone'
+end 'Gone'
+
+// RangeState is what the analysis knows at a point of a function: the span of each integer local by its slot, the spans
+// of the fields a condition narrowed, how places compare, or that no path reaches the point. A state that something keeps
+// to come back to is kept, and is copied before it changes; the current state is changed in place otherwise, so a run of
+// statements copies nothing.
+type RangeState
+	export var spans as SpanList
+	export var fields as PlaceSpanList
+	export var relations as RelationList
+	export var dead as bool
+	export var kept as bool
+
+	static function make(n Count, dead bool, kept bool) returns RangeState
+		var spans = SpanList.create(0)
+		for _ in 0 upto n 'each'
+			spans.push(Span.make(ast.I128.zero(), hi: ast.I128.zero()))
+		end 'each'
+		return RangeState{spans: spans, fields: Array.create(0), relations: Array.create(0), dead: dead, kept: kept}
+	end 'make'
+
+	// at is what is known of an integer place, if anything beyond its type.
+	function at(p Place) returns table.Option with Span
+		if p.depth == 0 'local'
+			return table.Option.some(spans[p.root].clone())
+		end 'local'
+		for i in 0 upto fields.count() 'each'
+			if fields[i].at.same(p) 'found'
+				return table.Option.some(fields[i].span.clone())
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'at'
+
+	// refine records what is known of an integer place.
+	function refine(mutates self, p Place, v Span)
+		if p.depth == 0 'local'
+			spans[p.root] = v.clone()
+			return
+		end 'local'
+		for i in 0 upto fields.count() 'each'
+			if fields[i].at.same(p) 'found'
+				fields[i].span = v.clone()
+				return
+			end 'found'
+		end 'each'
+		fields.push(PlaceSpan.make(p.clone(), span: v.clone()))
+	end 'refine'
+
+	// relate records that hi - lo >= gap.
+	function relate(mutates self, hi Place, lo Place, gap ast.I128)
+		for i in 0 upto relations.count() 'each'
+			if relations[i].hi.same(hi) and relations[i].lo.same(lo) 'found'
+				let wider = ast.maxI128(relations[i].gap, b: gap)
+				relations[i].gap = wider
+				return
+			end 'found'
+		end 'each'
+		relations.push(Relation.make(hi.clone(), lo: lo.clone(), gap: gap.clone()))
+	end 'relate'
+
+	// gap is how far hi is known to lie above lo, if anything is known of it.
+	function gap(hi Place, lo Place) returns table.Option with ast.I128
+		for i in 0 upto relations.count() 'each'
+			if relations[i].hi.same(hi) and relations[i].lo.same(lo) 'found'
+				return table.Option.some(relations[i].gap.clone())
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'gap'
+
+	// drop forgets the fields and relations that name a place gone says is gone. A local's own span stays: whoever changed
+	// it sets the new one.
+	function drop(mutates self, gone Gone)
+		if fields.count() == 0 and relations.count() == 0 'nothing'
+			return
+		end 'nothing'
+		var keptFields = PlaceSpanList.create(0)
+		for i in 0 upto fields.count() 'fields'
+			if not gone.isGone(fields[i].at) 'stays'
+				keptFields.push(fields[i].clone())
+			end 'stays'
+		end 'fields'
+		fields = keptFields
+		var keptRelations = RelationList.create(0)
+		for i in 0 upto relations.count() 'relations'
+			if not gone.isGone(relations[i].hi) and not gone.isGone(relations[i].lo) 'stays'
+				keptRelations.push(relations[i].clone())
+			end 'stays'
+		end 'relations'
+		relations = keptRelations
+	end 'drop'
+end 'RangeState'
+
+// deadState is the state no path reaches, which holds nothing: the first of the arena, which is never released.
+let deadState = 0 as Count
+
+// States makes the states of the functions being analysed. Every state of a function is dropped when the function has
+// been walked, and a function nested in one, the body of a behaviour, drops its states before the one around it does, so
+// the arena is a stack that release cuts back to a mark.
+type States
+	export var list as RangeStateList
+
+	static function new() returns States
+		var list = RangeStateList.create(0)
+		list.push(RangeState.make(0 as Count, dead: true, kept: true))
+		return States{list: list}
+	end 'new'
+
+	// mark is where the arena is, which release goes back to.
+	function mark() returns Count
+		return list.count()
+	end 'mark'
+
+	function release(mutates self, m Count)
+		while list.count() > m 'pop'
+			try list.pop() otherwise panic("ranges: the arena of the states is below its mark")
+		end 'pop'
+	end 'release'
+
+	// state is a new state, unkept and reachable, with room for n spans whose values the caller sets.
+	function state(mutates self, n Count) returns Count
+		let id = list.count()
+		list.push(RangeState.make(n, dead: false, kept: false))
+		return id
+	end 'state'
+
+	function copyOf(mutates self, s Count) returns Count
+		var out = list[s].clone()
+		out.kept = false
+		let id = list.count()
+		list.push(out)
+		return id
+	end 'copyOf'
+
+	// joined is the state where the paths of a and b meet, which may be a or b itself. It knows what both know.
+	function joined(mutates self, a Count, b Count) returns Count
+		let aDead = list[a].dead
+		let bDead = list[b].dead
+		if aDead and bDead 'neither'
+			return deadState
+		end 'neither'
+		if aDead 'onlyB'
+			return b
+		end 'onlyB'
+		if bDead or a == b 'onlyA'
+			return a
+		end 'onlyA'
+		let out = self.state(list[a].spans.count())
+		for i in 0 upto list[a].spans.count() 'spans'
+			let both = list[a].spans[i].unionWith(list[b].spans[i])
+			list[out].spans[i] = both
+		end 'spans'
+		for i in 0 upto list[a].fields.count() 'fields'
+			match consumes list[b].at(list[a].fields[i].at) 'other'
+				some(other) then joinField(list, out: out, a: a, i: i, other: other)
+				none then _ = 0
+			end 'other'
+		end 'fields'
+		for i in 0 upto list[a].relations.count() 'relations'
+			match consumes list[b].gap(list[a].relations[i].hi, lo: list[a].relations[i].lo) 'other'
+				some(gap) then joinRelation(list, out: out, a: a, i: i, other: gap)
+				none then _ = 0
+			end 'other'
+		end 'relations'
+		return out
+	end 'joined'
+end 'States'
+
+// joinField gives the joined state out the field i of a, with the span both a and the other state know of it.
+function joinField(mutates list RangeStateList, out Count, a Count, i Count, other Span)
+	let both = PlaceSpan.make(list[a].fields[i].at.clone(), span: list[a].fields[i].span.unionWith(other))
+	list[out].fields.push(both)
+end 'joinField'
+
+// joinRelation gives the joined state out the relation i of a, with the gap both a and the other state know of it.
+function joinRelation(mutates list RangeStateList, out Count, a Count, i Count, other ast.I128)
+	let both = Relation.make(list[a].relations[i].hi.clone(), lo: list[a].relations[i].lo.clone(), gap: ast.minI128(list[a].relations[i].gap, b: other))
+	list[out].relations.push(both)
+end 'joinRelation'
+
+typealias PlaceSpanList = Array with PlaceSpan
+
+typealias RelationList = Array with Relation
+
+typealias RangeStateList = Array with RangeState

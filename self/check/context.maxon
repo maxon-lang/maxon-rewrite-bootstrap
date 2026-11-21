@@ -209,6 +209,31 @@ export function checkFail(modID diag.ModuleID, off diag.U32, consumes code Strin
 	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
 end 'checkFail'
 
+// isMutableLocal is whether the local, and the fields reached through it, may be assigned.
+function isMutableLocal(l ast.LocalEntry) returns bool
+	return l.isVar or (l.isParam and l.conv.byAddress())
+end 'isMutableLocal'
+
+// nameInfoOf is what a name expression was typed as naming.
+function nameInfoOf(typing ast.Typing, node ast.NodeID) returns ast.NameInfo
+	match consumes typing.names.get(node as Count) 'info'
+		some(info) then return info
+		none then panic("the name at node {node} was typed without a record of what it is")
+	end 'info'
+end 'nameInfoOf'
+
+// callReceiver is the object a call of the kind is made on, or 0 for a call that has none. A method call, a call through
+// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
+function callReceiver(tree ast.Tree, e ast.NodeID, kind ast.CallKind) returns ast.NodeID
+	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
+		let callee = ast.callExprCallee(tree, id: e)
+		if tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
+			return ast.memberExprObj(tree, id: callee)
+		end 'named'
+	end 'member'
+	return 0 as ast.NodeID
+end 'callReceiver'
+
 export function checkerStartMod(mutates p ast.Project, modIdx Count) returns Checker
 	let modID = p.modules[modIdx].id
 	let swapped = exchange(p.typings[modIdx], value: ast.Typing.new(modID))

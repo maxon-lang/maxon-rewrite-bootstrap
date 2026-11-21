@@ -635,16 +635,16 @@ function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, co
 	report(o, err: diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(modID, offset: site)))
 end 'fail'
 
-// pushFrame opens a frame for a loop or match.
-function pushFrame(mutates o Ownership, target ast.NodeID)
+// pushFrameOwn opens a frame for a loop or match.
+function pushFrameOwn(mutates o Ownership, target ast.NodeID)
 	let obliged = o.obliged.count()
 	o.frames.push(OwnFrame.make(target, obliged: obliged))
-end 'pushFrame'
+end 'pushFrameOwn'
 
-// popFrame closes the innermost frame and gives it.
-function popFrame(mutates o Ownership) returns OwnFrame
+// popFrameOwn closes the innermost frame and gives it.
+function popFrameOwn(mutates o Ownership) returns OwnFrame
 	return try o.frames.pop() otherwise panic("ownership: no frame to close")
-end 'popFrame'
+end 'popFrameOwn'
 
 // frameOf is the index of the frame of the loop or match a jump leaves or repeats.
 function frameOf(o Ownership, target ast.NodeID) returns Count
@@ -727,16 +727,6 @@ end 'isStorageOwn'
 function isBorrowed(l ast.LocalEntry) returns bool
 	return l.projected or (l.isParam and not ownsConv(l.conv))
 end 'isBorrowed'
-
-// isMutableLocal is whether the local, and the fields reached through it, may be assigned.
-function isMutableLocal(l ast.LocalEntry) returns bool
-	return l.isVar or (l.isParam and byAddress(l.conv))
-end 'isMutableLocal'
-
-// byAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
-function byAddress(conv ast.Convention) returns bool
-	return conv == ast.Convention.convMutates or conv == ast.Convention.convSets
-end 'byAddress'
 
 // ownsConv is whether the callee owns what it is given: the caller's value moves in.
 function ownsConv(conv ast.Convention) returns bool

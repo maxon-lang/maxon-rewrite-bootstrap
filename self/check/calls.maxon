@@ -17,16 +17,30 @@ function recordCallFailure(mutates c Checker, p ast.Project, call ast.NodeID)
 end 'recordCallFailure'
 
 function recordFailureOf(mutates c Checker, p ast.Project, info ast.CallInfo)
-	var failure = ast.noType
-	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'target'
-		failure = p.funcs.entries[info.fn as Count].errTy
-	end 'target' else if info.kind == ast.CallKind.callBound 'bound'
-		failure = p.funcs.entries[info.method as Count].errTy
-	end 'bound'
+	let failure = callErrorType(p, info: info)
 	if failure != ast.noType 'fails'
 		recordFailure(c, e: failure)
 	end 'fails'
 end 'recordFailureOf'
+
+// callErrorType is the error that the function a call runs throws, or none.
+function callErrorType(p ast.Project, info ast.CallInfo) returns ast.TypeID
+	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'target'
+		return p.funcs.entries[info.fn as Count].errTy
+	end 'target'
+	if info.kind == ast.CallKind.callBound 'bound'
+		return p.funcs.entries[info.method as Count].errTy
+	end 'bound'
+	return ast.noType
+end 'callErrorType'
+
+// callTargetName is the name of the function that a call that throws runs.
+function callTargetName(p ast.Project, info ast.CallInfo) returns String
+	if info.kind == ast.CallKind.callBound 'bound'
+		return p.funcs.entries[info.method as Count].name.clone()
+	end 'bound'
+	return p.funcs.entries[info.fn as Count].name.clone()
+end 'callTargetName'
 
 function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if not c.allowCalls 'forbidden'

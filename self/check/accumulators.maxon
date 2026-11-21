@@ -1,0 +1,383 @@
+// An accumulator of a for loop is a mutable integer local that the loop's body changes only by statements of the shape
+// 'v = v + e', 'v = e + v' and 'v = v - e'. Each execution of such a statement moves v by at most what e's span allows,
+// and the loop runs a bounded number of times, so v stays within a span that the loop's entry and its trip count decide.
+// That span holds at every point of the loop and after it, which lets a sum that the loop builds be proven against its
+// type instead of being forgotten at the top of the loop like any other variable.
+//
+// What e's span is cannot be known without walking the body, and walking it from the state that its top has once v is
+// forgotten gives a span that holds whatever v is. That walk, the probe, changes nothing that the real walk after it
+// reads.
+
+// pastEveryWord is a count or a distance that no integer type can hold. Every bound the loop analysis computes stops
+// here, so a product or a sum of them never overflows an I128, and a bound that reaches it is no bound at all.
+function pastEveryWord() returns ast.I128
+	return ast.I128.u64Max().add(ast.I128.one())
+end 'pastEveryWord'
+
+// capped is v cut to pastEveryWord.
+function capped(v ast.I128) returns ast.I128
+	return ast.minI128(v, b: pastEveryWord())
+end 'capped'
+
+// scaled is a * b for two counts that are not negative, capped. mulWide takes only operands that a word holds, and a
+// count of nested loops can pass that.
+function scaled(a ast.I128, b ast.I128) returns ast.I128
+	if a.isZero() or b.isZero() 'zero'
+		return ast.I128.zero()
+	end 'zero'
+	if a.hi != 0 or b.hi != 0 'wide'
+		return pastEveryWord()
+	end 'wide'
+	let product = try a.lo * b.lo otherwise return pastEveryWord()
+	return ast.I128.fromCount(product)
+end 'scaled'
+
+// tripBound is the most iterations of 'for i in from to|upto to'. The bound is evaluated once, so the spans are those of
+// the operands where the loop is entered.
+function tripBound(from Span, upper Span, inclusive bool) returns ast.I128
+	var trips = upper.hi.sub(from.lo)
+	if inclusive 'inclusive'
+		trips = trips.add(ast.I128.one())
+	end 'inclusive'
+	return capped(ast.maxI128(trips, b: ast.I128.zero()))
+end 'tripBound'
+
+// AccBound is the span that an accumulator has at every point of the loop being walked and after it, which may reach
+// past the type's: an operation whose exact result would leave the type is not stored, so it only has to be judged
+// against the bound. The accumulator is by its slot.
+type AccBound
+	export var local as Count
+	export var span as Span
+
+	static function make(local Count, consumes span Span) returns AccBound
+		return AccBound{local: local, span: span}
+	end 'make'
+end 'AccBound'
+
+typealias AccBoundList = Array with AccBound
+
+// rangeBoundOf is the bound of an accumulator of a loop that is being walked, the tightest when loops are nested.
+function rangeBoundOf(r Ranges, local Count) returns table.Option with Span
+	var i = r.bounds.count()
+	while i > 0 'bounds'
+		i = try i - 1 otherwise panic("ranges: the bounds ran out")
+		if r.bounds[i].local == local 'found'
+			return table.Option.some(r.bounds[i].span.clone())
+		end 'found'
+	end 'bounds'
+	return table.Option.none
+end 'rangeBoundOf'
+
+// rangeBind makes bound the bound of an accumulator for the loop being walked, within the one an enclosing loop gave it,
+// and narrows its span in the current state to it. A bound past the type on both sides says no more than the type does.
+function rangeBind(mutates r Ranges, p ast.Project, local Count, bound Span)
+	var b = bound.clone()
+	match consumes rangeBoundOf(r, local: local) 'outer'
+		some(outer) then b = tighterBound(b, outer: outer)
+		none then _ = 0
+	end 'outer'
+	let t = typeSpan(p.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
+	if b.lo.lt(t.lo) and b.hi.gt(t.hi) 'noMore'
+		return
+	end 'noMore'
+	r.bounds.push(AccBound.make(local, span: b.clone()))
+	let st = r.st
+	r.states.list[st].spans[local] = b.clamp(t)
+end 'rangeBind'
+
+// tighterBound is a bound within the one an enclosing loop gave, when the two meet at all.
+function tighterBound(bound Span, outer Span) returns Span
+	let tighter = Span.make(ast.maxI128(bound.lo, b: outer.lo), hi: ast.minI128(bound.hi, b: outer.hi))
+	if tighter.isEmpty() 'apart'
+		return bound.clone()
+	end 'apart'
+	return tighter
+end 'tighterBound'
+
+// Accumulation is a statement 'v = v + e', 'v = e + v' or 'v = v - e'.
+type Accumulation
+	export var place as Place
+	export var sum as ast.NodeID
+	export var subtract as bool
+	// eIsLeft is whether e is the left operand of the sum.
+	export var eIsLeft as bool
+
+	static function make(consumes place Place, sum ast.NodeID, subtract bool, eIsLeft bool) returns Accumulation
+		return Accumulation{place: place, sum: sum, subtract: subtract, eIsLeft: eIsLeft}
+	end 'make'
+end 'Accumulation'
+
+// rangeAccumulation is the shape of an assignment, if it is one that an accumulator is changed by.
+function rangeAccumulation(r Ranges, p ast.Project, s ast.NodeID) returns table.Option with Accumulation
+	let target = ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)
+	let sum = ast.assignStmtValue(p.modules[r.modIdx].tree, id: s)
+	if p.modules[r.modIdx].tree.kindOf(target) != ast.NodeKind.nameExpr or p.modules[r.modIdx].tree.kindOf(sum) != ast.NodeKind.binaryExpr 'shape'
+		return table.Option.none
+	end 'shape'
+	return match consumes rangePlaceOf(r, p: p, e: target) 'place'
+		some(place) gives accumulationOf(r, p: p, place: place, target: target, sum: sum)
+		none gives table.Option.none
+	end 'place'
+end 'rangeAccumulation'
+
+function accumulationOf(r Ranges, p ast.Project, place Place, target ast.NodeID, sum ast.NodeID) returns table.Option with Accumulation
+	if place.depth != 0 or not ast.isIntType(p.types, t: typeOf(r, e: target)) 'notLocal'
+		return table.Option.none
+	end 'notLocal'
+	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: sum)
+	let subtract = op == "-"
+	if op != "+" and not subtract 'notSum'
+		return table.Option.none
+	end 'notSum'
+	if namesPlace(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: sum), place: place) 'left'
+		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: subtract, eIsLeft: false))
+	end 'left'
+	if not subtract and namesPlace(r, p: p, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: sum), place: place) 'right'
+		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: false, eIsLeft: true))
+	end 'right'
+	return table.Option.none
+end 'accumulationOf'
+
+function namesPlace(r Ranges, p ast.Project, e ast.NodeID, place Place) returns bool
+	return match consumes rangePlaceOf(r, p: p, e: e) 'place'
+		some(q) gives q.same(place)
+		none gives false
+	end 'place'
+end 'namesPlace'
+
+// rangeAccumulate is an assignment that changes an accumulator. Where a loop bounds it, the result is judged against that
+// bound, which holds however many times the loop has run, and the probe of a loop learns from it how far the loop can
+// move it.
+function rangeAccumulate(mutates r Ranges, p ast.Project, s ast.NodeID, a Accumulation)
+	let l = rangeEval(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: a.sum))
+	let rs = rangeEval(r, p: p, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: a.sum))
+	let bound = rangeBoundOf(r, local: a.place.root)
+	let v = rangeOperate(r, p: p, e: a.sum, l: l, rs: rs, bound: bound)
+	if r.probing and not isDead(r, s: r.st) 'probed'
+		if a.eIsLeft 'left'
+			r.probe.record(a, e: l)
+		end 'left' else 'right'
+			r.probe.record(a, e: rs)
+		end 'right'
+	end 'probed'
+	rangeWrite(r, p: p, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)))
+end 'rangeAccumulate'
+
+// Accumulated is what the probe of a loop learned of an accumulator: how its statements can move it in one iteration of
+// the loop, and whether the body changes it in any other way.
+type Accumulated
+	// statements is how many accumulator statements the walk met, and writes how many times it saw the local written:
+	// they are the same when no other way to change it exists.
+	export var statements as Count
+	export var writes as Count
+	// raise and lower are how far one iteration can move it up and down.
+	export var raise as ast.I128
+	export var lower as ast.I128
+
+	static function new() returns Accumulated
+		return Accumulated{statements: 0 as Count, writes: 0 as Count, raise: ast.I128.zero(), lower: ast.I128.zero()}
+	end 'new'
+end 'Accumulated'
+
+typealias AccumulatedList = Array with Accumulated
+
+// LoopProbe is the walk of a loop's body that learns how its accumulators move.
+type LoopProbe
+	export var accumulated as AccumulatedList
+	// times is how often at most the code being walked runs in one iteration of the loop: the trips of the for loops
+	// around it inside the body, and pastEveryWord inside a while loop.
+	export var times as ast.I128
+	// opaque is whether the body holds code that may change a local without a statement that names it.
+	export var opaque as bool
+	// handlers and frames are what the walk had when the probe began, which it puts back: the probe records its failures
+	// and breaks in them as the real walk will.
+	export var handlers as RangeHandlerList
+	export var frames as RangeFrameList
+
+	static function new() returns LoopProbe
+		return LoopProbe{accumulated: AccumulatedList.create(0), times: ast.I128.one(), opaque: false, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0)}
+	end 'new'
+
+	function reset(mutates self, locals Count)
+		accumulated = AccumulatedList.create(0)
+		for _ in 0 upto locals 'each'
+			accumulated.push(Accumulated.new())
+		end 'each'
+		times = ast.I128.one()
+		opaque = false
+	end 'reset'
+
+	// record notes an accumulator statement that moves its local by a value of the span e.
+	function record(mutates self, a Accumulation, e Span)
+		var delta = e.clone()
+		if a.subtract 'subtract'
+			delta = Span.make(e.hi.neg(), hi: e.lo.neg())
+		end 'subtract'
+		let local = a.place.root
+		accumulated[local].statements = try accumulated[local].statements + 1 otherwise panic("ranges: too many accumulator statements")
+		let raise = capped(accumulated[local].raise.add(scaled(times, b: ast.maxI128(delta.hi, b: ast.I128.zero()))))
+		accumulated[local].raise = raise
+		let lower = capped(accumulated[local].lower.add(scaled(times, b: ast.maxI128(delta.lo.neg(), b: ast.I128.zero()))))
+		accumulated[local].lower = lower
+	end 'record'
+
+	// noteWrite counts a write of a local.
+	function noteWrite(mutates self, local Count)
+		accumulated[local].writes = try accumulated[local].writes + 1 otherwise panic("ranges: too many writes")
+	end 'noteWrite'
+end 'LoopProbe'
+
+// rangeScaleTimes makes the code of a loop run as often as its trips say inside the probed body, and gives what to
+// restore.
+function rangeScaleTimes(mutates r Ranges, trips ast.I128) returns ast.I128
+	if not r.probing 'real'
+		return ast.I128.zero()
+	end 'real'
+	let outer = r.probe.times.clone()
+	r.probe.times = scaled(outer, b: trips)
+	return outer
+end 'rangeScaleTimes'
+
+function rangeRestoreTimes(mutates r Ranges, outer ast.I128)
+	if r.probing 'probed'
+		r.probe.times = outer.clone()
+	end 'probed'
+end 'rangeRestoreTimes'
+
+// Candidate is an accumulator that a loop may bound, by its slot, with the span it has where the loop is entered.
+type Candidate
+	export var local as Count
+	export var entry as Span
+
+	static function make(local Count, consumes entry Span) returns Candidate
+		return Candidate{local: local, entry: entry}
+	end 'make'
+end 'Candidate'
+
+typealias CandidateList = Array with Candidate
+
+// scanBlock finds the locals that a loop's statements assign by an accumulator statement. It reads statements and not
+// expressions, which cannot assign, so it is far cheaper than the walk it decides on.
+function scanBlock(r Ranges, p ast.Project, body diag.U32, mutates found CandidateList)
+	for i in 0 upto p.modules[r.modIdx].tree.listLen(body) 'each'
+		scanStmt(r, p: p, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID, found: found)
+	end 'each'
+end 'scanBlock'
+
+function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found CandidateList)
+	let k = p.modules[r.modIdx].tree.kindOf(s)
+	if k == ast.NodeKind.assignStmt 'assign'
+		match consumes rangeAccumulation(r, p: p, s: s) 'accumulation'
+			some(a) then noteCandidate(r, local: a.place.root, found: found)
+			none then _ = 0
+		end 'accumulation'
+		return
+	end 'assign'
+	if k == ast.NodeKind.ifStmt 'if'
+		scanBlock(r, p: p, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
+		if ast.ifStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
+			scanBlock(r, p: p, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+		end 'else'
+		return
+	end 'if'
+	if k == ast.NodeKind.whileStmt 'while'
+		scanBlock(r, p: p, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		return
+	end 'while'
+	if k == ast.NodeKind.forStmt 'for'
+		scanBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		return
+	end 'for'
+	if k == ast.NodeKind.tryStmt 'try'
+		scanBlock(r, p: p, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		if ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s) 'handler'
+			scanBlock(r, p: p, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s), found: found)
+		end 'handler'
+		return
+	end 'try'
+	if k == ast.NodeKind.matchStmt 'match'
+		let armsRef = ast.matchCoreArmsRef(p.modules[r.modIdx].tree, id: ast.matchStmtMatch(p.modules[r.modIdx].tree, id: s))
+		for i in 0 upto p.modules[r.modIdx].tree.listLen(armsRef) 'arms'
+			let arm = p.modules[r.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
+			if ast.matchArmForm(p.modules[r.modIdx].tree, id: arm) == ast.ArmKind.armThen 'then'
+				scanStmt(r, p: p, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm), found: found)
+			end 'then'
+		end 'arms'
+		return
+	end 'match'
+	if k == ast.NodeKind.letStmt or k == ast.NodeKind.discardStmt or k == ast.NodeKind.whenStmt or k == ast.NodeKind.returnStmt or k == ast.NodeKind.throwStmt or k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt or k == ast.NodeKind.exprStmt 'assignsNothing'
+		return
+	end 'assignsNothing'
+	panic("ranges: the node {s} of kind {k.name} is no statement")
+end 'scanStmt'
+
+// noteCandidate lists an accumulator the first time a statement changes it, with its span in the current state.
+function noteCandidate(r Ranges, local Count, mutates found CandidateList)
+	for i in 0 upto found.count() 'seen'
+		if found[i].local == local 'again'
+			return
+		end 'again'
+	end 'seen'
+	found.push(Candidate.make(local, entry: r.states.list[r.st].spans[local].clone()))
+end 'noteCandidate'
+
+// rangeCandidates are the accumulators of a loop that the loop's body may bound. None is found in a loop that is walked
+// inside a probe, which does not bound anything, and none where the code cannot run.
+function rangeCandidates(r Ranges, p ast.Project, body diag.U32) returns CandidateList
+	var found = CandidateList.create(0)
+	if r.probing or r.fn == ast.noFunc or isDead(r, s: r.st) 'none'
+		return found
+	end 'none'
+	scanBlock(r, p: p, body: body, found: found)
+	return found
+end 'rangeCandidates'
+
+// rangeLoopHead makes the state at the top of a for loop: what may be assigned is forgotten, except the accumulators of
+// the body that the loop bounds.
+function rangeLoopHead(mutates r Ranges, p ast.Project, s ast.NodeID, from Span, upper Span, trips ast.I128)
+	let cands = rangeCandidates(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeForget(r, p: p)
+	if cands.count() == 0 'none'
+		return
+	end 'none'
+	rangeProbeLoop(r, p: p, s: s, from: from, upper: upper)
+	if r.probe.opaque 'opaque'
+		return
+	end 'opaque'
+	for i in 0 upto cands.count() 'each'
+		let local = cands[i].local
+		let statements = r.probe.accumulated[local].statements
+		if statements == 0 or statements != r.probe.accumulated[local].writes 'other'
+			continue 'each'
+		end 'other'
+		let lo = cands[i].entry.lo.sub(scaled(trips, b: r.probe.accumulated[local].lower))
+		let hi = cands[i].entry.hi.add(scaled(trips, b: r.probe.accumulated[local].raise))
+		rangeBind(r, p: p, local: local, bound: Span.make(lo, hi: hi))
+	end 'each'
+end 'rangeLoopHead'
+
+// rangeProbeLoop walks the body of a for loop once from the state at its top, and leaves what it learned in the probe,
+// until the next probe. It leaves the walk's state as it found it: the states it made are released, and nothing it
+// recorded outside them is kept, because the errors and the failures of the real walk must come from the real walk
+// alone.
+function rangeProbeLoop(mutates r Ranges, p ast.Project, s ast.NodeID, from Span, upper Span)
+	let head = r.st
+	let written = r.written.count()
+	let m = r.states.mark()
+	r.probe.reset(r.slots)
+	r.probe.handlers = r.handlers.clone()
+	r.probe.frames = r.frames.clone()
+	r.probing = true
+	r.st = r.states.copyOf(head)
+	r.frames.push(RangeFrame.make(s))
+	let top = r.st
+	let body = rangeLoopBody(r, p: p, s: s, top: top, from: from, upper: upper)
+	r.st = body
+	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	r.probing = false
+	r.st = head
+	truncatePlaces(r.written, count: written)
+	r.handlers = r.probe.handlers.clone()
+	r.frames = r.probe.frames.clone()
+	r.states.release(m)
+end 'rangeProbeLoop'
