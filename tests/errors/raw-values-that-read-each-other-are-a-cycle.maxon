@@ -1,0 +1,17 @@
+type Meta
+	export let cost as Count
+end 'Meta'
+
+enum First
+	a = Meta{cost: Second.b.cost}
+end 'First'
+
+enum Second
+	b = Meta{cost: First.a.cost}
+end 'Second'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2012 at 5:6

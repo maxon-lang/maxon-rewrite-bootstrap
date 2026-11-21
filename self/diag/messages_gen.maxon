@@ -565,11 +565,6 @@ export function duplicateDefinition(name String, keyword String) returns String
 	return "duplicate definition of '{name}' — already declared as `{keyword} {name}`"
 end 'duplicateDefinition'
 
-// The text of errModuleLetCallsFunction for: the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
-export function moduleLetCallsFunction(name String, callee String) returns String
-	return "the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used"
-end 'moduleLetCallsFunction'
-
 // The text of errAssignToImmutable for: '{name}' is a let field and cannot be reassigned
 export function letFieldReassigned(name String) returns String
 	return "'{name}' is a let field and cannot be reassigned"

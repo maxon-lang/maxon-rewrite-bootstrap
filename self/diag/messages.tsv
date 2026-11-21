@@ -119,7 +119,6 @@ operatorRequiresConformance	ErrTypeMismatch	Operator '{op}' requires type parame
 useOfMovedValue	ErrUseAfterMove	use of moved value '{name}': its ownership moved to another binding at an earlier bind or assignment
 movedInEarlierIteration	ErrUseAfterMove	use of moved value '{name}': it was moved in an earlier iteration of this loop
 duplicateDefinition	ErrDuplicateDefinition	duplicate definition of '{name}' — already declared as `{keyword} {name}`
-moduleLetCallsFunction	ErrModuleLetCallsFunction	the initializer of '{name}' calls '{callee}': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
 letFieldReassigned	ErrAssignToImmutable	'{name}' is a let field and cannot be reassigned
 missingMethods	ErrConformance	Partial interface implementation: type '{typeName}' is missing {count} method(s):
 wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:

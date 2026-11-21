@@ -17,20 +17,44 @@ type ConstOrder
 	end 'make'
 end 'ConstOrder'
 
-function isConstantDecl(p ast.Project, ref ast.DeclRef) returns bool
-	return ast.declIsConst(p, ref: ref)
-end 'isConstantDecl'
+// ConstReads is what the expressions of a constant read: the declarations of the module that the constants stage types, so
+// that they are typed first, and whether any of them runs code (a call or a panic), which a value known before the program
+// runs does not.
+type ConstReads
+	export var refs as DeclRefList
+	export var runs as bool
 
-function pushIfConstant(p ast.Project, consumes ref ast.DeclRef, mutates out DeclRefList)
-	if isConstantDecl(p, ref: ref) 'constant'
-		out.push(ref)
+	static function create() returns ConstReads
+		return ConstReads{refs: DeclRefList.create(0), runs: false}
+	end 'create'
+end 'ConstReads'
+
+// typedByConstants is whether the constants stage types the declaration: a constant, or an enum or a union whose cases write
+// raw values that are no literal, each of which is a constant too. The library declares no such enum or union.
+function typedByConstants(p ast.Project, ref ast.DeclRef) returns bool
+	if ast.declIsConst(p, ref: ref) 'constant'
+		return true
+	end 'constant'
+	if ref.module == diag.stdlibID 'library'
+		return false
+	end 'library'
+	if not isNominalDecl(p.modules[ast.modIndex(ref.module)].decls[ref.ordinal as Count]) 'notNominal'
+		return false
+	end 'notNominal'
+	return p.types.entries[declTypeOf(p, ref: ref) as Count].rawKind == ast.RawKind.value
+end 'typedByConstants'
+
+function pushIfConstant(p ast.Project, consumes ref ast.DeclRef, mutates out ConstReads)
+	if typedByConstants(p, ref: ref) 'constant'
+		out.refs.push(ref)
 	end 'constant'
 end 'pushIfConstant'
 
-// constRefs appends the constants that an expression of the module names, so that they are typed first. It walks every
+// constRefs notes what an expression of the module reads: the constants it names, so that they are typed first, and whether it
+// runs code. It walks every
 // expression a constant could hold, including ones the checker then refuses, because a missed reference would type a
 // constant before one it reads.
-function constRefs(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRefList)
+function constRefs(p ast.Project, modIdx Count, e ast.NodeID, mutates out ConstReads)
 	if e == 0 'nil'
 		return
 	end 'nil'
@@ -57,7 +81,7 @@ function constRefs(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRe
 	constRefsOfOperands(p, modIdx: modIdx, e: e, k: k, out: out)
 end 'constRefs'
 
-function constRefsOfString(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRefList)
+function constRefsOfString(p ast.Project, modIdx Count, e ast.NodeID, mutates out ConstReads)
 	let partsRef = ast.strLitPartsRef(p.modules[modIdx].tree, id: e)
 	for i in 0 upto p.modules[modIdx].tree.strPartCount(partsRef) 'parts'
 		if p.modules[modIdx].tree.strPartIsExpr(partsRef, index: i) 'expr'
@@ -67,7 +91,7 @@ function constRefsOfString(p ast.Project, modIdx Count, e ast.NodeID, mutates ou
 end 'constRefsOfString'
 
 // constRefsOfOperands covers the expressions that hold a fixed number of operands, and the ones that hold none.
-function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out DeclRefList)
+function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
 	if k == ast.NodeKind.binaryExpr 'binary'
 		constRefsOfChain(p, modIdx: modIdx, e: e, out: out)
 	end 'binary' else if k == ast.NodeKind.unaryExpr 'unary'
@@ -86,6 +110,7 @@ function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.No
 	end 'from' else if k == ast.NodeKind.memberExpr 'member'
 		constRefs(p, modIdx: modIdx, e: ast.memberExprObj(p.modules[modIdx].tree, id: e), out: out)
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
+		out.runs = true
 		constRefs(p, modIdx: modIdx, e: ast.panicExprMessage(p.modules[modIdx].tree, id: e), out: out)
 	end 'panic' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.typeQueryExpr 'leaf'
 		_ = 0
@@ -99,7 +124,7 @@ end 'constRefsOfOperands'
 
 // constRefsOfChain covers an operator and the operators nested in its left operand, innermost first, so that a long chain
 // takes no stack.
-function constRefsOfChain(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRefList)
+function constRefsOfChain(p ast.Project, modIdx Count, e ast.NodeID, mutates out ConstReads)
 	var chain = ast.leftChain(p.modules[modIdx].tree, e: e)
 	var node = ast.nextOperator(chain, e: e)
 	constRefs(p, modIdx: modIdx, e: ast.binaryExprL(p.modules[modIdx].tree, id: node), out: out)
@@ -111,8 +136,9 @@ function constRefsOfChain(p ast.Project, modIdx Count, e ast.NodeID, mutates out
 end 'constRefsOfChain'
 
 // constRefsOfLists covers the expressions that hold a list of operands.
-function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out DeclRefList)
+function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
 	if k == ast.NodeKind.callExpr 'call'
+		out.runs = out.runs or not isCopyCall(p, modIdx: modIdx, call: e)
 		constRefs(p, modIdx: modIdx, e: ast.callExprCallee(p.modules[modIdx].tree, id: e), out: out)
 		let argsRef = ast.callExprArgsRef(p.modules[modIdx].tree, id: e)
 		for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'args'
@@ -150,9 +176,18 @@ function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeK
 	end 'unknown'
 end 'constRefsOfLists'
 
+// isCopyCall is whether a call is `x.clone()`, which copies a value and runs no code of the program.
+function isCopyCall(p ast.Project, modIdx Count, call ast.NodeID) returns bool
+	let callee = ast.callExprCallee(p.modules[modIdx].tree, id: call)
+	if p.modules[modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+		return false
+	end 'notMember'
+	return ast.memberExprName(p.modules[modIdx].tree, id: callee) == cloneMethod and p.modules[modIdx].tree.listLen(ast.callExprArgsRef(p.modules[modIdx].tree, id: call)) == 0
+end 'isCopyCall'
+
 // constRefsOfMatch covers a match expression: its subject and, in each arm, its patterns' values and the arm's value. A
 // 'then' arm, the only one holding a statement, is refused in one.
-function constRefsOfMatch(p ast.Project, modIdx Count, core ast.NodeID, mutates out DeclRefList)
+function constRefsOfMatch(p ast.Project, modIdx Count, core ast.NodeID, mutates out ConstReads)
 	constRefs(p, modIdx: modIdx, e: ast.matchCoreSubject(p.modules[modIdx].tree, id: core), out: out)
 	let armsRef = ast.matchCoreArmsRef(p.modules[modIdx].tree, id: core)
 	for i in 0 upto p.modules[modIdx].tree.listLen(armsRef) 'arms'
@@ -167,18 +202,30 @@ function constRefsOfMatch(p ast.Project, modIdx Count, core ast.NodeID, mutates 
 	end 'arms'
 end 'constRefsOfMatch'
 
-function constValueOf(p ast.Project, modIdx Count, ord ast.DeclOrdinal) returns ast.NodeID
-	match p.modules[modIdx].decls[ord as Count].clone() 'k'
-		constDecl(cd) then return cd.value
-		funcDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		typeDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		enumDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		unionDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		aliasDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		interfaceDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-		extensionDecl(_) then panic("the declaration at ordinal {ord} is no constant")
-	end 'k'
-end 'constValueOf'
+// constReadsOf is what the value of a declaration that the constants stage types reads: a constant's value, or every raw
+// value that the cases of an enum or a union write.
+function constReadsOf(p ast.Project, ref ast.DeclRef) returns ConstReads
+	var out = ConstReads.create()
+	let modIdx = ast.modIndex(ref.module)
+	if ast.declIsConst(p, ref: ref) 'constant'
+		match p.modules[modIdx].decls[ref.ordinal as Count] 'k'
+			constDecl(cd) then constRefs(p, modIdx: modIdx, e: cd.value, out: out)
+			funcDecl(_) then panic("the constant at ordinal {ref.ordinal} is a function")
+			typeDecl(_) then panic("the constant at ordinal {ref.ordinal} is a type")
+			enumDecl(_) then panic("the constant at ordinal {ref.ordinal} is an enum")
+			unionDecl(_) then panic("the constant at ordinal {ref.ordinal} is a union")
+			aliasDecl(_) then panic("the constant at ordinal {ref.ordinal} is a typealias")
+			interfaceDecl(_) then panic("the constant at ordinal {ref.ordinal} is an interface")
+			extensionDecl(_) then panic("the constant at ordinal {ref.ordinal} is an extension")
+		end 'k'
+		return out
+	end 'constant'
+	let tid = declTypeOf(p, ref: ref)
+	for i in 0 upto p.types.entries[tid as Count].cases.count() 'cases'
+		constRefs(p, modIdx: modIdx, e: p.types.entries[tid as Count].cases[i].rawExpr, out: out)
+	end 'cases'
+	return out
+end 'constReadsOf'
 
 // constCycle spells the loop that visiting the constant at ord closes, from the first constant of path that is it.
 function constCycle(m ast.Module, path OrdinalList, ord ast.DeclOrdinal) returns String
@@ -207,11 +254,10 @@ function visitConst(mutates w ConstOrder, c Checker, p ast.Project, ord ast.Decl
 	end 'cycle'
 	w.state[ord as Count] = constVisiting
 	w.path.push(ord)
-	var named = DeclRefList.create(0)
-	constRefs(p, modIdx: c.modIdx, e: constValueOf(p, modIdx: c.modIdx, ord: ord), out: named)
-	for i in 0 upto named.count() 'refs'
-		if named[i].module == c.modID 'own'
-			if not visitConst(w, c: c, p: p, ord: named[i].ordinal, errs: errs) 'failed'
+	let reads = constReadsOf(p, ref: ast.DeclRef.make(c.modID, ordinal: ord))
+	for i in 0 upto reads.refs.count() 'refs'
+		if reads.refs[i].module == c.modID 'own'
+			if not visitConst(w, c: c, p: p, ord: reads.refs[i].ordinal, errs: errs) 'failed'
 				return false
 			end 'failed'
 		end 'own'
@@ -222,15 +268,15 @@ function visitConst(mutates w ConstOrder, c Checker, p ast.Project, ord ast.Decl
 	return true
 end 'visitConst'
 
-// constantOrder is the module's constants, each after those of the module that its value names, so that each is typed
-// after them. The constants of other modules that it names are typed already, since the module graph has no cycle and
+// constantOrder is the module's constants and its enums and unions whose raw values are constants, each after those of the
+// module that its value names, so that each is typed after them. The constants of other modules that it names are typed already, since the module graph has no cycle and
 // the module's constants wait for those of the modules it depends on. A constant that names itself through others is
 // refused, and then no constant of the module is ordered.
 export function constantOrder(c Checker, p ast.Project, mutates errs diag.ErrorList) returns OrdinalList
 	var w = ConstOrder.make(p.modules[c.modIdx].decls.count())
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		if isConstantDecl(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) 'constant'
+		if typedByConstants(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) 'constant'
 			if not visitConst(w, c: c, p: p, ord: ord, errs: errs) 'cycle'
 				return OrdinalList.create(0)
 			end 'cycle'
@@ -240,18 +286,19 @@ export function constantOrder(c Checker, p ast.Project, mutates errs diag.ErrorL
 end 'constantOrder'
 
 // checkConstantType refuses a constant whose value has no type to give it: a range that no type names, no value, a
-// string that interpolates, or a type that cannot be copied.
-function checkConstantType(mutates c Checker, mutates p ast.Project, cd ast.ConstDecl, t ast.TypeID, mutates errs diag.ErrorList) returns bool
-	let off = offsetOf(c, p: p, node: cd.id)
+// string that interpolates, or a type that cannot be copied. The constant is named name and declared at node, and value is
+// what it is written as.
+function checkConstantType(mutates c Checker, mutates p ast.Project, name String, node ast.NodeID, value ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let off = offsetOf(c, p: p, node: node)
 	if typeIsAnonInt(p.types, t: t) 'anonymous'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "constant '{cd.name}' has the range {nameOfType(p, t: t)}, which no type names: give it an alias, 'as <Alias>'", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "constant '{name}' has the range {nameOfType(p, t: t)}, which no type names: give it an alias, 'as <Alias>'", errs: errs)
 		return false
 	end 'anonymous'
 	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
-		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "constant '{cd.name}' must be a value known before the program runs", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "constant '{name}' must be a value known before the program runs", errs: errs)
 		return false
 	end 'noValue'
-	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, e: cd.value) 'interpolates'
+	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, e: value) 'interpolates'
 		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "a constant string cannot interpolate", errs: errs)
 		return false
 	end 'interpolates'
@@ -259,7 +306,7 @@ function checkConstantType(mutates c Checker, mutates p ast.Project, cd ast.Cons
 	if lacking.missing 'noCopy'
 		let why = lackWhyText(p.types, info: lacking, capName: "Copyable")
 		let fix = lackFixText(p.types, info: lacking, capName: "Copyable")
-		checkFail(c.modID, off: off, code: diag.errNotCopyable, msg: "constant '{cd.name}' has type '{nameOfType(p, t: t)}', which is not Copyable, and a constant is read any number of times: {why}; {fix}", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errNotCopyable, msg: "constant '{name}' has type '{nameOfType(p, t: t)}', which is not Copyable, and a constant is read any number of times: {why}; {fix}", errs: errs)
 		return false
 	end 'noCopy'
 	return true
@@ -318,7 +365,7 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 	if t == ast.noType 'failed'
 		return
 	end 'failed'
-	if checkConstantType(c, p: p, cd: cd, t: t, errs: errs) 'typed'
+	if checkConstantType(c, p: p, name: cd.name, node: cd.id, value: cd.value, t: t, errs: errs) 'typed'
 		var value = constantValue(p, t: t)
 		let s = rangeConstant(c, p: p, value: cd.value, errs: errs)
 		if ast.isIntType(p.types, t: t) 'int'
@@ -329,9 +376,68 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 	end 'typed'
 end 'checkConst'
 
-// checkConstants types the module's constants in the order constantOrder gave.
+// checkConstants types the module's constants and the raw values of its enums and unions in the order constantOrder gave.
 export function checkConstants(mutates c Checker, mutates p ast.Project, order OrdinalList, mutates errs diag.ErrorList)
 	for i in 0 upto order.count() 'each'
-		checkConst(c, p: p, ord: order[i], errs: errs)
+		let ref = ast.DeclRef.make(c.modID, ordinal: order[i])
+		match p.modules[c.modIdx].decls[order[i] as Count].clone() 'k'
+			constDecl(_) then checkConst(c, p: p, ord: order[i], errs: errs)
+			enumDecl(ed) then checkTypeRawValues(c, p: p, tid: declTypeOf(p, ref: ref), cases: enumRawCases(ed), errs: errs)
+			unionDecl(ud) then checkTypeRawValues(c, p: p, tid: declTypeOf(p, ref: ref), cases: unionRawCases(ud), errs: errs)
+			funcDecl(_) then panic("the constants stage orders the function at ordinal {order[i]}")
+			typeDecl(_) then panic("the constants stage orders the type at ordinal {order[i]}")
+			aliasDecl(_) then panic("the constants stage orders the typealias at ordinal {order[i]}")
+			interfaceDecl(_) then panic("the constants stage orders the interface at ordinal {order[i]}")
+			extensionDecl(_) then panic("the constants stage orders the extension at ordinal {order[i]}")
+		end 'k'
 	end 'each'
 end 'checkConstants'
+
+// isLiteralFactoryCall is whether the callee of a call in the value of a constant is a literal factory of a record
+// (`Meta.create(4, isMemory: true)`): the call is known before the program runs, as the literal it returns is, so a constant
+// may make it where it makes no other.
+function isLiteralFactoryCall(c Checker, p ast.Project, callee ast.NodeID) returns bool
+	if p.modules[c.modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+		return false
+	end 'notMember'
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)
+	if p.modules[c.modIdx].tree.kindOf(obj) != ast.NodeKind.nameExpr 'notType'
+		return false
+	end 'notType'
+	var probe = diag.ErrorList.create(0)
+	let t = typeNamed(c, p: p, name: obj, errs: probe)
+	if probe.count() > 0 or t == ast.noType or not typeHasKind(p, t: t, kind: ast.TypeKind.record) 'notRecord'
+		return false
+	end 'notRecord'
+	let fn = methodOf(c, p: p, t: t, name: ast.memberExprName(p.modules[c.modIdx].tree, id: callee), node: callee, errs: probe)
+	return probe.count() == 0 and fn != ast.noFunc and isLiteralFactory(p, fn: fn)
+end 'isLiteralFactoryCall'
+
+// isLiteralFactory is whether a function is a literal factory: a static function that the program declares, of a type that
+// is not generic, that is not generic and throws nothing, and whose body is one `return` of a record literal whose fields run
+// no code, so they are its parameters and constants. A call of it is the literal with the arguments written in.
+function isLiteralFactory(p ast.Project, fn ast.FuncID) returns bool
+	let owner = p.funcs.entries[fn as Count].ownerTy
+	if p.funcs.entries[fn as Count].module == diag.stdlibID or not p.funcs.entries[fn as Count].isStatic or p.funcs.entries[fn as Count].generics.count() > 0 or p.funcs.entries[fn as Count].errTy != ast.noType or owner == ast.noType 'notStatic'
+		return false
+	end 'notStatic'
+	if p.types.entries[ast.originOf(p.types, t: owner) as Count].typeParams.count() > 0 'genericOwner'
+		return false
+	end 'genericOwner'
+	let mi = ast.modIndex(p.funcs.entries[fn as Count].module)
+	let body = p.funcs.entries[fn as Count].bodyRef
+	if p.modules[mi].tree.listLen(body) != 1 'statements'
+		return false
+	end 'statements'
+	let s = p.modules[mi].tree.listAt(body, index: 0) as ast.NodeID
+	if p.modules[mi].tree.kindOf(s) != ast.NodeKind.returnStmt 'notReturn'
+		return false
+	end 'notReturn'
+	let value = ast.returnStmtValue(p.modules[mi].tree, id: s)
+	if value == 0 or p.modules[mi].tree.kindOf(value) != ast.NodeKind.structLitExpr 'notLiteral'
+		return false
+	end 'notLiteral'
+	var reads = ConstReads.create()
+	constRefs(p, modIdx: mi, e: value, out: reads)
+	return not reads.runs
+end 'isLiteralFactory'

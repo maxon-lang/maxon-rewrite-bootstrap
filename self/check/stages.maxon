@@ -162,16 +162,15 @@ function holdsAnEntryModule(ch Checks, p ast.Project) returns bool
 	return false
 end 'holdsAnEntryModule'
 
-// moduleConstantOrder orders the module's constants, each after the ones its value names.
+// moduleConstantOrder orders the module's constants and raw values, each after the ones its value names.
 export function moduleConstantOrder(mutates ch Checks, p ast.Project, m Count, mutates errs diag.ErrorList)
 	ch.modules[m].constants = constantOrder(ch.modules[m].checker, p: p, errs: errs)
 end 'moduleConstantOrder'
 
-// moduleConstants types the module's constants, then the raw values of its enums and unions, which may name them.
+// moduleConstants types the module's constants and the raw values of its enums and unions, each after those it names.
 export function moduleConstants(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
 	let order = ch.modules[m].constants.clone()
 	checkConstants(ch.modules[m].checker, p: p, order: order, errs: errs)
-	checkRawValues(ch.modules[m].checker, p: p, errs: errs)
 end 'moduleConstants'
 
 // moduleBodies types the module's type declarations and functions.

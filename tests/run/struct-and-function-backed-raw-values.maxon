@@ -52,6 +52,10 @@ union Shape
 	blank = Meta.create(0, memory: false)
 end 'Shape'
 
+let addLatency = Instruction.add.latency
+
+let quick = Meta.create(2, memory: true)
+
 function latencyOf(op Instruction) returns Latency
 	return op.rawValue.latency
 end 'latencyOf'
@@ -69,6 +73,7 @@ function main() returns ExitCode
 	print("{f(5)} {g(6)} {h(7)}\n")
 	let shape = Shape.square(3)
 	print("{shape.latency} {shape.rawValue.label} {shape.name} {Shape.circle.latency} {Shape.circle.name} {Shape.circle.ordinal} {Shape.blank.rawValue.label}\n")
+	print("{addLatency} {quick.latency} {quick.label}\n")
 	return 0
 end 'main'
 
@@ -77,3 +82,4 @@ end 'main'
 //> inner 3 8 8
 //> 5 6 7
 //> 6 square square 5 circle 0 made
+//> 1 2 made

@@ -1,0 +1,18 @@
+type Meta
+	export let on as bool
+
+	static function create(on bool) returns Self
+		print("made\n")
+		return Self{on: on}
+	end 'create'
+end 'Meta'
+
+enum Flags
+	first = Meta.create(true)
+end 'Flags'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3220 at 11:10

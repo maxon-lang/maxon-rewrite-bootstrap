@@ -411,7 +411,7 @@ any, from every module. A `check` stops short of code generation but runs the st
 | module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in, and the driver adds the tasks of the stages below |
 | aliases | `check` | `moduleAliases`: the bounds of each type's type parameters, the typealiases that the module's extensions declare under the types they extend, each type written `Type.name` bound to the typealias that the type's body or an extension the module sees declares, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
 | declare | `check` | `moduleDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, a task of the project: `projectEntry`; `E3006` for a second) |
-| constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: top-level `let` types, each after the constants of its module that it names (a cycle is `E2012`), then the types of the raw values that enums and unions write that are no literal (see "Raw values") |
+| constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: types the top-level `let`s and the raw values that enums and unions write that are no literal (see "Raw values"), each after the constants and raw values of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
 | lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before codegen, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
@@ -2192,18 +2192,25 @@ value (`E3031`). `.rawValue` has the type of the values: a `Count` or a `FullRan
 case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
 Interpolating an enum value that has raw values writes the raw value, and an enum with none the name of the case.
 
-**Records and functions.** A raw value that is no literal is an expression, as the default of a field is: a record
-(`OpMeta{latency: 1}`, a call such as `OpMeta.create(4, isMemory: true)`, records nested in records), a function named
-without a call (`doubleFn`, `alpha.doubleFn`) or a closure that captures nothing, anything but a call of a generic function
-(`E2015`). Every case writes the same type, which is the type of `.rawValue`, compared once the expressions are typed (the
-constants stage, after the module's constants, which may be named in them; a constant of the module cannot read
-`.rawValue` of such an enum, `E2012`); a case of another type or one that writes a literal or none beside them is `E3032`
-(`expected Meta, got Other`). The expression may build any record, whatever its constructors say, since it belongs to the
-enum. It is **built where `.rawValue` reads it**: the type holds no value of its own, only the case's index, and the read is
-a switch on it whose arms are the expressions, typed, range-analysed and ownership-checked outside any function as a
-field's default is. So a read gives a new value that the reader owns (a record is dropped with the statement, a `let`
-binds it, a function value is a new closure of the function), the raw value of a case can never be written through, and
-a call in it runs at each read. The type of `.rawValue` of a union is the same, and its tag stays the case's index.
+**Records and functions.** A raw value that is no literal is a **constant of the program**, checked, ordered and lowered as a
+top-level `let` is (`static let` and module `let` alike): a record literal whose fields are constants (`OpMeta{latency: 1}`,
+records nested in records, a module's constants), a function named without a call (`doubleFn`, `alpha.doubleFn`), a closure
+that captures nothing, or a call of a **literal factory**. A literal factory is a static function of a type that is not
+generic, that is itself not generic and throws nothing, and whose body is one `return` of a record literal whose fields run no
+code (its parameters, constants and `.clone()` of them: `return Self{latency: latency, memory: memory}`); its arguments are
+constants too, so `OpMeta.create(4, isMemory: true)` is the literal with the arguments written in, and a constant of the module
+may call one as a raw value does. Any other call is refused as in a constant (`E2045` for a call whose result is a number, an
+enum or a bool, `E3220` for any other, which names what may be called), and so is a factory whose body does anything else, a
+`print` among it: what a raw value is never depends on code that runs. Every case writes the same type, which is the type of
+`.rawValue` and must be `Copyable`, compared once the expressions are typed; a case of another type or one that writes a
+literal or none beside them is `E3032` (`expected Meta, got Other`). The constants stage types the raw values of a type after
+the constants and raw values of its module that they name, and a constant after the raw values it reads, so a constant may
+read `Flags.first.on` and a raw value another type's, and only a cycle is `E2012`. The expression may build any record,
+whatever its constructors say, since it belongs to the type. Like every constant it is inlined where it is read: the type
+holds no value of its own, only the case's index, and the read is a switch on it whose arms are the expressions, so a read
+gives a value that the reader owns (a record is dropped with the statement, a `let` binds it, a function value is a new
+closure of the function), the raw value of a case can never be written through, and since it calls only literal factories no
+read runs code of the program. The type of `.rawValue` of a union is the same, and its tag stays the case's index.
 
 A field of a record raw value that holds no value of its own (an integer, a float, a `bool`, an enum) reads straight off
 the enum or union value, as `op.latency` for `op.rawValue.latency`, also off a case that a union names even when it has a
@@ -2459,7 +2466,7 @@ reported at the arm's statement and not at the `and`, and `and fallthrough` afte
 type's own body, where its initializer is also written (it may build `Self{...}`, which a constant of the module may not). The
 parser makes it a constant of the module named `Type.name`, as it does a `typealias` of a type's body, and the resolver turns
 `Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
-its value is inlined at each use, and a call in its initializer is `E3220`. `static var`, and a `static let` of an enum or a union,
+its value is inlined at each use, and a call in its initializer is `E3220` unless it is a literal factory (see "Raw values"). `static var`, and a `static let` of an enum or a union,
 are not supported.
 
 ### Conditional compilation, tests and annotations
@@ -2629,13 +2636,18 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   union case; a case written with a character has none yet, and `fromRawValue`, `fromName`,
   `unionCases`, comparing a case with its raw value and using it where a number is expected are the library's and are not
   here. An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
-  A record or function raw value is an expression that may call functions and is built at each read of `.rawValue`, where maxon
-  reads `Meta.create(1)` as the literal `Meta{...}` filled by the arguments, never runs `create`, and refuses a raw value its
-  constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field left out or given twice, a
-  factory with more arguments than fields), `E3095` for a bare function name that two modules declare, and `E3155` for a
-  reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`, `E2004`) and a `String` field is
-  fine. `.rawValue` of such an enum or union is the whole record, a new one each time, where maxon refuses it without a field
-  after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).- A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
+  A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
+  arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
+  one `return` of a record literal over its parameters and constants, which a constant of the module may call too where maxon
+  refuses every call in a module `let` (`E3220`), and a call of a function that is no such factory is `E2045` or `E3220`.
+  Maxon refuses a raw value its constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field
+  left out or given twice, a factory with more arguments than fields), `E3095` for a bare function name that two modules
+  declare, and `E3155` for a reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`,
+  `E2004`) and a `String` field is fine. A constant, and so a raw value, is built where it is read rather than held once in
+  the executable's data, which no program can tell apart since building it runs no code. `.rawValue` of such an enum or union
+  is the whole record, which the reader owns, where maxon refuses it without a field
+  after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).
+- A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
   there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated, and no `Character` to
   quote. An empty specifier (`{x:}`) is no specifier.
 - A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that

@@ -27,26 +27,9 @@ function unionRawCases(ud ast.UnionDecl) returns RawCases
 	return cases
 end 'unionRawCases'
 
-// checkRawValues types the raw values of the module's enums and unions that write one that is no literal. Each is an
-// expression that no function holds, built where `.rawValue` reads it, as the default of a field is; all the cases of a type
-// write the same type, which is the type of its `.rawValue`.
-export function checkRawValues(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
-	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
-		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		let ref = ast.DeclRef.make(c.modID, ordinal: ord)
-		match p.modules[c.modIdx].decls[i].clone() 'k'
-			enumDecl(ed) then checkTypeRawValues(c, p: p, tid: declTypeOf(p, ref: ref), cases: enumRawCases(ed), errs: errs)
-			unionDecl(ud) then checkTypeRawValues(c, p: p, tid: declTypeOf(p, ref: ref), cases: unionRawCases(ud), errs: errs)
-			funcDecl(_) then _ = 0
-			typeDecl(_) then _ = 0
-			constDecl(_) then _ = 0
-			aliasDecl(_) then _ = 0
-			interfaceDecl(_) then _ = 0
-			extensionDecl(_) then _ = 0
-		end 'k'
-	end 'decls'
-end 'checkRawValues'
-
+// checkTypeRawValues types the raw values of an enum or a union whose cases write ones that are no literal. Each is a
+// constant of the program, typed by the constants stage in the order of the constants it reads and checked as the value of a
+// constant is; all the cases of a type write the same type, which is the type of its `.rawValue`.
 function checkTypeRawValues(mutates c Checker, mutates p ast.Project, tid ast.TypeID, cases RawCases, mutates errs diag.ErrorList)
 	if p.types.entries[tid as Count].rawKind != ast.RawKind.value 'literals'
 		return
@@ -60,7 +43,7 @@ function checkTypeRawValues(mutates c Checker, mutates p ast.Project, tid ast.Ty
 		if p.types.entries[tid as Count].cases[i].rawExpr == 0 as ast.NodeID 'literal'
 			noun = rawKindOf(p, modIdx: c.modIdx, raw: cases.raws[i]).noun()
 		end 'literal' else 'value'
-			t = checkRawValue(c, p: p, tid: tid, index: i, raw: cases.raws[i], errs: errs)
+			t = checkRawValue(c, p: p, tid: tid, index: i, node: cases.nodes[i], raw: cases.raws[i], errs: errs)
 			if t == ast.noType 'failed'
 				continue 'each'
 			end 'failed'
@@ -78,31 +61,25 @@ function checkTypeRawValues(mutates c Checker, mutates p ast.Project, tid ast.Ty
 	end 'typed'
 end 'checkTypeRawValues'
 
-// checkRawValue types the value that the case at index writes, and gives its type, or none after it reported why it has none.
-function checkRawValue(mutates c Checker, mutates p ast.Project, tid ast.TypeID, index Count, raw ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+// checkRawValue types the value that the case at index writes as the value of a constant, and gives its type, or none after
+// it reported why it has none. Unlike a constant of the module, it may build any record, whatever its constructors say, since
+// it belongs to the type.
+function checkRawValue(mutates c Checker, mutates p ast.Project, tid ast.TypeID, index Count, node ast.NodeID, raw ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = "{p.types.entries[tid as Count].name}.{p.types.entries[tid as Count].cases[index].name}"
-	enterContext(c, p: p, f: ast.noFunc, owner: ast.noType, calls: true)
+	enterContext(c, p: p, f: ast.noFunc, owner: ast.noType, calls: false)
+	c.constName = name.clone()
 	c.inRawValue = true
 	startUses(c, node: raw, inField: true)
 	let t = checkExpr(c, p: p, e: raw, errs: errs)
 	c.hasUses = false
 	c.inRawValue = false
-	if t == ast.noType 'failed'
+	if t == ast.noType or not checkConstantType(c, p: p, name: name, node: node, value: raw, t: t, errs: errs) 'failed'
 		return ast.noType
 	end 'failed'
-	if c.recorded.count() > 0 'generic'
-		checkFail(c.modID, off: exprOffset(c, p: p, node: raw), code: diag.errUnsupportedFeature, msg: "Unsupported: the raw value of '{name}' calls a generic function; a raw value calls only functions that are not generic", errs: errs)
-		return ast.noType
-	end 'generic'
-	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
-		checkFail(c.modID, off: exprOffset(c, p: p, node: raw), code: diag.errTypeMismatch, msg: "the raw value of '{name}' is an expression with no value", errs: errs)
-		return ast.noType
-	end 'noValue'
 	return t
 end 'checkRawValue'
 
-// rawValuesUntyped is whether t is an enum or a union whose raw values are values that the constants stage has not typed, which
-// a constant of the module reads before it is.
+// rawValuesUntyped is whether t is an enum or a union whose raw values are values that have no type, since typing them failed.
 function rawValuesUntyped(p ast.Project, t ast.TypeID) returns bool
 	let k = kindOfType(p, t: t)
 	if k != ast.TypeKind.enumTy and k != ast.TypeKind.unionTy 'notNominal'
@@ -113,7 +90,7 @@ function rawValuesUntyped(p ast.Project, t ast.TypeID) returns bool
 end 'rawValuesUntyped'
 
 function failRawUntyped(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errDependsOnItself, msg: "the raw value of '{nameOfType(p, t: t)}' is typed after the constants of its module, so a constant cannot read it; read it in a function", errs: errs)
+	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errExpressionError, msg: "the raw values of '{nameOfType(p, t: t)}' have no type", errs: errs)
 	return ast.noType
 end 'failRawUntyped'
 
