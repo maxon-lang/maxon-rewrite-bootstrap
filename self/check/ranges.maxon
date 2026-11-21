@@ -683,9 +683,6 @@ end 'rangeTryStmt'
 function rangeThrowStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	let value = ast.throwStmtValue(p.modules[r.modIdx].tree, id: s)
 	_ = rangeEval(r, p: p, e: value)
-	if isDead(r, s: r.st) 'dead'
-		return
-	end 'dead'
 	let e = typeOf(r, e: value)
 	if r.handlers.count() == 0 'toCaller'
 		let thrown = fnErrorType(r, p: p)

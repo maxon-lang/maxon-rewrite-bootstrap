@@ -608,10 +608,9 @@ end 'setFails'
 
 // rangeFallible is an operation that can fail with the error err: the innermost try covers it, and its handler can start
 // in the state here. No try is an error, which why says, and so is a try whose handler or caller takes another error.
+// Code the analysis proves unreachable is held to the same rule, since the lowering emits it and what is proved
+// unreachable depends on how sharp the analysis is.
 function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast.TypeID, why Unchecked)
-	if isDead(r, s: r.st) 'dead'
-		return
-	end 'dead'
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
 			rangeRaise(r, p: p, node: site, code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why))
@@ -632,7 +631,7 @@ function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast
 			return
 		end 'otherHandler'
 	end 'judged'
-	if not propagates 'caught'
+	if not propagates and not isDead(r, s: r.st) 'caught'
 		let kept = rangeKeep(r)
 		let entry = r.handlers[last].entry
 		let joined = r.states.joined(entry, b: kept)

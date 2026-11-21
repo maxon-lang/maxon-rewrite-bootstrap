@@ -1,0 +1,20 @@
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function main() returns ExitCode
+	let n = 3 as Count
+	if n < 2 'never'
+		print("{parse(n)}\n")
+	end 'never'
+	return 0
+end 'main'
+
+// expect-error: E3057 at 15:16

@@ -1,0 +1,13 @@
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function main() returns ExitCode
+	let n = 3 as Count
+	if n < 2 'never'
+		throw ParseError.empty
+	end 'never'
+	return 0
+end 'main'
+
+// expect-error: E3059 at 8:3

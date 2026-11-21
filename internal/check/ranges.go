@@ -398,9 +398,6 @@ func (r *Ranges) VisitTryStmt(s ast.TryStmt) {
 // around it catches it.
 func (r *Ranges) VisitThrowStmt(s ast.ThrowStmt) {
 	r.eval(s.Value())
-	if r.st.dead {
-		return
-	}
 	e := r.typing.Type(s.Value())
 	if len(r.handlers) == 0 {
 		switch {
@@ -949,11 +946,10 @@ func (r *Ranges) fail(e ast.Expr, fails ast.Fails, message func() string) {
 }
 
 // fallible is an operation that can fail with the error err: the innermost try covers it, and its handler can start in the
-// state here. No try is an error, which message says, and so is a try whose handler or caller takes another error.
+// state here. No try is an error, which message says, and so is a try whose handler or caller takes another error. Code
+// the analysis proves unreachable is held to the same rule, since the lowering emits it and what is proved unreachable
+// depends on how sharp the analysis is.
 func (r *Ranges) fallible(site ast.Pos, err ast.Ty, message func() string) {
-	if r.st.dead {
-		return
-	}
 	if len(r.handlers) == 0 {
 		if r.probe != nil {
 			return
@@ -969,7 +965,7 @@ func (r *Ranges) fallible(site ast.Pos, err ast.Ty, message func() string) {
 			panic(site.Error(diag.ErrErrorTypeMismatch, fmt.Sprintf("this fails with '%s', but the handler of the try around it names a '%s': give it a 'try ... otherwise' of its own", err.Name(), h.takes.Name())))
 		}
 	}
-	if !h.propagates {
+	if !h.propagates && !r.st.dead {
 		h.entry = r.states.joined(h.entry, r.keep())
 	}
 }
