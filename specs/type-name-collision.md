@@ -764,16 +764,13 @@ error E3006: <fragment>:7:7: duplicate definition of 'Tag' — already declared 
 
 
 <!-- test: error.duplicate-function-alias-same-file -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 Two typealiases in one file are E3061 whichever FORM they take — the code already covers the ranged
 pair (`specs/export-keyword.md`'s `error.duplicate-typealias-same-file`), and a function alias
 declared twice is the same fact: no qualification could disambiguate two declarations in one file.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Handler = function() returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Handler = function() returns Integer
 
 function main() returns ExitCode
@@ -853,7 +850,6 @@ error E3061: b/<fragment>:15:11: Duplicate typealias 'G'
 
 
 <!-- test: crossfile-ranged-and-function-alias-coexist -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two directories, one name, two alias FORMS, each unmarked in its directory — legal, and the forms do not decide
 it. Neither file sees the other's declaration, so each declaring file means its own: `alpha/a.maxon`'s
 `pick` returns its `int` alias and `beta/b.maxon`'s `runIt` takes its function alias. A bare, whole-program
@@ -875,7 +871,6 @@ end 'useA'
 // --- file: beta/b.maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Handler = function() returns Integer
 
 function zero() returns Integer
@@ -2867,7 +2862,6 @@ end 'main'
 
 
 <!-- test: crossfile-indirect-call-through-a-contested-returning-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An INDIRECT call through a function-alias value whose return type is a coexisting name. The result's type
 is a slot of the file that declared the ALIAS, not of the file making the call — and `lib/c.maxon` below
@@ -2879,7 +2873,6 @@ and handed back the integer 3 wearing a record's type.
 // --- file: ext/a.maxon
 export typealias Token = int(0 to 5)
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Cb = function() returns Token
 
 function three() returns Token
@@ -3296,8 +3289,6 @@ error E3092: tags/<fragment>:19:18: exported typealias 'Level' is never referenc
 ```
 
 <!-- test: error.an-unused-function-alias-export-beside-another-directorys-is-reported -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The same audit over two FUNCTION aliases. `a/` and `b/` each export `typealias Handler`; `a/use.maxon` names
 `a.Handler`, and nobody names `b.Handler`, so `b/`'s export earns E3092.
 ```maxon
@@ -3305,7 +3296,6 @@ The same audit over two FUNCTION aliases. `a/` and `b/` each export `typealias H
 export typealias Integer = int(i64.min to i64.max)
 
 // --- file: a/handler.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Handler = function(Integer) returns Integer
 
 // --- file: a/use.maxon
@@ -3314,7 +3304,6 @@ export function apply(h a.Handler, v Integer) returns Integer
 end 'apply'
 
 // --- file: b/handler.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Handler = function(Integer) returns Integer
 
 // --- file: main.maxon
@@ -3443,8 +3432,6 @@ error E3092: x/<fragment>:3:18: exported typealias 'Idx' is never referenced out
 ```
 
 <!-- test: error.an-unused-type-beside-a-function-alias-reached-through-a-field-is-reported -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The unused-declaration audit answers the same way when one claimant is a NOMINAL type and the use is a call
 through a struct FIELD. `a/` exports
 the function alias `Handler` and a `Box` whose field holds one; `k/` declares an unmarked `type Handler` that
@@ -3455,7 +3442,6 @@ nothing in `k/` names. `main.maxon` calls through `Box`'s field, which reaches `
 export typealias Integer = int(i64.min to i64.max)
 
 // --- file: a/handler.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Handler = function(Integer) returns Integer
 
 function double(n Integer) returns Integer
@@ -4190,7 +4176,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-comparable-leaves-the-library-sort-on-ints -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An author `Comparable` names the author's interface, and the library's `where Element is Comparable`
 still names the library's, which `int` meets.
 ```maxon
@@ -4435,7 +4420,6 @@ true
 ```
 
 <!-- test: an-authors-type-named-comparable-leaves-the-library-sort -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An author TYPE named `Comparable`, not an interface, beside the library's `sort`.
 ```maxon
 type Comparable
@@ -4563,7 +4547,6 @@ error E3008: <fragment>:7:52: type 'OverlayModuleProtocol' is not exported
 
 <!-- test: error.a-hidden-qualified-construction-head-is-refused-at-top-level -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An unmarked typealias named through its directory as the head of a top-level `from` construction: the qualified spelling reaches the declaration without making it visible.
 ```maxon
 // --- file: lib/codes.maxon
@@ -4586,7 +4569,6 @@ error E3008: app/<fragment>:11:9: typealias 'lib.Codes' is not exported
 ```
 
 <!-- test: a-literal-init-head-beside-the-librarys-builds-the-authors-type-at-top-level -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a `FilePath` that initializes from a string literal beside the library's; a top-level
 `FilePath from "x"` in another directory builds the user's type, the one with a `text` field.
@@ -4601,7 +4583,6 @@ export type FilePath implements InitableFromStringLiteral
 end 'FilePath'
 
 // --- file: app/main.maxon
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let p = FilePath from "x"
 
 function main() returns ExitCode
@@ -4617,8 +4598,6 @@ x
 ```
 
 <!-- test: error.a-hidden-literal-init-head-is-refused-at-top-level -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- positions: moved -->
 A library type without `public` that initializes from a string literal, constructed at the top level of an
 author's file.
 ```maxon
@@ -4631,7 +4610,6 @@ type OverlayPrivateTag implements InitableFromStringLiteral
 	end 'init'
 end 'OverlayPrivateTag'
 // --- file: main.maxon
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let t = OverlayPrivateTag from "x"
 
 function main() returns ExitCode
@@ -5192,7 +5170,6 @@ error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
 ```
 
 <!-- test: an-interface-requirement-returning-byte-array-beside-a-type-named-its-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A program declares a struct `Array_Byte` beside an interface requirement returning `ByteArray`. The
 requirement's return type is the byte array its alias names, not the author's struct that shares the
 instance's name, so `p.packed()` through the interface is a byte array and its count is 3.
@@ -5230,7 +5207,6 @@ end 'main'
 ```
 
 <!-- test: error.a-requirement-returning-the-declared-type-is-not-met-by-the-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A requirement returning the author's struct `Array_Byte` names that struct, not the byte array whose
 instance shares its name, so a `packed()` returning `ByteArray` does not meet it.
 ```maxon

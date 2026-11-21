@@ -290,19 +290,16 @@ error E3063: app/specs/typealias-collision/error.three-way-ambiguous-typealias.m
 
 
 <!-- test: error.exported-function-alias-collision-is-ambiguous-at-the-reference -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 A FUNCTION typealias collides on the same terms as a ranged one. Two directories export `Step` over the identical shape; the shapes agreeing does not make the bare reference unambiguous, because either declaration is one the reader may legally name.
 ```maxon
 // --- file: api/t.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Step = function(n int) returns int
+export typealias Step = function(int) returns int
 
 // --- file: legacy/t.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Step = function(n int) returns int
+export typealias Step = function(int) returns int
 
 // --- file: app/main.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -312,7 +309,6 @@ function run(f Step) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return run(function(n Integer) gives n + 1) as ExitCode
 end 'main'
 ```
@@ -321,19 +317,16 @@ error E3063: app/specs/typealias-collision/error.exported-function-alias-collisi
 ```
 
 <!-- test: error.exported-function-alias-collision-over-two-shapes-is-still-ambiguous -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 The twin of the case above with the two exported `Step`s declared over DIFFERENT shapes. The answer is the same E3063: disagreeing shapes are a reason the reader cannot be assumed to mean either one, not a way to pick between them.
 ```maxon
 // --- file: api/t.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Step = function(n int) returns int
+export typealias Step = function(int) returns int
 
 // --- file: legacy/t.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Step = function(s String) returns String
+export typealias Step = function(String) returns String
 
 // --- file: app/main.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -343,7 +336,6 @@ function run(f Step) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return run(function(n Integer) gives n + 1) as ExitCode
 end 'main'
 ```
@@ -376,9 +368,7 @@ error E3063: app/specs/typealias-collision/error.ambiguous-typealias-is-anchored
 
 
 <!-- test: error.exported-cross-form-typealias-collision -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 Two exported aliases of one name in different directories, in DIFFERENT FORMS — one ranged, one
 function. They get the same rule the same-form pair gets four cases above, not an `E3061` at
 DECLARATION time: two exported declarations are accepted and the ambiguity is a property of the USE. The form they are written in is not what decides
@@ -389,7 +379,6 @@ naming both candidates exactly as the same-form case does.
 export typealias Score = int(0 to 100)
 
 // --- file: legacy/types.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Score = function() returns ExitCode
 
 // --- file: app/main.maxon
@@ -404,7 +393,6 @@ error E3063: app/specs/typealias-collision/error.exported-cross-form-typealias-c
 
 
 <!-- test: exported-cross-form-typealias-qualified -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair disambiguated, and it is the half that proves the two declarations both SURVIVED rather
 than one having been discarded to silence the diagnostic: `api.Score` is used as a ranged type and
@@ -415,7 +403,6 @@ still pass the E3063 case above.
 export typealias Score = int(0 to 100)
 
 // --- file: legacy/types.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Score = function() returns ExitCode
 
 // --- file: app/main.maxon
@@ -752,7 +739,6 @@ end 'main'
 
 <!-- test: error.an-ambiguous-array-from-head-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Two directories export an `Array` instance alias of one name, so a bare `from` head in a third file could build
 either and must be qualified.
@@ -777,7 +763,6 @@ error E3063: app/<fragment>:11:11: Ambiguous type name 'Smalls': more than one v
 ```
 
 <!-- test: a-bare-literal-init-head-beside-the-librarys-builds-the-users-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `FilePath` exported beside the library's: a bare `FilePath from "…"` in a third file builds the user's
 type, because the library's declaration takes no part in ambiguity. Only the user's has a `text` field.
@@ -793,7 +778,6 @@ end 'FilePath'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = FilePath from "x"
 	print("{p.text}\n")
 	return 0
@@ -808,7 +792,6 @@ x
 
 <!-- test: a-qualified-literal-init-head-names-the-type-it-qualifies -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The qualified spelling of that `FilePath` builds the user's type.
 ```maxon
 // --- file: lib/path.maxon
@@ -832,7 +815,6 @@ end 'main'
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The spelling E3063 prescribes for that `Smalls` builds the `Array` instance its directory declares.
 ```maxon
 // --- file: api/types.maxon
@@ -875,7 +857,6 @@ end 'main'
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies-at-top-level -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A top-level constant's qualified `from` head builds the `Array` instance its directory declares, as a body's does.
 ```maxon
 // --- file: api/types.maxon

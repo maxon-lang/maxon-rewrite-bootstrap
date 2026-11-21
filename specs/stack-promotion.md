@@ -196,7 +196,6 @@ end 'main'
 ```
 
 <!-- test: a-var-captured-by-a-closure-and-handed-by-reference-keeps-its-heap-cell -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure holds the cell's address after `bump` returns, so the cell is heap storage: it is allocated and freed, and the counts balance.
 
 ```maxon
@@ -211,7 +210,6 @@ function main() returns ExitCode
 	let liveBefore = HeapStats.allocationsLive()
 	var count = 1 as Count
 	let first = bump(count)
-	// TODO: closures are not supported in minimaxon
 	let read = function() gives count
 	let second = read()
 	let live = HeapStats.allocationsLive() - liveBefore

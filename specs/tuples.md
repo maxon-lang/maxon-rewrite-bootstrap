@@ -319,7 +319,6 @@ mm_free StringRecord #3
 ```
 
 <!-- test: value-tuple-return-through-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A function whose address is taken is called by its TYPE, and a function type cannot say which return
@@ -337,7 +336,7 @@ record, and every element-ownership question with it. Returns 33.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: tuple values and types are not supported in minimaxon
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 // TODO: tuple return types are not supported in minimaxon
@@ -360,7 +359,6 @@ end 'main'
 ```
 
 <!-- test: value-tuple-forwarded-through-an-address-taken-wrapper -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 ⛔⛔ **A FORWARDING WRAPPER THAT IS ITSELF OFF THE CONVENTION.** `forward`'s address is taken, so it is off
@@ -374,7 +372,7 @@ once — a forwarding wrapper that is itself excluded — and this is that progr
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: tuple values and types are not supported in minimaxon
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 // TODO: tuple return types are not supported in minimaxon
@@ -1454,8 +1452,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-text-first -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1466,7 +1462,6 @@ typealias Integer = int(i64.min to i64.max)
 type Sink uses K, T
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, K)
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns Pair
 	let make as Maker
 	var count as Integer
@@ -1487,7 +1482,7 @@ type Sink uses K, T
 end 'Sink'
 
 type Top uses U
-	// TODO: function typealiases are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
 	typealias Maker = function() returns (U, Integer)
 	typealias S = Sink with (Integer, U)
 	var sink as S
@@ -1510,11 +1505,9 @@ typealias TopInt = Top with Integer
 typealias TopText = Top with String
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple values and types are not supported in minimaxon
 	let b = TopText.create(function() gives ("a heap string long enough to allocate", 3))
 	b.go()
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple values and types are not supported in minimaxon
 	let a = TopInt.create(function() gives (5, 2))
 	a.go()
@@ -1530,8 +1523,6 @@ end 'main'
 ```
 
 <!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-integer-first -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1542,7 +1533,6 @@ typealias Integer = int(i64.min to i64.max)
 type Sink uses K, T
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, K)
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns Pair
 	let make as Maker
 	var count as Integer
@@ -1563,7 +1553,7 @@ type Sink uses K, T
 end 'Sink'
 
 type Top uses U
-	// TODO: function typealiases are not supported in minimaxon
+	// TODO: tuple values and types are not supported in minimaxon
 	typealias Maker = function() returns (U, Integer)
 	typealias S = Sink with (Integer, U)
 	var sink as S
@@ -1586,11 +1576,9 @@ typealias TopInt = Top with Integer
 typealias TopText = Top with String
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple values and types are not supported in minimaxon
 	let a = TopInt.create(function() gives (5, 2))
 	a.go()
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple values and types are not supported in minimaxon
 	let b = TopText.create(function() gives ("a heap string long enough to allocate", 3))
 	b.go()
@@ -3073,8 +3061,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-tuple-literal-holding-a-closure-fills-a-function-typed-column -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A closure literal written as a tuple element takes the function type the receiving column declares, exactly as it
@@ -3082,7 +3068,6 @@ does at a parameter or an array element.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function idle() returns Integer
@@ -3095,13 +3080,11 @@ type Slot
 
 	static function create() returns Self
 		// TODO: tuple values and types are not supported in minimaxon
-		// TODO: closures are not supported in minimaxon
 		return Self{pair: (function() gives 40, 2)}
 	end 'create'
 
 	function rearm(base Integer)
 		// TODO: tuple values and types are not supported in minimaxon
-		// TODO: closures are not supported in minimaxon
 		self.pair = (function() gives base, 1)
 	end 'rearm'
 end 'Slot'
@@ -3116,7 +3099,6 @@ function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
 	var t = (idle, 0 as Integer)
 	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: closures are not supported in minimaxon
 	t = (function() gives 7, 1)
 	print("{first} {second} {t.0()}\n")
 	return 0
@@ -3127,7 +3109,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-literal-in-a-conditional-arm-fills-a-function-typed-column -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
@@ -3137,7 +3118,6 @@ column types the receiving slot declares.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 enum Mode
@@ -3196,7 +3176,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-and-an-array-of-tuples-fill-function-typed-columns -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -3205,7 +3184,6 @@ column its position declares.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 // TODO: tuple typealiases are not supported in minimaxon
@@ -3246,7 +3224,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-literal-argument-to-an-inline-tuple-parameter-fills-a-function-typed-column -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 A tuple literal handed to a parameter whose tuple type is written inline takes the column types that parameter
@@ -3254,7 +3231,6 @@ declares, as it does through an alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -3277,14 +3253,12 @@ end 'main'
 ```
 
 <!-- test: a-tuple-literal-argument-to-a-method-fills-a-function-typed-column -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple literal handed to a method takes the column types its parameter declares.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 // TODO: tuple typealiases are not supported in minimaxon
@@ -3872,7 +3846,6 @@ error E3005: <fragment>:22:2: argument type mismatch for 'p': expected 'XPair', 
 ```
 
 <!-- test: error.a-callback-over-a-tuple-of-one-brand-refuses-a-body-over-another -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3887,7 +3860,7 @@ function take(xs Xs)
 	print("{xs.count()}\n")
 end 'take'
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: tuple values and types are not supported in minimaxon
 typealias Visit = function((Xs, Item))
 
 // TODO: tuple parameter types are not supported in minimaxon
@@ -4216,7 +4189,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-tuple-sees-a-write-through-an-alias -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -4227,7 +4199,6 @@ typealias Num = int(i64.min to i64.max)
 
 // TODO: tuple parameter types are not supported in minimaxon
 function capture(t(Num, Num)) returns Num
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple element access is not supported in minimaxon
 	let r = function() gives t.1
 	var q = t

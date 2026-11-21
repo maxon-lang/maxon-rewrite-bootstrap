@@ -3057,7 +3057,6 @@ true
 ### A closure has no witness tables to hand a witness-only static
 
 <!-- test: where-clauses.error.a-closure-calling-a-witness-only-static-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `hashOf` dispatches through `Holder`'s constraints and so takes the tables from its call site. A closure inherits a witness table only for a direct dispatch, so it has none to hand `Self.hashOf`.
 ```maxon
@@ -3071,7 +3070,6 @@ type Holder uses T where T implements Hashable and Equatable
 	end 'hashOf'
 
 	function viaClosure(x T) returns HashValue
-		// TODO: closures are not supported in minimaxon
 		let f = function(y T) gives Self.hashOf(y)
 		return f(x)
 	end 'viaClosure'
@@ -3129,7 +3127,6 @@ error E4006: specs/where-clauses/where-clauses.error.an-unconstrained-type-param
 ### Error: a closure in an instance method hashing a type-parameter array
 
 <!-- test: where-clauses.error.a-closure-in-an-instance-method-hashing-a-type-parameter-array -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -3143,7 +3140,6 @@ type Holder uses T where T implements Hashable and Equatable
 	end 'create'
 
 	function digest() returns HashValue
-		// TODO: closures are not supported in minimaxon
 		let compute = function() gives items.hash()
 		return compute()
 	end 'digest'
@@ -3476,7 +3472,6 @@ true true
 ### A closure has no witness tables to hand a static that carries them
 
 <!-- test: where-clauses.error.a-closure-calling-a-witness-carrying-static-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `run` reaches a method that dispatches through `Outer`'s constraints, so it takes `Runner`'s witness tables from its call site. A closure inherits a witness table only for a direct dispatch, so it has none to hand `Self.run`.
 ```maxon
@@ -3507,7 +3502,6 @@ type Runner uses D where D implements Hashable and Equatable
 	end 'run'
 
 	function viaClosure(o OuterD) returns HashValue
-		// TODO: closures are not supported in minimaxon
 		let f = function(x OuterD) gives Self.run(x)
 		return f(o)
 	end 'viaClosure'
@@ -3669,7 +3663,6 @@ false true
 ```
 
 <!-- test: where-clauses.error.a-closure-calling-a-comparing-static-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `same` compares `T` values and so takes its tables from its call site. The closure inherits a table only for a direct dispatch, so it has none to hand `Self.same`.
 ```maxon
@@ -3685,7 +3678,6 @@ type Holder uses T where T implements Equatable
 	end 'same'
 
 	function viaClosure(x T, y T) returns bool
-		// TODO: closures are not supported in minimaxon
 		let f = function(p T, q T) gives Self.same(p, b: q)
 		return f(x, y)
 	end 'viaClosure'
@@ -3704,7 +3696,6 @@ error E2015: <fragment>:14:41: Unsupported: a closure that calls 'same' (which d
 ```
 
 <!-- test: where-clauses.a-static-comparing-integers-in-a-constrained-type-carries-no-tables -->
-<!-- skip: closures are not supported in minimaxon -->
 Control: the comparison is between two `Count` values, not type-parameter values, so `below` takes no witness tables and a closure may call it without a qualifier.
 ```maxon
 type Holder uses T where T implements Equatable
@@ -3719,7 +3710,6 @@ type Holder uses T where T implements Equatable
 	end 'below'
 
 	function viaClosure() returns bool
-		// TODO: closures are not supported in minimaxon
 		let f = function(i Count) gives Self.below(i, n: 3)
 		return f(2)
 	end 'viaClosure'
@@ -4212,7 +4202,6 @@ true
 ```
 
 <!-- test: where-clauses.a-static-creating-a-closure-that-reads-nothing-is-not-a-carrier -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 type Box uses T where T implements Hashable and Equatable
 	var v as T
@@ -4222,7 +4211,6 @@ type Box uses T where T implements Hashable and Equatable
 	end 'create'
 
 	static function bump(n Count) returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function(x Count) gives x + 1
 		return f(n)
 	end 'bump'
@@ -4412,7 +4400,6 @@ error E2015: <fragment>:36:22: Unsupported: `async holder.…` spawns a method o
 ```
 
 <!-- test: where-clauses.a-static-with-conditional-witnesses-called-in-a-closure-passed-to-map -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Holder uses T where T implements Hashable and Equatable
@@ -4434,7 +4421,6 @@ typealias SmallHolder = Holder with Small
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives SmallHolder.width(n))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
@@ -4448,7 +4434,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.a-static-reading-a-witness-called-in-a-closure-passed-to-map -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4468,7 +4453,6 @@ typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives IntHolder.agree(n, b: 1))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
@@ -4601,7 +4585,6 @@ error E2015: <fragment>:5:18: Unsupported: a function with 65 argument slots —
 ```
 
 <!-- test: where-clauses.a-closure-written-for-a-descriptor-it-never-reads-leaves-its-static-a-non-carrier -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure calls a sibling static of the generic type, so it holds a word for the layout descriptor; the sibling reads nothing, so neither the closure nor the static that builds it carries a descriptor and a call through the bare name has nothing to supply.
 ```maxon
 type Box uses T where T implements Hashable and Equatable
@@ -4616,7 +4599,6 @@ type Box uses T where T implements Hashable and Equatable
 	end 'plain'
 
 	static function viaClosure() returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives Self.plain()
 		return f()
 	end 'viaClosure'

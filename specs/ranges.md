@@ -639,7 +639,7 @@ function main() returns ExitCode
 	var total = 0 as Count
 	for i in 0 upto 200 'each'
 		if i < 100 'inRange'
-			total = total + (take(i as Small) as Count)
+			total = total + (take(i) as Count)
 		end 'inRange'
 	end 'each'
 	print("{total}\n")

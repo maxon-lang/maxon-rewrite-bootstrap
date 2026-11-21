@@ -1109,12 +1109,10 @@ nested payload independent
 ```
 
 <!-- test: eq-requires-equatable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function() returns Integer
 
 type Callback

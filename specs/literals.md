@@ -822,9 +822,7 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-literal-through-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function(Count) returns Count
 
 function echo(c Count) returns Count
@@ -845,10 +843,8 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-value-above-i64-max-through-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function taken as a value still receives a `Count` above `i64.max`; its argument is checked where it is called, not by reading the word as signed.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function(Count) returns Count
 
 function echo(c Count) returns Count
@@ -873,13 +869,11 @@ end 'main'
 ```
 
 <!-- test: a-negative-value-through-a-function-value-is-refused-at-the-call -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `i - 1` is arithmetic over a counted loop's counter, so the `-1` it reaches is known at compile time and
 the call through the function value refuses it with E3005.
 ```maxon
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function(Count) returns Count
 
 function echo(c Count) returns Count
@@ -898,10 +892,8 @@ end 'main'
 error E3005: <fragment>:13:12: Value -1 is outside the range of 'Count' (int(0 to 18446744073709551615))
 ```
 <!-- test: a-negative-difference-through-a-function-value-panics-at-the-call -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The run-time twin of the refusal above: the `Count` difference is unknown to the compiler, so the call through the function value catches the borrow where it is made.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function(Count) returns Count
 
 function echo(c Count) returns Count

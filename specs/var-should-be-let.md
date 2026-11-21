@@ -172,18 +172,18 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function triple(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
 	let f = double
 	var g = f
 	g = triple
-	return g(10)
+	return try g(10) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,7 +487,6 @@ tag more tag
 ```
 
 <!-- test: returned-alias-through-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure may return what it captured, and the `var` holds a copy of it: calling the closure again answers the
 original.
 ```maxon
@@ -495,8 +494,7 @@ original.
 function main() returns ExitCode
 	let n = 7
 	let s = "cap{n}"
-	// TODO: closures are not supported in minimaxon
-	let f = function() gives s
+	let f = function() gives s.clone()
 	var x = f()
 	x.append(" more")
 	print("{x} {f()}\n")
@@ -1228,19 +1226,19 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p
+	return p.clone()
 end 'relay'
 
-function bumpIt(p Point)
-	p.x = p.x + 1
+function bumpIt(mutates p Point)
+	p.x = try p.x + 1 otherwise panic("out of range")
 end 'bumpIt'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = relay(a)
+	var b = relay(a)
 	let f = bumpIt
 	f(b)
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1430,8 +1428,6 @@ end 'main'
 ```
 
 <!-- test: a-let-a-closure-captured-is-read-when-the-closure-is-called -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 A closure that captures `s` takes ownership of it, so pushing `s` afterwards uses a moved value.
 ```maxon
 
@@ -1449,7 +1445,6 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let s = Point.create(1)
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives s.x
 	var arr = PointArray.create(0)
 	arr.push(s)

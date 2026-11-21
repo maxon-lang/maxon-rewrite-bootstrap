@@ -2764,9 +2764,7 @@ error E3008: <fragment>:12:19: typealias 'Idx' is not exported
 ```
 
 <!-- test: an-extension-body-names-its-types-nested-function-alias-beside-a-hidden-one -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An extension body names its type's nested function alias bare, and resolves it to that member even though
 another file keeps an unmarked alias of the same name.
 ```maxon
@@ -2781,7 +2779,6 @@ end 'otherStep'
 // --- file: holder/holder.maxon
 export type Holder
 	export let base as ExitCode
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(ExitCode) returns ExitCode
 
 	export static function make() returns Holder
@@ -2799,7 +2796,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.make()
-	// TODO: closures are not supported in minimaxon
 	return h.apply(function(n) gives n + otherStep())
 end 'main'
 ```

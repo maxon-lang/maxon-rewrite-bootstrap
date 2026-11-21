@@ -498,7 +498,6 @@ item 42 long enough for a heap record 1 other 42 long enough for a heap record 2
 ### A kept promise feed stored twice is moved
 
 <!-- test: error.kept-promise-feed-stored-twice-is-moved -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Binding `item` to `var copy` moves the promise, so storing `item` into a field as well reads it after the move, and the green thread's single owner rule refuses it.
@@ -523,7 +522,6 @@ end 'Holder'
 typealias PromiseHolder = Holder with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'

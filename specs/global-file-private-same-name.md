@@ -490,7 +490,6 @@ end 'main'
 ```
 
 <!-- test: every-block-scope-form-named-like-a-contested-binding-keeps-its-own-meaning -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -521,7 +520,6 @@ export function viaLoop() returns ExitCode
 end 'viaLoop'
 
 export function viaClosure() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let add = function(counter ExitCode) gives counter + 10
 	return add(5) + counter
 end 'viaClosure'

@@ -160,7 +160,6 @@ end 'main'
 ```
 
 <!-- test: list-of-structs-from-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### List from Array Literal of Structs
 ```maxon
 typealias Integer = int(i64.min to i64.max)

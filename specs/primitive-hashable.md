@@ -458,7 +458,6 @@ error E2062: <fragment>:8:31: Cannot use 'float' as a type argument: a float typ
 ```
 
 <!-- test: bool.equatable-and-comparable -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `bool` meets the library's `Equatable` and `Comparable`, so `contains` and `sort` serve an array of them.
 ```maxon
 typealias Flags = Array with bool

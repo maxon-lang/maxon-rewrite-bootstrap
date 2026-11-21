@@ -157,10 +157,8 @@ the most on every lane, because Win32 takes a GLOB where POSIX takes a directory
 ## Tests
 
 <!-- test: list-directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let files = try Directory.list(FilePath from "../stdlib") otherwise 'err'
 		return 0
 	end 'err'
@@ -183,10 +181,8 @@ end 'main'
 ```
 
 <!-- test: list-directory-count -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let files = try Directory.list(FilePath from "../stdlib") otherwise 'err'
 		return 99
 	end 'err'
@@ -194,7 +190,7 @@ function main() returns ExitCode
 	if files.count() >= 1 'ok'
 		return 42
 	end 'ok'
-	return files.count()
+	return try files.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -215,14 +211,11 @@ it: they assert membership and `count() >= 1`, which stay true while two bogus e
 along. **Only an exact count catches this.**
 
 <!-- test: list-filters-dot-entries -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let oneFile = FilePath from "test_dots_one"
 	_ = Directory.create(oneFile)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let onlyFile = FilePath from "test_dots_one/only.txt"
 	try File.writeText(onlyFile, content: "x") otherwise return 1
 	let entries = try Directory.list(oneFile) otherwise return 3
@@ -239,7 +232,6 @@ function main() returns ExitCode
 	try File.delete(onlyFile) otherwise return 6
 	// An empty directory holds ONLY "." and "..". Filtering them must leave an
 	// empty list — not a spurious entry read from an unwritten name buffer.
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let emptyDir = FilePath from "test_dots_empty"
 	_ = Directory.create(emptyDir)
 	let none = try Directory.list(emptyDir) otherwise return 7
@@ -256,10 +248,8 @@ end 'main'
 ```
 
 <!-- test: list-nonexistent-directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let files = try Directory.list(FilePath from "nonexistent_dir_12345") otherwise 'err'
 		print("Directory not found")
 		return 0
@@ -423,10 +413,8 @@ a denial that did not bind is a privileged token's true
 ```
 
 <!-- test: directory-exists -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if Directory.exists(FilePath from "../stdlib") 'check'
 		return 42
 	end 'check'
@@ -438,10 +426,8 @@ end 'main'
 ```
 
 <!-- test: directory-is-directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if Directory.isDirectory(FilePath from "../stdlib") 'check'
 		return 42
 	end 'check'
@@ -453,11 +439,9 @@ end 'main'
 ```
 
 <!-- test: file-is-not-directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Test that a nonexistent path is not a directory
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if Directory.isDirectory(FilePath from "nonexistent_path_12345") 'check'
 		return 1
 	end 'check'
@@ -503,10 +487,8 @@ file, and a name nothing created. These three cases run beside every other case 
 names a directory nothing else here could reach and takes it away again.
 
 <!-- test: delete-removes-an-empty-directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dir = FilePath from "test_delete_empty_a7c1"
 	if not Directory.create(dir) 'couldNotCreate'
 		return 1
@@ -523,10 +505,8 @@ end 'main'
 ```
 
 <!-- test: delete-refuses-a-directory-that-is-not-empty -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dir = FilePath from "test_delete_nonempty_3e8d"
 	if not Directory.create(dir) 'couldNotCreate'
 		return 1
@@ -555,10 +535,8 @@ end 'main'
 ```
 
 <!-- test: delete-refuses-a-path-that-is-not-there -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let missing = FilePath from "test_delete_absent_5b20"
 	if Directory.exists(missing) 'somethingIsThere'
 		return 1
@@ -572,10 +550,8 @@ end 'main'
 ```
 
 <!-- test: delete-refuses-an-existing-file-as-failed-and-leaves-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let file = FilePath from "test_delete_file_8a4f.txt"
 	try File.writeText(file, content: "x") otherwise return 1
 	var answeredAsExpected = false
@@ -600,10 +576,8 @@ end 'main'
 ```
 
 <!-- test: delete-answers-not-found-for-a-path-through-a-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let file = FilePath from "test_delete_through_file_c93b.txt"
 	try File.writeText(file, content: "x") otherwise return 1
 	var answeredAsExpected = false
@@ -727,10 +701,8 @@ the file stays true
 below makes its own directories and takes them away again on its passing path.
 
 <!-- test: remove-tree-removes-a-nested-tree -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = FilePath from "test_remove_tree_nested_9c4e"
 	let deep = base.join("a").join("b")
 	if not Directory.create(deep) 'couldNotCreate'
@@ -754,10 +726,8 @@ end 'main'
 ```
 
 <!-- test: remove-tree-removes-a-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let file = FilePath from "test_remove_tree_file_1b3d.txt"
 	try File.writeText(file, content: "x") otherwise return 1
 	let unremoved = Directory.removeTree(file)
@@ -775,10 +745,8 @@ end 'main'
 ```
 
 <!-- test: remove-tree-of-a-path-nothing-is-at-reports-nothing -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let missing = FilePath from "test_remove_tree_absent_6d02"
 	if Directory.exists(missing) or File.exists(missing) 'somethingIsThere'
 		return 1
@@ -794,10 +762,8 @@ end 'main'
 ```
 
 <!-- test: remove-contents-empties-a-directory-and-keeps-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = FilePath from "test_remove_contents_c8f1"
 	let nested = base.join("sub")
 	if not Directory.create(nested) 'couldNotCreate'
@@ -828,10 +794,8 @@ A call that waits for busy files removes what nothing holds exactly as the one-p
 hold nothing open, so the wait has nothing to wait for and each answers what its one-pass twin answers.
 
 <!-- test: remove-tree-waiting-for-busy-removes-a-nested-tree -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = FilePath from "test_remove_tree_waiting_nested_4b8e"
 	let deep = base.join("a").join("b")
 	if not Directory.create(deep) 'couldNotCreate'
@@ -855,10 +819,8 @@ end 'main'
 ```
 
 <!-- test: remove-tree-waiting-for-busy-of-a-path-nothing-is-at-reports-nothing -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let missing = FilePath from "test_remove_tree_waiting_absent_7e15"
 	if Directory.exists(missing) or File.exists(missing) 'somethingIsThere'
 		return 1
@@ -874,10 +836,8 @@ end 'main'
 ```
 
 <!-- test: remove-contents-waiting-for-busy-empties-a-directory-and-keeps-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = FilePath from "test_remove_contents_waiting_d3a6"
 	let nested = base.join("sub")
 	if not Directory.create(nested) 'couldNotCreate'

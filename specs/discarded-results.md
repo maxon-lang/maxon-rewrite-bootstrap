@@ -1319,7 +1319,6 @@ error E3064: specs/discarded-results/error.pure-map-lookup-discarded-while-anoth
 ```
 
 <!-- test: error.filepath-keyed-map-lookup-discarded-is-refused-on-every-target -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- positions: moved -->
 A lookup in a `Map` keyed by `FilePath` is pure on every target. On Windows a `FilePath` compares in its lower-cased
 spelling, which `toLower` builds in a string the call created itself, so the verdict must not turn on the host.
@@ -1347,7 +1346,6 @@ end 'Catalog'
 
 function main() returns ExitCode
 	let catalog = Catalog.create()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if catalog.knows(FilePath from "a.txt") 'found'
 		return 1
 	end 'found'
@@ -1526,14 +1524,11 @@ end 'main'
 ```
 
 <!-- test: error.a-search-over-a-pure-closure-literal-is-pure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A call through a closure whose identity is known where it is written is judged by the closure's own body.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PositionTest = function(Position) returns bool
 
 enum SearchError implements Error
@@ -1550,7 +1545,6 @@ function firstWhere(limit Position, test PositionTest) returns Position throws S
 end 'firstWhere'
 
 function firstOver(threshold Position) returns Position throws SearchError
-	// TODO: closures are not supported in minimaxon
 	return try firstWhere(100, test: function(i) gives i > threshold)
 end 'firstOver'
 
@@ -1571,13 +1565,11 @@ error E3064: specs/discarded-results/error.a-search-over-a-pure-closure-literal-
 ```
 
 <!-- test: error.a-search-over-a-named-function-is-pure -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A named function passed as the predicate is as known as a closure literal.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PositionTest = function(Position) returns bool
 
 enum SearchError implements Error
@@ -1618,13 +1610,10 @@ error E3064: specs/discarded-results/error.a-search-over-a-named-function-is-pur
 ```
 
 <!-- test: a-search-whose-predicate-prints-keeps-its-result-droppable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same search with a predicate that prints is an effect, so discarding its result is legal.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PositionTest = function(Position) returns bool
 
 enum SearchError implements Error
@@ -1646,7 +1635,6 @@ function noisy(position Position) returns bool
 end 'noisy'
 
 function firstNoisy() returns Position throws SearchError
-	// TODO: closures are not supported in minimaxon
 	return try firstWhere(100, test: function(i) gives noisy(i))
 end 'firstNoisy'
 
@@ -1665,13 +1653,12 @@ probe 2
 ```
 
 <!-- test: a-search-whose-predicate-writes-captured-state-keeps-its-result-droppable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 A predicate that writes the receiver it captured writes state the caller can see.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias PositionTest = function(Position) returns bool mutates captures
 
 typealias PositionArray = Array with Position
@@ -1702,7 +1689,6 @@ type Recorder
 	end 'record'
 
 	function firstRecorded() returns Position throws SearchError
-		// TODO: closures are not supported in minimaxon
 		return try firstWhere(100, test: function(i) gives self.record(i))
 	end 'firstRecorded'
 
@@ -1725,13 +1711,12 @@ end 'main'
 ```
 
 <!-- test: a-let-whose-method-hands-a-closure-writing-its-captured-self-is-written -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The same program with the recorder bound by `let`: the closure writes the receiver it captured, and a `let` forbids only reassigning `recorder`, so the call is accepted and the writes land in the recorder.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias PositionTest = function(Position) returns bool mutates captures
 
 typealias PositionArray = Array with Position
@@ -1762,7 +1747,6 @@ type Recorder
 	end 'record'
 
 	function firstRecorded() returns Position throws SearchError
-		// TODO: closures are not supported in minimaxon
 		return try firstWhere(100, test: function(i) gives self.record(i))
 	end 'firstRecorded'
 
@@ -1785,13 +1769,10 @@ end 'main'
 ```
 
 <!-- test: a-search-through-a-closure-of-unknown-origin-keeps-its-result-droppable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure read out of a record is not known at the call, so the search is judged by what could run.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PositionTest = function(Position) returns bool
 
 enum SearchError implements Error
@@ -1816,7 +1797,6 @@ type Probe
 end 'Probe'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let probe = Probe.create(function(i) gives i > 2)
 	_ = try probe.firstHit(10) otherwise return 1
 	return 0
@@ -1827,15 +1807,12 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-handed-down-through-two-helpers-is-still-known -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure literal passed to a helper that forwards it to the search is judged by its own body at the end of the chain.
 The helper's own discard is left alone, because on its own the forwarded predicate is not known.
 ```maxon
 typealias Position = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PositionTest = function(Position) returns bool
 
 enum SearchError implements Error
@@ -1857,7 +1834,6 @@ function anyWhere(limit Position, test PositionTest) returns bool
 end 'anyWhere'
 
 function anyOver(threshold Position) returns bool
-	// TODO: closures are not supported in minimaxon
 	return anyWhere(100, test: function(i) gives i > threshold)
 end 'anyOver'
 
@@ -3027,15 +3003,14 @@ end 'main'
 ```
 
 <!-- test: a-closure-calling-a-method-that-writes-two-levels-down-keeps-its-result-droppable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 The same, reached from a closure that captured the record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns Integer mutates captures
 
 type Child
@@ -3065,7 +3040,6 @@ end 'run'
 
 function grown(target IntArray) returns Integer
 	let parent = Parent.over(target)
-	// TODO: closures are not supported in minimaxon
 	return run(function() gives parent.growCount())
 end 'grown'
 
@@ -3259,15 +3233,13 @@ end 'main'
 ```
 
 <!-- test: an-adoption-through-a-function-parameter-keeps-a-later-write-visible -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A record handed an argument by a function the caller passed in holds that argument afterwards, so a later write reaches it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Adopt = function(mutable Holder, mutable IntArray)
+typealias Adopt = function(mutates Holder, mutates IntArray)
 
 type Holder
 	var items as IntArray
@@ -3276,11 +3248,11 @@ type Holder
 		return Holder{items: IntArray.create(0)}
 	end 'create'
 
-	function adopt(fresh IntArray)
-		self.items = fresh
+	function adopt(mutates self, fresh IntArray)
+		self.items = fresh.clone()
 	end 'adopt'
 
-	function grow()
+	function grow(mutates self)
 		self.items.push(1)
 	end 'grow'
 end 'Holder'
@@ -3289,24 +3261,24 @@ function adoptInto(mutates holder Holder, mutates items IntArray)
 	holder.adopt(items)
 end 'adoptInto'
 
-function apply(holder Holder, items IntArray, action Adopt)
+function apply(mutates holder Holder, mutates items IntArray, action Adopt)
 	action(holder, items)
 end 'apply'
 
-function made(items IntArray, action Adopt) returns Holder
-	let holder = Holder.create()
+function made(mutates items IntArray, action Adopt) returns Holder
+	var holder = Holder.create()
 	apply(holder, items: items, action: action)
 	return holder
 end 'made'
 
-function grown(target IntArray) returns Integer
-	let holder = made(target, action: adoptInto)
+function grown(mutates target IntArray) returns Integer
+	var holder = made(target, action: adoptInto)
 	holder.grow()
 	return 1
 end 'grown'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	_ = grown(values)
 	return 0 if values.count() == 1 else 1
 end 'main'
@@ -3316,13 +3288,11 @@ end 'main'
 ```
 
 <!-- test: an-adoption-through-a-function-parameter-keeps-a-later-write-visible-over-records -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same shape over records instead of arrays.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Adopt = function(mutable Holder, mutable Box)
+typealias Adopt = function(mutates Holder, mutates Box)
 
 type Box
 	export var number as Integer
@@ -3339,33 +3309,33 @@ type Holder
 		return Holder{box: Box.create(0)}
 	end 'create'
 
-	function bump()
-		self.box.number = self.box.number + 1
+	function bump(mutates self)
+		self.box.number = try self.box.number + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Holder'
 
 function adoptInto(mutates holder Holder, mutates box Box)
-	holder.box = box
+	holder.box = box.clone()
 end 'adoptInto'
 
-function apply(holder Holder, box Box, action Adopt)
+function apply(mutates holder Holder, mutates box Box, action Adopt)
 	action(holder, box)
 end 'apply'
 
-function made(box Box, action Adopt) returns Holder
-	let holder = Holder.create()
+function made(mutates box Box, action Adopt) returns Holder
+	var holder = Holder.create()
 	apply(holder, box: box, action: action)
 	return holder
 end 'made'
 
-function bumped(target Box) returns Integer
-	let holder = made(target, action: adoptInto)
+function bumped(mutates target Box) returns Integer
+	var holder = made(target, action: adoptInto)
 	holder.bump()
 	return 1
 end 'bumped'
 
 function main() returns ExitCode
-	let target = Box.create(5)
+	var target = Box.create(5)
 	_ = bumped(target)
 	return 0 if target.number == 6 else 1
 end 'main'

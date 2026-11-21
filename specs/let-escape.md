@@ -801,8 +801,6 @@ error E3196: <fragment>:18:21: cannot store an immutable 'Box' into 'Map.upsert.
 ```
 
 <!-- test: let-escape.a-captured-let-pushed-into-a-holder-is-accepted-though-nothing-writes-its-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `install` pushes `b` into the holder's container and then captures it in a closure, and `main` binds the element it reads back to a `let`: all accepted.
 
 ```maxon
@@ -810,7 +808,6 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function() returns Count
 
 type Box
@@ -826,20 +823,18 @@ type Reg
 	export var show as Show
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{items: Boxes.create(0), show: function() gives 0}
 	end 'create'
 end 'Reg'
 
-function install(reg Reg)
+function install(mutates reg Reg)
 	let b = Box.create(1)
 	reg.items.push(b)
-	// TODO: closures are not supported in minimaxon
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	install(reg)
 	let w = try reg.items.get(0) otherwise return 1
 	let f = reg.show
@@ -2297,8 +2292,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.error.a-record-stored-by-a-callback-is-written -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The function value writes its parameter `r` by pushing the record into it, but `Taker` does not declare that parameter `mutable`, so converting the function value to `Taker` is refused.
 
@@ -2343,7 +2336,6 @@ function zeroBox(w Box)
 	w.n = 0
 end 'zeroBox'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Taker = function(Reg, Box) returns Count
 
 function noteIn(reg Reg, x Box) returns Count
@@ -2363,7 +2355,6 @@ end 'zeroFirst'
 function main() returns ExitCode
 	var reg = Reg.create()
 	let a = Box.create(2)
-	// TODO: closures are not supported in minimaxon
 	let seen = give(function(r Reg, x Box) gives noteIn(r, x: x), reg: reg, b: a)
 	zeroFirst(reg)
 	print("{a.n}{seen}\n")
@@ -2844,14 +2835,11 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-function-typed-field-record-is-written-deep-by-a-callee -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `stash` keeps its parameter in a `var` field of the holder, and `s` is read afterwards: the call is accepted, a function-typed field beside it changes nothing, and `s` reads the write.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Count
 
 type Point
@@ -2861,8 +2849,8 @@ type Point
 		return Self{x: x}
 	end 'create'
 
-	function move()
-		x = x + 1
+	function move(mutates self)
+		x = try x + 1 otherwise panic("out of range")
 	end 'move'
 end 'Point'
 
@@ -2870,7 +2858,7 @@ type Mid
 	export var leaf as Point
 
 	static function create(leaf Point) returns Self
-		return Self{leaf: leaf}
+		return Self{leaf: leaf.clone()}
 	end 'create'
 end 'Mid'
 
@@ -2879,7 +2867,7 @@ type Outer
 	export var mid as Mid
 
 	static function create(hook Hook, mid Mid) returns Self
-		return Self{hook: hook, mid: mid}
+		return Self{hook: hook, mid: mid.clone()}
 	end 'create'
 end 'Outer'
 
@@ -2887,22 +2875,20 @@ type Holder
 	export var slot as Outer
 
 	static function create(slot Outer) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 end 'Holder'
 
-function stash(p Holder, s Outer)
-	p.slot = s
+function stash(mutates p Holder, s Outer)
+	p.slot = s.clone()
 end 'stash'
 
-function nudge(p Holder)
+function nudge(mutates p Holder)
 	p.slot.mid.leaf.move()
 end 'nudge'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let p = Holder.create(Outer.create(function() gives 0, mid: Mid.create(Point.create(0))))
-	// TODO: closures are not supported in minimaxon
+	var p = Holder.create(Outer.create(function() gives 0, mid: Mid.create(Point.create(0))))
 	let s = Outer.create(function() gives 1, mid: Mid.create(Point.create(1)))
 	stash(p, s: s)
 	nudge(p)
@@ -2918,8 +2904,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-captured-let-stored-in-a-container-is-written-after-the-closure-outlives-the-function -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `install` pushes `b` into the holder's container and then captures it in a closure: both are accepted, and the closure reads the write `main` makes through the container.
 
 ```maxon
@@ -2927,7 +2911,6 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Show = function() returns Count
 
 type Box
@@ -2943,22 +2926,20 @@ type Reg
 	export var show as Show
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{items: Boxes.create(0), show: function() gives 0}
 	end 'create'
 end 'Reg'
 
-function install(reg Reg)
+function install(mutates reg Reg)
 	let b = Box.create(1)
 	reg.items.push(b)
-	// TODO: closures are not supported in minimaxon
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	install(reg)
-	let w = try reg.items.get(0) otherwise return 1
+	var w = try reg.items.get(0) otherwise return 1
 	w.n = 5
 	let f = reg.show
 	print("{f()}\n")

@@ -391,14 +391,12 @@ end 'main'
 ```
 
 <!-- test: error.member-on-a-value-with-no-members -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A receiver whose type carries no members at all is a POSITIONED refusal naming the member and the
 type — never a `. statement` catch-all.
 ```maxon
 typealias Wide = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Wide) returns Wide
 
 function twice(v Wide) returns Wide

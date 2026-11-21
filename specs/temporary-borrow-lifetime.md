@@ -713,7 +713,6 @@ end 'main'
 ```
 
 <!-- test: promise-read-out-of-a-temporary-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise element is a bare word, so the accessor hands it back through the TRIVIAL arm — and the
@@ -727,7 +726,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -750,7 +748,6 @@ end 'main'
 ```
 
 <!-- test: promise-first-out-of-a-temporary-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `first()` takes that same trivial arm and names slot 0 without an index argument, and it owes the
@@ -763,7 +760,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'

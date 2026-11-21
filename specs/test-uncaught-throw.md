@@ -249,8 +249,6 @@ error E3059: specs/test-uncaught-throw/error.function-does-not-relax.maxon:16:2:
 ```
 
 <!-- test: error.closure-in-a-test-is-not-a-test -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: test declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure inside a test body is a separate function, and a function type cannot express `throws`
@@ -268,7 +266,6 @@ end 'lookup'
 
 typealias Tally = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Producer = function() returns Tally
 
 function callIt(produce Producer) returns Tally
@@ -277,7 +274,6 @@ end 'callIt'
 
 // TODO: test declarations are not supported in minimaxon
 test 'runs a closure'
-	// TODO: closures are not supported in minimaxon
 	let got = callIt(function() gives try lookup())
 	print("got {got}\n")
 end 'runs a closure'
@@ -1001,8 +997,6 @@ end 'main'
 ```
 
 <!-- test: error.implied-try-closure-still-needs-try -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: test declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The implied `try` belongs to the test body alone. A closure inside it is a separate function with no
@@ -1019,7 +1013,6 @@ end 'lookup'
 
 typealias Tally = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Producer = function() returns Tally
 
 function callIt(produce Producer) returns Tally
@@ -1028,7 +1021,6 @@ end 'callIt'
 
 // TODO: test declarations are not supported in minimaxon
 test 'runs a closure'
-	// TODO: closures are not supported in minimaxon
 	let got = callIt(function() gives lookup())
 	print("got {got}\n")
 end 'runs a closure'

@@ -1531,11 +1531,9 @@ error E3008: <fragment>:31:15: typealias 'ScoreArray' is not exported
 ```
 
 <!-- test: error.hidden-function-alias-in-every-type-position -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/probe.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Flip = function(bool) returns bool
 
 function same(b bool) returns bool
@@ -1767,7 +1765,6 @@ error E3008: specs/export-keyword/error.hidden-alias-as-a-top-level-container-cr
 ```
 
 <!-- test: error.hidden-alias-as-a-top-level-set-from-head -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A top-level `<alias> from […]` names the alias, so another directory's unmarked one is refused there as it is in
 a body.
 ```maxon

@@ -206,10 +206,9 @@ end 'main'
 ```
 
 <!-- test: set-basic -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [1, 2, 3]
+	var arr = FullRangeIntArray from [1, 2, 3]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
 	try arr.set(2, value: 300) otherwise panic("test invariant: set OOB")
 	let val0 = try arr.get(0) otherwise 0
@@ -266,13 +265,11 @@ end 'main'
 ```
 
 <!-- test: map-closure-multiply -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [2, 3, 4]
-	// TODO: closures are not supported in minimaxon
 	let result = arr.map(function(x Integer) gives x * 3)
 	let val0 = (try result.get(0) otherwise 0) as Integer
 	let val1 = (try result.get(1) otherwise 0) as Integer
@@ -293,13 +290,11 @@ end 'main'
 ```
 
 <!-- test: map-closure-square -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [1, 2, 3, 4]
-	// TODO: closures are not supported in minimaxon
 	let squared = arr.map(function(n Integer) gives n * n)
 	let val0 = (try squared.get(0) otherwise 0) as Integer
 	let val1 = (try squared.get(1) otherwise 0) as Integer
@@ -381,13 +376,11 @@ end 'main'
 ```
 
 <!-- test: map-single-element -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [42]
-	// TODO: closures are not supported in minimaxon
 	let result = arr.map(function(x Integer) gives x + 8)
 	let val = (try result.get(0) otherwise 0) as Integer
 	print("{val}\n")
@@ -402,7 +395,6 @@ end 'main'
 ```
 
 <!-- test: map-declared-ranged-alias-element -->
-<!-- skip: closures are not supported in minimaxon -->
 An element that arrives DECLARED rather than from a literal. `Array with Integer` names its element with
 a ranged typealias, which carries the `named` tag until TypeResolution collapses it — so the transform's
 `Integer` return and the container's `Integer` element are one type spelled one way, and the door that
@@ -416,7 +408,6 @@ function main() returns ExitCode
 	let a = IntArray.create(0)
 	a.push(1)
 	a.push(2)
-	// TODO: closures are not supported in minimaxon
 	let t = a.map(function(x Integer) gives x + 1)
 	let val0 = try t.get(0) otherwise 0
 	let val1 = try t.get(1) otherwise 0
@@ -434,7 +425,6 @@ end 'main'
 ```
 
 <!-- test: map-set-with-declared-ranged-alias -->
-<!-- skip: closures are not supported in minimaxon -->
 The same element, one container over. A `Set`'s element arrives by the identical route, so a rule that
 reads the two containers differently is reading something other than the element.
 ```maxon
@@ -446,7 +436,6 @@ function main() returns ExitCode
 	let s = IntSet.create()
 	s.insert(1)
 	s.insert(2)
-	// TODO: closures are not supported in minimaxon
 	let t = s.map(function(a Integer) gives a + 1)
 	print("{t.count()}\n")
 	return 0
@@ -460,8 +449,6 @@ end 'main'
 ```
 
 <!-- test: error-map-transform-param-type-mismatch -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **The transform's PARAMETER is the container's element, by the declaration `map` is read from.** A
 transform declaring another type is handed the element regardless: `nums.map(function(a String) gives
 a.count())` over an int array compiled clean and SEGFAULTED, dereferencing the integer `1` as a `String`.
@@ -477,7 +464,6 @@ own sentence — see `closure-param-type-inference.md`, which carries the whole 
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a String) gives a.count())
 	print("v={try out.get(0) otherwise 9}\n")
 	return 0
@@ -488,7 +474,6 @@ error E3005: <fragment>:5:17: argument type mismatch for 'transform': expected '
 ```
 
 <!-- test: map-struct-element-preserved -->
-<!-- skip: closures are not supported in minimaxon -->
 ⭐ **THE ANTI-FALSE-REFUSAL CONTROL for the parameter half.** A struct element declared through a generic
 alias arrives at the transform door as a `named` — the sweep that recorded the type argument ran before
 anything could say what `Point` denoted — so a parameter check that asked the TAG read it as identity-less
@@ -511,7 +496,6 @@ typealias PointArray = Array with Point
 function main() returns ExitCode
 	let a = PointArray.create(0)
 	a.push(Point.create(7))
-	// TODO: closures are not supported in minimaxon
 	let out = a.map(function(p Point) gives p)
 	let first = try out.get(0) otherwise Point.create(0)
 	print("x={first.x}\n")
@@ -608,8 +592,6 @@ error E3005: <fragment>:27:12: argument type mismatch for 'transform': expected 
 ```
 
 <!-- test: error-map-transform-param-enum-at-an-int-element -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **THE SAME DEFECT WITH THE SIDES SWAPPED, and the reason the verdict cannot let the ELEMENT decide which
 question is asked.** Here the element is a plain `int` — no nominal identity — and the transform's PARAMETER
 is the enum. A rule that fell to the tag comparison whenever the element was identity-less admitted it (a
@@ -636,7 +618,6 @@ end 'show'
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(c Color) gives show(c))
 	print("n={out.count()}\n")
 	return 0

@@ -218,7 +218,6 @@ end 'main'
 ```
 
 <!-- test: static-call-through-Self-inside-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 ### A static call through `Self` inside a CLOSURE body
 The closure lifts to a top-level function, so the resolution has to have happened at parse time inside
 the type's body — the lifted function has no enclosing type of its own.
@@ -233,11 +232,10 @@ type Gate
 	end 'make'
 
 	static function dbl(v Num) returns Num
-		return v + v
+		return try v + v otherwise panic("out of range")
 	end 'dbl'
 
 	function viaClosure() returns Num
-		// TODO: closures are not supported in minimaxon
 		let f = function(v Num) gives Self.dbl(v)
 		return f(21)
 	end 'viaClosure'
@@ -886,7 +884,7 @@ error E3012: <fragment>:8:16: unused variable: 'Self'
 ```
 
 <!-- test: closure-parameter-named-Self-does-not-capture-Self -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- positions: moved -->
 ### A CLOSURE parameter named `Self` does not capture `Self.`
 A third door onto the same scope test — the closure's own parameter scope rather than the method's — so a
@@ -907,7 +905,7 @@ type Gate
 	end 'make'
 
 	function twin() returns Num
-		// TODO: closures are not supported in minimaxon
+		// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 		let f = function(Self Num) gives Self.make(35).n + 7
 		return f(7)
 	end 'twin'

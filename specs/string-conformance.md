@@ -352,7 +352,6 @@ end 'main'
 ```
 
 <!-- test: string-conformance.hash-is-the-hasher-fold-of-its-bytes -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### `String.hash` is `Hasher`'s hash of the bytes
 `s.hash()` is the `finalize()` of a `Hasher.create()` that folds `s.toByteArray()` with `combineBytes`: one hash
 in the library, reached from `Hasher` and from `Hashable`. Every length on either side of the hash's block
@@ -409,7 +408,6 @@ utf-8 true
 ```
 
 <!-- test: string-conformance.hash-avalanches -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### One flipped bit moves about half of the 32 hash bits
 For every length on either side of the hash's block boundaries, six bits of each byte are flipped in turn
 (the text stays ASCII): the hashes differ by at least 8 of 32 bits on average. A multiply-and-add walk moves

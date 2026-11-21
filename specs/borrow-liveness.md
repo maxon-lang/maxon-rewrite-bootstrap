@@ -2408,7 +2408,6 @@ end 'main'
 ```
 
 <!-- test: a-captured-borrowed-field-survives-the-co-owner-of-its-root-letting-go -->
-<!-- skip: closures are not supported in minimaxon -->
 ### A closure holding a field read out of the root still reads a live record after the root's co-owner lets go
 The closure reads `inner` after the holder lets go of its reference to `b`'s record, which `b` still keeps.
 ```maxon
@@ -2434,16 +2433,15 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives inner.label.byteLength()
-	let h = Holder.create(b)
+	var h = Holder.create(b)
 	h.box = Outer.create(5)
 	print("{peek()} {h.box.inner.label.byteLength()}\n")
 	return 0
@@ -2712,7 +2710,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-copied-into-an-outer-binding -->
-<!-- skip: closures are not supported in minimaxon -->
 ### A closure capturing a field read holds a reference of its own
 `g` outlives `nested` and the rebind of `b`; the closure's environment keeps `inner` alive.
 ```maxon
@@ -2737,10 +2734,8 @@ end 'Outer'
 function main() returns ExitCode
 	var b = Outer.create(1)
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
 	var g = function() gives Inner.create(0).label.byteLength()
 	if inner.label.byteLength() > 0 'nested'
-		// TODO: closures are not supported in minimaxon
 		let peek = function() gives inner.label.byteLength()
 		g = peek
 	end 'nested'
@@ -2754,8 +2749,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-returned -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A closure capturing a field read of a local can be returned
 `b` is released when `reader` returns; the closure's environment still holds `inner`.
 ```maxon
@@ -2777,14 +2770,12 @@ type Outer
 	end 'create'
 end 'Outer'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 function reader() returns Reader
 	let b = Outer.create(1)
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
-	return function() gives inner.label.byteLength() as Integer
+	return function() gives try inner.label.byteLength() as Integer otherwise panic("out of range")
 end 'reader'
 
 function main() returns ExitCode
@@ -2798,8 +2789,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-stored-in-a-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A closure capturing a field read of a local can be stored in a record
 `b` is released when `fill` returns; the stored closure still holds `inner`.
 ```maxon
@@ -2821,7 +2810,6 @@ type Outer
 	end 'create'
 end 'Outer'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 type Slot
@@ -2832,11 +2820,10 @@ type Slot
 	end 'create'
 end 'Slot'
 
-function fill(slot Slot)
+function fill(mutates slot Slot)
 	let b = Outer.create(1)
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
-	slot.read = function() gives inner.label.byteLength() as Integer
+	slot.read = function() gives try inner.label.byteLength() as Integer otherwise panic("out of range")
 end 'fill'
 
 function zero() returns Integer
@@ -2844,7 +2831,7 @@ function zero() returns Integer
 end 'zero'
 
 function main() returns ExitCode
-	let s = Slot.create(zero)
+	var s = Slot.create(zero)
 	fill(s)
 	print("{s.read()}\n")
 	return 0
@@ -2855,8 +2842,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-handed-to-a-function-that-keeps-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A closure capturing a field read of a local can be handed to a callee that stores it
 `Slot.create` keeps the closure past `build`, which releases `b`.
 ```maxon
@@ -2878,7 +2863,6 @@ type Outer
 	end 'create'
 end 'Outer'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 type Slot
@@ -2892,8 +2876,7 @@ end 'Slot'
 function build() returns Slot
 	let b = Outer.create(1)
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
-	return Slot.create(function() gives inner.label.byteLength() as Integer)
+	return Slot.create(function() gives try inner.label.byteLength() as Integer otherwise panic("out of range"))
 end 'build'
 
 function main() returns ExitCode
@@ -2908,8 +2891,6 @@ end 'main'
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-run-by-a-coroutine-after-its-block -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A coroutine runs a closure capturing a field read after the closure's block
 The coroutine owns the closure, whose environment holds `inner` past the rebind of `b`.
 ```maxon
@@ -2931,7 +2912,6 @@ type Outer
 	end 'create'
 end 'Outer'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 function later(read Reader) returns Integer
@@ -2950,7 +2930,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async nothing()
 	if inner.label.byteLength() > 0 'nested'
-		// TODO: closures are not supported in minimaxon
 		let peek = function() gives inner.label.byteLength() as Integer
 		p.cancel()
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -3003,7 +2982,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-argument-holds-a-borrowed-field-only-to-the-end-of-its-block -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A closure handed to a call inside a block, then a rebind of the root after it
 `apply` calls the closure inside `nested`, and the root is rebound after the block has ended.
 ```maxon
@@ -3025,7 +3003,6 @@ type Outer
 	end 'create'
 end 'Outer'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 function apply(read Reader) returns Integer
@@ -3036,7 +3013,7 @@ function main() returns ExitCode
 	var b = Outer.create(1)
 	let inner = b.inner
 	if inner.label.byteLength() > 0 'nested'
-		print("{apply(function() gives inner.label.byteLength() as Integer)}\n")
+		print("{apply(function() gives try inner.label.byteLength() as Integer otherwise panic("out of range"))}\n")
 	end 'nested'
 	b = Outer.create(22)
 	print("{b.inner.label.byteLength()}\n")
@@ -3205,7 +3182,6 @@ true
 ```
 
 <!-- test: an-element-read-after-an-indirect-call-survives-a-set-of-its-slot -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### An element read after a call through a function value survives a `set` of the slot it came from
 `cb()` may do anything, so it ends what a caller can know about `items`; the reads after it are counted
 just the same. `set` releases the slot's reference to the record `e` read, and `e` keeps its own; the
@@ -3215,20 +3191,19 @@ type Box
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Box'
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function()
 
 function announce()
 	print("hook\n")
 end 'announce'
 
-function replaceFirst(items Boxes, cb Hook)
+function replaceFirst(mutates items Boxes, cb Hook)
 	cb()
 	let e = try items.get(0) otherwise panic("the caller pushed one")
 	try items.set(0, value: Box.create("replacement {7} padded out long enough for the heap")) otherwise panic("the caller pushed one")
@@ -3238,7 +3213,7 @@ function replaceFirst(items Boxes, cb Hook)
 end 'replaceFirst'
 
 function main() returns ExitCode
-	let xs = Boxes.create(0)
+	var xs = Boxes.create(0)
 	xs.push(Box.create("original {40 + 2} padded out long enough for the heap"))
 	replaceFirst(xs, cb: announce)
 	return 0
@@ -3607,20 +3582,18 @@ end 'main'
 ```
 
 <!-- test: an-indirect-call-argument-read-survives-a-later-argument-reassigning-the-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### … as an argument of a call through a function value, beside a later argument that reassigns it
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Joiner = function(String, String) returns String
 
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3631,12 +3604,12 @@ function join(first String, second String) returns String
 	return "[{first}] [{second}] [{filler}]"
 end 'join'
 
-function combine(x Holder, f Joiner) returns String
+function combine(mutates x Holder, f Joiner) returns String
 	return f(x.label, x.reset())
 end 'combine'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	print("{combine(x, f: join)} [{x.label}]\n")
 	return 0
 end 'main'
@@ -3779,22 +3752,20 @@ false
 ```
 
 <!-- test: an-indirect-call-last-argument-read-survives-the-callee-reassigning-the-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A field read as the last argument of a call through a function value survives the callee reassigning the field
 `x.label` is the last argument, so no later argument frees it; the callee does, by resetting
 `h.label` before it reads `s`. The argument holds its own reference, so `s` is still the original label.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
-typealias Reader = function(mutable Holder, String) returns String
+typealias Reader = function(mutates Holder, String) returns String
 
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		self.label = "replacement {7} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
@@ -3805,12 +3776,12 @@ function clobberThenRead(mutates h Holder, s String) returns String
 	return "[{s}] [{filler}]"
 end 'clobberThenRead'
 
-function readThrough(x Holder, f Reader) returns String
+function readThrough(mutates x Holder, f Reader) returns String
 	return f(x, x.label)
 end 'readThrough'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	print("{readThrough(x, f: clobberThenRead)} [{x.label}]\n")
 	return 0
 end 'main'
@@ -5075,15 +5046,12 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-a-function-field-survives-the-callee-overwriting-the-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `go` hands `use` the closure in `op` together with `self.reset()`, whose store replaces the field. The argument is
 counted, so the environment holding the captured string outlives the store, and `use` calls the closure it was handed:
 the answer is `68064`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
 type Holder
@@ -5093,13 +5061,12 @@ type Holder
 		return Self{op: op}
 	end 'create'
 
-	function reset() returns Integer
-		// TODO: closures are not supported in minimaxon
+	function reset(mutates self) returns Integer
 		op = function(n) gives n
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(op, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5111,22 +5078,21 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return b.byteLength() as Integer
+	return try b.byteLength() as Integer otherwise panic("out of range")
 end 'churn'
 
 function makeOp() returns Op
 	let captured = text(5)
-	// TODO: closures are not supported in minimaxon
-	return function(n) gives n + (captured.byteLength() as Integer)
+	return function(n) gives try n + (captured.byteLength() as Integer) otherwise panic("out of range")
 end 'makeOp'
 
 function use(f Op, k Integer) returns Integer
 	let c = churn(7)
-	return f(0) * 1000 + c + k
+	return try f(0) * 1000 + c + k otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
-	let h = Holder.create(makeOp())
+	var h = Holder.create(makeOp())
 	let d = h.go()
 	print("d={d}")
 	return 0

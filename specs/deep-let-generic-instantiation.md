@@ -20,7 +20,6 @@ a field store or a message payload.
 ## Tests
 
 <!-- test: a-set-of-strings-is-built-from-a-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `Set` instantiates bodies that keep a value of its element type in an `immutable` slot; a `String` element
 satisfies them all.
 

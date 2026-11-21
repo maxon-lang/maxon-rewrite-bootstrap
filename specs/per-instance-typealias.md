@@ -1061,9 +1061,7 @@ error E3061: <fragment>:24:19: Duplicate typealias 'Idx': `Holder.Idx` is alread
 ```
 
 <!-- test: error.two-extensions-declare-a-function-member -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: holder.maxon
@@ -1080,7 +1078,6 @@ end 'Holder'
 // --- file: a.maxon
 // TODO: extension blocks are not supported in minimaxon
 extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Step = function(Num) returns Num
 	export function fromA(step Step) returns Num
 		return step(self.v)
@@ -1090,7 +1087,6 @@ end 'Holder'
 // --- file: b.maxon
 // TODO: extension blocks are not supported in minimaxon
 extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Step = function(Num, Num) returns Num
 	export function fromB(step Step) returns Num
 		return step(self.v, 1)
@@ -1100,7 +1096,6 @@ end 'Holder'
 // --- file: main.maxon
 function main() returns ExitCode
 	let h = Holder.create(1)
-	// TODO: closures are not supported in minimaxon
 	return h.fromA(function(n) gives n) as ExitCode
 end 'main'
 ```
@@ -1387,16 +1382,11 @@ error E3061: <fragment>:4:12: Duplicate typealias 'Idx': `Box.Idx` is already de
 ```
 
 <!-- test: error.a-type-body-declares-a-function-member-twice -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number, Number) returns Number
 	export var n as Number
 
@@ -1411,7 +1401,6 @@ end 'Box'
 
 function main() returns ExitCode
 	let box = Box.create()
-	// TODO: closures are not supported in minimaxon
 	return box.apply(function(a, b) gives a + b) as ExitCode
 end 'main'
 ```
@@ -1679,15 +1668,12 @@ error E3061: <fragment>:12:12: Duplicate typealias 'Idx': `Box.Idx` is already d
 ```
 
 <!-- test: error.a-type-extension-declares-a-function-member-the-types-body-declares -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
 	export var n as Number
 
@@ -1698,7 +1684,6 @@ end 'Box'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Box
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number, Number) returns Number
 	function apply(op Op) returns Number
 		return op(self.n, 2)
@@ -1707,7 +1692,6 @@ end 'Box'
 
 function main() returns ExitCode
 	let box = Box.create()
-	// TODO: closures are not supported in minimaxon
 	return box.apply(function(a, b) gives a + b) as ExitCode
 end 'main'
 ```
@@ -1921,9 +1905,7 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-function-member-yields-to-the-conformers-own -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
@@ -1934,7 +1916,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Number
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
 	export var n as Number
 
@@ -1949,7 +1930,6 @@ end 'Box'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Seq
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Item, Item) returns Item
 	function apply(op Op) returns Item
 		return op(first())
@@ -1958,7 +1938,6 @@ end 'Seq'
 
 function main() returns ExitCode
 	let box = Box.create(4)
-	// TODO: closures are not supported in minimaxon
 	return box.apply(function(a) gives a + 1) as ExitCode
 end 'main'
 ```
@@ -2140,7 +2119,6 @@ The rule holds for the generic-instance, function, ranged and tuple forms and fo
 extension (`extension Iterable`) publishes to each conformer.
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-generic-member -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 `Array.ElementArray` is `Array with Element` in the library. The program's `extension Array` declares it over
 a `List`: `firstTwo` returns a `List`, the sibling extension in `second.maxon` spells the same member, and the
@@ -2172,14 +2150,12 @@ function main() returns ExitCode
 	let xs = Numbers.create(0)
 	xs.push(3)
 	xs.push(1)
-	// TODO: closures are not supported in minimaxon
 	let mapped = xs.map(function(n) gives n)
 	mapped.push(5)
 	let ys = xs.firstTwo()
 	ys.prepend(2)
 	let zs = xs.spare()
 	zs.prepend(4)
-	// TODO: closures are not supported in minimaxon
 	xs.sortBy(function(a, b) gives a.compare(b))
 	print("{mapped.count()} {ys.count()} {zs.count()} {xs.count()}\n")
 	return 0
@@ -2193,16 +2169,13 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-function-member -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Array.SortComparator` is `function(Element, Element) returns Ordering` in the library. The program's member
 takes one parameter, and `sort` still takes the library's two.
 ```maxon
 // --- file: ext.maxon
 // TODO: extension blocks are not supported in minimaxon
 export extension Array
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias SortComparator = function(Element) returns Ordering
 	export function rank(key SortComparator) returns Ordering throws ArrayError
 		return key(try self.get(0))
@@ -2216,9 +2189,7 @@ typealias Numbers = Array with Number
 
 function main() returns ExitCode
 	let xs = Numbers from [3, 1, 2]
-	// TODO: closures are not supported in minimaxon
 	xs.sortBy(function(a, b) gives a.compare(b))
-	// TODO: closures are not supported in minimaxon
 	let first = try xs.rank(function(_) gives Ordering.equalTo) otherwise Ordering.lessThan
 	print("{xs.count()} {first.rawValue}\n")
 	return 0
@@ -2232,7 +2203,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-ranged-member -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 `Array.NodePower` is `int(0 to 64)` in the library's sort helpers. The program's member is `int(0 to 9)`, and
 sorting a hundred elements still runs the library's code over the library's range. The program's own `Byte`
@@ -2260,7 +2230,6 @@ function main() returns ExitCode
 	for i in 0 upto 100 'fill'
 		xs.push(((i * 7) mod 100) as Number)
 	end 'fill'
-	// TODO: closures are not supported in minimaxon
 	xs.sortBy(function(a, b) gives a.compare(b))
 	print("{xs.count()} {xs.power(5)} {marker}\n")
 	return 0
@@ -2312,16 +2281,13 @@ error E3005: <fragment>:25:12: Value 50 is outside the range of 'NodePower' (int
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `extension Iterable` declares `ElementTransform` in the library. The program's `extension Iterable` declares it
 with two parameters: `combine` takes the program's, and the library's `map` keeps its own.
 ```maxon
 // --- file: ext.maxon
 // TODO: extension blocks are not supported in minimaxon
 export extension Iterable
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
@@ -2341,10 +2307,8 @@ function main() returns ExitCode
 	let xs = Numbers.create(0)
 	xs.push(3)
 	xs.push(1)
-	// TODO: closures are not supported in minimaxon
 	let mapped = xs.map(function(n) gives n)
 	mapped.push(5)
-	// TODO: closures are not supported in minimaxon
 	let total = xs.combine(function(a, b) gives (a + b) as Number, seed: 0)
 	print("{mapped.count()} {total}\n")
 	return 0
@@ -2358,9 +2322,7 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys-on-the-programs-own-conformer -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Zebra` is a generic conformer of the program's own whose name sorts after every library conformer's, so the
 bare `ElementTransform` key holds its element in both declarations. `map` still takes the library's one parameter
 and `combine` the program's two.
@@ -2368,7 +2330,6 @@ and `combine` the program's two.
 // --- file: ext.maxon
 // TODO: extension blocks are not supported in minimaxon
 export extension Iterable
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
@@ -2406,10 +2367,8 @@ function main() returns ExitCode
 	let sack = QuantumZebra.make()
 	sack.add(3)
 	sack.add(1)
-	// TODO: closures are not supported in minimaxon
 	let mapped = sack.map(function(n) gives n)
 	mapped.push(5)
-	// TODO: closures are not supported in minimaxon
 	let total = sack.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
 	print("{mapped.count()} {total}\n")
 	return 0
@@ -2423,16 +2382,13 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-for-a-plain-array-beside-a-conformer-that-sorts-last -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same declarations with the receivers swapped for the original shape: the program's `Zebra` still sorts after
 every library conformer, and a plain `Array` is the receiver of `map` and of `combine`.
 ```maxon
 // --- file: ext.maxon
 // TODO: extension blocks are not supported in minimaxon
 export extension Iterable
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
@@ -2474,12 +2430,9 @@ function main() returns ExitCode
 	let xs = Quantums.create(0)
 	xs.push(3)
 	xs.push(1)
-	// TODO: closures are not supported in minimaxon
 	let mapped = xs.map(function(n) gives n)
 	mapped.push(5)
-	// TODO: closures are not supported in minimaxon
 	let total = xs.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
-	// TODO: closures are not supported in minimaxon
 	let zebraTotal = zebra.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
 	print("{mapped.count()} {total} {zebraTotal}\n")
 	return 0
@@ -2691,10 +2644,10 @@ end 'main'
 whole program, so a user file writes it bare. The compiler's own spec harness spells it exactly this way.
 ```maxon
 function main() returns ExitCode
-	let paths = FilePathArray.create(0)
+	var paths = FilePathArray.create(0)
 	paths.push(try FilePath.from("a") otherwise panic("unreachable: 'a' is a valid path"))
 	paths.push(try FilePath.from("b") otherwise panic("unreachable: 'b' is a valid path"))
-	return paths.count() as ExitCode
+	return try paths.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

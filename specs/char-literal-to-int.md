@@ -180,8 +180,6 @@ end 'main'
 
 <!-- test: char-literal-coerces-across-a-closure-body -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### A character literal parsed before a closure still converts after it
 
 ⛔⛔ **THE CLOSURE-BODY CONTEXT SWAP MUST SAVE AND RESTORE A PER-FUNCTION COLUMN.** `integerizedOperand`
@@ -204,7 +202,6 @@ direction — a literal AFTER the closure — so a fix that saved the map withou
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Fn1 = function(Integer) returns Integer
 
 function apply(f Fn1, x Integer) returns Integer
@@ -213,14 +210,11 @@ end 'apply'
 
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
-	// TODO: closures are not supported in minimaxon
 	let a = '0' + apply(function(n Integer) gives n + 1, x: 1)
 	let p0 = 0
 	let p1 = 1
 	// TODO: character literals are not supported in minimaxon
-	// TODO: closures are not supported in minimaxon
 	let b = 'A' + apply(function(n Integer) gives n + '0', x: 1)
-	// TODO: closures are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	let c = apply(function(n Integer) gives n + 2, x: 1) + '0'
 	print("a={a} b={b} c={c} pad={p0}{p1}\n")

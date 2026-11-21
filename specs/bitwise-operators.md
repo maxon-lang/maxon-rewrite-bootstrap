@@ -2059,20 +2059,16 @@ end 'main'
 ```
 
 <!-- test: bitwise-operators.a-closure-captures-a-difference-as-signed -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure that captures the difference reads it signed: the capture is neither a proof of the alias nor a reason to read it unsigned.
 ```maxon
 typealias Small = int(0 to 100)
 
 typealias Num = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Num
 
 function make(b Small) returns Thunk
 	let d = b - 10
-	// TODO: closures are not supported in minimaxon
 	return function() gives (d / 2) as Num
 end 'make'
 
@@ -2089,8 +2085,6 @@ end 'main'
 ```
 
 <!-- test: bitwise-operators.a-closure-capturing-a-difference-still-meets-the-parameter-door -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A captured value that wears `Small` without proving it is checked where it enters a `Small` parameter inside the closure.
 ```maxon
 typealias Small = int(0 to 100)
@@ -2099,12 +2093,10 @@ function take(v Small) returns Small
 	return v
 end 'take'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Small
 
 function make(b Small) returns Thunk
 	let d = b - 10
-	// TODO: closures are not supported in minimaxon
 	return function() gives take(d)
 end 'make'
 

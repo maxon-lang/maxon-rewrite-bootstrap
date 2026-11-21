@@ -485,7 +485,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.error.a-let-of-a-var-a-later-closure-captures-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let x = b` moves `b`, so the closure that captures `b` afterwards uses a moved value.
 
@@ -518,7 +518,6 @@ function main() returns ExitCode
 	var b = Box.create(1)
 	b.n = 2
 	let x = b
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives register(holder, b: b)
 	_ = f()
 	print("{x.n}\n")

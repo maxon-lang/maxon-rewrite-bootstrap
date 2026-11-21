@@ -1795,7 +1795,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-through-a-function-type-is-moved -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1812,8 +1811,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Take = function(isolated Box) returns Tally
+typealias Take = function(Box) returns Tally
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
 function consume(box isolated Box) returns Tally
@@ -1838,7 +1836,6 @@ error E3102: <fragment>:21:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-through-a-function-type-is-dropped-once -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Whichever declared function the function value names takes the isolated region it is called with, from a local and from a fresh call result alike, and releases it once.
@@ -1854,8 +1851,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Take = function(isolated Box) returns Tally
+typealias Take = function(Box) returns Tally
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
 function consume(box isolated Box) returns Tally
@@ -2385,7 +2381,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-an-isolated-local-moves-it -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure owns the region it captures, so the read of `a` afterwards is a use of a moved value.
@@ -2404,7 +2399,6 @@ end 'Box'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(1) as isolated Box
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives a.n
 	let k = a.n
 	print("{f()} {k}\n")
@@ -2874,7 +2868,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-an-isolated-parameter-moves-it -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2893,7 +2886,6 @@ end 'Box'
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
 function capture(a isolated Box) returns Tally
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives a.n
 	let k = a.n
 	return f() + k
@@ -3079,7 +3071,6 @@ error E3102: <fragment>:29:10: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: mutable-isolated-function-type-parameter-leaves-the-callers-variable-usable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -3088,8 +3079,8 @@ error E3102: <fragment>:29:10: use of moved value 'a': its ownership moved to an
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Grow = function(box mutable isolated Box)
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+typealias Grow = function(mutates isolated Box)
 
 type Box
 	export var n as Tally

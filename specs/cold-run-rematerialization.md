@@ -16,19 +16,18 @@ into has a live view, so the store detaches, and the stored word and the words t
 ## Tests
 
 <!-- test: a-64-bit-constant-survives-a-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `0x123456789ABCDEF0` needs all 64 bits of its register.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray)
+function stamp(mutates arr WordArray)
 	try arr.set(1, value: 0x123456789ABCDEF0) otherwise panic("set: index 1 of a three-element array")
 end 'stamp'
 
 function main() returns ExitCode
-	let arr = WordArray from [10, 20, 30]
+	var arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
 	let stored = try arr.get(1) otherwise panic("get: index 1 of a three-element array")
@@ -44,19 +43,18 @@ end 'main'
 ```
 
 <!-- test: minus-one-survives-a-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `-1` is all ones: a zero-extending 32-bit move would give `0xFFFFFFFF`.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray)
+function stamp(mutates arr WordArray)
 	try arr.set(1, value: -1) otherwise panic("set: index 1 of a three-element array")
 end 'stamp'
 
 function main() returns ExitCode
-	let arr = WordArray from [10, 20, 30]
+	var arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
 	let stored = try arr.get(1) otherwise panic("get: index 1 of a three-element array")
@@ -72,18 +70,17 @@ end 'main'
 ```
 
 <!-- test: the-smallest-signed-word-survives-a-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray)
+function stamp(mutates arr WordArray)
 	try arr.set(1, value: i64.min) otherwise panic("set: index 1 of a three-element array")
 end 'stamp'
 
 function main() returns ExitCode
-	let arr = WordArray from [10, 20, 30]
+	var arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
 	let stored = try arr.get(1) otherwise panic("get: index 1 of a three-element array")
@@ -99,7 +96,6 @@ end 'main'
 ```
 
 <!-- test: the-widest-32-bit-constant-and-the-next-one-survive-a-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `u32.max` is the widest word a 32-bit move zero-extends; `u32.max + 1` is the first that needs the full
 64-bit move.
 ```maxon
@@ -107,19 +103,19 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stampWidest(arr WordArray)
+function stampWidest(mutates arr WordArray)
 	try arr.set(1, value: u32.max) otherwise panic("set: index 1 of a three-element array")
 end 'stampWidest'
 
-function stampNext(arr WordArray)
+function stampNext(mutates arr WordArray)
 	try arr.set(1, value: u32.max + 1) otherwise panic("set: index 1 of a three-element array")
 end 'stampNext'
 
 function main() returns ExitCode
-	let widest = WordArray from [10, 20, 30]
+	var widest = WordArray from [10, 20, 30]
 	let widestView = try widest.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stampWidest(widest)
-	let next = WordArray from [10, 20, 30]
+	var next = WordArray from [10, 20, 30]
 	let nextView = try next.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stampNext(next)
 	let widestStored = try widest.get(1) otherwise panic("get: index 1 of a three-element array")
@@ -137,7 +133,6 @@ end 'main'
 ```
 
 <!-- test: a-constant-and-a-variable-survive-the-same-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The index and the returned tag are variables and the stored word is a constant, all live across one call:
 two registers are saved and reloaded and one is rebuilt.
 ```maxon
@@ -145,13 +140,13 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray, at Count, tag Word) returns Word
+function stamp(mutates arr WordArray, at Count, tag Word) returns Word
 	try arr.set(at, value: 0x123456789ABCDEF0) otherwise panic("set: an index inside a three-element array")
-	return tag + 1
+	return try tag + 1 otherwise panic("out of range")
 end 'stamp'
 
 function main() returns ExitCode
-	let arr = WordArray from [10, 20, 30]
+	var arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let answer = stamp(arr, at: 2, tag: 41)
 	let stored = try arr.get(2) otherwise panic("get: index 2 of a three-element array")
@@ -167,7 +162,6 @@ end 'main'
 ```
 
 <!-- test: successive-detaches-store-a-constant-then-a-variable-then-a-constant -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A view is taken before each store, so each store detaches. The register that holds the constant at the
 first call holds a variable at the second and a different constant at the third; each view keeps the
 words that were there when it was taken.
@@ -176,7 +170,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray, seed Word) returns bool
+function stamp(mutates arr WordArray, seed Word) returns bool
 	let first = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	try arr.set(0, value: 0x123456789ABCDEF0) otherwise panic("set: index 0 of a three-element array")
 	let second = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
@@ -189,11 +183,11 @@ function stamp(arr WordArray, seed Word) returns bool
 	let second1 = try second.get(1) otherwise panic("get: index 1 of a three-element view")
 	let third1 = try third.get(1) otherwise panic("get: index 1 of a three-element view")
 	let third2 = try third.get(2) otherwise panic("get: index 2 of a three-element view")
-	return first0 == 10 and first1 == 20 and second0 == 0x123456789ABCDEF0 and second1 == 20 and third1 == seed * 3 and third2 == 30
+	return first0 == 10 and first1 == 20 and second0 == 0x123456789ABCDEF0 and second1 == 20 and third1 == (try seed * 3 otherwise panic("out of range")) and third2 == 30
 end 'stamp'
 
 function main() returns ExitCode
-	let arr = WordArray from [10, 20, 30]
+	var arr = WordArray from [10, 20, 30]
 	if not stamp(arr, seed: 7) 'views'
 		return 1
 	end 'views'
@@ -211,14 +205,13 @@ end 'main'
 ```
 
 <!-- test: a-constant-passed-on-an-edge-survives-a-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The constant is live across the detach and is then passed on an edge into the phi that `answer` becomes.
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function stamp(arr WordArray, flag Word) returns Word
+function stamp(mutates arr WordArray, flag Word) returns Word
 	let wide = 0x123456789ABCDEF0 as Word
 	try arr.set(1, value: wide) otherwise panic("set: index 1 of a three-element array")
 	var answer = 5 as Word
@@ -229,10 +222,10 @@ function stamp(arr WordArray, flag Word) returns Word
 end 'stamp'
 
 function main() returns ExitCode
-	let taken = WordArray from [10, 20, 30]
+	var taken = WordArray from [10, 20, 30]
 	let takenView = try taken.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let viaEdge = stamp(taken, flag: 1)
-	let skipped = WordArray from [10, 20, 30]
+	var skipped = WordArray from [10, 20, 30]
 	let skippedView = try skipped.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let direct = stamp(skipped, flag: 0)
 	let takenStored = try taken.get(1) otherwise panic("get: index 1 of a three-element array")

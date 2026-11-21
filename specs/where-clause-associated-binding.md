@@ -1118,7 +1118,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-witness-read-only-inside-a-closure-the-callee-builds-is-supplied-from-the-callers-table -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `Keeper.measure` dispatches through its `A is Sized` table only inside a closure it builds, so its caller still has to supply the table for `Pair with T`.
 ```maxon
@@ -1136,7 +1135,6 @@ type Keeper uses A where A implements Sized
 	end 'create'
 
 	function measure(probe A) returns Val
-		// TODO: closures are not supported in minimaxon
 		let f = function(p A) gives p.size()
 		return f(probe) + self.n
 	end 'measure'

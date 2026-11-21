@@ -948,6 +948,7 @@ error E3005: <fragment>:12:12: Value -2 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-count-difference-through-a-function-value-panics-at-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and the run-time twin: the call site checks a difference it cannot evaluate
 The `Count` difference is unknown to the compiler, so the call through a function value checks it at the call, where the argument's domain is known, before the callee's entry takes a sign test that would refuse a large unsigned word.
 ```maxon

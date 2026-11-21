@@ -353,7 +353,6 @@ travel through a user `returns T` body; what it pins is that the convention leav
 route the retirement of the synthesized `Array` will eventually send them down.
 
 <!-- test: iterable-map-over-an-array-of-strings -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Strings = Array with String
 
@@ -361,7 +360,6 @@ function main() returns ExitCode
 	let xs = Strings.create(0)
 	xs.push("alpha string long enough to force a heap allocation")
 	xs.push("beta string long enough to force a heap allocation")
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(s) gives s)
 	print("{ys.count()}\n")
 	for y in ys 'loop'

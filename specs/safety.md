@@ -2074,7 +2074,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-closure-parameter -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused at a closure's `NonZero` parameter
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2087,7 +2087,6 @@ end 'ident'
 
 function main() returns ExitCode
 	let one = ident(1) as NonZero
-	// TODO: closures are not supported in minimaxon
 	let divide = function(d NonZero) gives 100 / d
 	print("before\n")
 	return divide(one - one)

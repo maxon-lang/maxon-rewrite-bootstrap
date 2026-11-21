@@ -3838,7 +3838,6 @@ queued=0
 ```
 
 <!-- test: tls-handshake-server.production-entropy-is-fresh-and-consistent -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 <!-- tier: stdlib/helpers/tls -->
 `TlsServerEntropy.fresh` draws a 32-byte random, a 64-byte PSS salt and one private key per group the config lists, 32 bytes each, with the public key the group derives from it; two draws share nothing; a group without a key is `internalError`; a server started from it has sent nothing.
 ```maxon

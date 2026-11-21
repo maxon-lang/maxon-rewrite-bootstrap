@@ -46,8 +46,6 @@ refcount model the hazard lives in. Keep them in step with it.
 ## Tests
 
 <!-- test: a-partition-parks-its-pivot-out-of-its-own-write-range -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### Both buffering branches, with a pivot no store can displace
 `stablePartition` transcribed whole. `bufferGe` buffers the `>= pivot` class and compacts `< pivot`
@@ -58,7 +56,6 @@ typealias Small = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Cmp = function(Element, Element) returns Ordering
 	export var managed as ElementMemory
 
@@ -183,7 +180,6 @@ function run(label String, lens LenArray, pivotIndex Small) returns String
 		scratch.push(pad(1))
 	end 'build'
 	let hold = StrArray.create(0)
-	// TODO: closures are not supported in minimaxon
 	let p = a.stablePartition(0, hi: lens.count() as Small, pivotIndex: pivotIndex, scratch: scratch, pivotHold: hold, cmp: function(x String, y String) gives x.byteLength().compare(y.byteLength()))
 	var out = "{label} p={p} lens="
 	for j in 0 upto lens.count() 'show'
@@ -207,8 +203,6 @@ less p=1 lens= 1 20 10 30 40 50
 ```
 
 <!-- test: a-parked-pivot-keeps-the-partition-stable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### … and the two classes keep their input order
 Soundness is not enough on its own: `sort()` is the STABLE entry, and the partition is where its
@@ -220,7 +214,6 @@ typealias Small = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Cmp = function(Element, Element) returns Ordering
 	export var managed as ElementMemory
 
@@ -338,7 +331,6 @@ function main() returns ExitCode
 		scratch.push(tagged(3, tag: f))
 	end 'fillScratch'
 	let hold = StrArray.create(0)
-	// TODO: closures are not supported in minimaxon
 	let p = a.stablePartition(0, hi: 6, pivotIndex: 0, scratch: scratch, pivotHold: hold, cmp: function(x String, y String) gives x.byteLength().compare(y.byteLength()))
 	var tags = ""
 	var lens = ""

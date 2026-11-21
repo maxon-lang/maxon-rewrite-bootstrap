@@ -76,7 +76,6 @@ end 'main'
 ```
 
 <!-- test: a-checked-store-through-a-viewed-owner-detaches-first -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same hazard on the checked `set`, and on a growable array whose bound is its length.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -84,7 +83,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray from [11, 22, 33]
+	var arr = IntArray from [11, 22, 33]
 	let sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try arr.set(0, value: 99) otherwise panic("set: index 0 of a length-3 array")
 	try arr.set(1, value: 98) otherwise panic("set: index 1 of a length-3 array")
@@ -102,7 +101,6 @@ end 'main'
 ```
 
 <!-- test: a-store-into-a-view-detaches-the-view-and-leaves-its-parent -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The view is not its buffer's owner. Writing it gives it a private copy and the parent keeps its words.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -111,7 +109,7 @@ typealias IntArray = Array with Int
 
 function main() returns ExitCode
 	let arr = IntArray from [11, 22, 33]
-	let sub = try arr.slice(1, endIndex: 3) otherwise panic("slice: 1..3 of a length-3 array")
+	var sub = try arr.slice(1, endIndex: 3) otherwise panic("slice: 1..3 of a length-3 array")
 	try sub.set(0, value: 77) otherwise panic("set: index 0 of a length-2 view")
 	try sub.set(1, value: 78) otherwise panic("set: index 1 of a length-2 view")
 	let parentFirst = try arr.get(1) otherwise panic("get: index 1 of a length-3 array")
@@ -214,7 +212,6 @@ end 'main'
 ```
 
 <!-- test: a-refused-store-into-a-viewed-owner-allocates-nothing -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A store past the length of a viewed owner throws without detaching: the owner still shares its buffer with
 the view, which the owner's capacity (the buffer's own, not a private copy's) shows.
 ```maxon
@@ -242,14 +239,13 @@ end 'main'
 ```
 
 <!-- test: a-store-over-an-element-that-owes-a-destructor-releases-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `String` element owes a drop, so its store takes the runtime's arm, which releases the element it
 overwrites. A leak is exit 101.
 ```maxon
 typealias NameArray = Array with String
 
 function main() returns ExitCode
-	let names = NameArray from ["alpha", "beta", "gamma"]
+	var names = NameArray from ["alpha", "beta", "gamma"]
 	try names.set(0, value: "one") otherwise panic("set: index 0 of a length-3 array")
 	try names.set(1, value: "two") otherwise panic("set: index 1 of a length-3 array")
 	try names.set(0, value: "three") otherwise panic("set: index 0 of a length-3 array")
@@ -266,13 +262,12 @@ end 'main'
 ```
 
 <!-- test: a-store-over-a-viewed-element-that-owes-a-destructor-releases-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same, with the owner viewed: the runtime detaches and releases the occupant of the private copy.
 ```maxon
 typealias NameArray = Array with String
 
 function main() returns ExitCode
-	let names = NameArray from ["alpha", "beta", "gamma"]
+	var names = NameArray from ["alpha", "beta", "gamma"]
 	let sub = try names.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try names.set(0, value: "one") otherwise panic("set: index 0 of a length-3 array")
 	let viewed = try sub.get(0) otherwise panic("get: index 0 of a length-2 view")

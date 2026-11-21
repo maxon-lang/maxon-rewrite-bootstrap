@@ -95,7 +95,6 @@ count=7
 
 <!-- test: a-handler-may-sort-its-own-field -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE STANDARD LIBRARY'S LARGEST ALGORITHM RUNS ON A MESSAGE.** `Array.sort` reaches no module storage, so
 sorting a field of `self` is the cure this rule prescribes rather than something it refuses. All four entries
@@ -120,9 +119,7 @@ type Sorter
 	export function arrange() returns Integer
 		self.items.sortUnstable()
 		self.items.sort()
-		// TODO: closures are not supported in minimaxon
 		self.items.sortUnstableBy(function(a, b) gives b.compare(a))
-		// TODO: closures are not supported in minimaxon
 		self.items.sortBy(function(a, b) gives a.compare(b))
 		let low = try self.items.get(0) otherwise 0
 		let high = try self.items.get(39) otherwise 0

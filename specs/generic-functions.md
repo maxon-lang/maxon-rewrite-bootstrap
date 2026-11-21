@@ -741,13 +741,11 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-instance-calls-a-requirement-of-a-type-its-file-may-not-name -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A closure written in a generic function belongs to the copy it is written in, so it calls the requirement too.
 ```maxon
 // --- file: lib.maxon
 function smallerVia(a T, b T) uses T returns T where T implements Comparable
-	// TODO: closures are not supported in minimaxon
 	let firstIsSmaller = function() gives a.compare(b) == Ordering.lessThan
 	if firstIsSmaller() 'first'
 		return a

@@ -321,7 +321,6 @@ error E3212: <fragment>:26:10: the promise of this `async` call is tied to the m
 <!-- test: a-tied-promise-captured-by-a-closure-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures a tied promise would carry the coroutine out of the function, so the capture is refused.
 
@@ -346,7 +345,6 @@ function main() returns ExitCode
 	var row = Row.create(1)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async bump(row)
-	// TODO: closures are not supported in minimaxon
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wait = function() gives await later
 	print("{wait()}\n")

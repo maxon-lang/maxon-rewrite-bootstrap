@@ -672,7 +672,6 @@ end 'main'
 ```
 
 <!-- test: countof-inside-a-closure-reads-the-methods-count -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
@@ -691,7 +690,6 @@ extension FixedArray
 		return countof(Self)
 	end 'capacity'
 	function viaClosure() returns Int
-		// TODO: closures are not supported in minimaxon
 		// TODO: countof(...) is not supported in minimaxon
 		let f = function() gives countof(Self)
 		return f()
@@ -836,7 +834,6 @@ error E2015: <fragment>:12:15: Unsupported: calling 'capacity' (which reads `cou
 ```
 
 <!-- test: a-count-reading-call-from-inside-a-closure-is-served -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
@@ -855,7 +852,6 @@ extension FixedArray
 		return countof(Self)
 	end 'capacity'
 	function viaClosure(other Self) returns Int
-		// TODO: closures are not supported in minimaxon
 		let f = function(v Self) gives v.capacity()
 		return f(other)
 	end 'viaClosure'

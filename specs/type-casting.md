@@ -1240,7 +1240,6 @@ error E3010: specs/type-casting/error.unneeded.call-result-same-alias.maxon:10:2
 ```
 
 <!-- test: error.a-redundant-cast-in-an-argument-is-unneeded -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A rebound `var` keeps its alias, so casting it to that alias in an argument is unneeded, as it is
 everywhere else.
 ```maxon
@@ -1619,14 +1618,13 @@ n=5 back=5
 ```
 
 <!-- test: a-widening-cast-names-the-wider-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A widening cast gives its value the wider alias: `hi` is an `ElementIndex`, not the `Count` that `count()`
 returns, so an `ElementIndex` stores into it.
 ```maxon
 typealias Values = Array with FullRangeInt
 
 function middle(lo ElementIndex, hi ElementIndex) returns ElementIndex
-	return (lo + hi) shr 1
+	return try (lo + hi) shr 1 otherwise panic("out of range")
 end 'middle'
 
 function firstAtLeast(xs Values, target FullRangeInt) returns ElementIndex
@@ -1636,7 +1634,7 @@ function firstAtLeast(xs Values, target FullRangeInt) returns ElementIndex
 		let mid = middle(lo, hi: hi)
 		let v = try xs.get(mid) otherwise panic("test invariant: mid in bounds")
 		if v < target 'right'
-			lo = mid + 1
+			lo = try mid + 1 otherwise panic("out of range")
 		end 'right' else 'left'
 			hi = mid
 		end 'left'

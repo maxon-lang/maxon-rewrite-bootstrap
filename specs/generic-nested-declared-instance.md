@@ -528,7 +528,6 @@ end 'main'
 `Inner with Element`, whose `slotSize()` reads none. The call after the closure is the field's.
 
 <!-- test: a-closure-parameter-named-like-a-nested-field-calls-through-its-own-instance-and-the-field-keeps-its-own-after -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -568,7 +567,6 @@ type Bag uses Element
 	end 'create'
 
 	function probe(chain EChain) returns Int
-		// TODO: closures are not supported in minimaxon
 		let g = function(inner EChain) gives inner.slotSize()
 		return g(chain) + inner.slotSize()
 	end 'probe'
@@ -590,18 +588,16 @@ end 'main'
 ### A closure parameter named like a type-parameter field is not the field
 
 <!-- test: a-closure-parameter-named-like-a-type-parameter-field-calls-a-corpus-member-of-its-own-array -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 type Bag uses Element
 	export typealias Items = Array with Element
 	var current as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{current: first}
 	end 'create'
 
 	function probe(xs Items) returns bool
-		// TODO: closures are not supported in minimaxon
 		let g = function(current Items) gives current.isEmpty()
 		return g(xs)
 	end 'probe'
@@ -617,7 +613,7 @@ typealias StrItems = Array with String
 
 function main() returns ExitCode
 	let b = StrBag.create("alpha {40 + 2} value long enough for a heap record")
-	let xs = StrItems.create(0)
+	var xs = StrItems.create(0)
 	xs.push("beta {40 + 2} value long enough for a heap record")
 	print("{b.probe(xs)} {b.value()}\n")
 	return 0
@@ -635,7 +631,6 @@ false alpha 42 value long enough for a heap record
 `chain` is a field over an `Inner`; the closure's `chain` is an `Int`. The call after the closure is still the field's.
 
 <!-- test: a-closure-parameter-of-another-type-leaves-the-field-in-scope-after-it -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -663,7 +658,6 @@ type Bag uses Element
 
 	function probe() returns Int
 		let a = chain.slotSize()
-		// TODO: closures are not supported in minimaxon
 		let g = function(chain Int) gives chain + 1
 		return a + g(1) + chain.slotSize()
 	end 'probe'
@@ -685,7 +679,6 @@ end 'main'
 The closure's body is a `match` whose arms stand on the lines after the `gives`; the parameter `e` stays an `Inner` instance through the final `end`, so the arm's `e.slotSize()` draws its edge.
 
 <!-- test: a-closure-parameters-extent-runs-through-a-multi-line-match-body -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -712,7 +705,6 @@ type Bag uses Element
 	end 'create'
 
 	function probe(chain EChain) returns Int
-		// TODO: closures are not supported in minimaxon
 		let g = function(e EChain, pick Int) gives match pick 'arm'
 			1 gives e.slotSize()
 			default gives 0
@@ -739,7 +731,6 @@ end 'main'
 `Pairs with (bool, String)` reaches `Slot with W` through its iterator, which `map` builds from a body that carries no descriptor of its own. The read of `sizeof(V)` is `String`'s, never a blank block's.
 
 <!-- test: a-forwarded-size-read-through-a-cursor-of-a-two-parameter-instance -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 public type Slot uses V
@@ -793,7 +784,6 @@ typealias StrPairs = Pairs with (bool, String)
 
 function main() returns ExitCode
 	let p = StrPairs.create(true, value: "alpha {40 + 2} value long enough for a heap record")
-	// TODO: closures are not supported in minimaxon
 	let xs = p.map(function(n Count) gives n)
 	print("{xs.count()} {try xs.get(0) otherwise 99}\n")
 	return 0
@@ -1123,7 +1113,6 @@ end 'main'
 ### Two sibling closures, each parameter its own instance
 
 <!-- test: two-sibling-closures-name-a-parameter-alike-over-different-instances -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1163,9 +1152,7 @@ type Bag uses Element
 	end 'create'
 
 	function probe(chain EChain, pair EPair) returns Int
-		// TODO: closures are not supported in minimaxon
 		let g = function(c EChain) gives c.slotSize()
-		// TODO: closures are not supported in minimaxon
 		let h = function(c EPair) gives c.slotSize()
 		return g(chain) + h(pair)
 	end 'probe'

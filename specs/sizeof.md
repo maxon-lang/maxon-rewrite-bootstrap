@@ -459,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: sizeof-in-a-closure-in-a-static-reads-the-call-sites-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof` of a type parameter in a closure written in a static reads the descriptor the static took from its call site.
 ```maxon
@@ -473,7 +472,6 @@ type Cell uses T
 	end 'create'
 
 	static function sized(v T, n Int) returns Self
-		// TODO: closures are not supported in minimaxon
 		// TODO: sizeof(...) is not supported in minimaxon
 		let f = function() gives (sizeof(T) as Int) + n
 		if f() != 9 'theSizeOfAnIntegerPlusOne'
@@ -627,7 +625,6 @@ end 'main'
 ### `sizeof` of a two-parameter generic's parameter through a permuted instance, a closure and a static
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-a-permutation-a-closure-and-a-static -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
@@ -664,7 +661,6 @@ type Holder uses T, U
 	end 'viaSwapped'
 
 	function viaClosure() returns Count
-		// TODO: closures are not supported in minimaxon
 		// TODO: sizeof(...) is not supported in minimaxon
 		let f = function() gives sizeof(U)
 		return f()

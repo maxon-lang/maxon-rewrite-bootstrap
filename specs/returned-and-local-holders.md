@@ -368,8 +368,6 @@ error E3207: <fragment>:25:23: 'make' builds a record that holds 'row', so it ta
 ```
 
 <!-- test: error.read-only-data-into-a-function-value-inside-modify-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -398,7 +396,6 @@ type Reader
 	end 'size'
 end 'Reader'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function(Row) returns Count
 
 function run(probe Probe)
@@ -413,7 +410,6 @@ function run(probe Probe)
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	run(function(row) gives Reader.over(row).size())
 	return 0
 end 'main'
@@ -548,8 +544,6 @@ error E3207: <fragment>:47:19: 'f0' builds a record that holds 'row', so it take
 ```
 
 <!-- test: error.a-closure-returning-a-record-built-from-its-parameter-refuses-read-only-data-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -578,7 +572,6 @@ type Reader
 	end 'size'
 end 'Reader'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function(Row) returns Reader
 
 function run(make Maker)
@@ -593,7 +586,6 @@ function run(make Maker)
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	run(function(row) gives Reader.over(row))
 	return 0
 end 'main'
@@ -604,7 +596,6 @@ error E3210: <fragment>:37:6: function value for 'Maker' returns data reached fr
 ```
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -635,7 +626,6 @@ end 'Reader'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives Reader.over(row).size()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -652,8 +642,6 @@ error E3207: <fragment>:30:12: the function value builds a record from data it c
 ```
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-when-handed-to-a-callee-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -682,7 +670,6 @@ type Reader
 	end 'size'
 end 'Reader'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function() returns Count
 
 function runIt(g Probe) returns Count
@@ -691,7 +678,6 @@ end 'runIt'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives Reader.over(row).size()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -709,8 +695,6 @@ error E3207: <fragment>:36:11: 'g' builds a record from data it captured, and th
 ```
 
 <!-- test: error.a-wrapper-lending-read-only-data-to-a-generic-method-that-calls-a-function-value-is-refused-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -740,7 +724,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Count
 	var f as Step
 
@@ -761,7 +744,6 @@ end 'h'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size())
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -778,8 +760,6 @@ error E3207: <fragment>:50:16: 'h' needs a writable parameter 'p' (line 41: 'App
 ```
 
 <!-- test: error.a-wrapper-lending-read-only-data-to-a-generic-method-whose-parameter-is-not-a-type-parameter-is-refused-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -809,7 +789,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Row) returns Count
 	var f as Step
 	var tag as T
@@ -831,7 +810,6 @@ end 'h'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size(), tag: Row.create(2))
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -848,8 +826,6 @@ error E3207: <fragment>:51:16: 'h' builds a record that holds 'p', so it takes n
 ```
 
 <!-- test: error.a-generic-method-calling-a-function-value-with-its-own-item-refuses-a-paused-receiver-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -879,7 +855,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Count
 	var f as Step
 	var item as T
@@ -905,7 +880,6 @@ end 'h2'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size(), item: row)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -1181,12 +1155,11 @@ error E3207: <fragment>:37:20: 'record' writes 'signature' (it calls 'add', whic
 
 
 <!-- test: a-closure-building-a-record-from-its-capture-runs-on-mutable-data-outside-a-window -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 M3V: a closure that builds a record from data it captured is a `mutates captures` closure. Called on mutable data outside any window, held in a local and under a `mutates captures` field type, it is accepted.
 
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1220,9 +1193,7 @@ end 'Holder'
 function main() returns ExitCode
 	let first = Row.create(3)
 	let second = Row.create(4)
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives Reader.over(first).size()
-	// TODO: closures are not supported in minimaxon
 	let holder = Holder.over(function() gives Reader.over(second).size())
 	print("{g()} {holder.probe()}\n")
 	return 0
@@ -1233,13 +1204,9 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-under-a-plain-function-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 M3V: the same closure converted to a plain function type is refused where it is converted, outside any window. A plain function type promises no capture writes, and a closure that builds a record from its captures needs a mutable `self`.
 
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function() returns Count
 
 type Row
@@ -1268,7 +1235,6 @@ end 'runIt'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives Reader.over(row).size()
 	print("{runIt(g)}\n")
 	return 0
@@ -1279,8 +1245,7 @@ error E3210: <fragment>:30:10: function value for 'Probe' builds a record from d
 ```
 
 <!-- test: error.a-mutable-function-returned-from-a-function-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1289,7 +1254,7 @@ M3V: `makeProbe` returns the closure under a `mutates captures` type. The caller
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1313,7 +1278,6 @@ type Reader
 end 'Reader'
 
 function makeProbe(row Row) returns Probe
-	// TODO: closures are not supported in minimaxon
 	return function() gives Reader.over(row).size()
 end 'makeProbe'
 
@@ -1335,8 +1299,7 @@ error E3211: <fragment>:35:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-field-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1345,7 +1308,7 @@ M3V: the closure is held in a field of an outer record under a `mutates captures
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Row
@@ -1378,7 +1341,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let row = Row.create(1)
-	// TODO: closures are not supported in minimaxon
 	let holder = Holder.over(function() gives Reader.over(row).size())
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -1395,8 +1357,7 @@ error E3211: <fragment>:39:23: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-an-array-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1405,7 +1366,7 @@ M3V: the closure is an element of an outer array whose element type is a `mutate
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 typealias ProbeArray = Array with Probe
@@ -1433,7 +1394,6 @@ end 'Reader'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let probes = ProbeArray.create(0)
-	// TODO: closures are not supported in minimaxon
 	probes.push(function() gives Reader.over(row).size())
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -1451,13 +1411,13 @@ error E3211: <fragment>:34:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-frozen-holder-is-refused-when-called -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: a `mutates captures` function value read out of frozen data cannot be called, whatever the closure does.
 
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Probe = function() returns Count mutates captures
 
 type Holder
@@ -1482,7 +1442,6 @@ error E3211: <fragment>:13:21: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-closure-writing-its-capture-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1506,7 +1465,6 @@ end 'bump'
 
 function main() returns ExitCode
 	let counter = Counter.create()
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives bump(counter)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -1523,12 +1481,11 @@ error E3207: <fragment>:23:12: the function value writes data it captured, and t
 ```
 
 <!-- test: a-closure-writing-its-capture-runs-under-a-mutates-captures-type-on-mutable-data -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 M3V: a closure that writes data it captured is inferred `mutates captures`, like one that builds a record from it. `drive` takes mutable data, so `runIt` calls the closure twice and the caller sees both writes.
 
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Counter
@@ -1549,7 +1506,6 @@ function runIt(g Bump) returns Count
 end 'runIt'
 
 function drive(counter Counter) returns Count
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives bump(counter)
 	let first = runIt(g)
 	return first + runIt(g)
@@ -1566,8 +1522,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-writing-its-capture-returned-under-a-mutates-captures-type-is-refused-when-called-inside-modify -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1576,7 +1531,7 @@ M3V: `makeBump` returns the capture-writing closure under a `mutates captures` t
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Count mutates captures
 
 type Counter
@@ -1593,7 +1548,6 @@ function bump(counter Counter) returns Count
 end 'bump'
 
 function makeBump(counter Counter) returns Bump
-	// TODO: closures are not supported in minimaxon
 	return function() gives bump(counter)
 end 'makeBump'
 

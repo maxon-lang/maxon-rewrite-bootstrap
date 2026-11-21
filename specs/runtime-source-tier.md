@@ -800,7 +800,6 @@ end 'main'
 ```
 
 <!-- test: runtime-file-may-not-capture-a-mutable-local-in-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A capturing closure is a refcounted record, so a runtime file may not bind one; a plain function value is an
 immortal record and owes no count.
@@ -808,7 +807,6 @@ immortal record and owes no count.
 // --- runtime-file: Probe.maxon
 function probeClosure() returns MachineWord
 	var total = 0 as MachineWord
-	// TODO: closures are not supported in minimaxon
 	let bump = function(x MachineWord) gives total + x
 	total = bump(1 as MachineWord)
 	return total

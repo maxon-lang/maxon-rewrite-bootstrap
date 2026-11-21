@@ -409,7 +409,6 @@ error E2013: specs/pass-by-reference/pass-by-reference.let-to-mutating-param-err
 ```
 
 <!-- test: pass-by-reference.captured-let-to-mutating-param-error -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -422,7 +421,6 @@ end 'setIt'
 
 function main() returns ExitCode
 	let x = 1
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives setIt(x)
 	print("{f()}\n")
 	return 0
@@ -433,7 +431,6 @@ error E2013: specs/pass-by-reference/pass-by-reference.captured-let-to-mutating-
 ```
 
 <!-- test: pass-by-reference.captured-var-to-mutating-param-error -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -447,7 +444,6 @@ end 'setIt'
 function main() returns ExitCode
 	var x = 1 as Integer
 	x = 2
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives setIt(x)
 	print("{f()} {x}\n")
 	return 0
@@ -458,7 +454,6 @@ error E2013: <fragment>:13:27: cannot pass 'x' to a function that writes paramet
 ```
 
 <!-- test: pass-by-reference.captured-parameter-to-mutating-param-error -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
@@ -470,7 +465,6 @@ function setIt(mutates dest Integer) returns Integer
 end 'setIt'
 
 function run(p Integer) returns Integer
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives setIt(p)
 	return f()
 end 'run'
@@ -586,13 +580,10 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.closure-capture-by-ref -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function() returns Integer
 
 function apply(f FnTypeAlias1) returns Integer
@@ -601,9 +592,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let x = 42
-	// TODO: closures are not supported in minimaxon
 	let result = apply(function() gives x)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -611,13 +601,10 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.closure-capture-after-mutation -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function() returns Integer
 
 function apply(f FnTypeAlias1) returns Integer
@@ -626,11 +613,10 @@ end 'apply'
 
 function main() returns ExitCode
 	var x = 10 as Integer
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives x
 	x = 99
 	let result = apply(f)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -879,14 +865,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.closure-literal-callee-is-read-through-the-cell -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure literal of a `mutable` function type declares its parameter `mutable` too; one that only reads it leaves the variable alone.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Small) returns Small
+typealias Step = function(mutates Small) returns Small
 
 function bump(mutates n Small) returns Small
 	n = 7
@@ -902,10 +885,8 @@ end 'run'
 function main() returns ExitCode
 	let moved = run(bump)
 	let offset = 10 as Small
-	// TODO: closures are not supported in minimaxon
-	let untouched = run(function(n mutable Small) gives n)
-	// TODO: closures are not supported in minimaxon
-	let capturing = run(function(_ mutable Small) gives offset)
+	let untouched = run(function(mutates n Small) gives n)
+	let capturing = run(function(mutates _ Small) gives offset)
 	print("{moved} {untouched} {capturing}\n")
 	return 0
 end 'main'
@@ -947,13 +928,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.function-value-forwarded-through-a-caller-updates-the-variable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `apply` marks its own parameter `mutable` to hand it to the function it is given, so that parameter is passed by reference as it is for a direct `bump(n)`, and the caller's variable is updated.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Small)
+typealias Step = function(mutates Small)
 
 function bump(mutates n Small)
 	n = 7
@@ -979,11 +958,11 @@ A function-value call takes an argument as a place only at a position its functi
 typealias Count = int(0 to 1000)
 
 function bump(mutates n Count)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 end 'bump'
 
 function measure(text String) returns ExitCode
-	return text.byteLength() as ExitCode
+	return try text.byteLength() as ExitCode otherwise panic("out of range")
 end 'measure'
 
 function main() returns ExitCode
@@ -1005,14 +984,12 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.error.an-unmarked-parameter-handed-to-a-by-reference-function-value-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An unmarked parameter is a `let`, so handing it to a position the function value writes is refused as it is at a direct call.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Small)
+typealias Step = function(mutates Small)
 
 function bump(mutates n Small)
 	n = 7
@@ -1033,14 +1010,12 @@ error E2013: <fragment>:10:3: cannot pass 'n', which is read-only (a parameter),
 ```
 
 <!-- test: pass-by-reference.error.a-function-value-names-no-parameter-so-the-refusal-counts-the-argument -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function type declares no parameter names, so the refusal for an unmarked parameter handed to a by-reference function value names the argument's position, not a parameter spelled like the caller's variable or like the function the value happens to be.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(Small, mutable Small)
+typealias Step = function(Small, mutates Small)
 
 function bump(first Small, mutates target Small)
 	target = first
@@ -1123,14 +1098,12 @@ error E2013: <fragment>:11:3: cannot pass an expression to a function that write
 ```
 
 <!-- test: pass-by-reference.error.a-literal-handed-to-a-by-reference-parameter-of-a-function-type-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function-type alias that marks a position `mutable` fixes the convention at every call through a value of that type, whichever function the value holds.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Count)
+typealias Step = function(mutates Count)
 
 function bump(mutates n Count)
 	n = n + 1
@@ -1188,7 +1161,6 @@ error E2013: <fragment>:22:4: cannot pass a literal to a function that writes ar
 
 
 <!-- test: pass-by-reference.function-value-closure-and-named-share-one-convention -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure literal and a named function of one function type are called alike: the named one writes through the cell, the closure declares the parameter `mutable` and reads it, leaving the variable alone.
 ```maxon
 typealias Small = int(1 to 100)
@@ -1202,8 +1174,7 @@ function main() returns ExitCode
 	var a = 3 as Small
 	var b = 3 as Small
 	let named = bump
-	// TODO: closures are not supported in minimaxon
-	let literal = function(n mutable Small) gives n
+	let literal = function(mutates n Small) gives n
 	_ = named(a)
 	_ = literal(b)
 	print("{a} {b}\n")
@@ -1218,13 +1189,11 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.function-value-held-in-a-field-updates-the-variable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function value read out of a field passes the variable's storage as a local one does.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Small)
+typealias Step = function(mutates Small)
 
 function bump(mutates n Small)
 	n = 7
@@ -1250,14 +1219,12 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.error.a-let-handed-through-a-callback-parameter-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A `let` handed through a function-typed parameter to a position the function it may hold writes is refused, as at a direct call.
 ```maxon
 typealias Small = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Small)
+typealias Step = function(mutates Small)
 
 function bump(mutates n Small)
 	n = 7
@@ -1320,14 +1287,12 @@ Stack trace:
 ```
 
 <!-- test: pass-by-reference.error.a-let-handed-to-a-callback-is-refused-when-a-body-of-its-shape-writes-it -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A `let` handed through a callback is refused when any body of the callback's shape writes the parameter, although other bodies of that shape only read it.
 ```maxon
 typealias Wide = int(1 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Wide)
+typealias Step = function(mutates Wide)
 
 function bump(mutates n Wide)
 	n = 7
@@ -1384,18 +1349,16 @@ error E2013: <fragment>:17:6: 'item' is a let and cannot be passed to the `mutab
 ```
 
 <!-- test: pass-by-reference.a-field-typed-with-a-directory-qualified-function-alias-passes-by-reference -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A field whose type is a function alias named through its directory is a function value, so a call through it passes its argument by reference.
 ```maxon
 // --- file: alpha/ops.maxon
 export typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Bump = function(mutable Count)
+export typealias Bump = function(mutates Count)
 
 // --- file: main.maxon
 function bump(mutates n alpha.Count)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 end 'bump'
 
 type Holder
@@ -1498,7 +1461,6 @@ end 'main'
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-mutable-position-of-a-function-typed-parameter-is-refused -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function-typed parameter declares the position it is called through, so a narrow variable handed to its wider `mutable` position is refused in the function that calls it.
 ```maxon
@@ -1507,8 +1469,7 @@ typealias Wide = int(0 to 100)
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Bump = function(mutable Wide)
+typealias Bump = function(mutates Wide)
 
 function bumpWide(mutates n Wide)
 	n = 50
@@ -1530,13 +1491,11 @@ error E3005: <fragment>:12:7: argument type mismatch for 1: expected 'Wide', got
 ```
 
 <!-- test: pass-by-reference.a-var-of-the-position-alias-is-written-through-a-function-typed-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The function-typed parameter's own position alias is the alias its caller's variable declares.
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Bump = function(mutable Wide)
+typealias Bump = function(mutates Wide)
 
 function bumpWide(mutates n Wide)
 	n = 50
@@ -1838,7 +1797,6 @@ end 'main'
 
 <!-- test: pass-by-reference.error.a-callback-typed-at-a-narrower-alias-refuses-a-body-taking-a-wider-one -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function type over the narrower alias does not admit a body that takes the wider alias, so the wider body can never be reached through it.
 ```maxon
@@ -1847,8 +1805,7 @@ typealias Wide = int(0 to 100)
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Narrow)
+typealias Step = function(mutates Narrow)
 
 function bumpWide(mutates n Wide)
 	n = 50
@@ -2034,7 +1991,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-record-handed-through-a-mutable-record-function-value-is-written-through -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function type spells `mutable Row` the same way, and a call through a function value hands the object over like a direct call, including a record the caller received as an ordinary parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2047,20 +2003,19 @@ type Row
 	end 'create'
 end 'Row'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias RowEdit = function(mutable Row)
+typealias RowEdit = function(mutates Row)
 
 function raise(mutates row Row)
-	row.n = row.n + 5
+	row.n = try row.n + 5 otherwise panic("out of range")
 end 'raise'
 
-function apply(edit RowEdit, row Row)
+function apply(edit RowEdit, mutates row Row)
 	edit(row)
 	edit(row)
 end 'apply'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	apply(raise, row: row)
 	print("{row.n}\n")
 	return 0
@@ -2074,7 +2029,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.a-let-record-handed-to-a-mutable-record-function-value-is-written -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A `mutable` position of a function type declares a write. A record is written in place through its parameter and is never rebound, so a `let` record handed to it is accepted: `let` forbids reassigning `row`, not writing the record it names.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2087,19 +2041,18 @@ type Row
 	end 'create'
 end 'Row'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias RowEdit = function(mutable Row)
+typealias RowEdit = function(mutates Row)
 
 function raise(mutates row Row)
-	row.n = row.n + 5
+	row.n = try row.n + 5 otherwise panic("out of range")
 end 'raise'
 
-function apply(edit RowEdit, row Row)
+function apply(edit RowEdit, mutates row Row)
 	edit(row)
 end 'apply'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	apply(raise, row: row)
 	return row.n as ExitCode
 end 'main'

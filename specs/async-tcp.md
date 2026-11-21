@@ -115,7 +115,6 @@ try_await #1 [yield]
 ```
 
 <!-- test: async-tcp.trace-mixed-io -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
@@ -125,7 +124,6 @@ dial parks and succeeds with no live host. Both addresses are literals, which wa
 bind does not park and the connect parks once, for the dial.
 ```maxon
 function mixedIo(port NetworkPort) returns ExitCode throws NetworkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "nofile.txt")
 	_ = try TcpClient.connect("127.0.0.1", port: port)
 	return 0

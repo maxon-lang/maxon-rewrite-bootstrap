@@ -39,7 +39,6 @@ value of its own type.
 ## Tests
 
 <!-- test: witness-closure-inheritance.closure-dispatches-type-parameter-witness -->
-<!-- skip: closures are not supported in minimaxon -->
 The base case: a closure inside an instance method of `type Box uses T where T is Digest` dispatches
 `Digest.digest` on its own `T`-typed parameter. Before closure-env inheritance the parser had no witness
 to name here and aborted the compiler.
@@ -58,19 +57,18 @@ type Point implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Point'
 
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function itemDigest() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.digest()
 		return f(self.item)
 	end 'itemDigest'
@@ -93,7 +91,6 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.closure-witness-in-type-extension -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 The constraint written on a TYPE EXTENSION rather than on the declaration — `stdlib/Array.maxon`'s
 `extension Array where Element is Comparable` shape exactly. The extension body's methods reserve the
@@ -128,7 +125,6 @@ end 'Box'
 // TODO: extension blocks are not supported in minimaxon
 extension Box where T implements Digest
 	function itemDigest() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.digest()
 		return f(self.item)
 	end 'itemDigest'
@@ -150,7 +146,6 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.closure-witness-in-interface-extension -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 An INTERFACE extension's body, which the compiler parses once per conformer with the CONFORMER's own `uses`
 parameters and `where` clause installed (`Parser.openExtensionBodyScope`). A closure there inherits the
@@ -194,7 +189,6 @@ end 'Box'
 // TODO: extension blocks are not supported in minimaxon
 extension Peek
 	function viaClosure() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.digest()
 		return f(self.item) + self.base()
 	end 'viaClosure'
@@ -216,7 +210,6 @@ d=94
 ```
 
 <!-- test: witness-closure-inheritance.two-instantiations-through-one-lifted-body -->
-<!-- skip: closures are not supported in minimaxon -->
 ⭐ The witness must be DYNAMIC, not folded. `Box.itemDigest` is one shared body under dictionary-passing,
 so its closure lifts to ONE function — and both instantiations call it. `Times31` gives 93 and `Times2`
 gives 6 from the same lifted code, which a table baked into the lift could not produce.
@@ -235,7 +228,7 @@ type Times31 implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Times31'
 
@@ -247,19 +240,18 @@ type Times2 implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 2
+		return try self.x * 2 otherwise panic("out of range")
 	end 'digest'
 end 'Times2'
 
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function itemDigest() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.digest()
 		return f(self.item)
 	end 'itemDigest'
@@ -284,8 +276,6 @@ a=93 b=6
 ```
 
 <!-- test: witness-closure-inheritance.nested-closure-inherits-through-two-hops -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ A closure inside a closure. The inner lift captures the witness from the OUTER lift's environment, and
 the outer captured it from the method's hidden parameter — two hops, each of them a capture from the
 immediate enclosing frame.
@@ -304,16 +294,15 @@ type Point implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Point'
 
 type Box uses T where T implements Digest
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias TFn = function(T) returns Code
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -322,7 +311,6 @@ type Box uses T where T implements Digest
 	end 'applyStatic'
 
 	function itemDigest() returns Code
-		// TODO: closures are not supported in minimaxon
 		let outer = function(v T) gives Self.applyStatic(function(w T) gives w.digest(), z: v)
 		return outer(self.item)
 	end 'itemDigest'
@@ -344,7 +332,6 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.managed-element-through-an-inherited-witness -->
-<!-- skip: closures are not supported in minimaxon -->
 A MANAGED element: `Tag` owns a `String`, so the boxed conformer is refcounted and every trip through the
 closure borrows it. The exit code is the gate — a retain the environment never balanced would leave the
 run at 101 rather than 0.
@@ -360,23 +347,22 @@ type Tag implements Digest
 	export var code as Code
 
 	static function create(name String, code Code) returns Self
-		return Self{name: name, code: code}
+		return Self{name: name.clone(), code: code}
 	end 'create'
 
 	function digest() returns Code
-		return self.code * 31
+		return try self.code * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Tag'
 
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function itemDigest() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.digest()
 		return f(self.item)
 	end 'itemDigest'
@@ -399,7 +385,6 @@ d=93
 ```
 
 <!-- test: witness-closure-inheritance.two-constraints-keep-their-own-slots -->
-<!-- skip: closures are not supported in minimaxon -->
 ⭐ Two constraints on one parameter, dispatched through BOTH inside one closure. Each constraint takes its
 own environment slot, and the answer distinguishes them: `tag()` is `x + 7` and `digest()` is `x * 31`, so
 a slot mix-up prints a different number rather than failing. `10093 = 10 * 1000 + 93`.
@@ -422,25 +407,24 @@ type Point implements Digest, Tagged
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 
 	function tag() returns Code
-		return self.x + 7
+		return try self.x + 7 otherwise panic("out of range")
 	end 'tag'
 end 'Point'
 
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function both() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.tag() * 1000 + v.digest()
-		return f(self.item)
+		return try f(self.item) as Code otherwise panic("out of range")
 	end 'both'
 end 'Box'
 
@@ -460,7 +444,6 @@ r=10093
 ```
 
 <!-- test: witness-closure-inheritance.witness-and-ordinary-capture-share-one-environment -->
-<!-- skip: closures are not supported in minimaxon -->
 The inherited witnesses sit in the SAME closure record as ordinary captures — here two constraint
 tables and the enclosing method's `bias` parameter, four reads in one body over three slots. `10098` is
 the case above plus the captured `5`.
@@ -483,25 +466,24 @@ type Point implements Digest, Tagged
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 
 	function tag() returns Code
-		return self.x + 7
+		return try self.x + 7 otherwise panic("out of range")
 	end 'tag'
 end 'Point'
 
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function both(bias Code) returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives v.tag() * 1000 + v.digest() + bias
-		return f(self.item)
+		return try f(self.item) as Code otherwise panic("out of range")
 	end 'both'
 end 'Box'
 
@@ -521,7 +503,6 @@ r=10098
 ```
 
 <!-- test: witness-closure-inheritance.one-constraint-dispatched-twice-takes-one-slot -->
-<!-- skip: closures are not supported in minimaxon -->
 A constraint dispatched twice in one body occupies ONE environment slot and is stored once — the same
 dedup an ordinary name read twice gets. Two `Point`s so the two reads are distinguishable: `93 + 62`.
 ```maxon
@@ -539,7 +520,7 @@ type Point implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Point'
 
@@ -547,14 +528,13 @@ type Pair uses T where T implements Digest
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
+	static function create(consumes a T, consumes b T) returns Self
 		return Self{a: a, b: b}
 	end 'create'
 
 	function sum() returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(p T, q T) gives p.digest() + q.digest()
-		return f(self.a, self.b)
+		return try f(self.a, self.b) as Code otherwise panic("out of range")
 	end 'sum'
 end 'Pair'
 
@@ -574,7 +554,6 @@ s=155
 ```
 
 <!-- test: witness-closure-inheritance.a-closure-in-a-static-inherits-the-tables-the-call-site-handed-it -->
-<!-- skip: closures are not supported in minimaxon -->
 A `static function` that dispatches through the type's constraints takes its witness tables from its call site, so a closure written inside one inherits them through its environment as a closure in an instance method does.
 ```maxon
 typealias Code = int(0 to u32.max)
@@ -591,7 +570,7 @@ type Point implements Digest
 	end 'create'
 
 	function digest() returns Code
-		return self.x * 31
+		return try self.x * 31 otherwise panic("out of range")
 	end 'digest'
 end 'Point'
 
@@ -599,7 +578,6 @@ type Box uses T where T implements Digest
 	export var item as T
 
 	static function digestOf(v T) returns Code
-		// TODO: closures are not supported in minimaxon
 		let f = function(w T) gives w.digest()
 		return f(v)
 	end 'digestOf'

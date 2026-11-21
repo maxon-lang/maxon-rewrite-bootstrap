@@ -58,7 +58,6 @@ to lie to.
 ## Tests
 
 <!-- test: cross-file-bool-plus-int -->
-<!-- skip: differing error code: operand types -->
 A `bool` returned from another file cannot be added to an `int`. This is the headline case: typed by
 deferral, it would compile and return 42.
 ```maxon
@@ -316,7 +315,6 @@ typealias IntArray = Array with Int
 ```
 
 <!-- test: cross-file-function-alias-is-a-swept-value-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ **THE FUNCTION-ALIAS ARM IS THE SAME SHAPE.** `functionTypeAliases` is folded per FILE, so a
 function alias declared in a sibling file walked earlier is registered while a later file is still being
 swept. This half declares the alias file FIRST and its twin below declares it
@@ -326,12 +324,11 @@ last; that is the order the compiler compiles, so the pair covers both orders (s
 // --- file: alias.maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Int) returns Int
 
 // --- file: main.maxon
 function twice(n Int) returns Int
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 type Holder
@@ -349,7 +346,7 @@ end 'pick'
 function main() returns ExitCode
 	let h = Holder.create()
 	let f = pick()
-	return (h.op(7) + f(14)) as ExitCode
+	return try (h.op(7) + f(14)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -357,12 +354,11 @@ end 'main'
 ```
 
 <!-- test: cross-file-function-alias-is-a-swept-value-type-either-order -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ **THE SAME PROGRAM WITH THE TWO FILES DECLARED THE OTHER WAY ROUND.** Same gate, same reason: the alias file declares nothing but aliases, so this case's IR must read identically to its twin.
 ```maxon
 // --- file: main.maxon
 function twice(n Int) returns Int
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 type Holder
@@ -380,13 +376,12 @@ end 'pick'
 function main() returns ExitCode
 	let h = Holder.create()
 	let f = pick()
-	return (h.op(7) + f(14)) as ExitCode
+	return try (h.op(7) + f(14)) as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: alias.maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Int) returns Int
 ```
 ```exitcode
@@ -394,7 +389,6 @@ typealias UnaryOp = function(Int) returns Int
 ```
 
 <!-- test: cross-file-generic-instance-through-a-function-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐⭐ **THE SWEPT FUNCTION ALIAS AGAIN, BUT OVER A GENERIC INSTANCE — WHERE THE ORDER CAN DECIDE THE ANSWER
 RATHER THAN THE SPELLING.** The pair above pins a function alias whose types are RANGED, which round-trip
 through the stored `(tag, name)` pair because they have a name. A `genericInstance` does not: its identity
@@ -413,9 +407,9 @@ typealias Small = int(0 to 10)
 typealias SmallArray = Array with Small
 
 function smallCount() returns Small
-	let s = SmallArray.create(0)
+	var s = SmallArray.create(0)
 	s.push(3)
-	return s.count()
+	return try s.count() as Small otherwise panic("out of range")
 end 'smallCount'
 
 // --- file: types.maxon
@@ -434,11 +428,10 @@ typealias FieldArray = Array with Field
 // --- file: srv.maxon
 typealias Count = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldsBuilder = function(Count) returns FieldArray
 
 function buildFields(n Count) returns FieldArray
-	let out = FieldArray.create(0)
+	var out = FieldArray.create(0)
 	out.push(Field.create(n as Integer))
 	return out
 end 'buildFields'
@@ -455,7 +448,7 @@ end 'runBuilder'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return (runBuilder() as ExitCode) + (smallCount() as ExitCode)
+	return try (runBuilder() as ExitCode) + (smallCount() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -463,7 +456,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-generic-instance-through-a-function-alias-either-order -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ **THE SAME FOUR FILES WITH THE THIEF MOVED AFTER THE DECLARATION IT WAS STEALING FROM**, so
 `Array with Field` interns first and holds id 0. **A rebuild that read id 0 would pass this half and fail
 its twin above** — same program, same files, different declared order, opposite verdicts. The compiler
@@ -487,11 +479,10 @@ typealias FieldArray = Array with Field
 // --- file: srv.maxon
 typealias Count = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldsBuilder = function(Count) returns FieldArray
 
 function buildFields(n Count) returns FieldArray
-	let out = FieldArray.create(0)
+	var out = FieldArray.create(0)
 	out.push(Field.create(n as Integer))
 	return out
 end 'buildFields'
@@ -512,14 +503,14 @@ typealias Small = int(0 to 10)
 typealias SmallArray = Array with Small
 
 function smallCount() returns Small
-	let s = SmallArray.create(0)
+	var s = SmallArray.create(0)
 	s.push(3)
-	return s.count()
+	return try s.count() as Small otherwise panic("out of range")
 end 'smallCount'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return (runBuilder() as ExitCode) + (smallCount() as ExitCode)
+	return try (runBuilder() as ExitCode) + (smallCount() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

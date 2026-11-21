@@ -1173,7 +1173,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-container-drops-its-un-awaited-elements -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ The container is an OWNER. An array of promises that reaches scope exit holding un-awaited elements
 drops each one — the same `__gt_promise_drop` a bare binding gets, reached through the element
@@ -1188,7 +1187,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1205,7 +1203,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.an-element-moved-out-by-pop-belongs-to-the-caller -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `pop` MOVES the element out: the array no longer holds it and the caller's binding does, so the binding
@@ -1220,7 +1217,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1243,7 +1239,6 @@ popped a thread complete=false, array now 0
 ```
 
 <!-- test: async-promise-drop.a-struct-field-drops-the-promise-it-holds -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A struct FIELD is an owner too, and the struct's synthesized destructor drops it. A spawn is typed
@@ -1262,7 +1257,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1287,7 +1281,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-let-field-takes-a-fresh-spawn-and-a-last-use-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A `let` field takes a promise it is the only holder of: a spawn written at the call, and a `var` promise at its last use. Both are moved in, and the holders' destructors drop them without a leak.
 ```maxon
@@ -1296,7 +1289,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1325,7 +1317,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.awaiting-a-promise-held-in-a-let-field-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1336,7 +1327,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1361,7 +1351,6 @@ error E2013: <fragment>:19:10: 'p' is a let field and cannot be reassigned
 ```
 
 <!-- test: async-promise-drop.error.cancelling-a-promise-held-in-a-let-field-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `cancel` consumes the promise the same way, so it is refused through a `let` field for the same reason.
@@ -1371,7 +1360,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1396,7 +1384,6 @@ error E2013: <fragment>:19:6: 'p' is a let field and cannot be reassigned
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-read-through-a-borrow-door -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1419,7 +1406,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1438,7 +1424,6 @@ error E3141: <fragment>:14:17: a promise cannot be borrowed through 'last': it o
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-an-instance-alias -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1463,7 +1448,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1481,7 +1465,6 @@ error E3141: <fragment>:26:21: a promise cannot be borrowed through 'first': it 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-on-an-inferred-instance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1506,7 +1489,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1524,7 +1506,6 @@ error E3141: <fragment>:26:14: a promise cannot be borrowed through 'first': it 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-later-argument -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1552,7 +1533,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1570,7 +1550,6 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'second': it
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-an-array-of-instances -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1603,7 +1582,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1621,7 +1599,6 @@ error E3141: <fragment>:35:21: a promise cannot be borrowed through 'firstOf': i
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-that-returns-a-borrowed-promise-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1646,7 +1623,6 @@ end 'Slot'
 typealias PromiseSlot = Slot with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1664,7 +1640,6 @@ error E3141: <fragment>:26:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-nested-arrays -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1700,7 +1675,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1718,7 +1692,6 @@ error E3141: <fragment>:38:21: a promise cannot be borrowed through 'firstOf': i
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-map -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1750,7 +1723,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1768,7 +1740,6 @@ error E3141: <fragment>:34:21: a promise cannot be borrowed through 'fromMap': i
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-tuple -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple element access is not supported in minimaxon -->
@@ -1805,7 +1776,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1823,7 +1793,6 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'fromPair': 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-struct-holding-an-instance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1860,7 +1829,6 @@ typealias PromiseBox = Box with IntPromise
 typealias PromisePocket = Pocket with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1878,10 +1846,8 @@ error E3141: <fragment>:39:21: a promise cannot be borrowed through 'through': i
 ```
 
 <!-- test: async-promise-drop.a-static-whose-arguments-reach-no-promise-hands-a-fresh-one-out -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An instance of the generic type that holds no promise is not a holder, even though it is an instance of the base: the static builds its promise from a function, so nothing is borrowed and the call runs.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1890,7 +1856,6 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns T
 
 	static function create(v T) returns Self
@@ -1914,7 +1879,6 @@ typealias IntBox = Box with Integer
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1936,7 +1900,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-user-generics-pop-that-moves-the-element-out-is-accepted -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A user generic's `pop` is decided from its body: this one returns what `Array.pop` took out of its array, a value nothing else holds, so the caller owns the promise and awaits it.
@@ -1965,7 +1928,6 @@ end 'Stack'
 typealias PromiseStack = Stack with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -1984,7 +1946,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-that-returns-a-borrow-of-its-array-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2014,7 +1975,6 @@ end 'Stack'
 typealias PromiseStack = Stack with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2033,7 +1993,6 @@ error E3141: <fragment>:33:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.a-user-generics-pop-forwarded-through-a-nested-user-type-that-moves-out-is-accepted -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The field's declared type is read: `Outer.pop` returns `self.inner.pop()`, `inner` is an `Inner`, and `Inner.pop` is itself a move-out of its array, so the promise is handed on and the caller awaits it.
@@ -2079,7 +2038,6 @@ end 'Outer'
 typealias PromiseOuter = Outer with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2098,7 +2056,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-through-a-nested-user-type-whose-pop-borrows-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2145,7 +2102,6 @@ end 'Outer'
 typealias PromiseOuter = Outer with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2164,7 +2120,6 @@ error E3141: <fragment>:51:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.a-method-that-returns-a-parameter-it-consumes-hands-it-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A method returning a type-parameter value that is its own consumed parameter hands on what the caller moved in, not what the receiver holds, so the call is not a borrow.
@@ -2188,7 +2143,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2207,7 +2161,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-static-that-returns-a-parameter-it-consumes-beside-an-unconsumed-holder-hands-it-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same for a static: the holder `a` is only read, and the value returned is the consumed `w`, so nothing is borrowed.
@@ -2238,7 +2191,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2257,7 +2209,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-static-returning-a-parameter-written-as-an-alias-hands-back-a-borrowed-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -2290,7 +2241,6 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2310,7 +2260,6 @@ error E3141: <fragment>:27:26: a promise cannot be borrowed through 'relay': it 
 ```
 
 <!-- test: async-promise-drop.a-user-pop-moving-out-through-a-local-hands-the-thread-over -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `Stack.pop` binds the element it moves out of its field to a local and returns that local, which is the same move-out as returning the call itself, so the popped promise is the caller's to await.
@@ -2340,7 +2289,6 @@ end 'Stack'
 typealias PromiseStack = Stack with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2359,7 +2307,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-user-method-forwarding-a-field-remove-hands-the-thread-over -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The library `remove` takes one positional argument, and a user method that forwards `self.items.remove(0)` moves the element out exactly as the library door does.
@@ -2388,7 +2335,6 @@ end 'Stack'
 typealias PromiseStack = Stack with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2407,7 +2353,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-user-extension-cannot-redeclare-a-library-move-out-door -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: extension blocks are not supported in minimaxon -->
@@ -2427,7 +2372,6 @@ extension Array
 end 'Array'
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2445,7 +2389,6 @@ error E3006: <fragment>:6:11: Duplicate method 'remove' in type 'Array'
 ```
 
 <!-- test: async-promise-drop.a-cursor-over-a-container-of-promises-names-its-slot -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A cursor over an array stands at an index, so a promise read through its `current()` has a slot exactly as
@@ -2459,7 +2402,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2479,7 +2421,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-move-out-hands-the-thread-over -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The other side of the rule above: `pop` MOVES the element out, so the container has stopped naming it and
@@ -2493,7 +2434,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -2512,7 +2452,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.cancel-a-promise-no-frame-owns -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐⭐ **`cancel` IS A CONSUME, SO IT ASKS THE SAME OWNERSHIP QUESTION `await` ASKS.**
@@ -2532,7 +2471,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 21
 end 'plain'
@@ -2751,7 +2689,6 @@ end 'main'
 <!-- test: async-promise-drop.a-closure-parameters-shadow-ends-at-its-line -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 ⭐ **A CLOSURE'S PARAMETERS BIND FOR THE ONE EXPRESSION AFTER `gives`, so the shadow is gone at the next
 newline.** `p` on the last line below is the promise parameter again, and its `await` is what enrols this
 frame the promise's owner. A shadow that outlived its line would leave nothing enrolled and
@@ -2768,7 +2705,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function finish(p IntPromise) returns Integer
-	// TODO: closures are not supported in minimaxon
 	let bump = function(p Integer) gives p + 1
 	let extra = bump(4)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -2786,7 +2722,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-cursor-peek-over-a-container-of-promises-names-its-slot -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A cursor's `peek(n)` reads the slot `n` past where it stands, and that is the slot the read names: awaiting it
@@ -2799,7 +2734,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -2822,7 +2756,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-whole-pair-from-withIterator-over-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
@@ -2839,7 +2772,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -2863,7 +2795,6 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 ```
 
 <!-- test: async-promise-drop.error.a-map-iterator-over-promise-values -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2878,7 +2809,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseMap = Map with (String, IntPromise)
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -2901,7 +2831,6 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 ```
 
 <!-- test: async-promise-drop.a-cursor-read-twice-without-moving-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two `current()` reads through a cursor that does not move between them name one slot, so both values name one
@@ -2916,7 +2845,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -2940,7 +2868,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-and-a-cursor-read-of-one-slot-abort -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `get(0)` and a cursor standing at 0 name the same slot through two different doors, so the two reads name one
@@ -2953,7 +2880,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -2977,7 +2903,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-read-twice-at-one-runtime-index-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two `get(i)` reads whose index is one value at run time but two to the compiler name one slot, so the second
@@ -2990,13 +2915,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
 
 function zero() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 0
 end 'zero'
@@ -3019,7 +2942,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-awaited-twice-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The first await empties the field, so the second `h.p` is a fresh read of a slot that is already zero: it
@@ -3031,7 +2953,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3062,7 +2983,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-cancelled-then-awaited-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `cancel` is the other consume door, and it empties the field the same way — so the await behind it finds
@@ -3073,7 +2993,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3102,7 +3021,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-rearmed-between-awaits-answers-both -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **CONTROL.** A field written again between two consumes holds a NEW thread, and the occupant check accepts
@@ -3114,7 +3032,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3144,7 +3061,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-promise-read-out-of-one-container-and-stored-into-another-moves -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Reading a promise out of one container and storing it into another is a MOVE between two slots: the store
@@ -3158,7 +3074,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3179,7 +3094,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-twice -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The store above emptied `a`'s slot and handed the thread to `b`, so the name that read it out has stopped
@@ -3193,7 +3107,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3215,7 +3128,6 @@ error E3102: <fragment>:21:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: async-promise-drop.error.a-retired-slot-read-stored -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Two reads of one slot hold one thread, and the first store empties the slot both of them name — so `q` names
@@ -3231,7 +3143,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3254,7 +3165,6 @@ error E3141: <fragment>:22:4: a promise cannot be borrowed through 'push': it ow
 ```
 
 <!-- test: async-promise-drop.a-slot-read-stored-in-exclusive-arms-is-owned-once -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **CONTROL.** Two stores of one slot read in MUTUALLY EXCLUSIVE arms are each the only store on their own
@@ -3269,13 +3179,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
 
 function pick() returns bool
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	return File.exists(FilePath from "definitely-not-here.txt")
 end 'pick'
 
@@ -3306,7 +3214,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-in-one-arm-is-spent-past-the-join -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The other side of the control above: a thread given away on ONE reaching edge is spent past the join, so the
@@ -3320,13 +3227,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
 
 function pick() returns bool
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	return File.exists(FilePath from "definitely-not-here.txt")
 end 'pick'
 
@@ -3349,7 +3254,6 @@ error E3102: <fragment>:28:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-inside-a-loop-it-was-read-outside -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A store inside a loop runs on every trip, so a slot read taken OUTSIDE the loop empties `a`'s slot on the
@@ -3364,7 +3268,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3388,7 +3291,6 @@ error E3102: <fragment>:21:10: use of moved value 'p': it was moved in an earlie
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-awaited-inside-a-loop-it-was-read-outside -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3404,7 +3306,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3430,7 +3331,6 @@ error E3100: <fragment>:21:11: this promise has already been awaited: 'await' is
 ```
 
 <!-- test: async-promise-drop.error.a-retired-slot-read-awaited -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3445,7 +3345,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3468,7 +3367,6 @@ error E3141: <fragment>:19:15: a promise cannot be borrowed through 'await': it 
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-given-away-in-a-while-condition -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3483,7 +3381,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3500,7 +3397,6 @@ function main() returns ExitCode
 	a.push(async plain(7))
 	let p = try a.get(0) otherwise panic("has one")
 	while takes(p) 'loop'
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		_ = File.exists(FilePath from "noyield.txt")
 	end 'loop'
 	return 0 as ExitCode
@@ -3511,7 +3407,6 @@ error E3102: <fragment>:22:14: use of moved value 'p': it was moved in an earlie
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-awaited-inside-a-nested-loop-it-was-read-outside -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3525,7 +3420,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3556,7 +3450,6 @@ error E3100: <fragment>:24:17: this promise has already been awaited: 'await' is
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-inside-a-nested-loop-it-was-read-outside -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The store twin of the case above: the inner loop stores the outer body's slot read on every trip, so its
@@ -3569,7 +3462,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3599,7 +3491,6 @@ error E3102: <fragment>:24:11: use of moved value 'p': it was moved in an earlie
 ```
 
 <!-- test: async-promise-drop.a-get-awaited-at-one-index-every-iteration-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `get(0)` INSIDE the loop is a fresh read on every trip, so the compiler has no name that was moved twice; the
@@ -3613,7 +3504,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3641,7 +3531,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-stored-at-one-index-every-iteration-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The store twin of the case above: the first trip moves the thread into `b` and empties `a`'s slot, so the second
 trip's read of it aborts with **118** rather than storing a second reference to one thread.
@@ -3653,7 +3542,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3679,7 +3567,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-awaited-every-iteration-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A field read inside the loop is a fresh read of the same slot on every trip, so the second trip's await finds the
@@ -3690,7 +3577,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3724,7 +3610,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-stored-every-iteration-aborts -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The store twin of the case above: the second trip's read of the emptied field aborts with **118**.
 ```maxon
@@ -3735,7 +3620,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3768,7 +3652,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-slot-rearmed-between-moves-in-a-loop-answers-every-trip -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **CONTROL for the four aborts above.** A slot written again between two moves holds a NEW thread, so a loop that
@@ -3782,7 +3665,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'
@@ -3823,7 +3705,6 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-distinct-slot-moved-on-every-nested-iteration-answers-every-trip -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **CONTROL.** A nested loop whose inner body reads a DIFFERENT slot on every trip, and both awaits it and
@@ -3836,7 +3717,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'plain'

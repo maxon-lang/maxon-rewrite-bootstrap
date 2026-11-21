@@ -1329,17 +1329,17 @@ nothing downstream can recover it and `let h = ...` fails to compile.
 typealias Integer = int(i64.min to i64.max)
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function trp(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'trp'
 
 function main() returns ExitCode
 	let c = 1
 	let h = dbl if c > 0 else trp
-	return h(21)
+	return try h(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1354,16 +1354,16 @@ into a call.
 typealias Integer = int(i64.min to i64.max)
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function trp(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'trp'
 
 function main() returns ExitCode
 	let c = 0
-	return (dbl if c > 0 else trp)(14)
+	return try (dbl if c > 0 else trp)(14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1521,15 +1521,11 @@ error E3102: <fragment>:35:11: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-moves-then-arm-reads -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A move made in the CONDITION is seen by the TRUE arm
 The condition hands `t` to a closure, which owns what it captures, and the true arm reads `t` after it.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Num
 
 function run(f Thunk) returns Num
@@ -1538,7 +1534,6 @@ end 'run'
 
 function main() returns ExitCode
 	var t = "key{1} padded out long enough to be a real heap allocation"
-	// TODO: closures are not supported in minimaxon
 	let r = t if run(function() gives t.byteLength()) > 0 else "fallback"
 	t = "again"
 	print(r)
@@ -1551,14 +1546,10 @@ error E3102: <fragment>:12:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-moves-then-arm-reads-hoisted -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ### The hoisted control: the move is made before the conditional
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Num
 
 function run(f Thunk) returns Num
@@ -1567,7 +1558,6 @@ end 'run'
 
 function main() returns ExitCode
 	var t = "key{1} padded out long enough to be a real heap allocation"
-	// TODO: closures are not supported in minimaxon
 	let n = run(function() gives t.byteLength())
 	let r = t if n > 0 else "fallback"
 	t = "again"
@@ -1719,7 +1709,6 @@ error E3102: <fragment>:34:12: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-closure-captures -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a closure the TRUE arm builds over the kept value
 The closure literal captures `u` by value, which is a read of `u`; the condition's call keeps `u` first.
@@ -1756,7 +1745,6 @@ end 'idUT'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	// TODO: closures are not supported in minimaxon
 	let f = (function() gives peekUT(u)) if lg(peekUT(idUT(u))) != 0 else (function() gives lg(0))
 	return f()
 end 'main'
@@ -1878,15 +1866,13 @@ error E3102: <fragment>:19:10: use of moved value 'n': it is lent to the corouti
 ```
 
 <!-- test: ternary-expression.arm-local-binding-moved-inside-the-true-arm -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ### A binding the TRUE arm declares and moves is not the ternary's to re-check
 The arm's `match` binds `t`, reads `t.n`, then hands `t` to a closure that captures it. `t` ends with the arm, so
 the condition that runs first has nothing to say about it.
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Num
 
 union UT
@@ -1918,7 +1904,6 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(7))
 	let n = (match u 'm'
 		none gives 0
-		// TODO: closures are not supported in minimaxon
 		have(t) gives add(t.n, b: run(function() gives t.n))
 	end 'm') if lg(1) != 0 else 0
 	return n

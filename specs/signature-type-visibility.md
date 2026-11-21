@@ -1119,7 +1119,6 @@ error E3092: pkg/<fragment>:3:13: exported type 'Item' is never referenced outsi
 ```
 
 <!-- test: error.a-contested-generic-alias-is-judged-by-the-readers-own-declaration -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⚠ **THE TIER IS THE READER'S DECLARATION'S, NOT THE FIRST ONE FILED UNDER THE NAME.** The library declares a
@@ -1139,7 +1138,6 @@ end 'count'
 // --- file: pkg/lib.maxon
 typealias StringArray = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Handler = function(StringArray) returns Tally
 
 export function apply(h Handler, b StringArray) returns Tally
@@ -1160,10 +1158,7 @@ error E3167: pkg/<fragment>:14:17: exported function 'pkg.apply' names unexporte
 ```
 
 <!-- test: error.an-alias-walked-from-another-file-judges-its-components-in-its-own-file -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 ⚠ **AN ALIAS'S COMPONENTS MEAN WHAT THEY MEAN WHERE THE ALIAS IS WRITTEN.** `Handler` is declared in
 `pkg/lib.maxon`, whose bare `StringArray` is its own unmarked alias. `pkg/use.maxon` declares no
 `StringArray`, so there the bare name would mean the library's `public` one. `apply` is written in
@@ -1173,7 +1168,6 @@ declaration it is held against.
 // --- file: pkg/lib.maxon
 typealias StringArray = Array with ExitCode
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Handler = function(StringArray) returns ExitCode
 
 // --- file: pkg/use.maxon
@@ -1183,7 +1177,6 @@ end 'apply'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return apply(function(xs) gives xs.count() as ExitCode)
 end 'main'
 ```
@@ -1193,8 +1186,6 @@ error E3167: pkg/<fragment>:8:17: exported function 'pkg.apply' names unexported
 ```
 
 <!-- test: error.a-function-alias-over-a-file-private-instance-element-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A function alias's parameter that is a generic alias is asked like any other component. `Cb` is `export`,
@@ -1206,7 +1197,6 @@ typealias Secret = int(0 to 9)
 
 typealias Secrets = Array with Secret
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Cb = function(Secrets) returns ExitCode
 
 export function f(cb Cb) returns ExitCode
@@ -1217,7 +1207,6 @@ end 'f'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return f(function(xs) gives xs.count() as ExitCode)
 end 'main'
 ```
@@ -1367,8 +1356,6 @@ error E3167: api/<fragment>:20:18: exported function 'api.Worker.run' names unex
 ```
 
 <!-- test: error.a-contested-function-alias-is-named-as-written -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 Two directories declare an unmarked `Op` over two shapes, so each declaration is held under a name of its
@@ -1377,7 +1364,6 @@ own inside the compiler. The refusal still names `Op`, which is what the author 
 // --- file: aaa/a.maxon
 export typealias Small = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Small) returns Small
 
 export function twice(f Op) returns Small
@@ -1385,7 +1371,6 @@ export function twice(f Op) returns Small
 end 'twice'
 
 // --- file: zzz/z.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(ExitCode) returns ExitCode
 
 function applyOp(f Op) returns ExitCode
@@ -1393,13 +1378,11 @@ function applyOp(f Op) returns ExitCode
 end 'applyOp'
 
 export function once() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return applyOp(function(x) gives x)
 end 'once'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return (aaa.twice(function(x) gives x + 1) as ExitCode) + zzz.once()
 end 'main'
 ```
@@ -2189,9 +2172,7 @@ error E3167: api/<fragment>:8:18: exported typealias 'api.ModeArray' names unexp
 ```
 
 <!-- test: error.an-exported-function-alias-over-a-file-private-enum-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2199,7 +2180,6 @@ enum Mode
 	slow
 end 'Mode'
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Chooser = function(Mode) returns ExitCode
 
 // --- file: app/main.maxon

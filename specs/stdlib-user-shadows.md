@@ -585,14 +585,12 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.user-function-alias-coexists-with-a-listed-modules-ranged-typealias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two `typealias` declarations of one name in two files, in DIFFERENT forms — a user function alias
 against `stdlib/Builtins.maxon`'s ranged `DecimalDigit`. A same-form test would refuse it with `E3061`,
 again blamed on the stdlib line. Both aliases are unmarked, and an unmarked alias is directory-local
 whatever its form, so the two coexist and each answers for its own file.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
-typealias DecimalDigit = function(value ExitCode) returns ExitCode
+typealias DecimalDigit = function(ExitCode) returns ExitCode
 
 function apply(f DecimalDigit, v ExitCode) returns ExitCode
 	return f(v)
@@ -844,9 +842,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A program declares its own `type Array` and an `extension Array` whose nested alias `SortComparator` the library's
 `stdlib/helpers/sort/insertionSort.maxon` also declares. The program sweeps first, so the only `SortComparator` filed
 when `stdlib/Array.maxon` reads the name is the author's, which a library file never sees: the library keeps its own
@@ -866,7 +862,6 @@ typealias Digit = int(0 to 9)
 // --- file: ext.maxon
 // TODO: extension blocks are not supported in minimaxon
 extension Array
-	// TODO: function typealiases are not supported in minimaxon
 	typealias SortComparator = function(Digit, Digit) returns Ordering
 	function ordered(cmp SortComparator) returns bool
 		return cmp(self.n, self.n) == Ordering.equalTo
@@ -875,7 +870,6 @@ end 'Array'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	if Array.create().ordered(function(a, b) gives a.compare(b)) 'ok'
 		return 0
 	end 'ok'
@@ -977,7 +971,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-moved-library-frame-is-named-as-written-in-a-backtrace -->
-<!-- skip: closures are not supported in minimaxon -->
 A backtrace through a method of a library type the program shadows names the frame as the author would write
 it, `stdlib.Range.map`, on every lane.
 ```maxon
@@ -997,7 +990,6 @@ typealias Small = int(0 to 100)
 
 function main() returns ExitCode
 	let bound = stdlib.Range.create(1, finish: 4)
-	// TODO: closures are not supported in minimaxon
 	let doubled = bound.map(function(x) gives (x * 1000) as Small)
 	return Range.make().value() + (doubled.count() as ExitCode)
 end 'main'
@@ -1212,7 +1204,6 @@ error E3005: <fragment>:7:25: operator '+' requires both operands to be the same
 <!-- test: stdlib-user-shadows.an-async-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 A program that declares its own `Range` spawns a static of the library's `Range` by writing `stdlib.Range`,
 the same spelling the synchronous call accepts.
 ```maxon
@@ -1224,7 +1215,6 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let bound = await async stdlib.Range.create(1, finish: 4)
-	// TODO: closures are not supported in minimaxon
 	let doubled = bound.map(function(x) gives x * 2)
 	return 0 if doubled.count() > 0 else 1
 end 'main'
@@ -1334,14 +1324,12 @@ error E4006: <fragment>:7:35: Type 'stdlib.Range' has no method named 'nosuch'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-file-names-a-library-type-by-its-qualified-name -->
-<!-- skip: closures are not supported in minimaxon -->
 A library file reaches another library type through `stdlib.Range`, the spelling an author file writes, and
 the call resolves to the library's `Range` exactly as the bare name would.
 ```maxon
 // --- stdlib-overlay: Builtins.maxon
 public function overlayProbe() returns Count
 	let bound = stdlib.Range.create(1, finish: 4)
-	// TODO: closures are not supported in minimaxon
 	return bound.map(function(x) gives x * 2).count()
 end 'overlayProbe'
 // --- file: main.maxon
@@ -1354,13 +1342,11 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-author-file-names-a-library-type-by-its-qualified-name -->
-<!-- skip: closures are not supported in minimaxon -->
 With no author declaration of `Range`, `stdlib.Range` in an author file is the library's `Range`, exactly
 as the bare name would be.
 ```maxon
 function main() returns ExitCode
 	let bound = stdlib.Range.create(1, finish: 4)
-	// TODO: closures are not supported in minimaxon
 	return bound.map(function(x) gives x * 2).count() as ExitCode
 end 'main'
 ```

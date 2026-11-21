@@ -550,13 +550,11 @@ end 'main'
 ```
 
 <!-- test: function-valued.dispatch -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A `Map<String, FunctionType>` lets the caller dispatch by string key.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 typealias HandlerMap = Map with String, UnaryOp
@@ -1747,14 +1745,12 @@ error E3207: <fragment>:10:9: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.a-closure-capturing-a-let-map-cannot-write-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A closure that captures a `let` map and writes it through its receiver is refused at the write, so the captured
 record keeps the values its range column was read from.
 ```maxon
 function main() returns ExitCode
 	let m = [1 as Count: 10 as Count]
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives m.remove(1)
 	if f() 'removed'
 		return 1
@@ -1840,8 +1836,6 @@ error E3207: <fragment>:16:3: 'grow' writes 'm' (it calls 'upsert', which writes
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-map-to-a-function-value-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 A `let` map literal captured by a closure is still the constant its range columns were read from: the closure may not hand it to a function value, which may write it.
 ```maxon
 typealias CountMap = Map with (Count, Count)
@@ -1854,7 +1848,6 @@ end 'grow'
 function main() returns ExitCode
 	let m = [1 as Count: 10 as Count]
 	let f = grow
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives f(m)
 	return g() as ExitCode
 end 'main'
@@ -1864,12 +1857,11 @@ error E3197: <fragment>:12:29: cannot write 'm' through the closure that capture
 ```
 
 <!-- test: a-closure-capturing-a-var-map-may-hand-it-to-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
 A `var` map is writable, so the same closure is accepted.
 ```maxon
 typealias CountMap = Map with (Count, Count)
 
-function grow(m CountMap) returns Count
+function grow(mutates m CountMap) returns Count
 	m.upsert(2, value: 20)
 	return m.count()
 end 'grow'
@@ -1877,9 +1869,8 @@ end 'grow'
 function main() returns ExitCode
 	let m = [1 as Count: 10 as Count].clone()
 	let f = grow
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives f(m)
-	return g() as ExitCode
+	return try g() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1911,7 +1902,6 @@ error E3005: <fragment>:3:21: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
-<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'from' -->
 How many allocations a sequence of inserts and removes makes is a function of the sequence, not of where
 the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
 different odd constant, so each run lays the keys and the tombstones out differently, and the four runs

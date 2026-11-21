@@ -28,14 +28,11 @@ Binding a `var` from a `let` local moves the record, and reading the
 ## Tests
 
 <!-- test: a-let-field-array-grows-through-a-let-local -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The plan's first sample: `columns` is a `let` field and `report` a `let` local, and both are written through.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Column = function(Counts) returns Tally
 
 typealias ColumnArray = Array with Column
@@ -71,9 +68,7 @@ end 'Report'
 
 function main() returns ExitCode
 	let report = Report.create()
-	// TODO: closures are not supported in minimaxon
 	report.addColumn(function(counts Counts) gives counts.lines)
-	// TODO: closures are not supported in minimaxon
 	report.addColumn(function(counts Counts) gives counts.words)
 	print("{report.render(Counts.create(3, words: 12))}\n")
 	return 0
@@ -425,7 +420,6 @@ end 'main'
 ```
 
 <!-- test: a-let-is-stored-into-an-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -443,8 +437,8 @@ function main() returns ExitCode
 	let a = Box.create(1)
 	let b = Box.create(2)
 	let pair = Boxes from [a, b]
-	let first = try pair.get(0) otherwise return 1
-	first.n = first.n + 1
+	var first = try pair.get(0) otherwise return 1
+	first.n = try first.n + 1 otherwise panic("out of range")
 	print("{first.n} {pair.count()}\n")
 	return 0
 end 'main'

@@ -4279,7 +4279,6 @@ parent continues
 ```
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-closes-its-stdin-after-a-pause-ends-in-the-childs-own-exit -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The first part of the payload fills the pipe and the push waits for room; the child then closes its standard input
 without having read it. The wait ends with the pipe broken, the push stops, and the run reports the child's exit
@@ -4364,7 +4363,6 @@ parent continues
 ```
 
 <!-- test: subprocess-a-run-keeps-the-output-of-a-child-that-exits-without-reading-its-fed-payload -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The output a child wrote before it exited without reading its input is collected whole when the feed of a payload
 larger than a pipe is cut short.
@@ -4534,7 +4532,6 @@ first ioFailed second ioFailed child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-write-to-a-child-that-closed-its-stdin-and-went-on-running-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A child may close its standard input and keep running. Once it has said so, the pipe has no reader and a write is
 refused as `ioFailed`; the child is still alive and ends on its own.

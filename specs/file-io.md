@@ -264,11 +264,9 @@ implementations of the `__mf_*` entries.
 ## Tests
 
 <!-- test: read-text-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Try to read a nonexistent file - this tests the error path
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let content = try File.readText(FilePath from "nonexistent_file_xyz.txt") otherwise 'err'
 		print("File not found")
 		return 42
@@ -285,10 +283,8 @@ File not found
 ```
 
 <!-- test: read-nonexistent-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let content = try File.readText(FilePath from "nonexistent.txt") otherwise 'err'
 		print("File not found")
 		return 0
@@ -305,11 +301,9 @@ File not found
 ```
 
 <!-- test: file-exists -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Test File.exists on a nonexistent file (returns false)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "nonexistent_xyz_12345.txt") 'check'
 		return 1
 	end 'check'
@@ -321,10 +315,8 @@ end 'main'
 ```
 
 <!-- test: read-binary-nonexistent -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let bytes = try File.readBinary(FilePath from "nonexistent_binary_file.bin") otherwise 'err'
 		print("File not found")
 		return 42
@@ -341,10 +333,8 @@ File not found
 ```
 
 <!-- test: write-and-read-text -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_readtext.txt"
 	// Write a text file
 	try File.writeText(path, content: "Hello World") otherwise 'write_err'
@@ -377,12 +367,10 @@ Hello World
 ```
 
 <!-- test: create-text-of-an-existing-file-throws-already-exists -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 The refusal is `FileWriteError.alreadyExists`, which is what tells a caller that somebody else made the file
 from every other reason a create can fail.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_create_text_exists.txt"
 	try File.createText(path, content: "first") otherwise 'createFailed'
 		return 1
@@ -400,7 +388,6 @@ end 'main'
 ```
 
 <!-- test: write-text-over-the-running-executable-throws-busy -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: arm64-macos, wasm32-wasi -->
 A file a running program's image keeps from being written — which Windows refuses with a sharing violation and
@@ -434,7 +421,6 @@ function main() returns ExitCode
 	end 'theRunningCopy'
 	let executable = try Process.executablePath() otherwise return 1
 	let image = try File.readBinary(executable) otherwise return 2
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let copy = (FilePath from "test_write_over_a_running_copy.exe").resolve(Directory.currentPath())
 	try File.writeBinary(copy, content: image, mode: FilePermission.executable) otherwise 'unwritten'
 		return 3 if deleteTheCopy(copy) else 7
@@ -492,15 +478,13 @@ end 'deleteTheCopy'
 ```
 
 <!-- test: read-text-of-a-missing-file-throws-not-found -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A file that is not there is `FileReadError.notFound`, distinct from a read that failed for another reason.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let text = try File.readText(FilePath from "test_missing_read_text.txt") otherwise (e) 'unread'
 		return 42 if e == FileReadError.notFound else 1
 	end 'unread'
-	return text.count() as ExitCode
+	return try text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -508,11 +492,9 @@ end 'main'
 ```
 
 <!-- test: create-text-refuses-an-existing-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 `File.createText` writes a file that does not exist yet, and refuses one that does without touching it.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_create_text.txt"
 	try File.createText(path, content: "first") otherwise 'createFailed'
 		return 1
@@ -542,7 +524,6 @@ first
 ```
 
 <!-- test: read-text-of-a-file-that-reports-no-size -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, arm64-macos -->
 A Linux `/proc` file reports a size of 0 and still holds text, so `File.readText` reads to the end of the file
 rather than stopping at the size it was told. `/proc/self/smaps` is longer than one 4096-byte read, so the
@@ -552,7 +533,6 @@ whole file arrives only when the read continues past the first chunk: its last l
 let OneReadChunkBytes = 4096
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "/proc/self/smaps"
 	let text = try File.readText(path) otherwise 'readFailed'
 		return 1
@@ -573,11 +553,9 @@ end 'main'
 ```
 
 <!-- test: write-and-read-binary -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_binary.bin"
 	// Create a byte array with known values
 	let data = ByteArray.create(0)
@@ -623,10 +601,8 @@ Binary read/write OK
 ```
 
 <!-- test: bytes-written-before-close-are-the-files-content-after -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_file_writer.bin"
 	let first = ByteArray.create(0)
 	first.push(65 as Byte)
@@ -684,13 +660,10 @@ exists. Backed by `MoveFileEx` (Windows), `rename(2)` (POSIX), and
 **Signature:** `static function rename(from FilePath, to FilePath) throws FileRenameError`
 
 <!-- test: write-rename-and-read -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let src = FilePath from "test_rename_src.bin"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_dst.bin"
 	let data = ByteArray.create(0)
 	data.push(70 as Byte)
@@ -741,16 +714,13 @@ Rename OK
 ```
 
 <!-- test: rename-of-a-missing-file-throws-not-found -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A source that is not there is `FileRenameError.notFound`, distinct from a rename that failed for another reason.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let src = FilePath from "test_rename_missing_src.bin"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_missing_dst.bin"
 	try File.rename(src, to: dst) otherwise (e) 'unmoved'
-		return 42 if e == FileRenameError.notFound else (10 + e.ordinal) as ExitCode
+		return 42 if e == FileRenameError.notFound else (try (10 + e.ordinal) as ExitCode otherwise panic("out of range"))
 	end 'unmoved'
 	return 1
 end 'main'
@@ -768,12 +738,9 @@ not exist or holds the whole source.
 **Signature:** `static function renameNew(from FilePath, to FilePath) throws FileRenameError`
 
 <!-- test: rename-new-moves-a-file-to-a-free-name -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let src = FilePath from "test_rename_new_free_src.txt"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_new_free_dst.txt"
 	try File.delete(dst) otherwise ignore
 	try File.writeText(src, content: "moved") otherwise return 2
@@ -799,12 +766,9 @@ destination holds moved
 ```
 
 <!-- test: rename-new-refuses-an-existing-destination -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let src = FilePath from "test_rename_new_taken_src.txt"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_new_taken_dst.txt"
 	try File.writeText(src, content: "source") otherwise return 2
 	try File.writeText(dst, content: "destination") otherwise return 3
@@ -832,12 +796,9 @@ destination holds destination
 ```
 
 <!-- test: rename-new-refuses-a-missing-source -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let src = FilePath from "test_rename_new_missing_src.txt"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_new_missing_dst.txt"
 	try File.delete(src) otherwise ignore
 	try File.delete(dst) otherwise ignore

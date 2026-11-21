@@ -338,12 +338,10 @@ error E2013: <fragment>:10:2: cannot pass an expression to a function that write
 ```
 
 <!-- test: error.a-function-with-a-mutable-parameter-does-not-fit-an-unmarked-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Count)
 
 function bump(mutates n Count)
@@ -364,15 +362,12 @@ error E3005: <fragment>:14:2: argument type mismatch for 'f': expected 'fn(Count
 ```
 
 <!-- test: error.a-closure-with-a-mutable-parameter-does-not-fit-an-unmarked-function-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The marker must match exactly in both directions, so a closure that declares `mutable` and only reads does not fit
 `function(Count)` either.
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Count) returns Count
 
 function run(f Step) returns Count
@@ -380,8 +375,7 @@ function run(f Step) returns Count
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let r = run(function(n mutable Count) gives n)
+	let r = run(function(mutates n Count) gives n)
 	return r as ExitCode
 end 'main'
 ```

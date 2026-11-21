@@ -312,7 +312,6 @@ error E3005: <fragment>:11:43: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: runtime-park-waits.error.a-message-returning-an-inline-function-type-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
@@ -326,7 +325,6 @@ type Account
 	end 'create'
 
 	export function step() returns function(Money) returns Money
-		// TODO: closures are not supported in minimaxon
 		return function(n Money) gives n
 	end 'step'
 end 'Account'

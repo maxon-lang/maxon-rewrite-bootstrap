@@ -365,15 +365,12 @@ error E3104: <fragment>:3:24: 'TcpClient.connect' lowers to the runtime entry '_
 ```
 
 <!-- test: stdlib-loading.target-refusal-is-transitive -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 `Directory.isDirectory` reaches no runtime entry itself — it calls `Directory.exists`, which reaches
 `__md_exists`. The requirement propagates through the stdlib call graph, so the caller is blamed at the
 function THEY named, while the entry named is still the one that has no lowering.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let d = Directory.isDirectory(FilePath from "x")
 	if d 'chk'
 		return 4

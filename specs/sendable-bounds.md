@@ -62,8 +62,6 @@ parameter (`Array with T`) crosses to the service as any other type does and nee
 ## Tests
 
 <!-- test: a-sendable-bound-refuses-a-function-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 A function type is not a value: a function value is a closure record that owns what it captures.
@@ -71,7 +69,6 @@ A function type is not a value: a function value is a closure record that owns w
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -86,7 +83,6 @@ end 'Pool'
 typealias StepPool = Pool with Step
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let pool = StepPool.create(function(n) gives n + 1)
 	let step = pool.item
 	print("{step(1)}\n")
@@ -98,7 +94,6 @@ error E3215: <fragment>:13:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -107,7 +102,6 @@ error E3215: <fragment>:13:11: 'Step' is a function type, so it cannot be 'T' of
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -135,7 +129,6 @@ error E3215: <fragment>:13:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-an-instance-written-inline-in-an-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with Step` is written inline inside the arguments of `StepPools`. It is its own instantiation site, so it is
@@ -144,7 +137,6 @@ refused once, where its own base name `Pool` is written, and `StepPools` adds no
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -169,7 +161,6 @@ error E3215: <fragment>:13:35: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-an-instance-written-inline-in-the-argument-of-a-phantom-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Keeper uses T` stores no `T`, so `Keeper with (Pool with Step)` is a record of a number. The `Pool with Step` inside
@@ -178,7 +169,6 @@ it is still an instance the program wrote, refused once, where its own base name
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -211,7 +201,6 @@ error E3215: <fragment>:21:31: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-an-instance-written-inline-in-the-argument-of-a-holder -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Box uses T` stores its `T`, so `Box with (Pool with Step)` holds a `Pool with Step`. The inner instance is refused
@@ -220,7 +209,6 @@ once, where its own base name `Pool` is written, and the `Box` that holds it add
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -255,8 +243,6 @@ error E3215: <fragment>:21:29: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-judges-an-alias-used-as-an-argument-only-at-its-own-declaration -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `StepPool` names `Pool with Step`. It is refused once, where `StepPool` is declared. `Boxes` and `Pools` take
@@ -265,7 +251,6 @@ error E3215: <fragment>:21:29: 'Step' is a function type, so it cannot be 'T' of
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -292,7 +277,6 @@ typealias Boxes = Box with StepPool
 typealias Pools = Array with StepPool
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let pool = StepPool.create(function(n) gives n + 1)
 	let boxes = Boxes.create(pool)
 	let pools = Pools.create(0)
@@ -306,7 +290,6 @@ error E3215: <fragment>:21:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-an-instance-written-two-deep-inline -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with Step` is written inside `Box with (...)`, which is written inside `Array with (...)`. Only the innermost
@@ -315,7 +298,6 @@ instance breaks a bound, so it is refused once, where its own base name `Pool` i
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -464,8 +446,6 @@ error E3215: <fragment>:13:11: 'Pending' is a promise, so it cannot be 'T' of 'P
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-whose-graph-reaches-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -475,7 +455,6 @@ the bound refuses it and names what the graph reaches.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Holder
@@ -502,7 +481,6 @@ typealias HolderPools = Array with HolderPool
 
 function main() returns ExitCode
 	let pools = HolderPools.create(0)
-	// TODO: closures are not supported in minimaxon
 	let holder = Holder.create(function(n) gives n + 1)
 	print("{pools.count()} {holder.step(1)}\n")
 	return 0
@@ -565,8 +543,6 @@ error E3215: <fragment>:21:11: 'Holder' cannot be shared with another thread, so
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-whose-interface-field-holds-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- process: own -->
@@ -577,7 +553,6 @@ program that spawns no service the `freeze` shares nothing with another thread.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -617,7 +592,6 @@ end 'Pool'
 typealias HolderPool = Pool with immutable Holder
 
 function wrap() returns Shape
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n) gives n + 1)
 end 'wrap'
 
@@ -635,8 +609,6 @@ end 'main'
 ```
 
 <!-- test: freezing-a-record-whose-interface-field-reaches-a-function-value-is-refused-at-the-freeze -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -650,7 +622,6 @@ wasm32-wasi answers `E3104` for its `spawn` before the `freeze` is judged, so th
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -702,7 +673,6 @@ type Door
 end 'Door'
 
 function wrap() returns Shape
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n) gives n + 1)
 end 'wrap'
 
@@ -1227,8 +1197,6 @@ error E3215: <fragment>:18:11: 'Holder' is `unique`, so it cannot be 'T' of 'Poo
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-once-whatever-it-is-instantiated-with -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` holds `Pool with T` and declares no bound on `T`. The instance is refused once, where `Outer` writes
@@ -1237,7 +1205,6 @@ it; `StepOuter` fills `T` with a function type and adds no report.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -1261,7 +1228,6 @@ end 'Outer'
 typealias StepOuter = Outer with Step
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let outer = StepOuter.create(function(n) gives n + 1)
 	let step = outer.pool.item
 	print("{step(1)}\n")
@@ -1349,7 +1315,6 @@ error E3215: <fragment>:13:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-bare-generic-field-type-its-owner-does-not-bound-once -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` declares no bound and holds a field of the bare generic name `Pool`, which means `Pool with T`. The
@@ -1358,7 +1323,6 @@ instance is refused once, at the field, and the `Pool` written as a parameter ty
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -1393,7 +1357,6 @@ error E3215: <fragment>:14:21: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-bare-generic-type-argument-its-owner-does-not-bound -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` declares no bound and writes the bare generic name `Pool` as the argument of `Array`, which means
@@ -1402,7 +1365,6 @@ error E3215: <fragment>:14:21: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -1564,8 +1526,6 @@ error E3215: <fragment>:30:11: 'Job' is not sendable, so it cannot be 'T' of 'Ou
 ```
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-at-its-own-instantiation-only -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so `Outer with Step` is refused once, at `StepOuter`, naming `Outer`, and the
@@ -1574,7 +1534,6 @@ error E3215: <fragment>:30:11: 'Job' is not sendable, so it cannot be 'T' of 'Ou
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -1599,7 +1558,6 @@ end 'Outer'
 typealias StepOuter = Outer with Step
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let outer = StepOuter.create(function(n) gives n + 1)
 	let step = outer.pool.item
 	print("{step(1)}\n")
@@ -1900,7 +1858,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-over-a-bounded-type-parameter-whose-graph-reaches-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1910,7 +1867,6 @@ shared whatever `T` is. It is refused where `Outer` writes it, once, and `Outer 
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Box uses T
@@ -2040,7 +1996,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-tuple-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -2051,7 +2006,6 @@ end 'main'
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -2229,7 +2183,6 @@ error E3215: <fragment>:20:12: 'Outer.Tagged' is built over 'T' of 'Outer', whic
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-phantom-record-over-a-function-type-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2257,7 +2210,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(T) returns Tally
 	typealias Tagged = Tag with Maker
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
@@ -2284,8 +2236,6 @@ error E3215: <fragment>:23:12: 'Outer.Tagged' is built over 'T' of 'Outer', whic
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-through-a-nested-alias -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Outer`, and an alias of a function type is a function type wherever it is declared.
@@ -2303,13 +2253,11 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Tally) returns Tally
 	typealias StepPool = Pool with Step
 	export var pool as StepPool
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{pool: StepPool.create(function(n) gives n + 1)}
 	end 'create'
 end 'Outer'
@@ -2651,7 +2599,6 @@ error E3215: <fragment>:36:11: 'Digits.Items' is not sendable, so it cannot be '
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-through-a-nested-alias-of-a-generic-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Wrapper uses T` as `function(T) returns T`, a function type whatever `T` is. So `Pool
@@ -2670,7 +2617,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	typealias StepPool = Pool with Step
 	export var pool as StepPool
@@ -2784,7 +2730,6 @@ error E3215: <fragment>:14:12: 'Wrapper.Items' is not sendable, so it cannot be 
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-a-generic-type-nothing-instantiates -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic type is checked where it is declared: `Pool with Step` is refused in `Wrapper` although no program
@@ -2801,7 +2746,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	typealias Held = Pool with Step
 	export var held as Held
@@ -2821,7 +2765,6 @@ error E3215: <fragment>:12:12: 'Wrapper.Step' is a function type, so it cannot b
 ```
 
 <!-- test: a-recursive-function-alias-held-in-nested-containers-compiles -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function alias that names itself in its own parameter list is a finite type. Finding which type parameters an
 argument mentions looks inside function types, and meets `Loop` again inside `Loop`: it answers once per alias
 and stops there, so the program compiles and runs.
@@ -2829,7 +2772,6 @@ and stops there, so the program compiles and runs.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Loop = function(Loop) returns Tally
 
 typealias Loops = Array with (Array with Loop)
@@ -2848,7 +2790,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-each-of-two-mutually-recursive-function-aliases-over-a-type-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2876,9 +2817,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop2 = function(Loop) returns Tally
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop = function(Loop2, T) returns Tally
 	typealias First = Tag with Loop
 	typealias Second = Tag with Loop2
@@ -2905,7 +2844,6 @@ error E3215: <fragment>:26:12: 'Outer.Second' is built over 'T' of 'Outer', whic
 ```
 
 <!-- test: a-sendable-bound-names-the-first-declared-parameter-for-each-member-of-a-cycle -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2934,9 +2872,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T, U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop2 = function(U, Loop) returns Tally
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop = function(T, Loop2) returns Tally
 	typealias First = Tag with Loop
 	typealias Second = Tag with Loop2
@@ -2963,7 +2899,6 @@ error E3215: <fragment>:26:12: 'Outer.First' is built over 'T' of 'Outer', which
 ```
 
 <!-- test: a-sendable-bound-refuses-a-function-type-over-a-type-parameter-nested-in-a-container-in-a-generic-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Maker` is a function type over `T`, so `Pool with Maker` mentions `T` and is judged where `Outer` writes it, although it sits inside `Array`.
@@ -2982,7 +2917,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(T) returns Tally
 	typealias Pools = Array with (Pool with Maker)
 	export var pools as Pools
@@ -3093,7 +3027,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-reports-a-fixed-and-an-open-argument-of-one-generic-type-in-the-generic-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` writes `Pool with Step`, refused because a function type is refused whatever `T` is, and `Pool with T`,
@@ -3103,7 +3036,6 @@ refused because `Outer` declares no bound on `T`. Both are reported where `Outer
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3142,7 +3074,6 @@ error E3215: <fragment>:15:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-whose-pool-it-holds-in-a-container -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so the `Pool with T` it holds as the element of a container is met in `Outer`.
@@ -3151,7 +3082,6 @@ error E3215: <fragment>:15:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3187,8 +3117,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-whose-pool-it-holds-in-a-tuple -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -3200,7 +3128,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3228,7 +3155,6 @@ end 'Outer'
 typealias StepOuter = Outer with Step
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let outer = StepOuter.create(function(n) gives n + 1)
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (pool, _) = outer.pair
@@ -3242,7 +3168,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-reports-an-instance-a-generic-type-holds-in-a-container-once -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3252,7 +3177,6 @@ report, in `Outer` or at `Outer with Step`.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3292,8 +3216,6 @@ error E3215: <fragment>:14:12: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-in-a-method-body -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` writes `Pool with T` and uses it in a method body. `Outer` declares no bound, so the instance is
@@ -3302,7 +3224,6 @@ refused once, where `Outer` writes it, and `StepOuter` adds no report.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3332,7 +3253,6 @@ typealias StepOuter = Outer with Step
 
 function main() returns ExitCode
 	let outer = StepOuter.create()
-	// TODO: closures are not supported in minimaxon
 	let step = outer.wrap(function(n) gives n + 1)
 	print("{step(1)}\n")
 	return 0
@@ -3343,7 +3263,6 @@ error E3215: <fragment>:14:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-held-only-by-a-function-type-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The only holder of `Pool with T` is the return type of a function-typed field. The instance is refused once, where
@@ -3352,7 +3271,6 @@ The only holder of `Pool with T` is the return type of a function-typed field. T
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3366,7 +3284,6 @@ end 'Pool'
 
 type Outer uses T
 	typealias Inner = Pool with T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(Tally) returns Inner
 	export var make as Maker
 
@@ -3472,7 +3389,6 @@ error E3215: <fragment>:21:33: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-under-an-interface-base -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3484,7 +3400,6 @@ conforms to `Seq`: a use of an interface states the binding its conformers settl
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -3530,7 +3445,6 @@ error E3215: <fragment>:18:30: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-names-a-function-alias-through-an-instance-of-a-generic-type-as-unknown -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 Only a ranged alias declared inside a generic type is named through one of its instances. `TallyWrapper.Step`,
@@ -3550,7 +3464,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	export var value as T
 
@@ -3613,7 +3526,6 @@ error E3011: <fragment>:23:33: Unknown type 'TallyWrapper.Items'
 ```
 
 <!-- test: a-sendable-bound-names-an-interface-function-alias-as-unknown -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3633,7 +3545,6 @@ end 'Pool'
 
 interface Shape
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Tally) returns Tally
 	function area() returns Tally
 end 'Shape'
@@ -4332,8 +4243,6 @@ hello
 
 <!-- test: a-sendable-bound-accepts-the-handle-of-a-service-whose-state-holds-a-function-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle reaches its service by message, so what the service's state holds, a function value here, never crosses
@@ -4342,14 +4251,12 @@ with it.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Stepper
 	var step as Step
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{step: function(n) gives n + 1}
 	end 'create'
 
@@ -4758,7 +4665,6 @@ error E3215: <fragment>:27:28: 'Job' is not sendable, so it cannot be 'T' of 'Ke
 
 <!-- test: a-sendable-service-bound-reports-a-record-holding-a-function-value-once -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4768,7 +4674,6 @@ so the bound refuses it, and that refusal is the one report.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Holder
@@ -5074,8 +4979,6 @@ error E3217: <fragment>:28:15: parameter `items` of the factory `Keeper.create` 
 The `isolated` bound reads the same list of values and handles as `sendable`, and otherwise asks whether the argument is `unique`. A function type and a plain array are refused.
 
 <!-- test: an-isolated-bound-refuses-a-function-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 A function type is not a value and is not `unique`, so an `isolated` bound refuses it.
@@ -5083,7 +4986,6 @@ A function type is not a value and is not `unique`, so an `isolated` bound refus
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
@@ -5098,7 +5000,6 @@ end 'Cell'
 typealias StepCell = Cell with Step
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let cell = StepCell.create(function(n) gives n + 1)
 	let step = cell.item
 	print("{step(1)}\n")
@@ -5187,7 +5088,6 @@ error E3215: <fragment>:29:11: 'CellBox' is not isolated, so it cannot be 'T' of
 ```
 
 <!-- test: an-isolated-bound-refuses-a-function-type-through-a-nested-alias-of-a-generic-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Wrapper uses T` as `function(T) returns T`, a function type whatever `T` is, and no function
@@ -5207,7 +5107,6 @@ type Cell uses T where T implements isolated
 end 'Cell'
 
 type Wrapper uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	typealias StepCell = Cell with Step
 	export var cell as StepCell

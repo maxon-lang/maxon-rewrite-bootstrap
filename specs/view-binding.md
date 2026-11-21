@@ -434,7 +434,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-captured-in-a-closure-is-legal -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure may capture a `let`.
 
 ```maxon
@@ -452,15 +451,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	let v = h.box
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives v.n
 	print("{f()}\n")
 	return 0
@@ -474,7 +472,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-of-a-number-captured-in-a-closure-is-accepted -->
-<!-- skip: closures are not supported in minimaxon -->
 A number has no capability: the closure captures a copy of it, so a `let` of one may be captured.
 
 ```maxon
@@ -492,15 +489,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	let n = h.box.n
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives n + 1
 	print("{g()}\n")
 	return 0

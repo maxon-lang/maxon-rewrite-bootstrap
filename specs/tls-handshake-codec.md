@@ -1306,7 +1306,6 @@ noApplicationProtocol 120
 ```
 
 <!-- test: tls-handshake-codec.a-field-longer-than-its-length-prefix-is-refused-when-encoding -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 `TlsHandshakeCodec.encode` throws `TlsEncodeError.vectorTooLong` for a field that does not fit its length prefix (uint8 session id, uint16 ticket and extension block, uint24 handshake body) and writes the largest one that fits. A line prints the encoded length.
 ```maxon
 function filled(count Count) returns ByteArray

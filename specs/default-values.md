@@ -655,7 +655,6 @@ end 'main'
 ```
 
 <!-- test: default-values.an-async-call-may-name-a-defaulted-first-parameter -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: default parameter values are not supported in minimaxon -->
@@ -664,7 +663,6 @@ typealias Integer = int(i64.min to i64.max)
 
 // TODO: default parameter values are not supported in minimaxon
 function fetch(retries Integer = 3, delay Integer = 10) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return retries * 100 + delay
 end 'fetch'

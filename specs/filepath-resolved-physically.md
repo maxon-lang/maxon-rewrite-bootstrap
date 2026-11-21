@@ -21,14 +21,12 @@ look up throws `accessDenied`; any other refusal (a link loop, a name too long f
 ## Tests
 
 <!-- test: filepath-resolved-physically-follows-links-and-dotdot -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A link, a link whose target runs through another link, and a `..` taken after a link all resolve to the one
 physical file. The directory holding the case is resolved first, so a working directory that is itself reached
 through a link does not matter.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = (FilePath from "resolved-physically-links").resolve(Directory.currentPath())
 	let inner = base.join("real").join("inner")
 	if not Directory.create(inner) 'noDirectory'
@@ -69,13 +67,11 @@ true
 ```
 
 <!-- test: filepath-resolved-physically-follows-a-junction -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- unsupported-targets: arm64-macos, arm64-linux, x64-linux, wasm32-wasi -->
 A Windows directory junction, and a file reached through one, resolve to the one physical file, spelled with
 a drive letter and no `\\?\` prefix. The junction is made with `mklink /J`, which needs no elevation.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let base = (FilePath from "resolved-physically-junction").resolve(Directory.currentPath())
 	let inner = base.join("real").join("inner")
 	if not Directory.create(inner) 'noDirectory'
@@ -195,12 +191,10 @@ notFound
 ```
 
 <!-- test: filepath-resolved-physically-answers-an-absolute-fixed-point -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A relative path is resolved against the working directory, the answer is absolute, and resolving an answer
 again changes nothing.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let here = try (FilePath from ".").resolvedPhysically() otherwise return 1
 	let again = try here.resolvedPhysically() otherwise return 2
 	print("{here.isAbsolute()}\n")

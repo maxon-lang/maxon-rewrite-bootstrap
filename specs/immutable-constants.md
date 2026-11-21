@@ -1300,7 +1300,7 @@ error E3207: <fragment>:11:25: 'push' needs a writable receiver; 'text' is immut
 ```
 
 <!-- test: a-set-and-a-map-of-values-are-built-from-a-plain-mutable-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 `immutable` over a value type means the type itself: a `Set` or `Map` of numbers takes any array of them, with no
 `freeze` and no copy.
 
@@ -1313,7 +1313,7 @@ typealias CodeMap = Map with (Code, Count)
 
 function main() returns ExitCode
 	let codes = [1 as Code, 2 as Code, 3 as Code].clone()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let members = CodeSet from codes
 	let byCode = CodeMap.create()
 	for code in codes 'eachCode'
@@ -1935,7 +1935,6 @@ error E3207: <fragment>:15:16: 'insert' takes `immutable` 'element'; 'func' is m
 ```
 
 <!-- test: a-set-of-values-is-built-from-an-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Code = int(0 to 1000)
 
@@ -1955,7 +1954,6 @@ end 'main'
 ```
 
 <!-- test: a-set-of-names-is-built-from-an-array-literal-of-names -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias NameSet = Set with ByteArray
 
@@ -1973,7 +1971,7 @@ end 'main'
 ```
 
 <!-- test: error.a-set-of-names-is-refused-a-plain-array-of-names -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 `Set.init` keeps the elements of the array it is given, so for a record element it needs them frozen: the array of
 `ByteArray` is data other names may write.
@@ -1986,7 +1984,7 @@ typealias NameArray = Array with ByteArray
 function main() returns ExitCode
 	let names = NameArray.create(0)
 	names.push(b"ab".clone())
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let members = NameSet from names
 	names.push(b"cd".clone())
 	print("{members.count()}\n")
@@ -2166,7 +2164,6 @@ a.maxon
 ```
 
 <!-- test: a-record-of-let-values-is-a-map-key-and-a-set-element-with-no-freeze -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A record whose every field is a `let` value (`FilePath`) is itself a value: `immutable` over it means the type, so a
 fresh one enters a `Map` key or a `Set` element with no `freeze`.
 
@@ -2177,12 +2174,9 @@ typealias PathCounts = Map with (FilePath, Count)
 
 function main() returns ExitCode
 	let paths = PathSet.create()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	paths.insert(FilePath from "a.txt")
 	let counts = PathCounts.create()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	counts.upsert(FilePath from "b.txt", value: 2)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let again = FilePath from "a.txt"
 	print("{paths.count()} {counts.count()} {paths.contains(again)}\n")
 	return 0

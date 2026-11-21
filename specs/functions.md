@@ -782,13 +782,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-under-try-in-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure capturing the result and trying a method on it names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives try c.describe() otherwise 0
 	_ = peek(1)
 	return 0
@@ -801,7 +799,6 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-in-a-captured-var -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A reassigned `var` a closure captures lives in a cell, and a cell holding the result names both CALLS
 rather than refusing a storage type nobody can know.
@@ -809,7 +806,6 @@ rather than refusing a storage type nobody can know.
 function main() returns ExitCode
 	var c = frobnicate(2)
 	c = frobnicate(3)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives c.width
 	_ = peek(1)
 	return 0
@@ -823,13 +819,11 @@ error E3004: <fragment>:4:6: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-captured-and-returned -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure returning the captured result itself names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives c
 	_ = peek(1)
 	return 0
@@ -842,14 +836,12 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-in-a-captured-var-returned -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure returning a captured, reassigned `var` holding the result names both CALLS.
 ```maxon
 function main() returns ExitCode
 	var c = frobnicate(2)
 	c = frobnicate(3)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives c
 	_ = peek(1)
 	return 0
@@ -863,7 +855,6 @@ error E3004: <fragment>:4:6: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-on-a-captured-var-under-try -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A `try` over a method called on a reassigned, captured result names both CALLS. The captured read
 emits an op of its own, and that op is not the call the `try` is applied to.
@@ -871,7 +862,6 @@ emits an op of its own, and that op is not the call the `try` is applied to.
 function main() returns ExitCode
 	var c = frobnicate(2)
 	c = frobnicate(3)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives try c.describe() otherwise 0
 	_ = peek(1)
 	return 0
@@ -1050,13 +1040,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-typed-closure-argument -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A typed closure passed to the unknown member compiles.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x Tally) gives x)
 	return 0
 end 'main'
@@ -1068,14 +1056,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-untyped-closure-argument -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 An untyped closure parameter passed to the unknown member is not refused: its type would come from the
 member, which is unknown, so it defers with the member rather than hiding E3004.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x) gives x)
 	return 0
 end 'main'
@@ -1085,13 +1070,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-argument-member-read -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 A member read off the deferred closure parameter defers with it.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x) gives x.width)
 	return 0
 end 'main'
@@ -1101,13 +1083,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-argument-calls-an-undefined-function -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The closure's body is still compiled, so an undefined call in it is named.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x) gives missing(x))
 	return 0
 end 'main'
@@ -1118,13 +1097,10 @@ error E3004: <fragment>:4:31: call to undefined function 'missing'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-argument-with-two-parameters -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 Every untyped parameter of that closure defers.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x, y) gives y)
 	return 0
 end 'main'
@@ -1134,13 +1110,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-argument-names-an-undefined-variable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 An undefined name in that closure's body is reported where it is written.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(function(x) gives nowhere)
 	return 0
 end 'main'
@@ -1150,13 +1123,10 @@ error E2004: <fragment>:4:31: Undefined variable 'nowhere'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-as-a-labelled-argument -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 An untyped closure passed as a later, labelled argument defers too.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.pair(1, with: function(x) gives x)
 	return 0
 end 'main'
@@ -1166,14 +1136,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-untyped-closure-nested-in-a-declared-call-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The deferral reaches only a closure written directly as the unknown member's argument. One passed to a
 declared function whose parameter is not function-typed still has to type its parameter.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	_ = c.each(apply(function(x) gives x))
 	return 0
 end 'main'
@@ -1189,13 +1156,11 @@ error E2015: <fragment>:4:28: Unsupported: parameter 'x' with no type — the co
 ```
 
 <!-- test: unknown-function-result-captured-by-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure capturing the result names the CALL, not the capture.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives c.width
 	_ = peek(1)
 	return 0
@@ -1208,14 +1173,12 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-is-a-closures-whole-body -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure's return type is INFERRED from its body, so an undefined call as the whole body is
 the one place a deferred call result reaches a SIGNATURE rather than a value column. It is
 still E3004 at the call, and the compiler does not abort.
 ```maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let peek = function(_ Tally) gives frobnicate(2)
 	_ = peek(1)
 	return 0

@@ -646,7 +646,6 @@ error E3102: <fragment>:29:20: cannot lend 'uV' to parameter 'u' of 'Tk.absorb',
 ```
 
 <!-- test: a-by-reference-pass-of-the-matched-variable-to-a-function-value-in-a-binding-arm-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `BothFn` declares its first parameter `mutable`, so a call through `f` passes `uV` by reference, and `uV` stays put in the `have(tV)` arm that binds its payload.
 ```maxon
@@ -673,8 +672,7 @@ function both(mutates u Ut, t Tk)
 	print("{t.n}\n")
 end 'both'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias BothFn = function(u mutable Ut, t Tk)
+typealias BothFn = function(mutates Ut, Tk)
 
 function main() returns ExitCode
 	let f = both as BothFn
@@ -739,7 +737,6 @@ end 'main'
 ```
 
 <!-- test: a-read-only-lend-of-the-matched-variable-to-a-function-value-beside-an-arm-binding-is-accepted -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `SumFn` declares no parameter `mutable`, so a call through `f` only reads `uV` and `tV`.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -764,8 +761,7 @@ function sum(u Ut, t Tk) returns Num
 	end 'inner'
 end 'sum'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias SumFn = function(u Ut, t Tk) returns Num
+typealias SumFn = function(Ut, Tk) returns Num
 
 function main() returns ExitCode
 	let f = sum as SumFn
@@ -2299,7 +2295,6 @@ error E3102: <fragment>:22:9: use of moved value 's': it was moved in an earlier
 ```
 
 <!-- test: error.a-match-read-again-through-an-earlier-closure-is-a-read-of-a-moved-value -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 The closure made before the `match` reads `s` without the text naming `s` after the `match`, and the closure owns what it captures, so the `match` reads a moved value.
 ```maxon
@@ -2327,7 +2322,6 @@ end 'count'
 
 function main() returns ExitCode
 	let s = Slot.held(Box.create(3))
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives count(s)
 	var total = 0 as Count
 	match s 'which'
@@ -5025,7 +5019,6 @@ error E3200: <fragment>:41:40: 'w' crosses to the service it is sent to only as 
 <!-- test: error.a-held-closures-call-result-is-not-sent -->
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not sent to a service (ruling 50 points 3 and 1).
@@ -5070,11 +5063,9 @@ function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
-	// TODO: closures are not supported in minimaxon
 	var f = function() gives Slot.empty
 	var got = 0 as Count
 	match u 'm'
-		// TODO: closures are not supported in minimaxon
 		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then f = function() gives idSlot(u) and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -5090,7 +5081,6 @@ error E3200: <fragment>:47:36: 'f()' crosses to the service it is sent to only a
 
 <!-- test: error.a-held-closures-call-result-is-not-a-spawn-argument -->
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not a `spawn` factory's argument (ruling 50 points 3 and 1).
@@ -5130,11 +5120,9 @@ function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
-	// TODO: closures are not supported in minimaxon
 	var f = function() gives Slot.empty
 	let got = 0 as Count
 	match u 'm'
-		// TODO: closures are not supported in minimaxon
 		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then f = function() gives idSlot(u) and fallthrough
 		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
@@ -5151,7 +5139,6 @@ error E3200: <fragment>:41:37: 'f()' crosses to the service the `spawn` starts o
 <!-- test: error.a-held-closures-call-result-is-not-a-reply -->
 <!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and a service method does not return it to its sender (ruling 50 points 3 and 1).
@@ -5180,10 +5167,8 @@ type Vault
 
 	export function give() returns Slot
 		let u = Slot.held(Token.create(1))
-		// TODO: closures are not supported in minimaxon
 		var f = function() gives Slot.empty
 		match u 'm'
-			// TODO: closures are not supported in minimaxon
 			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			empty then f = function() gives idSlot(u) and fallthrough
 			held then return f()

@@ -2946,15 +2946,13 @@ error E3186: <fragment>:20:32: argument 'label' is read by another operand of th
 ```
 
 <!-- test: closure-capture-before -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A closure literal capturing the local runs before the write.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias TallyFn = function() returns Tally
 
 function put(mutates text String) returns Tally
@@ -2971,7 +2969,6 @@ end 'call2'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: closures are not supported in minimaxon
 	let k = call2(function() gives label.byteLength() as Tally, k: put(label))
 	keep(k)
 	print("ok\n")
@@ -2983,14 +2980,12 @@ error E3102: <fragment>:20:69: use of moved value 'label': its ownership moved t
 ```
 
 <!-- test: closure-capture-after -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A closure literal capturing the local runs after the write.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias TallyFn = function() returns Tally
 
 function put(mutates text String) returns Tally
@@ -3007,7 +3002,6 @@ end 'call3'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: closures are not supported in minimaxon
 	let k = call3(put(label), f: function() gives label.byteLength() as Tally)
 	keep(k)
 	print("ok\n")
@@ -3383,15 +3377,14 @@ ok
 ```
 
 <!-- test: function-typed-parameter-before -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A function-typed parameter called with a by-reference variable beside an earlier read.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias PutFn = function(mutable String) returns Tally
+typealias PutFn = function(mutates String) returns Tally
 
 function put(mutates text String) returns Tally
 	text = "replaced"
@@ -3422,14 +3415,13 @@ error E3186: <fragment>:12:27: argument 'text' is read by another operand of thi
 ```
 
 <!-- test: function-typed-parameter-after -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The same call with the read after it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias PutFn = function(mutable String) returns Tally
+typealias PutFn = function(mutates String) returns Tally
 
 function put(mutates text String) returns Tally
 	text = "replaced"
@@ -4626,16 +4618,14 @@ b replaced
 ```
 
 <!-- test: closure-parameter-is-the-root-before -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The by-reference cell is a closure's own parameter, read by an earlier operand of the same call inside the closure body.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias StepFn = function(mutable String) returns Tally
+typealias StepFn = function(mutates String) returns Tally
 
 function put(mutates text String) returns Tally
 	text = "replaced"
@@ -4655,8 +4645,7 @@ end 'keep'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: closures are not supported in minimaxon
-	let k = apply(function(s mutable String) gives two(s, k: put(s)), text: label)
+	let k = apply(function(mutates s String) gives two(s, k: put(s)), text: label)
 	keep(k)
 	print("ok\n")
 	return 0
@@ -4667,15 +4656,12 @@ error E3186: <fragment>:24:63: argument 's' is read by another operand of this s
 ```
 
 <!-- test: closure-parameter-is-the-root-with-an-earlier-name -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A name the file spelled earlier is not an operand of the closure body's own statement.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias StepFn = function(mutable String) returns Tally
+typealias StepFn = function(mutates String) returns Tally
 
 function put(mutates text String) returns Tally
 	text = "replaced"
@@ -4692,8 +4678,7 @@ end 'apply'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: closures are not supported in minimaxon
-	let k = apply(function(s mutable String) gives put(s), text: label)
+	let k = apply(function(mutates s String) gives put(s), text: label)
 	print("{k} {label} {measure(label)}\n")
 	return 0
 end 'main'
@@ -4845,8 +4830,6 @@ end 'main'
 ```
 
 <!-- test: closure-with-commas-in-brackets -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure whose own parameter is spelled like the local, with commas inside a bracketed body, reads nothing of the local.
 
 ```maxon
@@ -4854,21 +4837,19 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias SpreadFn = function(Tally) returns TallyArray
 
 function bump(mutates n Tally) returns Tally
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return n
 end 'bump'
 
 function drive(spread SpreadFn, k Tally) returns Tally
-	return k + (spread(k).count() as Tally)
+	return try k + (spread(k).count() as Tally) otherwise panic("out of range")
 end 'drive'
 
 function main() returns ExitCode
 	var x = 0 as Tally
-	// TODO: closures are not supported in minimaxon
 	let r = drive(function(x Tally) gives [x, x], k: bump(x))
 	print("{r}\n")
 	return 0
@@ -5812,7 +5793,7 @@ error E3186: <fragment>:23:18: argument 'h.n' is read by another operand of this
 ```
 
 <!-- test: captured-record-field-cell-before -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field of a captured record is handed by reference inside a closure body and read by an earlier operand of the same statement.
 
@@ -5841,7 +5822,6 @@ end 'two'
 
 function main() returns ExitCode
 	var c = Box.create()
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives two(c.s, k: put(c.s))
 	keep(f())
 	print("ok\n")
@@ -5853,7 +5833,7 @@ error E3186: <fragment>:27:43: argument 'c.s' is read by another operand of this
 ```
 
 <!-- test: captured-record-field-cell-after -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A field of a captured record is handed by reference inside a closure body and read by a later operand.
 
 ```maxon
@@ -5881,7 +5861,6 @@ end 'two2'
 
 function main() returns ExitCode
 	let c = Box.create()
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives two2(put(c.s), text: c.s)
 	keep(f())
 	print("ok\n")
@@ -6308,15 +6287,12 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-a-cell-lent-in-the-same-call-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures a `var` moves it in, and the same call has already lent the `var`'s cell by reference.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function() returns Tally
 
 function put2(mutates text String, f Probe) returns Tally
@@ -6330,7 +6306,6 @@ end 'fresh'
 
 function main() returns ExitCode
 	var a = fresh(1)
-	// TODO: closures are not supported in minimaxon
 	let k = put2(a, f: function() gives a.byteLength() as Tally)
 	print("{k} {a}\n")
 	return 0
@@ -7258,15 +7233,13 @@ error E3186: <fragment>:16:16: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-forwarding-to-a-function-value-position-the-callee-may-write-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A parameter handed to a `mutable` position of a function value is written by the unknown body the value may name.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Editor = function(mutable String)
+typealias Editor = function(mutates String)
 
 function shout(mutates x String)
 	x = "replaced"
@@ -7288,13 +7261,11 @@ error E3186: <fragment>:17:16: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-forwarding-to-a-by-value-position-of-a-function-value-writes-nothing -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A by-value position of a function value cannot write the caller's cell, whatever body the value names.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function(String)
 
 function peek(x String)

@@ -110,7 +110,6 @@ nothing, while a bracket count of 0 says there was nothing it could have taken.
 ## Tests
 
 <!-- test: more-blocking-file-reads-than-processors-still-finish -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
@@ -148,7 +147,6 @@ type Reader
 	end 'create'
 
 	export function roundTrip() returns Integer
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		let path = FilePath from "syscall_handoff_read_{self.id}.txt"
 		try File.writeText(path, content: payload) otherwise 'w'
 			return 0
@@ -606,7 +604,6 @@ retaken=yes
 ```
 
 <!-- test: an-async-child-wait-leaves-the-sleeping-coroutine-running -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
@@ -633,7 +630,6 @@ function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		argv.push("2")
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -683,7 +679,6 @@ slept=true exited=true
 ```
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -709,7 +704,6 @@ function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		argv.push("2")
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif

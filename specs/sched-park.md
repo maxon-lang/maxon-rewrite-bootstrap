@@ -143,7 +143,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -162,7 +161,6 @@ type Waiter
 	end 'create'
 
 	export function waitForFile() returns Integer
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		while not File.exists(FilePath from "sched-park-flag-one.txt") 'poll'
 			sleep(1)
 		end 'poll'
@@ -176,7 +174,6 @@ function waitFor(w Waiter.handle) returns Integer
 end 'waitFor'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.delete(FilePath from "sched-park-flag-one.txt") otherwise ignore
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
@@ -184,12 +181,10 @@ function main() returns ExitCode
 	let r = async waitFor(w.clone())
 	sleep(5)
 	print("main woke\n")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.writeText(FilePath from "sched-park-flag-one.txt", content: "x") otherwise ignore
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await r
 	print("v={v}\n")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.delete(FilePath from "sched-park-flag-one.txt") otherwise ignore
 	return 0
 end 'main'
@@ -203,7 +198,6 @@ v=1
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes-on-four-processors -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -220,7 +214,6 @@ type Waiter
 	end 'create'
 
 	export function waitForFile() returns Integer
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		while not File.exists(FilePath from "sched-park-flag-four.txt") 'poll'
 			sleep(1)
 		end 'poll'
@@ -234,7 +227,6 @@ function waitFor(w Waiter.handle) returns Integer
 end 'waitFor'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.delete(FilePath from "sched-park-flag-four.txt") otherwise ignore
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
@@ -242,12 +234,10 @@ function main() returns ExitCode
 	let r = async waitFor(w.clone())
 	sleep(5)
 	print("main woke\n")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.writeText(FilePath from "sched-park-flag-four.txt", content: "x") otherwise ignore
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await r
 	print("v={v}\n")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	try File.delete(FilePath from "sched-park-flag-four.txt") otherwise ignore
 	return 0
 end 'main'

@@ -2997,7 +2997,6 @@ end 'main'
 ### A closure in a generic method calls a method that needs the layout descriptor through an untyped receiver
 
 <!-- test: a-closure-in-a-generic-method-calls-a-descriptor-reader-through-a-result -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure calls `self.make().stash(y)`; `make()` returns a typealias instance, so the receiver of `stash` is a call's result. `stash` stores a borrowed element and so reads the descriptor, which the closure takes from its environment and the method forwards from its own.
 ```maxon
 type Inner uses T
@@ -3008,7 +3007,7 @@ type Inner uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function stash(item T) returns Count
+	function stash(mutates self, consumes item T) returns Count
 		self.items.push(item)
 		return self.items.count()
 	end 'stash'
@@ -3027,7 +3026,6 @@ type Outer uses T
 	end 'make'
 
 	function run(x T) returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function(y T) gives self.make().stash(y)
 		_ = f(x)
 		return f(x)
@@ -3051,7 +3049,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calling-a-static-that-reads-sizeof-and-returns-a-concrete-array -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The static returns an `Array with Count`, a concrete generic instance that is not the instance the static builds, so the call takes the descriptor from the enclosing method. The closure that makes the call holds it.
 ```maxon
@@ -3071,7 +3068,6 @@ type Box uses T
 	end 'widths'
 
 	function probe() returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives Self.widths()
 		let all = f()
 		return try all.get(0) otherwise 0
@@ -3099,7 +3095,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-tuple-of-the-parameter-releases-it -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 The closure captures a `(T, T)` tuple local over `String`, so the environment holds two references that its destructor releases through the descriptor; a leak exits 101.
@@ -3114,7 +3109,6 @@ type Twin uses T
 	function first(a T, b T) returns T
 		// TODO: tuple values and types are not supported in minimaxon
 		let both = (a, b)
-		// TODO: closures are not supported in minimaxon
 		// TODO: tuple element access is not supported in minimaxon
 		let f = function() gives both.0
 		return f()
@@ -3146,7 +3140,6 @@ first long enough to allocate
 ```
 
 <!-- test: a-closure-in-a-generic-type-in-a-sub-directory-calls-a-descriptor-reader -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The generic type is declared in `sub/`, so its methods are named through the directory; the closure's call to `width` still has to reach the descriptor of `viaClosure`.
 ```maxon
@@ -3170,7 +3163,6 @@ type Box uses T
 	end 'width'
 
 	function viaClosure() returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives self.width()
 		return f()
 	end 'viaClosure'
@@ -3194,7 +3186,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-extension-method-of-a-generic-type-calls-a-descriptor-reader -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
@@ -3214,7 +3205,6 @@ end 'Box'
 // TODO: extension blocks are not supported in minimaxon
 extension Box
 	function viaClosure() returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives self.width()
 		return f()
 	end 'viaClosure'
@@ -3241,7 +3231,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calls-a-generic-method-that-reads-the-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `size` is the method that reads `sizeof(T)`, and a closure calls it.
 ```maxon
@@ -3265,7 +3254,6 @@ type Box uses T
 	function viaClosure() returns Count
 		let items = Items.create(0)
 		items.push(1)
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives self.size(items)
 		return f()
 	end 'viaClosure'
@@ -3292,7 +3280,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calls-the-statics-of-a-generic-type -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The instance `own` and the two statics `m` and `mPlus` are three declarations. A closure that calls a static reads it back by the static's own declaration.
 ```maxon
@@ -3318,13 +3305,11 @@ type Box uses T
 	end 'mPlus'
 
 	function viaClosure(other SmallBox) returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives Self.mPlus(other, extra: 1)
 		return f()
 	end 'viaClosure'
 
 	function viaClosureOneArgument(other SmallBox) returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives Self.m(other)
 		return f()
 	end 'viaClosureOneArgument'
@@ -3438,13 +3423,11 @@ end 'main'
 
 <!-- test: a-function-typed-parameter-default-names-its-own-types-alias-beside-another-types -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two generic types each declare a `Transform` of their own. A default value and a closure written at a call each take the alias of the type that declares the method.
 ```maxon
 typealias Level = int(0 to 125)
 
 type Other uses U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
 
@@ -3462,7 +3445,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -3496,7 +3478,6 @@ end 'main'
 
 <!-- test: a-default-names-the-alias-of-the-type-declared-before-another-types-alias -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same two types with the default on the one declared first. `Other.twice` fills `triple`, a `function(Count)`, and `Box.run` still takes the `function(Level)` of the type declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3506,7 +3487,6 @@ function triple(x Count) returns Count
 end 'triple'
 
 type Other uses U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
 
@@ -3525,7 +3505,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -3559,7 +3538,6 @@ end 'main'
 
 <!-- test: a-default-names-an-alias-declared-below-the-method-that-spells-it -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The member `typealias` written after the method whose parameter spells it, in the type declared first.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3579,7 +3557,6 @@ type Late uses U
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 end 'Late'
 
@@ -3588,7 +3565,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Early uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -3623,7 +3599,6 @@ end 'main'
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-before-another -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two types each extended with a `Transform` of their own, the one that spells `Count` first and the one that spells `Level` last. Each default fills its own extension's alias.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3646,7 +3621,6 @@ end 'Plain'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Plain
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
@@ -3664,7 +3638,6 @@ end 'Leveled'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Leveled
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
@@ -3693,7 +3666,6 @@ end 'main'
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-after-another -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same two extensions with the order swapped, so the one that spells `Count` is declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3724,7 +3696,6 @@ end 'Leveled'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Leveled
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
@@ -3734,7 +3705,6 @@ end 'Leveled'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Plain
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
@@ -3761,14 +3731,11 @@ end 'main'
 ```
 
 <!-- test: an-alias-over-the-type-parameter-types-a-field-and-a-parameter-beside-another-types -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An alias over the type parameter, a field typed with it and a parameter typed with it, in two generic types that name the member `Step`.
 ```maxon
 typealias Level = int(0 to 125)
 
 type Pipe uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	var step as Step
 
@@ -3788,7 +3755,6 @@ type Pipe uses T
 end 'Pipe'
 
 type Gate uses U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(U) returns U
 	var step as Step
 
@@ -3807,11 +3773,9 @@ typealias CountPipe = Pipe with Count
 typealias LevelGate = Gate with Level
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let p = CountPipe.create(function(x Count) gives x * 3)
-	// TODO: closures are not supported in minimaxon
-	let g = LevelGate.create(function(x Level) gives x + 1)
-	print("{p.through(2)} {p.chain(2, g: function(x Count) gives x + 1)} {g.through(5)}\n")
+	let p = CountPipe.create(function(x Count) gives try x * 3 otherwise panic("out of range"))
+	let g = LevelGate.create(function(x Level) gives try x + 1 otherwise panic("out of range"))
+	print("{p.through(2)} {p.chain(2, g: function(x Count) gives try x + 1 otherwise panic("out of range"))} {g.through(5)}\n")
 	return 0
 end 'main'
 ```
@@ -3824,8 +3788,6 @@ end 'main'
 
 <!-- test: a-default-names-its-own-types-alias-when-the-other-type-is-in-another-file -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'function' -->
 The two types in two files, so the file order the loader walks decides which `Transform` is last.
 ```maxon
 // --- file: a.maxon
@@ -3836,7 +3798,6 @@ function triple(x Count) returns Count
 end 'triple'
 
 type Other uses U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
 
@@ -3856,7 +3817,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -3892,14 +3852,12 @@ end 'main'
 <!-- test: three-directories-each-declare-a-transform-and-the-last-declares-it-in-an-extension -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
 typealias Level = int(0 to 125)
 
 type Other uses U
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
 
@@ -3917,7 +3875,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -3960,7 +3917,6 @@ type Late uses U
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 end 'Late'
 
@@ -3969,7 +3925,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Early uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -4015,7 +3970,6 @@ end 'Plain'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Plain
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
@@ -4033,7 +3987,6 @@ end 'Leveled'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Leveled
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
@@ -4072,7 +4025,6 @@ end 'main'
 <!-- test: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
@@ -4083,7 +4035,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
 
@@ -4120,7 +4071,6 @@ end 'Plain'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Plain
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
@@ -4192,7 +4142,6 @@ end 'main'
 ```
 
 <!-- test: the-default-of-a-second-method-is-filled-at-a-call-from-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
@@ -4215,7 +4164,6 @@ type Gauge uses T
 	end 'widthText'
 
 	function viaClosure() returns Level
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives self.widthText("abcd")
 		return f()
 	end 'viaClosure'
@@ -4229,7 +4177,6 @@ function main() returns ExitCode
 	let g = IntGauge.create(3)
 	let h = FlagGauge.create(true)
 	let k = IntGauge.create(4)
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives k.widthText("ab")
 	print("{g.viaClosure()} {h.viaClosure()} {f()}\n")
 	return 0
@@ -4335,13 +4282,11 @@ end 'main'
 
 <!-- test: a-closure-in-the-default-of-a-generic-function-instance-named-over-a-range-finds-its-host -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The instance's name holds the `$` of its range-qualified type argument, and so does the name of the closure lifted out of its default helper.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Pred = function(Count) returns bool
 
 // TODO: default parameter values are not supported in minimaxon
@@ -4523,7 +4468,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-method-takes-the-alias-of-the-conformer-it-was-folded-for -->
-<!-- skip: closures are not supported in minimaxon -->
 `map` is declared once in `extension Iterable` and folded once per conformer; each fold files its `ElementTransform` under the conformer, so an untyped closure takes the element type of the array it is written against.
 ```maxon
 typealias Words = Array with String
@@ -4535,9 +4479,7 @@ function main() returns ExitCode
 	words.push("ab")
 	let nums = Nums.create(0)
 	nums.push(4)
-	// TODO: closures are not supported in minimaxon
 	let shouted = words.map(function(w) gives "{w}!")
-	// TODO: closures are not supported in minimaxon
 	let doubled = nums.map(function(n) gives n * 2)
 	print("{try shouted.get(0) otherwise ""} {try doubled.get(0) otherwise 0}\n")
 	return 0
@@ -4551,7 +4493,6 @@ ab! 8
 ```
 
 <!-- test: a-closure-building-the-type-runs-a-field-default-that-reads-sizeof -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Box uses T
@@ -4559,7 +4500,6 @@ type Box uses T
 	export var n = sizeof(T) as Count
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		let build = function() gives Self{}
 		return build()
 	end 'create'
@@ -4586,13 +4526,11 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-a-plain-type-builds-the-type-with-a-field-default -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 type Plain
 	export var n = 7 as Count
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		let build = function() gives Self{}
 		return build()
 	end 'create'

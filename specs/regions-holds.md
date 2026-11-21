@@ -535,14 +535,11 @@ end 'main'
 ```
 
 <!-- test: a-closure-parameter-spelled-like-the-cell-is-not-the-cell -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The closure's own `label` is its parameter, not the local `label` that `put` writes, so no other operand reads the cell.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Sizer = function(String) returns Tally
 
 function put(mutates text String) returns Tally
@@ -555,12 +552,11 @@ function apply(sizer Sizer, text String) returns Tally
 end 'apply'
 
 function both(first Tally, second Tally) returns Tally
-	return first + second
+	return try first + second otherwise panic("out of range")
 end 'both'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: closures are not supported in minimaxon
 	let total = both(apply(function(label String) gives label.byteLength() as Tally, text: "ab"), second: put(label))
 	print("{total} {label}\n")
 	return 0

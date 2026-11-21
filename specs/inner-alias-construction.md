@@ -873,7 +873,6 @@ descriptor, so the array it builds is an ordinary empty array of the instance's 
 its `create()` twin share one producer, and each is pinned.
 
 <!-- test: opaque-inner-alias-in-a-closure-is-constructed -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -888,7 +887,6 @@ type Holder uses Element
 	end 'create'
 
 	function sized() returns Count
-		// TODO: closures are not supported in minimaxon
 		let make = function() gives ElementArray{}.count()
 		return make()
 	end 'sized'
@@ -912,7 +910,6 @@ end 'main'
 ### The `create()` spelling in a closure is constructed identically
 
 <!-- test: opaque-inner-alias-create-in-a-closure-is-constructed -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -927,7 +924,6 @@ type Holder uses Element
 	end 'create'
 
 	function sized() returns Count
-		// TODO: closures are not supported in minimaxon
 		let make = function() gives ElementArray.create(0).count()
 		return make()
 	end 'sized'
@@ -1011,7 +1007,6 @@ static call and in `<Alias> from [...]`. Each refusal below is the one the same 
 file-scope alias beside it.
 
 <!-- test: error.an-inner-alias-shadows-a-file-scope-alias-at-the-static-door -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 99)

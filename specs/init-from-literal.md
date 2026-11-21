@@ -76,7 +76,6 @@ end 'main'
 ## Tests
 
 <!-- test: init-from-string-literal-basic -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -86,16 +85,15 @@ type Wrapper implements InitableFromStringLiteral
 	var value as String
 
 	static function init(value String) returns Wrapper
-		return Wrapper{value: value}
+		return Wrapper{value: value.clone()}
 	end 'init'
 
 	function len() returns Integer
-		return value.byteLength()
+		return try value.byteLength() as Integer otherwise panic("out of range")
 	end 'len'
 end 'Wrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let w = Wrapper from "hello"
 	print("{w.len()}\n")
 	return 0
@@ -106,7 +104,6 @@ end 'main'
 ```
 
 <!-- test: init-from-string-literal-empty -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -115,16 +112,15 @@ type Wrapper implements InitableFromStringLiteral
 	var value as String
 
 	static function init(value String) returns Wrapper
-		return Wrapper{value: value}
+		return Wrapper{value: value.clone()}
 	end 'init'
 
 	function len() returns Integer
-		return value.byteLength()
+		return try value.byteLength() as Integer otherwise panic("out of range")
 	end 'len'
 end 'Wrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let w = Wrapper from ""
 	print("len: {w.len()}\n")
 	return 0
@@ -142,7 +138,7 @@ len: 0
 struct and the E3004 for a type with no `init` are the ones every other static call gets.
 
 <!-- test: init-from-char-literal-basic -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 
@@ -161,7 +157,7 @@ type CharWrapper implements InitableFromCharLiteral
 end 'CharWrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from 'X'
 	print("{cw.len()}\n")
@@ -173,7 +169,7 @@ end 'main'
 ```
 
 <!-- test: init-from-char-literal-multibyte -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 The literal's BYTES are what the record carries, so a character outside ASCII arrives whole rather than
 truncated to its first byte. `byteLength()` is the discriminating read — a `Character` that lost its
@@ -194,7 +190,7 @@ type CharWrapper implements InitableFromCharLiteral
 end 'CharWrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from '€'
 	print("{cw.len()}\n")
@@ -206,7 +202,7 @@ end 'main'
 ```
 
 <!-- test: init-from-char-literal-at-module-scope -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 ⭐⭐ **THE SAME CONSTRUCTION AS A TOP-LEVEL INITIALIZER.** A module-scope initializer is read by the body's
 expression parser, so the construction is the body's, and `__module_init` builds the record before `main`
@@ -226,12 +222,12 @@ type CharWrapper implements InitableFromCharLiteral
 	end 'len'
 end 'CharWrapper'
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
+// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 // TODO: character literals are not supported in minimaxon
 let euro = CharWrapper from '€'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	// TODO: character literals are not supported in minimaxon
 	let local = CharWrapper from 'A'
 	print("{euro.len()} {local.len()}\n")
@@ -243,7 +239,7 @@ end 'main'
 ```
 
 <!-- test: error.init-from-char-literal-without-the-conformance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The conformance is REQUIRED, and it is checked after the merge rather than at the cursor: `implements` is
@@ -266,7 +262,7 @@ type CharWrapper
 end 'CharWrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from 'X'
 	return cw.len() as ExitCode

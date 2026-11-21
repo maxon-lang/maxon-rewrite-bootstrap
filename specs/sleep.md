@@ -81,7 +81,6 @@ ok
 ```
 
 <!-- test: sleep.main-thread-with-concurrent-async-io -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `sleep()` on the MAIN thread lasts its full duration even while an `async`
@@ -102,7 +101,6 @@ typealias Probe = int(0 to 1000000)
 
 function probe() returns Probe
 	for _ in 0 upto 20 'each'
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		_ = File.exists(FilePath from "noyield.txt")
 	end 'each'
 	return 7

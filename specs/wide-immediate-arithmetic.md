@@ -287,7 +287,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: wide-immediate-in-a-loop -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A wide immediate added inside a loop body, so the materialisation sits between two
 loop-carried values' live ranges rather than in straight-line code. `acc` starts at 0 and
 takes `+ 1000000007` three times, and `i` counts with a small immediate beside it — the two
@@ -298,7 +297,7 @@ function main() returns ExitCode
 	var acc = try cell.get(0) otherwise 0
 	var i = 0 as FullRangeInt
 	while i < 3 'loop'
-		acc = acc + 1000000007
+		acc = try acc + 1000000007 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	if acc != 3000000021 'acc'

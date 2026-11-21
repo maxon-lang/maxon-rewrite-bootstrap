@@ -259,7 +259,6 @@ end 'main'
 ```
 
 <!-- test: error.closure-inside-a-handler-does-not-discharge-e3084 -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A CLOSURE DECLARED INSIDE A HANDLER is a different `IrFunction`, so neither the handler's error-union binding
 nor its E3084 obligation may be visible inside it — a `match e` there names the CLOSURE's own `e`, and a
@@ -309,7 +308,6 @@ function main() returns ExitCode
 		let b = callB(false)
 		sum = a + b
 	end 'work' otherwise (e) 'h'
-		// TODO: closures are not supported in minimaxon
 		let pick = function(e Inner) gives match e 'inner'
 			bad gives 3
 			splat gives 8
@@ -324,7 +322,7 @@ error E3084: specs/try-block-shadowed-binding/error.closure-inside-a-handler-doe
 ```
 
 <!-- test: try-block-shadowed-binding.closure-inside-a-handler-matches-its-own-binding -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
 The same shape with the handler's own obligation discharged: the closure's `e` is its PARAMETER, so its
 `match e` dispatches on `Inner` and answers 8, while the handler's `match e` reaches the synthesized error
 union and takes the `ErrA.bad` arm — which is the error really in flight.
@@ -366,7 +364,6 @@ function main() returns ExitCode
 		let b = callB(false)
 		sum = a + b
 	end 'work' otherwise (e) 'h'
-		// TODO: closures are not supported in minimaxon
 		let pick = function(e Inner) gives match e 'inner'
 			bad gives 3
 			splat gives 8

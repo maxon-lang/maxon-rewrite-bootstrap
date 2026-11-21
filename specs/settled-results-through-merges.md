@@ -941,7 +941,7 @@ error E3197: <fragment>:28:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-result-mixing-a-module-let-array-with-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `get` hands back image data on one path and a fresh array on the other, so its result is read-only for every caller: the call's arguments are all values, and that does not make the result fresh.
 
@@ -971,7 +971,7 @@ error E3197: <fragment>:17:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-ternary-of-a-fresh-array-and-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -995,7 +995,7 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-match-arm-giving-a-module-let-array-beside-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1027,7 +1027,6 @@ error E3197: <fragment>:21:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-map-miss-falling-back-to-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `pick` builds its own map, so every argument it takes is a value; the `otherwise` fallback is the module `let` array, and the result mixes it with the stored one.
 
@@ -1089,7 +1088,6 @@ error E3197: <fragment>:19:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-generic-function-handing-back-a-module-let-array-beside-a-fresh-one-is-not-writable -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1116,7 +1114,7 @@ error E3197: <fragment>:17:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-function-forwarding-a-mixed-result-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `outer` returns `get`'s result unchanged, so it is as read-only as `get`'s.
 
@@ -1189,7 +1187,6 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-passed-straight-to-a-writing-function-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1216,7 +1213,6 @@ error E3207: <fragment>:16:10: 'writeIt' takes `mutable` 'd' (line 12: `d.push(1
 ```
 
 <!-- test: a-mixed-result-bound-to-a-var-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1281,7 +1277,6 @@ error E3200: <fragment>:25:11: 'get(false)' is not isolated: only a clean call, 
 ```
 
 <!-- test: a-mixed-result-is-read-and-a-copy-of-it-is-written -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The declaration is accepted: a mixed result is read-only for its callers, not refused where it is declared. Reading it, and writing a copy of it, are accepted.
 
 ```maxon
@@ -1300,7 +1295,7 @@ end 'get'
 
 function main() returns ExitCode
 	let d = get(false)
-	let mine = get(false).clone()
+	var mine = get(false).clone()
 	mine.push(1)
 	print("{d.count()} {mine.count()} {Primes.count()}\n")
 	return 0
@@ -1394,7 +1389,7 @@ error E3197: <fragment>:24:2: cannot write 'n' through 'b', which is read-only
 ```
 
 <!-- test: a-method-of-a-fresh-receiver-handing-back-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The receiver is a fresh value, so nothing about the call makes its result read-only except what `get` hands back.
 
@@ -1431,14 +1426,13 @@ error E3197: <fragment>:25:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-closure-built-by-a-clean-call-stays-callable-through-a-var-rebound-to-a-copy -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `relay` returns the closure `make` builds, so the closure is fresh on every path and a caller that calls it, rebinds a `var` to it or calls the `var` is calling writable data.
 
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Total
@@ -1456,7 +1450,6 @@ end 'Total'
 
 function make() returns Bump
 	let total = Total.create()
-	// TODO: closures are not supported in minimaxon
 	return function() gives total.bump()
 end 'make'
 
@@ -1482,15 +1475,14 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Total
@@ -1508,11 +1500,9 @@ end 'Total'
 
 function make() returns Bump
 	let total = Total.create()
-	// TODO: closures are not supported in minimaxon
 	return function() gives total.bump()
 end 'make'
 
-// TODO: closures are not supported in minimaxon
 let Shared = function() gives 7 as Tally
 
 function pick(fresh bool) returns Bump

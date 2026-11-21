@@ -26,13 +26,13 @@ These cases exist because a refusal nothing runs is a claim, not a door.
 ## Tests
 
 <!-- test: error-default-on-closure-parameter -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
+	// TODO: default parameter values are not supported in minimaxon
 	let f = function(n Integer = 3) returns Integer
 		gives n
 	end 'f'

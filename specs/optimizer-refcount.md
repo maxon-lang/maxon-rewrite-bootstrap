@@ -40,8 +40,6 @@ anything meaningful to optimize.
 ## Tests
 
 <!-- test: refcount-baseline-whole-program -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -53,7 +51,6 @@ typealias Matrix = Array with IntArray
 
 typealias PointArray = Array with Point
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 type Point
@@ -70,7 +67,7 @@ type Person
 	export var age as Integer
 
 	static function create(name String, age Integer) returns Self
-		return Self{name: name, age: age}
+		return Self{name: name.clone(), age: age}
 	end 'create'
 end 'Person'
 
@@ -81,7 +78,7 @@ union Shape
 end 'Shape'
 
 function sum_point(p Point) returns Integer
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'sum_point'
 
 function make_point(x Integer, y Integer) returns Point
@@ -90,8 +87,8 @@ end 'make_point'
 
 function describe(s Shape) returns Integer
 	return match s 'innerDescribe'
-		circle(label) gives label.count() as Integer
-		square(label) gives label.count() as Integer
+		circle(label) gives try label.count() as Integer otherwise panic("out of range")
+		square(label) gives try label.count() as Integer otherwise panic("out of range")
 		blank gives 0
 	end 'innerDescribe'
 end 'describe'
@@ -101,13 +98,13 @@ function apply(f FnTypeAlias1, x Integer) returns Integer
 end 'apply'
 
 function names_total(arr StringArray) returns Integer
-	return arr.count()
+	return try arr.count() as Integer otherwise panic("out of range")
 end 'names_total'
 
 function row_total(arr IntArray) returns Integer
 	var sum = 0 as Integer
 	for v in arr 'iter'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'iter'
 	return sum
 end 'row_total'
@@ -115,7 +112,7 @@ end 'row_total'
 function matrix_total(m Matrix) returns Integer
 	var sum = 0 as Integer
 	for row in m 'iter'
-		sum = sum + row_total(row)
+		sum = try sum + row_total(row) otherwise panic("out of range")
 	end 'iter'
 	return sum
 end 'matrix_total'
@@ -123,7 +120,7 @@ end 'matrix_total'
 function points_x_sum(pts PointArray) returns Integer
 	var sum = 0 as Integer
 	for p in pts 'iter'
-		sum = sum + p.x
+		sum = try sum + p.x otherwise panic("out of range")
 	end 'iter'
 	return sum
 end 'points_x_sum'
@@ -132,62 +129,61 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	// --- section 1: struct literal + alias ---
 	var a = Point.create(1, y: 2)
-	let b = a
+	var b = a
 	b.x = 99
 	a = b
 	total = total + a.x
 	// --- section 2: short-lived temp passed to function ---
-	total = total + sum_point(Point.create(3, y: 4))
-	total = total + sum_point(Point.create(5, y: 6))
+	total = try total + sum_point(Point.create(3, y: 4)) otherwise panic("out of range")
+	total = try total + sum_point(Point.create(5, y: 6)) otherwise panic("out of range")
 	// --- section 3: loop-carried container pushes ---
-	let names = StringArray.create(0)
+	var names = StringArray.create(0)
 	for i in 0 upto 5 'names_loop'
 		names.push("name_{i}")
 	end 'names_loop'
-	total = total + names_total(names)
+	total = try total + names_total(names) otherwise panic("out of range")
 	// --- section 4: nested container ---
-	let row1 = IntArray.create(0)
+	var row1 = IntArray.create(0)
 	row1.push(1)
 	row1.push(2)
-	let row2 = IntArray.create(0)
+	var row2 = IntArray.create(0)
 	row2.push(3)
 	row2.push(4)
-	let matrix = Matrix.create(0)
+	var matrix = Matrix.create(0)
 	matrix.push(row1)
 	matrix.push(row2)
-	total = total + matrix_total(matrix)
+	total = try total + matrix_total(matrix) otherwise panic("out of range")
 	// --- section 5: function parameter passing ---
 	let origin = Point.create(0, y: 0)
-	total = total + sum_point(origin)
-	total = total + sum_point(origin)
+	total = try total + sum_point(origin) otherwise panic("out of range")
+	total = try total + sum_point(origin) otherwise panic("out of range")
 	// --- section 6: return-ownership transfer (factory) ---
 	let made = make_point(10, y: 20)
-	total = total + made.x
+	total = try total + made.x otherwise panic("out of range")
 	// --- section 7: struct field reassignment ---
-	let person = Person.create("alice", age: 30)
+	var person = Person.create("alice", age: 30)
 	person.name = "bob"
 	person.name = "carol"
-	total = total + person.age
+	total = try total + person.age otherwise panic("out of range")
 	// --- section 8: union with managed payload ---
 	let shape1 = Shape.circle("ring")
 	let shape2 = Shape.square("box")
 	let shape3 = Shape.blank
-	total = total + describe(shape1)
-	total = total + describe(shape2)
-	total = total + describe(shape3)
+	total = try total + describe(shape1) otherwise panic("out of range")
+	total = try total + describe(shape2) otherwise panic("out of range")
+	total = try total + describe(shape3) otherwise panic("out of range")
 	// --- section 9: closure capturing a managed value ---
 	let prefix = "pfx_"
-	// TODO: closures are not supported in minimaxon
-	let builder = function(n Integer) gives "{prefix}{n}".count() as Integer
-	total = total + apply(builder, x: 7)
-	total = total + apply(builder, x: 8)
+	let builder = function(n Integer) gives try "{prefix}{n}".count() as Integer otherwise panic("out of range")
+	total = try total + apply(builder, x: 7) otherwise panic("out of range")
+	total = try total + apply(builder, x: 8) otherwise panic("out of range")
 	// --- section 10: for-in over managed elements, primitive body ---
 	// exercises the for-in lowering pattern (__forin_result + user var alias)
-	let points = PointArray.create(0)
+	var points = PointArray.create(0)
 	points.push(Point.create(1, y: 2))
 	points.push(Point.create(3, y: 4))
 	points.push(Point.create(5, y: 6))
-	total = total + points_x_sum(points)
+	total = try total + points_x_sum(points) otherwise panic("out of range")
 	// --- section 11: in-loop try-alias + borrow-call bracket ---
 	// Inside each iteration, a try-binding creates an implicit alias between
 	// the try-result slot and the user-visible `p`. The emitter brackets the
@@ -195,7 +191,7 @@ function main() returns ExitCode
 	// elimination collapses the bracket: the try-result owns the rc=1
 	// transferred reference and the direct call is borrow-only, so the
 	// extra +1/-1 is pure overhead.
-	let triplet = PointArray.create(0)
+	var triplet = PointArray.create(0)
 	triplet.push(Point.create(7, y: 8))
 	triplet.push(Point.create(9, y: 10))
 	triplet.push(Point.create(11, y: 12))
@@ -203,7 +199,7 @@ function main() returns ExitCode
 		let p = try triplet.get(i) otherwise 'missErr'
 			panic("alias_loop: triplet.get({i}) invariant violated")
 		end 'missErr'
-		total = total + sum_point(p)
+		total = try total + sum_point(p) otherwise panic("out of range")
 	end 'alias_loop'
 	// Prevent optimizer from eliminating the work — but exit 0.
 	if total < 0 'guard'

@@ -656,8 +656,6 @@ note: <fragment>:67:9: `Port` is converted to `Inner` here
 ```
 
 <!-- test: error.freeze-of-an-interface-whose-generic-conformer-is-built-at-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -668,7 +666,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Door
@@ -720,7 +717,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let held = freeze(Holder.create(StepWrap.sink(function(n Tally) gives n + 1, seen: 5)))
 	print("{held.sink.total()}\n")
 	return 0
@@ -732,15 +728,12 @@ note: <fragment>:36:10: `Gen with Step` is converted to `Sink` here
 ```
 
 <!-- test: a-closure-conformer-is-frozen-and-published-without-a-service -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- process: own -->
 `Closure` holds a function value and stands at `Stepper`, and a `Holder` of one is frozen and another published to a `SharedValue`. The program spawns no service, so nothing it shares reaches another thread: both doors accept the value, and it runs. That is a fact about the whole program, so the case runs as a program of its own: batched beside a case that spawns, it would be refused as the next case is.
 
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Stepper
@@ -776,9 +769,7 @@ typealias HolderCell = SharedValue with Holder
 
 function main() returns ExitCode
 	let offset = 3 as Tally
-	// TODO: closures are not supported in minimaxon
 	let frozen = freeze(Holder.create(Closure.create("ab", step: function(n) gives n + offset)))
-	// TODO: closures are not supported in minimaxon
 	let cell = HolderCell.create(Holder.create(Closure.create("abc", step: function(n) gives n + 1)))
 	print("{frozen.run(1)} {cell.current().run(1)}\n")
 	return 0
@@ -793,8 +784,6 @@ end 'main'
 
 <!-- test: error.a-closure-conformer-is-refused-once-a-service-is-spawned -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -805,7 +794,6 @@ The program above with one idle service spawned: a value it shares may now reach
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Stepper
@@ -855,9 +843,7 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let pong = try await idle.ping() otherwise 0
 	let offset = 3 as Tally
-	// TODO: closures are not supported in minimaxon
 	let frozen = freeze(Holder.create(Closure.create("ab", step: function(n) gives n + offset)))
-	// TODO: closures are not supported in minimaxon
 	let cell = HolderCell.create(Holder.create(Closure.create("abc", step: function(n) gives n + 1)))
 	print("{frozen.run(1)} {cell.current().run(1)} {pong}\n")
 	return 0
@@ -1117,7 +1103,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-reaches-an-unwalkable-conformer -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1128,7 +1113,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -1201,7 +1185,6 @@ note: <fragment>:64:40: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-holds-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1212,7 +1195,6 @@ At `Froze with Stepper` the compiled-once `freeze` reaches `Stepper`'s function 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Stepper
@@ -1410,8 +1392,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-through-a-generic-type-that-calls-another-generic-type-reaches-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1422,7 +1402,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -1492,7 +1471,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let f = freeze(StepOuter.go(Stepper.create(function(n Tally) gives n + 1)))
 	print("{f.shape.area()}\n")
 	return 0
@@ -1504,8 +1482,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-through-a-generic-type-that-names-another-by-its-bare-name-reaches-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1516,7 +1492,6 @@ The same chain with `Outer` calling `Froze.run` by its bare name, so the instanc
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -1584,7 +1559,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let f = freeze(StepOuter.go(Stepper.create(function(n Tally) gives n + 1)))
 	print("{f.shape.area()}\n")
 	return 0
@@ -1596,8 +1570,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-door-in-a-generic-type-reached-through-another-generic-types-body -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1609,7 +1581,6 @@ The `freeze` sits in `Froze`'s generic body and the program reaches `Froze` only
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -1691,7 +1662,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let got = HolderOuter.go(Holder.create(Stepper.create(function(n Tally) gives n + 1)))
 	print("{got.item.shape.area()} {Plain.create().area()}\n")
 	return 0
@@ -1771,7 +1741,6 @@ end 'main'
 ```
 
 <!-- test: freeze-of-a-deeper-instance-whose-fields-do-not-depend-on-the-parameter-runs -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box` freezes a `Box with (Cell with T)`, an instance one level deeper than its receiver, but no field of `Box` holds `T`, so every depth is judged alike; the chain is not refused and the program runs.
@@ -1779,7 +1748,6 @@ end 'main'
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2015,8 +1983,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-of-a-generic-bodys-own-instance-holding-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2027,7 +1993,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Sink
@@ -2087,7 +2052,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let held = freeze(Holder.create(StepGen.sink(Stepper.create(function(n Tally) gives n + 1), seen: 5)))
 	print("{held.sink.total()} {TallyGen.sink(4, seen: 6).total()}\n")
 	return 0
@@ -2099,8 +2063,6 @@ note: <fragment>:42:10: `StepGen` is converted to `Sink` here
 ```
 
 <!-- test: error.freeze-names-the-path-through-a-nested-conformer-to-the-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2111,7 +2073,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2176,7 +2137,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives n + 1))))
 	print("{f.shape.area()} {Plain.create().area()}\n")
 	return 0
@@ -2281,8 +2241,6 @@ a root string that lives on the heap 1
 
 
 <!-- test: error.freeze-names-an-arrays-element-slot-through-the-array-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2293,7 +2251,6 @@ A conformer's `Array with Stepper` field is a library container, so the refusal 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2349,7 +2306,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2395,8 +2351,6 @@ note: <fragment>:84:9: `ArrShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-maps-values-through-the-map-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2407,7 +2361,6 @@ A conformer's `Map with (String, Stepper)` field is named by the field and by wh
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2463,7 +2416,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2505,8 +2457,6 @@ note: <fragment>:82:9: `MapShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-lists-elements-through-the-list-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2517,7 +2467,6 @@ A `List with Stepper` field reads as an `Array` and a `Map` do: the field holds 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2573,7 +2522,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2615,8 +2563,6 @@ note: <fragment>:82:9: `ListShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-tuple-element-as-an-author-writes-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -2629,7 +2575,6 @@ A tuple element is named by its position as an author writes it, `pair.0`, and n
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2685,7 +2630,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2729,15 +2673,12 @@ note: <fragment>:82:9: `PairShape` is converted to `Shape` here
 ```
 
 <!-- test: a-generic-permuting-its-parameters-at-an-entry-naming-one-of-them-runs -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Swap` hands its arguments to itself in the other order, so it denotes only two instances at any entry; sharing is judged in finite time and the `freeze` runs.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2793,7 +2734,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2841,15 +2781,12 @@ end 'main'
 ```
 
 <!-- test: a-generic-duplicating-a-parameter-at-an-entry-runs -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Dup` passes its second argument in both positions; the instances it denotes stay finite, so the `freeze` runs.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -2905,7 +2842,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -2953,15 +2889,12 @@ end 'main'
 ```
 
 <!-- test: a-generic-fixing-one-parameter-and-wrapping-the-other-runs -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Fix` keeps its first argument and wraps its second in a `Cell` once; the wrapped argument feeds no parameter the first one depends on, so the instances it denotes are finite and the `freeze` runs.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -3017,7 +2950,6 @@ type Wrap uses T implements Shape
 end 'Wrap'
 
 function stepper() returns Stepper
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepper'
 
@@ -3291,8 +3223,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-through-interfaces-names-tuple-and-instance-conformers -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -3306,7 +3236,6 @@ A conformer holding a tuple, an instance and nested arrays of tuples is named in
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface I1
@@ -3351,7 +3280,6 @@ type TupBag implements I1
 
 	static function create() returns Self
 		// TODO: tuple values and types are not supported in minimaxon
-		// TODO: closures are not supported in minimaxon
 		return Self{p: (1, Stepper.create(function(n Tally) gives n))}
 	end 'create'
 
@@ -3365,7 +3293,6 @@ type BoxBag implements I2
 	export let b as StepperBox
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{b: StepperBox.create(Stepper.create(function(n Tally) gives n))}
 	end 'create'
 
@@ -3443,8 +3370,6 @@ note: <fragment>:115:28: `DeepBag` is converted to `I3` here
 ```
 
 <!-- test: error.a-conversion-note-points-at-the-arm-that-returned-the-conformer -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -3455,7 +3380,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape
@@ -3522,7 +3446,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
-	// TODO: closures are not supported in minimaxon
 	let f = freeze(Holder.create(pick(Plain.create(), stepper: Stepper.create(function(n Tally) gives n), which: Which.second)))
 	print("{f.shape.area()}\n")
 	return 0

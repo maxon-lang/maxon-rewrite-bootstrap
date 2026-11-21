@@ -1076,15 +1076,15 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let f = grow
 	f(a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1099,15 +1099,15 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let f = grow
 	f(a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1115,7 +1115,6 @@ end 'main'
 ```
 
 <!-- test: function-value-forwarded-through-a-parameter-writes-a-let -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The function value arrives as a parameter, so `apply` names no callee at all: it writes `d` if any function that
 may flow into `Grower` does, and `grow` does.
 
@@ -1124,21 +1123,20 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Grower = function(mutable IntArray)
+typealias Grower = function(mutates IntArray)
 
 function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
-function apply(g Grower, d IntArray)
+function apply(g Grower, mutates d IntArray)
 	g(d)
 end 'apply'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	apply(grow, d: a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1146,7 +1144,6 @@ end 'main'
 ```
 
 <!-- test: function-value-call-of-an-unrelated-type-leaves-a-let-alone -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Only the functions that may flow into the called value's type are judged. `grow` writes its parameter, but it is
 not a `Sizer`, so calling a `Sizer` through `apply` hands `a` to a reader and the `let` is accepted.
 
@@ -1155,15 +1152,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Sizer = function(IntArray) returns Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
 function size(d IntArray) returns Integer
-	return d.count() as Integer
+	return try d.count() as Integer otherwise panic("out of range")
 end 'size'
 
 function apply(s Sizer, d IntArray) returns Integer
@@ -1172,18 +1168,17 @@ end 'apply'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	let b = IntArray.create(0)
+	var b = IntArray.create(0)
 	let g = grow
 	g(b)
 	let total = apply(size, d: a)
-	return (total + (b.count() as Integer)) as ExitCode
+	return try (total + (b.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
 1
 ```
 <!-- test: function-value-call-keeps-its-argument-in-a-let-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same judgement covers what a function value KEEPS: `shelve` stores its parameter in a `let` field, so the
 call through `build`'s `Maker` keeps `v`, which is read again afterwards. The `let` field names the same array
 as `v`, so the later push is seen through the shelf.
@@ -1197,12 +1192,11 @@ type Shelf
 	export let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Shelf'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Maker = function(mutable IntArray) returns Shelf
+typealias Maker = function(mutates IntArray) returns Shelf
 
 function shelve(mutates d IntArray) returns Shelf
 	return Shelf.create(d)
@@ -1213,11 +1207,11 @@ function build(m Maker, mutates d IntArray) returns Shelf
 end 'build'
 
 function main() returns ExitCode
-	let v = IntArray.create(0)
+	var v = IntArray.create(0)
 	v.push(1)
 	let shelf = build(shelve, d: v)
 	v.push(2)
-	return shelf.items.count() as ExitCode
+	return try shelf.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1225,7 +1219,6 @@ end 'main'
 ```
 
 <!-- test: function-value-call-keeps-an-argument-it-is-last-used-in -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same call when `v` is not read after it. The function value keeps its parameter, so `Maker` and
 `shelve` declare it `mutable`.
 
@@ -1238,12 +1231,11 @@ type Shelf
 	export let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Shelf'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Maker = function(mutable IntArray) returns Shelf
+typealias Maker = function(mutates IntArray) returns Shelf
 
 function shelve(mutates d IntArray) returns Shelf
 	return Shelf.create(d)
@@ -1254,10 +1246,10 @@ function build(m Maker, mutates d IntArray) returns Shelf
 end 'build'
 
 function main() returns ExitCode
-	let v = IntArray.create(0)
+	var v = IntArray.create(0)
 	v.push(1)
 	let shelf = build(shelve, d: v)
-	return shelf.items.count() as ExitCode
+	return try shelf.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1304,7 +1296,7 @@ end 'size'
 function main() returns ExitCode
 	let a = [1 as Integer, 2 as Integer, 3 as Integer]
 	let f = size
-	return f(a) as ExitCode
+	return try f(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1324,7 +1316,7 @@ end 'size'
 function main() returns ExitCode
 	let m = [1 as Count: 10 as Count]
 	let f = size
-	return f(m) as ExitCode
+	return try f(m) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1350,7 +1342,7 @@ end 'read'
 function main() returns ExitCode
 	let b = Box.create()
 	let f = read
-	return f(b) as ExitCode
+	return try f(b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1369,15 +1361,15 @@ type Box
 	end 'create'
 end 'Box'
 
-function bump(b Box)
+function bump(mutates b Box)
 	b.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	let b = Box.create()
+	var b = Box.create()
 	let f = bump
 	f(b)
-	return b.n as ExitCode
+	return try b.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1385,7 +1377,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-literal-callee-that-writes-its-parameter-accepts-a-let -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure literal is the exact callee, and its body's write lands in the `let` array.
 
 ```maxon
@@ -1393,16 +1384,15 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function growAndCount(d IntArray) returns Count
+function growAndCount(mutates d IntArray) returns Count
 	d.push(9)
 	return d.count()
 end 'growAndCount'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	// TODO: closures are not supported in minimaxon
 	let f = function(d IntArray) gives growAndCount(d)
-	return f(a) as ExitCode
+	return try f(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1410,7 +1400,6 @@ end 'main'
 ```
 
 <!-- test: a-callback-parameter-that-may-write-accepts-a-let-handed-through-the-caller -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `apply` forwards its array to an unknown callback; some function of the callback's shape writes it, so `apply`
 writes its parameter, and a `let` handed to `apply` takes the write.
 
@@ -1419,22 +1408,21 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Mutator = function(mutable IntArray)
+typealias Mutator = function(mutates IntArray)
 
 function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
-function apply(xs IntArray, f Mutator)
+function apply(mutates xs IntArray, f Mutator)
 	f(xs)
 end 'apply'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let g = grow
 	apply(a, f: g)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1442,7 +1430,6 @@ end 'main'
 ```
 
 <!-- test: a-callback-parameter-whose-candidates-only-read-accepts-a-let -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 When no function of the callback's shape that is used as a value writes the parameter, the `let` is accepted.
 
 ```maxon
@@ -1450,7 +1437,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function(IntArray) returns Count
 
 function look(d IntArray) returns Count
@@ -1473,7 +1459,6 @@ end 'main'
 ```
 
 <!-- test: a-higher-order-call-is-written-through-two-levels -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The write is carried through a second forwarding function, and lands in the `let` array.
 
 ```maxon
@@ -1481,26 +1466,25 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Mutator = function(mutable IntArray)
+typealias Mutator = function(mutates IntArray)
 
 function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
-function apply(xs IntArray, f Mutator)
+function apply(mutates xs IntArray, f Mutator)
 	f(xs)
 end 'apply'
 
-function relay(ys IntArray, g Mutator)
+function relay(mutates ys IntArray, g Mutator)
 	apply(ys, f: g)
 end 'relay'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let w = grow
 	relay(a, g: w)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1570,7 +1554,7 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(mutates self)
+	function add()
 		grow(items)
 	end 'add'
 
@@ -1580,7 +1564,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	b.add()
 	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'

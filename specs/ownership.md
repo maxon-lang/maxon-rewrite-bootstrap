@@ -1063,13 +1063,10 @@ end 'main'
 ```
 
 <!-- test: closure-env-freed -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The closure environment block is freed at block exit like any other struct.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -1078,8 +1075,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let offset = 5
-	// TODO: closures are not supported in minimaxon
-	let result = apply(function(n Integer) gives n + offset, x: 10)
+	let result = apply(function(n Integer) gives try n + offset otherwise panic("out of range"), x: 10)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -1092,15 +1088,13 @@ end 'main'
 ```
 
 <!-- test: closure-captures-borrow -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'typealias' -->
 A closure captures a struct variable by address; the original var owns the struct.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Config
 	export var level as Integer
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 	static function create(level Integer) returns Self
@@ -1114,7 +1108,6 @@ end 'apply'
 
 function main() returns ExitCode
 	let cfg = Config.create(3)
-	// TODO: closures are not supported in minimaxon
 	let result = apply(function(_ Integer) gives cfg.level, x: 0)
 	print("{result}\n")
 	return 0

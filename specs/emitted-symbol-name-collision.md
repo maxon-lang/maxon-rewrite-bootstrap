@@ -77,7 +77,6 @@ exactly one thing: the NAME.
 ## Tests
 
 <!-- test: runtime-chunk-name -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.
@@ -87,7 +86,6 @@ The silent miscompile: with the refusal removed from `recordChunkLabel`, this ex
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 function mrt_runtime_init() returns Integer
@@ -112,7 +110,6 @@ error E4015: <fragment>:5:10: declaration of 'mrt_runtime_init' collides with a 
 ```
 
 <!-- test: entry-stub-name -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.
@@ -129,7 +126,6 @@ appended in the wrong ORDER) rather than doubling as a collision report.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 function mrt_start() returns Integer
@@ -155,7 +151,6 @@ error E4015: <fragment>:5:10: declaration of 'mrt_start' collides with a symbol 
 
 <!-- test: a-service-program-refuses-the-entry-stub-name-taken-as-a-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -164,7 +159,6 @@ wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` befo
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -248,7 +242,6 @@ error E4015: <fragment>:16:10: declaration of 'mrt_start' collides with a symbol
 
 <!-- test: a-service-program-refuses-the-preempt-handler-name-off-windows -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -257,7 +250,6 @@ x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `s
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -299,7 +291,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_preempt_handler' collides wit
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-preempt-handler -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_preempt_handler`, so the function is the program's own and its address is priced like any other function value; the other lanes refuse the name (see the neighbouring case) and wasm32-wasi answers E3104 for the `spawn`.
@@ -307,7 +298,6 @@ x64-windows lays no chunk named `mrt_preempt_handler`, so the function is the pr
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -349,7 +339,6 @@ end 'main'
 
 <!-- test: a-service-program-refuses-the-fault-handler-name-off-windows -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -358,7 +347,6 @@ x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `s
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -400,7 +388,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_handler' collides with 
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-fault-handler -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_fault_handler`, so the function is the program's own; the other lanes refuse the name and wasm32-wasi answers E3104 for the `spawn`.
@@ -408,7 +395,6 @@ x64-windows lays no chunk named `mrt_fault_handler`, so the function is the prog
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -450,7 +436,6 @@ end 'main'
 
 <!-- test: a-service-program-refuses-the-fault-thunk-name-on-windows -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -459,7 +444,6 @@ Only x64-windows lays a chunk named `mrt_fault_thunk`; wasm32-wasi answers E3104
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -501,7 +485,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_thunk' collides with a 
 
 <!-- test: a-service-program-runs-a-function-named-like-windows-fault-thunk -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 Only x64-windows lays a chunk named `mrt_fault_thunk`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
@@ -509,7 +492,6 @@ Only x64-windows lays a chunk named `mrt_fault_thunk`, so on every other native 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -551,7 +533,6 @@ end 'main'
 
 <!-- test: a-service-program-refuses-the-sigreturn-name-on-x64-linux -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -560,7 +541,6 @@ Only x64-linux lays a chunk named `mrt_rt_sigreturn`; wasm32-wasi answers E3104 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -602,7 +582,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_rt_sigreturn' collides with a
 
 <!-- test: a-service-program-runs-a-function-named-like-x64-linux-sigreturn -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux -->
 Only x64-linux lays a chunk named `mrt_rt_sigreturn`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
@@ -610,7 +589,6 @@ Only x64-linux lays a chunk named `mrt_rt_sigreturn`, so on every other native l
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 type Calc
@@ -651,7 +629,6 @@ end 'main'
 ```
 
 <!-- test: an-unemitted-lookalike-name-is-legal -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 **THE NEGATIVE CONTROL, and it is the half that decides what the rule is ABOUT.** The two refusals above
 would both pass under a rule that simply reserved the `mrt_` prefix — and that rule would be wrong: it
 would refuse a name no chunk claims, on every target, for a collision that does not exist.
@@ -663,7 +640,6 @@ and runs on every target, and this one carries no `unsupported-targets:` marker 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Hook = function() returns Integer
 
 function mrt_not_a_chunk() returns Integer

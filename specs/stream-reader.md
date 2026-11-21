@@ -160,7 +160,6 @@ pastTheCap|21|short|ended
 ```
 
 <!-- test: a-line-read-without-a-cap-returns-a-line-longer-than-any-cap-whole -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 `readLine()` takes no cap: a line of 1,100,000 bytes, longer than a mebibyte, comes back whole, the line after it reads whole too, and the read after the last line answers `ended`.
 ```maxon
 function shown(read LineOrEnd) returns String
@@ -171,7 +170,6 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "stream-reader-a-line-read-without-a-cap.txt"
 	let chunk = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
 	var content = ""
@@ -197,7 +195,6 @@ end 'main'
 ```
 
 <!-- test: a-line-read-within-a-cap-answers-pastTheCap-past-it-and-the-line-within-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 `readLineWithin(cap)` answers `pastTheCap` for a line of twelve bytes under a cap of eight and consumes nothing, answers that same line under a cap of twelve, reads the short line after it under the cap of eight, and answers `ended` after the last line.
 ```maxon
 function shown(read LineRead) returns String
@@ -209,7 +206,6 @@ function shown(read LineRead) returns String
 end 'shown'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "stream-reader-a-line-read-within-a-cap.txt"
 	try File.writeText(path, content: "twelve chars\nshort\n") otherwise return 1
 	let reader = try File.openRead(path) otherwise return 2
@@ -230,7 +226,6 @@ pastTheCap|twelve chars|short|ended
 ```
 
 <!-- test: a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A stream whose last line has no LF answers that text as a `line` and every read after it `ended`, from `readLine()` and from `readLineWithin(cap)` alike, as Go's `bufio.Reader.ReadString` answers the partial text beside its end-of-file.
 ```maxon
 function shownWithin(read LineRead) returns String
@@ -249,7 +244,6 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "stream-reader-a-final-line-with-no-newline.txt"
 	try File.writeText(path, content: "one\ntail") otherwise return 1
 	let unbounded = try File.openRead(path) otherwise return 2
@@ -955,7 +949,6 @@ dropped: client heard [first line;second line;] then secure(truncated)
 ```
 
 <!-- test: a-file-is-read-line-by-line-across-chunks -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 A reader over a file reads every line of one larger than a single read, so lines that straddle two reads come back whole and the count and the last line are exact.
 ```maxon
 function linesOf(path FilePath) returns String
@@ -978,7 +971,6 @@ function linesOf(path FilePath) returns String
 end 'linesOf'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "stream-reader-a-file-is-read-line-by-line.txt"
 	var content = ""
 	for i in 0 upto 1000 'eachLine'

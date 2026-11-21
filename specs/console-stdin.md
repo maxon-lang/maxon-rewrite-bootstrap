@@ -468,7 +468,6 @@ error E3104: <fragment>:23:10: 'zLoud' lowers to the runtime entry '__con_read_s
 ```
 
 <!-- test: rejected-on-wasm.a-host-bound-reader-answered-in-a-tuple-reaches-its-source -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -484,7 +483,6 @@ function openPair(path FilePath) returns (FileStreamReader, Count) throws FileRe
 end 'openPair'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let pair = try openPair(FilePath from "input.txt") otherwise return 2
 	// TODO: tuple element access is not supported in minimaxon
 	let read = try pair.0.readLine() otherwise return 3

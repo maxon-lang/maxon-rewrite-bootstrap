@@ -14,12 +14,11 @@ growing arrays, ensuring elements are stored and retrieved at the correct positi
 ## Tests
 
 <!-- test: element-size-respected-in-create -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Test that element sizes are respected when creating arrays.
 Array elements should be stored and retrieved correctly at their positions.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [0]
+	var arr = FullRangeIntArray from [0]
 	arr.push(65)
 	arr.push(66)
 	arr.push(67)
@@ -43,21 +42,20 @@ end 'main'
 ```
 
 <!-- test: element-size-in-grow -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Test that growing an array preserves existing elements and allows new ones.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [0]
+	var arr = FullRangeIntArray from [0]
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
 	var sum = try arr.get(1) otherwise 0
-	sum = sum + (try arr.get(2) otherwise 0)
-	sum = sum + (try arr.get(3) otherwise 0)
-	sum = sum + (try arr.get(4) otherwise 0)
-	sum = sum + (try arr.get(5) otherwise 0)
+	sum = try sum + (try arr.get(2) otherwise 0) otherwise panic("out of range")
+	sum = try sum + (try arr.get(3) otherwise 0) otherwise panic("out of range")
+	sum = try sum + (try arr.get(4) otherwise 0) otherwise panic("out of range")
+	sum = try sum + (try arr.get(5) otherwise 0) otherwise panic("out of range")
 	// 10 + 20 + 30 + 40 + 50 = 150 (printed, not returned: 150 > the
 	// valid ExitCode range of 0..125 on the wasm target)
 	print("{sum}\n")

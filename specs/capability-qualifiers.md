@@ -23,14 +23,12 @@ a `mutable` parameter must be writable, and one to an `immutable` parameter must
 ## Tests
 
 <!-- test: capability-qualifiers.a-function-value-that-writes-its-parameter-converts-to-a-mutable-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Step` declares its parameter `mutable`, so `advance` converts to it, and the counter handed through `apply` is written both times.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Counter) returns Tally
+typealias Step = function(mutates Counter) returns Tally
 
 type Counter
 	var n as Tally
@@ -39,8 +37,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump() returns Tally
-		self.n = self.n + 1
+	function bump(mutates self) returns Tally
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Counter'
@@ -49,12 +47,12 @@ function advance(mutates counter Counter) returns Tally
 	return counter.bump()
 end 'advance'
 
-function apply(step Step, counter Counter) returns Tally
+function apply(step Step, mutates counter Counter) returns Tally
 	return step(counter)
 end 'apply'
 
 function main() returns ExitCode
-	let counter = Counter.create()
+	var counter = Counter.create()
 	let first = apply(advance, counter: counter)
 	let second = apply(advance, counter: counter)
 	print("{first} {second}\n")
@@ -113,14 +111,14 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-isolated-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Make` promises an isolated result, and `build` does not declare one, so a caller could not rely on it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: region capability 'isolated' is not supported in minimaxon
 typealias Make = function() returns isolated Box
 
 type Box
@@ -155,14 +153,14 @@ error E3210: <fragment>:27:14: function value for 'Make' does not declare `retur
 ```
 
 <!-- test: capability-qualifiers.a-function-value-declaring-an-isolated-result-converts-to-an-isolated-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `fresh` declares `returns isolated`, so it converts to `Make`, and the region it returns is read by a one-call open.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: region capability 'isolated' is not supported in minimaxon
 typealias Make = function() returns isolated Box
 
 type Box
@@ -201,14 +199,14 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-immutable-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Frozen` promises an immutable result, and `current` hands back a mutable field.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: region capability 'immutable' is not supported in minimaxon
 typealias Frozen = function() returns immutable Box
 
 type Box

@@ -207,14 +207,13 @@ end 'main'
 
 <!-- test: a-mutates-captures-clause-converts-a-capture-writing-closure -->
 <!-- skip: 'mutates' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `Tallier` ends in `mutates captures`, so a closure that writes the record it captured converts to it, and the running total survives between the two calls. A local named `mutates` or `captures` keeps its meaning.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Total
@@ -239,7 +238,6 @@ end 'feed'
 function main() returns ExitCode
 	let total = Total.create()
 	// TODO: 'mutates' is a keyword in minimaxon and cannot be used as a name; rename it
-	// TODO: closures are not supported in minimaxon
 	let mutates = feed(function(n) gives total.bump(n))
 	let captures = mutates + 1
 	print("{mutates} {captures}\n")
@@ -279,15 +277,15 @@ error E2010: <fragment>:5:17: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-word-on-a-function-type-parameter-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function type's parameter of a value type takes `mutable` and no other capability word.
 
 ```maxon
 typealias Tally = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Visit = function(n immutable Tally)
+// TODO: parameter capability 'immutable' is not supported in minimaxon
+typealias Visit = function(immutable Tally)
 
 function main() returns ExitCode
 	return 0

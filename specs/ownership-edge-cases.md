@@ -804,13 +804,10 @@ end 'main'
 ```
 
 <!-- test: rc-closure-env-freed -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Closure environment block is allocated as a struct and freed when the closure variable goes out of scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -819,9 +816,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let offset = 5
-	// TODO: closures are not supported in minimaxon
-	let result = apply(function(n Integer) gives n + offset, x: 10)
-	return result
+	let result = apply(function(n Integer) gives try n + offset otherwise panic("out of range"), x: 10)
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -829,13 +825,10 @@ end 'main'
 ```
 
 <!-- test: rc-closure-captures-struct -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Closure captures a struct variable by address; the closure env is freed at scope exit but the original struct lives on.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 type Config
@@ -852,9 +845,8 @@ end 'apply'
 
 function main() returns ExitCode
 	let cfg = Config.create(3)
-	// TODO: closures are not supported in minimaxon
 	let result = apply(function(_ Integer) gives cfg.level, x: 0)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2036,13 +2028,10 @@ end 'main'
 ```
 
 <!-- test: rc-closure-capture-string-no-crash -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure that captures a string variable must properly manage the string's refcount. The closure environment holds a reference to the string; when the environment is freed, it must decref the string without crashing.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns String
 
 function apply(f FnTypeAlias1, x Integer) returns String
@@ -2051,8 +2040,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let prefix = "hello"
-	// TODO: closures are not supported in minimaxon
-	let result = apply(function(_ Integer) gives prefix, x: 0)
+	let result = apply(function(_ Integer) gives prefix.clone(), x: 0)
 	print(result)
 	return 0
 end 'main'
@@ -2091,7 +2079,6 @@ end 'main'
 ```
 
 <!-- test: rc-top-level-array-literal-no-leak -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A module-level array literal must not leak. The array and its element storage must be freed during global cleanup.
 ```maxon
 let items = FullRangeIntArray from [10, 20, 30]
@@ -2100,7 +2087,7 @@ function main() returns ExitCode
 	let a = try items.get(0) otherwise 0
 	let b = try items.get(1) otherwise 0
 	let c = try items.get(2) otherwise 0
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2108,7 +2095,6 @@ end 'main'
 ```
 
 <!-- test: rc-array-append-no-leak -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Array.append must not leak. Appending one array to another must properly manage the element storage and not leak the source array's data.
 ```maxon
 function main() returns ExitCode

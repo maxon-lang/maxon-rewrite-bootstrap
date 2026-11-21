@@ -342,9 +342,7 @@ end 'main'
 ```
 
 <!-- test: used.only-as-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function() returns ExitCode
 
 function target() returns ExitCode

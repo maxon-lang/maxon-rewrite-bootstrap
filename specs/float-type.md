@@ -605,7 +605,6 @@ error E3005: specs/float-type/error.a-float-alias-mutated-parameter-does-not-pas
 ```
 
 <!-- test: error.a-captured-float-alias-does-not-pass-as-another-alias -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -623,7 +622,6 @@ end 'describe'
 function main() returns ExitCode
 	// TODO: float literals are not supported in minimaxon
 	let half = 0.5 as Ratio
-	// TODO: closures are not supported in minimaxon
 	let later = function() gives describe(half)
 	print("{later()}\n")
 	return 0

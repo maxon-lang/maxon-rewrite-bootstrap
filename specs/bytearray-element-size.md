@@ -728,7 +728,6 @@ end 'main'
 ```
 
 <!-- test: wide-byte-program-still-round-trips-a-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ### The stdlib's own byte buffer stays byte-PACKED while the program's `Byte` is two bytes wide
 x64-windows only, and it is the ONE case here that genuinely needs a file: it is the RUNTIME proof
 that `stdlib/File.maxon`'s own read buffer strides 1 while the caller's `Byte` strides 2, so it has
@@ -741,9 +740,8 @@ typealias Byte = int(0 to 1000)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let made = Bytes.create(0)
+	var made = Bytes.create(0)
 	made.push(300)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_widebyte_roundtrip.txt"
 	try File.writeText(path, content: "Hello") otherwise 'writeErr'
 		return 1

@@ -726,14 +726,12 @@ error E3217: <fragment>:17:10: parameter `p` of the message `Calc.hold` is a Pro
 ```
 
 <!-- test: error.message-param-function-value-not-transferable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function value is a reference-counted closure record that every copy of it shares, so a message
 parameter of a function type is refused.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
-typealias IntOp = function(n Integer) returns Integer
+typealias IntOp = function(Integer) returns Integer
 
 type Calc
 	var count as Integer
@@ -10202,7 +10200,6 @@ error E3102: <fragment>:28:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: borrow.error.a-sent-let-may-not-be-captured-by-a-closure -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -10238,7 +10235,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives b.n
 	return peek() as ExitCode
 end 'main'
@@ -11918,7 +11914,6 @@ error E3221: <fragment>:27:18: the message 'pong' may wait (it awaits a reply fr
 
 <!-- test: error.a-message-that-calls-a-waiting-closure-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⛔⛔ **A WAIT BEHIND A CLOSURE VALUE IS A WAIT, AND THE REFUSAL FOLLOWS THE CLOSURE'S BODY.** `A.kick` calls a
@@ -11937,7 +11932,6 @@ type A
 	end 'create'
 
 	export function kick(peer B.handle, mine A.handle) returns Integer
-		// TODO: closures are not supported in minimaxon
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let through = function(p B.handle, m A.handle) gives (try await p.work(m.clone()) otherwise 0)
 		return through(peer, mine)
@@ -13873,8 +13867,6 @@ total=4950 idleServicesHoldNoThread=true
 <!-- test: known-gap-a-promise-captured-by-a-closure-in-service-state-aborts-when-the-state-drops -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⚠ **A KNOWN GAP: THE STATE-FIELD REFUSAL SEES A PROMISE IN A FIELD'S TYPE, NOT ONE A CLOSURE CAPTURED.** `Keeper.size` is a
 function-typed field, so no `Promise` appears in the state's type and the build accepts it. The factory starts a coroutine,
@@ -13885,7 +13877,6 @@ build refusal.
 ```maxon
 typealias Count = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Sizer = function() returns Count
 
 typealias PromiseArray = Array with (Promise with Count)
@@ -13902,7 +13893,6 @@ type Keeper
 		let ps = PromiseArray.create(0)
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		ps.push(async compute())
-		// TODO: closures are not supported in minimaxon
 		let w = function() gives ps.count() as Count
 		return Self{size: w}
 	end 'create'
@@ -14627,7 +14617,6 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 
 <!-- test: error.reply-forwarded-to-a-local-closure-named-like-a-fresh-function-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -14662,7 +14651,6 @@ type Worker
 
 	function build(n Tally) returns Report
 		let saved = self.report
-		// TODO: closures are not supported in minimaxon
 		let buildReport = function(_ Tally) gives saved
 		return buildReport(n)
 	end 'build'
@@ -17261,7 +17249,6 @@ error E3102: <fragment>:27:10: use of moved value 'word': its ownership moved to
 
 <!-- test: services.a-var-reassigned-after-a-closure-captured-it-is-sent -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The closure owns the value it captured, so the `var` reassigned afterwards holds a new value of its own, and that
 value moves to the service while the closure goes on reading the first.
@@ -17285,7 +17272,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {0}"
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives word.byteLength()
 	word = "second padded out long enough to heap allocate {1}"
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -17300,7 +17286,6 @@ second padded out long enough to heap allocate 1! 47
 
 <!-- test: services.error.a-cell-resident-var-a-closure-only-reads-cannot-be-sent -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
@@ -17340,7 +17325,6 @@ function main() returns ExitCode
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives word.byteLength()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let loud = try await h.shout(word) otherwise "stopped"
@@ -17769,7 +17753,6 @@ end 'main'
 <!-- test: services.a-value-whose-field-a-closure-holds-is-refused-at-the-send -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -17817,7 +17800,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Outer.create() as isolated Outer
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives inner.n
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.take(b) otherwise 0
@@ -17830,8 +17812,6 @@ error E3202: <fragment>:38:14: 'b.inner' is mutable and cannot leave the stateme
 
 <!-- test: services.error.an-argument-whose-graph-holds-a-function-value-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -17840,7 +17820,6 @@ function value.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Tally) returns Tally
 
 type Job
@@ -17869,7 +17848,6 @@ end 'Calc'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: closures are not supported in minimaxon
 	try h.run(Job.create(function(n Tally) gives n + 1)) otherwise panic("a running service with room takes the send")
 	return 0
 end 'main'
@@ -17880,15 +17858,12 @@ error E3217: <fragment>:28:10: parameter `j` of the message `Calc.run` is a `Job
 
 <!-- test: services.error.a-function-valued-reply-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply is handed to another green thread too, and a function value is refused there by name.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Tally) returns Tally
 
 type Maker
@@ -17900,7 +17875,6 @@ type Maker
 
 	export function make() returns Op
 		self.seen = self.seen + 1
-		// TODO: closures are not supported in minimaxon
 		return function(n Tally) gives n + 1
 	end 'make'
 end 'Maker'

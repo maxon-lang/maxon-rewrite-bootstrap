@@ -183,8 +183,6 @@ error E3011: <fragment>:13:18: Unknown type 'NoSuchTypeAtAll'
 ```
 
 <!-- test: param-unknown-type-captured-member-access -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The same fact reached through a CLOSURE CAPTURE, which is its own door (`capturedStructBase`) with its
 own wording of the refusal (*"a field access or method call on the captured 'h', which is declared 'int'
@@ -194,7 +192,6 @@ through one `function(…) gives`.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -202,7 +199,6 @@ function apply(f FnTypeAlias1, x Integer) returns Integer
 end 'apply'
 
 function outer(h NoSuchTypeAtAll) returns Integer
-	// TODO: closures are not supported in minimaxon
 	return apply(function(_ Integer) gives h.v, x: 0)
 end 'outer'
 

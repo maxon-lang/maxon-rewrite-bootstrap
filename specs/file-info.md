@@ -57,10 +57,8 @@ not repeated here.
 ## Tests
 
 <!-- test: file-info.basic-size -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_fi_basic.txt"
 	try File.writeText(path, content: "ABCDE") otherwise 'w'
 		return 1
@@ -86,10 +84,8 @@ size=5
 ```
 
 <!-- test: file-info.timestamps -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_fi_times.txt"
 	try File.writeText(path, content: "time test") otherwise 'w'
 		return 1
@@ -124,10 +120,8 @@ timestamps ok
 ```
 
 <!-- test: file-info.not-found -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let fi = try File.info(FilePath from "nonexistent_fi_xyz.txt") otherwise 'e'
 		print("not found")
 		return 42
@@ -144,10 +138,8 @@ not found
 ```
 
 <!-- test: file-info.directory -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_fi_dir"
 	if not Directory.create(path) 'created'
 		return 1
@@ -174,10 +166,8 @@ is directory
 ```
 
 <!-- test: file-info.read-only -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_fi_rw.txt"
 	try File.writeText(path, content: "rw test") otherwise 'w'
 		return 1
@@ -204,10 +194,8 @@ not read-only
 ```
 
 <!-- test: file-info.empty-file -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_fi_empty.txt"
 	try File.writeText(path, content: "") otherwise 'w'
 		return 1

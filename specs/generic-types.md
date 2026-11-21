@@ -3843,7 +3843,6 @@ end 'main'
 ```
 
 <!-- test: error.opaque-field-read-of-a-struct-argument-is-not-an-integer -->
-<!-- skip: differing error code: operand types -->
 <!-- positions: moved -->
 ⚠ **THE SAME READ, AND THE WORST OF ITS FACES: ARITHMETIC AGAINST A POINTER.** Typed
 `int`, `q + 0` would compile and PRINT THE RAW HEAP ADDRESS — a silent wrong answer where a
@@ -4323,7 +4322,6 @@ boxed
 ```
 
 <!-- test: function-alias-union-payload-calls-through -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The THIRD arm the shared door gives a payload: a FUNCTION typealias is re-tagged exactly as a generic
 one is. Bound out of the payload as a bare `named` — an int — interpolating it would be
 `E2015 … a value of type 'unknown'` and calling it would have no signature to check. It is a code
@@ -4331,11 +4329,10 @@ pointer, a scalar payload, and it calls.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function twice(v Integer) returns Integer
-	return v * 2
+	return try v * 2 otherwise panic("out of range")
 end 'twice'
 
 union Payload
@@ -6202,7 +6199,6 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 ```
 
 <!-- test: a-nested-datatype-through-a-function-typed-field-compiles -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 public typealias Val = int(i64.min to i64.max)
 
@@ -6218,7 +6214,6 @@ end 'Pair'
 public type Nest uses T
 	export typealias Doubled = Pair with (T, T)
 	export typealias Deeper = Nest with Doubled
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
 	var f as Grow
@@ -6243,8 +6238,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-is-accepted-by-a-function-type-over-a-nested-datatype -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -6260,7 +6253,6 @@ end 'Pair'
 type Nest uses T
 	export typealias Doubled = Pair with (T, T)
 	export typealias Deeper = Nest with Doubled
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
 	var f as Grow
@@ -6273,7 +6265,6 @@ end 'Nest'
 typealias ValNest = Nest with Val
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let n = ValNest.create(7, f: function(_) gives 0)
 	return n.v as ExitCode
 end 'main'
@@ -6306,8 +6297,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-over-a-nested-alias-of-an-unfixed-type-parameter-is-not-typed -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -6320,7 +6309,6 @@ end 'Pair'
 type Nest uses T
 	export typealias Doubled = Pair with (T, T)
 	export typealias Deeper = Nest with Doubled
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
 	var f as Grow
@@ -6331,7 +6319,6 @@ type Nest uses T
 end 'Nest'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let n = Nest.create(7, f: function(_) gives 0)
 	return n.v as ExitCode
 end 'main'
@@ -7129,7 +7116,6 @@ item payload long enough to allocate 2
 ```
 
 <!-- test: a-string-only-generic-factory-reads-its-argument-through-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 The same body over a `String` alone captures its `T` argument in a closure and hands it back, on the path that
 stores the result and on the path that does not, without a leak.
 ```maxon
@@ -7147,7 +7133,6 @@ type Holder uses T
 	var origin as Whole
 
 	static function create(item T, spare T, keep bool) returns Self
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives item
 		if keep 'kept'
 			return Self{slot: f(), origin: 1}
@@ -7327,7 +7312,6 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 
 <!-- test: error.a-generic-factory-over-a-promise-hands-its-argument-back-through-a-closure -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A `T` argument captured by a closure that gives it away is refused when some instantiation of `T` is a promise,
 as a captured promise is: the closure owns its capture and its body may run any number of times.
@@ -7346,7 +7330,6 @@ type Holder uses T
 	var origin as Whole
 
 	static function create(item T, spare T, keep bool) returns Self
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives item
 		if keep 'kept'
 			return Self{slot: f(), origin: 1}

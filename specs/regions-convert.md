@@ -20,14 +20,12 @@ so separately compiled libraries stay sound.
 ## Tests
 
 <!-- test: closure-writing-param-to-plain-function-type-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `advance` writes its parameter, and `Look` declares no `mutable` there, so a caller holding the argument read-only would be written through.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Look = function(Counter) returns Tally
 
 type Counter
@@ -104,14 +102,13 @@ error E3210: <fragment>:15:11: 'Bag.grow' writes its receiver, but 'Grows.grow' 
 ```
 
 <!-- test: mutable-function-type-accepts-writer -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 `Tallier` is a `mutable function`, so a closure that writes the record it captured converts to it, and the running total survives between the two calls.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Total
@@ -135,7 +132,6 @@ end 'feed'
 
 function main() returns ExitCode
 	let total = Total.create()
-	// TODO: closures are not supported in minimaxon
 	let result = feed(function(n) gives total.bump(n))
 	print("{result}\n")
 	return 0
@@ -151,14 +147,12 @@ end 'main'
 <!-- test: yielding-closure-to-function-type-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `slow` awaits a coroutine, and a function type never yields, so a call through `Step` inside a `modify` block could not be proven safe.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function work(n Tally) returns Tally
@@ -188,8 +182,7 @@ error E3210: <fragment>:20:16: function value for 'Step' may yield (it awaits a 
 ```
 
 <!-- test: mutable-function-called-through-frozen -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable function` may write what it captured, so it cannot be called through frozen data.
@@ -197,14 +190,13 @@ A `mutable function` may write what it captured, so it cannot be called through 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Tallier = function(Tally) returns Tally mutates captures
 
 type Holder
 	export var tallier as Tallier
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{tallier: function(n Tally) gives n + 1}
 	end 'create'
 end 'Holder'
@@ -223,15 +215,13 @@ error E3211: <fragment>:14:23: 'Tallier' mutates captures and cannot be called t
 ```
 
 <!-- test: frozen-argument-to-a-mutable-function-parameter-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Edit` declares its parameter `mutable`, so the call `edit(pinned)` with a frozen box is refused where it is written.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Edit = function(mutable Box)
+typealias Edit = function(mutates Box)
 
 type Box
 	export var n as Tally
@@ -307,7 +297,6 @@ error E3200: <fragment>:27:7: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: isolated-function-type-parameter-refuses-a-mutable-argument -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so `spare`, a mutable array of this region, cannot be passed through it.
@@ -315,8 +304,7 @@ error E3200: <fragment>:27:7: 'spare' is not isolated: only a clean call, a `swa
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Take = function(isolated LineArray)
+typealias Take = function(LineArray)
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
 function count(items isolated LineArray)
@@ -374,7 +362,6 @@ error E3200: <fragment>:21:18: 'spare' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: closure-writing-a-capture-runs-when-called-directly -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure whose body writes what it captured has an inferred `mutable function` type, so calling `bump` directly needs no cast and writes the `e` it captured.
 
 ```maxon
@@ -389,13 +376,12 @@ type Box
 end 'Box'
 
 function touch(mutates box Box) returns Tally
-	box.n = box.n + 1
+	box.n = try box.n + 1 otherwise panic("out of range")
 	return box.n
 end 'touch'
 
 function main() returns ExitCode
 	let e = Box.create(0)
-	// TODO: closures are not supported in minimaxon
 	let bump = function() gives touch(e)
 	print("{bump()}\n")
 	return 0
@@ -409,7 +395,6 @@ end 'main'
 ```
 
 <!-- test: plain-closure-capturing-a-variable-the-back-edge-assigns-frozen-data-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Each trip builds `bump` over `e`, and `e = pinned` hands the next trip frozen data, so the plain closure would write the frozen box.
@@ -436,7 +421,6 @@ function edit(pinned immutable Box, rounds Tally) returns Tally
 	var i = 0 as Tally
 	var sum = 0 as Tally
 	while i < rounds 'again'
-		// TODO: closures are not supported in minimaxon
 		let bump = function() gives touch(e)
 		sum = sum + bump()
 		e = pinned
@@ -456,14 +440,14 @@ error E3197: <fragment>:23:37: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-writing-frozen-data-it-captured-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Bump` is a `mutable function`, but `e` holds frozen data, so the closure would write through it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Box
@@ -495,8 +479,7 @@ error E3197: <fragment>:24:38: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-capturing-a-variable-the-back-edge-assigns-frozen-data-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure is a `mutable function`, but `e = pinned` hands the next trip frozen data, so at the loop header `e` joins immutable and mutable data and the closure's write through it is refused.
@@ -504,7 +487,7 @@ The closure is a `mutable function`, but `e = pinned` hands the next trip frozen
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Bump = function() returns Tally mutates captures
 
 type Box
@@ -526,7 +509,6 @@ function edit(pinned immutable Box, rounds Tally) returns Tally
 	var i = 0 as Tally
 	var sum = 0 as Tally
 	while i < rounds 'again'
-		// TODO: closures are not supported in minimaxon
 		let bump = (function() gives touch(e)) as Bump
 		sum = sum + bump()
 		e = pinned
@@ -598,15 +580,14 @@ error E3210: <fragment>:23:11: 'Counter.take' takes its parameter 'box' without 
 ```
 
 <!-- test: mutable-function-alias-declared-in-an-extension-is-called-with-two-arguments -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Joiner` is a `mutable function` alias declared inside an extension, and `join(first, second)` calls it with two arguments through the alias's function type like any other function value.
 
 ```maxon
 // TODO: extension blocks are not supported in minimaxon
 extension Array
-	// TODO: function typealiases are not supported in minimaxon
+	// TODO: a function type that 'mutates captures' is not supported in minimaxon
 	typealias Joiner = function(Element, Element) returns Ordering mutates captures
 	function best(join Joiner) returns Ordering
 		return join(try self.get(0) otherwise panic("first"), try self.get(1) otherwise panic("second"))
@@ -615,7 +596,6 @@ end 'Array'
 
 function main() returns ExitCode
 	let xs = [1 as Count, 2 as Count]
-	// TODO: closures are not supported in minimaxon
 	let order = xs.best(function(a, b) gives a.compare(b))
 	print("{order.name}\n")
 	return 0
@@ -629,14 +609,12 @@ lessThan
 ```
 
 <!-- test: function-value-storing-its-parameter-to-plain-function-type-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `adopt` keeps `box` in the `Holder` it returns, so its result holds data reached from its read-only parameter, and `Keep` promises nothing about what a result shares with its argument.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Keep = function(Box) returns Holder
 
 type Box

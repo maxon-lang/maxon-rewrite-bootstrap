@@ -1162,7 +1162,6 @@ error E3222: <fragment>:20:12: 'Gate.ask' defers its reply, so it cannot be call
 ```
 
 <!-- test: error.a-closure-cannot-capture-a-reply -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1180,7 +1179,6 @@ type Gate
 	export function ask() returns Tally throws ReplyStopped
 		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
-		// TODO: closures are not supported in minimaxon
 		let hold = function() gives peek(pending)
 		hold()
 		return

@@ -80,13 +80,11 @@ error E3012: specs/unused-variable-name-scope/one-loop-of-that-name-and-no-menti
 ```
 
 <!-- test: a-closure-capture-of-that-name-excuses-a-loop-binding -->
-<!-- skip: closures are not supported in minimaxon -->
 The only mention of `i` in `main` is the one INSIDE the closure, which reaches the
 enclosing binding as a CAPTURE. `4 + 1 + 3 = 9`.
 ```maxon
 function main() returns ExitCode
 	let i = 5 as FullRangeInt
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives i + 1
 	var total = f()
 	for i in 0 upto 3 'a'
@@ -100,7 +98,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-parameter-of-that-name-does-not-excuse-it -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 The negative control for the case above, and the reason the closure's list is CLEARED
 rather than shared: `i` here is the closure's OWN parameter, a name the enclosing
@@ -113,7 +110,6 @@ function main() returns ExitCode
 	for i in 0 upto 3 'a'
 		total = total + 1
 	end 'a'
-	// TODO: closures are not supported in minimaxon
 	let f = function(i Integer) gives i + 1
 	total = total + f(2)
 	return total

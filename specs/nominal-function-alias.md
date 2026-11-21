@@ -41,16 +41,13 @@ the captures the closure was made with.
 ## Tests
 
 <!-- test: error.handler-into-callback-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function addOne(n Integer) returns Integer
 	return n + 1
@@ -76,8 +73,6 @@ error E3005: <fragment>:20:10: argument type mismatch for 'f': expected 'Callbac
 ```
 
 <!-- test: a-branded-comparator-decays-into-the-per-instance-sort-alias -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function alias declared inside a type body is not a brand: no source outside the type can write
 `Array.SortComparator`, so it is never the name an author chose to tell two shapes apart. A
 `RowComparator` value passes to `Array.sort` unchanged, and a value of the nested alias fits a
@@ -85,7 +80,6 @@ A function alias declared inside a type body is not a brand: no source outside t
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias RowComparator = function(Row, Row) returns Ordering
 
 typealias Rows = Array with Row
@@ -102,7 +96,6 @@ type Sorter
 	export var compare as RowComparator
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{compare: function(left Row, right Row) gives left.key.compare(right.key)}
 	end 'create'
 end 'Sorter'
@@ -129,20 +122,17 @@ end 'main'
 ```
 
 <!-- test: a-handler-converts-at-a-callback-return -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `return h` from a `returns Callback` function is `return h as Callback`: the same code pointer under the
 declared brand.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function addOne(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function pickHandler() returns Handler
@@ -168,18 +158,15 @@ end 'main'
 ```
 
 <!-- test: error.a-different-shape-returned-is-still-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The line that does not move: the `return` converts a brand, never a shape. `Pair` takes two arguments and
 `Unary` one, so a `Pair` value returned where a `Unary` is declared is refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Unary = function(n Integer) returns Integer
+typealias Unary = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Pair = function(a Integer, b Integer) returns Integer
+typealias Pair = function(Integer, Integer) returns Integer
 
 function addBoth(a Integer, b Integer) returns Integer
 	return a + b
@@ -205,17 +192,14 @@ error E3005: <fragment>:16:2: function type mismatch in return: expected 'fn(Int
 ```
 
 <!-- test: error.ternary-over-two-function-aliases -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A conditional merges its arms through one slot, and that slot has one brand.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function addOne(n Integer) returns Integer
 	return n + 1
@@ -247,21 +231,19 @@ error E2028: <fragment>:26:17: ternary expression type mismatch: true branch is 
 ```
 
 <!-- test: a-declared-function-merges-with-an-alias-typed-parameter-in-a-ternary -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A declared function carries no brand, so it merges with a `UnaryOp` parameter in one conditional, and the
 merged value calls whichever arm the condition chose.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function triple(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'triple'
 
 function pick(f UnaryOp, flag bool) returns Integer
@@ -282,14 +264,12 @@ end 'main'
 ```
 
 <!-- test: error.ternary-of-an-alias-typed-parameter-and-a-different-shape -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The shapes are still compared when one arm carries no brand: a two-parameter function does not merge with
 a `UnaryOp` parameter.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function triple(n Integer) returns Integer
@@ -315,13 +295,11 @@ error E2028: <fragment>:14:12: ternary expression type mismatch: true branch is 
 ```
 
 <!-- test: an-alias-over-a-string-merges-with-a-declared-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
-typealias Label = function(label String) returns String
+typealias Label = function(String) returns String
 
 function plain(label String) returns String
-	return label
+	return label.clone()
 end 'plain'
 
 function shout(label String) returns String
@@ -346,7 +324,6 @@ p! p
 ```
 
 <!-- test: an-alias-over-a-struct-merges-with-a-declared-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -359,15 +336,14 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Measure = function(at Point) returns Integer
+typealias Measure = function(Point) returns Integer
 
 function sum(at Point) returns Integer
-	return at.x + at.y
+	return try at.x + at.y otherwise panic("out of range")
 end 'sum'
 
 function product(at Point) returns Integer
-	return at.x * at.y
+	return try at.x * at.y otherwise panic("out of range")
 end 'product'
 
 function pick(f Measure, flag bool) returns Integer
@@ -388,15 +364,13 @@ end 'main'
 ```
 
 <!-- test: an-alias-over-an-enum-merges-with-a-declared-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 enum Shade
 	light
 	dark
 end 'Shade'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Flip = function(shade Shade) returns Shade
+typealias Flip = function(Shade) returns Shade
 
 function keep(shade Shade) returns Shade
 	return shade
@@ -430,15 +404,12 @@ dark light
 ```
 
 <!-- test: an-alias-with-a-nested-alias-parameter-merges-with-a-declared-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(n Integer) returns Integer
+typealias Step = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Driver = function(step Step, n Integer) returns Integer
+typealias Driver = function(Step, Integer) returns Integer
 
 function applyOnce(step Step, n Integer) returns Integer
 	return step(n)
@@ -449,7 +420,7 @@ function applyTwice(step Step, n Integer) returns Integer
 end 'applyTwice'
 
 function addOne(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function pick(d Driver, flag bool) returns Integer
@@ -470,7 +441,6 @@ end 'main'
 ```
 
 <!-- test: an-alias-from-another-directory-merges-with-a-declared-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api.Score` is declared in `api`, and `addOne` is a function declared in `app` over the same `api.Integer`:
 the two arms merge.
@@ -478,8 +448,7 @@ the two arms merge.
 // --- file: api/types.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 // --- file: app/main.maxon
 function addOne(n api.Integer) returns api.Integer
@@ -508,7 +477,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-function-alias-beside-a-ranged-alias-of-its-name-is-the-same-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` declares `Score` as a function alias and `legacy/` declares `Score` as a ranged alias: two
 declarations of one name, of two forms, so even `api/` names its own as `api.Score`. `run`'s parameter and
@@ -517,8 +485,7 @@ declarations of one name, of two forms, so even `api/` names its own as `api.Sco
 // --- file: api/score.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 export function run(f api.Score) returns Integer
 	return f(20)
@@ -551,7 +518,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-function-alias-of-a-contested-shape-reaches-its-own-directorys-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` and `beta/` each export a function alias `Score` of one shape: two declarations, so two types. Each
 directory's function takes its own `Score`, qualified through its directory, and `app/` hands each the
@@ -560,16 +526,14 @@ value it typed through that directory.
 // --- file: api/score.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 export function run(f api.Score) returns Integer
 	return f(20)
 end 'run'
 
 // --- file: beta/score.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n api.Integer) returns api.Integer
+export typealias Score = function(api.Integer) returns api.Integer
 
 export function apply(f beta.Score) returns api.Integer
 	return f(1)
@@ -607,7 +571,6 @@ end 'main'
 ```
 
 <!-- test: a-function-alias-element-spelled-bare-and-qualified-is-one-instance -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `alpha/` writes its element `Handler` bare and `main.maxon` writes the same declaration as `alpha.Handler`.
 Both spellings name one declaration, so `Handlers` and `Mine` are two aliases of one instance and the `as` is
 a re-brand.
@@ -615,8 +578,7 @@ a re-brand.
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Handler = function(n Integer) returns Integer
+export typealias Handler = function(Integer) returns Integer
 
 export typealias Handlers = Array with Handler
 
@@ -648,21 +610,17 @@ end 'main'
 ```
 
 <!-- test: error.nested-alias-position-is-nominal -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` declares its parameter as a `Handler`; `runner` takes a `Callback`. Same shape one level down,
 different name — refused, and the diagnostic names the nested aliases.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Outer = function(f Handler) returns Integer
+typealias Outer = function(Handler) returns Integer
 
 function addOne(n Integer) returns Integer
 	return n + 1
@@ -687,7 +645,6 @@ error E3005: <fragment>:20:10: argument type mismatch for 'o': expected 'fn(Hand
 ```
 
 <!-- test: error.a-function-value-over-a-contested-shape-is-named-in-source-form -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Score` and an unmarked `Grader` over
@@ -698,8 +655,7 @@ at `main`'s own `Grader` parameter, which E3005 names with each declaration's fi
 // --- file: pkg/lib.maxon
 typealias Score = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Grader = function(n Score) returns Score
+typealias Grader = function(Score) returns Score
 
 function keep(n Score) returns Score
 	return n
@@ -716,8 +672,7 @@ end 'Holder'
 // --- file: app/main.maxon
 typealias Score = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Grader = function(n Score) returns Score
+typealias Grader = function(Score) returns Score
 
 function run(g Grader) returns ExitCode
 	return g(7) as ExitCode
@@ -733,18 +688,14 @@ error E3167: pkg/<fragment>:11:22: exported field 'pkg.Holder.grade' names unexp
 ```
 
 <!-- test: a-closure-literal-decays-into-any-function-alias -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The decay control: a closure literal — bound to a `let` or written at the argument — carries no brand and
 fits both `Handler` and `Callback`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function runHandler(f Handler) returns Integer
 	return f(10)
@@ -755,10 +706,8 @@ function runCallback(f Callback) returns Integer
 end 'runCallback'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let addThree = function(n Integer) gives n + 3
-	// TODO: closures are not supported in minimaxon
-	let viaLiteral = runCallback(function(n Integer) gives n + 4)
+	let addThree = function(n Integer) gives try n + 3 otherwise panic("out of range")
+	let viaLiteral = runCallback(function(n Integer) gives try n + 4 otherwise panic("out of range"))
 	print("{runHandler(addThree)} {runCallback(addThree)} {viaLiteral}")
 	return 0
 end 'main'
@@ -771,18 +720,15 @@ end 'main'
 ```
 
 <!-- test: a-declared-function-decays-into-any-function-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function addOne(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function runHandler(f Handler) returns Integer
@@ -806,31 +752,25 @@ end 'main'
 ```
 
 <!-- test: as-rebrands-a-capturing-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `capturing` closes over `base`; `capturing as Callback` is a fresh value that must still call with that
 environment (50, not 20). The second half re-brands a `Handler` call result the same way.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Handler = function(n Integer) returns Integer
+typealias Handler = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Callback = function(n Integer) returns Integer
+typealias Callback = function(Integer) returns Integer
 
 function runCallback(f Callback) returns Integer
 	return f(20)
 end 'runCallback'
 
 function pickHandler() returns Handler
-	// TODO: closures are not supported in minimaxon
 	return function(n Integer) gives n + 1
 end 'pickHandler'
 
 function main() returns ExitCode
 	let base = 30 as Integer
-	// TODO: closures are not supported in minimaxon
 	let capturing = function(n Integer) gives n + base
 	let asCallback = capturing as Callback
 	let h = pickHandler()

@@ -47,7 +47,6 @@ case here carries a marker.
 ## Tests
 
 <!-- test: async-filesystem.try-await-string-success -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -56,7 +55,6 @@ enum TestError implements Error
 end 'TestError'
 
 function getName(ok bool) returns String throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if ok 'check'
 		return "Alice"
@@ -81,7 +79,6 @@ Alice
 ```
 
 <!-- test: async-filesystem.try-await-string-error -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -90,7 +87,6 @@ enum TestError implements Error
 end 'TestError'
 
 function getName(ok bool) returns String throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if ok 'check'
 		return "Alice"
@@ -115,7 +111,6 @@ unknown
 ```
 
 <!-- test: async-filesystem.try-await-parallel-throws -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -126,7 +121,6 @@ enum MathError implements Error
 end 'MathError'
 
 function checkedDiv(a Integer, b Integer) returns Integer throws MathError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if b == 0 'z'
 		throw MathError.divByZero
@@ -160,13 +154,11 @@ end 'main'
 The cases below exercise the actual async I/O path rather than using `File.exists` as a no-op yield point.
 
 <!-- test: async-filesystem.async-read-nonexistent -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = async File.readText(FilePath from "nonexistent_async_read.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let content = try await p otherwise "FAILED"
@@ -181,12 +173,10 @@ end 'main'
 ```
 
 <!-- test: async-filesystem.async-write-read -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "async_test_file.txt"
 	// Write synchronously first
 	try File.writeText(path, content: "AsyncTest") otherwise 'werr'
@@ -194,7 +184,6 @@ function main() returns ExitCode
 	end 'werr'
 	// Read asynchronously
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = async File.readText(FilePath from "async_test_file.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let content = try await p otherwise 'rerr'
@@ -219,16 +208,13 @@ AsyncTest
 ```
 
 <!-- test: async-filesystem.async-parallel-reads -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p1 = async File.readText(FilePath from "no_file_a.txt")
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p2 = async File.readText(FilePath from "no_file_b.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = try await p1 otherwise "default1"
@@ -247,13 +233,11 @@ default1default2
 ```
 
 <!-- test: async-filesystem.async-exists -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = async File.exists(FilePath from "no_such_file_async.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let exists = await p
@@ -268,14 +252,11 @@ end 'main'
 ```
 
 <!-- test: async-filesystem.async-write-read-parallel -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path1 = FilePath from "async_par_a.txt"
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path2 = FilePath from "async_par_b.txt"
 	// Write both files synchronously
 	try File.writeText(path1, content: "FileA") otherwise 'e1'
@@ -287,10 +268,8 @@ function main() returns ExitCode
 	end 'e2'
 	// Read both asynchronously in parallel
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p1 = async File.readText(FilePath from "async_par_a.txt")
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p2 = async File.readText(FilePath from "async_par_b.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c1 = try await p1 otherwise "err"
@@ -311,7 +290,6 @@ FileAFileB
 ```
 
 <!-- test: async-filesystem.async-read-through-a-handle-holding-struct -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
@@ -366,7 +344,6 @@ function readHolder(name String) returns String
 end 'readHolder'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "async_handle_holder.txt"
 	try File.writeText(path, content: "HandleRead") otherwise 'writeFail'
 		return 1

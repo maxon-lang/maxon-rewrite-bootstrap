@@ -1736,7 +1736,6 @@ error E3196: <fragment>:17:16: cannot store an immutable 'Box' into 'a value of 
 ```
 
 <!-- test: a-set-literal-of-frozen-elements-runs -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A set stores its elements read-only, so a frozen element needs no capability of its own.
 
 ```maxon
@@ -2277,8 +2276,6 @@ error E3005: <fragment>:38:6: argument type mismatch for 'more': expected 'Array
 ```
 
 <!-- test: a-closure-that-writes-its-parameter-is-refused-for-an-immutable-instance -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` takes `T`, which `FrozenVisitor` fixes to `immutable Box`; `bump` writes its parameter, so the closure cannot stand for a `Step`.
@@ -2295,7 +2292,6 @@ type Box
 end 'Box'
 
 type Visitor uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Tally
 	var total as Tally
 
@@ -2323,7 +2319,6 @@ end 'bump'
 function main() returns ExitCode
 	var visitor = FrozenVisitor.create()
 	var pinned = freeze(Box.create(1))
-	// TODO: closures are not supported in minimaxon
 	visitor.visit(pinned, step: function(b Box) gives bump(b))
 	print("{visitor.sum()}\n")
 	return 0
@@ -2334,8 +2329,6 @@ error E3210: <fragment>:40:30: function value for 'Visitor.Step' writes its para
 ```
 
 <!-- test: a-closure-that-reads-its-parameter-runs-for-an-immutable-instance -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A closure that only reads its parameter takes the frozen box.
 
@@ -2351,7 +2344,6 @@ type Box
 end 'Box'
 
 type Visitor uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Tally
 	var total as Tally
 
@@ -2374,7 +2366,6 @@ typealias FrozenVisitor = Visitor with immutable Box
 function main() returns ExitCode
 	let visitor = FrozenVisitor.create()
 	let pinned = freeze(Box.create(1))
-	// TODO: closures are not supported in minimaxon
 	visitor.visit(pinned, step: function(b Box) gives b.n)
 	print("{visitor.sum()}\n")
 	return 0

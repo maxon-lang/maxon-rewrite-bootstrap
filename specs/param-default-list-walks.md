@@ -230,8 +230,6 @@ end 'main'
 ```
 
 <!-- test: a-discard-binds-nothing-in-every-other-position -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -239,7 +237,6 @@ end 'main'
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function(Num) returns bool
 
 union Shape
@@ -273,7 +270,6 @@ end 'bump'
 
 function main() returns ExitCode
 	var total = 0 as Num
-	// TODO: closures are not supported in minimaxon
 	if ask(function(_) gives true, v: 1) 'yes'
 		total = total + 1
 	end 'yes'
@@ -656,11 +652,9 @@ error E3200: <fragment>:38:44: 'Shared' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: a-promise-forwarded-by-a-method-with-discards-through-a-later-function-parameter-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An instance method with a receiver and two `_` parameters hands its promise to a function-typed parameter that comes after them. The function-typed parameter's position is read in the method's own numbering, receiver included, and the promise is taken by the function it reaches.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -670,13 +664,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(pending mutable IntPromiseArray, p IntPromise)
+typealias Sink = function(mutates IntPromiseArray, IntPromise)
 
 function keep(mutates pending IntPromiseArray, p IntPromise)
 	pending.push(p)

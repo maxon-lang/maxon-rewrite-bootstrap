@@ -143,7 +143,6 @@ the body would parse with an empty stack: the throwing call would stop routing a
 would panic.
 
 <!-- test: closure-in-try-block-body -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Code = int(0 to 125)
 
@@ -160,7 +159,6 @@ end 'step'
 
 function run(k Code) returns ExitCode
 	try 'work'
-		// TODO: closures are not supported in minimaxon
 		let double = function(n Code) gives n + n
 		print("closure={double(3)}\n")
 		let v = step(k)

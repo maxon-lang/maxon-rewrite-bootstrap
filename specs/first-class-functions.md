@@ -232,12 +232,12 @@ the rules.
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	let f = double
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -245,12 +245,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.pass-as-argument -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -258,11 +256,11 @@ function apply(f UnaryOp, x Integer) returns Integer
 end 'apply'
 
 function triple(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
-	return apply(triple, x: 10)
+	return try apply(triple, x: 10) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -270,15 +268,13 @@ end 'main'
 ```
 
 <!-- test: first-class-function.closure-in-variable -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let f = function(x Integer) gives x * 5
-	return f(8)
+	let f = function(x Integer) gives try x * 5 otherwise panic("out of range")
+	return try f(8) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -286,13 +282,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.closure-as-argument -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -300,8 +293,7 @@ function apply(f UnaryOp, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	return apply(function(n Integer) gives n + 7, x: 10)
+	return try apply(function(n Integer) gives try n + 7 otherwise panic("out of range"), x: 10) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -309,12 +301,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.multiple-params -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias BinaryOp = function(Integer, Integer) returns Integer
 
 function calculate(f BinaryOp, a Integer, b Integer) returns Integer
@@ -322,11 +312,11 @@ function calculate(f BinaryOp, a Integer, b Integer) returns Integer
 end 'calculate'
 
 function add(x Integer, y Integer) returns Integer
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return calculate(add, a: 15, b: 27)
+	return try calculate(add, a: 15, b: 27) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -339,11 +329,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function triple(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
@@ -351,7 +341,7 @@ function main() returns ExitCode
 	let a = f(10)
 	f = triple
 	let b = f(10)
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -359,16 +349,14 @@ end 'main'
 ```
 
 <!-- test: first-class-function.typealias-single-param -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -376,7 +364,7 @@ function apply(f UnaryOp, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	return apply(double, x: 21)
+	return try apply(double, x: 21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -384,16 +372,14 @@ end 'main'
 ```
 
 <!-- test: first-class-function.typealias-multi-param -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias BinaryOp = function(Integer, Integer) returns Integer
 
 function add(x Integer, y Integer) returns Integer
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'add'
 
 function compute(f BinaryOp, a Integer, b Integer) returns Integer
@@ -401,7 +387,7 @@ function compute(f BinaryOp, a Integer, b Integer) returns Integer
 end 'compute'
 
 function main() returns ExitCode
-	return compute(add, a: 15, b: 27)
+	return try compute(add, a: 15, b: 27) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -409,13 +395,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.typealias-with-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -423,8 +406,7 @@ function apply(f UnaryOp, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	return apply(function(n Integer) gives n + 5, x: 37)
+	return try apply(function(n Integer) gives try n + 5 otherwise panic("out of range"), x: 37) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -432,16 +414,14 @@ end 'main'
 ```
 
 <!-- test: first-class-function.let-from-call-returning-fn -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function pickDouble() returns UnaryOp
@@ -450,7 +430,7 @@ end 'pickDouble'
 
 function main() returns ExitCode
 	let f = pickDouble()
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -458,7 +438,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.forward-reference-arg -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A bare function name may be passed as a function-typed argument even when the
 function is declared *later* in the file. The parser can't resolve the
 reference at the call site (the signature isn't registered yet), so it defers
@@ -468,7 +447,6 @@ declaration is known.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -480,11 +458,11 @@ function driver() returns Integer
 end 'driver'
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function main() returns ExitCode
-	return driver()
+	return try driver() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -492,7 +470,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.forward-reference-named-arg -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two distinct forward-declared functions passed by name as a NAMED, non-first
 argument must each dispatch to the correct target: `useDbl` yields 40 and `useTrip`
 yields 30, so their difference is 10 only when both references resolved
@@ -501,7 +478,6 @@ correctly.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(x Integer, f UnaryOp) returns Integer
@@ -517,15 +493,15 @@ function useTrip() returns Integer
 end 'useTrip'
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function trip(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'trip'
 
 function main() returns ExitCode
-	return useDbl() - useTrip()
+	return try useDbl() - useTrip() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -534,7 +510,6 @@ end 'main'
 
 <!-- test: first-class-function.cross-file-extension-typealias-param -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed parameter must work even when its typealias is declared
 inside an `extension` block in a SEPARATE file that the loader hasn't reached
 yet. The stdlib loader walks `stdlib/` in whatever order the OS returns from
@@ -553,7 +528,6 @@ project has been parsed.
 // --- file: aaa_alias.maxon
 // TODO: extension blocks are not supported in minimaxon
 extension Sorter
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Comparator = function(Element, Element) returns Element
 end 'Sorter'
 
@@ -599,7 +573,6 @@ end 'main'
 
 <!-- test: first-class-function.type-extension-alias-over-a-type-parameter-at-two-instantiations -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The case above proves ONE instantiation, and one instantiation cannot tell an alias that is genuinely
 per-instantiation from one the compiler resolved against whichever instantiation it happened to meet first.
 `Transform` is `function(Element) returns Element` and `Predicate` is `function(Element) returns bool`, both
@@ -621,9 +594,7 @@ end 'Holder'
 
 // TODO: extension blocks are not supported in minimaxon
 export extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Predicate = function(Element) returns bool
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -673,16 +644,14 @@ end 'main'
 ```
 
 <!-- test: first-class-function.an-inner-function-alias-naming-self-is-substituted-per-instance -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-type alias declared inside a generic type names both `Self` and the type parameter, and a method
 taking it is called on an instance with a closure over that instance's own type.
 ```maxon
 type Cell uses T
 	export var v as T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -695,7 +664,7 @@ typealias StrCell = Cell with String
 
 function main() returns ExitCode
 	let c = StrCell.make("picked")
-	print("{c.through(function(x StrCell) gives x.v)}\n")
+	print("{c.through(function(x StrCell) gives x.v.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -708,7 +677,6 @@ picked
 
 <!-- test: first-class-function.alias-over-a-type-parameter-bound-to-an-enum -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An ENUM type argument is the one binding that turns a slot with NO pre-erasure identity into one that HAS
 one: `Element` carries none where the alias is written, `Shade` erases to a bare `int` at resolution, and
 what tells one erased `int` from another is the identity column beside it. The declared side's column is
@@ -731,7 +699,6 @@ end 'Holder'
 
 // TODO: extension blocks are not supported in minimaxon
 export extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -765,7 +732,6 @@ dark
 
 <!-- test: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 The same alias reached through an INTERFACE extension, which is the shape `stdlib/Interfaces.maxon`'s
 `extension Iterable` wears: `ItemPredicate` names the interface's ASSOCIATED type `Item`, and the conformer
@@ -783,7 +749,6 @@ end 'Container'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Container
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias ItemPredicate = function(Item) returns bool
 	function checkOnly(p ItemPredicate) returns bool
 		return p(self.only())
@@ -830,7 +795,6 @@ true false
 
 <!-- test: first-class-function.error.alias-over-a-type-parameter-named-outside-an-instantiation -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The over-acceptance guard, and the one thing about this alias that stays unrepresentable. A nested
 `typealias` is published under its BARE name as well as under `<Type>.<member>`, so `Transform` can be
@@ -850,7 +814,6 @@ end 'Holder'
 
 // TODO: extension blocks are not supported in minimaxon
 export extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -881,7 +844,6 @@ error E3005: <fragment>:33:21: argument type mismatch for 'f': expected 'fn(type
 
 <!-- test: first-class-function.alias-over-a-type-parameter-returning-a-MANAGED-element -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -895,7 +857,6 @@ end 'Holder'
 
 // TODO: extension blocks are not supported in minimaxon
 export extension Holder
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -931,7 +892,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-call -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function stored in a struct field is called through the field. The field holds a
 function pointer, so this is an indirect call — the same lowering a function-typed
 parameter gets, reached from a different producer.
@@ -939,7 +899,6 @@ parameter gets, reached from a different producer.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -951,12 +910,12 @@ type Handler
 end 'Handler'
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	let h = Handler.create(double)
-	return h.op(21)
+	return try h.op(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -964,14 +923,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-bind -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Binding a function-typed field to a local recovers the field's declared signature, so
 the local is callable.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -983,13 +940,13 @@ type Handler
 end 'Handler'
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	let h = Handler.create(double)
 	let f = h.op
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -997,14 +954,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-pass-and-return -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed field is an ordinary value: it can be passed as an argument and
 returned from a function.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1016,7 +971,7 @@ type Handler
 end 'Handler'
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -1031,7 +986,7 @@ function main() returns ExitCode
 	let h = Handler.create(double)
 	let viaArg = apply(h.op, x: 10)
 	let returned = pick(h)
-	return viaArg + returned(11)
+	return try viaArg + returned(11) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1039,13 +994,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-self-dispatch -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A method dispatches through its own function-typed field with `self.op(...)`.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1061,12 +1014,12 @@ type Handler
 end 'Handler'
 
 function triple(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
 	let h = Handler.create(triple)
-	return h.run(14)
+	return try h.run(14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1074,13 +1027,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-nested-receiver -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The receiver of a field call may itself be reached through a field chain.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1113,7 +1064,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-void-statement -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A field whose signature returns nothing is called as a statement, with no result to
 bind. This is the shape a table of handlers or compiler passes keyed by a struct field
 takes: each entry stores a function, and driving the table calls it for its effect.
@@ -1121,7 +1071,6 @@ takes: each entry stores a function, and driving the table calls it for its effe
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Pass = function(Integer)
 
 type PassEntry
@@ -1143,7 +1092,7 @@ function narrow(x Integer)
 end 'narrow'
 
 function main() returns ExitCode
-	let passes = PassArray.create(0)
+	var passes = PassArray.create(0)
 	passes.push(PassEntry.create(widen))
 	passes.push(PassEntry.create(narrow))
 	for p in passes 'drive'
@@ -1161,18 +1110,16 @@ narrow 7
 ```
 
 <!-- test: first-class-function.call-returned-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A call whose return type is a function is itself callable, so the result can be called
 without binding it first.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function pick() returns UnaryOp
@@ -1180,7 +1127,7 @@ function pick() returns UnaryOp
 end 'pick'
 
 function main() returns ExitCode
-	return pick()(21)
+	return try pick()(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1221,13 +1168,13 @@ value-returning DIRECT call does there. Discarding the first result must not dis
 typealias Integer = int(i64.min to i64.max)
 
 function inc(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'inc'
 
 function main() returns ExitCode
 	let f = inc
 	f(10)
-	return f(41)
+	return try f(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1258,7 +1205,6 @@ the postfix expression and applies the trailing `(args)` through the SAME indire
 `(` becomes a call statement — a bare field read (`h.op`) is not a statement and stays an error.
 
 <!-- test: first-class-function.field-void-called-as-statement -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A VOID function-typed FIELD called at STATEMENT position, for its effect — the shape a table of
 callbacks or compiler passes keyed by a struct field is driven by, each entry a function value called for
 effect. The statement dispatcher parses `h.op` as a field load and applies the trailing call through the
@@ -1267,7 +1213,6 @@ increments of a shared cell passed to the callback) proves the call RAN — a no
 ```maxon
 typealias Cell = SharedValue with FullRangeInt
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Task = function(Cell)
 
 type Holder
@@ -1296,7 +1241,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-value-called-as-statement-discarded -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A VALUE-returning function-typed field called at statement position discards its result, exactly as a
 value-returning DIRECT call does there. Discarding the first result must not disturb a later call: `h.op(10)`
 is dropped, `h.op(41)` yields 42.
@@ -1304,7 +1248,6 @@ is dropped, `h.op(41)` yields 42.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1316,13 +1259,13 @@ type Handler
 end 'Handler'
 
 function inc(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'inc'
 
 function main() returns ExitCode
 	let h = Handler.create(inc)
 	h.op(10)
-	return h.op(41)
+	return try h.op(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1330,14 +1273,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-two-fields-called-as-statements -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A struct with TWO function-typed fields, each called at statement position. Each call must dispatch through
 its OWN field — `p.first` runs `bumpA` (+10) and `p.second` runs `bumpB` (+4) — so the total is 14 only when
 the two field loads are not confused.
 ```maxon
 typealias Cell = SharedValue with FullRangeInt
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Task = function(Cell)
 
 type Pair
@@ -1373,14 +1314,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-nested-void-called-as-statement -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The receiver of a field call may itself be reached through a field CHAIN. `o.inner.op()` resolves the chain
 to the function-typed field and applies the trailing call for effect — the statement-position twin of the
 value-position `o.inner.op(21)`. The side effect (two increments) proves it ran.
 ```maxon
 typealias Cell = SharedValue with FullRangeInt
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Task = function(Cell)
 
 type Holder
@@ -1417,7 +1356,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.call-result-called-as-statement -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A call whose RESULT is a function value is itself called at statement position, for its effect. `pickBump()`
 yields the `bump` function and the trailing `()` calls it — the statement-position twin of the value-position
 `pick()(21)`, and the chaining `parsePostfix` already does in expression position. The side effect (two
@@ -1425,7 +1363,6 @@ increments) proves both hops ran.
 ```maxon
 typealias Cell = SharedValue with FullRangeInt
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Task = function(Cell)
 
 function bump(sideEffect Cell)
@@ -1449,13 +1386,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-string-result-called-as-statement-leak-free -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The managed-result-discard guard. A function-typed field whose signature returns a STRING is called at
 statement position and its result DISCARDED. The owned heap String is adopted as a statement temp and dropped
 by `drainPendingTemps` — twice — so a leak would trip the runtime's exit-101 balance check. Exit 0 is the
 pass: the discarded managed result is freed, not leaked.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Msg = function() returns String
 
 type Holder
@@ -1482,7 +1417,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-read-statement-still-errors -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The over-acceptance guard for a postfix callee: ONLY a postfix FOLLOWED BY `(` becomes a call statement. A
 bare function-typed field READ (`h.op` with no `(`) is not a call and not a statement, so it is an
@@ -1490,7 +1424,6 @@ unsupported-statement error.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1546,14 +1479,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-cross-file -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed field declared in another file is called the same way: the field's
 signature travels with the type, not with the file that reads it.
 ```maxon
 // --- file: handler.maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1570,7 +1501,7 @@ end 'Handler'
 
 // --- file: main.maxon
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function pick(h Handler) returns UnaryOp
@@ -1582,7 +1513,7 @@ function main() returns ExitCode
 	let viaField = h.op(10)
 	let viaSelf = h.run(5)
 	let f = pick(h)
-	return viaField + viaSelf + f(1)
+	return try viaField + viaSelf + f(1) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1590,15 +1521,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.non-capturing-closure-in-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure that captures NOTHING is a plain function reference, so it is stored in a
 function-typed field and called like any other. It is what a table of handlers is built from.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1610,9 +1538,8 @@ type Handler
 end 'Handler'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let h = Handler.create(function(n Integer) gives n * 2)
-	return h.op(21)
+	let h = Handler.create(function(n Integer) gives try n * 2 otherwise panic("out of range"))
+	return try h.op(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1628,14 +1555,11 @@ payload, returned, merged through a ternary, a `match` or an `otherwise`, and ha
 it, exactly as a closure that captures nothing may.
 
 <!-- test: first-class-function.capturing-closure-in-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure stored into a function-typed FIELD is called through it; the field owns the closure.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1647,15 +1571,14 @@ type Handler
 end 'Handler'
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
-	let h = Handler.create(double)
+	var h = Handler.create(double)
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	h.op = function(n Integer) gives n + bump
-	return h.op(22)
+	h.op = function(n Integer) gives try n + bump otherwise panic("out of range")
+	return try h.op(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1663,28 +1586,24 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-struct-construction -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure stored at CONSTRUCTION (`Self{op: closure}`) outlives the factory that built it.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
 	export var op as UnaryOp
 
 	static function trap(bump Integer) returns Self
-		// TODO: closures are not supported in minimaxon
-		return Self{op: function(n Integer) gives n + bump}
+		return Self{op: function(n Integer) gives try n + bump otherwise panic("out of range")}
 	end 'trap'
 end 'Handler'
 
 function main() returns ExitCode
 	let h = Handler.trap(20)
-	return h.op(22)
+	return try h.op(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1692,25 +1611,21 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-returned -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 RETURNING a capturing closure hands its environment to the caller: `makeAdder`'s frame is gone when `add` runs.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function makeAdder(bump Integer) returns UnaryOp
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	return f
 end 'makeAdder'
 
 function main() returns ExitCode
 	let add = makeAdder(20)
-	return add(22)
+	return try add(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1718,25 +1633,23 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-container -->
-<!-- skip: closures are not supported in minimaxon -->
 A capturing closure in an array literal is owned by the array, beside a plain function reference.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let ops = [double, function(n Integer) gives n + bump]
+	let ops = [double, function(n Integer) gives try n + bump otherwise panic("out of range")]
 	var total = 0 as Integer
 	for op in ops 'each'
-		total = total + op(11)
+		total = try total + op(11) otherwise panic("out of range")
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1744,14 +1657,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-union-payload -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure rides in a union PAYLOAD out of the frame that built it and is called from the match.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 union Action
@@ -1760,14 +1670,13 @@ union Action
 end 'Action'
 
 function make(bump Integer) returns Action
-	// TODO: closures are not supported in minimaxon
-	return Action.run(function(n Integer) gives n + bump)
+	return Action.run(function(n Integer) gives try n + bump otherwise panic("out of range"))
 end 'make'
 
 function main() returns ExitCode
 	let a = make(20)
 	match a 'go'
-		run(op) then return op(22)
+		run(op) then return try op(22) as ExitCode otherwise panic("out of range")
 		idle then return 1
 	end 'go'
 end 'main'
@@ -1777,18 +1686,15 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-payload-binding -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure stored into a payload is owned by the union's box, and the binding that reads it back calls it.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 union Action
@@ -1799,10 +1705,9 @@ end 'Action'
 function main() returns ExitCode
 	let bump = 20
 	var a = Action.run(double)
-	// TODO: closures are not supported in minimaxon
-	a = Action.run(function(n Integer) gives n + bump)
+	a = Action.run(function(n Integer) gives try n + bump otherwise panic("out of range"))
 	match a 'call'
-		run(op) then return op(22)
+		run(op) then return try op(22) as ExitCode otherwise panic("out of range")
 		idle then return 1
 	end 'call'
 end 'main'
@@ -1812,8 +1717,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-used-in-frame -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure called directly AND passed DOWN to a callee that only CALLS it. The closure record
 travels as the one-word value, and `apply`'s `f(x)` hands that record to the code as its environment, so
 `apply(f, …)` returns the captured `bump` correctly. The cases below cover a callee that STORES or RETURNS
@@ -1822,7 +1725,6 @@ it.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -1831,10 +1733,9 @@ end 'apply'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let direct = f(2)
-	return apply(f, x: 20) + direct
+	return try apply(f, x: 20) + direct otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1842,14 +1743,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-stored-by-callee -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A callee that STORES the closure it is handed keeps it: the struct field owns a reference of its own.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1862,10 +1760,9 @@ end 'Handler'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let h = Handler.create(f)
-	return h.op(21)
+	return try h.op(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1873,14 +1770,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-returned-by-callee -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A callee that RETURNS the closure it is handed gives the caller a reference of its own.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function identity(f UnaryOp) returns UnaryOp
@@ -1889,10 +1783,9 @@ end 'identity'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	let g = identity(f)
-	return g(21)
+	return try g(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1900,8 +1793,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-through-a-chain-that-only-calls -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure survives an arbitrarily deep pass-DOWN chain. `ping` hands `f` to `pong`, which hands it back to `ping`, which
 eventually CALLS it — a mutually recursive pass-through, which is the shape `stdlib/Array.maxon`'s sort cone
 is written in (`sort()` → `driftsortRange` → `createRun` → `stableQuicksortRange` → `smallSortRange`, all of
@@ -1912,7 +1803,6 @@ the whole chain.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function ping(f UnaryOp, n Integer) returns Integer
@@ -1923,13 +1813,12 @@ function ping(f UnaryOp, n Integer) returns Integer
 end 'ping'
 
 function pong(f UnaryOp, n Integer) returns Integer
-	return ping(f, n: n - 1)
+	return ping(f, n: try n - 1 otherwise panic("out of range"))
 end 'pong'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	return ping(function(n Integer) gives n + bump, n: 5) as ExitCode
+	return try ping(function(n Integer) gives try n + bump otherwise panic("out of range"), n: 5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1937,13 +1826,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-through-a-chain-that-stores -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Three hops of pass-down ending in a callee that stores the closure: the stored closure is called after every hop has returned.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -1968,9 +1854,8 @@ end 'hop1'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let h = hop1(function(n Integer) gives n + bump)
-	return h.op(21) as ExitCode
+	let h = hop1(function(n Integer) gives try n + bump otherwise panic("out of range"))
+	return try h.op(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1978,13 +1863,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-through-a-cycle-that-stores -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A cycle whose store is inside it: `ping` and `pong` call each other and `ping` stores the closure.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Holder
@@ -2003,14 +1885,13 @@ function ping(f UnaryOp, n Integer) returns Holder
 end 'ping'
 
 function pong(f UnaryOp, n Integer) returns Holder
-	return ping(f, n: n - 1)
+	return ping(f, n: try n - 1 otherwise panic("out of range"))
 end 'pong'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	let h = pong(function(n Integer) gives n + bump, n: 5)
-	return h.op(21) as ExitCode
+	let h = pong(function(n Integer) gives try n + bump otherwise panic("out of range"), n: 5)
+	return try h.op(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2018,7 +1899,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-called-from-nested-block -->
-<!-- skip: closures are not supported in minimaxon -->
 The same closure, called from a DIFFERENT block of the same frame: the call happens inside `main`,
 the frame is alive, and the only difference is which block the call sits in.
 
@@ -2033,19 +1913,18 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let bump = 5
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	var total = 0 as Integer
 	total = total + f(1)
 	if total > 0 'taken'
-		total = total + f(10)
+		total = try total + f(10) otherwise panic("out of range")
 	end 'taken'
 	var i = 0 as Integer
 	while i < 2 'loop'
-		total = total + f(100)
+		total = try total + f(100) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2053,7 +1932,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-bound-outside-loop-called-inside -->
-<!-- skip: closures are not supported in minimaxon -->
 The shape people actually write, and the one the two tests around it both miss: the closure is
 bound OUTSIDE the loop and called INSIDE it, so ONE environment must survive being read on many
 iterations. `capturing-closure-rebound-in-loop` binds afresh each iteration and never carries an
@@ -2076,17 +1954,16 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let bump = 5 as Integer
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	var i = 0 as Integer
 	var acc = 0 as Integer
 	while i < 5 'loop'
 		let r = f(i)
 		print("i={i} -> {r}\n")
-		acc = acc + r
+		acc = try acc + r otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2101,8 +1978,6 @@ i=4 -> 9
 ```
 
 <!-- test: first-class-function.capturing-closure-bound-outside-loop-passed-down -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same closure, read across iterations through a CALLEE rather than directly. The callee
 receives the closure as a parameter, borrowed for the length of the call. The callee must not
 release it: its own scope_end cleans a parameter named just like a binding, and treating the two
@@ -2112,7 +1987,6 @@ iteration reading dead memory.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -2121,15 +1995,14 @@ end 'apply'
 
 function main() returns ExitCode
 	let bump = 5 as Integer
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	var i = 0 as Integer
 	var acc = 0 as Integer
 	while i < 5 'loop'
-		acc = acc + apply(f, x: i)
+		acc = try acc + apply(f, x: i) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2137,8 +2010,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-passed-to-try-call -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A capturing closure handed to a THROWING callee, through `try`. A try-call flattens its arguments
 exactly as a plain call does, and the closure is one word among them: the record carries its own
@@ -2147,7 +2018,6 @@ captures, so the callee reads `bump` whichever call shape delivered it.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 enum ApplyError implements Error
@@ -2164,7 +2034,6 @@ end 'applyChecked'
 
 function main() returns ExitCode
 	let bump = 5 as Integer
-	// TODO: closures are not supported in minimaxon
 	let f = function(n Integer) gives n + bump
 	let ok = try applyChecked(f, n: 10) otherwise 0
 	let bad = try applyChecked(f, n: -1) otherwise 99
@@ -2176,7 +2045,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-rebound-in-loop -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure bound afresh on every iteration and called from a block NESTED inside that loop. Each
 iteration builds its own closure record, so each call must see its OWN `bump` rather than the first
 or the last — one record reused across iterations would still pass the cross-block test above while
@@ -2193,15 +2061,14 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 5 'l'
-		let bump = i * 10
-		// TODO: closures are not supported in minimaxon
-		let f = function(n Integer) gives n + bump
+		let bump = try i * 10 otherwise panic("out of range")
+		let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 		if true 'inner'
-			total = total + f(1)
+			total = try total + f(1) otherwise panic("out of range")
 		end 'inner'
 		i = i + 1
 	end 'l'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2209,8 +2076,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-name-not-leaked -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A variable name means nothing outside the function that declared it: a capturing `op` in one
 function and an unrelated parameter `op` in another are different values. Here `storeIt` stores a
 plain function reference through a parameter that happens to share the name, and both are called.
@@ -2218,7 +2083,6 @@ plain function reference through a parameter that happens to share the name, and
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 type Handler
@@ -2230,17 +2094,16 @@ type Handler
 end 'Handler'
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function usesClosure(bump Integer) returns Integer
-	// TODO: closures are not supported in minimaxon
-	let op = function(n Integer) gives n + bump
+	let op = function(n Integer) gives try n + bump otherwise panic("out of range")
 	return op(1)
 end 'usesClosure'
 
 function storeIt(h Handler, op UnaryOp) returns Handler
-	let hh = h
+	var hh = h.clone()
 	hh.op = op
 	return hh
 end 'storeIt'
@@ -2248,7 +2111,7 @@ end 'storeIt'
 function main() returns ExitCode
 	let h = Handler.create(double)
 	let h2 = storeIt(h, op: double)
-	return h2.op(20) + usesClosure(1)
+	return try h2.op(20) + usesClosure(1) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2256,25 +2119,21 @@ end 'main'
 ```
 
 <!-- test: first-class-function.non-capturing-closure-returned -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure that captures NOTHING is returned: it lowers to a plain function reference, an immortal
 static record that no drop releases.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function pick() returns UnaryOp
-	// TODO: closures are not supported in minimaxon
-	return function(n Integer) gives n * 2
+	return function(n Integer) gives try n * 2 otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
 	let f = pick()
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2282,15 +2141,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.non-capturing-closure-in-union-payload -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The union payload's accept side: a non-capturing closure rides in an associated value and is
 matched back out.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 union Action
@@ -2299,8 +2155,7 @@ union Action
 end 'Action'
 
 function make() returns Action
-	// TODO: closures are not supported in minimaxon
-	return Action.run(function(n Integer) gives n + 1)
+	return Action.run(function(n Integer) gives try n + 1 otherwise panic("out of range"))
 end 'make'
 
 function main() returns ExitCode
@@ -2316,27 +2171,22 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-ternary-arm -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure as a ternary ARM merges with the other arm and is returned out of its frame.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function makeAdder(bump Integer) returns UnaryOp
-	// TODO: closures are not supported in minimaxon
-	let inc = function(n Integer) gives n + bump
-	// TODO: closures are not supported in minimaxon
-	let dbl = function(n Integer) gives n * 2
+	let inc = function(n Integer) gives try n + bump otherwise panic("out of range")
+	let dbl = function(n Integer) gives try n * 2 otherwise panic("out of range")
 	return inc if bump > 0 else dbl
 end 'makeAdder'
 
 function main() returns ExitCode
 	let f = makeAdder(20)
-	return f(22)
+	return try f(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2344,7 +2194,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-ternary-used-in-frame -->
-<!-- skip: closures are not supported in minimaxon -->
 A capturing closure merged through a ternary and called in the same frame.
 ```maxon
 
@@ -2356,7 +2205,6 @@ end 'dbl'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
 	let f = function(n Integer) gives n + bump
 	let h = f if bump > 0 else dbl
 	return h(22)
@@ -2367,7 +2215,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-match-arm -->
-<!-- skip: closures are not supported in minimaxon -->
 A capturing closure as a `gives` arm of a match expression merges with the other arm and is called.
 ```maxon
 
@@ -2379,7 +2226,6 @@ end 'dbl'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
 	let f = function(n Integer) gives n + bump
 	let sel = 1 as Integer
 	let h = match sel 'pick'
@@ -2394,14 +2240,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-otherwise -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure as an `otherwise` fallback: the call throws, so the merge takes the closure.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function dbl(n Integer) returns Integer
@@ -2421,7 +2264,6 @@ end 'pick'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
 	let f = function(n Integer) gives n + bump
 	let h = try pick(-1) otherwise f
 	return h(22) as ExitCode
@@ -2432,23 +2274,19 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-returned-from-other-block -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Returning a capturing closure from a block other than the one that bound it.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function dbl(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'dbl'
 
 function makeAdder(bump Integer) returns UnaryOp
-	// TODO: closures are not supported in minimaxon
-	let f = function(n Integer) gives n + bump
+	let f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	if bump > 0 'guard'
 		return f
 	end 'guard'
@@ -2457,7 +2295,7 @@ end 'makeAdder'
 
 function main() returns ExitCode
 	let add = makeAdder(20)
-	return add(22)
+	return try add(22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2465,7 +2303,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.non-capturing-closure-through-ternary -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure that captures NOTHING merges through a ternary like any other function value — and the
 merged result is callable, which requires the signature to have survived the merge.
 ```maxon
@@ -2474,12 +2311,10 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let c = 1
-	// TODO: closures are not supported in minimaxon
-	let twice = function(n Integer) gives n * 2
-	// TODO: closures are not supported in minimaxon
-	let thrice = function(n Integer) gives n * 3
+	let twice = function(n Integer) gives try n * 2 otherwise panic("out of range")
+	let thrice = function(n Integer) gives try n * 3 otherwise panic("out of range")
 	let h = twice if c > 0 else thrice
-	return h(21)
+	return try h(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2514,8 +2349,6 @@ error E3005: specs/first-class-functions/first-class-function.function-value-int
 ```
 
 <!-- test: first-class-function.capturing-closure-into-int-local-errors -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 A CLOSURE into the same int local. The type rule answers: a function value does not fit an `int`.
 ```maxon
 
@@ -2524,7 +2357,6 @@ typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	let bump = 5 as Integer
 	var loc = 0 as Integer
-	// TODO: closures are not supported in minimaxon
 	loc = function(n Integer) gives n + bump
 	return 0 as ExitCode
 end 'main'
@@ -2648,16 +2480,14 @@ error E3101: specs/first-class-functions/first-class-function.throwing-function-
 ```
 
 <!-- test: first-class-function.non-throwing-function-as-value-still-works -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The guard above is about `throws` and nothing else — an ordinary function value is untouched.
 ```maxon
 typealias Num = int(0 to 200)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Num) returns Num
 
 function double(a Num) returns Num
-	return a * 2
+	return try a * 2 otherwise panic("out of range")
 end 'double'
 
 function apply(f Op, x Num) returns Num
@@ -2681,13 +2511,11 @@ closure that calls it. A base that declares no such method is refused for what i
 `.min` and `.max`, and any other base is told it has no such member.
 
 <!-- test: error.static-method-of-a-plain-type-is-not-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A static method of a plain type passed where a function is wanted.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(Integer) returns Integer
 
 type Ops
@@ -2799,13 +2627,11 @@ error E2078: specs/first-class-functions/error.static-method-named-like-a-bound-
 ```
 
 <!-- test: error.static-method-through-self-is-not-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Self` denotes the enclosing type, so the sentence names it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(Integer) returns Integer
 
 type Ops
@@ -2863,8 +2689,6 @@ error E2078: <fragment>:14:16: 'Self.width' is a method, and a method is not a f
 ```
 
 <!-- test: error.static-method-through-a-directory-is-not-a-function-value -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The type is named through the directory that declares it.
 ```maxon
 // --- file: lib/ops.maxon
@@ -2877,7 +2701,6 @@ export type Ops
 end 'Ops'
 
 // --- file: main.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(lib.Quantity) returns lib.Quantity
 
 function apply(f Transform, x lib.Quantity) returns lib.Quantity
@@ -2893,18 +2716,15 @@ error E2078: <fragment>:19:23: 'lib.Ops.twice' is a method, and a method is not 
 ```
 
 <!-- test: static-method-closure-and-sized-bounds-still-work -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The cure the sentence offers runs, and a sized type still reads its bounds.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(Integer) returns Integer
 
 type Ops
 	static function twice(n Integer) returns Integer
-		return n * 2
+		return try n * 2 otherwise panic("out of range")
 	end 'twice'
 end 'Ops'
 
@@ -2913,7 +2733,6 @@ function apply(f Transform, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let doubled = apply(function(n) gives Ops.twice(n), x: 1)
 	let ok = doubled == 2 and (u8.max as Integer) == 255 and (u8.min as Integer) == 0
 	return 0 if ok else 1
@@ -3962,7 +3781,6 @@ end 'main'
 ```
 
 <!-- test: a-module-binding-named-like-a-primitive-calls-the-binding -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3972,7 +3790,7 @@ let byte = Integers from [6]
 
 function main() returns ExitCode
 	let first = try byte.get(0) otherwise 0
-	return first as ExitCode
+	return try first as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4016,14 +3834,14 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	byte.ping()
 	let f = byte.twice
-	return f(3) as ExitCode
+	return try f(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4108,7 +3926,7 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
@@ -4116,7 +3934,7 @@ let f = byte.twice
 
 function main() returns ExitCode
 	byte.ping()
-	return f(3) as ExitCode
+	return try f(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4164,14 +3982,14 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	lib.ping()
 	let f = lib.twice
-	return f(3) as ExitCode
+	return try f(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4256,7 +4074,7 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
@@ -4264,7 +4082,7 @@ let f = lib.twice
 
 function main() returns ExitCode
 	lib.ping()
-	return f(3) as ExitCode
+	return try f(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4689,7 +4507,6 @@ integer function value is untouched — the tests above are its control.
 <!-- test: first-class-function.float-return-called-indirectly -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function value that RETURNS a float, called indirectly. The indirect call reads the result from
 the float return register; reading it from the integer one would color a move across register files
 (x64: `r8` → `xmm0`; wasm: an `i64` → `f64` coerce).
@@ -4698,7 +4515,6 @@ the float return register; reading it from the integer one would color a move ac
 // TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FloatFn = function() returns Ratio
 
 function getVal() returns Ratio
@@ -4723,7 +4539,6 @@ end 'main'
 <!-- test: first-class-function.float-param-called-indirectly -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function value that TAKES a float parameter, called indirectly through its `__fnref_` thunk.
 The float argument travels in a float argument register, and the thunk types its forwarded
 parameter as the target's real float type so the register files agree caller-to-callee.
@@ -4732,7 +4547,6 @@ parameter as the target's real float type so the register files agree caller-to-
 // TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ScaleFn = function(Ratio) returns Ratio
 
 function scale(x Ratio) returns Ratio
@@ -4758,7 +4572,6 @@ end 'main'
 <!-- test: first-class-function.mixed-int-float-params-indirect -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An INT parameter followed by a FLOAT one, called indirectly: the int rides a GPR argument
 register and the float rides a float one, each on its own counter, so the callee reads each
 back from the file the caller wrote it to.
@@ -4769,7 +4582,6 @@ typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias MixFn = function(Count, Ratio) returns Ratio
 
 function combine(n Count, x Ratio) returns Ratio
@@ -4798,7 +4610,6 @@ end 'main'
 <!-- test: first-class-function.float-then-int-params-indirect -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The reverse order — a FLOAT parameter followed by an INT — proves the separate int/float
 argument counters, not a shared positional one: a shared counter would put the float in float
 slot 0 but the int in GPR slot 1, and the callee reads the int from GPR slot 0.
@@ -4809,7 +4620,6 @@ typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias MixFn = function(Ratio, Count) returns Ratio
 
 function combine(x Ratio, n Count) returns Ratio
@@ -4836,7 +4646,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.float-closure-param-and-return -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 A closure (no `__fnref_` thunk) taking and returning a float, called indirectly: the lifted
@@ -4848,7 +4657,6 @@ with the closure's own float-parameter capture.
 typealias Ratio = float(0.0 to 1000.0)
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	let f = function(x Ratio) gives x * 2.0
 	// TODO: float literals are not supported in minimaxon
@@ -4866,7 +4674,6 @@ A `var` holding a capturing closure and reassigned inside an `if` or a `while` m
 phi, which carries the record; the closure the assignment replaces is dropped.
 
 <!-- test: first-class-function.capturing-closure-across-if-merge -->
-<!-- skip: closures are not supported in minimaxon -->
 A `var` holding a capturing closure reassigned inside an `if`: the merge carries the closure, and the replaced one is dropped.
 ```maxon
 
@@ -4874,13 +4681,11 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	var f = function(n Integer) gives n + bump
+	var f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	if bump > 5 'branch'
-		// TODO: closures are not supported in minimaxon
-		f = function(n Integer) gives n * bump
+		f = function(n Integer) gives try n * bump otherwise panic("out of range")
 	end 'branch'
-	return f(2)
+	return try f(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4890,13 +4695,10 @@ end 'main'
 <!-- test: first-class-function.capturing-closure-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure handed to an `async` call is held by the coroutine until it ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Integer) returns Integer
 
 function later(step Step) returns Integer
@@ -4907,7 +4709,6 @@ end 'later'
 function main() returns ExitCode
 	let bump = 20
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: closures are not supported in minimaxon
 	let p = async later(function(n Integer) gives n + bump)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
@@ -4918,7 +4719,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-across-loop-merge -->
-<!-- skip: closures are not supported in minimaxon -->
 A `var` holding a capturing closure carried across a loop's back edge; each replaced closure is dropped.
 ```maxon
 
@@ -4926,15 +4726,13 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: closures are not supported in minimaxon
-	var f = function(n Integer) gives n + bump
+	var f = function(n Integer) gives try n + bump otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 2 'loop'
-		// TODO: closures are not supported in minimaxon
-		f = function(n Integer) gives n * bump
+		f = function(n Integer) gives try n * bump otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return f(2)
+	return try f(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4942,13 +4740,10 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-through-witness-dispatch -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure handed to an interface method dispatched through a witness, which stores it and calls it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 interface Stasher
@@ -4976,7 +4771,6 @@ type W uses T where T implements Stasher
 	end 'create'
 
 	function put(k Integer) returns Integer
-		// TODO: closures are not supported in minimaxon
 		var op = function(n Integer) gives n + k
 		return self.inner.stash(op)
 	end 'put'
@@ -4999,28 +4793,24 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-into-container -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure pushed into an Array is owned by the Array.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 typealias OpArray = Array with UnaryOp
 
 function main() returns ExitCode
 	let bump = 20
-	let a = OpArray.create(0)
-	// TODO: closures are not supported in minimaxon
-	a.push(function(n Integer) gives n + bump)
+	var a = OpArray.create(0)
+	a.push(function(n Integer) gives try n + bump otherwise panic("out of range"))
 	var total = 0 as Integer
 	for op in a 'each'
-		total = total + op(22)
+		total = try total + op(22) otherwise panic("out of range")
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5030,7 +4820,6 @@ end 'main'
 <!-- test: first-class-function.int-literal-widens-at-indirect-call -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An INT LITERAL passed at a `float` parameter of a function value. A DIRECT call widens it
 (`LowerMaxonToStd.widenIntArgsToFloatParams`); an indirect call must widen it the same way, off the
 DECLARED parameter types of the function type the call goes through. Without that the raw i64 `2`
@@ -5041,8 +4830,7 @@ a silent wrong answer, not a crash.
 // TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Scaler = function(v Real) returns Real
+typealias Scaler = function(Real) returns Real
 
 function twice(v Real) returns Real
 	// TODO: float literals are not supported in minimaxon
@@ -5089,7 +4877,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.int-literal-widens-through-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 The third callee kind: a LIFTED CLOSURE, whose declared parameter types are its own. The closure
@@ -5100,7 +4887,6 @@ declares `x Ratio`, so the literal `3` widens exactly as it does for a named fun
 typealias Ratio = float(0.0 to 1000.0)
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	let f = function(x Ratio) gives x * 2.0
 	return trunc(f(3)) as ExitCode
@@ -5113,7 +4899,6 @@ end 'main'
 <!-- test: first-class-function.mixed-int-float-literal-args-indirect -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The formal→actual MAPPING, pinned rather than "some argument widened": an int literal at an `int`
 parameter must STAY an integer while an int literal at a `float` parameter must widen. Each failure
 mode has its own answer — widening the wrong one makes `n == 3` compare an f64 bit pattern (5), and
@@ -5125,8 +4910,7 @@ typealias Ratio = float(0.0 to 1000.0)
 
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias MixFn = function(n Count, x Ratio) returns Ratio
+typealias MixFn = function(Count, Ratio) returns Ratio
 
 function combine(n Count, x Ratio) returns Ratio
 	if n == 3 'exact'
@@ -5152,7 +4936,6 @@ end 'main'
 <!-- test: first-class-function.matching-signature-cast-accepted -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A cast to a function type whose signature MATCHES stays legal and stays a no-op — the guard against
 an over-strict signature rule, which would otherwise refuse every cast a program legitimately writes.
 ```maxon
@@ -5160,8 +4943,7 @@ an over-strict signature rule, which would otherwise refuse every cast a program
 // TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Scaler = function(v Real) returns Real
+typealias Scaler = function(Real) returns Real
 
 function twice(v Real) returns Real
 	// TODO: float literals are not supported in minimaxon
@@ -5179,10 +4961,8 @@ end 'main'
 ```
 
 <!-- test: first-class-function.closure-into-alias-typed-param-accepted -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure passed into a parameter declared with a function typealias takes the alias's parameter
 and result types: its body is a `float` computation, checked against the alias's `Ratio` result at the
 closure.
@@ -5191,15 +4971,13 @@ closure.
 // TODO: float typealiases are not supported in minimaxon
 typealias Ratio = float(0.0 to 1000.0)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias ScaleFn = function(x Ratio) returns Ratio
+typealias ScaleFn = function(Ratio) returns Ratio
 
 function apply(f ScaleFn, v Ratio) returns Ratio
 	return f(v)
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	return trunc(apply(function(x Ratio) gives x * 3.0, v: 4.0)) as ExitCode
 end 'main'
@@ -5211,7 +4989,6 @@ end 'main'
 <!-- test: first-class-function.error.cast-return-type-mismatch -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A cast whose target function type returns something else. Accepted, the integer the function really
 returns would be read back out of the float return register.
@@ -5222,8 +4999,7 @@ typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias FloatFn = function(x Real) returns Real
+typealias FloatFn = function(Real) returns Real
 
 function intish(x Real) returns Integer
 	return trunc(x) + 14
@@ -5242,7 +5018,6 @@ error E3009: <fragment>:12:17: function type mismatch in cast: expected 'fn(Real
 <!-- test: first-class-function.error.cast-param-type-mismatch -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The parameter half of the same rule: the target function type declares a `float` parameter the
 function itself declares as an int, so every call through the cast value would write the argument to
@@ -5254,8 +5029,7 @@ typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias FloatFn = function(x Real) returns Real
+typealias FloatFn = function(Real) returns Real
 
 function intParam(x Integer) returns Real
 	// TODO: float literals are not supported in minimaxon
@@ -5272,7 +5046,6 @@ error E3009: <fragment>:12:19: function type mismatch in cast: expected 'fn(Real
 ```
 
 <!-- test: first-class-function.error.cast-arity-mismatch -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The arity half: a one-parameter function cast to a two-parameter function type. Every call through it
 supplies an argument the callee never reads and reads a parameter the caller never wrote.
@@ -5280,8 +5053,7 @@ supplies an argument the callee never reads and reads a parameter the caller nev
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Bin = function(a Integer, b Integer) returns Integer
+typealias Bin = function(Integer, Integer) returns Integer
 
 function one(a Integer) returns Integer
 	return a + 1
@@ -5300,7 +5072,6 @@ error E3036: <fragment>:12:10: 'Bin' expects 2 argument(s) but 1 were provided
 <!-- test: first-class-function.error.wrong-signature-into-function-param -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The rule is NOT cast-only. The same disagreement reached through a function-typed PARAMETER — no cast
 anywhere — is refused the same way; an argument check that compared only the `function` TAG would accept it.
@@ -5311,8 +5082,7 @@ typealias Real = float(f64.min to f64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias FloatFn = function(x Real) returns Real
+typealias FloatFn = function(Real) returns Real
 
 function intish(x Real) returns Integer
 	return trunc(x) + 14
@@ -5333,7 +5103,6 @@ error E3005: <fragment>:16:10: argument type mismatch for 'f': expected 'fn(Real
 ```
 
 <!-- test: first-class-function.error.wrong-signature-returned -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 And through a `return`, the third door — a two-parameter function handed back where a one-parameter
 function type is declared.
@@ -5341,8 +5110,7 @@ function type is declared.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias UnaryOp = function(n Integer) returns Integer
+typealias UnaryOp = function(Integer) returns Integer
 
 function add(a Integer, b Integer) returns Integer
 	return a + b
@@ -5362,7 +5130,6 @@ error E3005: <fragment>:11:2: function type mismatch in return: expected 'fn(Int
 ```
 
 <!-- test: first-class-function.error.wrong-signature-into-union-payload -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 And through a union PAYLOAD, the fourth door — the one position a declared function type reaches that no
 `PendingFunctionTypeDoor` covered. `requireScalarPayloadArg` gated on `checkDeclaredType` alone, which
@@ -5373,7 +5140,6 @@ payload and called through it read a slot nobody passed (`v=7` on arm64-macOS) a
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias OneArg = function(Integer) returns Integer
 
 union Box
@@ -5403,8 +5169,6 @@ error E3005: <fragment>:23:19: function type mismatch storing into union payload
 ```
 
 <!-- test: first-class-function.error.different-enum-param-into-function-param -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **THE SAME DOOR, DECIDED FROM AN ERASED PARAMETER.**
 `TypeResolution.resolveType` collapses a boxed enum/union parameter to bare `integer`, so
 `function(Shade)` and `function(Color)` are the SAME `paramTypes`, and by those alone every enum agrees with
@@ -5425,7 +5189,6 @@ enum Shade
 	light
 end 'Shade'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ColorFn = function(Color) returns Color
 
 function shadeFn(s Shade) returns Color
@@ -5454,8 +5217,6 @@ error E3005: <fragment>:28:10: argument type mismatch for 'f': expected 'fn(Colo
 ```
 
 <!-- test: first-class-function.error.different-enum-param-into-union-payload -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The PAYLOAD door is wired to that same checker, so it catches a wrong ENUM exactly as it catches a wrong
 ARITY. One predicate serves six doors, which is the point: pinning it at more than one door is what
 proves the rule is in the predicate rather than in a door.
@@ -5472,7 +5233,6 @@ enum Shade
 	light
 end 'Shade'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ColorFn = function(Color) returns Color
 
 union Holder
@@ -5509,7 +5269,6 @@ error E3005: <fragment>:36:22: function type mismatch storing into union payload
 ```
 
 <!-- test: first-class-function.error.different-enum-return-into-function-param -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The RETURN slot has the identical erasure and needs the identical carrier: a `function() returns Color`
 arriving where `function() returns Shade` is declared would hand back a three-case ordinal to a two-arm
@@ -5531,7 +5290,6 @@ end 'Shade'
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ShadeMaker = function() returns Shade
 
 function makeColor() returns Color
@@ -5556,7 +5314,6 @@ error E3005: <fragment>:30:10: argument type mismatch for 'f': expected 'fn() re
 ```
 
 <!-- test: first-class-function.error.int-function-into-enum-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 And the other half of the erasure — a function over a plain ranged INT reaching an enum-typed function
 place. It is the same wrong answer with the identity missing on one side rather than differing on both:
@@ -5572,7 +5329,6 @@ end 'Color'
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ColorFn = function(Color) returns Color
 
 function bump(n Integer) returns Integer
@@ -5589,7 +5345,6 @@ error E3009: <fragment>:17:15: function type mismatch in cast: expected 'fn(Colo
 ```
 
 <!-- test: first-class-function.matching-enum-shape-agrees-across-doors -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The POSITIVE twin of all four, at three doors in one program: an enum-parameter function type that
 genuinely agrees must still pass the ARGUMENT door, the PAYLOAD door and the `return` door. A rule that
 only refuses is half a rule — the identity comparison is exact NAME equality, so the very same enum on
@@ -5602,7 +5357,6 @@ enum Color
 	blue
 end 'Color'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ColorFn = function(Color) returns Color
 
 union Holder
@@ -5655,7 +5409,6 @@ red
 ```
 
 <!-- test: first-class-function.per-instance-alias-param-agrees -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ⚠ **THE FALSE-REFUSAL CONTROL, and it is why the two fill sites are ONE rather than the comparison
 loosened.** Both branches that build a `FunctionShape` — the DECLARED one and the ALIAS one — classify a
@@ -5678,8 +5431,7 @@ end 'Pool'
 
 typealias IntPool = Pool with Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias IdxFn = function(i IntPool.Idx) returns Integer
+typealias IdxFn = function(IntPool.Idx) returns Integer
 
 function widen(i IntPool.Idx) returns Integer
 	return i as Integer
@@ -5699,7 +5451,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.union-payload-param-called-through-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⚠ **THE OTHER FALSE REFUSAL THE SAME CARRIER PREVENTS.** An INDIRECT call reads the pre-erasure
 union/enum identity from the function type's column. Without it the consequence would be not a missed
 refusal but a WRONG one: calling a `function(Payload)` with a `Payload` would be rejected as
@@ -5713,8 +5464,7 @@ union Payload
 	none
 end 'Payload'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias PayloadFn = function(p Payload) returns Integer
+typealias PayloadFn = function(Payload) returns Integer
 
 function unwrap(p Payload) returns Integer
 	return match p 'm'
@@ -5737,8 +5487,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.closure-inferred-enum-return-agrees -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A lifted closure's return type is INFERRED from its body, so the carrier on the arriving side is filled
 from a type nobody spelled. It must still name the enum, or the very construct the return rule exists to
 admit — a closure handed to an enum-returning function type — becomes a refusal. The parameter half is
@@ -5753,11 +5501,9 @@ enum Color
 	blue
 end 'Color'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ColorMaker = function() returns Color
 
-// TODO: function typealiases are not supported in minimaxon
-typealias ColorEater = function(c Color) returns Integer
+typealias ColorEater = function(Color) returns Integer
 
 function useMaker(f ColorMaker) returns Integer
 	let c = f()
@@ -5773,9 +5519,7 @@ function useEater(f ColorEater) returns Integer
 end 'useEater'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let mk = function() gives Color.blue
-	// TODO: closures are not supported in minimaxon
 	let et = function(c Color) gives 40 if c == Color.green else 0
 	print("{useMaker(mk)} {useEater(et)}\n")
 	return 0
@@ -5786,7 +5530,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.nested-function-type-agrees-by-alias-name -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function type whose own PARAMETER is a function type. The descent is the same one level down, and it
 stops at an alias NAME: `Outer = function(f InnerA)` accepts a function declared `(f InnerA)`, and a
 function declared over a different alias of the same shape is refused there
@@ -5796,14 +5539,12 @@ function declared over a different alias of the same shape is refused there
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias InnerA = function(x Integer) returns Integer
+typealias InnerA = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Outer = function(f InnerA) returns Integer
+typealias Outer = function(InnerA) returns Integer
 
 function dbl(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'dbl'
 
 function runner(f InnerA) returns Integer
@@ -5817,7 +5558,7 @@ function drive(o Outer) returns Integer
 end 'drive'
 
 function main() returns ExitCode
-	return drive(runner) as ExitCode
+	return try drive(runner) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5826,7 +5567,6 @@ end 'main'
 
 <!-- test: first-class-function.error.nested-function-type-mismatch -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The other half of the same descent: when the nested function types genuinely DISAGREE the door must
 refuse, because `runner`'s own body calls its parameter through `InnerB`'s signature while the caller
@@ -5839,14 +5579,11 @@ typealias Integer = int(i64.min to i64.max)
 // TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias InnerA = function(x Integer) returns Integer
+typealias InnerA = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
-typealias InnerB = function(x Real) returns Real
+typealias InnerB = function(Real) returns Real
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Outer = function(f InnerA) returns Integer
+typealias Outer = function(InnerA) returns Integer
 
 function runner(_ InnerB) returns Integer
 	return 1
@@ -5865,7 +5602,6 @@ error E3005: <fragment>:18:9: argument type mismatch for '_': expected 'fn(Inner
 ```
 
 <!-- test: first-class-function.error.indirect-call-too-few-args -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An indirect call that supplies fewer arguments than the function type declares. The missing argument
 would be read out of whatever the register held — `f(3)` against `a + b` would return 3 — and the arity
@@ -5874,8 +5610,7 @@ a function value promises is exactly the fact the declared type carries.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Bin = function(a Integer, b Integer) returns Integer
+typealias Bin = function(Integer, Integer) returns Integer
 
 function two(a Integer, b Integer) returns Integer
 	return a + b
@@ -5894,7 +5629,6 @@ error E3036: <fragment>:11:10: 'Bin' expects 2 argument(s) but 1 were provided
 ```
 
 <!-- test: first-class-function.error.indirect-call-arg-type-mismatch -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 And an indirect call whose argument is the wrong KIND. Unchecked, a `String` at an int parameter would
 reach the backend untouched and the callee would do integer arithmetic on a heap pointer.
@@ -5902,8 +5636,7 @@ reach the backend untouched and the callee would do integer arithmetic on a heap
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Un = function(a Integer) returns Integer
+typealias Un = function(Integer) returns Integer
 
 function one(a Integer) returns Integer
 	return a + 1
@@ -5922,7 +5655,6 @@ error E3005: <fragment>:11:10: argument type mismatch for 1: expected 'Integer',
 ```
 
 <!-- test: first-class-function.indirect-call-arity-13 -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The BOUNDARY below the x64 argument pool, so a change that moves the cliff is caught from both
 directions. A plain function reached as a VALUE is called through its `__fnref_` env
 thunk, whose signature is `(userargs, __env)` — so a 13-argument function value makes a
@@ -5930,11 +5662,10 @@ thunk, whose signature is `(userargs, __env)` — so a 13-argument function valu
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op13 = function(Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer) returns Integer
 
 function sum13(a0 Integer, a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer) returns Integer
-	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12
+	return try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 otherwise panic("out of range")
 end 'sum13'
 
 function callIt(f Op13) returns Integer
@@ -5942,7 +5673,7 @@ function callIt(f Op13) returns Integer
 end 'callIt'
 
 function main() returns ExitCode
-	return callIt(sum13) as ExitCode
+	return try callIt(sum13) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5950,7 +5681,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.indirect-call-arity-14 -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ THE ARITY AT THE EDGE OF THE x64 POOL — and the call site is not what makes it hard. The
 thunk's trailing `__env` is materialized and then read by nothing, so it is a DEAD DEF: live at no
 program point, invisible to every popcount over a live set, and still occupying a real register
@@ -5963,11 +5693,10 @@ no function value anywhere). Result is `sum(1..14) = 105`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op14 = function(Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer) returns Integer
 
 function sum14(a0 Integer, a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer) returns Integer
-	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13
+	return try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 otherwise panic("out of range")
 end 'sum14'
 
 function callIt(f Op14) returns Integer
@@ -5975,7 +5704,7 @@ function callIt(f Op14) returns Integer
 end 'callIt'
 
 function main() returns ExitCode
-	return callIt(sum14) as ExitCode
+	return try callIt(sum14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5983,18 +5712,16 @@ end 'main'
 ```
 
 <!-- test: first-class-function.indirect-call-arity-20 -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Comfortably PAST the boundary, so a cliff shifted by one does not pass. Twenty
 forwarded arguments plus the dead `__env` is twenty-one against fourteen, relieved by cold splits
 in the thunk and in the caller alike. Result is `sum(1..20) = 210`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op20 = function(Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer) returns Integer
 
 function sum20(a0 Integer, a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer, a14 Integer, a15 Integer, a16 Integer, a17 Integer, a18 Integer, a19 Integer) returns Integer
-	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19
+	return try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 otherwise panic("out of range")
 end 'sum20'
 
 function callIt(f Op20) returns Integer
@@ -6002,7 +5729,7 @@ function callIt(f Op20) returns Integer
 end 'callIt'
 
 function main() returns ExitCode
-	return callIt(sum20) as ExitCode
+	return try callIt(sum20) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6010,7 +5737,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.indirect-call-arity-26 -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The arm64 twin: arm64 allocates from 25 GPRs (x15 is the asynchronous-preemption trampoline's
 return register), so its `__fnref_` thunk cliff is at 25 user arguments where x64's is at 14, and
 twenty-six arguments is one past it. It is not gated to arm64 — on x64 it is
@@ -6019,11 +5745,10 @@ so the sum fits an exit code while the first twenty stay distinct. Result is `su
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op26 = function(Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer) returns Integer
 
 function sum26(a0 Integer, a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer, a14 Integer, a15 Integer, a16 Integer, a17 Integer, a18 Integer, a19 Integer, a20 Integer, a21 Integer, a22 Integer, a23 Integer, a24 Integer, a25 Integer) returns Integer
-	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22 + a23 + a24 + a25
+	return try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22 + a23 + a24 + a25 otherwise panic("out of range")
 end 'sum26'
 
 function callIt(f Op26) returns Integer
@@ -6031,7 +5756,7 @@ function callIt(f Op26) returns Integer
 end 'callIt'
 
 function main() returns ExitCode
-	return callIt(sum26) as ExitCode
+	return try callIt(sum26) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6039,7 +5764,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.indirect-call-arity-20-computed-args -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The same arity with arguments that CANNOT be rematerialized, which is the case that pins the real
 relief path. Every other test here passes literals, and the splitter's cheapest tier re-emits a
 constant for free — so a caller full of literals is relieved without a single store, and only the
@@ -6049,19 +5773,18 @@ so the caller's twenty live arguments must be relieved by genuine cold splits. R
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op20 = function(Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer) returns Integer
 
 function sum20(a0 Integer, a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer, a14 Integer, a15 Integer, a16 Integer, a17 Integer, a18 Integer, a19 Integer) returns Integer
-	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19
+	return try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 otherwise panic("out of range")
 end 'sum20'
 
 function callIt(f Op20, base Integer) returns Integer
-	return f(base + 1, base + 2, base + 3, base + 4, base + 5, base + 6, base + 7, base + 8, base + 9, base + 10, base + 11, base + 12, base + 13, base + 14, base + 15, base + 16, base + 17, base + 18, base + 19, base + 20)
+	return f(try base + 1 otherwise panic("out of range"), try base + 2 otherwise panic("out of range"), try base + 3 otherwise panic("out of range"), try base + 4 otherwise panic("out of range"), try base + 5 otherwise panic("out of range"), try base + 6 otherwise panic("out of range"), try base + 7 otherwise panic("out of range"), try base + 8 otherwise panic("out of range"), try base + 9 otherwise panic("out of range"), try base + 10 otherwise panic("out of range"), try base + 11 otherwise panic("out of range"), try base + 12 otherwise panic("out of range"), try base + 13 otherwise panic("out of range"), try base + 14 otherwise panic("out of range"), try base + 15 otherwise panic("out of range"), try base + 16 otherwise panic("out of range"), try base + 17 otherwise panic("out of range"), try base + 18 otherwise panic("out of range"), try base + 19 otherwise panic("out of range"), try base + 20 otherwise panic("out of range"))
 end 'callIt'
 
 function main() returns ExitCode
-	return callIt(sum20, base: 0) as ExitCode
+	return try callIt(sum20, base: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6069,7 +5792,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-return-through-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ **THE WIDTH A FUNCTION TYPEALIAS MUST CARRY.** `ExitCode` is the ONE builtin type name
 whose tag carries a sub-64 width (`MaxonType.exitCode` → u32), and a function typealias stores its
 declared return interner-free as a `(tag, NAME)` pair — so a `returns ExitCode` arrives at every
@@ -6083,7 +5805,6 @@ functype against the funcref's own EXACTLY. So this case is the whole assertion 
 runs on every lane for that reason. No closure is involved: a bare function reference through a typealias
 is enough.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 function nine() returns ExitCode
@@ -6103,7 +5824,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.ranged-alias-return-through-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐ **THE CONTROL FOR THE CASE ABOVE, AND THE CONTROL IS THE POINT.** `Code` is declared over
 `ExitCode`'s EXACT range, so the two cases differ in the NAME and in nothing else — which is what
 shows the difference is a WIDTH recovered from a name and not a name treated specially. A user
@@ -6113,7 +5833,6 @@ the one above red, which is precisely the pair that says which.
 ```maxon
 typealias Code = int(0 to u32.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias CodeThunk = function() returns Code
 
 function nine() returns Code
@@ -6133,14 +5852,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-return-through-alias-computed -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The recovered return type is a VALUE, not just a return slot: the indirect call's result is bound
 and then arithmetic is done on it. A width recovered only where the call's functype is declared
 would still leave the bound value carrying the wrong tag, and the tag is what every later rule
 reads — so this pins that an `ExitCode` recovered from a function typealias is usable as the
 integral value it is, and not merely callable. `4 + 4 + 1`.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 function four() returns ExitCode
@@ -6149,7 +5866,7 @@ end 'four'
 
 function twice(t Thunk) returns ExitCode
 	let v = t()
-	return v + v + 1
+	return try v + v + 1 otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
@@ -6161,7 +5878,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-param-through-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The PARAMETER half of the same registry, isolated from the return half — the alias takes an
 `ExitCode` and returns a user ranged alias, so the only sub-64 name in the signature is on the
 argument side. An indirect call's argument widths come from the RESOLVED `functionAliasShapes`,
@@ -6175,11 +5891,10 @@ where there is no thunk to lose the width symmetrically.
 ```maxon
 typealias Outcome = int(0 to u32.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Bump = function(ExitCode) returns Outcome
 
 function bump(c ExitCode) returns Outcome
-	return c + 1
+	return try c + 1 otherwise panic("out of range")
 end 'bump'
 
 function applyIt(f Bump, c ExitCode) returns Outcome
@@ -6195,8 +5910,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.bool-param-through-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐⭐ **THE PARAMETER WIDTH WHERE NOTHING CAN LOSE IT SYMMETRICALLY — a LIFTED CLOSURE taking a
 `bool`.** A plain function reached as a value goes through the `__fnref_` thunk, so a width lost at
 both ends is invisible there. A closure has NO thunk — it is already `(userargs, __env)`-shaped, so it
@@ -6213,7 +5926,6 @@ arriving: pass the wrong word and `7 + 4` does not come back.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias BoolFn = function(bool) returns Integer
 
 function apply(f BoolFn) returns Integer
@@ -6222,8 +5934,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let bump = 4
-	// TODO: closures are not supported in minimaxon
-	return apply(function(loud bool) gives (7 + bump) if loud else 3) as ExitCode
+	return try apply(function(loud bool) gives (7 + bump) if loud else 3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6231,7 +5942,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.bool-param-through-fnref-thunk -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The `__fnref_` half of the case above, and the reason BOTH ends carry the width. A plain named
 function used as a value is reached through the synthesized `__fnref_<name>` thunk, whose parameter
 types are its own declaration — so with the call site declaring a `bool` argument at its real i32
@@ -6242,7 +5952,6 @@ diverge. Returns `7`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias BoolFn = function(bool) returns Integer
 
 function takesBool(loud bool) returns Integer
@@ -6254,7 +5963,7 @@ function apply(f BoolFn) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	return apply(takesBool) as ExitCode
+	return try apply(takesBool) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6262,7 +5971,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-return-through-alias-high -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⚠ **A WINDOWS-LANE READING, WHICH IS A REAL LOSS ON WASM.**
 `return 4000000000` is E3005 on every other target — `ExitCode` is `int(0 to 255)` there — so those lanes
@@ -6284,7 +5992,6 @@ path would leave `direct=` red, and one only in the declared functype would leav
 `exitcode-return-through-alias` above stayed green. `4000000000` is chosen because it
 exceeds `i32.max` and fits `u32.max`, which is exactly the band where the two extensions disagree.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 function big() returns ExitCode
@@ -6311,7 +6018,6 @@ alias=4000000000
 ```
 
 <!-- test: first-class-function.exitcode-through-alias-computes-at-machine-width -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⚠ **A WINDOWS-LANE READING, WHICH IS A REAL LOSS ON WASM.**
 `return 4000000000` is E3005 on every other target — `ExitCode` is `int(0 to 255)` there — so those lanes
@@ -6339,7 +6045,6 @@ Each reading is paired with its non-folded twin (`* 2` beside `* d`, `> 100` bes
 immediate and register forms are different emitters: one can be right while the other is wrong, and a
 single reading cannot see that.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 function big() returns ExitCode
@@ -6354,9 +6059,9 @@ function viaAlias(t Thunk, s Thunk) returns ExitCode
 	let v = t()
 	let d = s()
 	print("literalMul={v * 2}\n")
-	print("valueMul={v * d}\n")
-	print("bitNot={not v}\n")
-	print("shl={v shl 1}\n")
+	print("valueMul={try v * d otherwise panic("out of range")}\n")
+	print("bitNot={try not v otherwise panic("out of range")}\n")
+	print("shl={try v shl 1 otherwise panic("out of range")}\n")
 	print("literalCmp={1 if v > 100 else 0}\n")
 	print("valueCmp={1 if v > d else 0}\n")
 	return 0
@@ -6380,7 +6085,6 @@ valueCmp=1
 
 <!-- test: first-class-function.character-return-through-alias -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Character` is DELIBERATELY absent from `TypeResolution.builtinTypeNameTag`, and this is the case that
 turns the reason into an assertion rather than an argument. `parseTypeReference` settles
 `Character` SYNTACTICALLY, so a function typealias stores it by TAG with an EMPTY name and the
@@ -6388,7 +6092,6 @@ name→tag table is never consulted for it — which is only true while the stor
 later change ever routed `Character` through the NAME column, this case goes red at the door, instead
 of the omission being justified by prose nothing checks.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias CharThunk = function() returns Character
 
 function ch() returns Character
@@ -6414,14 +6117,12 @@ x
 ```
 
 <!-- test: first-class-function.string-return-through-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `Character`'s twin, and the one that matters for OWNERSHIP rather than width. A `String` is
 MANAGED, so a function typealias that returned it under the wrong tag would not merely mis-size the
 value — it would put it on the wrong side of the drop walk. It rides the TAG column for
 `Character`'s reason (`parseTypeReference` settles `String` syntactically, storing an empty name), so
 the table is never asked; the leak gate is what makes the ownership half of that an assertion.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Namer = function() returns String
 
 function name() returns String
@@ -6446,7 +6147,6 @@ abc
 ```
 
 <!-- test: first-class-function.bool-return-through-alias -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The other keyword-settled tag, and the other sub-64 one: `bool` is an `i1` — a wasm `i32` — so a
 function typealias returning it has the same width to lose that `ExitCode` has. It cannot lose it by
 the same route (`bool` is a KEYWORD, so it can never arrive as a `named` name), and that asymmetry is
@@ -6455,7 +6155,6 @@ through DIFFERENT columns, and only the `named` column can lose it.
 ```maxon
 typealias Num = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Pred = function(Num) returns bool
 
 function isBig(n Num) returns bool
@@ -6475,14 +6174,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-through-alias-struct-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A THIRD door into the function-alias registry: the alias
 names a struct FIELD's type, so the recovered return width has to survive being stored in a box and
 loaded back out before the indirect call is made. A width recovered only where a PARAMETER is typed
 would leave this one declaring `() -> i64` against a `() -> i32` thunk — the same trap arriving
 through a different door.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 type Holder
@@ -6507,13 +6204,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.exitcode-through-alias-array-element -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The FOURTH door — the alias as an `Array` ELEMENT type. It is the struct-field case's twin
 with one difference that is worth its own case: the element type reaches the alias registry through
 the GENERIC instance machinery rather than a field declaration, so the two are separate readers of the
 same stored `(tag, name)` pair, and either could have been left behind.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns ExitCode
 
 typealias ThunkArray = Array with Thunk
@@ -6523,7 +6218,7 @@ function nine() returns ExitCode
 end 'nine'
 
 function main() returns ExitCode
-	let a = ThunkArray.create(0)
+	var a = ThunkArray.create(0)
 	a.push(nine)
 	let f = try a.get(0) otherwise panic("a.get(0) on a one-element array")
 	return f()
@@ -6534,7 +6229,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.generic-instance-returned-through-alias-is-identified-by-type-not-by-intern-order -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐⭐ **THE MIRROR OF THE FOUR DOORS ABOVE: a generic INSTANCE as the alias's OWN return type, and it is
 the one spelling whose identity a `(tag, name)` pair cannot carry.** A `genericInstance`'s identity is a
 `GenericInstanceId`, not an interned name, so the alias carries it in its own column
@@ -6567,11 +6261,10 @@ end 'Field'
 
 typealias FieldArray = Array with Field
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldsBuilder = function(Integer) returns FieldArray
 
 function buildFields(n Integer) returns FieldArray
-	let out = FieldArray.create(0)
+	var out = FieldArray.create(0)
 	out.push(Field.create(n))
 	return out
 end 'buildFields'
@@ -6583,9 +6276,9 @@ function apply(f FieldsBuilder) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	let s = SmallArray.create(0)
+	var s = SmallArray.create(0)
 	s.push(3)
-	return (apply(buildFields) + (s.count() as Integer)) as ExitCode
+	return try (apply(buildFields) + (s.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6593,7 +6286,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.generic-instance-parameter-through-alias-is-identified-by-type-not-by-intern-order -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The PARAMETER half of the same loss. `FunctionAliasParam` stores its type the same interner-free way the
 return does — one extractor fills both — so a generic instance is dropped at either door and the halves
 must be pinned separately: carrying the return's identity and not the parameter's would leave this
@@ -6617,23 +6309,22 @@ end 'Field'
 
 typealias FieldArray = Array with Field
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldConsumer = function(FieldArray) returns Integer
 
 function countFields(fields FieldArray) returns Integer
-	return fields.count()
+	return try fields.count() as Integer otherwise panic("out of range")
 end 'countFields'
 
 function apply(f FieldConsumer) returns Integer
-	let fields = FieldArray.create(0)
+	var fields = FieldArray.create(0)
 	fields.push(Field.create(5))
 	return f(fields)
 end 'apply'
 
 function main() returns ExitCode
-	let s = SmallArray.create(0)
+	var s = SmallArray.create(0)
 	s.push(3)
-	return (apply(countFields) + (s.count() as Integer)) as ExitCode
+	return try (apply(countFields) + (s.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6641,7 +6332,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.generic-instance-returned-through-alias-refuses-a-different-instance -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **THE WRONG ANSWER, AND IT IS A SEGFAULT.** The two cases above are false REFUSALS — a legal program
 turned away. This is the other polarity, and it is what makes the lost identity a memory-safety defect
@@ -6672,7 +6362,6 @@ end 'Field'
 
 typealias FieldArray = Array with Field
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldsBuilder = function(Integer) returns FieldArray
 
 function buildSmalls(_ Integer) returns SmallArray
@@ -6696,7 +6385,6 @@ error E3005: <fragment>:31:9: argument type mismatch for 'f': expected 'fn(Integ
 ```
 
 <!-- test: first-class-function.error.generic-instance-returned-through-alias-refuses-a-different-instance-either-order -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE ORDER TWIN, AND IT IS THE ONE THAT ISOLATES THE RENDERER.** The identical program with the two
 generic aliases declared the other way round, so `Array with Field` is instance 0 and the decayed
@@ -6726,7 +6414,6 @@ typealias Small = int(0 to 10)
 
 typealias SmallArray = Array with Small
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FieldsBuilder = function(Integer) returns FieldArray
 
 function buildSmalls(_ Integer) returns SmallArray
@@ -6751,7 +6438,6 @@ error E3005: <fragment>:31:9: argument type mismatch for 'f': expected 'fn(Integ
 
 <!-- test: first-class-function.generic-instance-returned-through-an-extension-body-alias-is-identified-by-type-not-by-intern-order -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ⭐⭐ **THE SAME LOSS AT THE ONE POPULATION WHOSE STORED ID IS ALREADY LIVE WHEN THE WHOLE-PROGRAM INDEX
 RECORDS IT — an `extension` body's nested function typealias.** The four cases above declare their alias at
 FILE SCOPE, and a file-scope alias is folded into the index by the declaration sweep, which runs ABOVE
@@ -6795,7 +6481,6 @@ typealias FieldArray = Array with Field
 
 // TODO: extension blocks are not supported in minimaxon
 extension Field
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
@@ -6823,7 +6508,6 @@ end 'main'
 
 <!-- test: first-class-function.error.generic-instance-through-an-extension-body-alias-refuses-a-different-instance -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **THE NEGATIVE TWIN OF THE CASE ABOVE, so the extension-body population is pinned in BOTH polarities
 exactly as the file-scope one is.** `buildSmalls` returns `Array with Small` where `Builder` promises
@@ -6850,7 +6534,6 @@ typealias FieldArray = Array with Field
 
 // TODO: extension blocks are not supported in minimaxon
 extension Field
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
@@ -6875,16 +6558,14 @@ error E3005: <fragment>:35:11: argument type mismatch for 'f': expected 'fn(Inte
 ```
 
 <!-- test: first-class-function.an-inner-function-alias-naming-self-offers-the-instance-to-an-untyped-closure -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure literal with an UNTYPED parameter, written at a method parameter declared with an inner function
 alias whose parameter is `Self`, is offered the receiver's own instance.
 ```maxon
 type Cell uses T
 	export var v as T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -6897,7 +6578,7 @@ typealias StrCell = Cell with String
 
 function main() returns ExitCode
 	let c = StrCell.make("inferred")
-	print("{c.through(function(x) gives x.v)}\n")
+	print("{c.through(function(x) gives x.v.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -6909,15 +6590,13 @@ inferred
 ```
 
 <!-- test: first-class-function.a-function-field-read-through-an-instance-takes-its-arguments -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6944,15 +6623,13 @@ stored!
 
 
 <!-- test: first-class-function.a-function-field-naming-self-is-called-with-the-instance -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -6978,15 +6655,13 @@ first stored
 
 
 <!-- test: first-class-function.a-function-field-stored-through-an-instance-is-called-with-its-arguments -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -7002,7 +6677,7 @@ function whisper(s String) returns String
 end 'whisper'
 
 function main() returns ExitCode
-	let c = StrCell.make("stored", pick: shout)
+	var c = StrCell.make("stored", pick: shout)
 	c.pick = whisper
 	print("{c.pick(c.v)}\n")
 	return 0
@@ -7017,15 +6692,13 @@ stored...
 
 
 <!-- test: first-class-function.a-function-value-returned-through-an-instance-takes-its-arguments -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 
@@ -7056,18 +6729,15 @@ got!
 
 
 <!-- test: first-class-function.a-function-field-read-through-an-instance-fits-a-concrete-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(String) returns String
 
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 end 'Cell'
@@ -7097,13 +6767,11 @@ passed!
 
 
 <!-- test: error.first-class-function.a-function-field-read-through-an-instance-refuses-a-wrong-argument -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
 	static function make(v T, pick Pick) returns Self
@@ -7129,17 +6797,13 @@ error E3005: <fragment>:22:7: argument type mismatch for 1: expected 'String', g
 ```
 
 <!-- test: first-class-function.capturing-closure-passed-to-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The callee is a plain function reached as a value; its `__fnref_` thunk forwards the closure argument to `run`.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Runner = function(Op, Integer) returns Integer
 
 function run(f Op, x Integer) returns Integer
@@ -7153,8 +6817,7 @@ end 'pick'
 function main() returns ExitCode
 	let offset = 5
 	let runner = pick()
-	// TODO: closures are not supported in minimaxon
-	let result = runner(function(n Integer) gives n + offset, 10)
+	let result = runner(function(n Integer) gives try n + offset otherwise panic("out of range"), 10)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -7164,29 +6827,23 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-passed-to-a-closure-parameter -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The callee is a closure literal handed down as a parameter; two capturing arguments, one call each.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Runner = function(Op, Integer) returns Integer
 
 function twice(runner Runner, x Integer) returns Integer
 	let scale = 3
-	// TODO: closures are not supported in minimaxon
-	return runner(function(n Integer) gives n * scale, x) + runner(function(n Integer) gives n + scale, x)
+	return try runner(function(n Integer) gives try n * scale otherwise panic("out of range"), x) + runner(function(n Integer) gives try n + scale otherwise panic("out of range"), x) otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
 	let bump = 1
-	// TODO: closures are not supported in minimaxon
-	let result = twice(function(f Op, x Integer) gives f(x) + bump, x: 4)
+	let result = twice(function(f Op, x Integer) gives try f(x) + bump otherwise panic("out of range"), x: 4)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -7196,17 +6853,13 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-forwarded-through-an-indirect-call -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed PARAMETER forwarded into an indirect call is the closure it arrived as, captures included.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Runner = function(Op, Integer) returns Integer
 
 function run(f Op, x Integer) returns Integer
@@ -7219,8 +6872,7 @@ end 'relay'
 
 function main() returns ExitCode
 	let offset = 30
-	// TODO: closures are not supported in minimaxon
-	let result = relay(function(n Integer) gives n + offset, runner: run)
+	let result = relay(function(n Integer) gives try n + offset otherwise panic("out of range"), runner: run)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -7230,10 +6882,8 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closures-at-two-function-parameters-beside-a-float -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two function-typed parameters around a float one: each closure is one word in its own argument position.
 ```maxon
 
@@ -7242,13 +6892,10 @@ typealias Integer = int(i64.min to i64.max)
 // TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Scale = function(Real) returns Real
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Mixer = function(Op, Real, Scale, Integer) returns Real
 
 function mix(f Op, r Real, g Scale, n Integer) returns Real
@@ -7263,10 +6910,8 @@ function main() returns ExitCode
 	let add = 2
 	// TODO: float literals are not supported in minimaxon
 	let factor = 1.5
-	// TODO: closures are not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	let mixer = chosen(function(f Op, r Real, g Scale, n Integer) gives mix(f, r: r, g: g, n: n) * 2.0)
-	// TODO: closures are not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	let result = mixer(function(n Integer) gives n + add, 2.0, function(x Real) gives x * factor, 10)
 	print("{result}\n")
@@ -7278,14 +6923,11 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-to-a-function-value-that-keeps-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A capturing closure handed through a function value to a body that stores it.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Integer) returns Integer
 
 type Keeper
@@ -7304,8 +6946,7 @@ end 'keep'
 function main() returns ExitCode
 	let offset = 5
 	let runner = keep
-	// TODO: closures are not supported in minimaxon
-	let result = runner(function(n Integer) gives n + offset, 10)
+	let result = runner(function(n Integer) gives try n + offset otherwise panic("out of range"), 10)
 	print("{result}\n")
 	return 0
 end 'main'
@@ -7315,8 +6956,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-literal-result-takes-the-exit-code-its-function-type-returns -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure passed where a function type returning `ExitCode` is declared returns `ExitCode`, as a `return`
 of the same literal would in a function declared that way.
 ```maxon
@@ -7328,7 +6967,6 @@ type Box
 	end 'make'
 end 'Box'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Box) returns ExitCode
 
 function probe(o Op) returns ExitCode
@@ -7336,7 +6974,6 @@ function probe(o Op) returns ExitCode
 end 'probe'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return probe(function(_) gives 4)
 end 'main'
 ```
@@ -7345,15 +6982,13 @@ end 'main'
 ```
 
 <!-- test: a-closure-literal-result-is-range-checked-against-its-function-types-ranged-return -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A closure passed where `function(Small) returns Small` is declared returns `Small`, under the rules a
 `return` from a function declared `returns Small` is held to. `v * 3` cannot be proved in range, so it is
 checked when the closure returns: 5 passes, and 12 stops the program.
 ```maxon
 typealias Small = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Small) returns Small
 
 function apply(o Op, v Small) returns Small
@@ -7362,7 +6997,6 @@ end 'apply'
 
 function main() returns ExitCode
 	print("{apply(function(_) gives 5, v: 1)}")
-	// TODO: closures are not supported in minimaxon
 	return apply(function(v) gives v * 3, v: 4) as ExitCode
 end 'main'
 ```
@@ -7382,15 +7016,12 @@ Stack trace:
 ```
 
 <!-- test: error.a-closure-literal-result-outside-its-function-types-ranged-return-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A literal is proved against the declared return type where it is written, as `return 50` from a function
 declared `returns Small` is.
 ```maxon
 typealias Small = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Small) returns Small
 
 function apply(o Op, v Small) returns Small
@@ -7398,7 +7029,6 @@ function apply(o Op, v Small) returns Small
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return apply(function(_) gives 50, v: 1) as ExitCode
 end 'main'
 ```
@@ -7407,14 +7037,12 @@ error E3005: <fragment>:10:27: Value 50 is outside the range of 'Small' (int(0 t
 ```
 
 <!-- test: error.a-function-value-called-with-three-hundred-arguments-is-an-arity-error -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A call through a function-typed parameter that writes three hundred arguments is refused as an arity mismatch, the same as one that writes two, rather than overflowing the table that tracks which argument position forwards to which parameter.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Count) returns Count
 
 function h(g Op, p Count) returns Count
@@ -7435,13 +7063,11 @@ error E3036: <fragment>:6:10: 'Op' expects 1 argument(s) but 300 were provided
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-written-into-a-function-typed-field-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function-typed field is a slot with a declared shape, and a write into it is judged against that shape as a call through the field will rely on it: a one-parameter function stored in a field that declares none is refused, rather than called later with an argument nobody passed.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7471,13 +7097,11 @@ error E3005: <fragment>:23:4: function type mismatch assigning to field 'op': ex
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-written-into-a-function-typed-field-through-self-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The write through `self` inside a method is the same door as the write through a variable.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7511,13 +7135,11 @@ error E3005: <fragment>:21:8: function type mismatch assigning to field 'op': ex
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-in-a-struct-literal-field-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The struct literal is the third door into the same slot.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function add(a Integer) returns Integer
@@ -7544,7 +7166,6 @@ error E3005: <fragment>:14:17: function type mismatch assigning to field 'op': e
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-written-into-a-tuple-element-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -7552,7 +7173,6 @@ A tuple element declared with a function type judges a later write to it the way
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7576,13 +7196,11 @@ error E3005: <fragment>:15:8: function type mismatch in a tuple element: expecte
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-reassigned-to-a-variable-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The variable door, which already judged the shape, stays refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7604,13 +7222,11 @@ error E3005: <fragment>:15:2: function type mismatch assigning to variable 'f': 
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-pushed-onto-an-array-of-functions-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An array element is a slot of the container's declared element type, so `push` judges the shape.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkArray = Array with Thunk
@@ -7635,13 +7251,11 @@ error E3005: <fragment>:17:5: function type mismatch in a container element: exp
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-set-into-an-array-of-functions-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `set` is the second mutator that writes an element of an array in place.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkArray = Array with Thunk
@@ -7666,13 +7280,11 @@ error E3005: <fragment>:17:9: function type mismatch in a container element: exp
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-in-an-array-literal-of-functions-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal naming its element type judges every element against it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkArray = Array with Thunk
@@ -7695,13 +7307,11 @@ error E3005: <fragment>:15:35: function type mismatch in a container element: ex
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-inserted-into-an-array-of-functions-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `insert` is a signatured call, so its argument is judged as any call argument is.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkArray = Array with Thunk
@@ -7726,13 +7336,11 @@ error E3005: <fragment>:17:5: argument type mismatch for 'value': expected 'fn()
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-upserted-into-a-map-of-functions-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `upsert` is a signatured call, so its argument is judged as any call argument is.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkMap = Map with (Integer, Thunk)
@@ -7752,14 +7360,12 @@ error E3005: <fragment>:12:4: argument type mismatch for 'value': expected 'fn()
 ```
 
 <!-- test: a-function-of-the-declared-shape-is-accepted-by-every-store-into-a-function-typed-slot -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 The shape check refuses a different shape and nothing else: a function of the declared shape is stored through a field write, a tuple element write, a `push`, a `set` and an array literal, and each is called back.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias ThunkArray = Array with Thunk
@@ -7806,13 +7412,11 @@ end 'main'
 ```
 
 <!-- test: error.a-call-through-a-reassigned-function-typed-variable-reports-only-the-refused-assignment -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A call through a function-typed variable is typed by the variable's declared function type, not by the function last assigned to it, so a refused assignment is the only diagnostic: the call is not also judged against the refused function's parameters.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7834,12 +7438,10 @@ error E3005: <fragment>:15:2: function type mismatch assigning to variable 'f': 
 ```
 
 <!-- test: a-call-through-a-function-typed-variable-assigned-on-one-branch-calls-the-function-it-holds -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed variable reassigned on one branch only is called through the value it holds at run time: the call reaches the reassigned function when the branch ran and the original when it did not.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function seven() returns Integer
@@ -7871,13 +7473,11 @@ end 'main'
 ```
 
 <!-- test: error.a-call-through-a-cast-result-is-checked-against-the-cast-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A variable bound to a refused cast is declared at the cast's function type, so a call that matches that type adds no diagnostic of its own and the cast is the only refusal.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function add(a Integer) returns Integer
@@ -7894,14 +7494,13 @@ error E3009: <fragment>:10:14: function type mismatch in cast: expected 'fn() re
 ```
 
 <!-- test: error.a-function-over-a-narrower-parameter-is-refused-at-a-wider-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 Agreement is variance-aware. A function type's parameter is a place the caller writes into, so the declared parameter must fit inside the range the function itself accepts: `takesByte` accepts `0 to 255`, so it is refused as a function over an unranged `int`, whose caller may pass `1000`.
 ```maxon
 typealias Byte = int(0 to 255)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Thunk = function(x int)
+typealias Thunk = function(int)
 
 function takesByte(b Byte)
 	print("{b}\n")
@@ -7918,16 +7517,14 @@ error E3009: <fragment>:10:20: function type mismatch in cast: expected 'fn(int)
 ```
 
 <!-- test: error.a-function-over-a-wider-return-is-refused-at-a-narrower-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'int' -->
 <!-- positions: moved -->
 The return slot runs the other way: the declared return must contain every value the function can return, so a function whose result is an unranged `int` is refused where a `Byte` result is declared.
 ```maxon
 typealias Byte = int(0 to 255)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Wide = function() returns int
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Narrow = function() returns Byte
 
 function run(g Wide) returns ExitCode
@@ -7948,20 +7545,17 @@ error E3009: <fragment>:7:12: function type mismatch in cast: expected 'fn() ret
 ```
 
 <!-- test: a-function-over-a-wider-parameter-and-a-narrower-return-is-accepted -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 The two sound directions stay accepted: a function over a wider parameter stands where a `Byte` parameter is declared, and a function returning a `Byte` stands where an unranged result is declared.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Byte = int(0 to 255)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Wide = function(x int) returns int
+typealias Wide = function(int) returns int
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Narrow = function(b Byte) returns int
+typealias Narrow = function(Byte) returns int
 
-// TODO: function typealiases are not supported in minimaxon
 typealias WideReturn = function() returns int
 
 function small() returns Byte
@@ -7991,14 +7585,13 @@ end 'main'
 ```
 
 <!-- test: error.a-function-over-a-narrower-parameter-is-refused-at-a-function-typed-argument -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 The same variance holds at an argument door: a function over a `Byte` parameter is refused where a function over an unranged parameter is declared.
 ```maxon
 typealias Byte = int(0 to 255)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Wide = function(x int)
+typealias Wide = function(int)
 
 function takesByte(b Byte)
 	print("{b}\n")
@@ -8018,16 +7611,13 @@ error E3005: <fragment>:14:2: argument type mismatch for 'g': expected 'fn(int)'
 ```
 
 <!-- test: error.a-function-held-at-a-function-type-is-judged-at-that-type-by-every-door -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function value held at a function type is judged at that type, not at the function behind it: `f` is held at `Thunk`, so `apply` declaring a distinct brand `Callback` of the same shape refuses it after a reassignment too, exactly as it refuses any value of type `Thunk`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Callback = function() returns Integer
 
 function seven() returns Integer
@@ -8057,16 +7647,13 @@ error E3005: <fragment>:21:9: argument type mismatch for 'c': expected 'Callback
 ```
 
 <!-- test: error.a-function-typed-parameter-is-judged-at-its-declared-type-at-an-argument-door -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The control for the case above: a value that IS a `Thunk` is refused by `apply` the same way, with the same sentence.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Callback = function() returns Integer
 
 function seven() returns Integer
@@ -8090,8 +7677,6 @@ error E3005: <fragment>:15:9: argument type mismatch for 'c': expected 'Callback
 ```
 
 <!-- test: error.a-closure-without-an-offered-result-does-not-fit-a-narrower-declared-result -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure literal bound by `let` is parsed without the function type it will meet, so its result is the unranged `int` its body computes and nothing range-checks it. It therefore does not fit a function type declaring a `Byte` result, however it is passed.
 ```maxon
@@ -8099,15 +7684,13 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Byte = int(0 to 255)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Make = function(n Integer) returns Byte
+typealias Make = function(Integer) returns Byte
 
 function run(m Make) returns Byte
 	return m(1000)
 end 'run'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function(_ Integer) gives 1000
 	print("{run(f)}\n")
 	return 0
@@ -8118,28 +7701,23 @@ error E3005: <fragment>:12:10: argument type mismatch for 'm': expected 'fn(Inte
 ```
 
 <!-- test: a-closure-written-at-a-function-typed-field-takes-the-fields-result -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure literal written where a function type is declared (a struct-literal field, a field or variable write) is offered that type's parameter and result types, so its result is checked against the declared `Count` rather than inferred as an unranged `int`.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Read = function() returns Count
 
 type Slot
 	export var show as Read
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{show: function() gives 7}
 	end 'create'
 end 'Slot'
 
 function main() returns ExitCode
-	let s = Slot.create()
+	var s = Slot.create()
 	print("{s.show()}\n")
-	// TODO: closures are not supported in minimaxon
 	s.show = function() gives 9
 	print("{s.show()}\n")
 	return 0
@@ -8154,26 +7732,20 @@ end 'main'
 ```
 
 <!-- test: a-closure-returned-from-a-function-declared-to-return-a-function-type-takes-its-result -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure literal returned from a function declared to return a function type is written where that type is declared, so it is offered the type's parameter and result types and its result is checked against the declared `Count`.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Read = function() returns Count
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Scale = function(n Count) returns Count
+typealias Scale = function(Count) returns Count
 
 function make() returns Read
-	// TODO: closures are not supported in minimaxon
 	return function() gives 7
 end 'make'
 
 function scaler() returns Scale
-	// TODO: closures are not supported in minimaxon
-	return function(n) gives n * 2
+	return function(n) gives try n * 2 otherwise panic("out of range")
 end 'scaler'
 
 function main() returns ExitCode
@@ -8191,18 +7763,14 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-returned-from-a-function-declared-to-return-a-function-type-is-range-checked -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The offer is what checks the returned closure: a body outside the declared `Count` range is refused at the closure.
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Read = function() returns Count
 
 function make() returns Read
-	// TODO: closures are not supported in minimaxon
 	return function() gives 5000
 end 'make'
 
@@ -8218,13 +7786,10 @@ error E3005: <fragment>:6:20: Value 5000 is outside the range of 'Count' (int(0 
 
 
 <!-- test: multi-line-closure-parameter-list -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure's parameter list may span lines: a line break inside its parentheses is layout.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -8232,11 +7797,9 @@ function apply(f UnaryOp, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let inc = function(x Integer) gives x + 1
-	// TODO: closures are not supported in minimaxon
-	let r = apply(function(n Integer) gives n * 2, x: 20)
-	return inc(r) as ExitCode
+	let inc = function(x Integer) gives try x + 1 otherwise panic("out of range")
+	let r = apply(function(n Integer) gives try n * 2 otherwise panic("out of range"), x: 20)
+	return try inc(r) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -8244,15 +7807,13 @@ end 'main'
 ```
 
 <!-- test: multi-line-function-type-alias-parameter-list -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Combine = function(Integer, Integer) returns Integer
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function run(f Combine) returns Integer
@@ -8260,7 +7821,7 @@ function run(f Combine) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	return run(add) as ExitCode
+	return try run(add) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

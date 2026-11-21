@@ -72,7 +72,6 @@ three is reported as a positioned diagnostic of the same family the rest of the 
 ### An `int` and a `bool` cannot be arithmetic operands
 
 <!-- test: int-plus-bool -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 function main() returns ExitCode
 	let flag = true
@@ -85,7 +84,6 @@ error E2004: <fragment>:4:12: Cannot operate on int and bool
 ```
 
 <!-- test: int-times-bool -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 function main() returns ExitCode
 	let flag = true
@@ -98,7 +96,6 @@ error E2004: <fragment>:4:12: Cannot operate on int and bool
 ```
 
 <!-- test: bool-minus-int -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 function main() returns ExitCode
 	let flag = true

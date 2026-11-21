@@ -311,13 +311,11 @@ end 'main'
 
 
 <!-- test: stdlib-map-on-array -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let nums = [1, 2, 3, 4, 5]
-	// TODO: closures are not supported in minimaxon
 	let doubled = nums.map(function(x Integer) gives x * 2)
 	var sum = 0 as Integer
 	for n in doubled 'loop'
@@ -333,13 +331,13 @@ end 'main'
 
 
 <!-- test: stdlib-map-on-set -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
-	// TODO: closures are not supported in minimaxon
 	let mapped = s.map(function(x Integer) gives x + 1)
 	var sum = 0 as Integer
 	for n in mapped 'loop'
@@ -372,12 +370,10 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map-with-function -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
-	// TODO: closures are not supported in minimaxon
 	let mapped = m.map(function(p) gives p)
 	var sum = 0 as FullRangeInt
 	for pair in mapped 'loop'
@@ -394,7 +390,6 @@ end 'main'
 
 
 <!-- test: extension-with-internal-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 A closure declared inside an interface-extension body. An extension method is
 monomorphized by RE-PARSING its body once per conforming type, so `Tagger.bump`
@@ -415,7 +410,6 @@ end 'Tagger'
 extension Tagger
 	function bump() returns Integer
 		let one = 1 as Integer
-		// TODO: closures are not supported in minimaxon
 		let inc = function(x Integer) gives x + one
 		return inc(tag())
 	end 'bump'
@@ -446,7 +440,6 @@ end 'main'
 
 
 <!-- test: extension-with-substitution-dependent-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 A closure declared inside an interface-extension body whose body IS
 substitution-dependent — it calls `tag()`, which resolves through the
@@ -470,7 +463,6 @@ end 'Tagger'
 // TODO: extension blocks are not supported in minimaxon
 extension Tagger
 	function callTag() returns Integer
-		// TODO: closures are not supported in minimaxon
 		let inner = function() gives tag() * 2
 		return inner()
 	end 'callTag'
@@ -868,13 +860,14 @@ end 'main'
 The extension bodies walk an iterator instance over the collection's own parameters, and `map` and `filter` forward the descriptor they are handed to that iterator.
 
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2]
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2]
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
@@ -888,14 +881,10 @@ function main() returns ExitCode
 	for (_, x) in s.withIterator() 'eachElement'
 		total = total + x
 	end 'eachElement'
-	// TODO: closures are not supported in minimaxon
 	let pairs = m.map(function(p) gives p)
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple element access is not supported in minimaxon
 	let kept = m.filter(function(p) gives p.1 == 2)
-	// TODO: closures are not supported in minimaxon
 	let doubled = s.map(function(x) gives x + x)
-	// TODO: closures are not supported in minimaxon
 	let big = s.filter(function(x) gives x == 2)
 	return (total + pairs.count() + kept.count() + doubled.count() + big.count()) as ExitCode
 end 'main'
@@ -907,7 +896,6 @@ end 'main'
 ### A user `Iterable` over two parameters answers an extension predicate
 
 <!-- test: a-two-parameter-iterable-answers-an-extension-predicate -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 public typealias Int = int(i64.min to i64.max)
 
@@ -951,7 +939,6 @@ typealias StrBag = Bag with (Int, String)
 
 function main() returns ExitCode
 	let b = StrBag.create()
-	// TODO: closures are not supported in minimaxon
 	return 3 if b.containsWhere(function(x Int) gives x == 2) else 4
 end 'main'
 ```
@@ -962,7 +949,6 @@ end 'main'
 ### A conformer's unmarked cursor does not refuse an `Iterable` extension call
 
 <!-- test: a-file-private-cursor-conformer-and-an-iterable-extension-call -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -1011,7 +997,6 @@ end 'Bag'
 typealias IntBag = Bag with Int
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let b = IntBag.create()
 	return (doubled.count() as Int + b.walk()) as ExitCode
@@ -1022,7 +1007,6 @@ end 'main'
 ```
 
 <!-- test: error.another-file-naming-a-file-private-cursor-is-still-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/lib.maxon
@@ -1073,7 +1057,6 @@ end 'bagTotal'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let c = BagIter.create()
 	return (doubled.count() as Integer + bagTotal() + c.current()) as ExitCode

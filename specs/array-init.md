@@ -464,8 +464,6 @@ end 'main'
 ```
 
 <!-- test: a-captured-buffer-adopts-inside-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE MARK DOES NOT CROSS A CLOSURE BOUNDARY AND THE ADOPTION MUST.** `bufferSurfaceValues` is a
 per-function fact about a `ValueId`, so a captured `mm` has lost it inside the closure body —
@@ -480,7 +478,6 @@ typealias ByteArray = Array with Byte
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Counter = function(Integer) returns Integer
 
 function apply(f Counter, x Integer) returns Integer
@@ -491,7 +488,6 @@ function main() returns ExitCode
 	let mm = try __ManagedMemory.create(4, elementSize: 1) otherwise return 1
 	try mm.setLength(2) otherwise return 2
 	let length = mm.length()
-	// TODO: closures are not supported in minimaxon
 	let r = apply(function(n Integer) gives (ByteArray.init(mm).count() as Integer) + n, x: 5)
 	return (r * 10 + length as Integer) as ExitCode
 end 'main'

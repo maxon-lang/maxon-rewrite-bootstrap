@@ -498,10 +498,8 @@ error E3220: b/<fragment>:32:14: the initializer of 'anchor' calls 'Pin.create':
 ```
 
 <!-- test: from-literal-initializer -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 Top-level let with `Type from "literal"` syntax (runtime-initialized via `__module_init`).
 ```maxon
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let path = FilePath from "test.txt"
 
 function main() returns ExitCode
@@ -1052,7 +1050,6 @@ error E3009: <fragment>:6:26: Cannot cast from (int, int) to int
 ```
 
 <!-- test: an-array-of-element-alias-casts-in-a-body -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An element cast to the array's own element alias is an element of that type, so `Items from [7 as Item]` builds the array.
 ```maxon
 typealias Item = int(0 to 1000)
@@ -1069,7 +1066,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-of-element-alias-casts -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same literal at file scope is the same array, read back after `main` starts.
 ```maxon
 typealias Item = int(0 to 1000)
@@ -1979,8 +1975,6 @@ error E2001: a/<fragment>:14:1: Expected function declaration, got 'end'
 
 <!-- test: error.a-failed-file-leaves-a-healthy-callers-function-argument-unjudged -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A healthy file passes the result of a refused declaration, called with a record it still writes, to a
@@ -2003,12 +1997,10 @@ export function pick(box Box) returns Box
 end 'pick'
 
 // --- file: b/main.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias TakesBox = function(Box) returns ExitCode
 
 function main() returns ExitCode
 	var box = Box.create()
-	// TODO: closures are not supported in minimaxon
 	return passOn(function(b) gives b.n, box: box)
 end 'main'
 
@@ -2269,13 +2261,11 @@ error E2010: <fragment>:3:2: Expected ')' but got 'return'
 ```
 
 <!-- test: error.a-function-whose-head-failed-to-parse-used-as-a-function-value-reports-only-the-parse-error -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `broken` is abandoned with its head, so its signature is gone; passing it as a function value is the parse error's consequence and is not reported.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function apply(f UnaryOp, x Integer) returns Integer
@@ -2294,7 +2284,6 @@ error E2010: <fragment>:10:2: Expected ')' but got 'return'
 ```
 
 <!-- test: error.a-file-with-many-independent-refusals-reports-every-one -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 Fourteen independent errors in one file, in all three kinds of region a parse refusal can be confined to (a function body, a declaration head, a top-level binding) and in a body that reads an undefined name, are each reported once and in source order. The valid declarations between them, which instantiate a generic type, build closures and take parameter defaults, are read in full, and the functions whose bodies were abandoned still accept the calls `main` makes to them.
@@ -2339,7 +2328,6 @@ let CrateBase = 3
 function totalCrates(scale Tally = 2) returns Tally
 	var crates = CrateArray.create(0)
 	crates.push(Crate.create(CrateBase))
-	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
 	for crate in crates 'eachCrate'
@@ -2385,7 +2373,6 @@ let SackBase = 4
 function totalSacks(scale Tally = 2) returns Tally
 	var sacks = SackArray.create(0)
 	sacks.push(Sack.create(SackBase))
-	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
 	for sack in sacks 'eachSack'
@@ -2442,7 +2429,6 @@ let BundleBase = 5
 function totalBundles(scale Tally = 2) returns Tally
 	var bundles = BundleArray.create(0)
 	bundles.push(Bundle.create(BundleBase))
-	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
 	for bundle in bundles 'eachBundle'
@@ -2870,7 +2856,6 @@ error E3004: <fragment>:14:37: call to undefined function 'nothere'
 ```
 
 <!-- test: error.uses-of-a-refused-call-constant-report-the-call-once -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 Every use of `G` below meets a constant whose initializer is a refused call: only the call is reported.
 ```maxon
@@ -2889,7 +2874,6 @@ function main() returns ExitCode
 	end 'each'
 	print("{G}\n")
 	let b = use(G)
-	// TODO: closures are not supported in minimaxon
 	let read = function() gives G
 	print("{b} {read()}\n")
 	return 0
@@ -2901,14 +2885,12 @@ error E3220: <fragment>:4:9: the initializer of 'G' calls 'nothere': a module-le
 
 
 <!-- test: error.a-static-initializer-calling-a-function-valued-binding-past-a-sibling-calls-the-binding -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Box
 
 function other() returns Box
@@ -2949,13 +2931,11 @@ error E3220: <fragment>:18:22: the initializer of 'Box.origin' calls 'Box.make':
 ```
 
 <!-- test: error.a-static-method-body-calling-a-function-valued-binding-past-a-sibling-calls-the-binding -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Box
 
 function other() returns Box
@@ -2994,17 +2974,13 @@ error E3220: <fragment>:13:12: the initializer of 'make' calls 'makerOf': a modu
 ```
 
 <!-- test: a-closure-bound-by-a-top-level-let-is-called-and-passed-as-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `addSeven` is a closure literal in a top-level initializer. Calling it and handing it to a function-typed
 parameter both resolve its shape.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
-// TODO: closures are not supported in minimaxon
 let addSeven = function(n Tally) gives n + 7
 
 function run(step Step, n Tally) returns Tally
@@ -3024,7 +3000,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-bound-by-a-top-level-let-may-call-in-its-body -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure literal in a top-level initializer builds a function value, and its body runs only when the closure is
 called, so a call inside the body is not a call the initializer makes.
 ```maxon
@@ -3034,10 +3009,8 @@ function doubled(n Tally) returns Tally
 	return n * 2
 end 'doubled'
 
-// TODO: closures are not supported in minimaxon
 let addDoubled = function(n Tally) gives doubled(n) + 1
 
-// TODO: closures are not supported in minimaxon
 let measure = function(label String) gives label.byteLength()
 
 function main() returns ExitCode
@@ -3053,8 +3026,6 @@ end 'main'
 ```
 
 <!-- test: error.a-call-around-a-closure-in-a-top-level-let-is-still-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The closure's body is not the initializer, but the call that receives the closure is: `wrap` runs while the
 initializer builds its value, so the initializer calls a function, and the refusal names `wrap`, not the `doubled` the
@@ -3062,7 +3033,6 @@ closure's body calls.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function doubled(n Tally) returns Tally
@@ -3073,7 +3043,6 @@ function wrap(step Step) returns Step
 	return step
 end 'wrap'
 
-// TODO: closures are not supported in minimaxon
 let wrapped = wrap(function(n Tally) gives doubled(n))
 
 function main() returns ExitCode
@@ -3086,29 +3055,21 @@ error E3220: <fragment>:13:15: the initializer of 'wrapped' calls 'wrap': a modu
 ```
 
 <!-- test: top-level-closures-of-different-shapes-keep-their-own-shapes -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Each top-level closure is its own function type: `weigh` takes two parameters and `describe` returns a
 `String`, beside `addSeven`, and every call and every hand-over is judged against its own closure's shape.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Describe = function(Tally) returns String
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Weigh = function(Tally, Tally) returns Tally
 
-// TODO: closures are not supported in minimaxon
 let addSeven = function(n Tally) gives n + 7
 
-// TODO: closures are not supported in minimaxon
 let describe = function(n Tally) gives "n={n}"
 
-// TODO: closures are not supported in minimaxon
 let weigh = function(a Tally, b Tally) gives a * 10 + b
 
 function runStep(step Step, n Tally) returns Tally
@@ -3138,8 +3099,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-bound-by-an-exported-top-level-let-is-used-from-another-file -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `main.maxon` reads `triple` and hands it to `apply`; neither file's parse is ordered against the other's, so
 the closure's shape reaches the reader through the declaration sweep.
 ```maxon
@@ -3152,10 +3111,8 @@ end 'main'
 // --- file: steps/steps.maxon
 export typealias Tally = int(0 to 1000000)
 
-// TODO: function typealiases are not supported in minimaxon
 export typealias Step = function(Tally) returns Tally
 
-// TODO: closures are not supported in minimaxon
 export let triple = function(n Tally) gives n * 3
 
 export function apply(step Step, n Tally) returns Tally
@@ -3170,14 +3127,12 @@ end 'apply'
 ```
 
 <!-- test: error.a-static-initializer-calling-a-function-valued-binding-past-a-sibling-with-a-parameter-calls-the-binding -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Box
 
 function other() returns Box
@@ -3214,13 +3169,11 @@ error E3220: <fragment>:18:22: the initializer of 'Box.origin' calls 'Box.make':
 ```
 
 <!-- test: error.a-static-method-body-calling-a-function-valued-binding-past-a-sibling-with-a-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Box
 
 function other() returns Box
@@ -3746,7 +3699,6 @@ error E3148: <fragment>:3:22: 'bits(5)' is not a legal width: bits(n) takes 1, 2
 ```
 
 <!-- test: error.a-broken-body-keeps-a-discarded-pure-result-elsewhere -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3791,14 +3743,11 @@ error E3064: <fragment>:10:2: result of pure function 'same' must be used
 
 <!-- test: error.a-generic-services-function-valued-reply-is-reported-once-at-the-handler -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Op = function(Tally) returns Tally
 
 type Maker uses T
@@ -3810,7 +3759,6 @@ type Maker uses T
 
 	export function make() returns Op
 		self.seen = self.seen + 1
-		// TODO: closures are not supported in minimaxon
 		return function(n Tally) gives n + 1
 	end 'make'
 end 'Maker'
@@ -3989,12 +3937,10 @@ error E2015: <fragment>:4:16: Unsupported: a typealias over 'newline' (a typeali
 ```
 
 <!-- test: error.a-fold-redone-after-a-refused-binding-with-an-explained-consequence-does-not-panic -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Digit) returns Digit
 
 let Broken = 3 + "x"
@@ -4023,12 +3969,10 @@ error E2015: <fragment>:22:18: Unsupported: a member access 'x' on a 'function' 
 ```
 
 <!-- test: error.a-body-reading-a-refused-global-keeps-its-own-independent-member-access -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Digit) returns Digit
 
 let Broken = 3 + "x"
@@ -4052,12 +3996,10 @@ error E2015: <fragment>:17:18: Unsupported: a member access 'x' on a 'function' 
 ```
 
 <!-- test: error.a-parameter-sharing-a-refused-globals-name-keeps-its-bodys-member-access -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Digit) returns Digit
 
 let total = 3 + "x"
@@ -4085,12 +4027,10 @@ error E2015: <fragment>:17:18: Unsupported: a member access 'x' on a 'function' 
 ```
 
 <!-- test: error.a-refused-global-named-like-the-member-keeps-the-member-access -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Digit) returns Digit
 
 let x = 3 + "x"
@@ -4113,7 +4053,6 @@ error E2015: <fragment>:16:18: Unsupported: a member access 'x' on a 'function' 
 ```
 
 <!-- test: error.a-refused-global-keeps-an-undefined-method-of-the-same-member-name -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4138,7 +4077,6 @@ error E3004: <fragment>:15:16: call to undefined function 'Point.make'
 ```
 
 <!-- test: error.a-refused-global-keeps-a-wrong-arity-call-to-a-same-named-method -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4489,15 +4427,12 @@ error E2004: <fragment>:26:11: Cannot operate on Tally and String
 ```
 
 <!-- test: error.a-function-value-naming-a-function-with-an-abandoned-body-reports-only-the-syntax-error -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `scaled` is passed by name where a function type never waits. Its body is abandoned at the syntax error, so whether it
 waits is unknown and the function value is not reported as one that may wait. `other` stays reported.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function scaled(n Tally) returns Tally
@@ -4514,7 +4449,6 @@ function drive(step Step) returns Tally
 end 'drive'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let r = drive(function(n) gives scaled(n))
 	let s = drive(scaled)
 	return (r + s) as ExitCode
@@ -4994,9 +4928,6 @@ error E3004: <fragment>:19:10: call to undefined function 'nothere'
 ```
 
 <!-- test: error.a-closure-handed-to-a-refused-function-type-alias-reports-only-the-refusal -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 `NamedFn` is refused because a function type may not take an interface-typed parameter, so the closure given to
 `apply` has no known parameter type: its `item.label()` is not a member access on an `int`. `other` stays reported.
 ```maxon
@@ -5014,7 +4945,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias NamedFn = function(Named) returns Count
 
 function apply(f NamedFn, item Named) returns Count
@@ -5026,7 +4956,6 @@ function other(n ExitCode) returns ExitCode
 end 'other'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let measured = apply(function(item) gives item.label().byteLength(), item: Thing.create())
 	print("{measured}\n")
 	return 0

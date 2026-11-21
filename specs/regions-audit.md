@@ -243,15 +243,12 @@ error E3207: <fragment>:26:30: 'create' takes `immutable` 'settings'; 's' is mut
 ```
 
 <!-- test: a-closure-that-captures-a-parameter-pins-it-mutable-only -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `wrap` captures its parameter `r` in a closure, so `r` is mutable only and the frozen row is refused at the call.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Tally
 
 type Row
@@ -263,7 +260,6 @@ type Row
 end 'Row'
 
 function wrap(r Row) returns Reader
-	// TODO: closures are not supported in minimaxon
 	return function() gives r.n
 end 'wrap'
 
@@ -322,7 +318,6 @@ error E3205: <fragment>:22:7: cannot wait inside 'edit'; another coroutine could
 <!-- test: a-call-through-a-function-value-that-yields-inside-a-window-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -348,7 +343,6 @@ end 'pause'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
-	// TODO: closures are not supported in minimaxon
 	let run = function() gives pause()
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
@@ -363,15 +357,12 @@ error E3205: <fragment>:20:14: cannot call the closure at <fragment>:17:12 insid
 ```
 
 <!-- test: a-result-through-a-function-value-is-read-only -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `getPart()` answers through a function value, so its result is never fresh and cannot be written when the function value was built over frozen data.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartGetter = function() returns Part
 
 type Part
@@ -389,7 +380,6 @@ end 'poke'
 
 function main() returns ExitCode
 	let frozen = freeze(Part.create())
-	// TODO: closures are not supported in minimaxon
 	poke(function() gives frozen)
 	return 0
 end 'main'
@@ -400,13 +390,11 @@ error E3207: <fragment>:20:7: 'poke' writes 'getPart' (line 15: `p.n = 1`); the 
 
 
 <!-- test: a-result-through-a-function-value-over-mutable-captures-is-writable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure over mutable data hands its result back mutable, so the function-typed parameter that is written through is mutable-only and the mutable closure meets it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartGetter = function() returns Part
 
 type Part
@@ -418,14 +406,14 @@ type Part
 end 'Part'
 
 function poke(getPart PartGetter) returns Tally
-	let p = getPart()
+	var p = getPart()
 	p.n = 5
 	return p.n
 end 'poke'
 
 function main() returns ExitCode
 	let held = Part.create()
-	print("{poke(function() gives held)}\n")
+	print("{poke(function() gives held.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -437,13 +425,11 @@ end 'main'
 ```
 
 <!-- test: a-result-through-a-function-value-that-captures-nothing-is-writable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure that captures nothing is a clean value, so it meets a function-typed parameter that is written through.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartMaker = function() returns Part
 
 type Part
@@ -455,7 +441,7 @@ type Part
 end 'Part'
 
 function poke(make PartMaker) returns Tally
-	let p = make()
+	var p = make()
 	p.n = 7
 	return p.n
 end 'poke'
@@ -473,13 +459,11 @@ end 'main'
 ```
 
 <!-- test: a-frozen-function-value-is-read-through-a-function-typed-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed parameter that is only read through accepts a closure over frozen data.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartGetter = function() returns Part
 
 type Part
@@ -509,15 +493,12 @@ end 'main'
 ```
 
 <!-- test: a-result-stored-through-a-function-typed-parameter-pins-it-mutable-only -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `collect` stores what the function value hands back into a mutable array, so a closure over frozen data is refused at the call.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartGetter = function() returns Part
 
 typealias PartArray = Array with Part
@@ -538,7 +519,6 @@ end 'collect'
 
 function main() returns ExitCode
 	let frozen = freeze(Part.create())
-	// TODO: closures are not supported in minimaxon
 	let parts = collect(function() gives frozen)
 	print("{parts.count()}\n")
 	return 0
@@ -589,15 +569,12 @@ error E3200: <fragment>:21:22: 'Wrapper.around(part)' is used as mutable; freeze
 
 <!-- test: a-promise-whose-payload-is-not-sendable-is-not-a-clean-input -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder` holds a promise of a function value, which cannot cross a thread, so a record built from it cannot be frozen.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Tally
 
 typealias MakerPromise = Promise with Maker
@@ -612,7 +589,6 @@ end 'Holder'
 
 function make() returns Maker
 	sleep(1)
-	// TODO: closures are not supported in minimaxon
 	return function() gives 4
 end 'make'
 

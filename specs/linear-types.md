@@ -1393,7 +1393,7 @@ error E3224: <fragment>:29:31: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-closure-cannot-capture-a-linear-value -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1417,7 +1417,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let r = Resp.create(1)
-	// TODO: closures are not supported in minimaxon
 	let show = function() gives r.peek()
 	print("{show()}\n")
 	r.fin()
@@ -3443,7 +3442,6 @@ error E3224: <fragment>:34:15: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-closure-that-builds-a-linear-value-cannot-fill-a-mapped-array -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `map` answers an array of its own element type, so a closure returning a linear value for an integer array is a type mismatch and no `Array with Resp` is ever built.
 ```maxon
@@ -3469,7 +3467,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let codes = CodeArray from [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let made = codes.map(function(n) gives Resp.create(n))
 	print("{made.count()}\n")
 	return 0

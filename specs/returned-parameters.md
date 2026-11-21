@@ -153,7 +153,6 @@ end 'main'
 ```
 
 <!-- test: a-returned-parameter-reached-through-a-function-value-is-counted -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 `touch` is passed as a function value, so it is also reached through a pointer by a caller that expects a
 counted reference. Calling it directly and through the value must both leave one owner per name.
 ```maxon
@@ -161,15 +160,14 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable TallyArray) returns TallyArray
+typealias Step = function(mutates TallyArray) returns TallyArray
 
 function touch(mutates cells TallyArray) returns TallyArray
 	cells.push(1)
-	return cells
+	return cells.clone()
 end 'touch'
 
-function apply(step Step, cells TallyArray) returns TallyArray
+function apply(step Step, mutates cells TallyArray) returns TallyArray
 	return step(cells)
 end 'apply'
 
@@ -505,7 +503,6 @@ end 'main'
 ```
 
 <!-- test: a-module-constant-array-passed-through-a-returning-function-leaves-the-constant-alone -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The module-level array is an image record. Passing it through `touch` into a `var`, writing through the
 `var` and rebinding it repeatedly must leave the constant at three elements.
 ```maxon
@@ -516,7 +513,7 @@ typealias TallyArray = Array with Tally
 let Seed = TallyArray from [1, 2, 3]
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
@@ -574,8 +571,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-that-returns-its-argument-through-a-returning-function-balances -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure calls `touch` and a free function value is built from `touch` itself, so both a direct call
 inside a lifted body and a call through a pointer reach the function.
 ```maxon
@@ -583,8 +578,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable TallyArray) returns TallyArray
+typealias Step = function(mutates TallyArray) returns TallyArray
 
 function touch(mutates cells TallyArray) returns TallyArray
 	cells.push(1)
@@ -592,7 +586,6 @@ function touch(mutates cells TallyArray) returns TallyArray
 end 'touch'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let viaClosure = function(cells TallyArray) gives touch(cells)
 	let viaValue = touch as Step
 	var last = TallyArray.create(0)
@@ -884,15 +877,13 @@ end 'main'
 ```
 
 <!-- test: a-closure-that-returns-a-small-value-tuple-is-read-through-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A closure builds a small value tuple, with the second element chosen by a conditional, and is called directly
 and through a function value. Both calls must read the same pair back.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: tuple values and types are not supported in minimaxon
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 function apply(op PairOp, a Num, b Num) returns Num
@@ -901,7 +892,6 @@ function apply(op PairOp, a Num, b Num) returns Num
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: tuple values and types are not supported in minimaxon
 	let widen = function(a Num, b Num) gives (a + 1, (b + 2) if a > 5 else b)
 	let direct = widen(10, 20)
@@ -918,7 +908,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-that-returns-its-parameter-balances-through-a-rebound-var -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure's whole body is its array parameter, so the function behind the value returns one of its parameters.
 The caller rebinds its `var` through the closure on every lap and writes through the result.
 ```maxon
@@ -927,8 +916,7 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let same = function(cells TallyArray) gives cells
+	let same = function(cells TallyArray) gives cells.clone()
 	var last = TallyArray.create(0)
 	for _ in 0 upto 9 'each'
 		last = same(last)

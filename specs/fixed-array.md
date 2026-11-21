@@ -534,9 +534,10 @@ end 'main'
 ```
 
 <!-- test: from-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	return v.get(0)
 end 'main'
@@ -546,9 +547,10 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-sum -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(0)
 	let b = v.get(1)
@@ -561,9 +563,11 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-float -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	// TODO: float literals are not supported in minimaxon
 	let v = FixedArray from [1.5, 2.5]
 	let a = v.get(0)
@@ -576,9 +580,10 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-iterate -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1, 2, 3, 4]
 	var sum = 0 as FullRangeInt
 	for elem in v 'loop'
@@ -592,9 +597,10 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-single -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [99]
 	return v.get(0)
 end 'main'
@@ -716,9 +722,10 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-from-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [true, false, true, true, false, true, false, false, true]
 	var count = 0 as FullRangeInt
 	for bit in v 'each'
@@ -1241,6 +1248,7 @@ carries the identical guard for the identical reason, and its header says so.
 them would pass on the other's arithmetic.
 
 <!-- test: a-write-past-the-fixed-size-is-refused-however-the-fixed-array-was-built -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both fixed arrays hold three elements and both refuse index 3. The index is laundered through a call so no
 constant is in the compiler's hands at the write — what is under test is the RUNTIME bound, and a folded
@@ -1257,6 +1265,7 @@ end 'runtimeIndex'
 
 function main() returns ExitCode
 	let made = Vec3.create()
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let lit = FixedArray from [1, 2, 3].clone()
 	var refused = 0 as Int
 	try made.set(runtimeIndex(3) as ElementIndex, value: 99) otherwise 'madePastEnd'
@@ -1518,6 +1527,7 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: a-fixed-array-literal-publishes-no-zero-slot -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `FixedArray from [..]` writes every slot, so an enum whose raw values exclude 0 is accepted as its element, where `Level.create()` over the same element is refused.
 ```maxon
@@ -1530,6 +1540,7 @@ end 'Level'
 typealias Pair = FixedArray with 2 Level
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let literal = FixedArray from [Level.low, Level.high]
 	let named = Pair from [Level.high, Level.low]
 	print("{literal.get(1).name} {named.get(0).name}\n")
@@ -2681,6 +2692,7 @@ name2 name2 name1 name1
 ```
 
 <!-- test: a-managed-fixed-array-literal-holds-heap-strings -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both literal heads build a managed fixed array whose elements are released when it dies: `2 name1 name2 3`.
 ```maxon
@@ -2694,6 +2706,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let bare = FixedArray from [label(1), label(2)]
 	let named = Pair from [label(3), label(4)]
 	print("{bare.count()} {bare.get(0)} {bare.get(1)} {named.get(0).byteLength() - 2}\n")
@@ -4116,7 +4129,6 @@ reply false true
 
 <!-- test: error.a-fixed-array-from-head-another-file-keeps-private-is-refused -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 A `FixedArray` instance alias at the head of `from […]` is a type name, and another directory's unexported one is
 refused.
@@ -4143,7 +4155,7 @@ error E3008: <fragment>:13:10: typealias 'Pair' is not exported
 ```
 
 <!-- test: a-let-fixed-array-read-is-range-known -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 A `FixedArray from […]` bound by `let` is a constant, so a value read from it carries the range of the elements written.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4153,6 +4165,7 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(1)
 	print("{take(a)}\n")
@@ -4167,7 +4180,8 @@ end 'main'
 ```
 
 <!-- test: error.a-let-fixed-array-read-outside-a-narrower-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
+<!-- positions: moved -->
 The range a `let` fixed array's elements carry is checked at the use, and the reachable extreme is named.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4177,6 +4191,7 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 2000]
 	let a = v.get(0)
 	let b = take(a)
@@ -4188,10 +4203,12 @@ error E3005: <fragment>:11:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.a-let-fixed-array-mutation-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
+<!-- positions: moved -->
 A `let` fixed array literal is immutable, so a write through it is refused as a `let` array's is.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	v.set(0, value: 99)
 	return v.count() as ExitCode
@@ -5085,7 +5102,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-through-a-runtime-sized-alias-is-sized -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Buf from [...]` writes its length, so it is a `FixedArray with 3 Int` and its bare `get` at 2 is proven: `3 30`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5213,7 +5229,6 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-in-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure reads a runtime-sized array it captured, and the length it sees is the record's: `14`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5227,7 +5242,6 @@ end 'launder'
 function main() returns ExitCode
 	let buf = Buf.create(launder(5))
 	try buf.set(4, value: 9) otherwise panic("set")
-	// TODO: closures are not supported in minimaxon
 	let probe = function() gives (try buf.get(4) otherwise -1) + (buf.count() as Int)
 	print("{probe()}\n")
 	return 0
@@ -5494,7 +5508,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-through-an-inner-runtime-sized-alias-is-sized -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Cells from [...]` inside the type that declares the alias writes its length, so the result is a `FixedArray with 3 Int` and a bare `get` at 2 is proven: `3 6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5641,7 +5654,6 @@ end 'main'
 <!-- test: a-sized-fixed-array-minted-in-two-files-is-one-type -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Buf.create(4)` in one file and `Buf from [...]` in another each build a `FixedArray with 4 Int` while their bodies are parsed. Both are the one instance the `Vec4` alias names, so each value crosses to a `Vec4` parameter in the other file: `9 4`.
 ```maxon
 // --- file: lib/types.maxon

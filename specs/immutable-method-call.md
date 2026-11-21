@@ -371,7 +371,7 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(mutates self, v Integer)
+	function add(v Integer)
 		items.push(v)
 	end 'add'
 
@@ -381,7 +381,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	var b = Bag.create()
+	let b = Bag.create()
 	b.add(1)
 	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'

@@ -95,11 +95,10 @@ Elements are iterated front to back. Iteration uses a cached cursor on the under
 ## Tests
 
 <!-- test: basic.creation -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
-	return list.count()
+	return try list.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -125,7 +124,6 @@ end 'main'
 ```
 
 <!-- test: basic.first-last -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
@@ -267,7 +265,6 @@ end 'main'
 ```
 
 <!-- test: get.valid -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30, 40]
@@ -293,7 +290,6 @@ end 'main'
 ```
 
 <!-- test: get.out-of-bounds -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
@@ -306,7 +302,6 @@ end 'main'
 ```
 
 <!-- test: insert.at-beginning -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [20, 30]
@@ -332,7 +327,6 @@ end 'main'
 ```
 
 <!-- test: insert.at-middle -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 30]
@@ -358,7 +352,6 @@ end 'main'
 ```
 
 <!-- test: insert.at-end -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20]
@@ -384,7 +377,6 @@ end 'main'
 ```
 
 <!-- test: insert.out-of-bounds -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 
 An index past `count` is out of bounds and throws `ArrayError.indexOutOfBounds`.
 Only `at == count` may append; `at > count` must throw and leave the list
@@ -411,7 +403,6 @@ threw
 ```
 
 <!-- test: remove-first -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
@@ -433,7 +424,6 @@ end 'main'
 ```
 
 <!-- test: remove-last -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
@@ -455,7 +445,6 @@ end 'main'
 ```
 
 <!-- test: remove.at-index -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30, 40]
@@ -483,7 +472,6 @@ end 'main'
 ```
 
 <!-- test: iteration.for-in -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
@@ -525,7 +513,6 @@ end 'main'
 ```
 
 <!-- test: iteration.two-loops -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [1, 2, 3]
@@ -606,7 +593,6 @@ world
 ```
 
 <!-- test: clear -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [1, 2, 3]
@@ -923,7 +909,6 @@ end 'main'
 ```
 
 <!-- test: error.a-list-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `List` instance alias at the head of `from […]` is a type name, and another directory's unexported one is refused.
 ```maxon
 // --- file: probe/probe.maxon
@@ -947,7 +932,7 @@ error E3008: <fragment>:13:10: typealias 'Readings' is not exported
 ```
 
 <!-- test: from-an-array-variable-keeps-order-and-duplicates -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 An alias head takes any array of its element type as the source of `from`; the list keeps the array's order and its repeats.
 ```maxon
 typealias Code = int(0 to 100)
@@ -961,7 +946,7 @@ function main() returns ExitCode
 	codes.push(30)
 	codes.push(10)
 	codes.push(30)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = CodeList from codes
 	print("{list.count()}\n")
 	for item in list 'loop'
@@ -981,7 +966,7 @@ end 'main'
 ```
 
 <!-- test: from-a-call-result-infers-the-element -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `List` head takes its element type from the array a call returns.
 ```maxon
 typealias Code = int(0 to 100)
@@ -996,7 +981,7 @@ function makeCodes() returns Codes
 end 'makeCodes'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = List from makeCodes()
 	for item in list 'loop'
 		print("{item}\n")
@@ -1013,7 +998,7 @@ end 'main'
 ```
 
 <!-- test: error.from-a-source-that-is-not-an-array-is-a-type-mismatch -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 A bare `List` head needs an array to take its element type from; any other value is a type mismatch.
 ```maxon
@@ -1021,7 +1006,7 @@ typealias Code = int(0 to 100)
 
 function main() returns ExitCode
 	let n = 3 as Code
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = List from n
 	return list.count()
 end 'main'
@@ -1031,7 +1016,7 @@ error E3005: <fragment>:6:23: argument type mismatch for 'source': expected 'Arr
 ```
 
 <!-- test: from-a-string-array-variable-leaves-the-source-intact -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 `List from <array>` copies each `String` out of an array the program still holds.
 ```maxon
 typealias Names = Array with String
@@ -1042,7 +1027,7 @@ function main() returns ExitCode
 	let names = Names.create(0)
 	names.push("a{2}")
 	names.push("b")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = NameList from names
 	names.push("c")
 	for name in list 'each'
@@ -1062,13 +1047,13 @@ b
 ```
 
 <!-- test: from-a-function-declared-later -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `List` head over a call to a function declared further down the file.
 ```maxon
 typealias Names = Array with String
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = List from laterNames()
 	for name in list 'each'
 		print("{name}\n")
@@ -1092,7 +1077,7 @@ q
 ```
 
 <!-- test: a-let-list-from-a-string-array-variable -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A `let` may bind `List from` over a `String` array the program holds in a `var`.
 ```maxon
 typealias Names = Array with String
@@ -1103,7 +1088,7 @@ function main() returns ExitCode
 	let names = Names.create(0)
 	names.push("a")
 	names.push("b")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = NameList from names
 	print("{list.count()} {names.count()}\n")
 	return 0
@@ -1117,7 +1102,7 @@ end 'main'
 ```
 
 <!-- test: a-let-list-from-an-array-of-buffers-a-var-still-writes -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A `let` may bind `List from` over an array whose elements are byte buffers a `var` still writes: the list holds those same buffers, so the later `push` is seen through the list.
 ```maxon
 typealias Octet = int(0 to 255)
@@ -1133,7 +1118,7 @@ function main() returns ExitCode
 	buffer.push(1)
 	let buffers = Buffers.create(0)
 	buffers.push(buffer)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = BufferList from buffers
 	buffer.push(2)
 	let first = try list.first() otherwise return 9
@@ -1145,7 +1130,7 @@ end 'main'
 ```
 
 <!-- test: a-let-list-from-strings-a-var-string-appends-to-afterwards -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A `String` is a value: appending to the `var` a list's member was copied from extends that `var` alone, so the `let` list holds nothing that is still written.
 ```maxon
 typealias Names = Array with String
@@ -1156,7 +1141,7 @@ function main() returns ExitCode
 	var name = "a{1}"
 	let names = Names.create(0)
 	names.push(name)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let list = NameList from names
 	name.append("z")
 	for item in list 'each'

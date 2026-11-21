@@ -120,12 +120,11 @@ end 'main'
 ```
 
 <!-- test: index-assignment -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30]
+	var arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -133,12 +132,11 @@ end 'main'
 ```
 
 <!-- test: assignment-middle -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [1, 2, 3]
+	var arr = FullRangeIntArray from [1, 2, 3]
 	try arr.set(1, value: 42) otherwise panic("test invariant: set OOB")
-	return try arr.get(1) otherwise 0
+	return try (try arr.get(1) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -146,12 +144,11 @@ end 'main'
 ```
 
 <!-- test: assignment-last -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [1, 2, 3, 4, 5]
+	var arr = FullRangeIntArray from [1, 2, 3, 4, 5]
 	try arr.set(4, value: 99) otherwise panic("test invariant: set OOB")
-	return try arr.get(4) otherwise 0
+	return try (try arr.get(4) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -172,12 +169,11 @@ end 'main'
 ```
 
 <!-- test: assignment-preserves-others -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30]
+	var arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
-	return try arr.get(1) otherwise 0
+	return try (try arr.get(1) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -185,17 +181,16 @@ end 'main'
 ```
 
 <!-- test: multiple-assignments -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [0, 0, 0]
+	var arr = FullRangeIntArray from [0, 0, 0]
 	try arr.set(0, value: 1) otherwise panic("test invariant: set OOB")
 	try arr.set(1, value: 2) otherwise panic("test invariant: set OOB")
 	try arr.set(2, value: 3) otherwise panic("test invariant: set OOB")
 	let a = try arr.get(0) otherwise 0
 	let b = try arr.get(1) otherwise 0
 	let c = try arr.get(2) otherwise 0
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -780,7 +775,6 @@ error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.set-negative-index-is-refused-at-the-door -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	var arr = FullRangeIntArray from [10, 20, 30]
@@ -793,7 +787,6 @@ error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.remove-negative-index-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	var arr = FullRangeIntArray from [10, 20, 30]
@@ -835,7 +828,6 @@ error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.insert-negative-index-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	var arr = FullRangeIntArray from [10, 20, 30]
@@ -887,7 +879,6 @@ Stack trace:
 ```
 
 <!-- test: set-laundered-negative-index-panics-at-the-door -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Signed = int(i64.min to i64.max)
 
@@ -896,7 +887,7 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30]
+	var arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(launder(-1) as ElementIndex, value: 5) otherwise return 99
 	return 0
 end 'main'
@@ -912,7 +903,7 @@ Stack trace:
 ```
 
 <!-- test: insert-laundered-negative-index-panics-at-the-door -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Signed = int(i64.min to i64.max)
 
@@ -940,7 +931,6 @@ Stack trace:
 ### Append
 
 <!-- test: append-basic -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let a = FullRangeIntArray from [1, 2, 3]
@@ -960,17 +950,16 @@ end 'main'
 ```
 
 <!-- test: append-empty-to-nonempty -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray from [1, 2, 3]
+	var a = IntArray from [1, 2, 3]
 	let b = IntArray.create(0)
 	a.append(b)
-	return a.count()
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -997,7 +986,6 @@ end 'main'
 ```
 
 <!-- test: append-preserves-originals -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let a = FullRangeIntArray from [1, 2]
@@ -1058,7 +1046,6 @@ end 'main'
 ```
 
 <!-- test: appendMemory-takes-another-arrays-managed-and-preserves-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- tier: stdlib -->
 ### `stdlib/Array.maxon`'s own spelling — `append` is a caller of this member
 The receiver gains the source's elements, and the source is only read and copied out of, exactly as
@@ -1510,7 +1497,6 @@ at all: `index`'s `ElementIndex` is a checked QUANTITY, so the door refuses it. 
 returning 42 is kept here to say that it is NOT the arm that runs: the program does not compile at all.
 
 <!-- test: error.set-negative-index-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	var arr = FullRangeIntArray from [10, 20, 30]
@@ -1527,12 +1513,11 @@ error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (i
 ### Copy-on-Write
 
 <!-- test: slice-cow-modify-slice -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Modifying a slice must not affect the original array.
 ```maxon
 function main() returns ExitCode
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
-	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	var sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 99) otherwise panic("test invariant: set OOB")
 	// Original should be unchanged
 	let original = try arr.get(1) otherwise 0
@@ -1550,11 +1535,10 @@ end 'main'
 ```
 
 <!-- test: slice-cow-modify-original -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Modifying the original array must not affect an existing slice.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	var arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
 	// Slice should be unchanged
@@ -1580,7 +1564,6 @@ eager copy would. A buffer that lives in its record's own allocation is copied a
 [co-allocated-arrays](co-allocated-arrays.md) states.
 
 <!-- test: slice-capacity-is-a-view-until-written -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A slice reports a negative capacity — its buffer is not its own — until a write gives it a private one
 sized to its live elements. This is the one place the sharing is directly observable, and it is what says
 no buffer was allocated: an eager copy would report a grown positive capacity from the moment it was made.
@@ -1676,13 +1659,12 @@ end 'main'
 ```
 
 <!-- test: slice-of-slice-flattens -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Slicing a slice windows within the window, and writing to the inner one leaves the outer one alone.
 ```maxon
 function main() returns ExitCode
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50, 60]
 	let s1 = try arr.slice(1, endIndex: 5) otherwise return 1
-	let s2 = try s1.slice(1, endIndex: 3) otherwise return 2
+	var s2 = try s1.slice(1, endIndex: 3) otherwise return 2
 	let a = try s2.get(0) otherwise 0
 	let b = try s2.get(1) otherwise 0
 	try s2.set(0, value: 7) otherwise panic("index 0 is in bounds")
@@ -1698,7 +1680,6 @@ end 'main'
 ```
 
 <!-- test: cow-detach-copies-a-wide-elements-full-stride -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ⭐ **THE DETACH COPIES `length · element_size` BYTES, NOT `length`** — and nothing else in this file was
 asking. The cases above slice a wide-element array and WRITE to it, which forces the copy-on-write detach,
 but each then reads only the element it wrote or an element of the OTHER array; none reads back a surviving
@@ -1713,7 +1694,7 @@ of the two for which 1 is right.
 ```maxon
 function main() returns ExitCode
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
-	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	var sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 99) otherwise panic("index 0 is in bounds")
 	let a = try sub.get(0) otherwise 0
 	let b = try sub.get(1) otherwise 0
@@ -1766,16 +1747,15 @@ end 'main'
 ```
 
 <!-- test: many-views-detach-one-by-one -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 One buffer held by an owner, two slices and a slice-of-a-slice, then all four write in turn. The shared
 count has to walk all the way down and reclaim exactly once — every arm of the detach (owner-with-viewers,
 viewer, viewer-of-a-viewer) runs, and each side keeps the bytes it had when it copied out.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [1, 2, 3, 4, 5, 6]
-	let a = try arr.slice(0, endIndex: 3) otherwise return 1
-	let b = try arr.slice(3, endIndex: 6) otherwise return 2
-	let c = try a.slice(0, endIndex: 2) otherwise return 3
+	var arr = FullRangeIntArray from [1, 2, 3, 4, 5, 6]
+	var a = try arr.slice(0, endIndex: 3) otherwise return 1
+	var b = try arr.slice(3, endIndex: 6) otherwise return 2
+	var c = try a.slice(0, endIndex: 2) otherwise return 3
 	try arr.set(0, value: 100) otherwise panic("index 0 is in bounds")
 	try b.set(0, value: 200) otherwise panic("index 0 is in bounds")
 	try c.set(0, value: 300) otherwise panic("index 0 is in bounds")
@@ -1789,12 +1769,11 @@ end 'main'
 ```
 
 <!-- test: two-slices-then-write-parent -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Two live slices of one array, then writes at both ends of the parent. The parent copies out once; both
 slices keep reading the original bytes.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30, 40]
+	var arr = FullRangeIntArray from [10, 20, 30, 40]
 	let v1 = try arr.slice(0, endIndex: 2) otherwise return 1
 	let v2 = try arr.slice(2, endIndex: 4) otherwise return 2
 	try arr.set(0, value: 99) otherwise panic("index 0 is in bounds")
@@ -1814,11 +1793,10 @@ end 'main'
 ```
 
 <!-- test: slice-parent-grows-while-view-lives -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Pushing onto the parent reallocates its buffer. The slice keeps the old one.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30]
+	var arr = FullRangeIntArray from [10, 20, 30]
 	let sub = try arr.slice(0, endIndex: 3) otherwise return 1
 	arr.push(40)
 	arr.push(50)
@@ -1836,18 +1814,17 @@ end 'main'
 ```
 
 <!-- test: append-a-slice-of-self -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `append` reads its source AFTER growing its destination, so appending a slice of an array to that same
 array is coherent: the destination copies out first and the slice still names the original bytes.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [1, 2, 3]
+	var arr = FullRangeIntArray from [1, 2, 3]
 	let sub = try arr.slice(0, endIndex: 2) otherwise return 1
 	arr.append(sub)
 	var sum = 0 as FullRangeInt
 	var i = 0 as Count
 	while i < arr.count() 'loop'
-		sum = sum + (try arr.get(i) otherwise 0)
+		sum = try sum + (try arr.get(i) otherwise 0) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	let s0 = try sub.get(0) otherwise 0
@@ -1938,7 +1915,6 @@ end 'main'
 ```
 
 <!-- test: both-sides-detach-parent-first -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Both sides write. The parent copies out first and gives up the shared buffer, leaving the slice as its
 sole owner; the slice then copies out and reclaims it. This case reaches the path where a detach's release
 frees the bytes it just copied — but it does NOT *catch* a detach that released BEFORE copying.
@@ -1952,8 +1928,8 @@ is a rule `__managed_cow_detach` keeps on its OWN rather than one this case gate
 recycling, poisoning allocator is an OPEN QUESTION.**
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
-	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	var arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	var sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try arr.set(1, value: 91) otherwise panic("index 1 is in bounds")
 	try sub.set(0, value: 92) otherwise panic("index 0 is in bounds")
 	let s0 = try sub.get(0) otherwise 0
@@ -1970,12 +1946,11 @@ end 'main'
 ```
 
 <!-- test: both-sides-detach-slice-first -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same pair in the other order.
 ```maxon
 function main() returns ExitCode
-	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
-	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	var arr = FullRangeIntArray from [10, 20, 30, 40, 50]
+	var sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 92) otherwise panic("index 0 is in bounds")
 	try arr.set(1, value: 91) otherwise panic("index 1 is in bounds")
 	let s0 = try sub.get(0) otherwise 0
@@ -2199,13 +2174,12 @@ end 'main'
 ```
 
 <!-- test: multi-line-literal-top-level-let -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 let xs = FullRangeIntArray from [10, 20]
 
 function main() returns ExitCode
 	let v = try xs.get(1) otherwise 0
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2756,7 +2730,6 @@ error E3005: <fragment>:19:4: argument type mismatch for 'other': expected 'Colo
 ```
 
 <!-- test: error.append-a-non-array -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### A value that is not an `Array` at all names both types, like every other argument door
 ```maxon
 function main() returns ExitCode
@@ -3444,7 +3417,6 @@ end 'main'
 ```
 
 <!-- test: error.an-array-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The head of `<alias> from […]` names a type, so an unmarked alias declared in another directory is refused there
 as it is in every other type position.
 ```maxon
@@ -3807,13 +3779,11 @@ error E3197: <fragment>:10:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: error.a-closure-capturing-a-let-array-cannot-write-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A closure that captures a `let` array and writes it is refused.
 ```maxon
 function main() returns ExitCode
 	let a = [1 as Count]
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives (try a.pop() otherwise 0)
 	if f() == 1 'popped'
 		return 1
@@ -4017,6 +3987,7 @@ error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is im
 ```
 
 <!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same for a `FixedArray from` literal.
@@ -4029,6 +4000,7 @@ function poke(v CountVector)
 end 'poke'
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
 	f(v)
@@ -4221,8 +4193,6 @@ error E3106: <fragment>:6:10: 'FixedArray.create' cannot publish slots of 'Perce
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-array-to-a-function-value-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The same for a captured `let` array literal.
 ```maxon
 typealias CountArray = Array with Count
@@ -4235,7 +4205,6 @@ end 'grow'
 function main() returns ExitCode
 	let a = [1 as Count]
 	let f = grow
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives f(a)
 	return g() as ExitCode
 end 'main'
@@ -4245,7 +4214,7 @@ error E3197: <fragment>:12:29: cannot write 'a' through the closure that capture
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-fixed-array-to-a-function-value-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same for a captured `FixedArray from` literal.
@@ -4259,9 +4228,9 @@ function poke(v CountVector) returns Count
 end 'poke'
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives f(v)
 	return g() as ExitCode
 end 'main'
@@ -4271,12 +4240,11 @@ error E3197: <fragment>:12:29: cannot write 'v' through the closure that capture
 ```
 
 <!-- test: a-closure-capturing-a-var-array-may-hand-it-to-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
 An array that is a clone of the literal is writable, so the same closure is accepted.
 ```maxon
 typealias CountArray = Array with Count
 
-function grow(a CountArray) returns Count
+function grow(mutates a CountArray) returns Count
 	a.push(2)
 	return a.count()
 end 'grow'
@@ -4284,9 +4252,8 @@ end 'grow'
 function main() returns ExitCode
 	let a = [1 as Count].clone()
 	let f = grow
-	// TODO: closures are not supported in minimaxon
 	let g = function() gives f(a)
-	return g() as ExitCode
+	return try g() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4331,7 +4298,6 @@ error E3005: <fragment>:2:18: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-list-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The typed-head forms read their elements the same way.
 ```maxon
 function main() returns ExitCode
@@ -4458,10 +4424,12 @@ error E2004: <fragment>:4:10: A let cannot start from a number whose range is un
 ```
 
 <!-- test: error.a-set-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- positions: moved -->
 The same for a `Set from` literal.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [-1, u64.max]
 	return s.count() as ExitCode
 end 'main'
@@ -4471,10 +4439,12 @@ error E3005: <fragment>:3:24: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-fixed-array-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
+<!-- positions: moved -->
 And for a `FixedArray from` literal.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [-1, u64.max]
 	return v.count() as ExitCode
 end 'main'
@@ -4484,15 +4454,12 @@ error E3005: <fragment>:3:31: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: a-closure-capturing-an-unsigned-column-read-prints-it-unsigned -->
-<!-- skip: closures are not supported in minimaxon -->
 A read out of `[1, u64.max]` that a closure captures is still the unsigned value it was: the closure prints 18446744073709551615 and compares it as unsigned.
 ```maxon
 function main() returns ExitCode
 	let a = [1, u64.max]
 	for x in a 'each'
-		// TODO: closures are not supported in minimaxon
 		let show = function() gives "{x}"
-		// TODO: closures are not supported in minimaxon
 		let big = function() gives x > 1
 		print("{show()} {big()}\n")
 	end 'each'
@@ -4508,12 +4475,13 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-from-a-literal-over-an-alias-that-excludes-zero-is-accepted -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
 `FixedArray from` supplies every slot, so the zero-excluding element is only refused at `create`, which publishes zeroed slots.
 ```maxon
 typealias Percent = int(1 to 100)
 
 function main() returns ExitCode
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10 as Percent, 20 as Percent, 30 as Percent]
 	return v.get(2) as ExitCode
 end 'main'
@@ -5046,13 +5014,11 @@ error E3106: <fragment>:11:22: 'create(n)' cannot publish zeroed slots of a type
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-function -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function value is a closure record, so a zeroed slot is a null closure.
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Digit) returns Digit
 
 typealias Steps = Array with Step

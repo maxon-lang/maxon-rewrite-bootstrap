@@ -1175,7 +1175,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.argument-through-a-function-value-is-guarded -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐⭐ **THE CLAIM THE CALLEE-ENTRY DESIGN RESTS ON, AND THE ONLY CASE THAT CAN TEST IT.** The reason the
 guard belongs to the callee rather than the call is that a call-site rule structurally cannot reach every
 caller: a call through a function VALUE has no callee name at the call site to look a parameter's range
@@ -1189,7 +1189,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias NonZero = int(1 to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias DivFn = function(Integer, NonZero) returns Integer
 
 function opaque(n Integer) returns Integer
@@ -2619,16 +2618,14 @@ Stack trace:
 ```
 
 <!-- test: a-large-count-reaches-a-function-value-through-a-generic-cell -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A `Count` above `i64.max` stored in a generic cell is checked where it enters the cell, so the cell's call through a function value passes it on.
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
-	static function make(v T, pick Pick) returns Self
+	static function make(consumes v T, pick Pick) returns Self
 		return Self{v: v, pick: pick}
 	end 'make'
 
@@ -2644,7 +2641,7 @@ function echo(c Count) returns Count
 end 'echo'
 
 function top(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
 function main() returns ExitCode
@@ -2661,7 +2658,6 @@ end 'main'
 ```
 
 <!-- test: a-negative-value-into-a-generic-cell-is-refused-where-it-enters -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `n` is derived from a counted loop's counter, so the `-1` it reaches is known at compile time and the
 cell's `Count` parameter refuses it with E3005.
@@ -2669,7 +2665,6 @@ cell's `Count` parameter refuses it with E3005.
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
 	static function make(v T, pick Pick) returns Self
@@ -2776,12 +2771,10 @@ error E3005: <fragment>:18:9: Value -1 is outside the range of 'Count' (int(0 to
 ```
 
 <!-- test: a-large-count-through-a-generic-instances-function-field -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Calling a concrete instance's function-typed field substitutes its parameter type, so a large `Count` passes through it.
 ```maxon
 type Cell uses T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
 	static function make(pick Pick) returns Self
@@ -2796,7 +2789,7 @@ function echo(c Count) returns Count
 end 'echo'
 
 function top(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
 function main() returns ExitCode
@@ -2813,13 +2806,11 @@ end 'main'
 ```
 
 <!-- test: a-negative-value-through-a-closure-is-refused-at-the-call -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A negative value handed to a closure's `Count` parameter is refused where the closure is called. `n` is
 derived from a counted loop's counter, so its interval is known and the refusal is a compile error.
 ```maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function(tag String, c Count) gives c if tag == "x" else c
 	for i in 0 upto 2 'each'
 		let n = i - 1
@@ -2833,13 +2824,12 @@ error E3005: <fragment>:7:12: Value -1 is outside the range of 'Count' (int(0 to
 ```
 
 <!-- test: a-negative-difference-into-a-generic-cell-panics-at-the-subtraction -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The run-time twin of the refusal above: `args - 2` is a `Count` difference the compiler cannot evaluate, so the borrow is caught where the difference is computed, before the value reaches the cell.
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
 	static function make(v T, pick Pick) returns Self
@@ -2908,11 +2898,10 @@ Stack trace:
 ```
 
 <!-- test: a-negative-difference-through-a-closure-panics-at-the-call -->
-<!-- skip: closures are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The run-time twin of the refusal above: the difference is unknown to the compiler, so the closure's `Count` parameter catches the borrow where the closure is called.
 ```maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function(tag String, c Count) gives c if tag == "x" else c
 	print("{f("x", CommandLine.args().count() - 2)}\n")
 	return 0

@@ -375,7 +375,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.captured-by-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
 CONTROL: a captured inline record is a word in the environment, so calling the closure allocates nothing.
 A boxed record would read the same — it does not escape `main`, so the promoter would put it on the
 stack — and the case holds the reading where the promoter has nothing to do.
@@ -395,7 +394,6 @@ end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(3, hi: 4)
-	// TODO: closures are not supported in minimaxon
 	let sum = function() gives p.lo + p.hi
 	let before = HeapStats.allocationsLive()
 	let first = sum()

@@ -442,8 +442,6 @@ error E3202: <fragment>:14:10: 'rows.get(0)' is mutable and cannot leave 'read';
 ```
 
 <!-- test: returned-closure-literal-leaving-window-is-named-by-its-site -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -455,7 +453,6 @@ typealias Tally = int(0 to u64.max)
 
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Tally
 
 function make() returns Thunk
@@ -464,10 +461,8 @@ function make() returns Thunk
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		batch.push("a")
-		// TODO: closures are not supported in minimaxon
 		return function() gives batch.count()
 	end 'fill'
-	// TODO: closures are not supported in minimaxon
 	return function() gives 0
 end 'make'
 
@@ -1666,7 +1661,6 @@ error E3207: <fragment>:29:5: 'Grows.grow' needs a writable receiver; 'g' is rea
 ```
 
 <!-- test: function-value-call-on-outer-data-inside-modify-needs-a-writable-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1675,8 +1669,7 @@ error E3207: <fragment>:29:5: 'Grows.grow' needs a writable receiver; 'g' is rea
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Edit = function(mutable Row)
+typealias Edit = function(mutates Row)
 
 type Row
 	export var text as String
@@ -1711,8 +1704,7 @@ error E3207: <fragment>:22:7: 'Edit' needs a writable parameter; 'row' is read-o
 ```
 
 <!-- test: closure-written-inside-modify-sees-outer-data-as-read-only -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1723,7 +1715,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias LineArray = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Rename = function() returns Tally mutates captures
 
 type Row
@@ -1749,7 +1741,6 @@ function main() returns ExitCode
 	let batch = LineArray.create(0) as isolated LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
-		// TODO: closures are not supported in minimaxon
 		let n = consume(function() gives row.rename())
 		batch.push("{n}")
 	end 'fill'

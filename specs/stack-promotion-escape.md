@@ -333,15 +333,12 @@ end 'main'
 ```
 
 <!-- test: escape-into-a-returned-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A record captured by a closure is stored into the closure's own record, and a returned closure outlives the
 frame that built both. Promoting the record would leave the closure reading a frame slot `churn` has since
 reused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Integer
 
 type Item
@@ -353,35 +350,34 @@ type Item
 end 'Item'
 
 function churn(seed Integer) returns Integer
-	let v0 = seed + 1
-	let v1 = seed + 2
-	let v2 = seed + 3
-	let v3 = seed + 4
-	let v4 = seed + 5
-	let v5 = seed + 6
-	let v6 = seed + 7
-	let v7 = seed + 8
-	let v8 = seed + 9
-	let v9 = seed + 10
-	let v10 = seed + 11
-	let v11 = seed + 12
-	let v12 = seed + 13
-	let v13 = seed + 14
-	let v14 = seed + 15
-	let v15 = seed + 16
-	return v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15
+	let v0 = try seed + 1 otherwise panic("out of range")
+	let v1 = try seed + 2 otherwise panic("out of range")
+	let v2 = try seed + 3 otherwise panic("out of range")
+	let v3 = try seed + 4 otherwise panic("out of range")
+	let v4 = try seed + 5 otherwise panic("out of range")
+	let v5 = try seed + 6 otherwise panic("out of range")
+	let v6 = try seed + 7 otherwise panic("out of range")
+	let v7 = try seed + 8 otherwise panic("out of range")
+	let v8 = try seed + 9 otherwise panic("out of range")
+	let v9 = try seed + 10 otherwise panic("out of range")
+	let v10 = try seed + 11 otherwise panic("out of range")
+	let v11 = try seed + 12 otherwise panic("out of range")
+	let v12 = try seed + 13 otherwise panic("out of range")
+	let v13 = try seed + 14 otherwise panic("out of range")
+	let v14 = try seed + 15 otherwise panic("out of range")
+	let v15 = try seed + 16 otherwise panic("out of range")
+	return try v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 otherwise panic("out of range")
 end 'churn'
 
 function makeReader(seed Integer) returns Reader
 	let item = Item.create(seed)
-	// TODO: closures are not supported in minimaxon
 	return function() gives item.value
 end 'makeReader'
 
 function main() returns ExitCode
 	let read = makeReader(42)
 	let noise = churn(1000)
-	return read() as ExitCode if noise > 0 else 1
+	return (try read() as ExitCode otherwise panic("out of range")) if noise > 0 else 1
 end 'main'
 ```
 ```exitcode
@@ -426,7 +422,6 @@ end 'main'
 ```
 
 <!-- test: green-threads-disable-promotion -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A green thread's stack GROWS BY RELOCATION: it is copied to a larger region, rsp and the saved-frame-pointer
@@ -458,7 +453,6 @@ function deep(n Integer) returns Integer
 end 'deep'
 
 function onTheGreenThread() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	let p = Point.create(41, y: 1)
 	let depth = deep(400)

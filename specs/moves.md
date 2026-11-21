@@ -742,8 +742,6 @@ error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to ano
 owns — and would read it after that owner released it. The capture is a use of `t`, refused at the capture.
 
 <!-- test: error.a-closure-may-not-capture-a-moved-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -758,7 +756,6 @@ end 'Box'
 function main() returns ExitCode
 	var t = Box.create(5)
 	var u = t
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives t.value
 	u.value = 9
 	return peek()
@@ -1176,7 +1173,6 @@ first padded out long enough to heap allocate 1 0
 
 <!-- test: moves.error.a-var-handed-in-parentheses-to-an-isolated-parameter-is-moved -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1187,8 +1183,8 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(b isolated Box)
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+typealias Sink = function(isolated Box)
 
 type Box
 	export var n as Count
@@ -1224,7 +1220,6 @@ error E3102: <fragment>:22:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: moves.error.a-door-read-on-one-branch-is-reported-at-that-read-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1235,8 +1230,8 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(b isolated Box)
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+typealias Sink = function(isolated Box)
 
 type Box
 	export var n as Count
@@ -1275,7 +1270,6 @@ error E3102: <fragment>:24:11: use of moved value 'b': its ownership moved to an
 
 <!-- test: moves.error.a-door-on-one-branch-is-seen-by-the-read-after-the-join -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1286,8 +1280,8 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(b isolated Box)
+// TODO: parameter capability 'isolated' is not supported in minimaxon
+typealias Sink = function(isolated Box)
 
 type Box
 	export var n as Count

@@ -3585,14 +3585,11 @@ Resolving it in the wrong function fails in both directions, and each is a wrong
   closure is somewhere else entirely.
 
 <!-- test: closure-body-site-guards-the-closures-own-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 10)
 
 typealias Wide = int(0 to 100000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Fn1 = function(Wide) returns Wide
 
 function apply(f Fn1, x Wide) returns Wide
@@ -3600,13 +3597,12 @@ function apply(f Fn1, x Wide) returns Wide
 end 'apply'
 
 function pad(a Wide, b Wide, c Wide) returns Wide
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'pad'
 
 function main() returns ExitCode
 	let j = pad(100, b: 200, c: 300)
-	// TODO: closures are not supported in minimaxon
-	return apply(function(n Wide) gives (n - j) as Small, x: 605) as ExitCode
+	return apply(function(n Wide) gives try (n - j) as Small otherwise panic("out of range"), x: 605) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3614,8 +3610,7 @@ end 'main'
 ```
 
 <!-- test: closure-body-out-of-range-cast-panics-in-the-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The frame the trace names is the load-bearing part: the guard runs inside the lifted closure, so
 `main$closure_0` is on the stack when it fires.
 ```maxon
@@ -3623,7 +3618,6 @@ typealias Small = int(0 to 10)
 
 typealias Wide = int(0 to 100000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Fn1 = function(Wide) returns Wide
 
 function apply(f Fn1, x Wide) returns Wide
@@ -3631,7 +3625,6 @@ function apply(f Fn1, x Wide) returns Wide
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return apply(function(n Wide) gives (n + 1) as Small, x: 605) as ExitCode
 end 'main'
 ```
@@ -4205,7 +4198,6 @@ error E3005: specs/ranged-typealias/error.top-level-const-cast-to-bare-int.maxon
 ```
 
 <!-- test: the-typealias-rhs-admits-the-keyword -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -4220,8 +4212,7 @@ typealias Small = int(0 to 100)
 
 typealias Whole = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias IntOp = function(n int) returns int
+typealias IntOp = function(int) returns int
 
 // TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (int, int)

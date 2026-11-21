@@ -236,15 +236,12 @@ error E3184: <fragment>:8:11: field 'x' of generic type 'Rec' is declared 'Rec.W
 ```
 
 <!-- test: a-service-keeping-a-closure-that-captures-its-own-handle-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function value holds what its closure captured, and the type of a function says nothing of that. A service state that holds a function value therefore reaches the handle of every service some closure in the program captures: here `attach` stores a closure that captures `Echo`'s own handle.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Notifier = function(Tally) returns Tally
 
 function quiet(by Tally) returns Tally
@@ -269,7 +266,6 @@ type Echo
 	end 'bump'
 
 	export function attach(me Echo.handle)
-		// TODO: closures are not supported in minimaxon
 		self.notify = function(by Tally) gives forward(me, by: by)
 	end 'attach'
 end 'Echo'
@@ -286,15 +282,12 @@ error E4014: <fragment>:14:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: two-services-keeping-closures-that-capture-each-others-handles-are-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Ping` keeps a closure over `Pong`'s handle and `Pong` keeps one over `Ping`'s. Each service's function-typed field reaches both captured handles, so the cycle is found whichever service is read first.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Notifier = function(Tally) returns Tally
 
 function quiet(by Tally) returns Tally
@@ -323,7 +316,6 @@ type Ping
 	end 'poke'
 
 	export function meet(peer Pong.handle)
-		// TODO: closures are not supported in minimaxon
 		self.hook = function(by Tally) gives nudgePong(peer, by: by)
 	end 'meet'
 end 'Ping'
@@ -340,7 +332,6 @@ type Pong
 	end 'poke'
 
 	export function meet(peer Ping.handle)
-		// TODO: closures are not supported in minimaxon
 		self.hook = function(by Tally) gives nudgePing(peer, by: by)
 	end 'meet'
 end 'Pong'
@@ -412,8 +403,6 @@ error E4014: <fragment>:23:6: type 'Echo' reaches a service handle that reaches 
 
 <!-- test: a-function-typed-field-is-accepted-when-no-closure-captures-a-handle-that-reaches-its-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -421,7 +410,6 @@ error E4014: <fragment>:23:6: type 'Echo' reaches a service handle that reaches 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Notifier = function(Tally) returns Tally
 
 function quiet(by Tally) returns Tally
@@ -460,7 +448,6 @@ end 'Echo'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let logger = spawn Logger.create()
-	// TODO: closures are not supported in minimaxon
 	let relay = function(by Tally) gives forward(logger, by: by)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()

@@ -3335,13 +3335,10 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 // TODO: union errors are not supported in minimaxon; an error is an enum
@@ -3379,7 +3376,6 @@ function inArm(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
-			// TODO: closures are not supported in minimaxon
 			BoxErr.boxed then total = run(function() gives (n + n + n + n + n + n) * 0 + match e 'outer'
 				boxed(e) gives match e 'inner'
 					"big 9" gives 1 as Tally
@@ -3409,13 +3405,10 @@ inArm 1 7 3
 ```
 
 <!-- test: a-closure-in-a-scalar-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 // TODO: union errors are not supported in minimaxon; an error is an enum
@@ -3456,7 +3449,6 @@ function inArm(n Tally) returns Tally
 		match e 'kind'
 			BoxErr.boxed then total = 50
 			Plain.flat then total = 100
-			// TODO: closures are not supported in minimaxon
 			Plain.sharp then total = run(function() gives (n + n) * 0 + match s 'outer'
 				boxed(e) gives match e 'inner'
 					"big 9" gives 1 as Tally
@@ -3484,13 +3476,10 @@ inArm 50 1 3
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-captures-the-member -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns String
 
 typealias TextArray = Array with String
@@ -3538,7 +3527,6 @@ function captured(n Tally, readers TextArray) returns Tally
 		sink = sink + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
-			// TODO: closures are not supported in minimaxon
 			BoxErr.boxed then sink = applyReader(function() gives textOf(e), into: readers)
 			Plain.flat then sink = 100
 			Plain.sharp then sink = 7

@@ -407,7 +407,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-construction-is-not-a-call-in-a-module-let -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Names from [...]` and `[...]` build data, not a call, so a module `let` may hold them.
 
 ```maxon

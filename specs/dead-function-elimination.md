@@ -104,12 +104,12 @@ reachability edge; pruning `triple` here would be a link failure, and pruning th
 typealias Integer = int(i64.min to i64.max)
 
 function triple(n Integer) returns Integer
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
 	let f = triple
-	return f(14)
+	return try f(14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

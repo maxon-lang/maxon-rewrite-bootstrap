@@ -138,14 +138,12 @@ end 'demoFetch'
 ## Tests
 
 <!-- test: async-await.basic -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function compute() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 42
 end 'compute'
@@ -163,20 +161,17 @@ end 'main'
 ```
 
 <!-- test: async-await.parallel -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function taskA() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 10
 end 'taskA'
 
 function taskB() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 20
 end 'taskB'
@@ -198,12 +193,10 @@ end 'main'
 ```
 
 <!-- test: async-await.void -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function setFlag(mutates flag ExitCode)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	flag = 1
 end 'setFlag'
@@ -222,14 +215,12 @@ end 'main'
 ```
 
 <!-- test: async-await.sequence -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function step(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n + 1
 end 'step'
@@ -255,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: async-await.stack-growth -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -269,7 +259,6 @@ function deepRecurse(n Integer) returns Integer
 end 'deepRecurse'
 
 function yieldAndRecurse() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return deepRecurse(100)
 end 'yieldAndRecurse'
@@ -287,7 +276,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-default -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -298,7 +286,6 @@ enum TestError implements Error
 end 'TestError'
 
 function mayFail(succeed bool) returns Integer throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if succeed 'ok'
 		return 42
@@ -323,7 +310,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.propagate -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -334,7 +320,6 @@ enum TestError implements Error
 end 'TestError'
 
 function mayFail(succeed bool) returns Integer throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if succeed 'ok'
 		return 10
@@ -360,7 +345,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-panic -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -371,7 +355,6 @@ enum TestError implements Error
 end 'TestError'
 
 function succeeds() returns Integer throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "noyield.txt") 'present'
 		throw TestError.failed
 	end 'present'
@@ -391,7 +374,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.void -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -400,7 +382,6 @@ enum TestError implements Error
 end 'TestError'
 
 function maySetFlag(succeed bool, mutates flag ExitCode) throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if succeed 'ok'
 		flag = 1
@@ -423,7 +404,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-bind -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `otherwise (e)` on a `try await` binds the error the awaited thunk THREW,
@@ -439,7 +419,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail(mode Integer) returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if mode == 0 'ok'
 		return 1
@@ -468,7 +447,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-assoc-value -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -488,7 +466,6 @@ union WorkError implements Error
 end 'WorkError'
 
 function work(n Integer) returns Integer throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("negative input")
@@ -518,7 +495,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-cross-block -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -536,7 +512,6 @@ union WorkError implements Error
 end 'WorkError'
 
 function work(n Integer) returns Integer throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("cross-block")
@@ -569,7 +544,6 @@ caught: cross-block
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-void -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A void-returning throwing async function has no result — only an error flag.
@@ -590,7 +564,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function maySetFlag(succeed bool, mutates flag Code) throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if succeed 'ok'
 		flag = 1
@@ -653,7 +626,6 @@ error E3073: specs/async-await/async-await.error.no-yield.maxon:9:11: 'async hea
 ```
 
 <!-- test: async-await.storage.bind-error-through-storage -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The error type SURVIVES storage, so an `otherwise (e)` binding on a promise pulled back out of
@@ -672,7 +644,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -697,7 +668,6 @@ end 'main'
 ```
 
 <!-- test: async-await.storage.release-union-payload-through-storage -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -720,7 +690,6 @@ union WorkError implements Error
 end 'WorkError'
 
 function work(n Integer) returns Integer throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("negative input")
@@ -752,7 +721,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.error.storage-erases-error-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storing a THROWING promise in a `Promise with T` is refused: that type names the result and
@@ -771,7 +739,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -788,7 +755,6 @@ error E3098: specs/async-await/async-await.error.storage-erases-error-type.maxon
 ```
 
 <!-- test: async-await.error.storage-names-wrong-error-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The storage type must name the error the thunk ACTUALLY throws. A `Promise with (T, E)` whose E
@@ -810,7 +776,6 @@ enum OtherError implements Error
 end 'OtherError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -827,7 +792,6 @@ error E3098: specs/async-await/async-await.error.storage-names-wrong-error-type.
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-an-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise a function was handed is the function's to store: its declared type states what it carries, so a
@@ -841,7 +805,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -872,7 +835,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-field -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored in a field by a struct literal, by `self.p = next` in a method and by `h.p = next`
 in a function. Each store releases the thread the field was holding, so the two promises that were replaced are
@@ -883,7 +845,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -982,7 +943,6 @@ error E3098: specs/async-await/async-await.error.a-throwing-promise-parameter-ca
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-an-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise the storing function owns is storable whatever made it, so a helper's return goes into an array like a spawn made on the spot. The array then owns the thread, and the loop awaits it out of the array.
@@ -994,7 +954,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1025,7 +984,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-a-field -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise field takes a helper's return as it takes a spawn, and the store releases the thread the field held.
 ```maxon
@@ -1034,7 +992,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1068,7 +1025,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-an-array-held-by-a-field -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A container held in a field is the same storage.
@@ -1080,7 +1036,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1118,7 +1073,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-a-map -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A map keeps the promises it is given and drops the ones nobody took out. A map has no slot a read could name, so the promise stays in it and the run is leak-free.
 ```maxon
@@ -1129,7 +1083,6 @@ typealias IntPromise = Promise with Integer
 typealias PromiseMap = Map with (String, IntPromise)
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1156,7 +1109,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-in-a-map-cannot-be-read-back-out -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A map has no slot a read could name, so reading a promise value out of it would leave two owners and is refused.
@@ -1168,7 +1120,6 @@ typealias IntPromise = Promise with Integer
 typealias PromiseMap = Map with (String, IntPromise)
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1187,7 +1138,6 @@ error E3141: <fragment>:14:16: a promise cannot be borrowed through 'get': it ow
 ```
 
 <!-- test: async-await.error.a-stored-parameter-awaited-afterwards-is-use-after-move -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storing a parameter moves it into the container, so the function's own name for it is spent.
@@ -1199,7 +1149,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1221,7 +1170,7 @@ error E3102: <fragment>:14:15: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.error.a-parameter-stored-twice-is-use-after-move -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'work' -->
 <!-- positions: moved -->
 One thread has one owner, so the second store of the same parameter is refused.
 ```maxon
@@ -1232,7 +1181,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1254,7 +1202,7 @@ error E3102: <fragment>:14:15: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.a-parameter-stored-on-one-branch-only-runs-clean -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'work' -->
 A parameter stored on one branch only is owned on the other, which drops it at the function's end: both runs leave no thread behind.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1264,7 +1212,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1292,7 +1239,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-used-after-it-was-pushed-by-a-callee-is-use-after-move -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The caller handed the promise to a function that stores it, so the caller's name for it is spent.
@@ -1304,7 +1250,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1327,7 +1272,6 @@ error E3102: <fragment>:19:16: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.error.a-promise-used-after-it-was-stored-in-a-field-by-a-callee-is-use-after-move -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same holds for a callee that stores the promise in a field.
@@ -1337,7 +1281,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1363,7 +1306,6 @@ error E3102: <fragment>:21:16: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.a-popped-promise-can-be-stored-in-a-field -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise moved out of an array by `pop` is the storing function's own, so a field takes it.
 ```maxon
@@ -1374,7 +1316,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1407,7 +1348,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-matched-promise-payload-can-be-wrapped-in-a-union-again -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise bound by a `match` arm is moved out of the union it was in, so it can be wrapped in another.
@@ -1417,7 +1357,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1454,7 +1393,6 @@ end 'rewrap'
 ```
 
 <!-- test: async-await.a-promise-taken-through-try-otherwise-can-be-stored -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The promise a `try … otherwise` merge yields is the function's own, so a container takes it.
@@ -1466,7 +1404,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1496,7 +1433,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-storing-function-called-through-a-function-value-takes-the-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A function value of a named function has that function's own type, and the type says which promise parameters the callee takes. A call through it hands the promise over exactly where the function takes it, so the array owns the thread and the caller does not drop it.
@@ -1508,7 +1444,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1539,7 +1474,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-awaiting-function-called-through-a-function-value-awaits-the-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same holds for a function that awaits its promise parameter: the callee reclaims the thread, and the caller must not.
 ```maxon
@@ -1548,7 +1482,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1572,10 +1505,8 @@ end 'main'
 ```
 
 <!-- test: async-await.a-function-type-takes-a-promise-parameter -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A call through a parameter of a function-type alias hands the promise over, and a function that takes its promise converts to it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1585,13 +1516,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(pending mutable IntPromiseArray, p IntPromise)
+typealias Sink = function(mutates IntPromiseArray, IntPromise)
 
 function keep(mutates pending IntPromiseArray, p IntPromise)
 	pending.push(p)
@@ -1622,7 +1551,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-callee-that-stores-it-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A parameter handed to a callee that takes it is handed on itself, however many calls deep: the caller moves its promise into the outermost function, and the innermost one stores it.
 ```maxon
@@ -1631,7 +1559,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1667,7 +1594,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-callee-that-only-reads-it-stays-with-the-caller -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Forwarding to a callee that only reads the promise hands nothing on, so the caller still owns the promise afterwards and awaits it.
 ```maxon
@@ -1676,7 +1602,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1705,7 +1630,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-user-generic-type-over-a-promise-owns-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic type instantiated at a promise owns the thread it is given: its constructor takes the promise, a reassignment of the field drops the thread it held, and the box's destructor drops the last one. The run is leak-free.
 ```maxon
@@ -1714,7 +1638,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -1756,7 +1679,6 @@ true
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-by-an-instance-method -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored by a struct literal in an instance method and by an assignment to a field of `self`, as it is by a static factory.
 ```maxon
@@ -1765,7 +1687,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function w() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'w'
@@ -1805,7 +1726,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-tuple -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
@@ -1817,7 +1737,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function w() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'w'
@@ -1844,7 +1763,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-union-payload -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored in a union payload.
 ```maxon
@@ -1853,7 +1771,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function w() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'w'
@@ -1885,7 +1802,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-by-a-parenthesised-assignment -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A parenthesised right-hand side stores the parameter as the bare name does.
 ```maxon
@@ -1894,7 +1810,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function w() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'w'
@@ -1928,7 +1843,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-map -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A map takes a promise parameter through `upsert`.
 ```maxon
@@ -1939,7 +1853,6 @@ typealias IntPromise = Promise with Integer
 typealias PromiseMap = Map with (String, IntPromise)
 
 function w() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'w'
@@ -1964,7 +1877,6 @@ end 'main'
 ```
 
 <!-- test: async-await.an-array-literal-of-promises-owns-its-elements -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An array literal stores its elements, so it takes ownership of each promise it is given, whatever made it. The loop awaits them out of the array, and the run is leak-free.
@@ -1976,7 +1888,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2010,7 +1921,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.an-array-literal-of-promises-must-match-the-array-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise in a literal is checked against the array's element type like a promise pushed into it.
@@ -2026,7 +1936,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -2043,7 +1952,6 @@ error E3098: <fragment>:16:38: a promise of 'Integer' throwing 'TaskError' canno
 ```
 
 <!-- test: async-await.error.a-throwing-promise-given-to-a-map-of-plain-promises-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A map's `upsert` is an ordinary call, so the value's promise type is compared with the map's by the call's argument check, and a disagreement is the same E3098 a store reports: two promise types are one type only when their result and error are the same.
@@ -2059,7 +1967,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -2076,7 +1983,6 @@ error E3098: <fragment>:17:4: a promise of 'Integer' throwing 'TaskError' cannot
 ```
 
 <!-- test: async-await.error.a-throwing-promise-given-to-a-parameter-that-omits-its-error-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A call's argument is compared with the parameter's promise type by the same rule a store applies, so a promise that throws is not accepted by a parameter that names no error, and the refusal says what the argument is and what the parameter holds.
@@ -2090,7 +1996,6 @@ enum TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -2111,9 +2016,7 @@ error E3098: <fragment>:20:6: a promise of 'Integer' throwing 'TaskError' cannot
 ```
 
 <!-- test: async-await.error.a-promise-named-twice-in-a-call-through-a-function-type-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A promise has one owner, so a call through a function type may not name it at two positions when one of them hands it over.
 ```maxon
@@ -2124,13 +2027,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(pending mutable IntPromiseArray, a IntPromise, b IntPromise)
+typealias Sink = function(mutates IntPromiseArray, IntPromise, IntPromise)
 
 function park(mutates pending IntPromiseArray, a IntPromise, b IntPromise)
 	pending.push(b)
@@ -2154,10 +2055,8 @@ error E3102: <fragment>:20:19: use of moved value 'p': it is passed at two argum
 ```
 
 <!-- test: async-await.error.a-function-that-awaits-its-promise-does-not-convert-to-an-unqualified-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function that awaits its promise is judged against the shape it converts to even when a second file of the directory declares an unmarked function of its own, so the conversion door reads `take`'s own declaration.
 ```maxon
@@ -2167,13 +2066,11 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Plain = function(p IntPromise) returns Integer
+typealias Plain = function(IntPromise) returns Integer
 
 function take(p IntPromise) returns Integer
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -2200,7 +2097,6 @@ error E3210: <fragment>:22:16: function value for 'Plain' may wait (it awaits a 
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-through-self-to-a-storing-method-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A method that hands its parameter to a sibling through `self` takes it exactly when the sibling does.
 ```maxon
@@ -2209,7 +2105,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2247,7 +2142,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-a-method-of-another-value-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A call through some other value takes its argument exactly when the method that value dispatches to does.
 ```maxon
@@ -2256,7 +2150,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2294,7 +2187,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-an-aliased-generic-constructor-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic alias names the constructor of its base type, so handing a parameter to `PromiseBox.create` hands it to `Box.create`.
 ```maxon
@@ -2303,7 +2195,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2337,10 +2228,8 @@ true
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-a-function-typed-parameter-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A function-typed parameter takes the promise it is handed, so a function that forwards its own parameter to it takes it too.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2350,13 +2239,11 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Sink = function(pending mutable IntPromiseArray, p IntPromise)
+typealias Sink = function(mutates IntPromiseArray, IntPromise)
 
 function keep(mutates pending IntPromiseArray, p IntPromise)
 	pending.push(p)
@@ -2387,7 +2274,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-named-function-that-only-reads-its-promise-leaves-it-with-the-caller -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A function value of a function that only reads its promise parameter hands nothing over: the caller still owns the promise after the call and awaits it.
 ```maxon
@@ -2396,7 +2282,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2422,13 +2307,11 @@ end 'main'
 ```
 
 <!-- test: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-forwarder-first -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The forwarder and the function that stores the promise live in two files, and the whole program is closed over both whichever file the compiler reads first.
 ```maxon
 // --- file: forwarder.maxon
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2465,7 +2348,6 @@ end 'Cell'
 ```
 
 <!-- test: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-callee-first -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same two files, read in the other order.
 ```maxon
@@ -2484,7 +2366,6 @@ end 'Cell'
 
 // --- file: forwarder.maxon
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2508,7 +2389,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-through-a-conditional-expression-is-refused -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A conditional expression joins two promise values with no single slot to empty, so storing its result is refused rather than leaving one branch unaccounted for.
@@ -2518,7 +2398,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2549,7 +2428,6 @@ error E3141: <fragment>:19:4: a promise cannot be borrowed through 'p': it owns 
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-same-named-function-in-another-directory-is-handed-on -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Two directories may each export a function of one name; a forwarder that qualifies the call is judged by the function it names, and the other directory's function of that name is left out of the answer.
 ```maxon
@@ -2577,7 +2455,6 @@ end 'stash'
 
 // --- file: main.maxon
 function work() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
@@ -2603,7 +2480,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.propagate-type-mismatch -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2625,7 +2501,6 @@ enum BError implements Error
 end 'BError'
 
 function throwsA() returns Integer throws AError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw AError.alpha
 end 'throwsA'
@@ -2648,7 +2523,6 @@ error E3059: specs/async-await/async-await.error.propagate-type-mismatch.maxon:2
 ```
 
 <!-- test: async-await.error.propagate-type-mismatch-through-storage -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -2677,7 +2551,6 @@ union WrapError implements Error
 end 'WrapError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed
 end 'mayFail'
@@ -2702,7 +2575,6 @@ error E3059: specs/async-await/async-await.error.propagate-type-mismatch-through
 ```
 
 <!-- test: async-await.error.double-await -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2715,7 +2587,6 @@ Note the thunk does not throw. This is an OWNERSHIP bug, not an error-handling o
 `async` returning a managed `String` double-frees identically.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello world"
 end 'makeText'
@@ -2737,7 +2608,6 @@ error E3142: specs/async-await/async-await.error.double-await.maxon:10:17: this 
 ```
 
 <!-- test: async-await.error.double-await-in-loop -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2748,7 +2618,6 @@ every iteration. Reachability catches it: the await is reachable from itself wit
 through the `async` that would re-arm the binding.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello"
 end 'makeText'
@@ -2769,7 +2638,6 @@ error E3100: specs/async-await/async-await.error.double-await-in-loop.maxon:10:1
 ```
 
 <!-- test: async-await.linear.await-in-exclusive-branches -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two awaits of one promise in MUTUALLY EXCLUSIVE branches are each the only await on their own
@@ -2779,7 +2647,6 @@ reachability check does not, because neither await can reach the other.
 typealias Integer = int(i64.min to i64.max)
 
 function makeValue() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 21
 end 'makeValue'
@@ -2787,7 +2654,6 @@ end 'makeValue'
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	if flag 'branch'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -2804,7 +2670,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.double-await-through-alias -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2814,7 +2679,6 @@ thunk handed over once is released twice ("mm_decref: refcount underflow"). A ch
 NAME would compile this clean — one extra line would defeat the whole thing.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello world"
 end 'makeText'
@@ -2837,7 +2701,6 @@ error E3142: specs/async-await/async-await.error.double-await-through-alias.maxo
 ```
 
 <!-- test: async-await.error.double-await-through-alias-in-branch -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2848,7 +2711,6 @@ ids for one thread. The id that survives the re-tag — the thread's own — is 
 keys on.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello world"
 end 'makeText'
@@ -2856,7 +2718,6 @@ end 'makeText'
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeText()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	if not flag 'branch'
 		let q = p
@@ -2875,7 +2736,6 @@ error E3142: specs/async-await/async-await.error.double-await-through-alias-in-b
 ```
 
 <!-- test: async-await.error.double-await-alias-outlives-rebind -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2885,7 +2745,6 @@ when EVERY binding that awaits the thread has been reassigned. Here `q` still na
 thread when it is awaited, so that await is the second one, and it is refused.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello world"
 end 'makeText'
@@ -2913,7 +2772,6 @@ error E3142: specs/async-await/async-await.error.double-await-alias-outlives-reb
 ```
 
 <!-- test: async-await.linear.rearm-after-await -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Reassigning a promise binding RE-ARMS it: `p` now names a new green thread, so awaiting it again
@@ -2921,7 +2779,6 @@ is the first await of that thread, not a second await of the old one. This must 
 the linear check refuses a second await of one thread, not a second `await p` in the text.
 ```maxon
 function makeText() returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "hello"
 end 'makeText'
@@ -2948,7 +2805,6 @@ hellohello
 ```
 
 <!-- test: async-await.linear.await-aliased-loop-element -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The `for p in promises` idiom with an ALIAS inside the loop. Every iteration re-arms `p` — and
@@ -2964,7 +2820,6 @@ typealias StrPromise = Promise with String
 typealias StrPromiseArray = Array with StrPromise
 
 function makeText(i Idx) returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return "t{i}"
 end 'makeText'
@@ -2992,7 +2847,6 @@ t0 t1 t2
 ```
 
 <!-- test: async-await.linear.await-in-ternary-arms -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The two arms of a ternary are MUTUALLY EXCLUSIVE — only the selected arm is evaluated — so an
@@ -3004,7 +2858,6 @@ ONE block and reject a valid program. It reads the arms as the branches they are
 typealias Integer = int(i64.min to i64.max)
 
 function makeValue() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 21
 end 'makeValue'
@@ -3012,7 +2865,6 @@ end 'makeValue'
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else (await p)
@@ -3024,7 +2876,6 @@ end 'main'
 ```
 
 <!-- test: async-await.linear.await-aliased-in-ternary-arms -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same, through an ALIAS: `p` and `q` are one green thread under two names, and the two arms
@@ -3036,7 +2887,6 @@ double-free), and the arms must stay EXCLUSIVE (or unifying them would reject th
 typealias Integer = int(i64.min to i64.max)
 
 function makeValue() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 21
 end 'makeValue'
@@ -3045,7 +2895,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else (await q)
@@ -3057,7 +2906,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.double-await-after-ternary-arm -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3069,7 +2917,6 @@ reachability is what decides, and the arm reaches the tail.
 typealias Integer = int(i64.min to i64.max)
 
 function makeValue() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 21
 end 'makeValue'
@@ -3077,7 +2924,6 @@ end 'makeValue'
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else 0
@@ -3091,7 +2937,6 @@ error E3142: specs/async-await/async-await.error.double-await-after-ternary-arm.
 ```
 
 <!-- test: async-await.error.await-without-try -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -3110,7 +2955,6 @@ union TaskError implements Error
 end 'TaskError'
 
 function mayFail() returns Integer throws TaskError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	throw TaskError.crashed("boom")
 end 'mayFail'
@@ -3128,13 +2972,11 @@ error E3057: specs/async-await/async-await.error.await-without-try.maxon:15:11: 
 ```
 
 <!-- test: async-await.cancel -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function yieldingTask() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "nonexistent.txt") 'check'
 		return 1
 	end 'check'
@@ -3153,7 +2995,6 @@ end 'main'
 ```
 
 <!-- test: async-await.trace-yield -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
@@ -3163,7 +3004,6 @@ The trace output is deterministic for single-thread async: spawn, yield at I/O, 
 typealias Integer = int(i64.min to i64.max)
 
 function ioTask() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 42
 end 'ioTask'
@@ -3187,7 +3027,6 @@ await #1 [yield]
 ```
 
 <!-- test: async-await.promise-array -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -3198,7 +3037,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function compute(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'compute'
@@ -3224,7 +3062,6 @@ end 'main'
 ```
 
 <!-- test: async-await.promise-array-throwing -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `work` throws, so the storage type names what it throws: `Promise with (Integer, WorkError)`.
@@ -3243,7 +3080,6 @@ enum WorkError implements Error
 end 'WorkError'
 
 function work(n Integer) returns Integer throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed
@@ -3272,7 +3108,6 @@ end 'main'
 ```
 
 <!-- test: async-await.promise-array-throwing-assoc-value -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -3296,7 +3131,6 @@ union WorkError implements Error
 end 'WorkError'
 
 function work(n Integer) returns Integer throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("negative input")
@@ -3325,7 +3159,6 @@ end 'main'
 ```
 
 <!-- test: async-await.managed-args-many -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A regression guard for the spawn-site incref of managed (Struct/Enum)
@@ -3342,7 +3175,6 @@ typealias StrPromise = Promise with String
 typealias StrPromiseArray = Array with StrPromise
 
 function joinArgs(label String, args StringArray) returns String
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	var out = label
 	for a in args 'each'
@@ -3376,7 +3208,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async` NESTS: a green thread may itself spawn and await another. This is the
@@ -3391,7 +3222,6 @@ a core.
 typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'leaf'
@@ -3415,7 +3245,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-two-levels -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two levels of nesting: `main` awaits a thread that awaits a thread that awaits a
@@ -3426,7 +3255,6 @@ level rather than only at the innermost one.
 typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n + 1
 end 'leaf'
@@ -3457,7 +3285,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-in-expression -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A nested `await` used as an operand rather than bound to its own `let`, and two
@@ -3467,7 +3294,6 @@ scheduling.
 typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n * 2
 end 'leaf'
@@ -3493,7 +3319,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-spawn-then-await-late -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The nested thread is spawned EARLY and awaited LATE — the outer thread does its
@@ -3504,7 +3329,6 @@ loop or by a worker.
 typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return n
 end 'leaf'
@@ -3512,11 +3336,9 @@ end 'leaf'
 function outer() returns Integer
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async leaf(3)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async leaf(4)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p1) + (await p2)
@@ -3534,7 +3356,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-void -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A nested `async` on a void function: the inner thread's completion has no result
@@ -3543,7 +3364,6 @@ to publish, so the wakeup is the whole notification.
 typealias Integer = int(i64.min to i64.max)
 
 function setFlag(mutates flag Integer)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	flag = 1
 end 'setFlag'
@@ -3569,7 +3389,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-try-await -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `try await` inside an `async` function, on a nested throwing thread — the
@@ -3582,7 +3401,6 @@ enum TestError implements Error
 end 'TestError'
 
 function mayFail(succeed bool) returns Integer throws TestError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if succeed 'ok'
 		return 20
@@ -3646,7 +3464,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.drives-the-timer-heap -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `try await` of a coroutine that sleeps costs what an `await` of it costs. The two
@@ -3668,7 +3485,6 @@ enum LeafError implements Error
 end 'LeafError'
 
 function timedThrowing() returns Integer throws LeafError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "noyield.txt") 'present'
 		throw LeafError.failed
 	end 'present'
@@ -3677,7 +3493,6 @@ function timedThrowing() returns Integer throws LeafError
 end 'timedThrowing'
 
 function timedPlain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	sleep(10)
 	return 1
@@ -3731,7 +3546,6 @@ answered from, so the await's result type, the spawn's carried result tag and th
 agreement check cannot come to disagree about what the callee returns.
 
 <!-- test: async-await.managed-generic-result -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -3740,7 +3554,6 @@ enum DrainError implements Error
 end 'DrainError'
 
 function drainThunk() returns StringArray throws DrainError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "noyield.txt") 'present'
 		throw DrainError.broken
 	end 'present'
@@ -3778,7 +3591,6 @@ declared one compares a REPAIRED `claimed` (through `resolvedSlotType`) against 
 promise's function returns 'int'" — a sentence naming a type the program does not contain.
 
 <!-- test: async-await.managed-generic-result-through-promise-storage -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -3791,7 +3603,6 @@ typealias DrainPromise = Promise with (StringArray, DrainError)
 typealias DrainPromiseArray = Array with DrainPromise
 
 function drainThunk(n Integer) returns StringArray throws DrainError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'bad'
 		throw DrainError.broken
@@ -3839,7 +3650,6 @@ float alias, a function alias, a generic alias and a tuple alias — never a ran
 keeps the alias name available to every downstream range check.
 
 <!-- test: async-await.ranged-alias-result-control -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -3850,7 +3660,6 @@ enum DrainError implements Error
 end 'DrainError'
 
 function countThunk() returns Tally throws DrainError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "noyield.txt") 'present'
 		throw DrainError.broken
 	end 'present'
@@ -4345,7 +4154,6 @@ error E3004: <fragment>:8:11: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-captured-var-assigned-a-call-nothing-declares-is-undefined -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A cell-resident `var` assigned a call nothing declares reports the call and nothing at the closure's read.
 ```maxon
@@ -4358,7 +4166,6 @@ end 'fill'
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate"
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives word.byteLength()
 	word = nosuch(1)
 	print("{peek()} {word}\n")
@@ -4419,7 +4226,6 @@ error E3004: <fragment>:8:10: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.qualified-spawn-of-a-directory-types-static -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A static of a type declared in another directory is spawned by its qualified name, `sub.Calc.seven`, the
@@ -4428,7 +4234,6 @@ spelling a direct call accepts.
 // --- file: sub/calc.maxon
 export type Calc
 	export static function seven() returns Integer
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		_ = File.exists(FilePath from "noyield.txt")
 		return 7
 	end 'seven'
@@ -4448,14 +4253,12 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-of-a-nested-directory-free-function -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A free function two directories down is spawned through its whole qualifier, `outer.inner.six`.
 ```maxon
 // --- file: outer/inner/math.maxon
 export function six() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 6
 end 'six'
@@ -4474,7 +4277,6 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-namespace-free-call -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The ACCEPT case, and the one that proves the refusals above are a boundary rather than a blanket. A
@@ -4485,7 +4287,6 @@ has exactly what it needs: a linked address and no receiver.
 export typealias Tally = int(0 to 125)
 
 export function bump(v Tally) returns Tally
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return v + 1
 end 'bump'
@@ -4935,7 +4736,6 @@ filled 2 padded out long enough to heap allocate!
 
 <!-- test: async-await.a-var-reassigned-after-a-closure-captured-it-is-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure owns the value it captured, so the `var` reassigned afterwards holds a new value of its own, and the
 coroutine shares that value while the closure goes on reading the first.
 ```maxon
@@ -4949,7 +4749,6 @@ end 'shout'
 
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {0}"
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives word.byteLength()
 	word = "second padded out long enough to heap allocate {1}"
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -4965,7 +4764,6 @@ second padded out long enough to heap allocate 1!
 
 <!-- test: async-await.error.a-cell-resident-var-a-closure-only-reads-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -4995,7 +4793,6 @@ function main() returns ExitCode
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives word.byteLength()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5009,8 +4806,6 @@ error E3102: <fragment>:22:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5020,7 +4815,6 @@ The outer closure reads `word` after a nested closure has ended, so it still cap
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function run(thunk Thunk) returns Integer
@@ -5047,7 +4841,6 @@ function main() returns ExitCode
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives run(function() gives 0) + (word.byteLength() as Integer)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5061,8 +4854,6 @@ error E3102: <fragment>:27:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-across-lines-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5072,7 +4863,6 @@ The nested closure's body ends at its own line break, and the outer closure's bo
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 function run(thunk Thunk) returns Integer
@@ -5099,7 +4889,6 @@ function main() returns ExitCode
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	var (word, _) = opening()
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives [run(function() gives 0), word.byteLength() as Integer]
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5114,7 +4903,6 @@ error E3102: <fragment>:30:22: use of moved value 'word': its ownership moved to
 <!-- test: async-await.a-let-whose-clone-a-closure-captured-is-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 The closure owns the clone it captured, so `b` is shared with the coroutine and `peek` still reads its own record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5135,7 +4923,6 @@ end 'readIt'
 function main() returns ExitCode
 	let b = Box.create()
 	let kept = b.clone()
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives kept.n
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async readIt(b)
@@ -5151,7 +4938,6 @@ end 'main'
 <!-- test: async-await.a-var-whose-clone-a-closure-captured-is-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5182,7 +4968,6 @@ function main() returns ExitCode
 	// TODO: tuple destructuring declarations are not supported in minimaxon
 	let (b, _) = boxed()
 	let kept = b.clone()
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives kept.n
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async readIt(b)
@@ -5508,7 +5293,6 @@ error E3207: <fragment>:20:27: 'poke' writes 'p' (line 14: `p.n = 99`); 'b' is i
 
 <!-- test: async-await.error.a-closure-body-spanning-lines-takes-a-cell-resident-string -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The closure's body continues onto a second line inside an array literal, and still captures `word`, so handing
@@ -5540,7 +5324,6 @@ end 'fill'
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives total([1, word.byteLength() as Integer])
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5593,7 +5376,6 @@ end 'main'
 <!-- test: async-await.a-value-a-closure-holds-a-field-of-is-shared-with-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 `inner` is a field of `b`; the closure holds a reference of its own to it, so `b` is shared with the coroutine.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5622,7 +5404,6 @@ end 'consume'
 function main() returns ExitCode
 	let b = Outer.create()
 	let inner = b.inner
-	// TODO: closures are not supported in minimaxon
 	let peek = function() gives inner.n
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async consume(b)
@@ -5812,7 +5593,6 @@ error E3186: <fragment>:17:36: argument 'word' is read by another operand of thi
 ```
 
 <!-- test: async-await.storage.a-record-result-with-a-thrown-error-releases-both -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -5839,7 +5619,6 @@ typealias BoxPromise = Promise with (Box, WorkError)
 typealias BoxPromiseArray = Array with BoxPromise
 
 function work(n Integer) returns Box throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("negative input")
@@ -5881,7 +5660,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.storage.a-record-holding-an-array-with-a-thrown-error-releases-both -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -5911,7 +5689,6 @@ typealias BatchPromise = Promise with (Batch, WorkError)
 typealias BatchPromiseArray = Array with BatchPromise
 
 function work(n Integer) returns Batch throws WorkError
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	if n < 0 'neg'
 		throw WorkError.failed("negative input")

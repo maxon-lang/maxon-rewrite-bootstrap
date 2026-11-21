@@ -17,7 +17,6 @@ it writes, keeps or returns is marked, and a function type never waits or yields
 ## Tests
 
 <!-- test: a-function-value-keeping-its-parameter-in-a-container-does-not-convert-to-a-plain-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 `stash` pushes `thing` into the shelf it was handed, so it keeps `thing`. `Stasher` declares nothing about its
 second parameter, so a caller holding that argument read-only would have it written through.
@@ -47,8 +46,7 @@ type Shelf
 	end 'count'
 end 'Shelf'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Stasher = function(mutable Shelf, Thing)
+typealias Stasher = function(mutates Shelf, Thing)
 
 function stash(mutates shelf Shelf, thing Thing)
 	shelf.things.push(thing)
@@ -69,7 +67,6 @@ error E3210: <fragment>:38:8: function value for 'Stasher' writes its parameter 
 ```
 
 <!-- test: a-function-value-keeping-its-parameter-in-a-container-converts-to-a-function-type-that-declares-it -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The accepted twin: `Stasher` declares the second parameter `mutable` and `stash` declares the same marker.
 
 ```maxon
@@ -97,11 +94,10 @@ type Shelf
 	end 'count'
 end 'Shelf'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Stasher = function(mutable Shelf, mutable Thing)
+typealias Stasher = function(mutates Shelf, mutates Thing)
 
 function stash(mutates shelf Shelf, mutates thing Thing)
-	shelf.things.push(thing)
+	shelf.things.push(thing.clone())
 end 'stash'
 
 function apply(stasher Stasher, mutates shelf Shelf, mutates thing Thing)
@@ -109,10 +105,10 @@ function apply(stasher Stasher, mutates shelf Shelf, mutates thing Thing)
 end 'apply'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
-	let thing = Thing.create(1)
+	var shelf = Shelf.create()
+	var thing = Thing.create(1)
 	apply(stash, shelf: shelf, thing: thing)
-	return shelf.count() as ExitCode
+	return try shelf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -589,8 +585,6 @@ end 'main'
 ```
 
 <!-- test: a-function-value-returning-its-read-only-parameter-does-not-convert-to-a-plain-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 `same` returns data reached from its read-only parameter, and a function type promises nothing about what its
 result shares with its argument.
 
@@ -607,7 +601,6 @@ type Key
 	end 'length'
 end 'Key'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias KeyOf = function(Key) returns Key
 
 function same(key Key) returns Key
@@ -628,7 +621,6 @@ error E3210: <fragment>:26:15: function value for 'KeyOf' returns data reached f
 ```
 
 <!-- test: a-function-value-returning-a-clone-of-its-parameter-converts-to-a-plain-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The `clone()` cure: the result shares nothing with the argument.
 
 ```maxon
@@ -636,7 +628,7 @@ type Key
 	var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 
 	function length() returns Count
@@ -644,7 +636,6 @@ type Key
 	end 'length'
 end 'Key'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias KeyOf = function(Key) returns Key
 
 function same(key Key) returns Key
@@ -657,7 +648,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return apply(same, key: key).length() as ExitCode
+	return try apply(same, key: key).length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -665,7 +656,6 @@ end 'main'
 ```
 
 <!-- test: a-function-value-throwing-its-parameter-in-a-payload-does-not-convert-to-a-plain-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 A thrown payload stores its argument, so `find` keeps `key`, and `lookup`, which hands `key` to it, keeps `key` too.
@@ -684,7 +674,6 @@ union Missing implements Error
 	absent(key Key)
 end 'Missing'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Lookup = function(Key) returns Count
 
 function find(key Key) returns Count throws Missing
@@ -712,7 +701,6 @@ error E3210: <fragment>:33:15: function value for 'Lookup' writes its parameter 
 ```
 
 <!-- test: a-function-value-throwing-a-clone-of-its-parameter-converts-to-a-plain-function-type -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `clone()` cure: the payload holds a copy.
 
@@ -730,7 +718,6 @@ union Missing implements Error
 	absent(key Key)
 end 'Missing'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Lookup = function(Key) returns Count
 
 function find(key Key) returns Count throws Missing
@@ -759,7 +746,6 @@ end 'main'
 
 <!-- test: a-function-value-that-awaits-a-service-does-not-convert-to-a-plain-function-type -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `viaService` calls `ask`, which awaits a reply, so it may wait; a function type never waits or yields.
@@ -789,7 +775,6 @@ function viaService(doubler Doubler.handle) returns Tally
 	return ask(doubler, n: 3)
 end 'viaService'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Doubler.handle) returns Tally
 
 function apply(step Step, doubler Doubler.handle) returns Tally
@@ -850,7 +835,6 @@ error E3005: <fragment>:6:2: Cannot return '((int, Int), Int)' from function dec
 ```
 
 <!-- test: function-value-call-keeps-its-argument-in-a-let-field-through-a-mutable-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The conversion rule is met (`Maker` and `shelve` both declare the parameter `mutable`), so the call through
 `build` keeps `v` in a `let` field and `v` is read again afterwards: the `let` field and `v` name one array.
 
@@ -863,12 +847,11 @@ type Shelf
 	export let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Shelf'
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Maker = function(mutable IntArray) returns Shelf
+typealias Maker = function(mutates IntArray) returns Shelf
 
 function shelve(mutates d IntArray) returns Shelf
 	return Shelf.create(d)
@@ -879,11 +862,11 @@ function build(m Maker, mutates d IntArray) returns Shelf
 end 'build'
 
 function main() returns ExitCode
-	let v = IntArray.create(0)
+	var v = IntArray.create(0)
 	v.push(1)
 	let shelf = build(shelve, d: v)
 	v.push(2)
-	return shelf.items.count() as ExitCode
+	return try shelf.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

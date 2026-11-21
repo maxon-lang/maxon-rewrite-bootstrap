@@ -784,15 +784,13 @@ error E3005: app/<fragment>:24:8: argument type mismatch for 'n': expected 'Wide
 ```
 
 <!-- test: a-function-type-cannot-name-a-type-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A function type is a typealias, and a typealias names no type parameter, so no function value has a `T` formal for a `Narrow` variable to be handed to.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable T)
+typealias Step = function(mutates T)
 
 function widen(mutates n Wide)
 	n = 50
@@ -815,7 +813,6 @@ error E3011: <fragment>:4:35: Unknown type 'T'
 
 <!-- test: a-generic-function-is-not-a-function-value -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic function has no single formal for a function value to carry, so it cannot be passed where a `mutable Wide` function is expected.
 
@@ -825,8 +822,7 @@ typealias Wide = int(0 to 100)
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Narrow = int(0 to 10) implements Wide
 
-// TODO: function typealiases are not supported in minimaxon
-typealias Step = function(mutable Wide)
+typealias Step = function(mutates Wide)
 
 function widen(mutates n Wide)
 	n = 50

@@ -1070,7 +1070,6 @@ Verify that a file probe and an HTTP connect, parked on different kinds of I/O a
 interleaved, and that the request's failure still reaches `try await`.
 
 <!-- test: http-client.async-trace-interleave -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
@@ -1106,7 +1105,6 @@ function doHttp(port NetworkPort) returns ExitCode throws HttpError
 end 'doHttp'
 
 function doFileIo() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let exists = File.exists(FilePath from "no_such_file.txt")
 	if exists 'found'
 		return 1

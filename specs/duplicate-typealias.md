@@ -102,14 +102,11 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-different-shape -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The headline case for the FUNCTION form: two files each declare an unmarked `Step`, over shapes that have nothing in common. Each file's functions take their own file's `Step`, and neither call sees the other's shape.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally, Tally) returns Tally
 
 function foldA(start Tally, step Step) returns Tally
@@ -117,12 +114,10 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function runA() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return foldA(1, step: function(acc, more) gives acc + more) as ExitCode
 end 'runA'
 
 // --- file: b/b.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(String) returns String
 
 function foldB(label String, step Step) returns String
@@ -130,7 +125,6 @@ function foldB(label String, step Step) returns String
 end 'foldB'
 
 export function runB(label String) returns String
-	// TODO: closures are not supported in minimaxon
 	return foldB(label, step: function(text) gives "{text}!")
 end 'runB'
 
@@ -150,14 +144,11 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-same-shape -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Two files that AGREE about the shape still declare two types, because an alias's identity is its declaration. Nothing crosses here — each file's door takes its own `Step` — so the program runs.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally, Tally) returns Tally
 
 function foldA(start Tally, step Step) returns Tally
@@ -165,14 +156,12 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function runA() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return foldA(1, step: function(acc, more) gives acc + more) as ExitCode
 end 'runA'
 
 // --- file: b/b.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally, Tally) returns Tally
 
 function foldB(start Tally, step Step) returns Tally
@@ -180,7 +169,6 @@ function foldB(start Tally, step Step) returns Tally
 end 'foldB'
 
 export function runB() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return foldB(1, step: function(acc, more) gives acc * more) as ExitCode
 end 'runB'
 
@@ -196,8 +184,6 @@ end 'main'
 ```
 
 <!-- test: error.two-file-private-function-aliases-of-one-shape-are-two-types -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The same two agreeing declarations, and this time a value would have to cross. `Holder.op` is `pkg/lib.maxon`'s `Step` because that is where the field is written, and an exported field cannot be typed by an unmarked alias, so the field is refused (E3167) and the value read from it is refused at `app/main.maxon`'s own `Step` parameter (E3005), because the two are two types.
@@ -205,20 +191,17 @@ The same two agreeing declarations, and this time a value would have to cross. `
 // --- file: pkg/lib.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Integer) returns Integer
 
 export type Holder
 	export var op as Step
 
 	export static function make() returns Holder
-		// TODO: closures are not supported in minimaxon
 		return Holder{op: function(n Integer) gives n + 1}
 	end 'make'
 end 'Holder'
 
 // --- file: app/main.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Integer) returns Integer
 
 function apply(step Step) returns Integer
@@ -369,21 +352,17 @@ error E3005: <fragment>:17:9: argument type mismatch for 's': expected 'Small' (
 ```
 
 <!-- test: non-exported-same-name-function-alias-inside-a-generic-instance -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The contested `Step` reaches an `Array` ELEMENT. Each file's `Steps` is an array of that file's shape, so the two instances are distinct and neither array can be handed the other's closure.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally, Tally) returns Tally
 
 typealias Steps = Array with Step
 
 function runA(start Tally) returns Tally
 	let steps = Steps.create(0)
-	// TODO: closures are not supported in minimaxon
 	steps.push(function(acc Tally, more Tally) gives acc + more)
 	let step = try steps.get(0) otherwise panic("no step")
 	return step(start, 3)
@@ -394,14 +373,12 @@ export function goA() returns ExitCode
 end 'goA'
 
 // --- file: b/b.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(String) returns String
 
 typealias Steps = Array with Step
 
 export function runB(label String) returns String
 	let steps = Steps.create(0)
-	// TODO: closures are not supported in minimaxon
 	steps.push(function(text String) gives "{text}!")
 	let step = try steps.get(0) otherwise panic("no step")
 	return step(label)
@@ -423,22 +400,17 @@ end 'main'
 ```
 
 <!-- test: error.a-contested-function-alias-is-named-by-its-source-spelling -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A refusal between two aliases quotes the names the AUTHOR wrote. `Step` is contested and so is carried internally under a per-file spelling, and none of that spelling may reach the message: a diagnostic naming a type the program does not contain is unsearchable.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally, Tally) returns Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Other = function(Tally, Tally) returns Tally
 
 function pick() returns Step
-	// TODO: closures are not supported in minimaxon
 	return function(acc Tally, more Tally) gives acc + more
 end 'pick'
 
@@ -452,7 +424,6 @@ export function goA() returns ExitCode
 end 'goA'
 
 // --- file: b/b.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(String) returns String
 
 function runB(label String, step Step) returns String
@@ -460,7 +431,6 @@ function runB(label String, step Step) returns String
 end 'runB'
 
 export function goB(label String) returns String
-	// TODO: closures are not supported in minimaxon
 	return runB(label, step: function(text) gives "{text}!")
 end 'goB'
 
@@ -477,14 +447,11 @@ error E3005: a/<fragment>:17:9: argument type mismatch for 'f': expected 'Other'
 ```
 
 <!-- test: non-exported-same-name-function-alias-over-same-spelled-slots -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 Both files spell `Step` identically — `function(Tally) returns Tally` — over their own `Tally`, which ranges differently. Each file's `Step` is its own declaration, and each file's closure is checked against its own file's `Tally`.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function foldA(start Tally, step Step) returns Tally
@@ -492,14 +459,12 @@ function foldA(start Tally, step Step) returns Tally
 end 'foldA'
 
 export function goA() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return foldA(7, step: function(n) gives n + 1) as ExitCode
 end 'goA'
 
 // --- file: b/b.maxon
 typealias Tally = int(0 to 5)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function foldB(start Tally, step Step) returns Tally
@@ -507,7 +472,6 @@ function foldB(start Tally, step Step) returns Tally
 end 'foldB'
 
 export function goB() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return foldB(2, step: function(n) gives n * 2) as ExitCode
 end 'goB'
 
@@ -527,45 +491,35 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-nested-in-another-alias -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 An alias in a SLOT of another: `Outer` takes a `Step`, and each file's `Outer` is built over that file's own `Step`, so neither file's `Outer` accepts the other file's closure.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Outer = function(Step) returns Tally
 
 function applyA(outer Outer) returns Tally
-	// TODO: closures are not supported in minimaxon
 	return outer(function(n Tally) gives n + 1)
 end 'applyA'
 
 export function goA() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return applyA(function(step) gives step(7)) as ExitCode
 end 'goA'
 
 // --- file: b/b.maxon
 typealias Tally = int(0 to 5)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Outer = function(Step) returns Tally
 
 function applyB(outer Outer) returns Tally
-	// TODO: closures are not supported in minimaxon
 	return outer(function(n Tally) gives n * 2)
 end 'applyB'
 
 export function goB() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	return applyB(function(step) gives step(2)) as ExitCode
 end 'goB'
 
@@ -585,14 +539,11 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-as-a-field-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A struct FIELD declared with a contested alias is the fourth place a name is read, beside a parameter, a return type and a local annotation. `Holder.op` is `a.maxon`'s `Step` because `a.maxon` is where the field is written.
 ```maxon
 // --- file: a/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 export type Holder
@@ -603,7 +554,6 @@ export type Holder
 	end 'create'
 
 	export static function incrementing() returns Holder
-		// TODO: closures are not supported in minimaxon
 		return Holder.create(function(n Tally) gives n + 1)
 	end 'incrementing'
 
@@ -613,7 +563,6 @@ export type Holder
 end 'Holder'
 
 // --- file: b/b.maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(String) returns String
 
 function foldB(label String, step Step) returns String
@@ -621,7 +570,6 @@ function foldB(label String, step Step) returns String
 end 'foldB'
 
 export function goB(label String) returns String
-	// TODO: closures are not supported in minimaxon
 	return foldB(label, step: function(text) gives "{text}!")
 end 'goB'
 
@@ -642,19 +590,14 @@ end 'main'
 ```
 
 <!-- test: a-private-function-alias-beside-a-visible-export-is-its-own-files-bare-name -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'function' -->
 `alpha/a.maxon` declares an unmarked `Step` and sees `beta/b.maxon`'s exported `Step`: the declaring file's own directory decides, so its bare `Step` is its unmarked alias, over `Tally`. `main.maxon` reads neither bare; it hands `foldB` a closure over `beta`'s `Step`.
 ```maxon
 // --- file: alpha/a.maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 function pick() returns Step
-	// TODO: closures are not supported in minimaxon
 	return function(n Tally) gives n + 1
 end 'pick'
 
@@ -664,7 +607,6 @@ export function goA() returns ExitCode
 end 'goA'
 
 // --- file: beta/b.maxon
-// TODO: function typealiases are not supported in minimaxon
 export typealias Step = function(String) returns String
 
 export function foldB(label String, step Step) returns String
@@ -685,7 +627,6 @@ go!
 ```
 
 <!-- test: non-exported-same-name-function-alias-over-a-tuple-slot -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A TUPLE alias in the slot. The two `Pair`s differ in element ORDER, which survives canonicalisation, so the two `Step`s are two shapes and each closure destructures its own file's pair.
@@ -696,7 +637,6 @@ typealias Tally = int(0 to 1000)
 // TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (Tally, String)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Pair) returns Tally
 
 function foldA(step Step) returns Tally
@@ -714,7 +654,6 @@ typealias Tally = int(0 to 5)
 // TODO: tuple typealiases are not supported in minimaxon
 typealias Pair = (String, Tally)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Pair) returns Tally
 
 function foldB(step Step) returns Tally
@@ -740,7 +679,6 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-over-a-generic-instance-slot -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A GENERIC-INSTANCE alias in the slot, contested one level down: both files write `Array with Tally` and mean two element ranges, so `Tallies` is two instances and `Step` is two shapes.
 ```maxon
 // --- file: a/a.maxon
@@ -748,7 +686,6 @@ typealias Tally = int(0 to 1000)
 
 typealias Tallies = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tallies) returns Tally
 
 function foldA(step Step) returns Tally
@@ -766,7 +703,6 @@ typealias Tally = int(0 to 5)
 
 typealias Tallies = Array with Tally
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tallies) returns Tally
 
 function foldB(step Step) returns Tally
@@ -823,7 +759,6 @@ end 'main'
 ```
 
 <!-- test: non-exported-same-name-function-alias-over-generic-slots-of-two-bases -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The two `Tallies` share an element and differ in their BASE — `Array` against `List` — so the shape key must carry the base name as well as the arguments.
 ```maxon
 // --- file: a/a.maxon
@@ -831,7 +766,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Tallies = Array with Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tallies) returns Integer
 
 function foldA(step Step) returns Integer
@@ -849,7 +783,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Tallies = List with Integer
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tallies) returns Integer
 
 function foldB(step Step) returns Integer

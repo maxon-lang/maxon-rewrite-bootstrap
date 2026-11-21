@@ -393,7 +393,6 @@ from the name withholds the method from `Packed`.
 <!-- test: conditional-extensions.binding-over-an-alias-two-files-declare -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 // --- file: holder/holder.maxon
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -474,7 +473,6 @@ type `other` as an array of strings.
 <!-- test: conditional-extensions.associated-type-in-an-extension-body-over-an-alias-two-files-declare -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 // --- file: holder/holder.maxon
 typealias Bag = Array with String

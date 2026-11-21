@@ -574,13 +574,13 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let combine = pair
 	let r = combine(4, 2)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

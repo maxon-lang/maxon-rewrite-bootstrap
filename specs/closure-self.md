@@ -25,15 +25,12 @@ end 'Counter'
 ## Tests
 
 <!-- test: bare-self-field -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### Closure body reads self.field
 A closure inside an instance method captures `self` and reads a field through it. The compiler must accept the reference and emit a working env-load.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -48,14 +45,13 @@ type Holder
 	end 'create'
 
 	function readViaClosure() returns Integer
-		// TODO: closures are not supported in minimaxon
 		return apply(function(_ Integer) gives self.value, x: 0)
 	end 'readViaClosure'
 end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(7)
-	return h.readViaClosure()
+	return try h.readViaClosure() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -63,15 +59,12 @@ end 'main'
 ```
 
 <!-- test: self-method-call-in-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### Closure body calls self.method
 A closure may invoke an instance method on the captured `self`. This proves the captured value is a usable struct receiver, not just a field-load source.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -86,18 +79,17 @@ type Doubler
 	end 'create'
 
 	function doubled() returns Integer
-		return self.base + self.base
+		return try self.base + self.base otherwise panic("out of range")
 	end 'doubled'
 
 	function run() returns Integer
-		// TODO: closures are not supported in minimaxon
 		return apply(function(_ Integer) gives self.doubled(), x: 0)
 	end 'run'
 end 'Doubler'
 
 function main() returns ExitCode
 	let d = Doubler.create(5)
-	return d.run()
+	return try d.run() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -105,15 +97,12 @@ end 'main'
 ```
 
 <!-- test: bare-self-field-name-in-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### Closure body reads a self-field by bare name
 Inside an instance method, a field may be referenced by its bare name (the compiler implicitly prepends `self`). This must keep working inside a closure body: the bare name resolves to a field read on the captured `self`, identical to the explicit `self.field` form. This is the shape the compiler's own logging closures use (`function() gives "...{field}..."`).
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function() returns Integer
 
 function callIt(f FnTypeAlias1) returns Integer
@@ -130,7 +119,6 @@ type Widget
 
 	function compute() returns Integer
 		// `n` and `bump` are bare self-field names captured through `self`.
-		// TODO: closures are not supported in minimaxon
 		return callIt(function() gives n + bump)
 	end 'compute'
 end 'Widget'
@@ -145,13 +133,10 @@ end 'main'
 ```
 
 <!-- test: error-self-in-free-function-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `self` in a free-function closure errors
 `self` capture is enabled only when the enclosing function actually has `self`. A closure inside a free function is rejected with E2001.
 ```maxon
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives self
 	return 0
 end 'main'

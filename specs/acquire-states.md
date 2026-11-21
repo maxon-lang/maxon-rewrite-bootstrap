@@ -1223,7 +1223,6 @@ error E3197: <fragment>:48:4: cannot write 'total' through 's', which is read-on
 
 <!-- test: inside-a-window-another-state-cannot-be-captured -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1281,7 +1280,6 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
-			// TODO: closures are not supported in minimaxon
 			let read = function() gives t.total
 			s.total = read()
 		end 'edit'
@@ -1306,7 +1304,6 @@ error E3202: <fragment>:48:32: 't' is the state of an acquired service and canno
 
 <!-- test: a-closed-state-cannot-be-captured -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1361,7 +1358,6 @@ end 'Ledger'
 function work(s Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'held'
-		// TODO: closures are not supported in minimaxon
 		let read = function() gives s.total
 		s.cell.n = 5
 		return read()

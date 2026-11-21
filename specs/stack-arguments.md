@@ -108,26 +108,24 @@ end 'main'
 ```
 
 <!-- test: a-function-typed-parameter-costs-two-argument-slots -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A `function`-typed parameter carries a hidden environment argument under the uniform closure ABI, so
 six written parameters can already need seven slots. The count the ABI uses is the one that decides
 which arguments go on the stack.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-typealias IntFn = function(x Integer) returns Integer
+typealias IntFn = function(Integer) returns Integer
 
 function twice(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'twice'
 
 function apply(fn IntFn, a Integer, b Integer, c Integer, d Integer, e Integer) returns Integer
-	return fn(a) + b + c + d + e
+	return try fn(a) + b + c + d + e otherwise panic("out of range")
 end 'apply'
 
 function main() returns ExitCode
-	return apply(twice, a: 10, b: 1, c: 2, d: 4, e: 8)
+	return try apply(twice, a: 10, b: 1, c: 2, d: 4, e: 8) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -535,7 +535,6 @@ x
 ```
 
 <!-- test: a-global-built-through-a-constraint-reads-a-global-declared-later -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 ### A global whose initializer dispatches through a `where` constraint settles after the global that dispatch reads
 
 `first` is built by `Holder from "alpha"`, whose `init` builds a `Box with K` and calls `key()` on its element
@@ -554,7 +553,7 @@ type Word implements InitableFromStringLiteral
 	export var text as String
 
 	static function init(value String) returns Self
-		return Self{text: value}
+		return Self{text: value.clone()}
 	end 'init'
 end 'Word'
 
@@ -562,7 +561,7 @@ type K implements Keyed
 	export var tag as String
 
 	static function create(tag String) returns Self
-		return Self{tag: tag}
+		return Self{tag: tag.clone()}
 	end 'create'
 
 	function key() returns String
@@ -573,7 +572,7 @@ end 'K'
 type Box uses T where T implements Keyed
 	let item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -593,10 +592,8 @@ type Holder implements InitableFromStringLiteral
 	end 'init'
 end 'Holder'
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let first = Holder from "alpha"
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let second = Word from "tail"
 
 function main() returns ExitCode

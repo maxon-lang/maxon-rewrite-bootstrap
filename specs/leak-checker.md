@@ -212,8 +212,6 @@ end 'main'
 ```
 
 <!-- test: no-leak.closure-returns-managed -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ### Function-value (closure) results are freed at last use
 A function-value call whose result is a heap-allocated `String` (built inside the
 closure body from a captured value) must have that result released at its last
@@ -222,7 +220,6 @@ fix, `lowerIndirectCall` never classified the result, so every closure-returned
 String leaked; the compiler's own `logInfo`/`logDebug`/`logTrace` `function() gives
 "..."` message thunks were the dominant offenders.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias LazyMessage = function() returns String
 
 function callThunk(message LazyMessage)
@@ -232,7 +229,6 @@ end 'callThunk'
 
 function main() returns ExitCode
 	let captured = "captured payload long enough to require a real heap allocation"
-	// TODO: closures are not supported in minimaxon
 	callThunk(function() gives "thunk: {captured}")
 	return 0
 end 'main'

@@ -645,8 +645,6 @@ error E3187: <fragment>:27:11: 'Holder.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-operand-through-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The closure captures `other` and the call inside it writes `other`'s record.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -664,7 +662,6 @@ type Tagged
 	end 'clear'
 
 	function equals(other Self) returns bool
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives other.clear()
 		let r = f()
 		return r == 0
@@ -682,8 +679,6 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-receiver-through-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -700,7 +695,6 @@ type Tagged
 	end 'clear'
 
 	function equals(other Self) returns bool
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives self.clear()
 		let r = f()
 		return r == other.tag

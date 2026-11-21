@@ -144,7 +144,6 @@ the pure face agrees: true
 ```
 
 <!-- test: two-seeds-give-two-digests -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Two seeds drawn with `HashSeed.random()` give two different empty states and two different digests of every
 message, the empty one included. Two 64-bit draws make an equal pair a chance of about 2^-64, so an equal
 pair is a seed that did not reach the fold.
@@ -221,7 +220,6 @@ same digest: true
 ```
 
 <!-- test: the-fold-separates-the-parts -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Each step's state is the seed of the next, so the boundary between two steps is part of what is hashed:
 `"ab"` then `"c"`, `"a"` then `"bc"` and `"abc"` are three different folds under one `HashSeed`, through
 both faces of `KeyedHasher`. A fold over a flat byte stream reaches one digest for all three.
@@ -271,7 +269,6 @@ pure ab-c/a-bc: true
 ```
 
 <!-- test: one-bit-avalanches -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Flipping one bit of the input moves about half of the 64 output bits of a `KeyedHasher` fold under one
 `HashSeed.random()`. For every length on either side of
 the hash's block boundaries, each bit of each byte is flipped in turn: the digests differ by at least 16
@@ -752,7 +749,6 @@ created is not the seed's high half: true
 ```
 
 <!-- test: a-fold-with-no-steps-is-not-its-seed -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A seed is not recoverable from the fold that starts at it. For the seed 8 fixed bytes spell, the empty
 state `KeyedHasher.empty(seed)` and the state of a hasher that has folded nothing, `KeyedHasher.create(seed).finalize()`,
 are both different from the little-endian word those bytes spell, which is what a fold that returned
@@ -1196,7 +1192,6 @@ all tiers keep the state: true
 ```
 
 <!-- test: the-software-tier-has-no-seed-independent-collision -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: wasm32-wasi -->
 No message may cancel the state the software tier has folded so far. The software tier keys each 16-byte
 pair's first word with a public constant before the multiply-and-fold, so a word equal to that constant
@@ -1937,7 +1932,6 @@ no two draws repeat a seed: true
 ```
 
 <!-- test: a-pinned-draw-is-not-the-pin -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 A pin fixes the sequence of draws, and no draw is the pin itself, on every lane, `wasm32-wasi` included. Under the
 pin `0123456789abcdef`, whose 8 bytes `01 23 45 67 89 AB CD EF` are the process seed, two draws differ from each

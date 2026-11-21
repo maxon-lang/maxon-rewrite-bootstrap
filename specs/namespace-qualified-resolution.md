@@ -225,6 +225,7 @@ end 'main'
 
 <!-- test: keyword-named-directory-segment-resolves-in-both-positions -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'from' -->
 A namespace segment whose name is a KEYWORD (`lib/from/`). A directory name is a FILESYSTEM name and owes
 the grammar nothing, so the two positions that walk a dotted chain — the call door and the type door —
 must admit the same segments. A type door that refused `5 as lib.from.Score` with
@@ -2128,7 +2129,6 @@ after
 
 
 <!-- test: contested-free-function-root-declaration-does-not-inherit-always-throwing -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 The same holds for "always throws": the root `pick` returns normally, so a propagating `try pick()` is
 followed by the next statement.
 ```maxon
@@ -2148,7 +2148,6 @@ public enum Oops implements Error
 end 'Oops'
 
 function pick() throws Oops
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	if File.exists(FilePath from "pick-fails.txt") 'present'
 		throw Oops.bad
 	end 'present'
@@ -2677,7 +2676,6 @@ sum=2:3:4:9:9
 ```
 
 <!-- test: error.two-directories-function-aliases-of-one-shape-do-not-interchange -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 **A DIRECTORY-QUALIFIED FUNCTION ALIAS IS A BRAND.** `api.Score` and `legacy.Score` are file-scope
@@ -2689,12 +2687,10 @@ these are writable.
 // --- file: api/types.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 // --- file: legacy/types.maxon
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 // --- file: app/main.maxon
 function addOne(n Integer) returns Integer
@@ -3255,7 +3251,6 @@ end 'main'
 ```
 
 <!-- test: a-local-named-like-a-qualified-type-segment-leaves-an-async-static -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A spawn reads its chain as a direct call does: `async sub.Calc.seven()` spawns the directory type's static past
@@ -3264,7 +3259,6 @@ a local named `Calc`, and the bare `Calc` reads the local (7 + 3 - 3).
 // --- file: sub/calc.maxon
 export type Calc
 	export static function seven() returns ExitCode
-		// TODO: 'Type from value' conversions are not supported in minimaxon
 		_ = File.exists(FilePath from "noyield.txt")
 		return 7
 	end 'seven'
@@ -3284,7 +3278,6 @@ end 'main'
 ```
 
 <!-- test: a-global-named-like-a-qualified-type-segment-leaves-a-static-field -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A managed top-level binding named like the chain's second segment binds nothing the chain reads:
 `sub.Calc.n` is the directory type's static field, and the global is read only as a whole value

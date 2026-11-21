@@ -1931,7 +1931,6 @@ error E3214: <fragment>:31:36: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: a-closure-capturing-the-matched-unique-union-in-its-arm-is-refused -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure made in the arm captures `slot`, which moves it into the closure.
 ```maxon
@@ -1957,7 +1956,6 @@ function peek(slot Slot) returns Tally
 	end 'which'
 end 'peek'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Probe = function() returns Tally
 
 function run(f Probe) returns Tally
@@ -4080,8 +4078,6 @@ error E3214: <fragment>:19:13: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-unique-operand-a-later-operand-moves-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -4090,7 +4086,6 @@ A later argument that moves a unique value an earlier one already passed — thr
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Reader = function() returns Num
 
 type Tk is noncopyable
@@ -4157,7 +4152,6 @@ end 'condBesideKept'
 
 function captured() returns Num
 	let q = Tk.create(1)
-	// TODO: closures are not supported in minimaxon
 	return run(q, f: function() gives q.n)
 end 'captured'
 

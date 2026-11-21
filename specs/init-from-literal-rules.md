@@ -55,8 +55,6 @@ reported by the parser, where the type is known.
 ## Tests
 
 <!-- test: error.from-literal-requires-the-conformance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Wrapper
 	export let value as String
@@ -67,7 +65,6 @@ type Wrapper
 end 'Wrapper'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let w = Wrapper from "hello"
 	return w.value.byteLength()
 end 'main'
@@ -77,11 +74,8 @@ error E3005: <fragment>:11:10: Type 'Wrapper' does not conform to InitableFromSt
 ```
 
 <!-- test: error.from-literal-on-an-undeclared-name -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let w = Bogus from "hello"
 	return 0
 end 'main'
@@ -287,7 +281,6 @@ end 'main'
 ```
 
 <!-- test: a-list-alias-takes-from-an-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Reading = int(0 to 1000)
 
@@ -334,7 +327,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-takes-from-an-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A user type that implements `InitableFromArrayLiteral` takes `from [...]` exactly as the standard
 collections do: the literal becomes the `Array` its `init` receives, in order.
 ```maxon
@@ -371,7 +363,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-takes-from-an-array-literal-at-module-scope -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same construction as a module-scope initializer: like `FilePath from ""` there, it is the call to the
 type's `init` that the module initializer makes before `main`.
 ```maxon
@@ -409,7 +400,6 @@ end 'main'
 ```
 
 <!-- test: error.a-module-scope-array-literal-init-element-outside-its-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 At module scope the literal is built at the array its `init` declares, so an element is held to that array's
 element range exactly as a struct field's constant is held to the field's.
@@ -475,7 +465,6 @@ An alias a type body or an extension body declares is named by its written name 
 `<Alias> from [...]` builds through it there as it does through a top-level alias.
 
 <!-- test: an-alias-declared-in-a-generic-type-takes-from-an-array-literal -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The alias is over the type's own parameter, so it exists only per instantiation of `Bag`.
 ```maxon
 type Bag uses T

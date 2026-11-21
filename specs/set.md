@@ -42,9 +42,10 @@ end 'main'
 ```
 
 <!-- test: basic.creation -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	return s.count()
 end 'main'
@@ -54,9 +55,10 @@ end 'main'
 ```
 
 <!-- test: basic.contains-true -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
 	if s.contains(20) 'check'
 		return 1
@@ -69,9 +71,10 @@ end 'main'
 ```
 
 <!-- test: basic.contains-false -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
 	if s.contains(99) 'check'
 		return 1
@@ -84,9 +87,10 @@ end 'main'
 ```
 
 <!-- test: insert.new-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	s.insert(4)
 	return s.count()
@@ -97,9 +101,10 @@ end 'main'
 ```
 
 <!-- test: insert.duplicate -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	s.insert(2)
 	return s.count()
@@ -110,9 +115,10 @@ end 'main'
 ```
 
 <!-- test: insert.then-contains -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	s.insert(5)
 	if s.contains(5) 'check'
@@ -126,9 +132,10 @@ end 'main'
 ```
 
 <!-- test: remove.existing -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	let removed = s.remove(2)
 	if removed 'check'
@@ -142,9 +149,10 @@ end 'main'
 ```
 
 <!-- test: remove.nonexistent -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	let removed = s.remove(99)
 	if removed 'check'
@@ -158,9 +166,10 @@ end 'main'
 ```
 
 <!-- test: remove.then-contains -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	if s.contains(2) 'check'
@@ -174,9 +183,10 @@ end 'main'
 ```
 
 <!-- test: grow.preserves-elements -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 	var allPresent = 1 as FullRangeInt
 	var i = 1 as FullRangeInt
@@ -194,9 +204,10 @@ end 'main'
 ```
 
 <!-- test: empty.single-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [42]
 	return s.count()
 end 'main'
@@ -206,9 +217,10 @@ end 'main'
 ```
 
 <!-- test: remove-reinsert -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	s.insert(2)
@@ -223,9 +235,10 @@ end 'main'
 ```
 
 <!-- test: negative-values -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [-5, -3, -1, 0, 1, 3, 5]
 	if s.contains(-3) 'check'
 		return s.count()
@@ -374,7 +387,6 @@ end 'main'
 ```
 
 <!-- test: error.a-set-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `Set` instance alias at the head of `from […]` is a type name, and another directory's unexported one is refused.
 ```maxon
 // --- file: probe/probe.maxon
@@ -398,7 +410,7 @@ error E3008: <fragment>:13:10: typealias 'Counts' is not exported
 ```
 
 <!-- test: from-an-array-variable -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 An alias head takes any array of its element type as the source of `from`, not only a literal.
 ```maxon
 typealias Code = int(0 to 100)
@@ -412,7 +424,7 @@ function main() returns ExitCode
 	codes.push(3)
 	codes.push(7)
 	codes.push(11)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = CodeSet from codes
 	print("{s.count()} {s.contains(7)} {s.contains(8)}\n")
 	return 0
@@ -426,7 +438,8 @@ end 'main'
 ```
 
 <!-- test: from-a-call-result-infers-the-element -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head takes its element type from the array a call returns.
 ```maxon
 typealias Code = int(0 to 100)
@@ -441,7 +454,8 @@ function makeCodes() returns Codes
 end 'makeCodes'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from makeCodes()
 	print("{s.count()} {s.contains(40)} {s.contains(2)}\n")
 	return 0
@@ -455,7 +469,7 @@ end 'main'
 ```
 
 <!-- test: from-an-array-collapses-duplicates -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A source array holding an element twice yields a set holding it once.
 ```maxon
 typealias Code = int(0 to 100)
@@ -471,7 +485,7 @@ function main() returns ExitCode
 	codes.push(5)
 	codes.push(9)
 	codes.push(5)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = CodeSet from codes
 	print("{s.count()}\n")
 	return 0
@@ -485,7 +499,7 @@ end 'main'
 ```
 
 <!-- test: from-an-empty-array-is-empty -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 An empty array VALUE is a valid source, though an empty literal `[]` is not.
 ```maxon
 typealias Code = int(0 to 100)
@@ -496,7 +510,7 @@ typealias CodeSet = Set with Code
 
 function main() returns ExitCode
 	let codes = Codes.create(0)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = CodeSet from codes
 	print("{s.count()} {s.contains(0)}\n")
 	return 0
@@ -510,7 +524,7 @@ end 'main'
 ```
 
 <!-- test: error.from-a-source-that-is-not-an-array-is-a-type-mismatch -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 The source of `from` must be an array; any other value is a type mismatch naming the array the head expects.
 ```maxon
@@ -519,7 +533,7 @@ typealias Code = int(0 to 100)
 typealias CodeSet = Set with Code
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = CodeSet from 5
 	return s.count()
 end 'main'
@@ -529,7 +543,7 @@ error E3005: <fragment>:6:23: argument type mismatch for 'source': expected 'Arr
 ```
 
 <!-- test: error.from-an-array-of-another-element-is-a-type-mismatch -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 An alias head takes only an array of its own element type.
 ```maxon
@@ -542,7 +556,7 @@ typealias Names = Set with String
 function main() returns ExitCode
 	var codes = Codes.create(0)
 	codes.push(1)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = Names from codes
 	return s.count()
 end 'main'
@@ -552,7 +566,8 @@ error E3005: <fragment>:9:21: argument type mismatch for 'source': expected 'Arr
 ```
 
 <!-- test: from-a-function-declared-later -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A source call to a function declared further down the file is a valid source.
 ```maxon
 typealias Code = int(0 to 100)
@@ -560,7 +575,8 @@ typealias Code = int(0 to 100)
 typealias Codes = Array with Code
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from laterCodes()
 	print("{s.count()} {s.contains(6)}\n")
 	return 0
@@ -582,7 +598,8 @@ end 'laterCodes'
 ```
 
 <!-- test: from-a-struct-array-infers-the-key -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head over an array of a user `Hashable` struct builds a set of that struct.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -611,7 +628,8 @@ function main() returns ExitCode
 	points.push(Point.create(1, y: 2))
 	points.push(Point.create(3, y: 4))
 	points.push(Point.create(1, y: 2))
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from points
 	print("{s.count()} {s.contains(Point.create(3, y: 4))}\n")
 	return 0
@@ -625,7 +643,8 @@ end 'main'
 ```
 
 <!-- test: error.from-an-array-of-an-unhashable-element -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 A bare `Set` head over an array whose element is not `Hashable` and `Equatable` is refused by `Set`'s `where` clause, at the head.
 ```maxon
@@ -644,7 +663,8 @@ typealias Spots = Array with Spot
 function main() returns ExitCode
 	var spots = Spots.create(0)
 	spots.push(Spot.create(1))
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from spots
 	return s.count()
 end 'main'
@@ -655,12 +675,14 @@ error E3017: <fragment>:17:10: Type 'Spot' does not satisfy constraint 'Equatabl
 ```
 
 <!-- test: two-files-each-build-the-same-inferred-instance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 Two files that each build a bare `Set from` over the same element mint one instance between them.
 ```maxon
 // --- file: a.maxon
 function countA(codes Codes) returns Count
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from codes
 	return s.count()
 end 'countA'
@@ -675,7 +697,8 @@ function main() returns ExitCode
 	codes.push(2)
 	codes.push(2)
 	codes.push(9)
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from codes
 	print("{s.count()} {countA(codes)}\n")
 	return 0
@@ -689,7 +712,8 @@ end 'main'
 ```
 
 <!-- test: from-a-character-array-under-an-alias-or-a-bare-head -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 A `Character` array is a source like any other: an alias head of `Set with Character` and a bare `Set` head both take one.
 ```maxon
@@ -705,9 +729,10 @@ function main() returns ExitCode
 	chars.push('b')
 	// TODO: character literals are not supported in minimaxon
 	chars.push('a')
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let named = CharSet from chars
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let bare = Set from chars
 	print("{named.count()} {named.contains('b')} {bare.count()} {bare.contains('c')}\n")
 	return 0
@@ -721,7 +746,7 @@ end 'main'
 ```
 
 <!-- test: from-a-struct-array-under-an-alias -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 An alias head over a user `Hashable` struct takes an array of that struct.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -751,7 +776,7 @@ function main() returns ExitCode
 	cells.push(Cell.create(4))
 	cells.push(Cell.create(4))
 	cells.push(Cell.create(5))
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = CellSet from cells
 	print("{s.count()} {s.contains(Cell.create(5))}\n")
 	return 0
@@ -765,7 +790,6 @@ end 'main'
 ```
 
 <!-- test: an-alias-head-literal-builds-the-alias-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 An alias head states the set's key type for a literal source as it does for an array value, so both build a value of the alias's type.
 ```maxon
 typealias Code = int(0 to 100)
@@ -793,7 +817,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-head-literal-of-struct-members-infers-the-key -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 A bare `Set` head over a literal of user `Hashable` struct members infers the key from the first member, as it does over an array of them.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -815,6 +839,7 @@ type Tile implements Hashable, Equatable
 end 'Tile'
 
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [Tile.create(1), Tile.create(1), Tile.create(2)]
 	print("{s.count()} {s.contains(Tile.create(2))}\n")
 	return 0
@@ -828,7 +853,6 @@ end 'main'
 ```
 
 <!-- test: error.an-alias-head-literal-member-of-another-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Every member of an alias-headed literal is held to the alias's key type.
 ```maxon
@@ -846,7 +870,6 @@ error E3005: <fragment>:6:10: argument type mismatch for 'element': expected 'Co
 ```
 
 <!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
-<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'from' -->
 How many allocations a sequence of a set's inserts and removes makes is a function of the sequence, not of where
 the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
 different odd constant, so each run lays the keys and the tombstones out differently, and the four runs

@@ -620,7 +620,6 @@ error E3207: <fragment>:21:14: 'take' takes `immutable` 'item'; 'pick(p)' is rea
 ```
 
 <!-- test: a-closure-that-writes-a-captured-call-result-pins-the-parameter-it-may-hand-back -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `step` writes `r`, which `pick` may take from `p`, so `relay` needs `p` writable and the frozen argument is refused.
 
@@ -649,7 +648,6 @@ end 'pick'
 
 function relay(p Box) returns Tally
 	var r = pick(p, fresh: false)
-	// TODO: closures are not supported in minimaxon
 	let step = function() gives r.bump()
 	return step()
 end 'relay'
@@ -701,8 +699,6 @@ error E3196: <fragment>:14:15: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-function-value-result-stored-into-an-immutable-field-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -711,7 +707,6 @@ error E3196: <fragment>:14:15: cannot store a mutable 'Box' into 'an element of 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias PartGetter = function() returns Part
 
 type Part
@@ -744,7 +739,6 @@ function main() returns ExitCode
 	let frozen = freeze(Part.create())
 	var pinned = Pinned.create(frozen)
 	var held = Part.create()
-	// TODO: closures are not supported in minimaxon
 	pinned.adopt(function() gives held)
 	print("{pinned.value()}\n")
 	return 0
@@ -868,8 +862,6 @@ error E3200: <fragment>:19:22: 'live.clone()' is used as mutable; freeze a copy:
 <!-- test: a-function-value-clone-of-a-capturing-closure-is-not-a-fresh-copy -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `measure.clone()` holds the same closure, which captured the caller's `counter`, so the coroutine started over it still holds the caller's data and its promise is tied.
@@ -877,7 +869,6 @@ error E3200: <fragment>:19:22: 'live.clone()' is used as mutable; freeze a copy:
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 typealias TallyPromise = Promise with Tally
@@ -896,7 +887,6 @@ function later(measure Measure) returns Tally
 end 'later'
 
 function start(counter Counter) returns TallyPromise
-	// TODO: closures are not supported in minimaxon
 	let measure = function() gives counter.n
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(measure.clone())
@@ -919,8 +909,6 @@ error E3212: <fragment>:23:2: the promise of this `async` call is tied to the mu
 <!-- test: a-closure-over-the-callers-data-handed-to-a-coroutine-ties-its-promise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure reads the caller's `counter`, which is not a clean input, so the promise of the `async` call is tied and may not be returned.
@@ -928,7 +916,6 @@ The closure reads the caller's `counter`, which is not a clean input, so the pro
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 typealias TallyPromise = Promise with Tally
@@ -948,7 +935,6 @@ end 'later'
 
 function start(counter Counter) returns TallyPromise
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: closures are not supported in minimaxon
 	return async later(function() gives counter.n)
 end 'start'
 
@@ -969,15 +955,12 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 <!-- test: a-closure-over-a-value-handed-to-a-coroutine-stays-untied -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure captures only a value, so nothing the caller can write reaches the coroutine, and the promise may be returned.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 typealias TallyPromise = Promise with Tally
@@ -989,7 +972,6 @@ end 'later'
 
 function start(base Tally) returns TallyPromise
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	// TODO: closures are not supported in minimaxon
 	return async later(function() gives base + 1)
 end 'start'
 
@@ -1314,8 +1296,6 @@ error E3212: <fragment>:28:11: the promise of this `async` call is tied to the m
 <!-- test: a-function-parameter-forwarded-to-a-coroutine-ties-its-promise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `start` cannot tell what `measure` captured, so a function value that is not a closure literal or a named function is not a clean input and the promise is tied.
@@ -1323,7 +1303,6 @@ error E3212: <fragment>:28:11: the promise of this `async` call is tied to the m
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 typealias TallyPromise = Promise with Tally
@@ -1348,7 +1327,6 @@ end 'start'
 
 function main() returns ExitCode
 	var counter = Counter.create(1)
-	// TODO: closures are not supported in minimaxon
 	let pending = start(function() gives counter.n)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
@@ -1363,14 +1341,12 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 <!-- test: a-named-function-handed-to-a-coroutine-stays-untied -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `seven` captures nothing, so the coroutine holds nothing the caller can write and the promise may be returned.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Measure = function() returns Tally
 
 typealias TallyPromise = Promise with Tally
@@ -1823,15 +1799,12 @@ end 'main'
 ```
 
 <!-- test: a-capture-less-closure-is-a-clean-input-to-an-isolated-result -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `function() gives 1` captures nothing, so it is a clean input and a record built around it may be returned as `isolated`.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Callback = function() returns Tally
 
 type Holder
@@ -1840,7 +1813,6 @@ type Holder
 
 	// TODO: return type capability 'isolated' is not supported in minimaxon
 	static function create() returns isolated Holder
-		// TODO: closures are not supported in minimaxon
 		return Self{n: 7, callback: function() gives 1}
 	end 'create'
 end 'Holder'
@@ -4556,8 +4528,6 @@ error E3200: <fragment>:24:27: 'p' is not isolated: only a clean call, a `swap` 
 
 <!-- test: error.an-isolated-part-read-captured-by-a-closure-is-not-a-clean-input -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures an `isolated` part of a holder hands that region back from every call, so it is no clean input: the result of a call over it cannot go where an isolated value is wanted, bare or through a join.
@@ -4573,7 +4543,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -4595,7 +4564,6 @@ end 'apply'
 
 function captured(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return weigh(apply(function() gives bytes))
 		empty then return 0
 	end 'take'
@@ -4603,7 +4571,6 @@ end 'captured'
 
 function capturedTernary(holder Holder, flag bool) returns Count
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return weigh(apply(function() gives bytes if flag else ByteArray.create(0)))
 		empty then return 0
 	end 'take'
@@ -4961,8 +4928,6 @@ error E3198: <fragment>:42:16: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-captured-by-a-nested-closure-is-not-a-clean-input -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that builds another closure over an `isolated` part of a holder captures that part too, so the result of a call over the outer closure is no clean input to an `isolated` parameter.
@@ -4978,7 +4943,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -5000,7 +4964,6 @@ end 'apply'
 
 function nested(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return weigh(apply(function() gives apply(function() gives bytes)))
 		empty then return 0
 	end 'take'
@@ -5020,8 +4983,6 @@ error E3198: <fragment>:30:79: 'bytes' is isolated and cannot be read outside a 
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A coroutine is never given an `isolated` part of a holder through a plain parameter, directly or captured by a closure: the spawn is refused (E3207) before its awaited result could reach an `isolated` parameter.
@@ -5037,7 +4998,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -5065,7 +5025,6 @@ function awaitClosure(holder Holder) returns Count
 	match holder.slot 'take'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return weigh(await async apply(function() gives bytes))
 		empty then return 0
 	end 'take'
@@ -5680,8 +5639,6 @@ error E3201: <fragment>:49:15: 'ident' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-function-value-or-interface-result-is-not-a-clean-input -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5698,7 +5655,6 @@ type Blob
 	end 'create'
 end 'Blob'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Blob
 
 interface Source
@@ -5739,7 +5695,6 @@ function main() returns ExitCode
 	let mine = Blob.create(1)
 	let pantry = Pantry.create()
 	let shelf = Shelf.holding(Blob.create(0))
-	// TODO: closures are not supported in minimaxon
 	storeFromMaker(function() gives mine, shelf: shelf)
 	storeFromSource(pantry, shelf: shelf)
 	print("done\n")
@@ -5979,8 +5934,6 @@ error E3198: <fragment>:23:9: 'try bin.blobs.get(0) otherwise Blob.create()' is 
 ```
 
 <!-- test: error.an-isolated-part-read-handed-back-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5991,7 +5944,6 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Shelf
@@ -6009,12 +5961,10 @@ function apply(make Maker) returns ByteArray
 end 'apply'
 
 function leakField(donor Shelf) returns ByteArray
-	// TODO: closures are not supported in minimaxon
 	return apply(function() gives donor.bytes)
 end 'leakField'
 
 function bindField(donor Shelf) returns Count
-	// TODO: closures are not supported in minimaxon
 	let got = apply(function() gives donor.bytes)
 	got.push(1)
 	return got.count()
@@ -6341,8 +6291,6 @@ end 'main'
 
 <!-- test: error.a-closure-over-an-isolated-payload-cannot-hand-it-out-as-plain-data -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures an `isolated` payload of a holder's union hands that region back from every call, so returning the call's result as plain data or returning the closure itself gives a second path into the region the holder still owns, and each is refused.
 
@@ -6357,7 +6305,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -6374,7 +6321,6 @@ end 'apply'
 
 function returnResult(holder Holder) returns ByteArray
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -6382,9 +6328,7 @@ end 'returnResult'
 
 function returnClosure(holder Holder) returns Maker
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return function() gives bytes
-		// TODO: closures are not supported in minimaxon
 		empty then return function() gives ByteArray.create(0)
 	end 'take'
 end 'returnClosure'
@@ -6404,8 +6348,6 @@ error E3198: <fragment>:33:44: 'bytes' is isolated and cannot be read outside a 
 
 <!-- test: a-closure-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so the same closures over it hand it out as plain data without a refusal.
 
@@ -6420,7 +6362,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Pair
@@ -6428,7 +6369,6 @@ type Pair
 	export var make as Maker
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{a: ByteArray.create(0), make: function() gives ByteArray.create(0)}
 	end 'create'
 end 'Pair'
@@ -6445,7 +6385,6 @@ end 'apply'
 function returnResult() returns ByteArray
 	let made = makeSlot()
 	match made 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -6454,7 +6393,6 @@ end 'returnResult'
 function storeResult(pair Pair)
 	let made = makeSlot()
 	match made 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then pair.a = apply(function() gives bytes)
 		empty then print("empty\n")
 	end 'take'
@@ -6463,9 +6401,7 @@ end 'storeResult'
 function returnClosure() returns Maker
 	let made = makeSlot()
 	match made 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return function() gives bytes
-		// TODO: closures are not supported in minimaxon
 		empty then return function() gives ByteArray.create(0)
 	end 'take'
 end 'returnClosure'
@@ -6473,7 +6409,6 @@ end 'returnClosure'
 function storeClosure(pair Pair)
 	let made = makeSlot()
 	match made 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then pair.make = function() gives bytes
 		empty then print("empty\n")
 	end 'take'
@@ -7364,8 +7299,6 @@ end 'main'
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-by-a-match-expression-cannot-be-bound -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that a `match` expression's arm builds over an `isolated` payload of a holder is that payload at every exit, so binding it to a local, for another closure to capture and a call to hand on, is refused at the payload's read.
 
@@ -7380,7 +7313,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -7405,24 +7337,18 @@ end 'apply'
 
 function storeNested(holder Holder, pair Pair)
 	let inner = match holder.slot 'pick'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) gives function() gives bytes
-		// TODO: closures are not supported in minimaxon
 		empty gives function() gives ByteArray.create(0)
 	end 'pick'
-	// TODO: closures are not supported in minimaxon
 	let outer = function() gives apply(inner)
 	pair.a = apply(outer)
 end 'storeNested'
 
 function returnNested(holder Holder) returns ByteArray
 	let inner = match holder.slot 'pick'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) gives function() gives bytes
-		// TODO: closures are not supported in minimaxon
 		empty gives function() gives ByteArray.create(0)
 	end 'pick'
-	// TODO: closures are not supported in minimaxon
 	let outer = function() gives apply(inner)
 	return apply(outer)
 end 'returnNested'
@@ -7442,8 +7368,6 @@ error E3198: <fragment>:43:38: 'bytes' is isolated and cannot be read outside a 
 
 <!-- test: a-closure-over-an-isolated-part-that-hands-back-a-count-is-accepted -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A closure that captures an `isolated` field or payload but hands back only a count of it gives no path into the region, so a call over it is accepted.
 
@@ -7458,7 +7382,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Counter = function() returns Count
 
 type Holder
@@ -7477,14 +7400,12 @@ end 'tally'
 
 function payloadTally(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return tally(function() gives bytes.count())
 		empty then return 0
 	end 'take'
 end 'payloadTally'
 
 function fieldTally(holder Holder) returns Count
-	// TODO: closures are not supported in minimaxon
 	let n = tally(function() gives holder.bytes.count())
 	return n
 end 'fieldTally'
@@ -7548,8 +7469,6 @@ error E3198: <fragment>:23:22: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-unclean-argument-is-quoted-whole-across-nested-parens-strings-and-named-arguments -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -7560,7 +7479,6 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Adder = function(Count, Count) returns Count
 
 type Shelf
@@ -7592,12 +7510,10 @@ function weighTagged(tag String, bytes isolated ByteArray, extra Count) returns 
 end 'weighTagged'
 
 function viaParam(plain ByteArray) returns Count
-	// TODO: closures are not supported in minimaxon
 	return weighTagged("a, (b", bytes: pick(plain, label: "c)"), extra: sumWith(function(a, b) gives a + b))
 end 'viaParam'
 
 function viaPart(shelf Shelf, flag bool) returns Count
-	// TODO: closures are not supported in minimaxon
 	return weighTagged("(", bytes: shelf.bytes if sumWith(function(a, b) gives a + b) > 0 or flag else ByteArray.create(0), extra: 1)
 end 'viaPart'
 
@@ -8003,8 +7919,6 @@ error E3198: <fragment>:23:14: '(bin.blobs)' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-captured-by-a-closure-in-a-for-loop-cannot-leave -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8017,7 +7931,6 @@ typealias ByteArray = Array with Byte
 
 typealias BlobArray = Array with Blob
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns Blob
 
 type Blob
@@ -8042,7 +7955,6 @@ type Pocket
 	export var make as Maker
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{make: function() gives Blob.create()}
 	end 'create'
 end 'Pocket'
@@ -8053,14 +7965,12 @@ end 'apply'
 
 function keepByClosure(bin Bin, keep BlobArray)
 	for blob in bin.blobs 'each'
-		// TODO: closures are not supported in minimaxon
 		keep.push(apply(function() gives blob))
 	end 'each'
 end 'keepByClosure'
 
 function storeClosure(bin Bin, pocket Pocket)
 	for blob in bin.blobs 'each'
-		// TODO: closures are not supported in minimaxon
 		pocket.make = function() gives blob
 	end 'each'
 end 'storeClosure'
@@ -8157,8 +8067,6 @@ error E3201: <fragment>:36:28: 'echo' hands back mutable data of the isolated re
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call is no door out of the part rule: a closure over an `isolated` payload of a holder, the payload itself and an `isolated` field are each refused at the spawn (E3207) when they reach a plain parameter, because an `async` call takes an isolated value only in an `isolated` parameter, which moves it.
@@ -8174,7 +8082,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Holder
@@ -8199,7 +8106,6 @@ function returnFromCoroutine(holder Holder) returns ByteArray
 	match holder.slot 'take'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return await async apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -8236,8 +8142,6 @@ error E3207: <fragment>:44:26: 'echo' is spawned with `async`, and 'holder' is i
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so what a coroutine hands back from a closure over it is returned as plain data without a refusal.
 
@@ -8252,7 +8156,6 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 // TODO: return type capability 'isolated' is not supported in minimaxon
@@ -8269,7 +8172,6 @@ function returnFromCoroutine() returns ByteArray
 	match made 'take'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-		// TODO: closures are not supported in minimaxon
 		full(bytes) then return await async apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -8728,8 +8630,6 @@ error E3201: <fragment>:26:57: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-given-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that gives what a method of an `isolated` field hands back carries the field's data out of the statement it is read in, so its body is refused.
@@ -8739,7 +8639,6 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Maker = function() returns ByteArray
 
 type Blob
@@ -8768,7 +8667,6 @@ function apply(make Maker) returns ByteArray
 end 'apply'
 
 function leak(holder Holder) returns ByteArray
-	// TODO: closures are not supported in minimaxon
 	return apply(function() gives holder.blob.inner())
 end 'leak'
 
@@ -9790,7 +9688,6 @@ error E3201: <fragment>:10:24: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: a-handed-back-result-is-clean-when-copied-counted-in-a-ternary-or-used-inside-a-window -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a method of an `isolated` field hands back leaves freely as a copy, as a count chosen by a conditional, as a count a closure takes when called, and as a count of a fresh record built over a copy; inside a `modify` block that opens the field it is bound and written in place.
@@ -9841,7 +9738,6 @@ function chosen(holder Holder, flag bool) returns Count
 end 'chosen'
 
 function deferred(holder Holder) returns Count
-	// TODO: closures are not supported in minimaxon
 	let measure = function() gives holder.blob.inner().count()
 	return measure()
 end 'deferred'

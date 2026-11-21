@@ -74,14 +74,12 @@ takes every time: the bespoke sentence existed because there was no declaration 
 ## Tests
 
 <!-- test: the-transform-parameter-takes-the-container-element -->
-<!-- skip: closures are not supported in minimaxon -->
 The positive half. One untyped parameter, typed from the array's element, and the transform is actually
 applied — so this fails on its VALUE if the refusal below ever over-reaches.
 ```maxon
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a) gives a * 10)
 	var sum = 0 as FullRangeInt
 	for n in out 'loop'
@@ -96,8 +94,6 @@ sum=60
 ```
 
 <!-- test: error-a-fully-typed-transform-of-the-wrong-arity-is-still-refused -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 Nothing is INFERRED here — every parameter declares its type — so E2003 has nothing to say and the arity
 rule is what refuses it. Admitted, it would read an uninitialised second argument: `wasm32-wasi`'s
 `call_indirect` type-checks the signature and traps, and a native target reads the second argument
@@ -108,7 +104,6 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b Integer) gives a + b)
 	var sum = 0 as Integer
 	for n in out 'loop'
@@ -123,8 +118,6 @@ error E3005: <fragment>:6:17: argument type mismatch for 'transform': expected '
 ```
 
 <!-- test: error-a-transform-that-declares-no-parameter-is-refused-too -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The UNDER-arity half, and the reason the rule is stated as an equality rather than a ceiling. A
 zero-parameter transform is handed the element anyway and simply ignores it, which reads harmless and is
 the same undefined call: `wasm32-wasi` traps on it exactly as it traps on the over-arity shape.
@@ -132,7 +125,6 @@ the same undefined call: `wasm32-wasi` traps on it exactly as it traps on the ov
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function() gives 7)
 	return 0
 end 'main'
@@ -164,14 +156,11 @@ error E3005: <fragment>:10:17: argument type mismatch for 'transform': expected 
 ```
 
 <!-- test: error-a-second-untyped-closure-parameter-is-uninferrable -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The blocker. `b` is past the one parameter the transform's declared function type offers.
 ```maxon
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a, b) gives a + b)
 	var sum = 0
 	for n in out 'loop'
@@ -186,8 +175,6 @@ error E2003: <fragment>:5:33: Cannot infer type for closure parameter 'b'. Add a
 ```
 
 <!-- test: error-the-offer-is-spent-even-when-the-first-parameter-declined-it -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The first parameter declares its own type, so it does not TAKE the offer — and it still occupies the first
 position, because the offer is positional. `b` is the second parameter of a one-parameter slot, refused for
 the same reason and with the same sentence as above, anchored at the parameter name.
@@ -196,7 +183,6 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b) gives a + b)
 	var sum = 0
 	for n in out 'loop'
@@ -231,7 +217,6 @@ error E2015: <fragment>:4:27: Unsupported: parameter 'b' with no type — the co
 ```
 
 <!-- test: a-conformers-own-map-types-its-closure-from-its-own-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The offer is read off the DECLARATION the call names, never off the method's spelling. `Counter` declares
 its OWN `map`, whose transform is `Doubler` — so `x` takes `Doubler`'s `Integer`, and the call runs
 `Counter`'s body, not the `extension Iterable` one: `4`, where an element-preserving `map` would have
@@ -239,7 +224,6 @@ produced an array.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Doubler = function(Integer) returns Integer
 
 type Counter
@@ -256,7 +240,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(2)
-	print("{c.map(function(x) gives x * 2)}\n")
+	print("{c.map(function(x) gives try x * 2 otherwise panic("out of range"))}\n")
 	return 0
 end 'main'
 ```
@@ -265,7 +249,6 @@ end 'main'
 ```
 
 <!-- test: the-comparator-parameters-take-the-container-element -->
-<!-- skip: closures are not supported in minimaxon -->
 `sortBy`'s comparator is a function-typed parameter of two elements, so a closure passed there takes both
 parameter types from it — every position whose declared type is a function type offers one type per
 parameter, and a comparator has two.
@@ -279,7 +262,6 @@ function main() returns ExitCode
 	scores.push(3)
 	scores.push(1)
 	scores.push(2)
-	// TODO: closures are not supported in minimaxon
 	scores.sortBy(function(left, right) gives right.compare(left))
 	for score in scores 'each'
 		print("{score}\n")
@@ -294,7 +276,6 @@ end 'main'
 ```
 
 <!-- test: a-comparator-whose-element-is-a-generic-alias-takes-parameters-declared-at-it -->
-<!-- skip: closures are not supported in minimaxon -->
 The container's element is itself a generic alias, `ByteArray`, so the comparator's two slots are that
 alias's instance, and a closure that declares its parameters at `ByteArray` matches them.
 ```maxon
@@ -305,7 +286,6 @@ function main() returns ExitCode
 	rows.push("ccc".toByteArray())
 	rows.push("a".toByteArray())
 	rows.push("bb".toByteArray())
-	// TODO: closures are not supported in minimaxon
 	rows.sortBy(function(left ByteArray, right ByteArray) gives left.count().compare(right.count()))
 	for row in rows 'each'
 		print("{row.count()}\n")
@@ -320,7 +300,6 @@ end 'main'
 ```
 
 <!-- test: the-comparator-parameters-take-a-generic-alias-element -->
-<!-- skip: closures are not supported in minimaxon -->
 The same comparator with its parameter types left out takes them from the generic-alias element.
 ```maxon
 typealias Rows = Array with ByteArray
@@ -330,7 +309,6 @@ function main() returns ExitCode
 	rows.push("ccc".toByteArray())
 	rows.push("a".toByteArray())
 	rows.push("bb".toByteArray())
-	// TODO: closures are not supported in minimaxon
 	rows.sortBy(function(left, right) gives right.count().compare(left.count()))
 	for row in rows 'each'
 		print("{row.count()}\n")
@@ -345,14 +323,11 @@ end 'main'
 ```
 
 <!-- test: a-user-functions-function-typed-parameter-types-its-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The offer is not a container's: any call argument whose parameter is declared with a function type types
 the closure written there, a user function's as much as the standard library's.
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Combine = function(Tally, Tally) returns Tally
 
 function fold(start Tally, step Combine, times Tally) returns Tally
@@ -364,8 +339,7 @@ function fold(start Tally, step Combine, times Tally) returns Tally
 end 'fold'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let total = fold(1, step: function(acc, n) gives acc + n, times: 4)
+	let total = fold(1, step: function(acc, n) gives try acc + n otherwise panic("out of range"), times: 4)
 	print("{total}\n")
 	return 0
 end 'main'
@@ -375,7 +349,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-alias-fixes-the-type-parameter-a-static-call-offers -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A static call through a generic alias is made on that alias's instance, so `Inspect`'s parameter, which
 is `Array with T` where it is declared, is `Array with Tally` where the closure is written, and `items`
 takes that type.
@@ -384,7 +357,6 @@ typealias Tally = int(0 to 1000)
 
 type Batch uses T
 	export typealias Items = Array with T
-	// TODO: function typealiases are not supported in minimaxon
 	export typealias Inspect = function(Items) returns Tally
 
 	static function measure(seed Items, inspect Inspect) returns Tally
@@ -397,9 +369,9 @@ typealias TallyBatch = Batch with Tally
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let seed = TallyArray.create(0)
+	var seed = TallyArray.create(0)
 	seed.push(4)
-	print("{TallyBatch.measure(seed, inspect: function(items) gives items.count())}\n")
+	print("{TallyBatch.measure(seed, inspect: function(items) gives try items.count() as Tally otherwise panic("out of range"))}\n")
 	return 0
 end 'main'
 ```

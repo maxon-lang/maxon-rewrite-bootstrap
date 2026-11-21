@@ -350,18 +350,16 @@ end 'main'
 ```
 
 <!-- test: crossfile-function-alias-field-off-a-temporary -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A FUNCTION-typed field is a code pointer — an i64 stored inline that owns no heap, so the cascade
 skips it and the read copies it. Declared in a sibling file it is the same scalar.
 ```maxon
 // --- file: holder.maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function inc(v Integer) returns Integer
-	return v + 1
+	return try v + 1 otherwise panic("out of range")
 end 'inc'
 
 type Holder
@@ -375,7 +373,7 @@ end 'Holder'
 // --- file: main.maxon
 function main() returns ExitCode
 	let f = Holder.make().op
-	return f(41)
+	return try f(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

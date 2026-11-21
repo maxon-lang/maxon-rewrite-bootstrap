@@ -18,7 +18,6 @@ Each element is judged exactly as `push` judges it, so an element of a different
 ## Tests
 
 <!-- test: nested-typed-array-literal-over-ints -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Each inner `Ints from [...]` is an element of `Rows`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -32,7 +31,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for row in rows 'eachRow'
 		for n in row 'eachNumber'
-			total = total + n
+			total = try total + n otherwise panic("out of range")
 		end 'eachNumber'
 	end 'eachRow'
 	print("{rows.count()} {total}\n")
@@ -47,7 +46,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-a-local -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An element held in a local is an element of the declared instance as well.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -71,7 +69,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-records -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The inner elements are records.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -94,7 +91,7 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	for path in paths 'eachPath'
 		for p in path 'eachPoint'
-			sum = sum + p.x + p.y
+			sum = try sum + p.x + p.y otherwise panic("out of range")
 		end 'eachPoint'
 	end 'eachPath'
 	print("{paths.count()} {sum}\n")
@@ -109,13 +106,10 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-closures -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The inner elements are function values that capture a local.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias Thunks = Array with Thunk
@@ -124,12 +118,11 @@ typealias Groups = Array with Thunks
 
 function main() returns ExitCode
 	let base = 10 as Integer
-	// TODO: closures are not supported in minimaxon
-	let groups = Groups from [Thunks from [function() gives base + 1, function() gives base + 2], Thunks from [function() gives base + 3]]
+	let groups = Groups from [Thunks from [function() gives try base + 1 otherwise panic("out of range"), function() gives try base + 2 otherwise panic("out of range")], Thunks from [function() gives try base + 3 otherwise panic("out of range")]]
 	var total = 0 as Integer
 	for group in groups 'eachGroup'
 		for thunk in group 'eachThunk'
-			total = total + thunk()
+			total = try total + thunk() otherwise panic("out of range")
 		end 'eachThunk'
 	end 'eachGroup'
 	print("{groups.count()} {total}\n")
@@ -144,7 +137,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-three-levels -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Three levels of `from` each take their element type from the alias beside them.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -161,7 +153,7 @@ function main() returns ExitCode
 	for rows in cube 'eachRows'
 		for row in rows 'eachRow'
 			for n in row 'eachNumber'
-				total = total + n
+				total = try total + n otherwise panic("out of range")
 			end 'eachNumber'
 		end 'eachRow'
 	end 'eachRows'
@@ -177,13 +169,10 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-in-a-field-assignment -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A nested literal assigned to a field, and one in a constructor's field, whose closures capture a copy of what they read.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Thunk = function() returns Integer
 
 typealias Thunks = Array with Thunk
@@ -195,29 +184,27 @@ type Holder
 	export var groups as Groups
 
 	static function create(n Integer) returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{n: n, groups: Groups from [Thunks from [function() gives n]]}
 	end 'create'
 
-	export function refill()
+	export function refill(mutates self)
 		let current = self.n
-		// TODO: closures are not supported in minimaxon
-		self.groups = Groups from [Thunks from [function() gives current + 1, function() gives current + 2]]
+		self.groups = Groups from [Thunks from [function() gives try current + 1 otherwise panic("out of range"), function() gives try current + 2 otherwise panic("out of range")]]
 	end 'refill'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create(3)
+	var holder = Holder.create(3)
 	var seen = 0 as Integer
 	for group in holder.groups 'eachCreated'
 		for thunk in group 'eachCreatedThunk'
-			seen = seen + thunk()
+			seen = try seen + thunk() otherwise panic("out of range")
 		end 'eachCreatedThunk'
 	end 'eachCreated'
 	holder.refill()
 	for group in holder.groups 'eachRefilled'
 		for thunk in group 'eachRefilledThunk'
-			seen = seen + thunk()
+			seen = try seen + thunk() otherwise panic("out of range")
 		end 'eachRefilledThunk'
 	end 'eachRefilled'
 	print("{holder.groups.count()} {seen}\n")
@@ -232,7 +219,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-bare-inner-literals -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An inner `[...]` with no head of its own takes the element type the outer alias states.
 ```maxon
 typealias Total = int(0 to 1000)
@@ -248,7 +234,7 @@ function main() returns ExitCode
 	var total = 0 as Total
 	for row in table 'eachRow'
 		for n in row 'eachNumber'
-			total = total + n as Total
+			total = try total + n as Total otherwise panic("out of range")
 		end 'eachNumber'
 	end 'eachRow'
 	print("{table.count()} {total}\n")
@@ -263,7 +249,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-at-module-level -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A module-level initializer takes the same nested form.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -287,7 +272,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal.error.an-element-of-another-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 An inner literal whose instance is not the declared element is still refused.
 ```maxon
@@ -309,7 +293,6 @@ error E3005: <fragment>:8:24: argument type mismatch for 'value': expected 'Ints
 ```
 
 <!-- test: nested-typed-array-literal.error.a-value-of-another-brand -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Two aliases over one instance are two brands, and a literal element is judged exactly as `push` judges it: a `B` does not fit an `Array with A`.
 ```maxon
@@ -385,7 +368,6 @@ error E3005: <fragment>:16:16: argument type mismatch for 'value': expected 'A',
 ```
 
 <!-- test: nested-typed-array-literal-an-unbranded-literal-fits-either-brand -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A literal carries no brand, so the same inner literal fits a slot of either brand.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -413,7 +395,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-the-same-brand-fits -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A value of the slot's own brand fits, whether the outer literal states its head or takes the slot's instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -423,15 +404,15 @@ typealias A = Array with Integer
 typealias Rows = Array with A
 
 function width(rows Rows) returns Integer
-	return rows.count() as Integer
+	return try rows.count() as Integer otherwise panic("out of range")
 end 'width'
 
 function main() returns ExitCode
-	let first = A.create(0)
+	var first = A.create(0)
 	first.push(1)
-	let second = A.create(0)
+	var second = A.create(0)
 	second.push(2)
-	let third = A.create(0)
+	var third = A.create(0)
 	third.push(3)
 	let headed = Rows from [first]
 	print("{headed.count()} {width([second, third])}\n")
@@ -486,7 +467,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-of-locals-at-a-declared-slot -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A bare outer literal of two array locals takes the declared slot's instance in a parameter, a field and a return.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -499,26 +479,26 @@ type Holder
 	export var rows as Rows
 
 	static function create(first Ints, second Ints) returns Self
-		return Self{rows: [first, second]}
+		return Self{rows: [first.clone(), second.clone()]}
 	end 'create'
 end 'Holder'
 
 function width(rows Rows) returns Integer
-	return rows.count() as Integer
+	return try rows.count() as Integer otherwise panic("out of range")
 end 'width'
 
 function make(first Ints) returns Rows
-	return [first]
+	return [first.clone()]
 end 'make'
 
 function main() returns ExitCode
-	let branded = Ints.create(0)
+	var branded = Ints.create(0)
 	branded.push(1)
 	let plain = Ints from [2]
 	let holder = Holder.create(branded, second: plain)
-	let again = Ints.create(0)
+	var again = Ints.create(0)
 	again.push(3)
-	let third = Ints.create(0)
+	var third = Ints.create(0)
 	third.push(4)
 	print("{holder.rows.count()} {width([again, third])} {make(plain).count()}\n")
 	return 0

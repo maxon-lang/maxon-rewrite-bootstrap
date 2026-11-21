@@ -710,7 +710,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-instance-over-a-qualified-cross-form-alias-is-one-instance -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` declares `Score` as a function alias and `legacy/` declares `Score` as a ranged alias: two
 declarations of one name, of two forms, so `api/` and `app/` both write the element `api.Score`. `Scores` and
@@ -719,8 +718,7 @@ declarations of one name, of two forms, so `api/` and `app/` both write the elem
 // --- file: api/score.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
-export typealias Score = function(n Integer) returns Integer
+export typealias Score = function(Integer) returns Integer
 
 export typealias Scores = Array with api.Score
 
@@ -1391,7 +1389,6 @@ end 'main'
 ```
 
 <!-- test: an-eight-byte-ranged-element-is-adopted-too -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 ### The element does not have to be NARROWER — it has to be a different TYPE
 ⛔⛔ **`int(0 to i64.max)` AND `int(0 to u64.max)` OCCUPY A MACHINE WORD, EXACTLY AS A BARE `int` DOES, AND
 THAT IS THE CLASS A STRIDE COMPARISON CANNOT SEE.** They are stdlib's own shape — `Array.ElementIndex`,
@@ -1413,7 +1410,7 @@ typealias UnsignedArray = Array with Unsigned
 function total(xs NonNegArray) returns NonNeg
 	var t = 0 as NonNeg
 	for x in xs 'each'
-		t = t + x
+		t = try t + x otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
@@ -1423,9 +1420,9 @@ function size(ys UnsignedArray) returns Unsigned
 end 'size'
 
 function main() returns ExitCode
-	let viaArgument = total([1, 2, 3]) as ExitCode
-	let viaHead = size(UnsignedArray from [1, 2, 3]) as ExitCode
-	return viaArgument + viaHead
+	let viaArgument = try total([1, 2, 3]) as ExitCode otherwise panic("out of range")
+	let viaHead = try size(UnsignedArray from [1, 2, 3]) as ExitCode otherwise panic("out of range")
+	return try viaArgument + viaHead otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

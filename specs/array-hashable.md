@@ -757,7 +757,6 @@ true
 ### Every integer element width hashes alike through every route
 
 <!-- test: every-integer-element-width-hashes-alike-through-every-route -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An integer array of every element width answers one hash called directly, through a `Hashable` field and
 from a generic body; a separately built equal array hashes equal, and one element changed changes the hash.
 ```maxon
@@ -968,7 +967,6 @@ true false
 ### A byte array hashes as its bytes
 
 <!-- test: a-byte-array-hashes-as-its-bytes -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `ByteArray` is hashed as one run of bytes, not element by element: its hash is
 a `Hasher` that folds `bytes` with `combineBytes`, which is also the hash of a `String` holding the same
 bytes. Every length on either side of the hash's block boundaries, the empty array included.
@@ -1085,7 +1083,6 @@ ordered: true
 ### One flipped bit of one element moves about half of the 32 hash bits
 
 <!-- test: hash-avalanches -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Changing one element by one bit moves the array's hash by at least 8 of its 32 bits on average, for an
 `int` array (each of the low 31 bits of each of eight elements) and a byte array (each bit of each of
 sixteen bytes). A multiply-and-add fold moves one bit for a change in the last element and fails here. Over
@@ -1184,7 +1181,6 @@ byte mean>=8: true at most one 0: true
 ### An int array whose hash only a witness table reaches links and hashes
 
 <!-- test: an-int-array-hashed-only-through-a-witness-table-links -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 An `int` array stored in a `Hashable` field is hashed through the field's witness table, and nothing else in
 the program hashes anything. The program links, equal arrays hash equal through the field, and arrays that
 differ in one element hash differently.
@@ -1221,7 +1217,6 @@ different arrays: true
 ### A narrow int array hashes alike through every route
 
 <!-- test: a-narrow-int-array-hashes-alike-through-every-route -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An array whose element is one byte wide but is not `Byte` — an `int(0 to 100)`, a signed `int(-128 to 127)` —
 answers one hash called directly, through a `Hashable` field and from a generic body; a separately built equal
 array hashes equal, and one element changed changes the hash.
@@ -1281,7 +1276,6 @@ small: through Hashable true generic true equal true changed true
 ### A payload-free enum array hashes alike through every route
 
 <!-- test: a-payload-free-enum-array-hashes-alike-through-every-route -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A payload-free enum's equality is bitwise, so its array hashes as one run over its storage, like an integer
 array: called directly, through a `Hashable` field and from a generic body it answers one hash; a separately
 built equal array hashes equal, and one element changed changes the hash.
@@ -1675,7 +1669,6 @@ error E3185: <fragment>:3:26: call to '__Builtins.elementsHashAsStorage' from ou
 ```
 
 <!-- test: error.hash-array-storage-refused-outside-the-library-tiers -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 <!-- positions: moved -->
 Outside `stdlib/` and `runtime/` the call is refused at the member it names. It has no public replacement.
 ```maxon

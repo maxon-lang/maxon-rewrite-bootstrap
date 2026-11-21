@@ -276,7 +276,8 @@ end 'main'
 ```
 
 <!-- test: every-collection-count-is-a-count -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'FixedArray' is not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 Every collection's `count()` is a `Count`, so each goes to a `Count` parameter with no cast.
 ```maxon
 typealias Narrow = int(0 to 1000)
@@ -292,7 +293,9 @@ function main() returns ExitCode
 	arr.push(4)
 	let list = List from [10, 20]
 	let map = [1: 10, 2: 20, 3: 30]
+	// TODO: 'Set' is not supported in minimaxon
 	let set = Set from [5, 6, 7, 8]
+	// TODO: 'FixedArray' is not supported in minimaxon
 	let vec = FixedArray from [1, 2, 3, 4, 5]
 	let text = "a😀b"
 	print("{takesCount(arr.count())} {takesCount(list.count())} {takesCount(map.count())} {takesCount(set.count())} {takesCount(vec.count())} {takesCount(text.codepoints().count())} {takesCount(text.utf16().count())}\n")
@@ -1604,7 +1607,6 @@ error E3005: <fragment>:9:8: argument type mismatch for 'value': expected 'Wide'
 ```
 
 <!-- test: error.array-literal-element-across-aliases -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `WideArray from [n]` stores `n` into a `Wide` slot, so it is refused as `push` is.
 ```maxon
@@ -1625,7 +1627,6 @@ error E3005: <fragment>:8:30: argument type mismatch for 'value': expected 'Wide
 ```
 
 <!-- test: error.array-later-literal-element-across-aliases -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to u64.max)
@@ -1836,7 +1837,6 @@ error E3005: <fragment>:8:26: argument type mismatch for 'value': expected 'Real
 ```
 
 <!-- test: an-array-element-takes-its-own-alias-an-int-and-a-cast -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A slot named `Wide` is entered by a `Wide` value, a plain `int` and an `as Wide` cast, at `push`, `insert`
 and a `from [..]` literal alike.
 ```maxon
@@ -1851,7 +1851,7 @@ function narrowed() returns Narrow
 end 'narrowed'
 
 function main() returns ExitCode
-	let items = WideArray.create(0)
+	var items = WideArray.create(0)
 	let same = 3 as Wide
 	let plain = 4
 	let n = narrowed()

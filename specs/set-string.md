@@ -199,12 +199,13 @@ end 'main'
 ```
 
 <!-- test: from-literal-distinct -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 `Set from ["…"]` builds a set by MOVING each key out of the source array literal — the array is the caller's
 owned temp, borrowed by `__set_from`, and each moved-out slot is nulled so the array's own drop double-frees
 nothing. Three distinct keys → count 3.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["x", "y", "z"]
 	return s.count()
 end 'main'
@@ -214,12 +215,13 @@ end 'main'
 ```
 
 <!-- test: from-literal-dedup -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 The dedup case: `Set from ["a", "b", "a", "c"]` — the second `"a"` is a distinct allocation that
 duplicates the first by content, so it is dropped by the insert dup-path (and its source array slot nulled).
 Three unique members; no double-free between the set's key drops and the array's element drop.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["a", "b", "a", "c"]
 	return s.count()
 end 'main'
@@ -229,10 +231,11 @@ end 'main'
 ```
 
 <!-- test: from-literal-contains -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
+<!-- skip: 'Set' is not supported in minimaxon -->
 A `Set from ["…"]` value answers `contains` by content and owns its keys to scope exit.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["apple", "banana", "cherry"]
 	if not s.contains("banana") 'miss'
 		return 1
@@ -348,7 +351,7 @@ end 'main'
 ```
 
 <!-- test: from-a-string-array-variable-leaves-the-source-intact -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 `Set from <array>` copies each `String` key out of an array the program still holds; the array keeps its strings and both are dropped once.
 ```maxon
 typealias Names = Array with String
@@ -360,7 +363,7 @@ function main() returns ExitCode
 	names.push("alice")
 	names.push("bob")
 	names.push("alice")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = NameSet from names
 	print("{s.count()} {names.count()} {s.contains("bob")}\n")
 	for name in names 'each'
@@ -380,7 +383,8 @@ alice
 ```
 
 <!-- test: bare-from-a-string-array-call-result -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Set' is not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head over a call's `String` array owns the keys and drops the temporary array.
 ```maxon
 typealias Names = Array with String
@@ -394,7 +398,8 @@ function makeNames() returns Names
 end 'makeNames'
 
 function main() returns ExitCode
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
+	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from makeNames()
 	print("{s.count()} {s.contains("x1")}\n")
 	return 0
@@ -408,7 +413,7 @@ end 'main'
 ```
 
 <!-- test: the-source-array-is-still-writable-after-a-let-set-from-it -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
+<!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A `let` bound to `Set from <array>` holds keys of its own, so the source array may still be written while the set lives.
 ```maxon
 typealias Names = Array with String
@@ -418,7 +423,7 @@ typealias NameSet = Set with String
 function main() returns ExitCode
 	let names = Names.create(0)
 	names.push("alice")
-	// TODO: 'Type from value' conversions are not supported in minimaxon
+	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let s = NameSet from names
 	names.push("bob")
 	print("{s.count()} {names.count()} {s.contains("bob")}\n")

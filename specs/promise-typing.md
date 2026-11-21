@@ -38,7 +38,6 @@ A promise converts to no `int`. Its result arrives through `await`, and **`p.isC
 ## Tests
 
 <!-- test: promise-typing.error.return-a-promise-as-its-result-type -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise is not its result. `grab` is declared `returns Integer` and returns `async plain()`, which is a
@@ -49,7 +48,6 @@ run), which is the wrong answer this whole slice exists to stop.
 typealias Integer = int(i64.min to i64.max)
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -69,7 +67,6 @@ error E3005: <fragment>:10:3: Cannot return 'Promise with int' from function dec
 ```
 
 <!-- test: promise-typing.error.arithmetic-on-a-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -78,7 +75,6 @@ A promise is not a number, so it has no arithmetic.
 typealias Integer = int(i64.min to i64.max)
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -97,7 +93,6 @@ error E2004: <fragment>:11:18: Cannot operate on Promise with int and int
 ```
 
 <!-- test: promise-typing.error.a-promise-in-an-integer-parameter -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `Integer` parameter does not take a promise. The cure is to `await` it and pass the RESULT — which is
@@ -106,7 +101,6 @@ also the only spelling that keeps the thread's one owner intact.
 typealias Integer = int(i64.min to i64.max)
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -126,7 +120,6 @@ error E3005: <fragment>:15:10: argument type mismatch for 'n': expected 'Integer
 ```
 
 <!-- test: promise-typing.error.clone-a-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -138,7 +131,6 @@ one is refused at the receiver.
 typealias Integer = int(i64.min to i64.max)
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -157,7 +149,6 @@ error E3141: <fragment>:11:16: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-map-of-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same refusal one container deep: a `Map` whose values are promises would hand each thread to two maps.
@@ -169,7 +160,6 @@ typealias IntPromise = Promise with Integer
 typealias Pending = Map with (Integer, IntPromise)
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -187,7 +177,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-record-holding-an-array-of-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 And through a record whose field is an array of promises.
@@ -207,7 +196,6 @@ type Batch
 end 'Batch'
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -226,7 +214,6 @@ error E3141: <fragment>:23:20: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.append-an-array-of-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `append` copies every element of its argument, so an array of promises appended to another would leave each
@@ -239,7 +226,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -258,7 +244,6 @@ error E3141: <fragment>:15:9: a promise cannot be borrowed through 'append': it 
 ```
 
 <!-- test: promise-typing.error.clone-an-array-of-records-holding-a-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 And through an array whose element is a record holding a promise: the array's copy reaches the promise
@@ -279,7 +264,6 @@ type Job
 end 'Job'
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -297,7 +281,6 @@ error E3141: <fragment>:22:19: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-list-of-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `List` declares its own `clone`, which walks the list and appends each element to a new one. Over promises
@@ -310,7 +293,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseList = List with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -328,9 +310,7 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.filter-a-list-of-promises -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `filter` keeps each element its predicate accepts by copying it into a new array, so a list of promises
 filtered would give each kept thread two owners.
@@ -342,7 +322,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseList = List with IntPromise
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'
@@ -351,7 +330,6 @@ function main() returns ExitCode
 	var pending = IntPromiseList.create()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.append(async plain())
-	// TODO: closures are not supported in minimaxon
 	let kept = pending.filter(function(p IntPromise) gives p.isComplete())
 	return kept.count() as ExitCode
 end 'main'
@@ -361,7 +339,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'filter': it
 ```
 
 <!-- test: promise-typing.error.clone-a-generic-array-field-instantiated-with-a-promise -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A generic type's shared body copies an `Array with T` field without knowing what `T` is, so the copy is
@@ -395,7 +372,6 @@ type Bag uses T
 end 'Bag'
 
 function plain() returns Integer
-	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'plain'

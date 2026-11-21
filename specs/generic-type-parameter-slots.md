@@ -23,11 +23,9 @@ neither is a property of the formal.
 ### A function value binds a type parameter whose argument is a function alias
 
 <!-- test: generic-type-parameter-slots.function-value-element -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer

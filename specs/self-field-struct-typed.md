@@ -313,7 +313,7 @@ end 'Inner'
 type Outer
 	export let inner as Inner
 
-	function writeIt(mutates self, v Integer)
+	function writeIt(v Integer)
 		inner.value = v
 	end 'writeIt'
 
@@ -323,7 +323,7 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	var o = Outer.create(Inner.create(3))
+	let o = Outer.create(Inner.create(3))
 	o.writeIt(7)
 	return try o.inner.value as ExitCode otherwise panic("out of range")
 end 'main'

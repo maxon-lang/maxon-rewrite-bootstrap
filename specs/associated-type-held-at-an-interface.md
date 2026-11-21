@@ -1183,8 +1183,6 @@ end 'main'
 ```
 
 <!-- test: error.held-binding-whose-conformer-holds-a-function-value-is-frozen -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1196,7 +1194,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Cursor
@@ -1248,7 +1245,6 @@ type StepBag implements Bag with StepCursor
 	end 'create'
 
 	function createIterator() returns StepCursor throws IterationError
-		// TODO: closures are not supported in minimaxon
 		return StepCursor.create(function(n Tally) gives n + 1)
 	end 'createIterator'
 end 'StepBag'

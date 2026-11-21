@@ -364,14 +364,11 @@ end 'main'
 ```
 
 <!-- test: unused-closure-param -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -379,7 +376,6 @@ function apply(f FnTypeAlias1, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let result = apply(function(n Integer) gives 42, x: 10)
 	return result
 end 'main'
@@ -389,13 +385,10 @@ error E3012: specs/unused-variables/unused-closure-param.maxon:11:30: unused var
 ```
 
 <!-- test: used-closure-param -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -403,9 +396,8 @@ function apply(f FnTypeAlias1, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
-	let result = apply(function(n Integer) gives n + 1, x: 10)
-	return result
+	let result = apply(function(n Integer) gives try n + 1 otherwise panic("out of range"), x: 10)
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -413,13 +405,10 @@ end 'main'
 ```
 
 <!-- test: discard-closure-param -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 
 function apply(f FnTypeAlias1, x Integer) returns Integer
@@ -427,9 +416,8 @@ function apply(f FnTypeAlias1, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let result = apply(function(_ Integer) gives 42, x: 10)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

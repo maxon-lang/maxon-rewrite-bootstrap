@@ -163,8 +163,6 @@ error E2051: specs/reserved-double-underscore/enum-case.maxon:4:2: identifier '_
 ```
 
 <!-- test: closure-parameter -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -173,7 +171,6 @@ function apply(f Integer, n Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function(__n Integer) gives __n + 1
 	_ = f(0)
 	return 0

@@ -805,7 +805,6 @@ end 'main'
 ```
 
 <!-- test: if-try-fn-typed-result -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A throwing function that returns a FUNCTION must bind through `if let` with its
 signature intact, exactly as `let f = try pick(...) otherwise ...` does. The two
 forms are one rewrite of the call into a try-call, and they were once two copies
@@ -816,7 +815,6 @@ compiling the program.
 ```maxon
 typealias Score = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(Score) returns Score
 
 enum PickError implements Error
@@ -824,7 +822,7 @@ enum PickError implements Error
 end 'PickError'
 
 function double(x Score) returns Score
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function pick(ok bool) returns Transform throws PickError
@@ -839,7 +837,7 @@ function main() returns ExitCode
 	let a = f(3)
 	if let g = try pick(true) 'ok'
 		let b = g(4)
-		return a + b
+		return try a + b otherwise panic("out of range")
 	end 'ok' else 'bad'
 		return 1
 	end 'bad'

@@ -719,7 +719,6 @@ end 'main'
 ```
 
 <!-- test: top-level-array-const-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An array literal's elements are body expressions, so a reference to another top-level *scalar* constant —
 and arithmetic on it — is an element.
 ```maxon
@@ -730,7 +729,7 @@ let xs = FullRangeIntArray from [BASE, BASE + 2]
 function main() returns ExitCode
 	let a = try xs.get(0) otherwise 0
 	let b = try xs.get(1) otherwise 0
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -821,7 +820,6 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-array-var-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `let` array's record cannot be laundered into a mutable ALIAS. A borrowed managed aggregate bound to a
 `var` is promoted to owned by an INCREF of the same box — reference semantics, deliberately, because the
 alias is observable — so without this refusal `var b = A` then `b.push(9)` would grow `A`. A `var` is a
@@ -853,7 +851,6 @@ error E3207: <fragment>:6:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-array-var-reassign-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same refusal through the other door — a REASSIGNMENT of an already-owned `var`, which promotes a
 borrowed value through the identical single-sourced path and so CARRIES the mark through the identical
 one. `b = A` is refused at the reassignment, as `var b = A` is at the binding.
@@ -982,7 +979,6 @@ error E3207: <fragment>:24:2: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.top-level-let-array-ternary-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 And through a value MERGE, which is the door that costs one extra keyword. The mark that refuses the two
 above rides the VALUE, and a merge mints a NEW value — so the phi has to inherit it, or `var pick = A if c
@@ -1004,7 +1000,6 @@ error E3207: <fragment>:7:7: 'push' needs a writable receiver; 'pick' is immutab
 ```
 
 <!-- test: error.top-level-let-array-match-arm-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 The same merge, through the `match`-expression door rather than the ternary — one `finalizeMatchMerge`
 serves both, so a phi that inherits the mark for one inherits it for the other by construction.
@@ -1485,15 +1480,12 @@ error E3220: <fragment>:12:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-given-out-of-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 A closure hands out a read of a module-level `let`, and a write through the name bound to what the closure returns is
 refused as a write through immutable data, as it is for a named function.
 ```maxon
 let A = ["a", "b"]
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function() gives A
 	let b = f()
 	b.push("zz")
@@ -1505,8 +1497,6 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.let-global-alias-captured-by-a-closure -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **A CLOSURE MUST NOT LAUNDER THE TAINT.** A closure body is its own SSA space, so the per-value marks are
@@ -1518,7 +1508,6 @@ that `expose()` hands back inside the closure has to be marked again in the clos
 ```maxon
 typealias Names = Array with String
 
-// TODO: function typealiases are not supported in minimaxon
 typealias IntThunk = function() returns Integer
 
 let A = ["a", "b"]
@@ -1538,7 +1527,6 @@ function callThunk(f IntThunk) returns Integer
 end 'callThunk'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let n = callThunk(function() gives grow(expose()))
 	return A.count() as ExitCode
 end 'main'
@@ -2395,7 +2383,6 @@ at file scope, with the code and sentence the body spelling gets. A silent accep
 direction: the record would be built by a type that never declared it can be.
 
 <!-- test: a-top-level-let-built-by-a-string-literal-init -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 Both a `""` and a non-empty literal, so the argument is carried and not merely accepted.
 ```maxon
 interface InitableFromStringLiteral
@@ -2405,14 +2392,12 @@ type Tag implements InitableFromStringLiteral
 	export let text as String
 
 	static function init(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'init'
 end 'Tag'
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let emptyTag = Tag from ""
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let namedTag = Tag from "hello"
 
 function main() returns ExitCode
@@ -2428,10 +2413,8 @@ empty=0 named=hello
 ```
 
 <!-- test: a-top-level-let-built-by-a-string-literal-init-of-a-library-type-whose-init-is-not-exported -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 `stdlib/FilePath.maxon` declares its `init` static without `export`, because the construction reaches it through the type's conformance and the author never names it. The global's initializer is the compiler's call to it, so it is not refused for a file that cannot name `init`.
 ```maxon
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let source = FilePath from "input.txt"
 
 function main() returns ExitCode
@@ -2447,8 +2430,6 @@ input.txt
 ```
 
 <!-- test: error.a-top-level-string-literal-init-still-needs-the-conformance -->
-<!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **THE CONTROL, AND IT IS THE HALF A SILENT ACCEPTANCE WOULD COST.** The only difference from the
 case above is the missing `implements` clause. Same code, same sentence, same anchor as the body
 spelling.
@@ -2461,7 +2442,6 @@ type Tag
 	end 'init'
 end 'Tag'
 
-// TODO: 'Type from value' conversions are not supported in minimaxon
 let namedTag = Tag from "hello"
 
 function main() returns ExitCode

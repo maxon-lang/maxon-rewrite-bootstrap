@@ -64,7 +64,6 @@ error E2004: <fragment>:7:10: Function 'noop' does not return a value
 ```
 
 <!-- test: void-result-in-arithmetic -->
-<!-- skip: differing error code: operand types -->
 ```maxon
 function noop()
 	return

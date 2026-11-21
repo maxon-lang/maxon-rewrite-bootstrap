@@ -549,8 +549,7 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: a-closure-in-a-generic-method-stores-the-parameter-through-its-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
+<!-- skip: a function type that 'mutates captures' is not supported in minimaxon -->
 A closure inside a generic method stores a type-parameter value through the enclosing method's descriptor, so the stored record is the shared one.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -589,7 +588,7 @@ type Held uses Value
 	end 'get'
 end 'Held'
 
-// TODO: function typealiases are not supported in minimaxon
+// TODO: a function type that 'mutates captures' is not supported in minimaxon
 typealias Action = function() returns bool mutates captures
 
 function perform(action Action) returns bool
@@ -611,7 +610,6 @@ type Registry uses Item
 	end 'put'
 
 	function copyLater(source String, target String)
-		// TODO: closures are not supported in minimaxon
 		if not perform(function() gives held.hold(target, value: try held.get(source) otherwise panic("absent"))) 'uncopied'
 			panic("copyLater: hold always stores")
 		end 'uncopied'
@@ -645,8 +643,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-reading-a-parameter-out-of-a-generic-cell-keeps-it-alive -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 A closure inside a generic method that reads a type-parameter field hands back the shared record, which stays alive and balanced across every call.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -668,7 +664,6 @@ type Box
 end 'Box'
 
 type Cell uses T
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Source = function() returns T
 	var value as T
 
@@ -685,7 +680,6 @@ type Cell uses T
 	end 'run'
 
 	function later() returns T
-		// TODO: closures are not supported in minimaxon
 		return self.run(function() gives value)
 	end 'later'
 end 'Cell'
@@ -744,7 +738,6 @@ error E2015: <fragment>:15:11: Unsupported: 'Pair.create' is called on 'Pair.Dee
 ```
 
 <!-- test: mapping-a-map-of-records-releases-the-entry-tuples-it-built -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 Each `map` over a `Map with (String, Box)` builds entry tuples that share the records, keeps them alive after the map replaces its values, and releases them when the mapped array goes.
 ```maxon
@@ -769,7 +762,6 @@ function main() returns ExitCode
 	m.upsert("bb", value: Box.create(2))
 	var total = 0 as Count
 	for _ in 0 upto 3 'eachRound'
-		// TODO: closures are not supported in minimaxon
 		let mapped = m.map(function(p) gives p)
 		m.upsert("a", value: Box.create(50))
 		m.upsert("bb", value: Box.create(60))
@@ -1112,7 +1104,6 @@ a heap string long enough to allocate 1 1
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-clones-its-records -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1135,7 +1126,6 @@ type Holder uses Value
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
 
@@ -1182,8 +1172,6 @@ end 'main'
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1206,7 +1194,6 @@ type Holder uses Value
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
 
@@ -1220,7 +1207,6 @@ type Holder uses Value
 	end 'put'
 
 	function snapshot() returns Pairs
-		// TODO: closures are not supported in minimaxon
 		return self.apply(function() gives self.pairs.clone())
 	end 'snapshot'
 
@@ -1254,7 +1240,6 @@ end 'main'
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-returned-releases-its-records -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1277,7 +1262,6 @@ type Holder uses Value
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
 
@@ -1387,7 +1371,6 @@ a heap string long enough to allocate 1 1 1
 ```
 
 <!-- test: a-closure-in-a-static-storing-a-borrowed-parameter-takes-the-call-sites-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure written in a static stores a borrowed type-parameter value. The closure carries the descriptor of the body it is written in, which `StrCell.keep` receives from its call, so the record the closure builds holds a reference of its own.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1395,7 +1378,7 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1404,13 +1387,11 @@ type Cell uses T
 	end 'marker'
 
 	static function firstOf(cells CellArray) returns Int
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives cells.count()
-		return f()
+		return try f() as Int otherwise panic("out of range")
 	end 'firstOf'
 
 	static function keep(v T) returns Int
-		// TODO: closures are not supported in minimaxon
 		let f = function(x T) gives Self{v: x}
 		let c = f(v)
 		return c.marker()
@@ -1656,7 +1637,6 @@ word 6
 ```
 
 <!-- test: a-static-dropping-an-opaque-value-it-reads-releases-it-through-the-call-sites-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 A closure in a static reads an opaque value and drops it. The static receives the descriptor from its call, and the closure releases the value through it.
 ```maxon
@@ -1685,7 +1665,6 @@ type Holder uses T
 	end 'create'
 
 	static function peek(h Self) returns Int
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives h.one.get()
 		_ = f()
 		return 1
@@ -1708,8 +1687,6 @@ end 'main'
 ```
 
 <!-- test: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1732,7 +1709,6 @@ type Holder uses Value
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
 	typealias Pairs = Array with Pair
-	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
 
@@ -1746,7 +1722,6 @@ type Holder uses Value
 	end 'put'
 
 	function snapshot() returns Pairs
-		// TODO: closures are not supported in minimaxon
 		return self.apply(function() gives self.pairs.clone())
 	end 'snapshot'
 
@@ -1755,7 +1730,6 @@ type Holder uses Value
 	end 'apply'
 
 	static function countOf(ps Pairs) returns Count
-		// TODO: closures are not supported in minimaxon
 		let f = function() gives ps.clone().count()
 		return f()
 	end 'countOf'
@@ -2555,7 +2529,6 @@ overwrite payload long enough to allocate xxxxxxxx
 ```
 
 <!-- test: a-closure-parameter-named-like-the-methods-parameter-is-its-own-value -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure inside a static that names its own parameter like the method's parameter builds the record from the closure's argument.
 ```maxon
 type Cell uses T
@@ -2566,7 +2539,6 @@ type Cell uses T
 	end 'make'
 
 	static function rewrap(v T, other Self) returns Self
-		// TODO: closures are not supported in minimaxon
 		let f = function(v T) gives Self{v: v}
 		_ = Self{v: v}
 		return f(other.v)
@@ -2604,7 +2576,6 @@ overwrite payload long enough to allocate xxxxxxxx
 ```
 
 <!-- test: a-closure-parameter-named-like-a-local-is-its-own-value -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure parameter named like a local of the static is the closure's argument, not the local.
 ```maxon
 type Cell uses T
@@ -2616,7 +2587,6 @@ type Cell uses T
 
 	static function rewrap(v T, other Self, keepLocal bool) returns Self
 		let chosen = v
-		// TODO: closures are not supported in minimaxon
 		let f = function(chosen T) gives Self{v: chosen}
 		if keepLocal 'local'
 			return Self{v: chosen}
@@ -5449,7 +5419,6 @@ extra 2
 ```
 
 <!-- test: a-closure-between-the-feed-and-the-store-still-stores-correctly -->
-<!-- skip: closures are not supported in minimaxon -->
 The same store when a closure literal sits between the constructor feed and the store. The closure is parsed
 as a function of its own; the store after it is judged on the record's real provenance, and the program
 balances.
@@ -5472,7 +5441,6 @@ type Mid uses Y, Z
 
 	static function create(y Y, z Z) returns Self
 		let inner = In.create(y, q: z)
-		// TODO: closures are not supported in minimaxon
 		let bump = function(n Integer) gives n + 1
 		return Self{i: inner, tag: bump(1)}
 	end 'create'
@@ -6015,7 +5983,6 @@ instantiates `Map` by a declaration beside the literal. `Map.map` carries a desc
 its `ElementArray{}` is composed over `Map`'s parameters, and forwards it into the iterator chain.
 
 <!-- test: mapping-a-map-releases-the-entry-tuples-it-built -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias EnvMap = Map with String, String
 
@@ -6027,7 +5994,6 @@ end 'envSize'
 
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
-	// TODO: closures are not supported in minimaxon
 	let mapped = m.map(function(p) gives p)
 	let e = EnvMap.create()
 	try e.insert("k", value: "v") otherwise return 9
@@ -6043,17 +6009,15 @@ mapped 3
 ```
 
 <!-- test: a-closure-in-a-generic-method-handing-back-its-parameter-reserves-the-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
 	function touch() returns ExitCode
-		// TODO: closures are not supported in minimaxon
 		let e = function(x T) gives x
 		_ = e(self.v)
 		return 7
@@ -6149,7 +6113,6 @@ entry 42 value long enough for a heap record 9
 ```
 
 <!-- test: an-unqualified-sibling-static-called-in-a-closure-of-a-static-stores-through-the-call-sites-descriptor -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure written in a static calls the sibling static by its bare name with its own type-parameter parameter.
 ```maxon
 type DPair uses T
@@ -6161,7 +6124,6 @@ type DPair uses T
 	end 'create'
 
 	static function viaClosure(v T) returns Self
-		// TODO: closures are not supported in minimaxon
 		let build = function(x T) gives create(x, b: x)
 		return build(v)
 	end 'viaClosure'
@@ -6843,7 +6805,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-main-returns-the-parameter-a-generic-static-picks-over-a-scalar-instance -->
-<!-- skip: closures are not supported in minimaxon -->
 A closure written in a plain function calls an equality-guarded static of a generic type through its instance alias, and the static hands back one of its parameters.
 ```maxon
 type Holder uses T where T implements Equatable
@@ -6867,7 +6828,6 @@ typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives IntHolder.pick(n, b: 1))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
@@ -6881,7 +6841,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-main-returns-the-parameter-a-generic-static-picks-over-a-string-instance -->
-<!-- skip: closures are not supported in minimaxon -->
 The same closure over a managed type argument hands back a heap string, and every string is released exactly once.
 ```maxon
 type Holder uses T where T implements Equatable
@@ -6903,7 +6862,6 @@ typealias StrHolder = Holder with String
 
 function main() returns ExitCode
 	let xs = ["first {40 + 2} value long enough for a heap record", "second {40 + 3} value long enough for a heap record"]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(s) gives StrHolder.pick(s, b: "first {40 + 2} value long enough for a heap record"))
 	print("{try ys.get(0) otherwise ""}|{try ys.get(1) otherwise ""}\n")
 	return 0
@@ -7062,7 +7020,6 @@ first 42 value long enough for a heap record
 ```
 
 <!-- test: a-bare-static-infers-its-instance-from-its-declaration -->
-<!-- skip: closures are not supported in minimaxon -->
 The instance is inferred from the declaration of the static the call names, so the result is an `Integer` in a closure and outside it.
 ```maxon
 type Holder uses T where T implements Equatable
@@ -7086,7 +7043,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives Holder.pick(n, b: 1))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	print("{Holder.pick(1, b: 1)} {Holder.pick(2, b: 1)}\n")
@@ -7138,7 +7094,6 @@ x 42 value long enough for a heap record
 ```
 
 <!-- test: a-bare-generic-static-call-in-a-closure-infers-its-instance-from-the-arguments -->
-<!-- skip: closures are not supported in minimaxon -->
 `Holder.pick(n, b: 1)` names the generic type outright, so the arguments fix `T` and the closure's result is an `Integer`.
 ```maxon
 type Holder uses T where T implements Equatable
@@ -7158,7 +7113,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives Holder.pick(n, b: 1))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
@@ -7603,7 +7557,6 @@ The pair of a conformer's interface binding and an extension's alias is refused 
 
 <!-- test: error.an-extension-function-alias-over-a-bound-interface-is-refused-once -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- positions: moved -->
 A function alias over the associated type, with a member taking it, is refused at the alias; the program never calls through it.
@@ -7629,7 +7582,6 @@ end 'Source'
 
 // TODO: extension blocks are not supported in minimaxon
 extension Source
-	// TODO: function typealiases are not supported in minimaxon
 	typealias ItemFn = function(Item) returns Count
 	function apply(f ItemFn) returns Count
 		return f(self.first())

@@ -500,7 +500,6 @@ end 'main'
 <!-- test: a-closure-with-a-block-keyword-parameter-inside-an-arm-body -->
 <!-- skip: 'function' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 A closure literal inside a match arm spells `function (…) gives`, which is the shape of a payload-carrying
 case arm — so the walk's name verdict for that `function` token is "a name", and it must STILL record the
@@ -512,7 +511,6 @@ block keywords a bare read is legal for, because their position tests already an
 ```maxon
 typealias Idx = int(0 to 100)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Idx) returns Idx
 
 enum Marker

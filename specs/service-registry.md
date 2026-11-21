@@ -1606,7 +1606,6 @@ error E3177: <fragment>:51:21: `Worker.work` cannot be sent through `Worker.hand
 
 <!-- test: a-handle-converts-at-a-function-value-call -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A call through a function value is a door too: the `Fixed.handle` argument converts to the `Source.handle`
 the function type declares.
@@ -1632,7 +1631,6 @@ type Fixed implements Source
 	end 'bump'
 end 'Fixed'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias SourceBumper = function(Source.handle)
 
 function bumpSource(source Source.handle)
@@ -1666,7 +1664,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-handle-converts-at-a-closure-literal-call -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A closure literal whose parameter is written `Source.handle` inline takes a `Fixed.handle` argument
 converted at the call.
@@ -1688,7 +1685,6 @@ type Fixed implements Source
 end 'Fixed'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let f = function(s Source.handle) gives (try await s.value() otherwise 0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
@@ -2885,20 +2881,16 @@ before=1 after=6
 ```
 
 <!-- test: error.a-value-default-whose-graph-reaches-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: top-level default declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A function value is a closure record that owns what it captures, and no share walk can mark it.
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Integer) returns Integer
 
 type Config
 	export let step as Step
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{step: function(n Integer) gives n + 1}
 	end 'create'
 end 'Config'
@@ -2917,18 +2909,14 @@ error E3171: <fragment>:12:9: `Config` cannot be a registry value or a `SharedVa
 ```
 
 <!-- test: error.a-shared-value-whose-graph-reaches-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Integer) returns Integer
 
 type Config
 	export let step as Step
 
 	static function create() returns Self
-		// TODO: closures are not supported in minimaxon
 		return Self{step: function(n Integer) gives n + 1}
 	end 'create'
 end 'Config'
@@ -2946,8 +2934,6 @@ error E3171: <fragment>:12:24: `Config` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.publish-of-an-interface-whose-converted-conformer-holds-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2957,7 +2943,6 @@ wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and t
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Door
@@ -3009,7 +2994,6 @@ end 'Config'
 typealias Cell = SharedValue with Config
 
 function stepped() returns Shape
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepped'
 
@@ -3031,8 +3015,6 @@ note: <fragment>:54:9: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.a-value-default-holding-an-interface-whose-conformer-holds-a-function-value -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: top-level default declarations are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3043,7 +3025,6 @@ The `default` holds a `Plain`, but `stepped` converts a `Stepper` to `Shape`, so
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 type Door
@@ -3096,7 +3077,6 @@ end 'Config'
 default Config = Config.create(Plain.create())
 
 function stepped() returns Shape
-	// TODO: closures are not supported in minimaxon
 	return Stepper.create(function(n Tally) gives n + 1)
 end 'stepped'
 
@@ -4323,14 +4303,12 @@ error E3171: <fragment>:7:19: `Element` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-whose-instantiation-is-unwalkable -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The alias is refused where it is declared, before any instantiation is looked at.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias Step = function(Tally) returns Tally
 
 interface Shape

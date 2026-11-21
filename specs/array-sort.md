@@ -1159,7 +1159,6 @@ sorted
 ```
 
 <!-- test: driftsort-compare-count-grows-as-n-log-n -->
-<!-- skip: closures are not supported in minimaxon -->
 The stable sort does `O(n log n)` comparisons. 65,536 pseudo-random keys are sorted through a comparator
 that counts its calls, and the count must stay within 32 per element — twice `log2(65536)`. A merge
 policy that folds every new run into the run beside it, or a node power that reads as zero, costs
@@ -1178,7 +1177,6 @@ function counted(x Integer, y Integer, tally CallCell) returns Ordering
 end 'counted'
 
 function sortCounting(a IntArray, tally CallCell)
-	// TODO: closures are not supported in minimaxon
 	a.sortBy(function(x Integer, y Integer) gives counted(x, y: y, tally: tally))
 end 'sortCounting'
 
@@ -1215,7 +1213,6 @@ sorted within n log n
 ```
 
 <!-- test: driftsort-survives-a-quicksort-adversary -->
-<!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1289,7 +1286,6 @@ function adversarial(x Integer, y Integer, values ValueCell, trace TraceCell) re
 end 'adversarial'
 
 function sortAgainst(items IntArray, values ValueCell, trace TraceCell)
-	// TODO: closures are not supported in minimaxon
 	items.sortBy(function(x Integer, y Integer) gives adversarial(x, y: y, values: values, trace: trace))
 end 'sortAgainst'
 
@@ -1329,7 +1325,6 @@ sorted within the bound
 ## Duplicate-heavy inputs
 
 <!-- test: error.a-let-adversary-a-comparator-closure-writes-is-refused -->
-<!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 The adversary is a `let` handed to `sortAgainst`, whose comparator closure writes the adversary it captured: `SortComparator` does not declare `mutates captures`, so the closure is refused.
 ```maxon
@@ -1396,7 +1391,6 @@ function adversarial(x Integer, y Integer, adversary Adversary) returns Ordering
 end 'adversarial'
 
 function sortAgainst(items IntArray, adversary Adversary)
-	// TODO: closures are not supported in minimaxon
 	items.sortBy(function(x Integer, y Integer) gives adversarial(x, y: y, adversary: adversary))
 end 'sortAgainst'
 

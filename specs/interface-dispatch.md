@@ -584,7 +584,6 @@ error E3005: <fragment>:22:11: argument type mismatch for 'n': expected 'Integer
 
 
 <!-- test: dispatch-arg-wrong-function-shape-error -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 The FUNCTION-SHAPE half of the same door. Two different function types share the `function` tag exactly as
 two different structs share `structRef`, so the tag comparison the argument check ends with can never
@@ -596,7 +595,6 @@ wasm32-wasi.
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: function typealiases are not supported in minimaxon
 typealias OneArg = function(Integer) returns Integer
 
 interface Runner
@@ -1359,8 +1357,6 @@ error E2015: specs/interface-dispatch/error.function-value-of-an-interface-retur
 
 
 <!-- test: error.closure-returning-an-interface -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 The other route to the same function value, and the reason the refusal is a POSITION rather than one call
 site: a closure declares no return type at all — it is INFERRED from the `gives` expression — so there was
 nothing for the function-TYPE door to refuse. Refused at the `gives`, the line that decided it.
@@ -1392,7 +1388,6 @@ function consume(p Producer) returns Integer
 end 'consume'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let mk = function() gives make(42)
 	return consume(mk()) as ExitCode
 end 'main'
@@ -2568,8 +2563,6 @@ error E3005: specs/interface-dispatch/error.existentials-cannot-be-compared.maxo
 ```
 
 <!-- test: error.closure-parameter-at-an-interface-type -->
-<!-- skip: closures are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **A CLOSURE PARAMETER DECLARED AT AN INTERFACE TYPE IS REFUSED; UNREFUSED, IT PANICS THE PARSER WITH NO
 POSITION.**
 ```text
@@ -2605,7 +2598,6 @@ type Sq implements Shape
 end 'Sq'
 
 function main() returns ExitCode
-	// TODO: closures are not supported in minimaxon
 	let f = function(t Shape) gives t.area()
 	return f(Sq.create(7)) as ExitCode
 end 'main'
@@ -2852,8 +2844,6 @@ end 'main'
 ```
 
 <!-- test: error.interface-typed-function-type-parameter -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **AN INTERFACE-TYPED POSITION INSIDE A FUNCTION TYPE.** (A TUPLE ELEMENT is another, reached by a route no field/parameter/return reader owns — see `error.interface-typed-tuple-element`. The count is deliberately not written down in the compiler either; `DeclaredStoragePosition` is the count.)
 Unrefused, it faults even given a proper conformer: exit 139 (SEGFAULT) on x64-windows and a PANIC in
 the wasm backend.
@@ -2884,7 +2874,6 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias ShapeFn = function(Shape) returns Integer
 
 function measure(c Shape) returns Integer
@@ -2954,7 +2943,6 @@ error E3156: <fragment>:25:10: cannot use 'measure' as a function value: its par
 ```
 
 <!-- test: interface-dispatch.function-values-over-concrete-types-still-compile -->
-<!-- skip: function typealiases are not supported in minimaxon -->
 The FALSE-REJECT CONTROL for the case above. A function type whose parameter is a CONCRETE type is
 untouched, and so is a function value stored in a struct FIELD and called back out of it — the two
 shapes closest to the refused one. Only an interface-typed parameter loses its second word; nothing
@@ -2978,7 +2966,6 @@ type Sq implements Shape
 	end 'create'
 end 'Sq'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias SqFn = function(Sq) returns Integer
 
 function measure(v Sq) returns Integer
@@ -3002,7 +2989,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	return (apply(measure, v: Sq.create(31)) + Holder.create(measure).run(Sq.create(11))) as ExitCode
+	return try (apply(measure, v: Sq.create(31)) + Holder.create(measure).run(Sq.create(11))) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3206,8 +3193,6 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-return.m
 ```
 
 <!-- test: error.interface-typed-function-type-return -->
-<!-- skip: function typealiases are not supported in minimaxon -->
-<!-- positions: moved -->
 The other return: a FUNCTION TYPE's. `readFunctionTypeAlias` reads it with a bare
 `parseTypeReference`, so without the door it degrades the same way. It is its own position too —
 `StdOp.callIndirect` carries its whole signature ON THE OP and has room for one result — gated on the
@@ -3219,7 +3204,6 @@ interface Shape
 	function area() returns Integer
 end 'Shape'
 
-// TODO: function typealiases are not supported in minimaxon
 typealias MakeFn = function(Integer) returns Shape
 
 function main() returns ExitCode
@@ -4067,7 +4051,6 @@ end 'main'
 ```
 
 <!-- test: interface-requirements-returning-byte-array-and-a-map-alias-through-two-conformers -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A requirement returning the stdlib `ByteArray` without `throws`, and one returning a user alias of a `Map`,
 called through an interface-typed parameter: each result is the container its requirement declares, so its
 `count()` and its element reads work for either conformer.
