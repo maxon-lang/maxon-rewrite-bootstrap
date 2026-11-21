@@ -123,6 +123,18 @@ function lowerForInterpreter(mutates p ast.Project, mutates errs diag.ErrorList)
 	return generated
 end 'lowerForInterpreter'
 
+// lowerSource is lowerForInterpreter for a program that is the one file text, named path in diagnostics, which gives the
+// errors it found.
+export function lowerSource(path String, text String) returns diag.ErrorList
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	project.loadSourceInto(p, path: path, text: text, errs: errs)
+	if errs.count() == 0 'loaded'
+		_ = lowerForInterpreter(p, errs: errs)
+	end 'loaded'
+	return errs
+end 'lowerSource'
+
 // refusalsBesidesInterpreterOnly reports what a function's lowering could not make that is not a construct the interpreter runs,
 // at the first of each function, as the backend's refusals are.
 function refusalsBesidesInterpreterOnly(lowered interp.ModuleFunctions, mutates errs diag.ErrorList)

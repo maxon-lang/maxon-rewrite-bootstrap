@@ -866,8 +866,8 @@ the stub, which then passes `main`'s exit code to the runtime's `checkLeaks`; th
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are maxon's runtime's.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
-`self/backend/pe.maxon`): the compiler's passes recurse once per level of an expression, and a sum of 4,000 names needs
-about 22 MB. A reserve is address space, committed a page at a time as the stack grows. Before `main` the stub keeps 32 KB
+`self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
+operators, which each pass walks with a loop (`ast.leftChain`), so a sum of 200,000 terms needs no deep stack. A reserve is address space, committed a page at a time as the stack grows. Before `main` the stub keeps 32 KB
 past the stack's guard page (`SetThreadStackGuarantee`) and registers a vectored exception handler (`rt.fault`), as
 maxon's runtime does: a stack overflow, an access violation or an integer divide fault writes `panic: stack overflow at
 rip=0x<address>` (or `nil pointer or invalid memory access`, `integer divide by zero`, `integer overflow`) to standard

@@ -795,44 +795,80 @@ function hasFail(fails Byte, flag Byte) returns bool
 	return (fails and flag) != 0
 end 'hasFail'
 
+// visitBinaryExpr lowers an operator and the operators nested in its left operand, innermost first, so that a long chain
+// takes no stack. The blocks of the 'and' and the 'or' of the chain are made outermost first, as lowering the left
+// operand from within each of them would make them. An operator that is the left operand of the next ends as lowerExpr
+// ends it, with the values it left in flight taken; its value is a scalar, so nothing else is left to settle.
 function visitBinaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let mark = l.pending.count()
+	var chain = ast.leftChain(p.modules[l.mi].tree, e: e)
+	ast.trimFolded(p, typing: p.typings[l.mi], chain: chain)
+	openOperator(l, p: p, e: e)
+	for i in 0 upto chain.count() 'open'
+		let nested = chain[i]
+		openOperator(l, p: p, e: nested)
+	end 'open'
+	var node = ast.nextOperator(chain, e: e)
+	var v = lowerExpr(l, p: p, e: ast.binaryExprL(p.modules[l.mi].tree, id: node))
+	while node != e 'inner'
+		v = lowerOperator(l, p: p, e: node, left: v)
+		popPending(l, n: mark)
+		if regKind(l, v: v) == IrKind.kindManaged 'managed'
+			panic("lower: the operator at node {node} of module {l.module} has a managed value")
+		end 'managed'
+		node = ast.nextOperator(chain, e: e)
+	end 'inner'
+	return lowerOperator(l, p: p, e: e, left: v)
+end 'visitBinaryExpr'
+
+function isLogicalOperator(l Lowerer, p ast.Project, e ast.NodeID) returns bool
 	let op = ast.binaryExprOp(p.modules[l.mi].tree, id: e)
-	let left = ast.binaryExprL(p.modules[l.mi].tree, id: e)
-	let right = ast.binaryExprR(p.modules[l.mi].tree, id: e)
-	if (op == "and" or op == "or") and exprType(p, module: l.module, node: e) == p.builtins.boolTy 'logical'
+	return (op == "and" or op == "or") and exprType(p, module: l.module, node: e) == p.builtins.boolTy
+end 'isLogicalOperator'
+
+// openOperator makes the slot and the blocks of an 'and' or an 'or'.
+function openOperator(mutates l Lowerer, p ast.Project, e ast.NodeID)
+	if isLogicalOperator(l, p: p, e: e) 'logical'
 		let result = l.b.f.newSlot(IrKind.kindScalar)
 		let rhs = l.b.newBlock()
 		let join = l.b.newBlock()
-		let lv = lowerExpr(l, p: p, e: left)
-		emit(l, i: newStoreSlot(result, src: lv, borrow: false))
+		l.operators.push(OperatorFrame.make(result, rhs: rhs, join: join))
+	end 'logical'
+end 'openOperator'
+
+// lowerOperator lowers an operator whose left operand has been lowered to the register left.
+function lowerOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, left Reg) returns Reg
+	let op = ast.binaryExprOp(p.modules[l.mi].tree, id: e)
+	let right = ast.binaryExprR(p.modules[l.mi].tree, id: e)
+	if isLogicalOperator(l, p: p, e: e) 'logical'
+		let frame = try l.operators.pop() otherwise panic("lower: an 'and' or an 'or' has no blocks")
+		emit(l, i: newStoreSlot(frame.result, src: left, borrow: false))
 		if op == "and" 'and'
-			l.b.terminate(l.cur, t: newBranch(lv, ifTrue: rhs, ifFalse: join))
+			l.b.terminate(l.cur, t: newBranch(left, ifTrue: frame.rhs, ifFalse: frame.join))
 		end 'and' else 'or'
-			l.b.terminate(l.cur, t: newBranch(lv, ifTrue: join, ifFalse: rhs))
+			l.b.terminate(l.cur, t: newBranch(left, ifTrue: frame.join, ifFalse: frame.rhs))
 		end 'or'
-		l.cur = rhs
+		l.cur = frame.rhs
 		pushScope(l, block: false)
 		let rv = lowerExpr(l, p: p, e: right)
-		emit(l, i: newStoreSlot(result, src: rv, borrow: false))
+		emit(l, i: newStoreSlot(frame.result, src: rv, borrow: false))
 		popScope(l, p: p)
-		goTo(l, target: join)
-		return load(l, slot: result)
+		goTo(l, target: frame.join)
+		return load(l, slot: frame.result)
 	end 'logical'
 	let arith = arithInfoAt(p, module: l.module, node: e)
 	if arith.operand == p.builtins.stringTy 'string'
-		let a = lowerExpr(l, p: p, e: left)
 		let b = lowerExpr(l, p: p, e: right)
-		let eq = runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(a, b: b))
+		let eq = runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(left, b: b))
 		if op == "!=" 'ne'
 			return flip(l, boolean: eq)
 		end 'ne'
 		return eq
 	end 'string'
-	let a = lowerExpr(l, p: p, e: left)
 	let c = lowerExpr(l, p: p, e: right)
 	let unsigned = ast.isUnsignedInt(p.types, t: arith.operand)
 	if isCmpOpText(op) 'cmp'
-		return compare(l, op: cmpOpOfText(op), a: a, b: c, unsigned: unsigned)
+		return compare(l, op: cmpOpOfText(op), a: left, b: c, unsigned: unsigned)
 	end 'cmp'
 	let d = newReg(l, kind: IrKind.kindScalar)
 	let binOp = binOpOfText(op)
@@ -850,13 +886,13 @@ function visitBinaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	if hasFail(fails, flag: ast.failOverflow) 'wordFail'
 		wordFail = overflow
 	end 'wordFail'
-	emit(l, i: newBin(d, op: binOp, left: a, right: c, unsigned: unsigned, fail: wordFail))
+	emit(l, i: newBin(d, op: binOp, left: left, right: c, unsigned: unsigned, fail: wordFail))
 	let ty = exprType(p, module: l.module, node: e)
 	if p.types.entries[ty as Count].kind == ast.TypeKind.intRange 'range'
 		rangeCheck(l, p: p, v: d, t: ty, unsigned: unsigned, fails: fails, fail: overflow)
 	end 'range'
 	return d
-end 'visitBinaryExpr'
+end 'lowerOperator'
 
 // overflowTo is where an operation that can fail as fails says goes when its result does not fit, or noBlock when it
 // always fits.

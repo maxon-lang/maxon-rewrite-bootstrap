@@ -424,14 +424,29 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Spa
 	return v.unionWith(other)
 end 'rangeTryExpr'
 
-// rangeBinaryExpr is an 'and' or an 'or' that evaluates its right operand only when the left one allows it, a
-// comparison, or an operator on integers.
+// rangeBinaryExpr walks an operator and the operators nested in its left operand, innermost first, so that a long chain
+// takes no stack. An operator is an 'and' or an 'or' that evaluates its right operand only when the left one allows it,
+// a comparison, or an operator on integers.
 function rangeBinaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+	let since = r.written.count()
+	var chain = ast.leftChain(p.modules[r.modIdx].tree, e: e)
+	ast.trimFolded(p, typing: r.typing, chain: chain)
+	var node = ast.nextOperator(chain, e: e)
+	var l = rangeEval(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: node))
+	while node != e 'inner'
+		l = rangeOperator(r, p: p, e: node, l: l, since: since)
+		node = ast.nextOperator(chain, e: e)
+	end 'inner'
+	return rangeOperator(r, p: p, e: e, l: l, since: since)
+end 'rangeBinaryExpr'
+
+// rangeOperator is the span of an operator whose left operand has been walked and has the span l; since is where the
+// places that the whole expression changes begin in written.
+function rangeOperator(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, since Count) returns Span
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
 	let left = ast.binaryExprL(p.modules[r.modIdx].tree, id: e)
 	let right = ast.binaryExprR(p.modules[r.modIdx].tree, id: e)
 	if (op == "and" or op == "or") and typeOf(r, e: e) == p.builtins.boolTy 'logical'
-		let since = rangeCondition(r, p: p, c: left)
 		let start = rangeKeep(r)
 		let rightRuns = rangeNarrowed(r, p: p, from: start, c: left, truth: op == "and", since: since)
 		r.st = rightRuns
@@ -440,10 +455,9 @@ function rangeBinaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns 
 		r.st = r.states.joined(start, b: ended)
 		return noSpan()
 	end 'logical'
-	let l = rangeEval(r, p: p, e: left)
 	let rs = rangeEval(r, p: p, e: right)
 	return rangeOperate(r, p: p, e: e, l: l, rs: rs, bound: table.Option.none)
-end 'rangeBinaryExpr'
+end 'rangeOperator'
 
 // rangeOperate is the span of an operator on operands of the spans l and rs. An exact result outside bound, if there is
 // one, is one the code cannot reach.

@@ -78,6 +78,20 @@ end 'PendingDrop'
 
 export typealias PendingList = Array with PendingDrop
 
+// OperatorFrame is the slot that an 'and' or an 'or' keeps its value in, and the blocks of its right operand and of
+// what follows it.
+export type OperatorFrame
+	export var result as Count
+	export var rhs as BlockID
+	export var join as BlockID
+
+	export static function make(result Count, rhs BlockID, join BlockID) returns OperatorFrame
+		return OperatorFrame{result: result, rhs: rhs, join: join}
+	end 'make'
+end 'OperatorFrame'
+
+export typealias OperatorFrameList = Array with OperatorFrame
+
 // Scope is where owned values die. The scope of a block holds the locals declared in it, and the scope of a statement, or
 // of one branch of a conditional, holds the temporaries it made: values that nothing took ownership of, such as the
 // result of a call whose value is only borrowed. Leaving a scope drops what it holds, newest first. A jump that leaves
@@ -179,12 +193,16 @@ export type Lowerer
 	// pending are the values computed for something that takes them, which has not run yet: a failure before it runs
 	// drops them, since nothing else would.
 	export var pending as PendingList
+	// operators are the frames of the 'and' and the 'or' of the chain of operators being lowered, the innermost last: a
+	// chain is lowered with a loop, and each of its operators makes its blocks before the operators nested in its left
+	// operand do.
+	export var operators as OperatorFrameList
 	// writeBacks are the elements of byte arrays that the calls being lowered take by address, each through a slot that
 	// holds it until the call returns.
 	export var writeBacks as WriteBackList
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), writeBacks: WriteBackList.create(0)}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
 	end 'new'
 end 'Lowerer'
 

@@ -313,25 +313,41 @@ function nameExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	panic("ownership: unresolved name '{ast.nameExprName(p.modules[o.c.modIdx].tree, id: e)}'")
 end 'nameExprOwn'
 
-// binaryExprOwn holds a managed left operand, which only a string comparison has, while the right is evaluated: lowering
-// compares the two strings once both are computed.
+// binaryExprOwn walks an operator and the operators nested in its left operand, innermost first, so that a long chain
+// takes no stack. Each operator that is the left operand of the next ends as expr ends it: the values it left in flight
+// are taken, and a temporary it made must be one that can be dropped. All of them began at the same count of values in
+// flight, because nothing runs between one operator and its left operand.
 function binaryExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let mark = o.inFlight.count()
+	var chain = ast.leftChain(p.modules[o.c.modIdx].tree, e: e)
+	var node = ast.nextOperator(chain, e: e)
+	var state = expr(o, p: p, e: ast.binaryExprL(p.modules[o.c.modIdx].tree, id: node), s: s)
+	while node != e 'inner'
+		state = operatorOwn(o, p: p, e: node, s: state)
+		land(o, mark: mark)
+		requireTemporaryDroppable(o, p: p, e: node, s: state, kind: OwnDropKind.dropTemporary)
+		node = ast.nextOperator(chain, e: e)
+	end 'inner'
+	return operatorOwn(o, p: p, e: e, s: state)
+end 'binaryExprOwn'
+
+// operatorOwn holds a managed left operand, which only a string comparison has, while the right is evaluated: lowering
+// compares the two strings once both are computed. The state s is the one after the left operand.
+function operatorOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let op = ast.binaryExprOp(p.modules[o.c.modIdx].tree, id: e)
 	let l = ast.binaryExprL(p.modules[o.c.modIdx].tree, id: e)
 	let r = ast.binaryExprR(p.modules[o.c.modIdx].tree, id: e)
 	if (op == "and" or op == "or") and ownType(o, node: e) == p.builtins.boolTy 'logical'
 		// The right operand runs only when the left one does not decide.
-		let left = expr(o, p: p, e: l, s: s)
-		let right = expr(o, p: p, e: r, s: left.clone())
-		return join(o, p: p, a: left, b: right)
+		let right = expr(o, p: p, e: r, s: s.clone())
+		return join(o, p: p, a: s, b: right)
 	end 'logical'
-	let left = expr(o, p: p, e: l, s: s)
 	let held = o.projections.count()
 	holdAcross(o, p: p, place: l, kind: OwnProjectionKind.projectOperand, next: r)
-	let right = expr(o, p: p, e: r, s: left)
+	let right = expr(o, p: p, e: r, s: s)
 	release(o, mark: held)
 	return failed(o, p: p, e: e, s: right)
-end 'binaryExprOwn'
+end 'operatorOwn'
 
 // failed is the failure of an operator or a cast that the range analysis could not rule out. An operator that the
 // checker gave no arithmetic, a comparison of two strings among them, cannot fail.

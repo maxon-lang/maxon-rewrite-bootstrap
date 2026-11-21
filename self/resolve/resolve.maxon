@@ -701,6 +701,19 @@ function rewriteMemberToName(mutates r Resolver, targetNode ast.NodeID, headNode
 	r.res.bindDecl(targetNode, d: targetDecl)
 end 'rewriteMemberToName'
 
+// resolveChain resolves an operator and the operators nested in its left operand, innermost first, so that a long chain
+// takes no stack.
+function resolveChain(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	var chain = ast.leftChain(r.tree, e: id)
+	var node = ast.nextOperator(chain, e: id)
+	resolveExpr(r, p: p, id: ast.binaryExprL(r.tree, id: node), errs: errs)
+	while node != id 'inner'
+		resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: node), errs: errs)
+		node = ast.nextOperator(chain, e: id)
+	end 'inner'
+	resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: id), errs: errs)
+end 'resolveChain'
+
 function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	if id == 0 'nil'
 		return
@@ -727,8 +740,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 			end 'expr'
 		end 'each'
 	end 'str' else if k == ast.NodeKind.binaryExpr 'bin'
-		resolveExpr(r, p: p, id: ast.binaryExprL(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: id), errs: errs)
+		resolveChain(r, p: p, id: id, errs: errs)
 	end 'bin' else if k == ast.NodeKind.unaryExpr 'un'
 		resolveExpr(r, p: p, id: ast.unaryExprE(r.tree, id: id), errs: errs)
 	end 'un' else if k == ast.NodeKind.condExpr 'cnd'

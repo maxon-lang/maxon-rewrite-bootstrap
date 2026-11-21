@@ -69,8 +69,7 @@ end 'constRefsOfString'
 // constRefsOfOperands covers the expressions that hold a fixed number of operands, and the ones that hold none.
 function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out DeclRefList)
 	if k == ast.NodeKind.binaryExpr 'binary'
-		constRefs(p, modIdx: modIdx, e: ast.binaryExprL(p.modules[modIdx].tree, id: e), out: out)
-		constRefs(p, modIdx: modIdx, e: ast.binaryExprR(p.modules[modIdx].tree, id: e), out: out)
+		constRefsOfChain(p, modIdx: modIdx, e: e, out: out)
 	end 'binary' else if k == ast.NodeKind.unaryExpr 'unary'
 		constRefs(p, modIdx: modIdx, e: ast.unaryExprE(p.modules[modIdx].tree, id: e), out: out)
 	end 'unary' else if k == ast.NodeKind.tryExpr 'try'
@@ -92,6 +91,19 @@ function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.No
 		panic("the node {e} of kind {k.name} is no expression")
 	end 'unknown'
 end 'constRefsOfOperands'
+
+// constRefsOfChain covers an operator and the operators nested in its left operand, innermost first, so that a long chain
+// takes no stack.
+function constRefsOfChain(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRefList)
+	var chain = ast.leftChain(p.modules[modIdx].tree, e: e)
+	var node = ast.nextOperator(chain, e: e)
+	constRefs(p, modIdx: modIdx, e: ast.binaryExprL(p.modules[modIdx].tree, id: node), out: out)
+	while node != e 'inner'
+		constRefs(p, modIdx: modIdx, e: ast.binaryExprR(p.modules[modIdx].tree, id: node), out: out)
+		node = ast.nextOperator(chain, e: e)
+	end 'inner'
+	constRefs(p, modIdx: modIdx, e: ast.binaryExprR(p.modules[modIdx].tree, id: e), out: out)
+end 'constRefsOfChain'
 
 // constRefsOfLists covers the expressions that hold a list of operands.
 function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out DeclRefList)

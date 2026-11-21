@@ -283,6 +283,24 @@ function testStackOverflow(mutates p ast.Project)
 	assertEqStr(out.stderr.sliceBytes(0, endPos: shown), expected: faultPanicPrefix, label: name)
 end 'testStackOverflow'
 
+// longChainTerms is a number of terms whose left-leaning tree no recursion over it could hold: the stack would need
+// about 5 KB for each.
+let longChainTerms = 200000 as Count
+
+// testLongChain compiles a main that returns the sum of a long chain of terms, which every pass must walk with a loop.
+function testLongChain()
+	var text = ByteArray.create(0)
+	text.append("function main() returns ExitCode\n\tlet a = 1\n\tlet n = a".toByteArray())
+	for i in 1 upto longChainTerms 'terms'
+		text.append(" + a".toByteArray())
+	end 'terms'
+	text.append("\n\treturn 0 if n == {longChainTerms} else 1\nend 'main'\n".toByteArray())
+	let errs = driver.lowerSource("long-chain.maxon", text: String.from(text))
+	if errs.count() > 0 'failed'
+		panic("a chain of {longChainTerms} terms was refused: {errs[0].format()}")
+	end 'failed'
+end 'testLongChain'
+
 // arithmeticMain returns 42 by way of every operator, a check, a guard and a branch; it returns 1 when one of them is wrong.
 function arithmeticMain(decl ast.FuncID) returns ir.IrFunction
 	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
@@ -659,4 +677,5 @@ function testCodegen()
 	let rawId = addFunction(p, name: "main", errTy: ast.noType)
 	runIr(p, fns: oneFunction(rawMain(rawId)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
 	testStackOverflow(p)
+	testLongChain()
 end 'testCodegen'

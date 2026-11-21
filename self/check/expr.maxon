@@ -43,11 +43,16 @@ function checkExpecting(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 	c.expect = want
 	let t = visitExpr(c, p: p, e: e, errs: errs)
 	c.expect = outer
+	recordType(c, e: e, t: t)
+	return t
+end 'checkExpecting'
+
+// recordType keeps the type of an expression that has one.
+function recordType(mutates c Checker, e ast.NodeID, t ast.TypeID)
 	if t != ast.noType 'typed'
 		ast.setNodeType(c.typing, node: e, ty: t)
 	end 'typed'
-	return t
-end 'checkExpecting'
+end 'recordType'
 
 function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let k = p.modules[c.modIdx].tree.kindOf(e)
@@ -286,15 +291,32 @@ function setOperand(mutates c Checker, node ast.NodeID, operand ast.TypeID)
 	c.typing.arith.insert(node as Count, value: ast.ArithInfo.make(operand, word: operand, fails: ast.failNone, unreached: false, checkedFail: false))
 end 'setOperand'
 
+// checkBinary types an operator. A chain of operators nests to the left, so the chain is walked innermost first with a
+// loop: each operator is checked once the type of its left operand is known, which is what visiting the left operand
+// first gives.
 function checkBinary(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
-	let op = ast.binaryExprOp(p.modules[c.modIdx].tree, id: e)
-	let lNode = ast.binaryExprL(p.modules[c.modIdx].tree, id: e)
-	let rNode = ast.binaryExprR(p.modules[c.modIdx].tree, id: e)
-	let l = checkExpr(c, p: p, e: lNode, errs: errs)
+	var chain = ast.leftChain(p.modules[c.modIdx].tree, e: e)
+	var node = ast.nextOperator(chain, e: e)
+	var l = checkExpr(c, p: p, e: ast.binaryExprL(p.modules[c.modIdx].tree, id: node), errs: errs)
+	while node != e 'inner'
+		if l == ast.noType 'badInner'
+			return ast.noType
+		end 'badInner'
+		l = checkOperator(c, p: p, e: node, l: l, want: ast.noType, errs: errs)
+		recordType(c, e: node, t: l)
+		node = ast.nextOperator(chain, e: e)
+	end 'inner'
 	if l == ast.noType 'badLeft'
 		return ast.noType
 	end 'badLeft'
+	return checkOperator(c, p: p, e: e, l: l, want: want, errs: errs)
+end 'checkBinary'
+
+// checkOperator types an operator whose left operand has the type l.
+function checkOperator(mutates c Checker, mutates p ast.Project, e ast.NodeID, l ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let op = ast.binaryExprOp(p.modules[c.modIdx].tree, id: e)
+	let rNode = ast.binaryExprR(p.modules[c.modIdx].tree, id: e)
 	let r = checkExpr(c, p: p, e: rNode, errs: errs)
 	if r == ast.noType 'badRight'
 		return ast.noType
@@ -315,7 +337,7 @@ function checkBinary(mutates c Checker, mutates p ast.Project, e ast.NodeID, mut
 	end 'comparison'
 	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "unknown operator '{op}'", errs: errs)
 	return ast.noType
-end 'checkBinary'
+end 'checkOperator'
 
 // checkIntegerOp types an arithmetic, bitwise or shift operator on two integers.
 function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID

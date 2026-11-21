@@ -1,0 +1,48 @@
+// A chain of operators, `a + b + c + ...`, nests to the left: the left operand of each is the one before it. A pass that
+// recursed into the left operand would use stack in proportion to the chain, so each pass walks the chain with a loop,
+// innermost operator first, and this is the one place that finds the chain.
+export typealias NodeList = Array with NodeID
+
+// isBinary is whether e is a binary expression.
+export function isBinary(t Tree, e NodeID) returns bool
+	return t.kindOf(e) == NodeKind.binaryExpr
+end 'isBinary'
+
+// leftChain is the binary expressions below the binary expression e along the left operands, outermost first: the left
+// operand of e, then its left operand, and so on while it is a binary expression. It is empty when the left operand of e
+// is not one.
+export function leftChain(t Tree, e NodeID) returns NodeList
+	var chain = NodeList.create(0)
+	var cur = binaryExprL(t, id: e)
+	while isBinary(t, e: cur) 'down'
+		chain.push(cur)
+		cur = binaryExprL(t, id: cur)
+	end 'down'
+	return chain
+end 'leftChain'
+
+// nextOperator takes the innermost operator out of a chain that leftChain made, which is the first to process, and then
+// the one around it, until the chain is empty and e, the outermost, is the last.
+export function nextOperator(mutates chain NodeList, e NodeID) returns NodeID
+	if chain.count() == 0 'outermost'
+		return e
+	end 'outermost'
+	return try chain.pop() otherwise panic("the chain of operators ran out")
+end 'nextOperator'
+
+// trimFolded ends a chain above the first operator whose value is a folded constant. A pass takes the value of such an
+// operator from its type without looking into it, so the operators nested in it are never reached: the operator that
+// holds it takes it as its left operand.
+export function trimFolded(p Project, typing Typing, mutates chain NodeList)
+	var keep = chain.count()
+	for i in 0 upto chain.count() 'scan'
+		let nested = chain[i]
+		let ty = nodeType(typing, node: nested)
+		if i < keep and ty != noType and p.types.entries[ty as Count].kind == TypeKind.constInt 'folded'
+			keep = i
+		end 'folded'
+	end 'scan'
+	while chain.count() > keep 'trim'
+		_ = try chain.pop() otherwise panic("the chain of operators ran out")
+	end 'trim'
+end 'trimFolded'
