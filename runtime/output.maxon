@@ -7,6 +7,11 @@ let panicExitCode = 1 as Count
 
 let panicPrefix = "panic: "
 
+// panicAtPrefix and panicAtSeparator frame the location of a panic the program calls, as maxon's runtime writes it.
+let panicAtPrefix = "panic at "
+
+let panicAtSeparator = ": "
+
 let panicEnd = "\n"
 
 // indexOutOfRange is the panic of an array index past the end.
@@ -40,6 +45,17 @@ function panicWith(message String)
 	write(handle, text: panicEnd)
 	exitProcess(panicExitCode)
 end 'panicWith'
+
+// panicAt is what the program's own panic runs: the message after the file and line of the call.
+function panicAt(location String, message String)
+	let handle = standardError()
+	write(handle, text: panicAtPrefix)
+	write(handle, text: location)
+	write(handle, text: panicAtSeparator)
+	write(handle, text: message)
+	write(handle, text: panicEnd)
+	exitProcess(panicExitCode)
+end 'panicAt'
 
 // panicIndex is the panic of the array entries when an index is past the end.
 function panicIndex()

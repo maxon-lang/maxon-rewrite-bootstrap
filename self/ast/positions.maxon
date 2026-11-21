@@ -72,6 +72,22 @@ export function locateModuleOffset(m Module, offset diag.U32) returns ErrorLocat
 	return locateTextOffset(m.tree.text, files: m.files, offset: offset)
 end 'locateModuleOffset'
 
+// panicLocation is where a panic of the program is, as maxon's runtime names it: the last component of the file's path,
+// whichever separator it uses, and the line.
+export function panicLocation(m Module, offset diag.U32) returns String
+	let loc = locateModuleOffset(m, offset: offset)
+	var at = loc.file.byteLength()
+	while at > 0 'back'
+		let before = try at - 1 otherwise 0
+		let c = loc.file.byteAt(before)
+		if c == backslashByte or c == slashByte 'separator'
+			break 'back'
+		end 'separator'
+		at = before
+	end 'back'
+	return "{loc.file.sliceBytes(at, endPos: loc.file.byteLength())}:{loc.line}"
+end 'panicLocation'
+
 export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocation
 	if site.module < 0 'std'
 		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)

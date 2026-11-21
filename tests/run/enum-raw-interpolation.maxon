@@ -1,0 +1,19 @@
+// An enum whose cases have values interpolates as the value; any other enum as the name of its case.
+enum HttpStatus
+	ok = 200
+	notFound = 404
+end 'HttpStatus'
+
+enum Color
+	red
+	green
+end 'Color'
+
+function main() returns ExitCode
+	let s = HttpStatus.notFound
+	let c = Color.green
+	print("{s} {HttpStatus.ok} {c} {s.name}\n")
+	return 0
+end 'main'
+
+//> 404 200 green notFound

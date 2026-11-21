@@ -53,6 +53,13 @@ let fragmentToken = "<fragment>"
 
 let fragmentHeader = "// Test: "
 
+// fragmentExtension is the extension of the file that maxon's runner writes a fragment to, which a panic names.
+let fragmentExtension = ".test"
+
+let backtraceHeader = "Stack trace:"
+
+let backtraceFrame = "  in "
+
 let fileSectionPrefix = "// --- file:"
 
 let overlaySectionPrefix = "// --- stdlib-overlay:"
@@ -1073,8 +1080,42 @@ function checkSpecOutput(test SpecTest, text String, out CollectedOutput) return
 	if stdoutResult.outcome == TestOutcome.testFailed 'stdout'
 		return stdoutResult
 	end 'stdout'
-	return checkStream(test, text: text, base: stderrFence, actual: withoutCarriageReturns(out.stderr, loneToo: false))
+	return checkStderr(test, text: text, actual: withoutCarriageReturns(out.stderr, loneToo: false))
 end 'checkSpecOutput'
+
+// checkStderr is checkStream for standard error, whose block maxon wrote with its runner's name for the file of a fragment,
+// which is `<fragment>` here, and with the backtrace that maxon's panic prints and minimaxon's does not.
+function checkStderr(test SpecTest, text String, actual String) returns TestResult
+	let block = fenceText(test, text: text, base: stderrFence)
+	var wanted = ""
+	if block.isSome() 'pinned'
+		wanted = trimSpace(withoutBacktrace(replaceText(block.unwrap(), needle: "{test.name}{fragmentExtension}:", replacement: "{fragmentToken}:")))
+	end 'pinned'
+	return compareStream(stderrFence, wanted: wanted, actual: actual)
+end 'checkStderr'
+
+// withoutBacktrace is text without the lines of a backtrace: a `Stack trace:` line and the `  in` lines after it.
+function withoutBacktrace(text String) returns String
+	var out = ByteArray.create(0)
+	var inTrace = false
+	var at = 0 as Count
+	let n = text.byteLength()
+	while at < n 'lines'
+		var lineEnd = at
+		while lineEnd < n and text.byteAt(lineEnd) != newlineByte 'scan'
+			lineEnd = offsetBy(lineEnd, by: 1)
+		end 'scan'
+		let next = minCount(offsetBy(lineEnd, by: 1), b: n)
+		if matchesAt(text, at: at, needle: backtraceHeader) 'header'
+			inTrace = true
+		end 'header' else if not (inTrace and matchesAt(text, at: at, needle: backtraceFrame)) 'kept'
+			inTrace = false
+			out.append(text.sliceBytes(at, endPos: next).toByteArray())
+		end 'kept'
+		at = next
+	end 'lines'
+	return String.from(out)
+end 'withoutBacktrace'
 
 // checkStream is whether the output of a run is the text of the block with that name, trimmed on both sides, or empty when
 // the test has no such block.
@@ -1084,9 +1125,13 @@ function checkStream(test SpecTest, text String, base String, actual String) ret
 	if block.isSome() 'pinned'
 		wanted = trimSpace(block.unwrap())
 	end 'pinned'
+	return compareStream(base, wanted: wanted, actual: actual)
+end 'checkStream'
+
+function compareStream(base String, wanted String, actual String) returns TestResult
 	let got = trimSpace(actual)
 	if got == wanted 'same'
 		return TestResult.passed()
 	end 'same'
 	return TestResult.failed("wrong {base}: {firstDifference(wanted, actual: got)}")
-end 'checkStream'
+end 'compareStream'

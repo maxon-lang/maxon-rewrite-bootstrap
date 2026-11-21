@@ -1,0 +1,34 @@
+// A conditional or a match whose branches agree on one constant still runs its condition, its subject and an arm that
+// panics.
+typealias Small = int(0 to 10)
+
+function noisy(text String) returns bool
+	print("{text}\n")
+	return true
+end 'noisy'
+
+function subject() returns Small
+	print("subject\n")
+	return 3
+end 'subject'
+
+function main() returns ExitCode
+	let a = 1 if noisy("condition") else 1
+	let b = match subject() 'pick'
+		3 gives 0
+		default gives 0
+	end 'pick'
+	print("{a} {b}\n")
+	let x = 7
+	let c = match x 'eval'
+		7 panic("arm {x}")
+		default gives 0
+	end 'eval'
+	print("not reached {c}\n")
+	return 0
+end 'main'
+
+// expect-exit: 1
+//> condition
+//> subject
+//> 1 0

@@ -1,0 +1,20 @@
+// An integer arm of a match or a conditional whose other branch is a float gives its value as a float.
+typealias Small = int(0 to 10)
+
+typealias Real = float(f64.min to f64.max)
+
+function pick(x Small) returns Real
+	return match x 'a'
+		1 gives 5
+		default gives 7.5
+	end 'a'
+end 'pick'
+
+function main() returns ExitCode
+	let n = 2 as Small
+	let r = n if n > 1 else 0.5
+	print("{pick(1)} {pick(2)} {r}\n")
+	return 0
+end 'main'
+
+//> 5.0 7.5 2.0

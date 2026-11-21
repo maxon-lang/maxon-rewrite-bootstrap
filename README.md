@@ -915,10 +915,12 @@ maxon's runtime does: a stack overflow, an access violation or an integer divide
 rip=0x<address>` (or `nil pointer or invalid memory access`, `integer divide by zero`, `integer overflow`) to standard
 error and exits with 1, the panic code, so a program, the compiler among them, never dies without a word. The handler
 calls only kernel32 and allocates nothing; it prints no backtrace, which maxon's does. Every other exception goes on to
-the system.
+the system. A `panic(message)` of the program, or of the runtime's source, writes maxon's line, `panic at <file>:<line>:
+<message>`, with the last component of the file's path (`runtime::panicAt`, the location a constant of the call), and
+no backtrace either; a panic of an operation the runtime refuses (an index past the end) writes `panic: <message>`.
 
 **What runtime source may do.** It is ordinary Maxon apart from the intrinsics: integers, `bool`, loops, `panic` with a
-literal (which calls the runtime's own `panicWith`, which allocates nothing), and `String` values, borrowed as a
+literal (which calls the runtime's own `panicAt`, which allocates nothing), and `String` values, borrowed as a
 parameter or owned once `stringAt` makes one. A dropped `String` goes through the compiler-emitted drop routine, which
 calls `free`, so no free comes back into the code that started it. It uses none of the primitives (`Array`, `Map`, ...),
 which the runtime implements, and throws nothing. Runtime collections are not generic: an array entry takes a
@@ -1970,7 +1972,8 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
-  `HeapFree` and no reference counting; Maxon counts references. There is no green thread, scheduler or atomic count, so
+  `HeapFree` and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
+  (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). There is no green thread, scheduler or atomic count, so
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
   behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.

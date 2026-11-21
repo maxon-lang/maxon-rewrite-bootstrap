@@ -30,10 +30,11 @@ end 'exprIn'
 // failure before then drops it (see failure).
 function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let ty = exprType(p, module: l.module, node: e)
-	if p.types.entries[ty as Count].kind == ast.TypeKind.constInt 'constant'
+	let branches = isBranching(p.modules[l.mi].tree.kindOf(e))
+	if p.types.entries[ty as Count].kind == ast.TypeKind.constInt and not branches 'constant'
 		return konst(l, value: wordOf(p.types.entries[ty as Count].minVal))
 	end 'constant'
-	if p.types.entries[ty as Count].kind == ast.TypeKind.constFloat 'floatConstant'
+	if p.types.entries[ty as Count].kind == ast.TypeKind.constFloat and not branches 'floatConstant'
 		return konst(l, value: floatWord(ast.floatLowBits(p.types, t: ty)))
 	end 'floatConstant'
 	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'transparent'
@@ -63,6 +64,12 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	end 'inFlight'
 	return v
 end 'lowerExpr'
+
+// isBranching is whether an expression of the kind picks a branch by a value it computes, so that its type can be one
+// constant that its branches agree on while the condition, the subject or an arm that panics still has to run.
+function isBranching(k ast.NodeKind) returns bool
+	return k == ast.NodeKind.condExpr or k == ast.NodeKind.matchExpr
+end 'isBranching'
 
 function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let k = p.modules[l.mi].tree.kindOf(e)
@@ -227,6 +234,9 @@ function lowerConverted(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, 
 		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, t: held), args: argsOf1(v))
 		have = held
 	end 'frozen'
+	if ast.isFloatType(p.types, t: want) and ast.isIntType(p.types, t: have) 'toFloat'
+		return floatOf(l, p: p, v: v, e: e)
+	end 'toFloat'
 	return v
 end 'lowerConverted'
 
@@ -281,7 +291,8 @@ end 'requireInt'
 
 function visitPanicExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let msg = lowerExpr(l, p: p, e: ast.panicExprMessage(p.modules[l.mi].tree, id: e))
-	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(msg), routine: ast.noFunc)
+	let location = strReg(l, value: ast.panicLocation(p.modules[l.mi], offset: p.modules[l.mi].tree.startOf(e)))
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanicAt, args: argsOf2(location, b: msg), routine: ast.noFunc)
 	seal(l, t: newTrap())
 	return konst(l, value: 0 as Word)
 end 'visitPanicExpr'
@@ -604,6 +615,20 @@ function caseNames(p ast.Project, t ast.TypeID) returns ast.StringList
 	return names
 end 'caseNames'
 
+// caseTexts is how each case of an enum is interpolated, as maxon does: the raw value of an enum that gives its cases
+// values, and the name of any other.
+function caseTexts(p ast.Project, t ast.TypeID) returns ast.StringList
+	let origin = p.types.entries[t as Count].effectiveOrigin()
+	if not p.types.entries[origin as Count].hasExplicitRaw 'named'
+		return caseNames(p, t: t)
+	end 'named'
+	var texts = ast.StringList.create(0)
+	for i in 0 upto p.types.entries[origin as Count].cases.count() 'each'
+		texts.push(p.types.entries[origin as Count].cases[i].rawValue.toString())
+	end 'each'
+	return texts
+end 'caseTexts'
+
 function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let member = memberInfoAt(p, module: l.module, node: e)
 	let obj = ast.memberExprObj(p.modules[l.mi].tree, id: e)
@@ -837,7 +862,7 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v)), owner: TextOwner.textFresh)
 	end 'float'
 	if kind == ast.TypeKind.enumTy 'enum'
-		return TextPart.make(names(l, index: v, names: caseNames(p, t: t)), owner: TextOwner.textImmortal)
+		return TextPart.make(names(l, index: v, names: caseTexts(p, t: t)), owner: TextOwner.textImmortal)
 	end 'enum'
 	if kind == ast.TypeKind.unionTy 'union'
 		let tag = tagReg(l, box: v)

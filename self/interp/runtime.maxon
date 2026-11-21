@@ -95,6 +95,14 @@ function entryPanic(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw trap(vm, message: message)
 end 'entryPanic'
 
+function entryPanicAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let place = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a panic location")
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a panic message")
+	let location = vm.h.texts[place].clone()
+	let message = vm.h.texts[at].clone()
+	throw trapAt(vm, location: location, message: message)
+end 'entryPanicAt'
+
 function entryConcat(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a concatenation")
 	let b = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a concatenation")

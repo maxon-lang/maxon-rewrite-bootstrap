@@ -77,11 +77,20 @@ end 'exitWith'
 
 // trap is a panic of the program: the compiled code writes the message to standard error and exits with 1.
 function trap(mutates vm Vm, message String) returns Halt
-	vm.stderr.append("panic: ".toByteArray())
+	return panicLine(vm, prefix: "panic: ", message: message)
+end 'trap'
+
+// trapAt is the panic of the program's own call, which names where it is, as the native runtime's panicAt does.
+function trapAt(mutates vm Vm, location String, message String) returns Halt
+	return panicLine(vm, prefix: "panic at {location}: ", message: message)
+end 'trapAt'
+
+function panicLine(mutates vm Vm, prefix String, message String) returns Halt
+	vm.stderr.append(prefix.toByteArray())
 	vm.stderr.append(message.toByteArray())
 	vm.stderr.push(10 as Byte)
 	return exitWith(vm, code: panicExitCode)
-end 'trap'
+end 'panicLine'
 
 function timeout(mutates vm Vm) returns Halt
 	vm.fatal = fatalTimeout
