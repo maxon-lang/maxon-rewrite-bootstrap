@@ -51,3 +51,4 @@ of C2 building it again.
 | 2026-11-21 | e056ae6 | inline collection fast paths | 51031 | 8067 | 7717 | 3436 |
 | 2026-11-21 | c38fecb | return converts a proved integer | 51113 | 8140 | 7747 | 3664 |
 | 2026-11-21 | ce3da3f | fix specs skips differing codes | 51232 | 8307 | 7652 | 3493 |
+| 2026-11-21 | 8041219 | Phase 2: literals, try handler, for over a collection | 52220 | 7730 | 8527 | 4098 |
