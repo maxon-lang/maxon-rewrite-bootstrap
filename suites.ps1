@@ -35,6 +35,8 @@ $steps = @(
 	# Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to
 	# the signatures the compiler calls.
 	@('runtime', { & $compiler check runtime }),
+	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
+	@('self', { & $compiler check self }),
 	@('layout', { & $compiler fmt --check self runtime tests }),
 	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
 	@('corpus', { $null | & $compiler test @TestArgs }),

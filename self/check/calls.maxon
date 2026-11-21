@@ -94,16 +94,19 @@ end 'isConstantResult'
 function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
 	let k = p.modules[c.modIdx].tree.kindOf(callee)
-	let named = k == ast.NodeKind.nameExpr and lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal
+	let bare = k == ast.NodeKind.nameExpr and not isQualifiedName(c, p: p, e: callee)
+	let named = k == ast.NodeKind.nameExpr and (not bare or lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal)
 	if (named or k == ast.NodeKind.memberExpr) and not c.allowCalls 'forbidden'
 		refuseConstantCall(c, p: p, call: call, callee: callee, errs: errs)
 		return ast.noType
 	end 'forbidden'
 	if named 'named'
-		let sibling = siblingMethod(c, p: p, callee: callee, errs: errs)
-		if sibling != ast.noFunc 'sibling'
-			return callSibling(c, p: p, call: call, callee: callee, method: sibling, errs: errs)
-		end 'sibling'
+		if bare 'bare'
+			let sibling = siblingMethod(c, p: p, callee: callee, errs: errs)
+			if sibling != ast.noFunc 'sibling'
+				return callSibling(c, p: p, call: call, callee: callee, method: sibling, errs: errs)
+			end 'sibling'
+		end 'bare'
 		return callNamed(c, p: p, call: call, callee: callee, errs: errs)
 	end 'named'
 	if k == ast.NodeKind.memberExpr and not namesFunctionField(c, p: p, callee: callee) 'member'

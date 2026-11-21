@@ -184,7 +184,24 @@ function constantOf(p ast.Project, ref ast.DeclRef) returns table.Option with as
 	return p.declConsts.get(ast.declKey(ref))
 end 'constantOf'
 
+// isQualifiedName is whether the resolver made a name of a name written with its module or its type, `mod.name`: it stands
+// for that declaration, never for a local, a field or a method of the enclosing type, which a bare name outranks.
+function isQualifiedName(c Checker, p ast.Project, e ast.NodeID) returns bool
+	return p.resolutions[c.modIdx].becomeNames.has(e as Count)
+end 'isQualifiedName'
+
+function checkQualifiedName(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
+	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
+		some(ref) then return checkDeclaredName(c, p: p, e: e, ref: ref, name: name, errs: errs)
+		none then panic("a qualified name '{name}' was resolved to no declaration")
+	end 'bound'
+end 'checkQualifiedName'
+
 function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if isQualifiedName(c, p: p, e: e) 'qualified'
+		return checkQualifiedName(c, p: p, e: e, errs: errs)
+	end 'qualified'
 	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
 	let off = offsetOf(c, p: p, node: e)
 	let mark = errs.count()

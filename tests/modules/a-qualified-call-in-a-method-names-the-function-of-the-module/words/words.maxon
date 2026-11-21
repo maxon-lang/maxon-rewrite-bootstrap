@@ -1,0 +1,15 @@
+export typealias Amount = int(0 to 1000)
+
+export function size(text String, pad Amount) returns Amount
+	if text.byteLength() == 0 'empty'
+		return pad
+	end 'empty'
+	return 500
+end 'size'
+
+export function twice(n Amount) returns Amount
+	if n == 0 'zero'
+		return 0
+	end 'zero'
+	return 600
+end 'twice'

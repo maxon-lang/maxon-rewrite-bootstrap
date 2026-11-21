@@ -89,7 +89,7 @@ development, and `minimaxon test` always uses it. `--update-positions` makes `te
 `.\check.ps1` is the gate. In order, it formats, `go fix`es and vets the Go of the generators and tools; runs the
 generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
-`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `fmt --check self runtime tests`, the corpus (`test`, with no standard
+`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `check self` (the compiler's own source under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the spec tests that `specs/passed.txt` does not list (`test specs --skip-passed`: until Phase 3 a test that has passed is not
 run again), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
