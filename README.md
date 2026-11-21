@@ -110,9 +110,9 @@ the runner then runs it under the interpreter alone. A program that schedules be
 program must say an output that does not depend on the schedule: print only from behaviours that the cowns put in
 order, such as one chain, or behaviours on one cown. A test executable runs under a 10 second deadline, and a program
 that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
-failures are listed, and the exit code is 0 when nothing failed.
+failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes before each test, so a crash of the compiler, which ends the run, names the test it was compiling.
 
-`minimaxon test <specs-dir|file.md> [--verbose]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. The compiled program inherits the runner's standard input.
+`minimaxon test <specs-dir|file.md> [--verbose]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line before it and its result after, so a crash names its test) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. The compiled program inherits the runner's standard input.
 
 Directives in comments say what the program must do:
 
@@ -1063,8 +1063,8 @@ does nothing.
   double free or crash, but not that it freed everything. `self/`'s runtime counts in every build and the flag changes
   only its entry stub (see "The runtime").
 - **Depth.** A routine calls itself, or the routine of a part, once for each level of nesting, so dropping or copying a
-  value nested about 300,000 levels deep (a chain of that many nodes, each holding the next in an array) overflows the 16 MB
-  stack. A routine keeps only the words it uses in its frame, to push that out.
+  value nested a few million levels deep (a chain of that many nodes, each holding the next in an array) overflows the
+  256 MB stack, with a `panic: stack overflow` line. A routine keeps only the words it uses in its frame, to push that out.
 
 ### The interpreter
 
@@ -1212,6 +1212,16 @@ linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a
 The runtime is the same code whatever the build: `alloc` and `free` always count, and `--count-allocations` changes only
 the stub, which then passes `main`'s exit code to the runtime's `checkLeaks`; that exits with the leak report and 99 when
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are the Go runtime's.
+
+**Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
+`self/backend/pe.maxon`): the compiler's passes recurse once per level of an expression, and a sum of 4,000 names needs
+about 22 MB. A reserve is address space, committed a page at a time as the stack grows. Before `main` the stub keeps 32 KB
+past the stack's guard page (`SetThreadStackGuarantee`) and registers a vectored exception handler (`rt.fault`), as
+maxon's runtime does: a stack overflow, an access violation or an integer divide fault writes `panic: stack overflow at
+rip=0x<address>` (or `nil pointer or invalid memory access`, `integer divide by zero`, `integer overflow`) to standard
+error and exits with 1, the panic code, so a program, the compiler among them, never dies without a word. The handler
+calls only kernel32 and allocates nothing; it prints no backtrace, which maxon's does. Every other exception goes on to
+the system.
 
 **What runtime source may do.** It is ordinary Maxon apart from the intrinsics: integers, `bool`, loops, `panic` with a
 literal (which calls the runtime's own `panicWith`, which allocates nothing), and `String` values, borrowed as a

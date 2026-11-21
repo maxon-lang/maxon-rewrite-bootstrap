@@ -43,7 +43,10 @@ let peSubsystemConsole = 3 as Count
 
 let peDllCharacteristics = 33120 as Count
 
-let peStackReserve = 16777216 as Count
+// peStackReserve is the main thread's stack. The compiler's passes recurse once per level of an expression, and a
+// left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only
+// address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
+let peStackReserve = 268435456 as Count
 
 let peStackCommit = 65536 as Count
 

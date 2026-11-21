@@ -63,6 +63,8 @@ export function rtImports() returns NameList
 	names.push("GetTickCount64")
 	names.push("TerminateProcess")
 	names.push("GetCurrentProcessId")
+	names.push("SetThreadStackGuarantee")
+	names.push("AddVectoredExceptionHandler")
 	return names
 end 'rtImports'
 
@@ -96,6 +98,8 @@ export function emitRuntime(mainSymbol String, options RuntimeOptions) returns C
 	u.defineData(ir.rtSymbol(ir.Rt.rtLive), size: wordBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitEntry(u, mainSymbol: mainSymbol, count: options.countAllocations)
+	u.defineCode(faultSymbol)
+	emitFaultHandler(u)
 	return u
 end 'emitRuntime'
 
@@ -120,6 +124,7 @@ function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
 	u.asm.movImm(rcx, imm: stdErrorHandle)
 	u.asm.callImport(impGetStdHandle)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: rax)
+	emitFaultHandlerSetup(u)
 	u.asm.callSymbol(mainSymbol)
 	if count 'leaks'
 		u.asm.push(rax)
@@ -139,3 +144,139 @@ export function importIndex(name String) returns Count
 	end 'names'
 	panic("backend: the runtime calls a DLL function the executable does not import")
 end 'importIndex'
+
+// faultSymbol is the vectored exception handler that turns a hardware fault into a panic line, as maxon's runtime does:
+// without it a stack overflow or an access violation ends the process with no word of what happened.
+let faultSymbol = "rt.fault"
+
+// faultExitCode is what a fault exits with: the runtime's panic code, since a fault ends the program as a panic does.
+let faultExitCode = 1
+
+// faultStackGuarantee is the stack Windows keeps past the guard page for the handler (SetThreadStackGuarantee), since a
+// stack overflow runs the handler on the stack it has spent. Maxon keeps the same.
+let faultStackGuarantee = 32768
+
+// vectoredHandlerFirst has AddVectoredExceptionHandler call the handler before any other.
+let vectoredHandlerFirst = 1
+
+// continueSearch is the handler's answer for an exception it does not convert, which leaves it to the system.
+let continueSearch = 0
+
+// The handler's argument is an EXCEPTION_POINTERS, whose first word points at the EXCEPTION_RECORD; the record holds the
+// 32-bit exception code first and the address of the faulting instruction at exceptionAddressOffset.
+let exceptionRecordOffset = 0
+
+let exceptionCodeOffset = 0
+
+let exceptionAddressOffset = 16
+
+// The Windows exception codes the handler converts, those maxon's does.
+let excStackOverflow = 3221225725
+
+let excAccessViolation = 3221225477
+
+let excIntDivideByZero = 3221225620
+
+let excIntOverflow = 3221225621
+
+// The handler's frame below the shadow space: WriteFile's fifth argument, the count it writes back, the address as hex
+// digits and the newline after them, and the faulting address. faultFrameSize keeps rsp 16-byte aligned at each call,
+// since the handler is entered 8 bytes off.
+let faultFifthArgSlot = 32
+
+let faultWrittenSlot = 40
+
+let faultDigitsSlot = 48
+
+let addressDigits = 16
+
+let faultNewlineSlot = 64
+
+let faultAddressSlot = 72
+
+let faultFrameSize = 88
+
+let nibbleBits = 4
+
+let nibbleMask = 15
+
+let newlineByte = 10
+
+let hexDigits = "0123456789abcdef"
+
+// guaranteeSlot is the word above the entry's shadow space, where SetThreadStackGuarantee reads the size from.
+let guaranteeSlot = 32
+
+// emitFaultHandlerSetup keeps stack for the fault handler and registers it, before main runs.
+function emitFaultHandlerSetup(mutates u CodeUnit)
+	u.asm.movImm(rax, imm: faultStackGuarantee)
+	u.asm.store(rsp, disp: guaranteeSlot, src: rax)
+	u.asm.lea(rcx, base: rsp, disp: guaranteeSlot)
+	u.asm.callImport(importIndex("SetThreadStackGuarantee"))
+	u.asm.movImm(rcx, imm: vectoredHandlerFirst)
+	u.asm.leaSymbol(rdx, symbol: faultSymbol)
+	u.asm.callImport(importIndex("AddVectoredExceptionHandler"))
+end 'emitFaultHandlerSetup'
+
+// emitFaultHandler writes the vectored exception handler (Win64 ABI: the EXCEPTION_POINTERS in rcx, the answer in rax).
+// For a fault it converts it writes `panic: <what> at rip=0x<address>` to standard error and exits, as maxon's does; it
+// calls nothing but kernel32 and allocates nothing, so it works when the heap or the stack is what failed. Every other
+// exception goes on to the system.
+function emitFaultHandler(mutates u CodeUnit)
+	let report = u.asm.newLabel()
+	u.asm.subImm(rsp, imm: faultFrameSize)
+	u.asm.load(rax, base: rcx, disp: exceptionRecordOffset)
+	u.asm.loadWord32(rdx, base: rax, disp: exceptionCodeOffset)
+	u.asm.load(r11, base: rax, disp: exceptionAddressOffset)
+	u.asm.store(rsp, disp: faultAddressSlot, src: r11)
+	emitFaultArm(u, code: excStackOverflow, words: "stack overflow", report: report)
+	emitFaultArm(u, code: excAccessViolation, words: "nil pointer or invalid memory access", report: report)
+	emitFaultArm(u, code: excIntDivideByZero, words: "integer divide by zero", report: report)
+	emitFaultArm(u, code: excIntOverflow, words: "integer overflow", report: report)
+	u.asm.addImm(rsp, imm: faultFrameSize)
+	u.asm.movImm(rax, imm: continueSearch)
+	u.asm.ret()
+	u.asm.bind(report)
+	u.asm.load(r8, base: rax, disp: 0)
+	u.asm.lea(rdx, base: rax, disp: wordBytes)
+	emitStderrWrite(u)
+	u.asm.load(rax, base: rsp, disp: faultAddressSlot)
+	u.asm.leaData(r10, dataOffset: u.data.textOffset(hexDigits))
+	u.asm.movImm(rcx, imm: nibbleBits)
+	for i in 0 upto addressDigits 'digits'
+		let lastDigit = try faultDigitsSlot + addressDigits - 1 otherwise panic("backend: the fault frame is past 2 GiB")
+		u.asm.mov(rdx, src: rax)
+		u.asm.andImm(rdx, imm: nibbleMask)
+		u.asm.add(rdx, src: r10)
+		u.asm.loadByte(r11, base: rdx, disp: wordBytes)
+		u.asm.storeByte(rsp, disp: imm32Of(try lastDigit - i otherwise panic("backend: a digit before the fault frame")), src: r11)
+		u.asm.shrCl(rax)
+	end 'digits'
+	u.asm.movImm(r11, imm: newlineByte)
+	u.asm.storeByte(rsp, disp: faultNewlineSlot, src: r11)
+	u.asm.lea(rdx, base: rsp, disp: faultDigitsSlot)
+	u.asm.movImm(r8, imm: addressDigits + 1)
+	emitStderrWrite(u)
+	u.asm.movImm(rcx, imm: faultExitCode)
+	u.asm.callImport(impExitProcess)
+end 'emitFaultHandler'
+
+// emitFaultArm goes to report with the panic line's opening in rax when the exception code in rdx is code.
+function emitFaultArm(mutates u CodeUnit, code FullRangeInt, words String, report LabelID)
+	let next = u.asm.newLabel()
+	u.asm.movImm(r10, imm: code)
+	u.asm.cmp(rdx, right: r10)
+	u.asm.jcc(X64CondCode.notEqual, label: next)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset("panic: {words} at rip=0x"))
+	u.asm.jmp(report)
+	u.asm.bind(next)
+end 'emitFaultArm'
+
+// emitStderrWrite writes the r8 bytes at rdx to standard error with WriteFile.
+function emitStderrWrite(mutates u CodeUnit)
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtStderr))
+	u.asm.lea(r9, base: rsp, disp: faultWrittenSlot)
+	u.asm.movImm(r10, imm: 0)
+	u.asm.store(rsp, disp: faultFifthArgSlot, src: r10)
+	u.asm.callImport(impWriteFile)
+end 'emitStderrWrite'

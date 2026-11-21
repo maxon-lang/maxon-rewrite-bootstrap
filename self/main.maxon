@@ -344,6 +344,12 @@ end 'peTempPath'
 
 // runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
 function runPeImage(image backend.PeImage, name String, expectedCode ExitCode, expectedOutput String)
+	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
+	assertEqStr(out.stdout, expected: expectedOutput, label: name)
+end 'runPeImage'
+
+// runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
+function runPeImageOutput(image backend.PeImage, name String, expectedCode ExitCode) returns CollectedOutput
 	let path = peTempPath(name)
 	try backend.writePeImage(image, path: path) otherwise panic("cannot write {name}")
 	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
@@ -351,8 +357,8 @@ function runPeImage(image backend.PeImage, name String, expectedCode ExitCode, e
 	if out.exitCode() != expectedCode 'code'
 		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
 	end 'code'
-	assertEqStr(out.stdout, expected: expectedOutput, label: name)
-end 'runPeImage'
+	return out
+end 'runPeImageOutput'
 
 function testPe()
 	let message = "hello from a PE written by self\n"

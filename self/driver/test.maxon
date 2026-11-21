@@ -351,10 +351,10 @@ function testCommand(rest CommandNames) returns ExitCode
 		return runSpecs(path, verbose: verbose)
 	end 'specs'
 	if hasPath 'given'
-		return runTests(path, updatePositions: updatePositions)
+		return runTests(path, verbose: verbose, updatePositions: updatePositions)
 	end 'given'
 	return match consumes project.nearestDirectory(testsDirName) 'nearest'
-		some(dir) gives runTests(dir, updatePositions: updatePositions)
+		some(dir) gives runTests(dir, verbose: verbose, updatePositions: updatePositions)
 		none gives usageError()
 	end 'nearest'
 end 'testCommand'
@@ -366,7 +366,7 @@ end 'usageError'
 
 // runTests runs every program and project of the corpus in dir, one after another, printing a line for each and the
 // failures and the counts at the end.
-function runTests(dir String, updatePositions bool) returns ExitCode
+function runTests(dir String, verbose bool, updatePositions bool) returns ExitCode
 	let root = project.absolutePath(dir)
 	if not project.isDirectoryPath(root) 'missing'
 		panic("test: cannot read {root}")
@@ -384,6 +384,10 @@ function runTests(dir String, updatePositions bool) returns ExitCode
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
 		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
+		// A compile runs in this process, so a crash in it ends the run: the line before it names the test.
+		if verbose 'start'
+			print("RUN   {name}\n")
+		end 'start'
 		var expect = readExpectation(file)
 		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
 		let result = runTest(shared, file: file, expect: expect, updatePositions: updatePositions)

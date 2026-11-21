@@ -186,6 +186,9 @@ end 'asmCountLive'
 // testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
 let testLeakExitCode = 99
 
+// testPanicExitCode is the runtime's exit code for a panic, which a fault ends as.
+let testPanicExitCode = 1
+
 // runtimeUnit is the entries of the runtime that the test programs call, written in assembly: alloc, free, write, a
 // stand-in for itoa, and checkLeaks, which exits with the runtime's leak code and writes no report.
 function runtimeUnit(count bool) returns backend.CodeUnit
@@ -251,6 +254,34 @@ function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, c
 	let linked = backend.buildProgram(p, modules: modules, ready: ready, entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
 	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
 end 'runIr'
+
+// overflowMain calls itself until the stack runs out.
+function overflowMain(decl ast.FuncID) returns ir.IrFunction
+	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	let result = b.call(decl, args: ir.RegList.create(0), errReg: ir.noReg)
+	b.finish(ir.newRet(result))
+	return b.f
+end 'overflowMain'
+
+// faultPanicPrefix is how the entry's fault handler opens the line of a stack overflow; the address after it varies.
+let faultPanicPrefix = "panic: stack overflow at rip=0x"
+
+// testStackOverflow runs a program that overflows its stack, which the fault handler ends as a panic with a line that says so.
+function testStackOverflow(mutates p ast.Project)
+	let id = addFunction(p, name: "main", errTy: ast.noType)
+	let name = "minimaxon_cg_overflow.exe"
+	var modules = backend.FunctionLists.create(0)
+	modules.push(oneFunction(overflowMain(id)))
+	var ready = backend.UnitList.create(0)
+	ready.push(runtimeUnit(false))
+	let linked = backend.buildProgram(p, modules: modules, ready: ready, entry: id, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
+	let out = runPeImageOutput(linked.image, name: name, expectedCode: testPanicExitCode)
+	var shown = out.stderr.byteLength()
+	if shown > faultPanicPrefix.byteLength() 'longer'
+		shown = faultPanicPrefix.byteLength()
+	end 'longer'
+	assertEqStr(out.stderr.sliceBytes(0, endPos: shown), expected: faultPanicPrefix, label: name)
+end 'testStackOverflow'
 
 // arithmeticMain returns 42 by way of every operator, a check, a guard and a branch; it returns 1 when one of them is wrong.
 function arithmeticMain(decl ast.FuncID) returns ir.IrFunction
@@ -627,4 +658,5 @@ function testCodegen()
 	runIr(p, fns: oneFunction(leakMain(leakId)), entry: leakId, count: true, name: "minimaxon_cg_leak.exe", expectedCode: 99, expectedOutput: "")
 	let rawId = addFunction(p, name: "main", errTy: ast.noType)
 	runIr(p, fns: oneFunction(rawMain(rawId)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
+	testStackOverflow(p)
 end 'testCodegen'

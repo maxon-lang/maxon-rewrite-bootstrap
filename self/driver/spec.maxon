@@ -814,6 +814,10 @@ function runSpecFile(mutates shared SharedRuntime, work SpecWork, mutates tally 
 	let display = project.lastComponent(file)
 	let tests = parseSpec(text)
 	for i in 0 upto tests.count() 'tests'
+		// A compile runs in this process, so a crash in it ends the run: the line before it names the test.
+		if tally.verbose 'start'
+			print("RUN  {display}: {tests[i].name}\n")
+		end 'start'
 		let result = runSpecTest(shared, work: work, text: text, stem: stem, test: tests[i])
 		if result.outcome == TestOutcome.testFailed 'failed'
 			tally.failed = offsetBy(tally.failed, by: 1)
