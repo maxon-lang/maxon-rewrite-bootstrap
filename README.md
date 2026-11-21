@@ -225,6 +225,7 @@ layering cannot erode:
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
+| `opt` | the optimizer's rewrite rules: the matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`), the instruction that defines each register (`DefList`) and the helpers the rules call; the passes that apply them come with Phase 3 | `ir` |
 | `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
@@ -247,8 +248,9 @@ run.
 | `internal/grammargen` | `self/syntax/Maxon.g4` | `self/syntax/parser_gen.maxon`, `self/syntax/tokens_gen.maxon`, `self/ast/nodes_gen.maxon`, and the keywords `cmd/convert` reserves (`cmd/convert/reserved_gen.go`) |
 | `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon` |
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv` | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon` |
-| `internal/irgen` | `internal/irgen/table.go` | `self/ir/ir_gen.maxon` |
-| `internal/x64gen` | `internal/x64gen/table.go` | `self/backend/x64_gen.maxon` |
+| `internal/irgen` | `internal/irgen/irtable/table.go` | `self/ir/ir_gen.maxon` |
+| `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
+| `internal/rulegen` | `internal/rulegen/generic.rules`, checked against the IR table (and the x64 rules against the instruction table) | `self/opt/rewrite_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go` | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon` |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 
@@ -298,7 +300,7 @@ that returns the text while the raise site still chooses where the error is. A s
 that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
 `go run . --maxon <maxon repository>`, run in `internal/diaggen`, checks every row against maxon's registry.
 
-**The IR** has one table, `internal/irgen/table.go`: a row per instruction and terminator with its operands (each a name, a
+**The IR** has one table, `internal/irgen/irtable/table.go`: a row per instruction and terminator with its operands (each a name, a
 kind such as register, slot, block, flag or pool index, and the field of the record that holds it), what it gives (a register,
 an optional one or nothing), its effects (reads or writes memory, calls, allocates, frees, leaves the function; one with a
 failure block may also fail) and the template the printer writes it by, plus the small enums (`BinOp`, `CmpOp`, `GuardKind`,
@@ -317,7 +319,7 @@ runtime, the backend and the lowering cannot disagree. Each row is a name, its v
 
 A byte array's box is an array's box (length, capacity, buffer address), so one set of offsets serves both.
 
-**The x64 encoder** is generated from an instruction table, `internal/x64gen/table.go`. A row is a form, one instruction with
+**The x64 encoder** is generated from an instruction table, `internal/x64gen/x64table/table.go`. A row is a form, one instruction with
 one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`MovRegReg`, `LoadRegBaseDisp`, `PushReg`):
 
 | Column | Holds |
@@ -336,10 +338,56 @@ choice picks the first of several forms whose immediate holds the value (`AddReg
 `MovRegImm`: an unsigned doubleword, a sign-extended doubleword, else a quadword), and a sequence is forms the backend always
 emits together (`SetccRax`). The generated file holds the register and condition code enums (`X64Register`, `X64CondCode`),
 the immediate types, the helpers the encoders share and one encoder per form, choice and sequence, taking a `mutates code
-ByteArray` first. `go test ./internal/x64gen` also encodes every form with registers `rax` to `r15`, displacements from none
+ByteArray` first. `go test ./internal/x64gen/...` also encodes every form with registers `rax` to `r15`, displacements from none
 to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code, with a
-reference encoder in the test, and compares the bytes with `internal/x64gen/testdata/assembler.golden`; `selftest` runs the
+reference encoder in the test, and compares the bytes with `internal/x64gen/x64table/testdata/assembler.golden`; `selftest` runs the
 generated Maxon on a set of those encodings (in `self/main.maxon`) and compares them with the same bytes.
+
+The IR table and the x64 instruction table are Go packages of their own (`internal/irgen/irtable`,
+`internal/x64gen/x64table`), so that `rulegen` reads the same tables as the generators of the records and the encoder.
+
+**The rewrite rules** are written in a small language after the Go compiler's `_gen/*.rules`, one file per target:
+`internal/rulegen/generic.rules` rewrites IR to IR, and an instruction selection file (`x64.rules`, Phase 3) will rewrite IR
+to x64 forms. A rule is a pattern, a condition after `&&` if it has one, and after `=>` what the instruction is rewritten to;
+a line that starts with `&&` or `=>` goes on with the rule before it, and `//` starts a comment:
+
+```
+(bin.add x (const [0]))                                   => x
+(bin.mul.!checked x (const [c])) && isPowerOfTwo(c)       => (bin.shl x (const [log2(c)]))
+(bin.div.!unsigned.checked x (const [-1]) [fail])         => (neg x [fail])
+d:(loadField obj [off])                                   => (LoadRegBaseDisp d obj [off])     // x64.rules
+(branch (cmp.lt.unsigned x y) [yes] [no])                 => (CmpRegReg x y) (JccRel32 [X64CondCode.below] [yes])
+```
+
+- An operation is its name in the IR table with the first letter lowered (`bin`, `loadField`), then suffixes: the case of
+  its enum operand as the printer writes it (`.add`, `.lt`), and each flag it must have (`.unsigned`, `.borrow`, and
+  `.checked` and `.throws` for the flags that say a failure block or an error register is there) or must not have
+  (`.!checked`). A flag the pattern does not name may be either.
+- The operands follow in the table's order, leaving out the enum and the flags. A register is a variable, `_`, or the
+  operation that defines it, which `name:` binds the register of; every other operand is in brackets: `[_]`, a variable or a
+  number in a pattern, a Maxon expression of the rule's variables in a result. Operands left off the end of a pattern match
+  anything; a result leaves off only an optional one (a failure block, an error register, a routine), which is then absent.
+- A variable named twice matches only the same register or value. A condition is a Maxon expression of the variables that
+  calls the helpers in `self/opt/rules.maxon`.
+- `bin` with add, mul, and, or or xor and `cmp` with eq or ne are commutative: each rule over them is also tried with the
+  two register operands swapped.
+- A generic rule rewrites to a register of its pattern, which then replaces the instruction's register, or to one
+  instruction, whose nested operations become new instructions before it, each defining a new register. The instructions
+  the pattern matched below the root stay for dead code removal, so a check they make still runs; `generic.rules` states the
+  invariant its rules keep (a rewritten program fails exactly where and as it did).
+- An instruction selection rule rewrites to x64 forms, choices or sequences of the instruction table, each with as many
+  operands as its encoder takes, and the rules of a target must match every IR operation: the last rule of each has no
+  condition and matches any operands.
+
+`rulegen` refuses, naming the rule and its line, a rule that names an operation, a case, a flag or an x64 form the tables do
+not have, gives an operation the wrong number or kind of operands, names a variable that its pattern does not bind, or can
+never fire because an earlier rule with no condition matches everything it matches (with the swaps of commutative
+operations). It writes `self/opt/rewrite_gen.maxon`: `rewriteInstr(fn, at, defs, out)` dispatches on the opcode to a
+function per operation that has rules, which tries them in the order of the file, each a function of flat `if`s that
+returns at the first thing that does not match. It reads the operands in place through the generated getters and the
+defining instruction of a register from `defs` (`opt.defsOf`), allocates nothing until a rule fires, and leaves the result
+in a reused `opt.Rewrite`; applying it to the function is the fold pass's work. `selftest` runs it on instructions built by
+hand (`self/opt_test.maxon`).
 
 ## Pipeline
 
@@ -604,7 +652,7 @@ what a later pass such as reference counting or an optimization changes.
   returned and the error's case plus 1 when it failed (`rdx` in the executable), and a `call` of one names the register that
   receives it (`error %7`). An allocation is `alloc`.
 - An instruction is one fixed-size record (`ir.Instr`): an opcode, three registers, a small index, an immediate and two bytes
-  (`sub` and `flags`) whose meaning the opcode says (the IR table, `internal/irgen/table.go`, has it, and the getters of each
+  (`sub` and `flags`) whose meaning the opcode says (the IR table, `internal/irgen/irtable/table.go`, has it, and the getters of each
   opcode such as `binLeft(x)` read the fields by their operands' names), and a terminator is a record of its own (`ir.Term`).
   What does not fit a record (a type, a callee, a string, the arguments of a call, the cases of a switch) is in the function's
   pools (`args`, `types`, `callees`, `strings`, `cases`), which an instruction indexes; a block, a register, a slot and a case
@@ -2695,7 +2743,7 @@ A typical change touches one file per stage. `.claude/skills/write-self` has the
    through `consume`, which is what marks it for lowering.
 5. **Lowering:** the lowerer (`self/ir`), built from the existing instructions where it can. A value it makes that nothing
    consumes is a temporary, and a place it declares or assigns drops what it held (see "Drops"). A new instruction is a row of
-   the IR table (`internal/irgen/table.go`, see "Generated code"); after `go generate ./internal/...`, codegen
+   the IR table (`internal/irgen/irtable/table.go`, see "Generated code"); after `go generate ./internal/...`, codegen
    (`self/backend`) and the interpreter (`self/interp`) fail to build until they handle it. A new built-in is a row of
    `internal/builtingen/table.go`, and the dispatch names the function for it in the checker, the lowerer and the interpreter.
 6. **Tests:** a `tests/run/` program for the behaviour (it runs natively and under the interpreter), a `tests/errors/` program

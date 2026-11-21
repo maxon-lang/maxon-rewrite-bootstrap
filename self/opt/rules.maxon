@@ -1,0 +1,25 @@
+// The helpers that the conditions and results of generic.rules call.
+
+// isPowerOfTwo is whether c is 1, 2, 4 and so on.
+export function isPowerOfTwo(c ir.Word) returns bool
+	if c <= 0 'small'
+		return false
+	end 'small'
+	return (c and lowBits(c)) == 0
+end 'isPowerOfTwo'
+
+// lowBits is c - 1 for a c that is a power of two: the bits below its one bit.
+export function lowBits(c ir.Word) returns ir.Word
+	return try c - 1 otherwise panic("opt: the low bits of i64.min")
+end 'lowBits'
+
+// log2 is the place of the one bit of a power of two c.
+export function log2(c ir.Word) returns ir.Word
+	var n = 0 as ir.Word
+	var v = c
+	while v > 1 'halve'
+		v = try v / 2 otherwise panic("opt: a division by 2 that fails")
+		n = try n + 1 otherwise panic("opt: a power of two past the word")
+	end 'halve'
+	return n
+end 'log2'

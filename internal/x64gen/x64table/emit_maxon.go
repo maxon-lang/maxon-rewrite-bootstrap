@@ -1,4 +1,4 @@
-package main
+package x64table
 
 import (
 	"fmt"

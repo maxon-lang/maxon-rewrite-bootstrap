@@ -1,4 +1,4 @@
-package main
+package x64table
 
 // The instruction table of the x64 encoder: the source of truth for self/backend/x64_gen.maxon. A row is a form, one
 // instruction with one shape of operands, named as maxon's X64Backend.maxon names its encoders (encodeMovRegReg,

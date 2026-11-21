@@ -1,4 +1,4 @@
-package main
+package irtable
 
 // The table of IR operations: every instruction and terminator, what each of its operands is and which field of the
 // record holds it, what it gives, what it does besides, and how the printer writes it. Everything that restates one of

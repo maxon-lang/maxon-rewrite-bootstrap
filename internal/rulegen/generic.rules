@@ -1,0 +1,69 @@
+// The target-independent rewrite rules of the IR, which the fold pass of self/opt applies to each instruction.
+// README "The rewrite rules" describes how a rule is written; rulegen makes self/opt/rewrite_gen.maxon of them.
+//
+// The invariant every rule keeps: a program that is rewritten fails exactly where and as it failed before.
+//
+// - A rule replaces the one instruction it matches. The instructions that its pattern matches the operands of stay,
+//   with their checks, until dead code removal, which keeps every instruction that can fail, takes away those nothing
+//   reads.
+// - The instruction a rule replaces may be checked (a `bin` or a `neg` with .checked goes to its failure block when the
+//   result does not fit). A rule may then drop the check only where it can never fail on the operands it matched, as
+//   x + 0 cannot. Otherwise the replacement keeps a check that fails on the same operands and goes to the same block,
+//   as -x does for x / -1, so a `try` sees the same error. A rule that cannot keep it matches .!checked only.
+// - A guard (a divisor that may be 0, a shift count that may be negative, a range) is an instruction of its own, and a
+//   rule never removes one: x / 1 removes the division, never the guard of its divisor.
+// - Signed and unsigned operations differ wherever the flag changes the result, and a rule says which it is for.
+// - Floats are left alone: x + 0.0 is not x for x = -0.0, and x * 1.0 changes the bits of a NaN.
+//
+// An operation with add, mul, and, or or xor, and a comparison with eq or ne, is commutative: rulegen also tries each of
+// their rules with the two operands swapped, so (bin.add x (const [0])) matches 0 + x as well.
+
+// Identities: the operation gives its left operand, and a check cannot fail.
+(bin.add x (const [0])) => x
+(bin.sub x (const [0])) => x
+(bin.mul x (const [1])) => x
+(bin.div x (const [1])) => x
+(bin.or x (const [0])) => x
+(bin.xor x (const [0])) => x
+(bin.and x (const [-1])) => x
+(bin.shl x (const [0])) => x
+(bin.shr x (const [0])) => x
+(bin.and x x) => x
+(bin.or x x) => x
+
+// Absorbing values: the result is the constant whatever x is, and a check cannot fail.
+(bin.mul x z:(const [0])) => z
+(bin.and x z:(const [0])) => z
+(bin.or x m:(const [-1])) => m
+(bin.sub x x) => (const [0])
+(bin.xor x x) => (const [0])
+(bin.mod x (const [1])) => (const [0])
+(bin.mod.!unsigned x (const [-1])) => (const [0])
+
+// Negation. A checked x * -1, x / -1 or 0 - x fails for i64.min alone, as a checked -x does, and to the same block.
+(bin.mul.!checked x (const [-1])) => (neg x)
+(bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
+(bin.div.!unsigned.!checked x (const [-1])) => (neg x)
+(bin.div.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
+(bin.sub.!checked (const [0]) x) => (neg x)
+(bin.sub.!unsigned.checked (const [0]) x [fail]) => (neg x [fail])
+(not (not x)) => x
+// An unchecked -x of i64.min is i64.min, so only a checked inner -x lets a checked outer one go.
+(neg.!checked (neg x)) => x
+(neg.checked (neg.checked x)) => x
+
+// Powers of two. Only an unchecked multiplication becomes a shift, which has no check of its own here; an unsigned
+// division or remainder by one cannot fail at all.
+(bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
+(bin.div.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.shr.unsigned x (const [log2(c)]))
+(bin.mod.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.and x (const [lowBits(c)]))
+
+// Comparisons of a register with itself, and unsigned ones with 0.
+(cmp.eq x x) => (const [1])
+(cmp.ne x x) => (const [0])
+(cmp.lt x x) => (const [0])
+(cmp.le x x) => (const [1])
+(cmp.gt x x) => (const [0])
+(cmp.ge x x) => (const [1])
+(cmp.lt.unsigned x (const [0])) => (const [0])
+(cmp.ge.unsigned x (const [0])) => (const [1])

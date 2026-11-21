@@ -1,0 +1,121 @@
+package main
+
+import (
+	"bytes"
+	"os"
+	"strings"
+	"testing"
+
+	"minimaxon/internal/irgen/irtable"
+)
+
+func TestGeneratedFilesAreCurrent(t *testing.T) {
+	outs, err := generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range outs {
+		got, err := os.ReadFile(o.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), o.code) {
+			t.Errorf("%s is not what the rules generate; run `go generate ./internal/rulegen`", o.path)
+		}
+	}
+}
+
+// Each of these is refused at its rule.
+var refused = []struct{ rules, err string }{
+	{"(bin.add x (const [0])) x", "a rule is a pattern, => and what it is rewritten to"},
+	{"(binary.add x y) => x", "there is no IR operation binary"},
+	{"(bin.plus x y) => x", "BinOp has no case plus"},
+	{"(bin.add.sub x y) => x", "bin names two cases of BinOp"},
+	{"(bin.add.!wide x y) => x", "bin has no flag wide"},
+	{"(bin.add.unsigned.!unsigned x y) => x", "names the flag unsigned twice"},
+	{"(bin.add x y [f] z) => x", "bin has 3 operands after its case and flags (left right fail), and the rule gives it 4"},
+	{"(bin.add x [y]) => x", "bin's operand Right is written a register's term"},
+	{"(bin.add x (const y)) => x", "const's operand Value is written [...]"},
+	{"(bin.add x y [f]) => x", "only a bin with .checked has the block fail"},
+	{"(bin.add x (storeSlot [_] y)) => x", "storeSlot gives no register for an operand to be"},
+	{"(bin.add x y) => z", "z is no variable of the pattern"},
+	{"(bin.add x (const [c])) && c == d => x", "d is no variable of the pattern"},
+	{"(bin.add x (const [c])) => (const [c + k])", "k is no variable of the pattern"},
+	{"(bin.add x (const [c])) => c", "c is no register"},
+	{"(bin.add x y) => (bin.shl x)", "bin is given no right"},
+	{"(bin.add x y) => (bin x y)", "bin names no case of BinOp"},
+	{"(bin.add x y) => (bin.shl.!unsigned x y)", "a result leaves out the flags that are clear"},
+	{"(bin.add x y) => (bin.shl.checked x y)", "a result gives bin its operand fail, which says it is .checked, rather than the flag"},
+	{"(bin.add x y) => (bin.shl x _)", "a result has no _"},
+	{"(bin.add x y) => (storeSlot [0] x)", "bin and storeSlot do not both give a register"},
+	{"(bin.add x y) => (call [0] [_])", "a result cannot build call, whose operand Args is a list"},
+	{"(jump [b]) => x", "a generic rule rewrites an instruction, and jump is a terminator"},
+	{"(bin.add X y) => y", "X is no variable"},
+	{"(bin.add x y) => x\n(bin.add x (const [0])) => x", "can never fire: the rule at line 1, (bin.add x y) => x, matches everything it matches"},
+	{"(bin x y) => x\n(bin.mul.checked x y [f]) => y", "can never fire: the rule at line 1"},
+	{"(bin.add x (const [0])) => x\n(bin.add (const [0]) y) => y", "can never fire: the rule at line 1"},
+}
+
+func TestRulesAreChecked(t *testing.T) {
+	for _, c := range refused {
+		_, err := generateGeneric("test.rules", c.rules)
+		if err == nil {
+			t.Errorf("%q is not refused", c.rules)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.err) {
+			t.Errorf("%q is refused with %q, which does not say %q", c.rules, err, c.err)
+		}
+	}
+}
+
+// These may all fire: a condition, a literal or a variable named twice narrows what an earlier rule matches.
+func TestRulesThatFire(t *testing.T) {
+	rules := strings.Join([]string{
+		"(bin.add x (const [c])) && c == 0 => x",
+		"(bin.add x x) => x",
+		"(bin.add x (const [1])) => x",
+		"(bin.add.checked x (const [2]) [f]) => (neg x [f])",
+		"d:(bin.or x (const [0])) => d",
+		"(bin.add x y)",
+		"  => y",
+	}, "\n")
+	if _, err := generateGeneric("test.rules", rules); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// machineRules are instruction selection rules: some that select by the operands, and then one per IR operation that
+// matches all of it (the rule of loadField already does).
+func machineRules(leaveOut string) string {
+	lines := []string{
+		"(bin.add x (const [c])) && fitsImm32(c) => (AddRegImm x [c])",
+		"(branch (cmp.lt.unsigned x y) [yes] [no]) => (CmpRegReg x y) (JccRel32 [X64CondCode.below] [yes])",
+		"d:(loadField obj [off]) => (LoadRegBaseDisp d obj [off])",
+	}
+	for _, o := range irtable.Ops {
+		if o.Name != leaveOut && o.Name != "LoadField" {
+			lines = append(lines, "("+lowerFirst(o.Name)+") => (Ud2)")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestMachineRulesAreChecked(t *testing.T) {
+	if err := checkMachine("x64.rules", machineRules("")); err != nil {
+		t.Fatal(err)
+	}
+	refusedMachine := []struct{ rules, err string }{
+		{machineRules("Bin"), "x64.rules: no rule matches every bin"},
+		{"(bin.add x y) => (AddRegRegReg x y)\n" + machineRules(""), "there is no x64 form, choice or sequence AddRegRegReg"},
+		{"(bin.add x y) => (AddRegReg x)\n" + machineRules(""), "AddRegReg takes 2 operands (dest src), and the rule gives it 1"},
+		{"(bin.add x y) => (AddRegReg x z)\n" + machineRules(""), "z is no variable of the pattern"},
+		{"(bin.add x y) => (AddRegReg.wide x y)\n" + machineRules(""), "an x64 form has no binding and no suffixes"},
+	}
+	for _, c := range refusedMachine {
+		err := checkMachine("x64.rules", c.rules)
+		if err == nil || !strings.Contains(err.Error(), c.err) {
+			t.Errorf("%.60q is refused with %v, which does not say %q", c.rules, err, c.err)
+		}
+	}
+}
