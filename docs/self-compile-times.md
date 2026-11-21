@@ -44,3 +44,4 @@ of C2 building it again.
 
 | Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms |
 |---|---|---|---:|---:|---:|---:|
+| 2026-11-21 | 750979c | cutover: seed, Go compiler removed | 49378 | 7723 | 7850 | 7355 |
