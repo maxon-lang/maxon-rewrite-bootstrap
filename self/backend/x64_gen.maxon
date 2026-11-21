@@ -614,6 +614,13 @@ export function encodeCallRip(mutates code ByteArray, disp Imm32)
 	writeImm32(code, value: disp)
 end 'encodeCallRip'
 
+// call reg: FF /2.
+export function encodeCallReg(mutates code ByteArray, reg X64Register)
+	emitRex(code, wide: false, regField: X64Register.rax, rmField: reg, force: false)
+	code.push(0xFF)
+	writeModRmReg(code, regBits: 2, rm: reg)
+end 'encodeCallReg'
+
 // jmp rel: E9.
 export function encodeJmpRel32(mutates code ByteArray, rel Imm32)
 	code.push(0xE9)
@@ -741,6 +748,7 @@ export enum X64Form
 	loadRegRip
 	storeRipReg
 	callRip
+	callReg
 	jmpRel32
 	callRel32
 	jccRel32
@@ -801,6 +809,7 @@ export function setsFlags(form X64Form) returns bool
 		loadRegRip or
 		storeRipReg or
 		callRip or
+		callReg or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 gives false
@@ -863,6 +872,7 @@ export function readsFlags(form X64Form) returns bool
 		loadRegRip or
 		storeRipReg or
 		callRip or
+		callReg or
 		jmpRel32 or
 		callRel32 gives false
 	end 'form'
@@ -879,7 +889,8 @@ export function readsMemory(form X64Form) returns bool
 		repMovsb or
 		repeCmpsb or
 		loadRegRip or
-		callRip gives true
+		callRip or
+		callReg gives true
 		movRegReg or
 		addRegReg or
 		subRegReg or
@@ -941,6 +952,7 @@ export function writesMemory(form X64Form) returns bool
 		repStosq or
 		storeRipReg or
 		callRip or
+		callReg or
 		callRel32 gives true
 		movRegReg or
 		addRegReg or

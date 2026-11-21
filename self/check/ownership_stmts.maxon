@@ -129,7 +129,7 @@ function assignStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID
 			requireOverwriteDroppable(o, p: p, st: st, target: target, s: out)
 			return readRoot(o, p: p, l: selfLocalOf(o, p: p), site: offsetOfOwn(o, p: p, node: target), s: out)
 		end 'selfField'
-		if name.kind == ast.NameKind.nameConst 'const'
+		if name.kind == ast.NameKind.nameConst or name.kind == ast.NameKind.nameFunc 'const'
 			let out = consume(o, p: p, e: value, dest: OwnDest.make(OwnDestKind.destVariable, name: targetName.clone()), s: s)
 			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(targetName))
 			return out
@@ -207,19 +207,24 @@ function behaviourOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID,
 	for i in 0 upto behaviour.captures.count() 'captures'
 		out = consume(o, p: p, e: behaviour.captures[i].refNode, dest: OwnDest.of(OwnDestKind.destBehaviour), s: out)
 	end 'captures'
+	runNested(o, p: p, fid: behaviour.fn, body: ast.whenStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), site: st)
+	return out
+end 'behaviourOwn'
+
+// runNested checks the body of a behaviour or a closure, written at site, as a function of its own.
+function runNested(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, site ast.NodeID)
 	var sites = ast.NodeIDList.create(0)
-	for i in 0 upto p.funcs.entries[behaviour.fn as Count].params.count() 'params'
-		sites.push(st)
+	for _ in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
+		sites.push(site)
 	end 'params'
 	let modID = o.c.modID
 	let checker = exchange(o.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 	let found = exchange(o.errs, value: diag.ErrorList.create(0))
 	var inner = Ownership.make(checker, errs: found)
-	run(inner, p: p, fid: behaviour.fn, body: ast.whenStmtBodyRef(p.modules[o.c.modIdx].tree, id: st), paramSites: sites)
+	run(inner, p: p, fid: fid, body: body, paramSites: sites)
 	o.errs = exchange(inner.errs, value: diag.ErrorList.create(0))
 	o.c = exchange(inner.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
-	return out
-end 'behaviourOwn'
+end 'runNested'
 
 // tryStmtOwn checks the body of a try block with its failures going to the handler, which starts from the join of the
 // states where they happen.

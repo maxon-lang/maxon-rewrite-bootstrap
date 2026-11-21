@@ -297,6 +297,10 @@ function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		dropArray(u, p: p, ty: ty)
 		return
 	end 'array'
+	if kind == ast.TypeKind.funcTy 'function'
+		dropClosure(u)
+		return
+	end 'function'
 	panic("routines: no drop routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
@@ -322,6 +326,10 @@ function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		copyArray(u, p: p, ty: ty)
 		return
 	end 'array'
+	if kind == ast.TypeKind.funcTy 'function'
+		copyClosure(u)
+		return
+	end 'function'
 	panic("routines: no copy routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
 
@@ -420,6 +428,55 @@ function dropArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	u.asm.bind(done)
 	routineEpilogue(u)
 end 'dropArray'
+
+// dropClosure lets go of one of the function values that share a closure: the last one drops what the closure owns, by the
+// routine the closure holds, and frees the box.
+function dropClosure(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	let release = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rax, base: rcx, disp: imm32Of(closureCountOffset))
+	u.asm.subImm(rax, imm: 1)
+	u.asm.store(rcx, disp: imm32Of(closureCountOffset), src: rax)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.notEqual, label: done)
+	u.asm.load(rax, base: rcx, disp: imm32Of(closureDropOffset))
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.equal, label: release)
+	u.asm.push(rcx)
+	u.asm.callRegister(rax)
+	u.asm.addImm(rsp, imm: wordBytes)
+	u.asm.bind(release)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropClosure'
+
+// copyClosure is another function value that shares the closure: its count goes up by 1.
+function copyClosure(mutates u CodeUnit)
+	routinePrologue(u, locals: 0)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	u.asm.load(rcx, base: rax, disp: imm32Of(closureCountOffset))
+	u.asm.addImm(rcx, imm: 1)
+	u.asm.store(rax, disp: imm32Of(closureCountOffset), src: rcx)
+	routineEpilogue(u)
+end 'copyClosure'
+
+// emitCaptureDrop writes the routine that drops what a closure of the body owns, which the last function value that shares
+// the closure calls before it frees the box.
+export function emitCaptureDrop(mutates u CodeUnit, mutates p ast.Project, symbol String, body ir.IrFunction, instance bool)
+	u.beginSection()
+	u.defineFunction(symbol, instance: instance)
+	routinePrologue(u, locals: 0)
+	for i in 0 upto body.captureOwned.count() 'captures'
+		if body.captureOwned[i] 'owned'
+			dropWord(u, p: p, offset: try closureCapturesOffset + i * wordBytes otherwise panic("routines: a capture past memory"), ty: body.captureTypes[i])
+		end 'owned'
+	end 'captures'
+	routineEpilogue(u)
+end 'emitCaptureDrop'
 
 // jumpIfImmortal jumps when the string that the argument is lives in the executable's data section, which no one frees:
 // its address is between the bounds the linker defines. A string on the heap is never there.

@@ -8,6 +8,7 @@ function enterContext(mutates c Checker, p ast.Project, f ast.FuncID, owner ast.
 	end 'bounded'
 	c.whens = 0 as Count
 	c.inBehaviour = false
+	c.inClosure = false
 	c.outers = Array.create(0)
 	c.owner = owner
 	c.allowCalls = calls

@@ -53,6 +53,7 @@ ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '=
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
+ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
@@ -93,6 +94,7 @@ ErrDestructorMisuse	E3920	-	A destructor is declared on a type that has nothing 
 ErrCapabilityMisuse	E3921	-	An argument naming a type's capability is wrong for the type it is given.
 ErrTakeApartDestructible	E3922	-	A value of a type with destructors is taken apart outside them.
 ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
+ErrClosureBorrow	E3925	-	A closure captures a borrowed value that cannot be copied, which it would outlive.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

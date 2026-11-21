@@ -57,9 +57,10 @@ function boundValue(modID diag.ModuleID, tree Tree, b Bound, mutates errs diag.E
 	return table.Option.some(v)
 end 'boundValue'
 
-// aliasNamesInstance is whether a typealias names an instance of a generic type, as against an integer range.
+// aliasNamesInstance is whether a typealias names an instance of a generic type or a function type, as against an integer
+// range: a type made of the types it names.
 export function aliasNamesInstance(ad AliasDecl) returns bool
-	return ad.instance != 0
+	return ad.instance != 0 or ad.fn != 0
 end 'aliasNamesInstance'
 
 // isGenericOwned is whether the typealias of the name is declared in the body of a generic type, where a range would be a

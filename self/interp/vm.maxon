@@ -108,13 +108,17 @@ type Program
 	var fnConvs as CountLists
 	// fnChildren are the behaviour bodies of a function, in the order the function names them.
 	var fnChildren as CountLists
+	// fnTakesClosure is whether a function is the body of a closure, which a call through a function value gives the closure
+	// first, and fnCaptureOwned whether such a body's closure owns each value it captured.
+	var fnTakesClosure as BoolList
+	var fnCaptureOwned as Array with BoolList
 	var fnByFunc as table.IntMap with Count
 	var infos as Infos
 	var infoBuilt as BoolList
 	var mainFn as Count
 
 	static function new() returns Program
-		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnByFunc: table.IntMap.new(), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
+		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnTakesClosure: BoolList.create(0), fnCaptureOwned: Array.create(0), fnByFunc: table.IntMap.new(), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
 		p.add("", slots: 0, regs: 0, convs: CountList.create(0))
 		return p
 	end 'new'
@@ -126,6 +130,8 @@ type Program
 		fnRegs.push(regs)
 		fnConvs.push(convs)
 		fnChildren.push(CountList.create(0))
+		fnTakesClosure.push(false)
+		fnCaptureOwned.push(BoolList.create(0))
 		infos.push(Info.new(0))
 		infoBuilt.push(false)
 	end 'add'

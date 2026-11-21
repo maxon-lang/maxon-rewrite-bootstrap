@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	let name = "a".clone()
+	let g = function(n String) gives "{name}{n}"
+	print("{name} {g("b")}\n")
+	return 0
+end 'main'
+
+// expect-error: E3102 at 4:10

@@ -292,8 +292,23 @@ export function typeLinkName(p Project, t TypeID) returns String
 		builtinHandle gives nominalLinkName(p, t: t)
 		builtinFrozen gives nominalLinkName(p, t: t)
 		builtinCown gives nominalLinkName(p, t: t)
+		funcTy gives funcTypeLinkName(p, t: t)
 	end 'k'
 end 'typeLinkName'
+
+// funcTypeLinkName is the link name of a function type: its conventions, its parameters and its result.
+function funcTypeLinkName(p Project, t TypeID) returns String
+	var b = ByteArray.create(0)
+	b.append("function(".toByteArray())
+	for i in 0 upto funcParamCount(p.types, t: t) 'params'
+		if i > 0 'sep'
+			b.append(", ".toByteArray())
+		end 'sep'
+		b.append("{funcParamConv(p.types, t: t, index: i).keyword()} {typeLinkName(p, t: funcParamType(p.types, t: t, index: i))}".toByteArray())
+	end 'params'
+	b.append(") {typeLinkName(p, t: funcResult(p.types, t: t))}".toByteArray())
+	return String.from(b)
+end 'funcTypeLinkName'
 
 function intLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = intSpelling(tt, t: t)

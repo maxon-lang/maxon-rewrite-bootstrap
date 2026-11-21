@@ -58,7 +58,7 @@ func maxonType(x operand) string {
 	switch x.Kind {
 	case kReg, kErrorReg:
 		return "Reg"
-	case kSlot, kInt, kBehaviour:
+	case kSlot, kInt, kBody:
 		return "Count"
 	case kWord:
 		return "Word"
@@ -98,7 +98,7 @@ func maxonRead(o op, x operand) string {
 	switch x.Kind {
 	case kReg, kBlock, kWord:
 		return fld
-	case kSlot, kInt, kBehaviour:
+	case kSlot, kInt, kBody:
 		return toCount(fld, what)
 	case kSymbol:
 		return "rtOf(" + toCount(fld, what) + ")"
@@ -265,7 +265,7 @@ func maxonSets(w *writer, o op, x operand) {
 		w.p("\tr.%s = %sFirst\n\tr.%s = %sCount\n", x.Field, n, x.Count, n)
 	case kMoreRegs:
 		w.p("\tr.%s = %sCount\n", x.Field, n)
-	case kSlot, kInt, kBehaviour:
+	case kSlot, kInt, kBody:
 		w.p("\tr.%s = %s\n", x.Field, toWord(n, what))
 	case kSymbol:
 		w.p("\tr.%s = %s\n", x.Field, toWord("rtCode("+n+")", what))
@@ -514,8 +514,8 @@ func maxonText(o op, x operand, unwrap bool) string {
 		return "{ast.typeName(p.types, t: " + get + ")}"
 	case kCallee, kRoutine:
 		return "{funcSymbol(p, fid: " + get + ")}"
-	case kBehaviour:
-		return "{f.behaviourName(" + get + ")}"
+	case kBody:
+		return "{f.bodyName(" + get + ")}"
 	}
 	fail("operand %s has no Maxon text", x.Name)
 	return ""

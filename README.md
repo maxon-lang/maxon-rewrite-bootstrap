@@ -571,14 +571,15 @@ what a later pass such as reference counting or an optimization changes.
   `ir.TermVisitor` (`ir.visitInstr`, `ir.visitTerm`), so an opcode added to the table fails the build there.
 - A function's IR is made by an `ir.Builder`, which collects the instructions in the order they are emitted, whichever block
   they are for, and `finish` lays them out block after block (a block nothing reaches is dropped and the others are numbered
-  from 0). A `when` body is an `IrFunction` of its own in `behaviours` of the function around it.
+  from 0). A `when` body and a closure's body are each an `IrFunction` of its own in `bodies` of the function around it.
 - `--emit-ir` prints a module's IR (`ir.moduleIrText`).
 
 | Group | Instructions |
 |---|---|
 | values | `const`, `str`, `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
-| calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when` |
+| calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
+| function values | `closure`, `funcvalue` (see "Function values in the IR") |
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
 | the runtime only | `loadraw.W`, `storeraw.W`, `globaladdr`, `import` (see "The runtime") |
 
@@ -667,6 +668,33 @@ holds a behaviour has one for each instance, lowered with the instance's type ar
 behaviour, or reads through a frozen value, with `E9900` like a map, a list or a pool. `freeze` alone could be native, since
 nothing is counted or freed there yet, but a program that freezes and nothing else cannot show anything about the rules, and
 refusing every one keeps the backend free of a half of the feature.
+
+### Function values in the IR
+
+A function value is one word, the address of a **closure**: a box of a count of the values that share it, the address of
+the code to call, the address of the routine that drops what it owns (0 for none), and then what it captured, a word each
+(`internal/abigen`'s `closure*Offset` rows). A function named as a value is a closure too, with nothing captured and nothing
+to drop: one representation means a call through any value is the same indirect call, at the price of an allocation where
+a function is named as a value; a static, immortal box for it would save that and is not built.
+
+| Instruction | Does |
+|---|---|
+| `%r = closure body [%a, %b]` | a new closure of the body `body` of the function, holding the captures `%a` and `%b`: it owns each that the body's `captureOwned` says it owns, which was moved out of its owner by the instruction before, and holds the others as they are, a scalar it copied or a borrow |
+| `%r = funcvalue f` | a new closure of the function `f`, which captures nothing |
+| `%r = callvalue(%c, %x, %y)` | calls the code that the closure `%c` holds with `%c` first and then the arguments |
+
+**The body is a function of its own**, in `bodies` of the function around it and printed after it, named for it with `$fn`
+and its number among the bodies (`main$fn0`). It takes the closure first and its parameters after it, and reads what it
+captured from the closure (`field %c+24`), which keeps it for every call: a capture is a borrow in the body. Arguments are
+pushed left to right, so the closure is the farthest from the return address, and the code of a named function, which
+takes only its parameters, never reaches it: `callvalue` needs no case for it, and the interpreter skips it for one.
+
+Copying a function value (`copy %s F`, which `clone()`, a consumed place of a function type and the copy of what holds one are) adds 1 to the count and gives the
+same box; dropping one subtracts 1, and the last runs the closure's drop routine and frees the box. Every function type has
+the same two routines (`backend.dropClosure`, `copyClosure`), and the drop routine of a closure's captures is made with its
+body (`backend.emitCaptureDrop`), named `captures` and the body's symbol, since its types are the body's and no function
+type names them. Natively the count is a plain word: there are no threads. A closure that owns a value which only the
+interpreter can drop (a map, a list, a pool, a frozen value, a cown) is refused natively like one that drops it.
 
 ### Drops
 
@@ -909,6 +937,10 @@ and nothing else.
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
   destructors").
+- Function values (see "Function values"): a function type, named by a typealias
+  (`typealias Step = function(Count, mutates Box) returns Count`, also in a type's body), a function named without a
+  call, a closure `function(n Count) gives n + offset` (its parameters' types and its result may be left to the function
+  type it is written for), and a call through a value (`f(x)`, `self.op(x)`, `ops[i](x)`, a module-level `let`).
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
   maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
@@ -1185,6 +1217,38 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   (`E3903`); its argument must be such a variable, which has a value after the call (`E3904`), and not before:
   another argument of the same call that reads it is `E3902`.
 
+### Function values
+
+A function type is written with `function` and always named by a typealias, as in Maxon:
+`typealias UnaryOp = function(Score) returns Score`, with a convention before a parameter's type where it has one
+(`function(mutates Tally)`) and no `returns` for one that returns nothing. A function value is a value of one: a function
+named without a call (`apply(double, x: 4)`), or a closure, an anonymous function whose body is one expression,
+`function(n Score) gives n + offset`. A function type has no `throws`, so a function that throws is not a value (`E3101`),
+and neither is a generic or built-in function or a method: pass a closure that calls it. A value fits a function type with
+the same conventions whose parameters it takes at least as wide (exactly, for one passed by address) and whose result
+takes what it returns (`E3005`). A closure written where a function type is expected (an argument, a `return`, the value
+of a typed place) may leave out its parameters' types and its result, which it takes from that type; anywhere else a
+parameter without a type is `E2015`.
+
+**What a closure captures.** A closure's body is a function of its own, checked as a behaviour's is (see "Immutable
+values, cowns and behaviours"), that sees the variables around it by capturing them when the closure is made:
+
+| Captured | Effect |
+|---|---|
+| a scalar | copied into the closure |
+| a local that owns its value (or a `consumes` parameter) | **moved** into the closure, which owns it from then on: using the local afterwards is `E3102` (`its ownership moved to the closure that captures it`), and so is capturing it in a loop; a value with destructors cannot be captured (`E3919`) |
+| a borrow: a `let`, `mutates` or `sets` parameter, `self` in a method, a match binding, the variable of a loop over a collection, or what an enclosing closure captured | **copied** into the closure (a `clone()`), since the closure is a value that can outlive the borrow; one whose type is not `Copyable` cannot be captured (`E3925`) |
+
+The body reads every capture as a `let` borrow of what the closure holds, since it may be called again: it cannot move,
+assign or pass it to `mutates` (`E3900`, `E2013`). A field named bare in a method (`count` for `self.count`) is not
+captured yet: write `self.count`.
+
+**Ownership of a function value.** A closure is immutable, so a function value is never moved: binding it, storing it,
+passing it to `consumes` and returning it give another value that shares the closure (the closure's count says how many),
+and the place keeps its own, as Maxon's copies share (`var g = f`, `f.clone()`). This holds for a borrowed one too, so a
+`let` parameter of a function type can be stored. Each value is dropped where its owner dies, and the last one frees the
+closure.
+
 ### Generics
 
 Layer 1's generics ([docs/regions.md](docs/regions.md), step 2): a generic body is checked once, against its bounds,
@@ -1399,11 +1463,12 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   a value that cannot be dropped can still be replaced.
 - **A cown's content.** `cown(x)` drops the content with the last reference, so it needs `Droppable`. A content that has
   destructors says how it ends instead: `cown(t, dropWith: rollback)` names a destructor of `t`'s type that takes
-  nothing else and returns nothing, as a method name (it is not a value, so there are no function values), and the
+  nothing else and returns nothing, as a method name (a method is not a function value), and the
   thread that drops the last reference runs it. `dropWith:` on `Droppable` content has nothing to decide, and naming
   anything but such a destructor is `E3921` too. This is the only place a destructor runs without being called.
 - **Behaviours.** The captures move into the body, so a captured value that is not `Droppable` is ended there like any
   owned local.
+- **Closures.** A closure drops what it captured with its last copy, so a value it owns must be `Droppable` (`E3919`).
 - A message that would have the reader write `.clone()` suggests it only for a type that has `Copyable`; for another it
   names what removes it and says to move the value instead.
 
@@ -1733,7 +1798,15 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 - A `b"..."` literal is a fresh `ByteArray` each time it is evaluated, copied from its bytes in the executable's data, and the
   program may write it: there is no `immutable` image data, so `E3207`, `E3196` and `E3209` do not exist, and a module-level
   `let` of one is built again at each use, as a literal array is. `\{` and `\}` in one are the unknown escape of a string (`E2001`), and a raw newline in one ends it unterminated, as in a string, where maxon keeps the newline as a byte: write `\n`.
-- No alias subtyping (an alias implementing another), floats, characters, tuples, closures, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
+- Function values (see "Function values"): a closure that captures a
+  borrow (a parameter, `self`, a field of one) holds a copy of it made when the closure is made, where Maxon retains a
+  counted reference to the borrowed record, so a closure here does not see a write to the record made after it, and a
+  borrow that cannot be copied is refused (`E3925`). A field named bare in a method is not captured yet. A function
+  typealias names its shape, so two aliases of one shape are one type, where Maxon makes each a brand of its own; there is no `mutates captures`, no `returns immutable`, and none of the purity and
+  capability rules about closures (`E3207`, `E3210`, `E3064` through a closure). A closure owns what it captures and
+  nothing can be stored into a value it captured, so Maxon's cycle check (`E3183`) has nothing to refuse. The
+  collections have no methods that take a closure (`map`, `filter`, `sortBy`).
+- No alias subtyping (an alias implementing another), floats, characters, tuples, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
   parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs

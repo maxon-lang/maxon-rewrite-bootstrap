@@ -870,29 +870,8 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 	if len(params) == 0 {
 		return params
 	}
-	// Split params by top-level commas.
-	var groups [][]token
-	depth := 0
-	start := 0
-	for i, t := range params {
-		switch t.text {
-		case "(", "[", "{":
-			depth++
-		case ")", "]", "}":
-			if depth > 0 {
-				depth--
-			}
-		case ",":
-			if depth == 0 {
-				groups = append(groups, params[start:i])
-				start = i + 1
-			}
-		}
-	}
-	groups = append(groups, params[start:])
-
 	var out []token
-	for gIdx, g := range groups {
+	for gIdx, g := range splitTopLevel(params) {
 		if gIdx > 0 {
 			out = append(out, token{kind: tokPunct, text: ","})
 		}
@@ -971,7 +950,8 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 			warn(line, "bits(...) typealiases are not supported in minimaxon")
 		}
 	case "function":
-		warn(line, "function typealiases are not supported in minimaxon")
+		line.code = append(toks[:eqIdx+1:eqIdx+1], rewriteFunctionType(rhs, line, warn)...)
+		return
 	case "(":
 		warn(line, "tuple typealiases are not supported in minimaxon")
 	case "isolated", "immutable":
@@ -1057,6 +1037,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks = rewriteRegionExprs(toks, line, warn)
 	toks = rewriteArmThrows(toks)
 	toks = rewriteDiscards(toks)
+	toks = rewriteClosureParams(toks, line, warn)
 	line.code = toks
 
 	// Statement-head checks.
@@ -1164,10 +1145,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if label := handlerLabelIndex(toks, i); toks[0].text != "end" && label >= 0 && label != len(toks)-1 {
 					warn(line, "a block handler ('otherwise (e) 'label'') inside brackets is not supported in minimaxon; bind the value on a line of its own")
 				}
-			case "function":
-				if i+1 < len(toks) && toks[i+1].text == "(" {
-					warn(line, "closures are not supported in minimaxon")
-				}
 			case "reply":
 				if i+3 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "later" && toks[i+3].text == "(" {
 					warn(line, "reply.later() is not supported in minimaxon")
@@ -1200,6 +1177,98 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 // rewriteArmThrows turns a match arm `pattern throws E` into `pattern then throw E`, the one form minimaxon's arms have.
 // rewriteDiscards drops the let of a discard binding, which minimaxon spells `_ = value`, at the start of a statement
 // and as the statement of a match arm.
+// rewriteClosureParams writes the parameters of each closure on the line, `function(...) gives ...`, as a function's are
+// written: `n mutable T` becomes `mutates n T`.
+func rewriteClosureParams(toks []token, line *sourceLine, warn func(*sourceLine, string)) []token {
+	out := slices.Clone(toks)
+	for i := 0; i+1 < len(out); i++ {
+		if out[i].text != "function" || out[i+1].text != "(" {
+			continue
+		}
+		closeIdx := findMatchingParen(out, i+1)
+		if closeIdx < 0 {
+			return out
+		}
+		params := rewriteParamList(slices.Clone(out[i+2:closeIdx]), line, warn)
+		rest := slices.Clone(out[closeIdx:])
+		out = append(append(out[:i+2:i+2], params...), rest...)
+	}
+	return out
+}
+
+// rewriteFunctionType writes the target of a function typealias, `function(...) returns R`, with minimaxon's
+// parameters: a parameter is its convention and its type, so `mutable T` becomes `mutates T` and a parameter's name is
+// left out.
+func rewriteFunctionType(rhs []token, line *sourceLine, warn func(*sourceLine, string)) []token {
+	if len(rhs) < 2 || rhs[1].text != "(" {
+		return rhs
+	}
+	closeIdx := findMatchingParen(rhs, 1)
+	if closeIdx < 0 {
+		return rhs
+	}
+	var params []token
+	for gi, g := range splitTopLevel(rhs[2:closeIdx]) {
+		if gi > 0 {
+			params = append(params, token{kind: tokPunct, text: ","})
+		}
+		if len(g) >= 2 && g[0].kind == tokIdent && g[1].kind == tokIdent && g[1].text != "with" && g[0].text != "mutable" {
+			g = g[1:]
+		}
+		if len(g) >= 1 && g[0].text == "mutable" {
+			g = append([]token{{kind: tokIdent, text: "mutates"}}, g[1:]...)
+		}
+		for _, t := range g {
+			if t.kind == tokIdent && isCapabilityWord(t.text) {
+				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", t.text))
+			}
+			if t.text == "(" {
+				warn(line, "tuple values and types are not supported in minimaxon")
+			}
+		}
+		params = append(params, g...)
+	}
+	tail := rhs[closeIdx:]
+	for i, t := range tail {
+		if t.text == "captures" && i > 0 && tail[i-1].text == "mutates" {
+			warn(line, "a function type that 'mutates captures' is not supported in minimaxon")
+		}
+		if t.text == "immutable" || t.text == "isolated" {
+			warn(line, fmt.Sprintf("region capability '%s' is not supported in minimaxon", t.text))
+		}
+		if t.text == "(" {
+			warn(line, "tuple values and types are not supported in minimaxon")
+		}
+	}
+	out := append(slices.Clone(rhs[:2]), params...)
+	return append(out, tail...)
+}
+
+// splitTopLevel splits tokens at the commas outside brackets.
+func splitTopLevel(toks []token) [][]token {
+	if len(toks) == 0 {
+		return nil
+	}
+	var groups [][]token
+	depth, start := 0, 0
+	for i, t := range toks {
+		switch t.text {
+		case "(", "[", "{":
+			depth++
+		case ")", "]", "}":
+			if depth > 0 {
+				depth--
+			}
+		case ",":
+			if depth == 0 {
+				groups = append(groups, toks[start:i])
+				start = i + 1
+			}
+		}
+	}
+	return append(groups, toks[start:])
+}
+
 func rewriteDiscards(toks []token) []token {
 	for i := 0; i+2 < len(toks); i++ {
 		if toks[i].text == "let" && toks[i+1].text == "_" && toks[i+2].text == "=" && (i == 0 || toks[i-1].text == "then") {

@@ -57,9 +57,11 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	var calleeSymbols as CalleeSymbols
 	// canThrow is whether the function being written returns an error beside its value.
 	var canThrow as bool
+	// symbol is the link name of the function being written, which the bodies of its closures are named after.
+	var fnSymbol as String
 
 	static function new() returns Codegen
-		return Codegen{u: CodeUnit.new(), next: ir.noBlock, calleeSymbols: CalleeSymbols.new(), canThrow: false}
+		return Codegen{u: CodeUnit.new(), next: ir.noBlock, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: ""}
 	end 'new'
 
 	function get(mutates self, f ir.IrFunction, r X64Register, v ir.Reg)
@@ -618,6 +620,74 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.imul(rax, src: rdx)
 	end 'scaleIndex'
 
+	// visitClosure makes the box of a closure: a count of 1, the code of its body, the routine that drops what it owns, and
+	// what it captured.
+	function visitClosure(mutates self, f ir.IrFunction, x ir.Instr)
+		let index = ir.closureBody(f, x: x)
+		let body = bodySymbol(fnSymbol, index: index)
+		let count = ir.closureCapturesCount(x)
+		var drop = ""
+		if ownsCaptures(f.bodies[index]) 'owns'
+			drop = captureDropSymbol(body)
+		end 'owns'
+		self.closureBox(f, dst: x.dst, code: body, drop: drop, captures: count)
+		let start = ir.closureCapturesStart(x)
+		for i in 0 upto count 'captures'
+			self.get(f, r: rcx, v: f.args[try start + i otherwise panic("backend: a capture past the pool")])
+			u.asm.store(rax, disp: imm32Of(try closureCapturesOffset + i * wordBytes otherwise panic("backend: a capture past memory")), src: rcx)
+		end 'captures'
+	end 'visitClosure'
+
+	// visitFuncValue makes the box of a closure of a named function, which captures nothing and so has nothing to drop.
+	function visitFuncValue(mutates self, f ir.IrFunction, x ir.Instr)
+		let code = match calleeSymbols.get(ir.funcValueCallee(f, x: x) as Count) 'callee'
+			some(name) gives name.clone()
+			none panic("backend: a function value that prepare did not name")
+		end 'callee'
+		self.closureBox(f, dst: x.dst, code: code, drop: "", captures: 0)
+	end 'visitFuncValue'
+
+	// closureBox allocates the box of a closure and fills in its header, leaving the box in rax and in dst. drop is the
+	// routine that drops what it owns, or empty for none.
+	function closureBox(mutates self, f ir.IrFunction, dst ir.Reg, code String, drop String, captures Count)
+		let words = try closureCapturesOffset / wordBytes + captures otherwise panic("backend: a closure past memory")
+		let bytes = try words * wordBytes otherwise panic("backend: a closure past memory")
+		u.asm.movImm(rax, imm: try bytes as FullRangeInt otherwise panic("backend: a closure past memory"))
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
+		u.asm.addImm(rsp, imm: wordBytes)
+		self.put(f, v: dst, r: rax)
+		u.asm.movImm(rcx, imm: 1)
+		u.asm.store(rax, disp: imm32Of(closureCountOffset), src: rcx)
+		u.asm.leaSymbol(rcx, symbol: code)
+		u.asm.store(rax, disp: imm32Of(closureCodeOffset), src: rcx)
+		if drop == "" 'nothing'
+			u.asm.bitXor(rcx, src: rcx)
+		end 'nothing' else 'routine'
+			u.asm.leaSymbol(rcx, symbol: drop)
+		end 'routine'
+		u.asm.store(rax, disp: imm32Of(closureDropOffset), src: rcx)
+	end 'closureBox'
+
+	// visitCallValue calls the code a closure holds with every argument, the closure first: the body of a closure reads
+	// its captures from it, and the code of a named function never reaches it, since it is the farthest from the return
+	// address.
+	function visitCallValue(mutates self, f ir.IrFunction, x ir.Instr)
+		let start = ir.callValueArgsStart(x)
+		let count = ir.callValueArgsCount(x)
+		for i in 0 upto count 'args'
+			self.get(f, r: rax, v: f.args[try start + i otherwise panic("backend: an argument past the pool")])
+			u.asm.push(rax)
+		end 'args'
+		self.get(f, r: rax, v: f.args[start])
+		u.asm.load(rax, base: rax, disp: imm32Of(closureCodeOffset))
+		u.asm.callRegister(rax)
+		u.asm.addImm(rsp, imm: imm32Of(try count * wordBytes otherwise panic("backend: more arguments than memory")))
+		if x.dst != ir.noReg 'gives'
+			self.put(f, v: x.dst, r: rax)
+		end 'gives'
+	end 'visitCallValue'
+
 	function visitWhen(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("codegen: a behaviour has no native code, and the driver refuses it before code is generated")
 	end 'visitWhen'
@@ -698,15 +768,50 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	end 'visitTrap'
 end 'Codegen'
 
+// bodySymbol is the link name of the body of a closure of the function with the link name enclosing.
+function bodySymbol(enclosing String, index Count) returns String
+	return "{enclosing}{ast.closureSuffix}{index}"
+end 'bodySymbol'
+
+// captureDropSymbol is the link name of the routine that drops what a closure of the body with the link name body owns.
+// It starts with a word and a space, as a routine's does, so no function is named like it.
+function captureDropSymbol(body String) returns String
+	return "captures {body}"
+end 'captureDropSymbol'
+
+// ownsCaptures is whether a closure of the body owns a value it captured, which its drop routine then drops.
+function ownsCaptures(body ir.IrFunction) returns bool
+	for i in 0 upto body.captureOwned.count() 'captures'
+		if body.captureOwned[i] 'owned'
+			return true
+		end 'owned'
+	end 'captures'
+	return false
+end 'ownsCaptures'
+
+// emitFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures, each with
+// the routine that drops what its closure owns.
+function emitFunctionTree(mutates g Codegen, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
+	emitFunction(g, p: p, f: f, symbol: symbol, instance: instance)
+	for i in 0 upto f.bodies.count() 'bodies'
+		let body = bodySymbol(symbol, index: i)
+		emitFunctionTree(g, p: p, f: f.bodies[i], symbol: body, instance: instance)
+		if ownsCaptures(f.bodies[i]) 'owns'
+			emitCaptureDrop(g.u, p: p, symbol: captureDropSymbol(body), body: f.bodies[i], instance: instance)
+		end 'owns'
+	end 'bodies'
+end 'emitFunctionTree'
+
 // emitFunction writes the code of one function into the unit. The loop is outside the type because the dispatch takes the
 // visitor to mutate, which a method cannot give of its own self.
-function emitFunction(mutates g Codegen, mutates p ast.Project, f ir.IrFunction)
+function emitFunction(mutates g Codegen, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
 	g.prepare(p, f: f)
+	g.fnSymbol = symbol.clone()
 	g.u.beginSection()
 	for _ in 0 upto f.blocks.count() 'labels'
 		_ = g.u.asm.newLabel()
 	end 'labels'
-	g.u.defineFunction(ast.funcLinkName(p, fid: f.decl), instance: p.funcs.entries[f.decl as Count].genericOrigin != ast.noFunc)
+	g.u.defineFunction(symbol, instance: instance)
 	g.u.asm.push(rbp)
 	g.u.asm.mov(rbp, src: rsp)
 	g.allocateFrame(frameBytes(f))
@@ -760,7 +865,7 @@ end 'frameBytes'
 export function emitModule(mutates p ast.Project, fns ir.IrFunctionList) returns CodeUnit
 	var g = Codegen.new()
 	for i in 0 upto fns.count() 'each'
-		emitFunction(g, p: p, f: fns[i])
+		emitFunctionTree(g, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.entries[fns[i].decl as Count].genericOrigin != ast.noFunc)
 	end 'each'
 	g.u.asm.endLabels()
 	return exchange(g.u, value: CodeUnit.new())

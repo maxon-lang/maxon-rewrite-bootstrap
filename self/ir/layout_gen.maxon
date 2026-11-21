@@ -5,3 +5,6 @@ export let wordBytes = 8 as Count
 
 // tagOffset is where a union box holds its case index; the payload follows it.
 export let tagOffset = 0 as Count
+
+// closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
+export let closureCapturesOffset = 24 as Count

@@ -1,0 +1,22 @@
+typealias Reader = function() returns Count
+
+type Socket is noncopyable
+	export var port as Count
+
+	static function make(port Count) returns Self
+		return Self{port: port}
+	end 'make'
+end 'Socket'
+
+function reader(s Socket) returns Reader
+	return function() gives s.port
+end 'reader'
+
+function main() returns ExitCode
+	let s = Socket.make(7)
+	let r = reader(s)
+	print("{r()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 12:26

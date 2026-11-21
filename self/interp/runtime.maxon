@@ -665,7 +665,7 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 	try requireLive(vm, o: o, what: "copied")
 	let kind = vm.h.oKind[o]
 	let data = vm.h.oData[o]
-	if kind == kindFrozen or kind == kindCown 'shared'
+	if vm.h.isShared(o) 'shared'
 		// The copy of a shared value is another owner of it.
 		vm.h.shareds[data].count = try vm.h.shareds[data].count + 1 otherwise panic("interp: a count past a word")
 		return o

@@ -55,6 +55,8 @@ end 'BlockFrame'
 
 export typealias BlockFrameList = Array with BlockFrame
 
+// OuterLevel is a function whose body encloses the body being checked, a behaviour's or a closure's. hasBehaviour is
+// whether it is itself such a body, and closure whether that body is a closure's.
 export type OuterLevel
 	export var fn as ast.FuncID
 	export var scopes as ScopeList
@@ -62,24 +64,28 @@ export type OuterLevel
 	export var nextSlot as Count
 	export var whens as Count
 	export var hasBehaviour as bool
+	export var closure as bool
 	export var behIdx as Count
 	export var fnLocals as ast.LocalIDList
 	export var tries as TryFrameList
 
 	export static function make(fn ast.FuncID, consumes scopes ScopeList, consumes blocks BlockFrameList, nextSlot Count, whens Count, hasBehaviour bool, behIdx Count, consumes fnLocals ast.LocalIDList, consumes tries TryFrameList) returns OuterLevel
-		return OuterLevel{fn: fn, scopes: scopes, blocks: blocks, nextSlot: nextSlot, whens: whens, hasBehaviour: hasBehaviour, behIdx: behIdx, fnLocals: fnLocals, tries: tries}
+		return OuterLevel{fn: fn, scopes: scopes, blocks: blocks, nextSlot: nextSlot, whens: whens, hasBehaviour: hasBehaviour, closure: false, behIdx: behIdx, fnLocals: fnLocals, tries: tries}
 	end 'make'
 end 'OuterLevel'
 
+// BehaviourFrame is the body of a behaviour or of a closure being checked, and what it captured. A closure has no
+// accesses.
 export type BehaviourFrame
 	export var fn as ast.FuncID
+	export var isClosure as bool
 	export var accesses as ast.LocalIDList
 	export var capturedOuter as ast.LocalIDList
 	export var capturedInner as ast.LocalIDList
 	export var captures as ast.CaptureList
 
 	export static function make(fn ast.FuncID) returns BehaviourFrame
-		return BehaviourFrame{fn: fn, accesses: ast.LocalIDList.create(0), capturedOuter: ast.LocalIDList.create(0), capturedInner: ast.LocalIDList.create(0), captures: ast.CaptureList.create(0)}
+		return BehaviourFrame{fn: fn, isClosure: false, accesses: ast.LocalIDList.create(0), capturedOuter: ast.LocalIDList.create(0), capturedInner: ast.LocalIDList.create(0), captures: ast.CaptureList.create(0)}
 	end 'make'
 end 'BehaviourFrame'
 
@@ -180,6 +186,8 @@ export type Checker
 	export var outers as Array with OuterLevel
 	export var bFrames as Array with BehaviourFrame
 	export var inBehaviour as bool
+	// inClosure is whether the innermost body being checked is a closure's; it and inBehaviour are never both true.
+	export var inClosure as bool
 	export var activeBehIdx as Count
 	export var isFieldDefault as bool
 	export var defaultFieldKey as Count
@@ -206,7 +214,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -317,6 +325,9 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 		end 'i'
 		return false
 	end 'dstInt'
+	if dk == ast.TypeKind.funcTy and p.types.entries[src as Count].kind == ast.TypeKind.funcTy 'functions'
+		return funcFits(p, src: src, dst: dst)
+	end 'functions'
 	return false
 end 'assignable'
 
@@ -596,6 +607,7 @@ export function typeIsNominal(tt ast.TypeTable, t ast.TypeID) returns bool
 		constInt gives false
 		typeParam gives false
 		interfaceTy gives false
+		funcTy gives false
 	end 'k'
 end 'typeIsNominal'
 

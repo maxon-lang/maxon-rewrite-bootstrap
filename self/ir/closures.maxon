@@ -1,0 +1,55 @@
+// Function values: a closure, a function named as a value, and a call through one. A function value is the address of a
+// counted box that holds the code to call and what the closure captured (README, "The IR").
+
+// closureBodyName is the name of the function that a closure's body becomes, numbered with the other bodies of the
+// enclosing function.
+function closureBodyName(enclosing String, index Count) returns String
+	return ast.closureName(enclosing, index: index)
+end 'closureBodyName'
+
+// visitClosureExpr makes a closure. Its body is a function of its own, which reads what the closure captured from the
+// closure it is called with. The closure owns every managed value it captures: one the ownership pass marked consumed moves
+// in, and one the code around it only borrows is copied in. A scalar is copied.
+function visitClosureExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let info = closureInfoAt(p, module: l.module, node: e)
+	var body = lowerNested(l, p: p, fn: info.fn, name: closureBodyName(irSymbol(p, f: l.b.f), index: l.b.f.bodies.count()))
+	var captures = RegList.create(0)
+	for i in 0 upto info.captures.count() 'captures'
+		let ref = info.captures[i].refNode
+		let t = applyType(l, p: p, t: localEntry(p, module: l.fnModule, id: info.captures[i].innerLocal).ty)
+		let owned = kindOf(l, p: p, t: t) == IrKind.kindManaged
+		var v = lowerExpr(l, p: p, e: ref)
+		if owned and info.captures[i].conv == ast.Convention.convLet 'borrowed'
+			v = copyValue(l, p: p, site: siteOf(l, p: p, node: ref), v: v, t: t)
+		end 'borrowed'
+		captures.push(v)
+		body.captureTypes.push(t)
+		body.captureOwned.push(owned)
+		if owned and l.b.f.refusals.count() == 0 'native'
+			requireNative(l, p: p, site: siteOf(l, p: p, node: e), t: t)
+		end 'native'
+	end 'captures'
+	let index = l.b.body(body)
+	let d = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.closureInstr(d, body: index, captures: captures)
+	emit(l, i: instr)
+	return d
+end 'visitClosureExpr'
+
+// functionValue makes a closure of a function named as a value, which captures nothing.
+function functionValue(mutates l Lowerer, fn ast.FuncID) returns Reg
+	let d = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.funcValueInstr(d, fn: fn)
+	emit(l, i: instr)
+	return d
+end 'functionValue'
+
+// captureRead is the value a closure's body reads of what the closure captured: a borrow of the word the closure holds,
+// which the closure keeps for every call.
+function captureRead(mutates l Lowerer, mutates p ast.Project, loc ast.LocalEntry) returns Reg
+	let closure = paramReg(l, index: 0, kind: IrKind.kindManaged)
+	let d = newReg(l, kind: kindOf(l, p: p, t: loc.ty))
+	let offset = try closureCapturesOffset + wordOffset(loc.paramIndex) otherwise panic("lower: a capture past memory")
+	emit(l, i: newLoadField(d, obj: closure, offset: offset))
+	return d
+end 'captureRead'

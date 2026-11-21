@@ -268,7 +268,7 @@ function withNested(mutates job J, p ast.Project, f ir.IrFunction, path CountLis
 		job.run(p, f: f)
 		return
 	end 'found'
-	withNested(job, p: p, f: f.behaviours[path[depth]], path: path, depth: try depth + 1 otherwise panic("interp: a path past memory"))
+	withNested(job, p: p, f: f.bodies[path[depth]], path: path, depth: try depth + 1 otherwise panic("interp: a path past memory"))
 end 'withNested'
 
 // Interp is a run: the Vm, with the machine that runs its operations.

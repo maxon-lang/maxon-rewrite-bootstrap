@@ -116,7 +116,7 @@ type Fn
 	end 'cown'
 
 	function schedule(mutates self, consumes body ir.IrFunction, cowns ir.RegList, captures ir.RegList)
-		let at = b.behaviour(body)
+		let at = b.body(body)
 		let i = b.whenInstr(at, cowns: cowns, captures: captures)
 		self.emit(i)
 	end 'schedule'

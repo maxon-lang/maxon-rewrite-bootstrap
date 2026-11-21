@@ -77,6 +77,23 @@ end 'f'
 `,
 		},
 		{
+			name: "function typealiases and closures convert without a warning",
+			in: `typealias Step = function(n mutable Count, Count) returns Count
+
+function f(s Step) returns Count
+    var x = 1 as Count
+    return s(x, 2) + [1].count() + g(function(a, b mutable Count) gives a)
+end 'f'
+`,
+			want: `typealias Step = function(mutates Count, Count) returns Count
+
+function f(s Step) returns Count
+	var x = 1 as Count
+	return s(x, 2) + [1].count() + g(function(a, mutates b Count) gives a)
+end 'f'
+`,
+		},
+		{
 			name: "array and map literals convert without a warning",
 			in: `function f() returns Count
     let xs = [1, 2, 3]

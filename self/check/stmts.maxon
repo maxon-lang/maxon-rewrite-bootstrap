@@ -539,6 +539,13 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	let fnName = p.funcs.entries[c.fn as Count].name.clone()
 	let value = ast.returnStmtValue(p.modules[c.modIdx].tree, id: s)
 	if ret == p.builtins.voidTy 'void'
+		if value != 0 and c.inClosure 'closure'
+			let given = checkExpr(c, p: p, e: value, errs: errs)
+			if given != ast.noType and given != ret and given != p.builtins.neverTy 'valued'
+				failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "the closure gives {nameOfType(p, t: given)}, and its function type returns nothing; call something that returns nothing, or give the function type a result", errs: errs)
+			end 'valued'
+			return
+		end 'closure'
 		if value != 0 'given'
 			if c.inBehaviour 'behaviour'
 				failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour", errs: errs)
@@ -552,6 +559,13 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 		failAt(c, p: p, node: s, code: diag.errMissingReturn, msg: diag.returnWithoutValue(fnName), errs: errs)
 		return
 	end 'missing'
+	if ret == ast.noType 'inferred'
+		let given = checkExpr(c, p: p, e: value, errs: errs)
+		if given != ast.noType 'typed'
+			_ = inferResult(c, p: p, t: given)
+		end 'typed'
+		return
+	end 'inferred'
 	let t = checkExpecting(c, p: p, e: value, want: ret, errs: errs)
 	if t == ast.noType 'badValue'
 		return

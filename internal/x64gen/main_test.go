@@ -248,6 +248,8 @@ var literal = []struct {
 	{"RepeCmpsb", nil, []byte{0xF3, 0xA6}},
 	{"StoreBaseDispImm8", []int64{6, 0, '-'}, []byte{0xC6, 0x06, '-'}},
 	{"SubRegImm32", []int64{4, 0}, []byte{0x48, 0x81, 0xEC, 0, 0, 0, 0}},
+	{"CallReg", []int64{0}, []byte{0xFF, 0xD0}},
+	{"CallReg", []int64{11}, []byte{0x41, 0xFF, 0xD3}},
 }
 
 func immediateSpread(k kind) []int64 {

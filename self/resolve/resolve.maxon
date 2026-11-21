@@ -45,10 +45,14 @@ type Resolver
 	// members are the typealiases the body being resolved declares, by the name its code writes, which a bare name finds
 	// before the module's own declarations.
 	export var members as ast.DeclIndex
+	// whenDepth is how many bodies of behaviours and closures enclose the code being resolved, each of which captures the
+	// names it uses from the one around it.
 	export var whenDepth as Count
+	// inClosure is whether the innermost of those bodies is a closure's.
+	export var inClosure as bool
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclIndex.new(), whenDepth: 0 as Count}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclIndex.new(), whenDepth: 0 as Count, inClosure: false}
 	end 'make'
 end 'Resolver'
 
@@ -572,11 +576,14 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 		bNames.push(r.tree.nameAt(r.tree.listAt(nRef, index: i)))
 	end 'nm'
 	pushScopeList(r, names: bNames)
+	let outer = r.inClosure
+	r.inClosure = false
 	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
 	resolveBlock(r, p: p, listRef: ast.whenStmtBodyRef(r.tree, id: id), errs: errs)
 	if r.whenDepth > 0 'dec'
 		r.whenDepth = r.whenDepth - 1
 	end 'dec'
+	r.inClosure = outer
 	popScope(r)
 end 'resolveWhenStmt'
 
@@ -753,7 +760,10 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		return
 	end 'nil'
 	let k = r.tree.kindOf(id)
-	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
+	if k == ast.NodeKind.selfExpr and r.inClosure and isNameBound(r, name: ast.receiverName) 'capturedSelf'
+		r.tree.becomeSelfName(id)
+		resolveNameExpr(r, p: p, id: id, errs: errs)
+	end 'capturedSelf' else if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
 		return
 	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
 		resolveNameExpr(r, p: p, id: id, errs: errs)
@@ -819,10 +829,41 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		resolveMatchCore(r, p: p, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
 	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
 		resolveExpr(r, p: p, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
-	end 'pe' else 'unk'
+	end 'pe' else if k == ast.NodeKind.closureExpr 'closure'
+		resolveClosureExpr(r, p: p, id: id, errs: errs)
+	end 'closure' else 'unk'
 		panic("resolveExpr: unexpected node kind")
 	end 'unk'
 end 'resolveExpr'
+
+// resolveClosureExpr resolves a closure, whose body sees its parameters and captures the names around it as the body of a
+// behaviour does.
+function resolveClosureExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let paramsRef = ast.closureExprParamsRef(r.tree, id: id)
+	var names = ast.StringList.create(0)
+	for i in 0 upto r.tree.listLen(paramsRef) 'params'
+		let param = r.tree.listAt(paramsRef, index: i) as ast.NodeID
+		let tr = ast.closureParamType(r.tree, id: param)
+		if tr != 0 'typed'
+			resolveTypeRef(r, p: p, tr: tr, errs: errs)
+		end 'typed'
+		names.push(ast.closureParamName(r.tree, id: param))
+	end 'params'
+	let ret = ast.closureExprReturns(r.tree, id: id)
+	if ret != 0 'returns'
+		resolveTypeRef(r, p: p, tr: ret, errs: errs)
+	end 'returns'
+	pushScopeList(r, names: names)
+	let outer = r.inClosure
+	r.inClosure = true
+	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
+	resolveBlock(r, p: p, listRef: ast.closureExprBodyRef(r.tree, id: id), errs: errs)
+	if r.whenDepth > 0 'dec'
+		r.whenDepth = r.whenDepth - 1
+	end 'dec'
+	r.inClosure = outer
+	popScope(r)
+end 'resolveClosureExpr'
 
 function resolveExprList(mutates r Resolver, p ast.Project, list diag.U32, mutates errs diag.ErrorList)
 	for i in 0 upto r.tree.listLen(list) 'each'
@@ -972,7 +1013,9 @@ function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms 
 	end 'each'
 end 'resolveConforms'
 
-function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, mutates errs diag.ErrorList)
+// resolveFuncDecl resolves a function, or a method, which has a receiver when hasReceiver is set: a closure in its body
+// captures 'self' by that name.
+function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
 	checkEnd(r, label: f.name, endNode: f.endRef, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
@@ -982,6 +1025,9 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Su
 	for i in 0 upto f.params.count() 'pNames'
 		bindLocalName(r, name: f.params[i].name)
 	end 'pNames'
+	if hasReceiver 'receiver'
+		bindLocalName(r, name: ast.receiverName)
+	end 'receiver'
 	resolveBlock(r, p: p, listRef: f.body, errs: errs)
 	popScope(r)
 	r.typeParams = outer
@@ -994,7 +1040,7 @@ end 'cloneBoolStrMap'
 function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates errs diag.ErrorList)
 	let emptyFields = BoolStrMap.new()
 	match d 'k'
-		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, errs: errs)
+		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		constDecl(cd) then resolveConstDecl(r, p: p, cd: cd, errs: errs)
 		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
 		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
@@ -1047,9 +1093,9 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 	for i in 0 upto td.methods.count() 'meths'
 		let ms = methodSurface(r, owner: td.name, m: td.methods[i])
 		if td.methods[i].isStatic 'st'
-			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		end 'st' else 'inst'
-			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, hasReceiver: true, errs: errs)
 		end 'inst'
 	end 'meths'
 	r.members = ast.DeclIndex.new()
@@ -1078,7 +1124,7 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s S
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
 		let ms = methodSurface(r, owner: ed.name, m: ed.methods[i])
-		resolveFuncDecl(r, p: p, f: ed.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
+		resolveFuncDecl(r, p: p, f: ed.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: not ed.methods[i].isStatic, errs: errs)
 	end 'meths'
 end 'resolveEnumDecl'
 
@@ -1096,7 +1142,7 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'
 		let ms = methodSurface(r, owner: ud.name, m: ud.methods[i])
-		resolveFuncDecl(r, p: p, f: ud.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
+		resolveFuncDecl(r, p: p, f: ud.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: not ud.methods[i].isStatic, errs: errs)
 	end 'meths'
 	r.typeParams = outer
 end 'resolveUnionDecl'
@@ -1105,6 +1151,17 @@ function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s
 	if ad.instance != 0 'inst'
 		signatureType(r, p: p, s: s, position: "in its target", tr: ad.instance, errs: errs)
 	end 'inst'
+	if ad.fn != 0 'fn'
+		let paramsRef = ast.funcTypeParamsRef(r.tree, id: ad.fn)
+		for i in 0 upto r.tree.listLen(paramsRef) 'params'
+			let tr = ast.funcTypeParamType(r.tree, id: r.tree.listAt(paramsRef, index: i) as ast.NodeID)
+			signatureType(r, p: p, s: s, position: "in its parameter {i + 1}", tr: tr, errs: errs)
+		end 'params'
+		let ret = ast.funcTypeReturns(r.tree, id: ad.fn)
+		if ret != 0 'returns'
+			signatureType(r, p: p, s: s, position: "in its result", tr: ret, errs: errs)
+		end 'returns'
+	end 'fn'
 end 'resolveAliasDecl'
 
 // resolveInterfaceDecl resolves the requirements, which take the interface's visibility: a conformer's caller reaches

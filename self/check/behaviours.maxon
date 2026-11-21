@@ -11,7 +11,7 @@ function useLocal(mutates c Checker, mutates p ast.Project, use ast.NodeID, name
 	if own != ast.noLocal 'own'
 		return own
 	end 'own'
-	if not c.inBehaviour 'plain'
+	if not c.inBehaviour and not c.inClosure 'plain'
 		return ast.noLocal
 	end 'plain'
 	let level = try c.outers.count() - 1 otherwise panic("a behaviour is checked with no function around it")
@@ -36,30 +36,46 @@ function captureFrom(mutates c Checker, mutates p ast.Project, behaviour Count, 
 			return c.bFrames[behaviour].capturedInner[i]
 		end 'again'
 	end 'taken'
-	if not requireCapturable(c, p: p, use: use, outer: outer, errs: errs) 'refused'
+	if not c.bFrames[behaviour].isClosure and not requireCapturable(c, p: p, use: use, outer: outer, errs: errs) 'refused'
 		return ast.noLocal
 	end 'refused'
-	let source = c.typing.locals[outer as Count].clone()
-	var inner = ast.LocalEntry.make(source.name.clone(), ty: source.ty, isVar: false, isParam: true, conv: ast.Convention.convConsumes, definedAt: use)
-	inner.paramIndex = try c.bFrames[behaviour].accesses.count() + c.bFrames[behaviour].captures.count() otherwise panic("too many parameters in a behaviour")
-	let innerLocal = c.typing.allocLocal(inner)
 	let ref = p.modules[c.modIdx].tree.captureRef(use, depth: level)
 	c.typing.names.insert(ref as Count, value: ast.NameInfo.localName(outer))
+	return captureLocal(c, p: p, behaviour: behaviour, outer: outer, ref: ref, use: use)
+end 'captureFrom'
+
+// captureLocal gives the body b a local of its own for the variable outer of the function around it, which ref names
+// there. A behaviour takes it as a parameter that it owns. A closure reads it from itself each time it runs, so its
+// local is a let borrow there, whatever it was outside: one that owns its value moves it into the closure, and one that
+// borrows it gives the closure a copy, since the closure may outlive the borrow.
+function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count, outer ast.LocalID, ref ast.NodeID, use ast.NodeID) returns ast.LocalID
+	let source = c.typing.locals[outer as Count].clone()
 	ast.setNodeType(c.typing, node: ref, ty: source.ty)
-	c.bFrames[behaviour].captures.push(ast.Capture.make(source.name.clone(), refNode: ref, outerLocal: outer, innerLocal: innerLocal, conv: ast.Convention.convConsumes))
+	var conv = ast.Convention.convConsumes
+	var inner = ast.LocalEntry.make(source.name.clone(), ty: source.ty, isVar: false, isParam: true, conv: conv, definedAt: use)
+	if c.bFrames[behaviour].isClosure 'closure'
+		inner.conv = ast.Convention.convLet
+		inner.isCapture = true
+		inner.paramIndex = c.bFrames[behaviour].captures.count()
+		if ast.isManagedType(p.types, t: source.ty) and borrowsValue(source) 'borrowed'
+			conv = ast.Convention.convLet
+		end 'borrowed'
+	end 'closure' else 'behaviour'
+		inner.paramIndex = try c.bFrames[behaviour].accesses.count() + c.bFrames[behaviour].captures.count() otherwise panic("too many parameters in a behaviour")
+	end 'behaviour'
+	let innerLocal = c.typing.allocLocal(inner)
+	c.bFrames[behaviour].captures.push(ast.Capture.make(source.name.clone(), refNode: ref, outerLocal: outer, innerLocal: innerLocal, conv: conv))
 	c.bFrames[behaviour].capturedOuter.push(outer)
 	c.bFrames[behaviour].capturedInner.push(innerLocal)
 	return innerLocal
-end 'captureFrom'
+end 'captureLocal'
 
 // requireCapturable refuses a variable that a behaviour cannot take. The behaviour runs later and in another thread, so
 // what it takes must be a value of its own: a scalar is copied, and an owner gives its whole value away. A borrow ends
 // when its call or match does, long before the behaviour runs.
 function requireCapturable(mutates c Checker, mutates p ast.Project, use ast.NodeID, outer ast.LocalID, mutates errs diag.ErrorList) returns bool
 	let source = c.typing.locals[outer as Count].clone()
-	let owns = source.conv == ast.Convention.convConsumes or source.conv == ast.Convention.convDestructs
-	let borrowed = source.projected or (source.isParam and not owns)
-	if not ast.isManagedType(p.types, t: source.ty) or not borrowed 'fine'
+	if not ast.isManagedType(p.types, t: source.ty) or not borrowsValue(source) 'fine'
 		return true
 	end 'fine'
 	var what = "a let or 'mutates' parameter"
@@ -83,6 +99,13 @@ function requireCapturable(mutates c Checker, mutates p ast.Project, use ast.Nod
 	failAt(c, p: p, node: use, code: diag.errBehaviourBorrow, msg: "'{source.name}' is {what}, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; {fix}", errs: errs)
 	return false
 end 'requireCapturable'
+
+// borrowsValue is whether a local only borrows its value: a match binding, the variable of a loop over a collection, or
+// a parameter that does not own what it is given.
+function borrowsValue(source ast.LocalEntry) returns bool
+	let owns = source.conv == ast.Convention.convConsumes or source.conv == ast.Convention.convDestructs
+	return source.projected or (source.isParam and not owns)
+end 'borrowsValue'
 
 // isAccess is whether a local is the parameter that gives a behaviour access to the value of a cown.
 function isAccess(c Checker, local ast.LocalID) returns bool
@@ -132,19 +155,8 @@ function enterBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeI
 	entry.retTy = p.builtins.voidTy
 	let fid = ast.allocFunc(p.funcs, f: entry)
 	c.whens = try c.whens + 1 otherwise panic("too many behaviours in one function")
-	let scopes = exchange(c.scopes, value: ScopeList.create(0))
-	let blocks = exchange(c.blocks, value: BlockFrameList.create(0))
-	let locals = exchange(c.fnLocals, value: ast.LocalIDList.create(0))
-	let tries = exchange(c.tries, value: TryFrameList.create(0))
-	c.outers.push(OuterLevel.make(c.fn, scopes: scopes, blocks: blocks, nextSlot: c.nextSlot, whens: c.whens, hasBehaviour: c.inBehaviour, behIdx: c.activeBehIdx, fnLocals: locals, tries: tries))
-	c.bFrames.push(BehaviourFrame.make(fid))
-	let bi = try c.bFrames.count() - 1 otherwise panic("a behaviour is entered without its frame")
-	c.activeBehIdx = bi
+	let bi = enterNested(c, fid: fid, closure: false)
 	c.inBehaviour = true
-	c.fn = fid
-	c.scopes.push(LocalScope.new())
-	c.nextSlot = 0 as Count
-	c.whens = 0 as Count
 	let namesRef = ast.whenStmtNamesRef(p.modules[c.modIdx].tree, id: stmt)
 	for i in 0 upto values.count() 'accesses'
 		let name = p.modules[c.modIdx].tree.nameAt(p.modules[c.modIdx].tree.listAt(namesRef, index: i))
@@ -158,6 +170,30 @@ function enterBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeI
 	end 'accesses'
 	return true
 end 'enterBehaviour'
+
+// enterNested starts checking the body fid of a behaviour or a closure as a function of its own, inside the one being
+// checked, and gives the index of its frame.
+function enterNested(mutates c Checker, fid ast.FuncID, closure bool) returns Count
+	let scopes = exchange(c.scopes, value: ScopeList.create(0))
+	let blocks = exchange(c.blocks, value: BlockFrameList.create(0))
+	let locals = exchange(c.fnLocals, value: ast.LocalIDList.create(0))
+	let tries = exchange(c.tries, value: TryFrameList.create(0))
+	var level = OuterLevel.make(c.fn, scopes: scopes, blocks: blocks, nextSlot: c.nextSlot, whens: c.whens, hasBehaviour: c.inBehaviour or c.inClosure, behIdx: c.activeBehIdx, fnLocals: locals, tries: tries)
+	level.closure = c.inClosure
+	c.outers.push(level)
+	var frame = BehaviourFrame.make(fid)
+	frame.isClosure = closure
+	c.bFrames.push(frame)
+	let bi = try c.bFrames.count() - 1 otherwise panic("a body is entered without its frame")
+	c.activeBehIdx = bi
+	c.inBehaviour = false
+	c.inClosure = closure
+	c.fn = fid
+	c.scopes.push(LocalScope.new())
+	c.nextSlot = 0 as Count
+	c.whens = 0 as Count
+	return bi
+end 'enterNested'
 
 // leaveBehaviour finishes the function of a behaviour body: its parameters are the accesses, then what it captured.
 function leaveBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeID)
@@ -176,17 +212,24 @@ function leaveBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeI
 	if c.fnLocals.count() > 0 'locals'
 		c.typing.funcLocals.insert(stmt as Count, value: c.fnLocals.clone())
 	end 'locals'
-	var outer = try c.outers.pop() otherwise panic("a behaviour ended that was never begun")
-	c.fn = outer.fn
-	c.scopes = exchange(outer.scopes, value: ScopeList.create(0))
-	c.blocks = exchange(outer.blocks, value: BlockFrameList.create(0))
-	c.fnLocals = exchange(outer.fnLocals, value: ast.LocalIDList.create(0))
-	c.tries = exchange(outer.tries, value: TryFrameList.create(0))
-	c.nextSlot = outer.nextSlot
-	c.whens = outer.whens
-	c.inBehaviour = outer.hasBehaviour
-	c.activeBehIdx = outer.behIdx
+	let outer = try c.outers.pop() otherwise panic("a behaviour ended that was never begun")
+	restoreOuter(c, outer: outer)
 end 'leaveBehaviour'
+
+// restoreOuter goes back to checking the function around a behaviour's or a closure's body.
+function restoreOuter(mutates c Checker, consumes outer OuterLevel)
+	var o = outer
+	c.fn = o.fn
+	c.scopes = exchange(o.scopes, value: ScopeList.create(0))
+	c.blocks = exchange(o.blocks, value: BlockFrameList.create(0))
+	c.fnLocals = exchange(o.fnLocals, value: ast.LocalIDList.create(0))
+	c.tries = exchange(o.tries, value: TryFrameList.create(0))
+	c.nextSlot = o.nextSlot
+	c.whens = o.whens
+	c.inBehaviour = o.hasBehaviour and not o.closure
+	c.inClosure = o.closure
+	c.activeBehIdx = o.behIdx
+end 'restoreOuter'
 
 function addBehaviourParam(mutates c Checker, mutates p ast.Project, fn ast.FuncID, local ast.LocalID)
 	let entry = c.typing.locals[local as Count].clone()

@@ -72,7 +72,8 @@ end 'execLoadParam'
 // fieldOf is the word of a box that an offset names.
 function fieldOf(mutates vm Vm, obj ir.Reg, offset Count, what String) returns Count throws Halt
 	let o = try live(vm, o: vm.ref(obj), what: what)
-	if vm.h.oKind[o] != kindBox or (offset mod wordBytes) != 0 or (offset / wordBytes) >= vm.h.oSize[o] 'outside'
+	let kind = vm.h.oKind[o]
+	if (kind != kindBox and kind != kindClosure) or (offset mod wordBytes) != 0 or (offset / wordBytes) >= vm.h.oSize[o] 'outside'
 		panic("interp: {what} reaches outside {objectText(vm, o: o)} at offset {offset}")
 	end 'outside'
 	return vm.h.field(o, i: offset / wordBytes)
@@ -564,6 +565,71 @@ function execCall(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.post = true
 	try enterFrame(vm, fn: callee, dst: x.dst as ir.Word, err: err)
 end 'execCall'
+
+// execCallValue calls the function a closure holds. The body of a closure takes the closure first, to read what it captured;
+// a named function takes only the arguments after it.
+function execCallValue(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let start = ir.callValueArgsStart(x)
+	let count = ir.callValueArgsCount(x)
+	let o = try live(vm, o: vm.ref(f.args[start]), what: "a call through a function value")
+	if vm.h.oKind[o] != kindClosure 'notClosure'
+		panic("interp: a call through {objectText(vm, o: o)}, which is not a function value")
+	end 'notClosure'
+	let callee = try vm.h.cellN[vm.h.field(o, i: closureFnWord)] as Count otherwise panic("interp: a closure that calls no function")
+	var first = 1 as Count
+	if vm.prog.fnTakesClosure[callee] 'closure'
+		first = 0
+	end 'closure'
+	clearArguments(vm)
+	for i in first upto count 'args'
+		let r = f.args[try start + i otherwise panic("interp: an argument past the pool")]
+		let at = vm.regAt(r)
+		vm.argN.push(vm.regN[at])
+		vm.argR.push(vm.regR[at])
+		let index = try i - first otherwise panic("interp: an argument before the first")
+		try checkArgument(vm, f: f, callee: callee, i: index, r: r)
+	end 'args'
+	let given = try count - first otherwise panic("interp: a call through a function value without the value")
+	try requireDisjoint(vm, callee: callee, count: given)
+	let call = vm.curIdx
+	closeWindows(vm, call: call)
+	vm.post = true
+	try enterFrame(vm, fn: callee, dst: x.dst as ir.Word, err: -1)
+end 'execCallValue'
+
+// execClosure makes a closure of a body of the function that runs: it owns each capture that the body says it owns, which
+// must be in flight, and holds the others as they are, a scalar or a borrow.
+function execClosure(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let body = vm.prog.fnChildren[vm.curFn][ir.closureBody(f, x: x)]
+	let start = ir.closureCapturesStart(x)
+	let count = ir.closureCapturesCount(x)
+	let owned = vm.prog.fnCaptureOwned[body].clone()
+	let site = vm.site()
+	let o = vm.h.newClosure(body, captures: count, owned: owned.clone(), site: site)
+	for i in 0 upto count 'captures'
+		let r = f.args[try start + i otherwise panic("interp: a capture past the pool")]
+		let c = vm.h.field(o, i: try closureHeaderWords + i otherwise panic("interp: a capture past memory"))
+		if owned[i] 'owned'
+			try store(vm, f: f, c: c, src: r, what: "the capture of a closure")
+		end 'owned' else 'held'
+			if isManaged(f, r: r) 'managed'
+				_ = try live(vm, o: vm.ref(r), what: "a value a closure borrows")
+			end 'managed'
+			let at = vm.regAt(r)
+			vm.h.cellN[c] = vm.regN[at]
+			vm.h.cellR[c] = vm.regR[at]
+		end 'held'
+	end 'captures'
+	vm.setRef(x.dst, o: o)
+end 'execClosure'
+
+// execFuncValue makes a closure of a function named as a value, which captures nothing.
+function execFuncValue(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let fn = functionOf(vm, id: ir.funcValueCallee(f, x: x))
+	let site = vm.site()
+	let o = vm.h.newClosure(fn, captures: 0, owned: BoolList.create(0), site: site)
+	vm.setRef(x.dst, o: o)
+end 'execFuncValue'
 
 // clearArguments empties the arguments of the call being made.
 function clearArguments(mutates vm Vm)

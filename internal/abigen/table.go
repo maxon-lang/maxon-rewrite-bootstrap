@@ -57,6 +57,16 @@ var layouts = []layoutConst{
 	{"arrayFirstCapacity", 4, true, toRuntime,
 		"the capacity of an empty array's first buffer, which it doubles from."},
 
+	// A closure is a counted box: a function value is one word, the address of it, and copying the value shares the box.
+	{"closureCountOffset", 0, false, toSelfBack,
+		"where the box of a closure holds how many function values share it, which it is freed with when that reaches 0."},
+	{"closureCodeOffset", 1, false, toSelfBack,
+		"where the box of a closure holds the address of its code, which a call through the value calls with the box first."},
+	{"closureDropOffset", 2, false, toSelfBack,
+		"where the box of a closure holds the address of the routine that drops what it owns, or 0 when it owns nothing."},
+	{"closureCapturesOffset", 3, false, toSelfIR | toSelfBack,
+		"where the box of a closure holds what it captured, a word each, in the order of its body's captures."},
+
 	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},
 	{"bytesFirstCapacity", 16, true, toRuntime,

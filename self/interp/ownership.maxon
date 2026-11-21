@@ -317,6 +317,18 @@ function free(mutates vm Vm, o Count) throws Halt
 		end 'holds'
 		return
 	end 'cown'
+	if kind == kindClosure 'closure'
+		for i in 0 upto vm.h.shareds[data].owned.count() 'captures'
+			let c = vm.h.field(o, i: try closureHeaderWords + i otherwise panic("interp: a capture past memory"))
+			if vm.h.shareds[data].owned[i] 'owned'
+				try freeCell(vm, c: c)
+			end 'owned' else 'held'
+				vm.h.cellN[c] = 0
+				vm.h.cellR[c] = 0
+			end 'held'
+		end 'captures'
+		return
+	end 'closure'
 	if kind == kindArray 'array'
 		for i in 0 upto vm.h.elements[data].count() 'each'
 			let element = vm.h.elements[data][i]

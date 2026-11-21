@@ -479,3 +479,8 @@ end 'undefinedReservedFunction'
 export function typeDoesNotConform(typeName String, interfaceName String) returns String
 	return "Type '{typeName}' does not conform to {interfaceName}"
 end 'typeDoesNotConform'
+
+// The text of errFunctionValueThrows for: Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'.
+export function throwingFunctionAsValue(name String, errorType String) returns String
+	return "Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'."
+end 'throwingFunctionAsValue'

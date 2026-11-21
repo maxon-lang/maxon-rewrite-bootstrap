@@ -36,7 +36,7 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 		return lowerThrough(l, p: p, t: e)
 	end 'transparent'
 	let mark = l.pending.count()
-	let v = visitExpr(l, p: p, e: e)
+	var v = visitExpr(l, p: p, e: e)
 	popPending(l, n: mark)
 	if regKind(l, v: v) != IrKind.kindManaged 'scalar'
 		return v
@@ -46,7 +46,9 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
 			ownTemp(l, p: p, v: v, t: ty)
 		end 'temporary'
-	end 'fresh' else 'place'
+	end 'fresh' else if consumed and ast.sharesOnCopy(p.types, t: ty) 'shared'
+		v = copyValue(l, p: p, site: siteOf(l, p: p, node: e), v: v, t: ty)
+	end 'shared' else 'place'
 		if consumed and not isWholeLocal(l, p: p, e: e) and not isField(l, p: p, e: e) 'moved'
 			panic("lower: an element or a part of a temporary is moved out at offset {p.modules[l.mi].tree.startOf(e)} of module {l.module}; the ownership pass should have refused it")
 		end 'moved'
@@ -123,6 +125,9 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.matchExpr 'matchExpr'
 		return lowerMatch(l, p: p, core: ast.matchExprMatch(p.modules[l.mi].tree, id: e), resultType: exprType(p, module: l.module, node: e))
 	end 'matchExpr'
+	if k == ast.NodeKind.closureExpr 'closureExpr'
+		return visitClosureExpr(l, p: p, e: e)
+	end 'closureExpr'
 	panic("lower: the node {e} of kind {k.name} is no expression")
 end 'visitExpr'
 
@@ -274,6 +279,9 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 		if not loc.isParam 'variable'
 			return ownedRead(l, p: p, slot: slotOf(loc), e: e)
 		end 'variable'
+		if loc.isCapture 'captured'
+			return captureRead(l, p: p, loc: loc)
+		end 'captured'
 		if not isByRef(loc) 'byValue'
 			let owner = ownerOf(l, id: name.local, isSelf: loc.isSelf)
 			if owner != noSlot 'owned'
@@ -295,6 +303,9 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 	if name.kind == ast.NameKind.nameConst 'const'
 		return exprIn(l, p: p, e: constantExpr(p, name: name))
 	end 'const'
+	if name.kind == ast.NameKind.nameFunc 'function'
+		return functionValue(l, fn: name.func)
+	end 'function'
 	panic("lower: unresolved name '{ast.nameExprName(p.modules[l.mi].tree, id: e)}'")
 end 'visitNameExpr'
 
@@ -302,7 +313,7 @@ end 'visitNameExpr'
 // it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise.
 function loadField(mutates l Lowerer, p ast.Project, d Reg, obj Reg, e ast.NodeID, index Count)
 	let offset = wordOffset(index)
-	if isConsumed(p, module: l.module, node: e) and regKind(l, v: d) == IrKind.kindManaged 'move'
+	if movesOut(p, module: l.module, node: e) and regKind(l, v: d) == IrKind.kindManaged 'move'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
 		emit(l, i: newMoveAt(d, addr: addr))
@@ -392,20 +403,8 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 		let recv = lowerRead(l, p: p, e: c.receiver)
 		pushArg(l, v: recv)
 	end 'receiver'
-	for i in 0 upto c.ordered.count() 'each'
-		if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
-			let addr = address(l, p: p, e: c.ordered[i])
-			pushArg(l, v: addr)
-		end 'address' else 'value'
-			let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
-			pushArg(l, v: v)
-		end 'value'
-	end 'each'
-	var dst = noReg
-	let callTy = exprType(p, module: l.module, node: node)
-	if callTy != p.builtins.voidTy 'value'
-		dst = newReg(l, kind: kindOf(l, p: p, t: callTy))
-	end 'value'
+	pushOrderedArgs(l, p: p, c: c)
+	let dst = callResult(l, p: p, node: node)
 	var errTy = p.funcs.entries[target as Count].errTy
 	if kind == ast.CallKind.callBound 'bound'
 		errTy = p.funcs.entries[c.info.method as Count].errTy
@@ -453,6 +452,22 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
 		return lowerCall(l, p: p, c: c)
 	end 'call'
+	if kind == ast.CallKind.callValue 'value'
+		let closure = lowerRead(l, p: p, e: ast.callExprCallee(p.modules[l.mi].tree, id: node))
+		let base = l.args.count()
+		let places = l.writeBacks.count()
+		pushOrderedArgs(l, p: p, c: c)
+		let dst = callResult(l, p: p, node: node)
+		let args = argsSince(l, base: base)
+		let instr = l.b.callValueInstr(dst, target: closure, args: args)
+		emit(l, i: instr)
+		popArgs(l, n: base)
+		writeBack(l, p: p, mark: places)
+		if dst == noReg 'none'
+			return konst(l, value: 0 as Word)
+		end 'none'
+		return dst
+	end 'value'
 	if kind == ast.CallKind.callCopy 'copy'
 		let v = lowerExpr(l, p: p, e: c.receiver)
 		return copyValue(l, p: p, site: siteOf(l, p: p, node: node), v: v, t: exprType(p, module: l.module, node: c.receiver))
@@ -466,6 +481,29 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 	end 'ctor'
 	panic("lower: unresolved call")
 end 'visitCallExpr'
+
+// pushOrderedArgs gives the call its arguments in the order of the parameters: by address where the parameter takes its
+// argument's place, and by value, converted to the parameter's type, where it does not.
+function pushOrderedArgs(mutates l Lowerer, mutates p ast.Project, c CallSite)
+	for i in 0 upto c.ordered.count() 'each'
+		if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
+			let addr = address(l, p: p, e: c.ordered[i])
+			pushArg(l, v: addr)
+		end 'address' else 'value'
+			let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+			pushArg(l, v: v)
+		end 'value'
+	end 'each'
+end 'pushOrderedArgs'
+
+// callResult is the register a call gives its value in, or noReg for a call that returns nothing.
+function callResult(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) returns Reg
+	let callTy = exprType(p, module: l.module, node: node)
+	if callTy == p.builtins.voidTy 'none'
+		return noReg
+	end 'none'
+	return newReg(l, kind: kindOf(l, p: p, t: callTy))
+end 'callResult'
 
 // callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
 // missing one is a compiler bug: the executable would depend on another module having made the instance.

@@ -42,7 +42,7 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	end 'dead'
 	o.c.typing.consumed.insert(e as Count, value: true)
 	let t = ownType(o, node: e)
-	if not isManagedOwn(p, t: t) 'scalar'
+	if not isManagedOwn(p, t: t) or ast.sharesOnCopy(p.types, t: t) 'scalar'
 		return out
 	end 'scalar'
 	if lacksDroppable(o, p: p, t: t) 'inFlight'
@@ -323,6 +323,9 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	if k == ast.NodeKind.tryExpr 'try'
 		return tryExprOwn(o, p: p, e: e, s: s)
 	end 'try'
+	if k == ast.NodeKind.closureExpr 'closure'
+		return closureOwn(o, p: p, e: e, s: s)
+	end 'closure'
 	panic("ownership: the node {e} of kind {k.name} is no expression")
 end 'visitExprOwn'
 
@@ -376,9 +379,9 @@ function nameExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 		end 'part'
 		return readRoot(o, p: p, l: selfLocalOf(o, p: p), site: site, s: s)
 	end 'selfField'
-	if name.kind == ast.NameKind.nameConst 'const'
+	if name.kind == ast.NameKind.nameConst or name.kind == ast.NameKind.nameFunc 'value'
 		return s
-	end 'const'
+	end 'value'
 	panic("ownership: unresolved name '{ast.nameExprName(p.modules[o.c.modIdx].tree, id: e)}'")
 end 'nameExprOwn'
 
@@ -463,6 +466,15 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	if k == ast.CallKind.callFunction or k == ast.CallKind.callStatic or k == ast.CallKind.callMethod or k == ast.CallKind.callBound 'user'
 		return userCall(o, p: p, site: offsetOfOwn(o, p: p, node: e), call: call, receiver: receiver, s: s)
 	end 'user'
+	if k == ast.CallKind.callValue 'value'
+		let callee = ast.callExprCallee(p.modules[o.c.modIdx].tree, id: e)
+		let held = o.projections.count()
+		let out = expr(o, p: p, e: callee, s: s)
+		hold(o, p: p, place: callee, kind: OwnProjectionKind.projectArgument, byAddress: false)
+		let after = userCall(o, p: p, site: offsetOfOwn(o, p: p, node: e), call: call, receiver: 0 as ast.NodeID, s: out)
+		release(o, mark: held)
+		return after
+	end 'value'
 	panic("ownership: unresolved call")
 end 'callExprOwn'
 
@@ -574,6 +586,40 @@ function argument(mutates o Ownership, mutates p ast.Project, e ast.NodeID, conv
 		convSets gives initialise(o, p: p, e: e, dest: dest, s: s)
 	end 'conv'
 end 'argument'
+
+// closureOwn makes a closure. What it captures moves into it, and what the code around it only borrows is copied into it:
+// a closure is a value that can outlive the call it is made in, and the borrow cannot. Its body is checked as a function of
+// its own.
+function closureOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	return match consumes o.c.typing.closures.get(e as Count) 'closure'
+		some(info) gives closureCaptures(o, p: p, e: e, info: info, s: s)
+		none gives s
+	end 'closure'
+end 'closureOwn'
+
+function closureCaptures(mutates o Ownership, mutates p ast.Project, e ast.NodeID, info ast.ClosureInfo, consumes s OwnState) returns OwnState
+	var out = s
+	for i in 0 upto info.captures.count() 'captures'
+		let ref = info.captures[i].refNode
+		if info.captures[i].conv == ast.Convention.convConsumes 'moved'
+			out = consume(o, p: p, e: ref, dest: OwnDest.of(OwnDestKind.destClosure), s: out)
+			let t = ownType(o, node: ref)
+			if isManagedOwn(p, t: t) and lacksDroppable(o, p: p, t: t) 'obliged'
+				fail(o, p: p, site: offsetOfOwn(o, p: p, node: ref), code: diag.errNotDroppable, msg: "'{info.captures[i].name}' has a destructor, so it must be ended by one, and a closure drops what it captures; end it before the closure, or pass it to the closure's call as an argument")
+			end 'obliged'
+		end 'moved' else 'copied'
+			out = expr(o, p: p, e: ref, s: out)
+			let t = ownType(o, node: ref)
+			if not canCopy(o, p: p, t: t) 'uncopyable'
+				let name = info.captures[i].name.clone()
+				let advice = copyAdvice(o, p: p, t: t, ifCopyable: "", fallback: "pass it to the closure as an argument instead")
+				fail(o, p: p, site: offsetOfOwn(o, p: p, node: ref), code: diag.errClosureBorrow, msg: "'{name}' only borrows its value, and a closure can outlive the borrow, so it captures a copy; {advice}")
+			end 'uncopyable'
+		end 'copied'
+	end 'captures'
+	runNested(o, p: p, fid: info.fn, body: ast.closureExprBodyRef(p.modules[o.c.modIdx].tree, id: e), site: e)
+	return out
+end 'closureCaptures'
 
 function mutatesArgument(mutates o Ownership, mutates p ast.Project, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState
 	let out = eval(o, p: p, e: e, s: s)

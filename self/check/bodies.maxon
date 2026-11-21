@@ -191,6 +191,8 @@ function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, f as
 		let id = c.typing.allocLocal(receiver)
 		c.fnLocals.push(id)
 		p.funcs.entries[fid as Count].selfLocal = id
+		let top = try c.scopes.count() - 1 otherwise panic("a receiver is declared outside every scope")
+		c.scopes[top].insert(ast.receiverName, value: id)
 		index = 1
 	end 'receiver'
 	for i in 0 upto f.params.count() 'params'

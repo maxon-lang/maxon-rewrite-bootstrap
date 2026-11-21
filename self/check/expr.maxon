@@ -119,6 +119,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		let core = ast.matchExprMatch(p.modules[c.modIdx].tree, id: e)
 		return checkMatch(c, p: p, core: core, isExpr: true, errs: errs)
 	end 'matchExpr'
+	if k == ast.NodeKind.closureExpr 'closureExpr'
+		return checkClosure(c, p: p, e: e, errs: errs)
+	end 'closureExpr'
 	panic("the node {e} of kind {k.name} is no expression")
 end 'visitExpr'
 
@@ -225,8 +228,7 @@ function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeI
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "constant '{name}' has no value", errs: errs)
 		return ast.noType
 	end 'unvalued'
-	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a function value is not supported by minimaxon; call the function", errs: errs)
-	return ast.noType
+	return functionValue(c, p: p, e: e, ref: ref, name: name, errs: errs)
 end 'checkDeclaredName'
 
 function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue) returns ast.TypeID
@@ -235,6 +237,11 @@ function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRe
 end 'typeOfConstant'
 
 function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.inClosure 'closure'
+		// A closure in a method names its receiver by name, which the resolver made of 'self'.
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
+		return ast.noType
+	end 'closure'
 	if c.inBehaviour 'behaviour'
 		let owner = c.owner
 		return refuseBehaviourSelf(c, p: p, off: offsetOf(c, p: p, node: e), what: "'self'", t: owner, errs: errs)

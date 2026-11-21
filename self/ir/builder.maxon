@@ -197,15 +197,35 @@ export type Builder
 		return newCallRuntime(dst, symbol: symbol, argsStart: start, argsCount: regOf(args.count()), routine: stored)
 	end 'callRuntime'
 
-	// behaviour adds the body of a `when` to the function, which the instruction that schedules it names by the index
-	// this gives.
-	export function behaviour(mutates self, consumes body IrFunction) returns Count
-		let n = f.behaviours.count()
-		f.behaviours.push(body)
+	// body adds the body of a `when` or of a closure to the function, which the instruction that schedules or makes it
+	// names by the index this gives.
+	export function body(mutates self, consumes body IrFunction) returns Count
+		let n = f.bodies.count()
+		f.bodies.push(body)
 		return n
-	end 'behaviour'
+	end 'body'
 
-	// whenInstr schedules a behaviour that behaviour added.
+	// closureInstr makes a closure of a body that body added, holding the captures.
+	export function closureInstr(mutates self, dst Reg, body Count, captures RegList) returns Instr
+		let start = self.arguments(captures)
+		return newClosure(dst, body: body, capturesStart: start, capturesCount: regOf(captures.count()))
+	end 'closureInstr'
+
+	// funcValueInstr makes a closure of a function, which captures nothing.
+	export function funcValueInstr(mutates self, dst Reg, fn ast.FuncID) returns Instr
+		return newFuncValue(dst, callee: self.callee(fn))
+	end 'funcValueInstr'
+
+	// callValueInstr calls the closure in target with args.
+	export function callValueInstr(mutates self, dst Reg, target Reg, args RegList) returns Instr
+		var all = RegList.create(0)
+		all.push(target)
+		all.append(args)
+		let start = self.arguments(all)
+		return newCallValue(dst, argsStart: start, argsCount: regOf(all.count()))
+	end 'callValueInstr'
+
+	// whenInstr schedules a behaviour that body added.
 	export function whenInstr(mutates self, behaviour Count, cowns RegList, captures RegList) returns Instr
 		let start = self.arguments(cowns)
 		for i in 0 upto captures.count() 'each'

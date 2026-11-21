@@ -380,6 +380,10 @@ func buildForms() []form {
 			name: "CallRip", mnemonic: "call", operands: []operand{rip()},
 			opcode: []byte{0xFF}, modrm: modDigit, digit: 2, readsMemory: true, writesMemory: true,
 		},
+		form{
+			name: "CallReg", mnemonic: "call", operands: []operand{reg("reg", fieldRM)},
+			opcode: []byte{0xFF}, modrm: modDigit, digit: 2, readsMemory: true, writesMemory: true,
+		},
 		form{name: "JmpRel32", mnemonic: "jmp", operands: []operand{rel32()}, opcode: []byte{0xE9}, effects: noEffects},
 		form{name: "CallRel32", mnemonic: "call", operands: []operand{rel32()}, opcode: []byte{0xE8}, effects: writes},
 		form{

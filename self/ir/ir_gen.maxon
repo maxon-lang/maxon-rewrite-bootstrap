@@ -49,6 +49,9 @@ export enum Opcode
 	opCall
 	opCallRuntime
 	opWhen
+	opClosure
+	opFuncValue
+	opCallValue
 	opDrop
 	opDropSlot
 	opDropAt
@@ -465,6 +468,15 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opWhen 'opWhen'
 		return 15
 	end 'opWhen'
+	if op == Opcode.opClosure 'opClosure'
+		return 13
+	end 'opClosure'
+	if op == Opcode.opFuncValue 'opFuncValue'
+		return 12
+	end 'opFuncValue'
+	if op == Opcode.opCallValue 'opCallValue'
+		return 31
+	end 'opCallValue'
 	if op == Opcode.opDrop 'opDrop'
 		return 20
 	end 'opDrop'
@@ -787,6 +799,35 @@ export function newWhen(body Count, cownsStart Reg, cownsCount Reg, capturesCoun
 	r.c = capturesCount
 	return r
 end 'newWhen'
+
+// Closure gives a new closure of the body Body, holding Captures: it owns each capture that Body says it owns, and
+// borrows the others.
+export function newClosure(dst Reg, body Count, capturesStart Reg, capturesCount Reg) returns Instr
+	var r = Instr.make(Opcode.opClosure)
+	r.dst = dst
+	r.imm = try body as Word otherwise panic("ir: closure body is out of range")
+	r.a = capturesStart
+	r.b = capturesCount
+	return r
+end 'newClosure'
+
+// FuncValue gives a new closure of the function Callee, which captures nothing.
+export function newFuncValue(dst Reg, callee Index) returns Instr
+	var r = Instr.make(Opcode.opFuncValue)
+	r.dst = dst
+	r.c = callee
+	return r
+end 'newFuncValue'
+
+// CallValue calls the closure that is the first of Args with all of Args: the code it holds takes the closure
+// first, to read what it captured, and a named function's code ignores it.
+export function newCallValue(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opCallValue)
+	r.dst = dst
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newCallValue'
 
 // Drop drops the value in Src, of type Ty.
 export function newDrop(src Reg, ty Index) returns Instr
@@ -1154,6 +1195,34 @@ export function whenCapturesCount(x Instr) returns Count
 	return try x.c as Count otherwise panic("ir: when captures is out of range")
 end 'whenCapturesCount'
 
+export function closureBody(f IrFunction, x Instr) returns Count
+	return try x.imm as Count otherwise panic("ir: closure body is out of range")
+end 'closureBody'
+
+// closureCapturesStart is where the captures of a Closure start in their pool.
+export function closureCapturesStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: closure captures is out of range")
+end 'closureCapturesStart'
+
+// closureCapturesCount is how many captures a Closure has.
+export function closureCapturesCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: closure captures is out of range")
+end 'closureCapturesCount'
+
+export function funcValueCallee(f IrFunction, x Instr) returns ast.FuncID
+	return f.calleeAt(x.c)
+end 'funcValueCallee'
+
+// callValueArgsStart is where the args of a CallValue start in their pool.
+export function callValueArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: callValue args is out of range")
+end 'callValueArgsStart'
+
+// callValueArgsCount is how many args a CallValue has.
+export function callValueArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: callValue args is out of range")
+end 'callValueArgsCount'
+
 export function dropSrc(x Instr) returns Reg
 	return x.a
 end 'dropSrc'
@@ -1319,6 +1388,18 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opWhen 'opWhen'
 		return table.Option.none
 	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		return table.Option.some(x.dst)
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		return table.Option.some(x.dst)
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		if x.dst == noReg 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(x.dst)
+	end 'opCallValue'
 	if x.op == Opcode.opDrop 'opDrop'
 		return table.Option.none
 	end 'opDrop'
@@ -1417,6 +1498,15 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opWhen 'opWhen'
 		return table.Option.none
 	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		return table.Option.none
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		return table.Option.none
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		return table.Option.none
+	end 'opCallValue'
 	if x.op == Opcode.opDrop 'opDrop'
 		return table.Option.none
 	end 'opDrop'
@@ -1465,6 +1555,9 @@ export interface InstrVisitor
 	function visitCall(mutates self, f IrFunction, x Instr)
 	function visitCallRuntime(mutates self, f IrFunction, x Instr)
 	function visitWhen(mutates self, f IrFunction, x Instr)
+	function visitClosure(mutates self, f IrFunction, x Instr)
+	function visitFuncValue(mutates self, f IrFunction, x Instr)
+	function visitCallValue(mutates self, f IrFunction, x Instr)
 	function visitDrop(mutates self, f IrFunction, x Instr)
 	function visitDropSlot(mutates self, f IrFunction, x Instr)
 	function visitDropAt(mutates self, f IrFunction, x Instr)
@@ -1575,6 +1668,18 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitWhen(f, x: x)
 		return
 	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		visitor.visitClosure(f, x: x)
+		return
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		visitor.visitFuncValue(f, x: x)
+		return
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		visitor.visitCallValue(f, x: x)
+		return
+	end 'opCallValue'
 	if x.op == Opcode.opDrop 'opDrop'
 		visitor.visitDrop(f, x: x)
 		return
@@ -1745,8 +1850,17 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return text
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'
-		return "when {f.behaviourName(whenBody(f, x: x))} cowns [{f.regsText(whenCownsStart(x), count: whenCownsCount(x))}] captures [{f.regsText(whenCapturesStart(x), count: whenCapturesCount(x))}]"
+		return "when {f.bodyName(whenBody(f, x: x))} cowns [{f.regsText(whenCownsStart(x), count: whenCownsCount(x))}] captures [{f.regsText(whenCapturesStart(x), count: whenCapturesCount(x))}]"
 	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		return "{resultText(x.dst)}closure {f.bodyName(closureBody(f, x: x))} [{f.regsText(closureCapturesStart(x), count: closureCapturesCount(x))}]"
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		return "{resultText(x.dst)}funcvalue {funcSymbol(p, fid: funcValueCallee(f, x: x))}"
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		return "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
+	end 'opCallValue'
 	if x.op == Opcode.opDrop 'opDrop'
 		return "drop %{dropSrc(x)} {ast.typeName(p.types, t: dropTy(f, x: x))}"
 	end 'opDrop'

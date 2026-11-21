@@ -1,0 +1,60 @@
+typealias Integer = int(-1000000 to 1000000)
+
+typealias Greeter = function(String) returns String
+
+typealias Counter = function() returns Integer
+
+typealias Pick = function(Integer, Integer) returns Integer
+
+typealias Picks = Array with Pick
+
+type Box
+	export var label as String
+	export var op as Pick
+
+	static function make(consumes label String, consumes op Pick) returns Self
+		return Self{label: label, op: op}
+	end 'make'
+end 'Box'
+
+function greet(g Greeter, name String) returns String
+	return g(name)
+end 'greet'
+
+function makeGreeter(prefix String) returns Greeter
+	let own = prefix.clone()
+	return function(n String) gives "{own}, {n}"
+end 'makeGreeter'
+
+function larger(a Integer, b Integer) returns Integer
+	return a if a > b else b
+end 'larger'
+
+function describe(word String) returns String
+	return greet(function(n String) gives "{word} {n}", name: "there")
+end 'describe'
+
+function main() returns ExitCode
+	let hello = makeGreeter("Hello")
+	print("{hello("Ann")}\n")
+	let copy = hello.clone()
+	print("{greet(copy, name: "Bob")}\n")
+	print("{describe("hi")}\n")
+	let box = Box.make("max", op: larger)
+	print("{box.label} {box.op(3, 9)}\n")
+	var ops = Picks.create(0)
+	ops.push(larger)
+	ops.push(function(a Integer, b Integer) gives a if a < b else b)
+	print("{ops[0](4, 2)} {ops[1](4, 2)}\n")
+	let words = "x".clone()
+	let w = function() returns String gives "{words}!"
+	print("{w()}\n")
+	return 0
+end 'main'
+
+//> Hello, Ann
+//> Hello, Bob
+//> hi there
+//> max 9
+//> 4 2
+//> x!

@@ -347,6 +347,11 @@ export type Asm
 		self.noteSymbolFixup(symbol)
 	end 'callSymbol'
 
+	// callRegister calls the code at the address a register holds.
+	export function callRegister(mutates self, reg X64Register)
+		encodeCallReg(code, reg: reg)
+	end 'callRegister'
+
 	// newLabel makes a label that stays valid until the next section starts.
 	export function newLabel(mutates self) returns LabelID
 		let id = try labels.count() as LabelID otherwise panic("a function has more labels than any code can name")

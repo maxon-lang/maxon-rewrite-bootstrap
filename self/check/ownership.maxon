@@ -21,6 +21,7 @@ export enum OwnDestKind
 	destBehaviour
 	destMatch
 	destDestructor
+	destClosure
 end 'OwnDestKind'
 
 // OwnDest is where a moved value went, for the message that names the move.
@@ -48,6 +49,7 @@ export type OwnDest
 			destBehaviour gives "a behaviour"
 			destMatch gives "a 'match consumes'"
 			destDestructor gives "a destructor"
+			destClosure gives "the closure that captures it"
 		end 'k'
 	end 'text'
 end 'OwnDest'

@@ -21,5 +21,17 @@ export let arrayDataOffset = 16
 // arrayHeaderBytes is the size of the box of an array and of a byte array.
 export let arrayHeaderBytes = 24
 
+// closureCountOffset is where the box of a closure holds how many function values share it, which it is freed with when that reaches 0.
+export let closureCountOffset = 0
+
+// closureCodeOffset is where the box of a closure holds the address of its code, which a call through the value calls with the box first.
+export let closureCodeOffset = 8
+
+// closureDropOffset is where the box of a closure holds the address of the routine that drops what it owns, or 0 when it owns nothing.
+export let closureDropOffset = 16
+
+// closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
+export let closureCapturesOffset = 24
+
 // byteBytes is the size of an element of a byte array.
 export let byteBytes = 1

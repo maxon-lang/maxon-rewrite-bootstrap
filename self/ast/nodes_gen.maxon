@@ -11,6 +11,8 @@ export enum NodeKind
 	unionDecl
 	unionCaseDecl
 	aliasDecl
+	funcType
+	funcTypeParam
 	bound
 	typeRef
 	typeParam
@@ -58,6 +60,8 @@ export enum NodeKind
 	arg
 	panicExpr
 	matchExpr
+	closureExpr
+	closureParam
 end 'NodeKind'
 
 export function isReserved(word String) returns bool
@@ -135,9 +139,10 @@ export type Slots
 	export var arithSlots as diag.U32
 	export var nameSlots as diag.U32
 	export var structLitSlots as diag.U32
+	export var closureSlots as diag.U32
 
 	export static function zero() returns Slots
-		return Slots{localSlots: 0 as diag.U32, jumpSlots: 0 as diag.U32, whenSlots: 0 as diag.U32, patternSlots: 0 as diag.U32, memberSlots: 0 as diag.U32, callSlots: 0 as diag.U32, arithSlots: 0 as diag.U32, nameSlots: 0 as diag.U32, structLitSlots: 0 as diag.U32}
+		return Slots{localSlots: 0 as diag.U32, jumpSlots: 0 as diag.U32, whenSlots: 0 as diag.U32, patternSlots: 0 as diag.U32, memberSlots: 0 as diag.U32, callSlots: 0 as diag.U32, arithSlots: 0 as diag.U32, nameSlots: 0 as diag.U32, structLitSlots: 0 as diag.U32, closureSlots: 0 as diag.U32}
 	end 'zero'
 end 'Slots'
 
@@ -181,6 +186,10 @@ export function numberSlots(tree Tree, mutates slots U32List) returns Slots
 			count.structLitSlots = try count.structLitSlots + 1 otherwise panic("slot overflow")
 			slots[id] = count.structLitSlots
 		end 'c_structLitSlots'
+		if k == NodeKind.closureExpr 'c_closureSlots'
+			count.closureSlots = try count.closureSlots + 1 otherwise panic("slot overflow")
+			slots[id] = count.closureSlots
+		end 'c_closureSlots'
 	end 'each'
 	return count
 end 'numberSlots'
@@ -369,10 +378,11 @@ export type AliasDecl
 	export var low as Bound
 	export var inclusive as bool
 	export var high as Bound
+	export var fn as NodeID
 	export var instance as NodeID
 
 	export static function make(id NodeID) returns AliasDecl
-		return AliasDecl{id: id, name: "", visibility: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), instance: 0 as NodeID}
+		return AliasDecl{id: id, name: "", visibility: "", low: Bound.make(0 as NodeID), inclusive: false, high: Bound.make(0 as NodeID), fn: 0 as NodeID, instance: 0 as NodeID}
 	end 'make'
 end 'AliasDecl'
 
@@ -381,6 +391,60 @@ export typealias AliasDeclList = Array with AliasDecl
 export function newAliasDecl(mutates t Tree, start diag.U32) returns AliasDecl
 	return AliasDecl.make(t.alloc(NodeKind.aliasDecl, start: start))
 end 'newAliasDecl'
+
+export function newFuncType(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.funcType, start: start)
+	return id
+end 'newFuncType'
+
+export function funcTypeParamsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'funcTypeParamsRef'
+
+export function setFuncTypeParamsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setFuncTypeParamsRef'
+
+export function funcTypeReturns(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'funcTypeReturns'
+
+export function setFuncTypeReturns(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setFuncTypeReturns'
+
+export function newFuncTypeParam(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.funcTypeParam, start: start)
+	return id
+end 'newFuncTypeParam'
+
+export function funcTypeParamConvention(t Tree, id NodeID) returns String
+	let code = (t.records[id as Count].aux and (255 as U16)) as Count
+	return match code 'lit'
+		1 gives "mutates"
+		2 gives "consumes"
+		3 gives "sets"
+		default gives ""
+	end 'lit'
+end 'funcTypeParamConvention'
+
+export function setFuncTypeParamConvention(mutates t Tree, id NodeID, text String)
+	let code = match text 'lit'
+		"mutates" gives 1 as U16
+		"consumes" gives 2 as U16
+		"sets" gives 3 as U16
+		default panic("invalid enum text")
+	end 'lit'
+	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
+end 'setFuncTypeParamConvention'
+
+export function funcTypeParamType(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'funcTypeParamType'
+
+export function setFuncTypeParamType(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setFuncTypeParamType'
 
 export type Bound
 	export var id as NodeID
@@ -1836,3 +1900,79 @@ end 'matchExprMatch'
 export function setMatchExprMatch(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setMatchExprMatch'
+
+export function newClosureExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.closureExpr, start: start)
+	let blk = t.reserve(2 as Count)
+	t.records[id as Count].b = blk
+	return id
+end 'newClosureExpr'
+
+export function closureExprParamsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'closureExprParamsRef'
+
+export function setClosureExprParamsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setClosureExprParamsRef'
+
+export function closureExprReturns(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 0 as Count) as NodeID
+end 'closureExprReturns'
+
+export function setClosureExprReturns(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
+end 'setClosureExprReturns'
+
+export function closureExprBodyRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 1 as Count)
+end 'closureExprBodyRef'
+
+export function setClosureExprBodyRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
+end 'setClosureExprBodyRef'
+
+export function newClosureParam(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.closureParam, start: start)
+	return id
+end 'newClosureParam'
+
+export function closureParamConvention(t Tree, id NodeID) returns String
+	let code = (t.records[id as Count].aux and (255 as U16)) as Count
+	return match code 'lit'
+		1 gives "mutates"
+		2 gives "consumes"
+		3 gives "sets"
+		default gives ""
+	end 'lit'
+end 'closureParamConvention'
+
+export function setClosureParamConvention(mutates t Tree, id NodeID, text String)
+	let code = match text 'lit'
+		"mutates" gives 1 as U16
+		"consumes" gives 2 as U16
+		"sets" gives 3 as U16
+		default panic("invalid enum text")
+	end 'lit'
+	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
+end 'setClosureParamConvention'
+
+export function closureParamName(t Tree, id NodeID) returns String
+	return t.nameAt(t.records[id as Count].a)
+end 'closureParamName'
+
+export function closureParamNameRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'closureParamNameRef'
+
+export function setClosureParamNameRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setClosureParamNameRef'
+
+export function closureParamType(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'closureParamType'
+
+export function setClosureParamType(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setClosureParamType'

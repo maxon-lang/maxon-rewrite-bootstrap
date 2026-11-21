@@ -57,11 +57,10 @@ function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 	if named 'named'
 		return callNamed(c, p: p, call: call, callee: callee, errs: errs)
 	end 'named'
-	if k == ast.NodeKind.memberExpr 'member'
+	if k == ast.NodeKind.memberExpr and not namesFunctionField(c, p: p, callee: callee) 'member'
 		return callMember(c, p: p, call: call, callee: callee, errs: errs)
 	end 'member'
-	failAt(c, p: p, node: call, code: diag.errUnsupported, msg: "only a named function or method can be called", errs: errs)
-	return ast.noType
+	return callValue(c, p: p, call: call, callee: callee, errs: errs)
 end 'typeCall'
 
 // writtenCallee is a callee as a message names it: a function by its name, a method by the name of its type and its own.
@@ -89,6 +88,39 @@ function undefinedFunctionText(name String) returns String
 	end 'reserved'
 	return diag.undefinedFunction(name)
 end 'undefinedFunctionText'
+
+// namesFunctionField is whether 'obj.name' names a field of a function type of the record obj is, which a call then calls
+// through, rather than a method. A method of that name comes first, as a field and a method cannot share a name.
+function namesFunctionField(mutates c Checker, mutates p ast.Project, callee ast.NodeID) returns bool
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)
+	let k = p.modules[c.modIdx].tree.kindOf(obj)
+	if k != ast.NodeKind.nameExpr and k != ast.NodeKind.selfExpr 'notPlace'
+		return false
+	end 'notPlace'
+	var t = ast.noType
+	if k == ast.NodeKind.selfExpr 'self'
+		t = selfRecord(c, p: p)
+	end 'self' else 'name'
+		let local = lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: obj))
+		if local == ast.noLocal 'notLocal'
+			return false
+		end 'notLocal'
+		t = c.typing.locals[local as Count].ty
+	end 'name'
+	if not typeHasKind(p, t: t, kind: ast.TypeKind.record) 'notRecord'
+		return false
+	end 'notRecord'
+	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
+	match consumes p.types.entries[ast.originOf(p.types, t: t) as Count].findField(name) 'field'
+		some(index) then return fieldIsFunction(p, owner: t, index: index)
+		none then return false
+	end 'field'
+end 'namesFunctionField'
+
+function fieldIsFunction(mutates p ast.Project, owner ast.TypeID, index Count) returns bool
+	let ft = ast.fieldType(p.types, owner: owner, index: index)
+	return typeHasKind(p, t: ft, kind: ast.TypeKind.funcTy)
+end 'fieldIsFunction'
 
 function unknownFunction(c Checker, p ast.Project, call ast.NodeID, name String, qualifiers Count, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: call)
@@ -121,6 +153,9 @@ function callDeclared(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 	if typeHasKind(p, t: declaredTypeOrNone(p, ref: ref), kind: ast.TypeKind.builtinCown) 'cown'
 		return cownCall(c, p: p, call: call, errs: errs)
 	end 'cown'
+	if ast.declIsConst(p, ref: ref) 'constant'
+		return callValue(c, p: p, call: call, callee: ast.callExprCallee(p.modules[c.modIdx].tree, id: call), errs: errs)
+	end 'constant'
 	return unknownFunction(c, p: p, call: call, name: name, qualifiers: 0 as Count, errs: errs)
 end 'callDeclared'
 

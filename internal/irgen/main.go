@@ -70,24 +70,24 @@ var (
 
 // kindFields are the fields an operand of each kind may be held in.
 var kindFields = map[kind][]field{
-	kReg:       {fA, fB, fValue},
-	kRegs:      {fA},
-	kMoreRegs:  {fC},
-	kSlot:      {fImm},
-	kInt:       {fImm},
-	kWord:      {fImm},
-	kSymbol:    {fImm},
-	kEnum:      {fSub},
-	kFlag:      {fFlags},
-	kBlock:     {fThen, fElse},
-	kFail:      {fC},
-	kText:      {fC},
-	kType:      {fC},
-	kCallee:    {fC},
-	kRoutine:   {fC},
-	kErrorReg:  {fImm},
-	kBehaviour: {fImm},
-	kCases:     {fFirst},
+	kReg:      {fA, fB, fValue},
+	kRegs:     {fA},
+	kMoreRegs: {fC},
+	kSlot:     {fImm},
+	kInt:      {fImm},
+	kWord:     {fImm},
+	kSymbol:   {fImm},
+	kEnum:     {fSub},
+	kFlag:     {fFlags},
+	kBlock:    {fThen, fElse},
+	kFail:     {fC},
+	kText:     {fC},
+	kType:     {fC},
+	kCallee:   {fC},
+	kRoutine:  {fC},
+	kErrorReg: {fImm},
+	kBody:     {fImm},
+	kCases:    {fFirst},
 }
 
 // check refuses a table that the generator cannot make consistent code of.
@@ -166,7 +166,7 @@ func optional(x operand) bool {
 // usesPool is whether an operand indexes a pool of the function, which only the builder appends to.
 func usesPool(x operand) bool {
 	switch x.Kind {
-	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBehaviour, kCases:
+	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBody, kCases:
 		return true
 	}
 	return false

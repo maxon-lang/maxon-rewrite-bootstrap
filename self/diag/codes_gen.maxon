@@ -141,6 +141,9 @@ export let errTryBlockBindingNotMatched = "E3084"
 // A struct literal omits a field that has no default.
 export let errFieldNotInitialized = "E3086"
 
+// A function that throws is used as a value, which no function type can hold.
+export let errFunctionValueThrows = "E3101"
+
 // A name is read after its value was moved out of it.
 export let errUseAfterMove = "E3102"
 
@@ -260,6 +263,9 @@ export let errTakeApartDestructible = "E3922"
 
 // A function that takes a 'sets' parameter declares 'throws'.
 export let errThrows = "E3924"
+
+// A closure captures a borrowed value that cannot be copied, which it would outlive.
+export let errClosureBorrow = "E3925"
 
 // A type contains itself.
 export let errTypeCycle = "E4014"

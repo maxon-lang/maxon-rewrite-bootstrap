@@ -1,0 +1,229 @@
+// Function values: a function named without a call, a closure, and a call through a value of a function type. A closure's
+// body is checked as a function of its own, as a behaviour's is, which captures the variables around it.
+
+// functionValue types a function named as a value: its type is its signature. A generic function, a method and one that
+// throws are not values, since a function type has no type parameters, no receiver and no error.
+function functionValue(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let fid = declaredFunction(p, ref: ref)
+	if fid == ast.noFunc 'notFunction'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errExpressionError, msg: diag.undefinedVariable(name), errs: errs)
+		return ast.noType
+	end 'notFunction'
+	if p.funcs.entries[fid as Count].generics.count() > 0 or p.funcs.entries[fid as Count].intrinsic != ast.Intrinsic.intrNone 'generic'
+		failAt(c, p: p, node: e, code: diag.errUnsupported, msg: "'{name}' is generic or built in, so it is not a value of one function type; pass a closure that calls it: 'function(x T) gives {name}(x)'", errs: errs)
+		return ast.noType
+	end 'generic'
+	if p.funcs.entries[fid as Count].errTy != ast.noType 'throws'
+		failAt(c, p: p, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, t: p.funcs.entries[fid as Count].errTy)), errs: errs)
+		return ast.noType
+	end 'throws'
+	if not requireVisible(c, p: p, node: e, target: fid, errs: errs) 'hidden'
+		return ast.noType
+	end 'hidden'
+	c.typing.names.insert(e as Count, value: ast.NameInfo.funcName(ref, func: fid))
+	return signatureType(p, fid: fid)
+end 'functionValue'
+
+// signatureType is the function type of a function's parameters and result.
+function signatureType(mutates p ast.Project, fid ast.FuncID) returns ast.TypeID
+	var convs = ast.ConventionList.create(0)
+	for i in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
+		convs.push(p.funcs.entries[fid as Count].params[i].conv)
+	end 'params'
+	let params = p.funcs.entries[fid as Count].paramTypes.clone()
+	let result = p.funcs.entries[fid as Count].retTy
+	return ast.internFuncType(p.types, params: params, convs: convs, result: result)
+end 'signatureType'
+
+// funcFits is whether a value of the function type src may stand where the function type dst is needed: the same
+// conventions, each parameter that is only read or taken at least as wide as dst's, each one passed by address exactly
+// dst's, and a result that fits dst's.
+function funcFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+	let n = ast.funcParamCount(p.types, t: src)
+	if n != ast.funcParamCount(p.types, t: dst) 'arity'
+		return false
+	end 'arity'
+	for i in 0 upto n 'params'
+		let conv = ast.funcParamConv(p.types, t: src, index: i)
+		if conv != ast.funcParamConv(p.types, t: dst, index: i) 'convention'
+			return false
+		end 'convention'
+		let have = ast.funcParamType(p.types, t: src, index: i)
+		let need = ast.funcParamType(p.types, t: dst, index: i)
+		if ast.isByAddress(conv) 'exact'
+			if not sameType(p.types, a: have, b: need) 'differs'
+				return false
+			end 'differs'
+		end 'exact' else if not assignable(p, src: need, dst: have) 'narrower'
+			return false
+		end 'narrower'
+	end 'params'
+	let result = ast.funcResult(p.types, t: src)
+	let wanted = ast.funcResult(p.types, t: dst)
+	if wanted == p.builtins.voidTy or result == p.builtins.voidTy 'void'
+		return result == wanted
+	end 'void'
+	return assignable(p, src: result, dst: wanted)
+end 'funcFits'
+
+// checkClosure types a closure. A parameter written without a type takes the type of the function type the closure is
+// written for, and so does the result when the closure does not say it; otherwise the result is what the body gives.
+function checkClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var shape = ast.noType
+	if typeHasKind(p, t: c.expect, kind: ast.TypeKind.funcTy) 'expected'
+		shape = c.expect
+	end 'expected'
+	let paramsRef = ast.closureExprParamsRef(p.modules[c.modIdx].tree, id: e)
+	let n = p.modules[c.modIdx].tree.listLen(paramsRef)
+	if shape != ast.noType and n != ast.funcParamCount(p.types, t: shape) 'arity'
+		failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: "the closure takes {n} parameter(s), and '{nameOfType(p, t: shape)}' takes {ast.funcParamCount(p.types, t: shape)}; give it one for each", errs: errs)
+		return ast.noType
+	end 'arity'
+	var types = ast.TypeIDList.create(0)
+	var convs = ast.ConventionList.create(0)
+	let owner = c.owner
+	for i in 0 upto n 'params'
+		let param = p.modules[c.modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID
+		let tr = ast.closureParamType(p.modules[c.modIdx].tree, id: param)
+		var t = ast.noType
+		if tr != 0 'typed'
+			t = resolveTypeRef(c, p: p, tr: tr, selfTy: owner, errs: errs)
+			if t == ast.noType 'failed'
+				return ast.noType
+			end 'failed'
+		end 'typed' else if shape != ast.noType 'inferred'
+			t = ast.funcParamType(p.types, t: shape, index: i)
+		end 'inferred' else 'untyped'
+			let name = ast.closureParamName(p.modules[c.modIdx].tree, id: param)
+			failAt(c, p: p, node: param, code: diag.errUnsupportedFeature, msg: "the closure parameter '{name}' has no type, which only a closure written where a function type is expected may leave out; write it: 'function({name} Count) gives ...'", errs: errs)
+			return ast.noType
+		end 'untyped'
+		types.push(t)
+		convs.push(ast.parseConvention(ast.closureParamConvention(p.modules[c.modIdx].tree, id: param)))
+	end 'params'
+	var result = ast.noType
+	let returnsRef = ast.closureExprReturns(p.modules[c.modIdx].tree, id: e)
+	if returnsRef != 0 'declared'
+		result = resolveTypeRef(c, p: p, tr: returnsRef, selfTy: owner, errs: errs)
+		if result == ast.noType 'failed'
+			return ast.noType
+		end 'failed'
+	end 'declared' else if shape != ast.noType 'expected'
+		result = ast.funcResult(p.types, t: shape)
+	end 'expected'
+	let fid = enterClosure(c, p: p, e: e, types: types, convs: convs, result: result, errs: errs)
+	if fid != ast.noFunc 'entered'
+		checkBlock(c, p: p, body: ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e), errs: errs)
+	end 'entered'
+	let made = leaveClosure(c, p: p, e: e)
+	if fid == ast.noFunc or p.funcs.entries[made as Count].retTy == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let t = ast.internFuncType(p.types, params: types, convs: convs, result: p.funcs.entries[made as Count].retTy)
+	var info = ast.ClosureInfo.make(made, ty: t, captures: ast.CaptureList.create(0))
+	match consumes c.typing.closures.get(e as Count) 'captured'
+		some(found) then info.captures = found.captures
+		none then _ = 0
+	end 'captured'
+	c.typing.closures.insert(e as Count, value: info)
+	return t
+end 'checkClosure'
+
+// enterClosure starts checking the body of a closure as a function of its own, which takes the closure first and then its
+// parameters. It gives none when a parameter cannot be bound, after reporting why.
+function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.FuncID
+	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.entries[c.fn as Count].visibility.clone(), module: c.modID, nodeID: e)
+	entry.bodyRef = ast.closureExprBodyRef(p.modules[c.modIdx].tree, id: e)
+	entry.retTy = result
+	entry.isClosure = true
+	let fid = ast.allocFunc(p.funcs, f: entry)
+	c.whens = try c.whens + 1 otherwise panic("too many closures in one function")
+	_ = enterNested(c, fid: fid, closure: true)
+	let paramsRef = ast.closureExprParamsRef(p.modules[c.modIdx].tree, id: e)
+	var failedParam = false
+	for i in 0 upto types.count() 'params'
+		let param = p.modules[c.modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID
+		let name = ast.closureParamName(p.modules[c.modIdx].tree, id: param)
+		p.funcs.entries[fid as Count].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
+		p.funcs.entries[fid as Count].paramTypes.push(types[i])
+		if name == "_" 'anonymous'
+			p.funcs.entries[fid as Count].paramLocals.push(ast.noLocal)
+			continue 'params'
+		end 'anonymous'
+		var local = ast.LocalEntry.make(name, ty: types[i], isVar: false, isParam: true, conv: convs[i], definedAt: param)
+		local.paramIndex = try i + 1 otherwise panic("too many parameters in a closure")
+		let id = bindLocal(c, p: p, entry: local, off: offsetOf(c, p: p, node: param), errs: errs)
+		p.funcs.entries[fid as Count].paramLocals.push(id)
+		if id == ast.noLocal 'unbound'
+			failedParam = true
+		end 'unbound'
+		c.fnLocals.push(id)
+	end 'params'
+	if failedParam 'failed'
+		return ast.noFunc
+	end 'failed'
+	return fid
+end 'enterClosure'
+
+// leaveClosure finishes the function of a closure's body and gives it. What the body captured is kept for the closure, and
+// read from it, never passed.
+function leaveClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID) returns ast.FuncID
+	let frame = try c.bFrames.pop() otherwise panic("a closure ended that was never begun")
+	for i in 0 upto frame.capturedInner.count() 'captures'
+		c.fnLocals.push(frame.capturedInner[i])
+	end 'captures'
+	c.typing.closures.insert(e as Count, value: ast.ClosureInfo.make(frame.fn, ty: ast.noType, captures: frame.captures.clone()))
+	if c.fnLocals.count() > 0 'locals'
+		c.typing.funcLocals.insert(e as Count, value: c.fnLocals.clone())
+	end 'locals'
+	let outer = try c.outers.pop() otherwise panic("a closure ended that was never begun")
+	restoreOuter(c, outer: outer)
+	return frame.fn
+end 'leaveClosure'
+
+// inferResult gives a closure that names no result the type its body gives. A bare number gives a word.
+function inferResult(mutates c Checker, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
+	var result = t
+	if isConstInt(p, t: t) 'bare'
+		result = p.builtins.anon64Ty
+	end 'bare'
+	p.funcs.entries[c.fn as Count].retTy = result
+	return result
+end 'inferResult'
+
+// callValue types a call of a value of a function type: its arguments are given in the order of the type's parameters.
+function callValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let t = checkExpr(c, p: p, e: callee, errs: errs)
+	if t == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	if not typeHasKind(p, t: t, kind: ast.TypeKind.funcTy) 'notFunction'
+		failAt(c, p: p, node: callee, code: diag.errUnknownFunction, msg: "a value of {nameOfType(p, t: t)} is not a function, so it cannot be called", errs: errs)
+		return ast.noType
+	end 'notFunction'
+	let n = ast.funcParamCount(p.types, t: t)
+	var specs = ast.ParamSpecList.create(0)
+	for i in 0 upto n 'params'
+		specs.push(ast.ParamSpec.make("argument {i + 1}", ty: ast.funcParamType(p.types, t: t, index: i), conv: ast.funcParamConv(p.types, t: t, index: i)))
+	end 'params'
+	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
+	let given = p.modules[c.modIdx].tree.listLen(argsRef)
+	if given != n 'arity'
+		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(nameOfType(p, t: t), expected: "{n}", got: "{given}"), errs: errs)
+		return ast.noType
+	end 'arity'
+	var info = ast.CallInfo.make(ast.CallKind.callValue, fn: ast.noFunc, receiverTy: t)
+	for i in 0 upto n 'args'
+		let value = ast.argValue(p.modules[c.modIdx].tree, id: p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID)
+		if checkExpecting(c, p: p, e: value, want: specs[i].ty, errs: errs) == ast.noType 'failed'
+			return ast.noType
+		end 'failed'
+		if not coerceArg(c, p: p, call: call, value: value, callee: nameOfType(p, t: t), spec: specs[i], payload: false, errs: errs) 'badArg'
+			return ast.noType
+		end 'badArg'
+		info.ordered.push(value)
+	end 'args'
+	info.paramSpecs = specs
+	c.typing.calls.insert(call as Count, value: info)
+	return ast.funcResult(p.types, t: t)
+end 'callValue'

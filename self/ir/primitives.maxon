@@ -829,6 +829,10 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 	if kind == ast.TypeKind.builtinHandle 'handle'
 		return false
 	end 'handle'
+	// A function value is dropped by the routine of its closure, which the closure that owns such a value refuses.
+	if kind == ast.TypeKind.funcTy 'function'
+		return false
+	end 'function'
 	if kind == ast.TypeKind.builtinArray 'array'
 		return holdsInterpreterOnly(p, t: elementType(p, bt: t), visiting: visiting)
 	end 'array'

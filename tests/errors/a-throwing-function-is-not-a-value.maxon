@@ -1,0 +1,14 @@
+enum Oops
+	bad
+end 'Oops'
+
+function fails(s String) returns String throws Oops
+	throw Oops.bad
+end 'fails'
+
+function main() returns ExitCode
+	let f = fails
+	return 0
+end 'main'
+
+// expect-error: E3101 at 10:10

@@ -30,6 +30,16 @@ let kindCown = 7 as Count
 
 let kindBytes = 8 as Count
 
+// kindClosure is a function value's box, which the values that copy it share, as a frozen value's: its words are the count,
+// the function it calls (here the function's index) and its drop routine (unused here), then what it captured.
+let kindClosure = 9 as Count
+
+// closureFnWord is the word of a closure that holds the function it calls.
+let closureFnWord = 1 as Count
+
+// closureHeaderWords are the words of a closure before what it captured.
+let closureHeaderWords = 3 as Count
+
 function kindName(kind Count) returns String
 	return match kind 'k'
 		0 gives "record"
@@ -41,6 +51,7 @@ function kindName(kind Count) returns String
 		6 gives "frozen value"
 		7 gives "cown"
 		8 gives "byte array"
+		9 gives "function value"
 		default gives panic("interp: {kind} is no object kind")
 	end 'k'
 end 'kindName'
@@ -92,9 +103,11 @@ type SharedData
 	var ending as Count
 	// cell is the place that holds the value.
 	var cell as Count
+	// owned are, for a closure, whether it owns each value it captured, which freeing it frees, or only borrows it.
+	var owned as BoolList
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0)}
 	end 'new'
 end 'SharedData'
 
@@ -285,12 +298,28 @@ type Heap
 		oSize.push(0)
 		oAlloc.push(site)
 		oFreedAt.push(0)
-		if kind == kindFrozen or kind == kindCown 'shared'
+		if kind == kindFrozen or kind == kindCown or kind == kindClosure 'shared'
 			oData[o] = shareds.count()
 			shareds.push(SharedData.new())
 		end 'shared'
 		return o
 	end 'newObject'
+
+	// newClosure makes a function value that calls the function fn and holds what it captured, which the caller then stores
+	// in its words from closureHeaderWords on.
+	function newClosure(mutates self, fn Count, captures Count, consumes owned BoolList, site Count) returns Count
+		let o = self.newObject(kindClosure, site: site)
+		let first = cellN.count()
+		let words = try closureHeaderWords + captures otherwise panic("interp: a closure past memory")
+		for _ in 0 upto words 'each'
+			_ = self.newCell(o)
+		end 'each'
+		shareds[oData[o]].cell = first
+		shareds[oData[o]].owned = owned
+		oSize[o] = words
+		cellN[try first + closureFnWord otherwise panic("interp: a closure past memory")] = try fn as ir.Word otherwise panic("interp: a function past a word")
+		return o
+	end 'newClosure'
 
 	// newBox makes a record of words, each its own cell.
 	function newBox(mutates self, words Count, site Count) returns Count
@@ -349,14 +378,18 @@ type Heap
 	end 'newSharedBox'
 
 	function isShared(o Count) returns bool
-		return oKind[o] == kindFrozen or oKind[o] == kindCown
+		return oKind[o] == kindFrozen or oKind[o] == kindCown or oKind[o] == kindClosure
 	end 'isShared'
 
-	// field is the cell of a box that an index names: a frozen value and a cown have the one, which holds their value.
+	// field is the cell of a box that an index names: a frozen value and a cown have the one, which holds their value, and a
+	// closure's words follow the first.
 	function field(o Count, i Count) returns Count
-		if self.isShared(o) 'shared'
+		if oKind[o] == kindFrozen or oKind[o] == kindCown 'shared'
 			return shareds[oData[o]].cell
 		end 'shared'
+		if oKind[o] == kindClosure 'closure'
+			return try shareds[oData[o]].cell + i otherwise panic("interp: a word past memory")
+		end 'closure'
 		return try oData[o] + i otherwise panic("interp: a field past memory")
 	end 'field'
 

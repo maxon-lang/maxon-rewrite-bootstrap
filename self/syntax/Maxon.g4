@@ -174,8 +174,18 @@ unionCaseDecl
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '='
       ( 'int' ^'(' low=bound (inclusive='to' | 'upto') high=bound ')'
+      | fn=funcType
       | instance=aliasInstance
       )
+    ;
+
+// A function type, which only a typealias names.
+funcType
+    : 'function' ^'(' (params+=funcTypeParam (',' params+=funcTypeParam)*)? ')' ('returns' returns=typeRef)?
+    ;
+
+funcTypeParam
+    : convention=('mutates' | 'consumes' | 'sets')? type=typeRef
     ;
 
 // A typealias takes its type arguments as a bare list, which a type elsewhere cannot because the comma would end the
@@ -466,6 +476,7 @@ expr
     | nameExpr
     | panicExpr
     | matchExpr
+    | closureExpr
     | '(' expr ')'
     | obj=expr '.' name=(Name | 'from')                              # MemberExpr
     | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
@@ -578,6 +589,24 @@ panicExpr
 
 matchExpr
     : match=matchCore
+    ;
+
+// A closure: an anonymous function whose body is one expression, which its call returns.
+closureExpr
+    : 'function' ^'(' (params+=closureParam (',' params+=closureParam)*)? ')' ('returns' returns=typeRef)? 'gives' body+=closureBody
+    ;
+
+@ast::ClosureExpr {
+	Info Slot[Closure]
+}
+
+/** a closure parameter */
+closureParam
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_') type=typeRef?
+    ;
+
+closureBody builds ReturnStmt
+    : value=expr
     ;
 
 // Tokens. The token rules below and the keywords the rules above use compile into one DFA (tokens_gen.go).

@@ -6,24 +6,32 @@ function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	var convs = CountList.create(0)
 	if p.funcs.entries[decl as Count].hasReceiver 'receiver'
 		convs.push(p.funcs.entries[decl as Count].selfConv.ordinal)
-	end 'receiver'
+	end 'receiver' else if p.funcs.entries[decl as Count].isClosure 'closure'
+		convs.push(ast.Convention.convLet.ordinal)
+	end 'closure'
 	for i in 0 upto p.funcs.entries[decl as Count].params.count() 'params'
 		convs.push(p.funcs.entries[decl as Count].params[i].conv.ordinal)
 	end 'params'
 	return convs
 end 'convsOf'
 
-// addFunction indexes a function and the bodies of the behaviours it holds.
+// addFunction indexes a function and the bodies of the behaviours and closures it holds.
 function addFunction(mutates prog Program, mutates paths CountLists, p ast.Project, f ir.IrFunction, path CountList, consumes convs CountList)
 	let fi = prog.symbols.count()
 	prog.add(ir.irSymbol(p, f: f), slots: f.slots.count(), regs: f.regs.count(), convs: convs)
+	prog.fnTakesClosure[fi] = p.funcs.entries[f.decl as Count].isClosure
+	prog.fnCaptureOwned[fi] = f.captureOwned.clone()
 	paths.push(path.clone())
-	for b in 0 upto f.behaviours.count() 'behaviours'
+	for b in 0 upto f.bodies.count() 'bodies'
 		var child = path.clone()
 		child.push(b)
 		prog.fnChildren[fi].push(prog.symbols.count())
-		addFunction(prog, paths: paths, p: p, f: f.behaviours[b], path: child, convs: CountList.create(0))
-	end 'behaviours'
+		var bodyConvs = CountList.create(0)
+		if p.funcs.entries[f.bodies[b].decl as Count].isClosure 'closure'
+			bodyConvs = convsOf(p, decl: f.bodies[b].decl)
+		end 'closure'
+		addFunction(prog, paths: paths, p: p, f: f.bodies[b], path: child, convs: bodyConvs)
+	end 'bodies'
 end 'addFunction'
 
 // prepareProgram indexes the functions of a program by their declarations, the first that the modules lower for each: an

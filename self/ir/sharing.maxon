@@ -36,12 +36,18 @@ function behaviourBodyName(enclosing String, index Count) returns String
 	return "{enclosing}$when{index}"
 end 'behaviourBodyName'
 
-// lowerBehaviour lowers the body of a `when` as a function, with the type arguments of the function around it. It has a
-// builder of its own, and its function goes in the one of the function around it.
+// lowerBehaviour lowers the body of a `when` as a function, which goes in the one of the function around it.
 function lowerBehaviour(mutates l Lowerer, mutates p ast.Project, info ast.WhenInfo) returns Count
+	let name = behaviourBodyName(irSymbol(p, f: l.b.f), index: l.b.f.bodies.count())
+	let body = lowerNested(l, p: p, fn: info.fn, name: name)
+	return l.b.body(body)
+end 'lowerBehaviour'
+
+// lowerNested lowers the body of a behaviour or a closure as a function named name, with the type arguments of the
+// function around it. It has a builder of its own, and what it needs of the program is the function's around it.
+function lowerNested(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, consumes name String) returns IrFunction
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
-	let name = behaviourBodyName(irSymbol(p, f: l.b.f), index: l.b.f.behaviours.count())
-	begin(inner, p: p, fn: info.fn, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), name: name)
+	begin(inner, p: p, fn: fn, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), name: name)
 	let body = lowerBody(inner, p: p)
 	l.instances = exchange(inner.instances, value: InstanceSet.new())
 	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays
@@ -50,8 +56,8 @@ function lowerBehaviour(mutates l Lowerer, mutates p ast.Project, info ast.WhenI
 	for i in 0 upto body.refusals.count() 'refusals'
 		l.b.f.refusals.push(body.refusals[i].clone())
 	end 'refusals'
-	return l.b.behaviour(body)
-end 'lowerBehaviour'
+	return body
+end 'lowerNested'
 
 function lowerFreeze(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtFrozenFreeze, kind: IrKind.kindManaged, args: argsOf1(args[0]))

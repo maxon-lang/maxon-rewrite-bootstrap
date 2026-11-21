@@ -15,6 +15,7 @@ export enum NameKind
 	nameLocal
 	nameConst
 	nameSelfField
+	nameFunc
 end 'NameKind'
 
 export enum CallKind
@@ -27,6 +28,7 @@ export enum CallKind
 	callPrintError
 	callCopy
 	callBound
+	callValue
 end 'CallKind'
 
 export enum MemberKind
@@ -79,18 +81,25 @@ export type NameInfo
 	export var decl as DeclRef
 	export var fieldName as String
 	export var fieldIndex as Count
+	// func is the function that a name used as a value stands for.
+	export var func as FuncID
 
 	export static function localName(local LocalID) returns NameInfo
-		return NameInfo{kind: NameKind.nameLocal, local: local, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: "", fieldIndex: 0 as Count}
+		return NameInfo{kind: NameKind.nameLocal, local: local, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: "", fieldIndex: 0 as Count, func: noFunc}
 	end 'localName'
 
 	export static function constName(consumes decl DeclRef) returns NameInfo
-		return NameInfo{kind: NameKind.nameConst, local: noLocal, hasDecl: true, decl: decl, fieldName: "", fieldIndex: 0 as Count}
+		return NameInfo{kind: NameKind.nameConst, local: noLocal, hasDecl: true, decl: decl, fieldName: "", fieldIndex: 0 as Count, func: noFunc}
 	end 'constName'
 
 	export static function selfFieldName(consumes fieldName String, fieldIndex Count) returns NameInfo
-		return NameInfo{kind: NameKind.nameSelfField, local: noLocal, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: fieldName, fieldIndex: fieldIndex}
+		return NameInfo{kind: NameKind.nameSelfField, local: noLocal, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: fieldName, fieldIndex: fieldIndex, func: noFunc}
 	end 'selfFieldName'
+
+	// funcName is a function named as a value, which it is not called where it is named.
+	export static function funcName(consumes decl DeclRef, func FuncID) returns NameInfo
+		return NameInfo{kind: NameKind.nameFunc, local: noLocal, hasDecl: true, decl: decl, fieldName: "", fieldIndex: 0 as Count, func: func}
+	end 'funcName'
 end 'NameInfo'
 
 export type MemberInfo
@@ -217,6 +226,33 @@ export type WhenInfo
 		return WhenInfo{fn: noFunc, cowns: TypeIDList.create(0), captures: CaptureList.create(0), dropFuncs: FuncIDList.create(0)}
 	end 'new'
 end 'WhenInfo'
+
+// receiverName is the name a method's receiver is bound by, which is how a closure in the method captures it.
+export let receiverName = "self"
+
+// closureSuffix joins the name of a function to the number of a closure in it.
+export let closureSuffix = "$fn"
+
+// closureName is the name of the function that a closure's body becomes, numbered in the order the closures are met in the
+// enclosing function.
+export function closureName(enclosing String, index Count) returns String
+	return "{enclosing}{closureSuffix}{index}"
+end 'closureName'
+
+// ClosureInfo is what the check found of a closure: the function its body is, its function type, and what it captures. A
+// capture whose convention is consumes moves into the closure, or is copied when it is a scalar; one whose convention is
+// let is a value the code around the closure only borrows, which the closure holds a copy of.
+export type ClosureInfo
+	export var fn as FuncID
+	export var ty as TypeID
+	export var captures as CaptureList
+
+	export static function make(fn FuncID, ty TypeID, consumes captures CaptureList) returns ClosureInfo
+		return ClosureInfo{fn: fn, ty: ty, captures: captures}
+	end 'make'
+end 'ClosureInfo'
+
+export typealias NodeClosureMap = table.IntMap with ClosureInfo
 
 export typealias NodeDeclMap = table.IntMap with DeclRef
 
@@ -390,6 +426,7 @@ export type Typing
 	export var patterns as NodePatternMap
 	export var arms as NodeArmMap
 	export var whens as NodeWhenMap
+	export var closures as NodeClosureMap
 	export var iterations as NodeIterationMap
 	export var jumps as NodeJumpMap
 	export var locals as LocalEntryList
@@ -414,6 +451,7 @@ export type Typing
 		let pm = NodePatternMap.new()
 		let ak = NodeArmMap.new()
 		let wm = NodeWhenMap.new()
+		let clm = NodeClosureMap.new()
 		let im = NodeIterationMap.new()
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
@@ -421,7 +459,7 @@ export type Typing
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

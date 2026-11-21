@@ -9,24 +9,24 @@ package main
 type kind int
 
 const (
-	kReg       kind = iota // a register the operation reads
-	kRegs                  // registers in the function's Args, from the field to the count in Count
-	kMoreRegs              // registers in Args right after the operand before, as many as the field says
-	kSlot                  // a slot
-	kInt                   // a small number: a parameter index, a byte offset or size
-	kWord                  // a 64-bit number
-	kSymbol                // a runtime symbol (Rt)
-	kEnum                  // a value of one of the enums below, in Sub
-	kFlag                  // a bit of Flags
-	kBlock                 // a block the operation can go to
-	kFail                  // the block an instruction goes to when its check fails
-	kText                  // a string of the function's Strings
-	kType                  // a type of the function's Types
-	kCallee                // a function of the function's Callees
-	kRoutine               // a function of Callees that a runtime entry stores to call later, or none
-	kErrorReg              // the register that receives the error of a call of a function that throws
-	kBehaviour             // a behaviour of the function's Behaviours
-	kCases                 // cases of the function's Cases, from the field to the count in Count
+	kReg      kind = iota // a register the operation reads
+	kRegs                 // registers in the function's Args, from the field to the count in Count
+	kMoreRegs             // registers in Args right after the operand before, as many as the field says
+	kSlot                 // a slot
+	kInt                  // a small number: a parameter index, a byte offset or size
+	kWord                 // a 64-bit number
+	kSymbol               // a runtime symbol (Rt)
+	kEnum                 // a value of one of the enums below, in Sub
+	kFlag                 // a bit of Flags
+	kBlock                // a block the operation can go to
+	kFail                 // the block an instruction goes to when its check fails
+	kText                 // a string of the function's Strings
+	kType                 // a type of the function's Types
+	kCallee               // a function of the function's Callees
+	kRoutine              // a function of Callees that a runtime entry stores to call later, or none
+	kErrorReg             // the register that receives the error of a call of a function that throws
+	kBody                 // a body of the function's Bodies: a behaviour's or a closure's
+	kCases                // cases of the function's Cases, from the field to the count in Count
 )
 
 // field is a field of a record. An instruction has dst, a, b, c, imm, sub and flags; a terminator value, target, other,
@@ -229,9 +229,17 @@ var ops = []op{
 			{Name: "Routine", Kind: kRoutine, Field: fC, Text: " routine "}},
 		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "runtime {Symbol}({Args}){Routine}"},
 	{Name: "When", Doc: "When schedules the behaviour Body on the cowns Cowns, capturing Captures.",
-		Operands: []operand{{Name: "Body", Kind: kBehaviour, Field: fImm}, {Name: "Cowns", Kind: kRegs, Field: fA, Count: fB},
+		Operands: []operand{{Name: "Body", Kind: kBody, Field: fImm}, {Name: "Cowns", Kind: kRegs, Field: fA, Count: fB},
 			{Name: "Captures", Kind: kMoreRegs, Field: fC}},
 		Effects: []effect{effReads, effWrites, effCalls, effAllocates}, Text: "when {Body} cowns [{Cowns}] captures [{Captures}]"},
+	{Name: "Closure", Doc: "Closure gives a new closure of the body Body, holding Captures: it owns each capture that Body says it owns, and\n// borrows the others.",
+		Result: valueResult, Operands: []operand{{Name: "Body", Kind: kBody, Field: fImm}, {Name: "Captures", Kind: kRegs, Field: fA, Count: fB}},
+		Effects: []effect{effReads, effCalls, effAllocates}, Text: "closure {Body} [{Captures}]"},
+	{Name: "FuncValue", Doc: "FuncValue gives a new closure of the function Callee, which captures nothing.", Result: valueResult,
+		Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}}, Effects: []effect{effCalls, effAllocates}, Text: "funcvalue {Callee}"},
+	{Name: "CallValue", Doc: "CallValue calls the closure that is the first of Args with all of Args: the code it holds takes the closure\n// first, to read what it captured, and a named function's code ignores it.",
+		Result: optionalResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees},
+		Text: "callvalue({Args})"},
 	{Name: "Drop", Doc: "Drop drops the value in Src, of type Ty.",
 		Operands: []operand{reg("Src", fA), typeOp}, Effects: []effect{effCalls, effFrees}, Text: "drop {Src} {Ty}"},
 	{Name: "DropSlot", Doc: "DropSlot drops what a slot owns, of type Ty, and leaves it empty.",

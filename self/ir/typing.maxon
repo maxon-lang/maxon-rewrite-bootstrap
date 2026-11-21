@@ -18,6 +18,12 @@ export function isConsumed(p ast.Project, module diag.ModuleID, node ast.NodeID)
 	end 'hit'
 end 'isConsumed'
 
+// movesOut is whether the expression's value leaves the place that holds it: one the ownership pass found consuming it,
+// unless it is a function value, which the place keeps and the consumer shares.
+export function movesOut(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	return isConsumed(p, module: module, node: node) and not ast.sharesOnCopy(p.types, t: exprType(p, module: module, node: node))
+end 'movesOut'
+
 export function nameInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NameInfo
 	return match consumes p.typings[ast.modIndex(module)].names.get(node as Count) 'hit'
 		some(info) gives info
@@ -66,6 +72,13 @@ export function whenInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID)
 		none panic("lower: the behaviour at node {node} of module {module} was not recorded by the check pass")
 	end 'hit'
 end 'whenInfoAt'
+
+export function closureInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.ClosureInfo
+	return match consumes p.typings[ast.modIndex(module)].closures.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the closure at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'closureInfoAt'
 
 export function arithInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.ArithInfo
 	return match consumes p.typings[ast.modIndex(module)].arith.get(node as Count) 'hit'

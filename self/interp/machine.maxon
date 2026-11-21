@@ -108,6 +108,18 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try runtimeEntry(vm, f: f, x: x) otherwise ignore
 	end 'visitCallRuntime'
 
+	function visitCallValue(mutates self, f ir.IrFunction, x ir.Instr)
+		try execCallValue(vm, f: f, x: x) otherwise ignore
+	end 'visitCallValue'
+
+	function visitClosure(mutates self, f ir.IrFunction, x ir.Instr)
+		try execClosure(vm, f: f, x: x) otherwise ignore
+	end 'visitClosure'
+
+	function visitFuncValue(mutates self, f ir.IrFunction, x ir.Instr)
+		execFuncValue(vm, f: f, x: x)
+	end 'visitFuncValue'
+
 	function visitWhen(mutates self, f ir.IrFunction, x ir.Instr)
 		try execWhen(vm, f: f, x: x) otherwise ignore
 	end 'visitWhen'

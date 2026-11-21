@@ -2,10 +2,7 @@
 // arguments; they are the function's own when it is an instance of a generic function, and the ones of the function around
 // it for the body of a behaviour.
 export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, consumes name String)
-	var paramCount = p.funcs.entries[fn as Count].params.count()
-	if p.funcs.entries[fn as Count].hasReceiver 'method'
-		paramCount = succ(paramCount)
-	end 'method'
+	let paramCount = try p.funcs.entries[fn as Count].params.count() + ast.leadingParams(p.funcs.entries[fn as Count]) otherwise panic("ir: too many parameters")
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.fn = fn
 	l.origin = fn
@@ -95,10 +92,7 @@ function adoptParams(mutates l Lowerer, mutates p ast.Project)
 			l.selfOwner = indexOf(slot)
 		end 'owned'
 	end 'self'
-	var first = 0 as Count
-	if hasReceiver 'method'
-		first = 1
-	end 'method'
+	let first = ast.leadingParams(p.funcs.entries[l.fn as Count])
 	for i in 0 upto p.funcs.entries[l.fn as Count].params.count() 'each'
 		let ty = p.funcs.entries[l.fn as Count].paramTypes[i]
 		if p.funcs.entries[l.fn as Count].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
@@ -132,10 +126,10 @@ function ownerOf(l Lowerer, id ast.LocalID, isSelf bool) returns Index
 	return noSlot
 end 'ownerOf'
 
-// ownedRead is the value of a slot that owns what it holds: a move out of it when the ownership pass found the
-// expression consuming it, and a borrow otherwise.
+// ownedRead is the value of a slot that owns what it holds: a move out of it when the expression moves it out, and a
+// borrow otherwise.
 function ownedRead(mutates l Lowerer, p ast.Project, slot Count, e ast.NodeID) returns Reg
-	if isConsumed(p, module: l.module, node: e) and slotKind(l, slot: slot) == IrKind.kindManaged 'move'
+	if movesOut(p, module: l.module, node: e) and slotKind(l, slot: slot) == IrKind.kindManaged 'move'
 		let d = newReg(l, kind: IrKind.kindManaged)
 		emit(l, i: newMoveSlot(d, slot: slot))
 		return d

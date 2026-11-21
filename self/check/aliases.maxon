@@ -107,8 +107,52 @@ function selfOfDecl(mutates p ast.Project, ref ast.DeclRef) returns ast.TypeID
 	end 'type'
 end 'selfOfDecl'
 
+// funcTypeRefs are the type references a function type names: its parameters' types and its result's.
+function funcTypeRefs(p ast.Project, modIdx Count, fn ast.NodeID) returns ast.NodeIDList
+	var out = ast.NodeIDList.create(0)
+	let paramsRef = ast.funcTypeParamsRef(p.modules[modIdx].tree, id: fn)
+	for i in 0 upto p.modules[modIdx].tree.listLen(paramsRef) 'params'
+		out.push(ast.funcTypeParamType(p.modules[modIdx].tree, id: p.modules[modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID))
+	end 'params'
+	let ret = ast.funcTypeReturns(p.modules[modIdx].tree, id: fn)
+	if ret != 0 'returns'
+		out.push(ret)
+	end 'returns'
+	return out
+end 'funcTypeRefs'
+
+// declareFuncAlias gives a typealias of a function type its type.
+function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	let selfTy = aliasSelf(c, p: p, a: a)
+	let paramsRef = ast.funcTypeParamsRef(p.modules[c.modIdx].tree, id: a.fn)
+	var params = ast.TypeIDList.create(0)
+	var convs = ast.ConventionList.create(0)
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(paramsRef) 'params'
+		let param = p.modules[c.modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID
+		let t = resolveTypeRef(c, p: p, tr: ast.funcTypeParamType(p.modules[c.modIdx].tree, id: param), selfTy: selfTy, errs: errs)
+		if t == ast.noType 'failed'
+			return
+		end 'failed'
+		params.push(t)
+		convs.push(ast.parseConvention(ast.funcTypeParamConvention(p.modules[c.modIdx].tree, id: param)))
+	end 'params'
+	var result = p.builtins.voidTy
+	let ret = ast.funcTypeReturns(p.modules[c.modIdx].tree, id: a.fn)
+	if ret != 0 'returns'
+		result = resolveTypeRef(c, p: p, tr: ret, selfTy: selfTy, errs: errs)
+		if result == ast.noType 'failed'
+			return
+		end 'failed'
+	end 'returns'
+	p.declTypes.insert(ast.declKey(ref), value: ast.internFuncType(p.types, params: params, convs: convs, result: result))
+end 'declareFuncAlias'
+
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
 function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	if a.fn != 0 'function'
+		declareFuncAlias(c, p: p, a: a, ref: ref, errs: errs)
+		return
+	end 'function'
 	let off = p.modules[c.modIdx].tree.startOf(a.instance)
 	if p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instance)) == 0 'plain'
 		let target = ast.typeRefName(p.modules[c.modIdx].tree, id: a.instance)
@@ -154,7 +198,14 @@ function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p a
 		interfaceDecl(_) then panic("the aliases stage visited an interface")
 	end 'k'
 	var named = DeclRefList.create(0)
-	namedAliases(p, modIdx: c.modIdx, tr: a.instance, out: named)
+	if a.fn != 0 'function'
+		let refs = funcTypeRefs(p, modIdx: c.modIdx, fn: a.fn)
+		for i in 0 upto refs.count() 'refs'
+			namedAliases(p, modIdx: c.modIdx, tr: refs[i], out: named)
+		end 'refs'
+	end 'function' else 'instance'
+		namedAliases(p, modIdx: c.modIdx, tr: a.instance, out: named)
+	end 'instance'
 	for i in 0 upto named.count() 'deps'
 		let dep = named[i].clone()
 		if dep.module == c.modID 'own'

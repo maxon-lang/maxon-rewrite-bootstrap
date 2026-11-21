@@ -102,3 +102,4 @@ missingMethods	ErrConformance	Partial interface implementation: type '{typeName}
 wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
 undefinedReservedFunction	ErrUnknownFunction	call to undefined function '{name}': the '__' prefix names a compiler intrinsic, and no intrinsic of that name exists
 typeDoesNotConform	ErrTypeMismatch	Type '{typeName}' does not conform to {interfaceName}
+throwingFunctionAsValue	ErrFunctionValueThrows	Cannot use throwing function '{name}' as a value: it throws '{errorType}', and a function type cannot express 'throws'. Wrap the call in a non-throwing function that handles the error with 'try'.

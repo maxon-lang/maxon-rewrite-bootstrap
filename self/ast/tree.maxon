@@ -302,6 +302,14 @@ export type Tree
 		records[target as Count] = rec
 	end 'becomeName'
 
+	// becomeSelfName makes the 'self' at target a name, which a closure captures as it does any other.
+	export function becomeSelfName(mutates self, target NodeID)
+		let start = records[target as Count].start
+		var rec = Record.make(NodeKind.nameExpr, start: start)
+		rec.a = try start + 1 otherwise panic("AST name offset overflow")
+		records[target as Count] = rec
+	end 'becomeSelfName'
+
 	export function appendCaptureRefs(mutates self, useNode NodeID, depth Count)
 		let first = try records.count() as diag.U32 otherwise panic("AST node count overflow")
 		let nRef = records[useNode as Count].a

@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let h = function(n) gives n
+	return 0
+end 'main'
+
+// expect-error: E2015 at 2:19
