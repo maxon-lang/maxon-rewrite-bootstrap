@@ -7,7 +7,7 @@ PE executable directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
+compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), and `selftest` (its own tests); a command it does not have yet exits 6 (not implemented) and a command it does not know exits 2, which `test --with` tells apart. It is compatible with current Maxon except for the language
 changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
 slices, and no runtime-specific tricks the design depends on.
 
@@ -91,7 +91,7 @@ found; the diagnostics are read from its stderr lines `error CODE: path:L:C: mes
 failure). A run test then runs the executable, and the interpreter has no part in it: a program that only the
 interpreter runs (only `E9900`) is counted as not yet supported, as is any test of a compiler that exits 6
 (`notImplementedExitCode`: it does not have the command yet). The summary is `N passed, M failed, K not yet supported`, the failures are listed, and the exit code is 0
-when nothing failed.
+when nothing failed. `self/`'s `c1.exe test [dir]` is the same runner in Maxon (`self/driver/test.maxon`): it compiles each test in the same process, one after another, with the driver's own pipeline, writes the executable to the temporary directory and deletes it after the run, and prints what `test --with` prints (`PASS`, `FAIL`, `SKIP` for a program only the interpreter runs). Without a directory it takes the nearest `tests` directory from the executable's upward. It does not enforce `// memory-limit:` and has no timeout, so a test that never exits hangs the run.
 
 Directives in comments say what the program must do:
 

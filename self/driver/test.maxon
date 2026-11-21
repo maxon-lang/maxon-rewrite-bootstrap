@@ -1,0 +1,482 @@
+// The test runner: minimaxon's `test` command, which compiles and runs the corpus in this process, with the expectations
+// of the Go compiler's runner.
+
+let testsDirName = "tests"
+
+let modulesDir = "modules"
+
+let sourceExtension = ".maxon"
+
+let expectErrorPrefix = "// expect-error:"
+
+let expectExitPrefix = "// expect-exit:"
+
+let expectStdoutPrefix = "//>"
+
+let expectMemoryPrefix = "// memory-limit:"
+
+let nativeOnlyDirective = "// native-only"
+
+let errorLocationSplit = " at "
+
+// The UTF-8 byte order mark: EF BB BF.
+let byteOrderMarkBytes = 3 as Count
+
+let carriageReturnByte = 13 as Byte
+
+let newlineByte = 10 as Byte
+
+let spaceByte = 32 as Byte
+
+let zeroByte = 48 as Byte
+
+let nineByte = 57 as Byte
+
+let tabByte = 9 as Byte
+
+// The width of the text after "//>" that is the program's stdout: one space after the marker belongs to the marker.
+let stdoutMarkerBytes = 3 as Count
+
+// An exit code at or above this is a negative number to the system, as the Go runner prints it.
+let signBit = 2147483648
+
+let exitCodeRange = 4294967296
+
+let decimalBase = 10 as Count
+
+// Expectation is what the directives of a test program say.
+type Expectation
+	var error as String
+	var hasError as bool
+	var exit as ExitCode
+	var stdout as String
+	var memoryLimitMB as Count
+	var nativeOnly as bool
+
+	static function new() returns Expectation
+		return Expectation{error: "", hasError: false, exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false}
+	end 'new'
+end 'Expectation'
+
+// TestOutcome is how a test of the corpus ended. A test that the compiler cannot attempt yet is unsupported, which is
+// neither a pass nor a failure.
+enum TestOutcome
+	testPassed
+	testFailed
+	testUnsupported
+end 'TestOutcome'
+
+type TestResult
+	var outcome as TestOutcome
+	var failure as String
+
+	static function passed() returns TestResult
+		return TestResult{outcome: TestOutcome.testPassed, failure: ""}
+	end 'passed'
+
+	static function failed(consumes failure String) returns TestResult
+		return TestResult{outcome: TestOutcome.testFailed, failure: failure}
+	end 'failed'
+
+	static function unsupported() returns TestResult
+		return TestResult{outcome: TestOutcome.testUnsupported, failure: ""}
+	end 'unsupported'
+end 'TestResult'
+
+function hasPrefix(text String, prefix String) returns bool
+	let n = prefix.byteLength()
+	if text.byteLength() < n 'short'
+		return false
+	end 'short'
+	return text.sliceBytes(0, endPos: n) == prefix
+end 'hasPrefix'
+
+function isSpaceByte(c Byte) returns bool
+	return c == spaceByte or (c >= tabByte and c <= carriageReturnByte)
+end 'isSpaceByte'
+
+function trimLeft(text String) returns String
+	var start = 0 as Count
+	let n = text.byteLength()
+	while start < n and isSpaceByte(text.byteAt(start)) 'skip'
+		start = start + 1
+	end 'skip'
+	return text.sliceBytes(start, endPos: n)
+end 'trimLeft'
+
+function trimSpace(text String) returns String
+	var start = 0 as Count
+	var finish = text.byteLength()
+	while start < finish and isSpaceByte(text.byteAt(start)) 'skipLeft'
+		start = start + 1
+	end 'skipLeft'
+	while finish > start and isSpaceByte(text.byteAt(try finish - 1 otherwise 0)) 'skipRight'
+		finish = try finish - 1 otherwise 0
+	end 'skipRight'
+	return text.sliceBytes(start, endPos: finish)
+end 'trimSpace'
+
+// matchesAt is whether needle stands in text at the byte at.
+function matchesAt(text String, at Count, needle String) returns bool
+	let room = try text.byteLength() - at otherwise return false
+	if needle.byteLength() > room 'short'
+		return false
+	end 'short'
+	for i in 0 upto needle.byteLength() 'bytes'
+		let position = try at + i otherwise return false
+		if text.byteAt(position) != needle.byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'bytes'
+	return true
+end 'matchesAt'
+
+// findText is where needle first stands in text.
+function findText(text String, needle String) returns table.Option with Count
+	for at in 0 upto text.byteLength() 'scan'
+		if matchesAt(text, at: at, needle: needle) 'found'
+			return table.Option.some(at)
+		end 'found'
+	end 'scan'
+	return table.Option.none
+end 'findText'
+
+// parseCount is the number that text writes in decimal digits.
+function parseCount(text String) returns table.Option with Count
+	if text.byteLength() == 0 'empty'
+		return table.Option.none
+	end 'empty'
+	var value = 0 as Count
+	for i in 0 upto text.byteLength() 'digits'
+		let c = text.byteAt(i)
+		if c < zeroByte or c > nineByte 'notDigit'
+			return table.Option.none
+		end 'notDigit'
+		let digit = (try c - zeroByte otherwise 0) as Count
+		value = try value * decimalBase + digit otherwise return table.Option.none
+	end 'digits'
+	return table.Option.some(value)
+end 'parseCount'
+
+// withoutCarriageReturns is text with each CRLF made LF, and each lone CR too when loneToo is set.
+function withoutCarriageReturns(text String, loneToo bool) returns String
+	var out = ByteArray.create(0)
+	let n = text.byteLength()
+	for i in 0 upto n 'bytes'
+		let c = text.byteAt(i)
+		if c != carriageReturnByte 'plain'
+			out.push(c)
+		end 'plain' else if i + 1 < n and text.byteAt(i + 1) == newlineByte 'crlf'
+			_ = 0
+		end 'crlf' else if loneToo 'lone'
+			out.push(newlineByte)
+		end 'lone' else 'kept'
+			out.push(c)
+		end 'kept'
+	end 'bytes'
+	return String.from(out)
+end 'withoutCarriageReturns'
+
+function hasByteOrderMark(text String) returns bool
+	return text.byteLength() >= byteOrderMarkBytes and text.byteAt(0) == 0xEF and text.byteAt(1) == 0xBB and text.byteAt(2) == 0xBF
+end 'hasByteOrderMark'
+
+// readLines is the lines of a file, whatever its line endings, without a byte order mark.
+function readLines(path String) returns ast.StringList
+	let filePath = try FilePath.from(path) otherwise panic("test: {path} is not a path")
+	let content = try File.readText(filePath) otherwise panic("test: cannot read {path}")
+	var text = content.clone()
+	if hasByteOrderMark(text) 'bom'
+		text = text.sliceBytes(byteOrderMarkBytes, endPos: text.byteLength())
+	end 'bom'
+	text = withoutCarriageReturns(text, loneToo: true)
+	var lines = ast.StringList.create(0)
+	var start = 0 as Count
+	let n = text.byteLength()
+	for i in 0 upto n 'scan'
+		if text.byteAt(i) == newlineByte 'cut'
+			lines.push(text.sliceBytes(start, endPos: i))
+			start = i + 1
+		end 'cut'
+	end 'scan'
+	lines.push(text.sliceBytes(start, endPos: n))
+	return lines
+end 'readLines'
+
+// directiveNumber is the number a directive's text holds, for the directive that file has on one of its lines.
+function directiveNumber(text String, file String, directive String) returns Count
+	return match consumes parseCount(trimSpace(text)) 'number'
+		some(n) gives n
+		none panic("test: {file}: malformed {directive}")
+	end 'number'
+end 'directiveNumber'
+
+function afterPrefix(line String, prefix String) returns String
+	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength())
+end 'afterPrefix'
+
+// applyDirective adds what one line of a test program says, when it is a directive, to the expectation.
+function applyDirective(mutates expect Expectation, mutates stdout ByteArray, line String, file String)
+	if hasPrefix(line, prefix: expectErrorPrefix) 'error'
+		expect.error = trimSpace(afterPrefix(line, prefix: expectErrorPrefix))
+		expect.hasError = true
+	end 'error' else if hasPrefix(line, prefix: expectExitPrefix) 'exit'
+		let n = directiveNumber(afterPrefix(line, prefix: expectExitPrefix), file: file, directive: "expect-exit")
+		expect.exit = try n as ExitCode otherwise panic("test: {file}: malformed expect-exit")
+	end 'exit' else if hasPrefix(line, prefix: expectMemoryPrefix) 'memory'
+		let n = directiveNumber(afterPrefix(line, prefix: expectMemoryPrefix), file: file, directive: "memory-limit")
+		if n < 1 'zero'
+			panic("test: {file}: malformed memory-limit: write a number of megabytes")
+		end 'zero'
+		expect.memoryLimitMB = n
+	end 'memory' else if line == nativeOnlyDirective 'native'
+		expect.nativeOnly = true
+	end 'native' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
+		var skip = stdoutMarkerBytes
+		if line.byteLength() > stdoutMarkerBytes and line.byteAt(stdoutMarkerBytes) == spaceByte 'space'
+			skip = stdoutMarkerBytes + 1
+		end 'space'
+		stdout.append(line.sliceBytes(skip, endPos: line.byteLength()).toByteArray())
+		stdout.push(newlineByte)
+	end 'stdout'
+end 'applyDirective'
+
+// projectSources is the source files of a project's directory, in order.
+function projectSources(dir String, mutates files ast.StringList)
+	let dirPath = try FilePath.from(dir) otherwise panic("test: {dir} is not a path")
+	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {dir}")
+	for i in 0 upto listed.count() 'entries'
+		let name = project.lastComponent(listed[i].toString())
+		if project.endsWithMaxon(name) 'source'
+			files.push(project.joinPath(dir, name: name))
+		end 'source'
+	end 'entries'
+	project.sortStrings(files)
+end 'projectSources'
+
+// readExpectation reads the directives of a program, a file or a project's directory, whose files are read in order.
+function readExpectation(program String) returns Expectation
+	var expect = Expectation.new()
+	var stdout = ByteArray.create(0)
+	var files = ast.StringList.create(0)
+	if project.isDirectoryPath(program) 'project'
+		projectSources(program, files: files)
+	end 'project' else 'single'
+		files.push(program.clone())
+	end 'single'
+	for f in 0 upto files.count() 'files'
+		let lines = readLines(files[f])
+		for l in 0 upto lines.count() 'lines'
+			applyDirective(expect, stdout: stdout, line: trimLeft(lines[l]), file: files[f])
+		end 'lines'
+	end 'files'
+	expect.stdout = String.from(stdout)
+	return expect
+end 'readExpectation'
+
+// collectPrograms adds the source files under dir, except those under modulesRoot, which holds projects.
+function collectPrograms(dir String, modulesRoot String, mutates files ast.StringList)
+	let dirPath = try FilePath.from(dir) otherwise panic("test: {dir} is not a path")
+	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {dir}")
+	for i in 0 upto listed.count() 'entries'
+		let full = project.joinPath(dir, name: project.lastComponent(listed[i].toString()))
+		if project.isDirectoryPath(full) 'directory'
+			if full != modulesRoot 'program'
+				collectPrograms(full, modulesRoot: modulesRoot, files: files)
+			end 'program'
+		end 'directory' else if project.endsWithMaxon(full) 'source'
+			files.push(full)
+		end 'source'
+	end 'entries'
+end 'collectPrograms'
+
+// collectProjects adds the directories of modulesRoot, each a project.
+function collectProjects(modulesRoot String, mutates files ast.StringList)
+	if not project.isDirectoryPath(modulesRoot) 'none'
+		return
+	end 'none'
+	let dirPath = try FilePath.from(modulesRoot) otherwise panic("test: {modulesRoot} is not a path")
+	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {modulesRoot}")
+	for i in 0 upto listed.count() 'entries'
+		let full = project.joinPath(modulesRoot, name: project.lastComponent(listed[i].toString()))
+		if project.isDirectoryPath(full) 'project'
+			files.push(full)
+		end 'project'
+	end 'entries'
+end 'collectProjects'
+
+// testCommand is `test [dir]`: the corpus is the given directory, or else the nearest tests directory from the
+// executable's upward.
+function testCommand(rest CommandNames) returns ExitCode
+	if rest.count() >= 2 'given'
+		return runTests(rest[1])
+	end 'given'
+	return match consumes project.nearestDirectory(testsDirName) 'nearest'
+		some(dir) gives runTests(dir)
+		none gives usageError()
+	end 'nearest'
+end 'testCommand'
+
+function usageError() returns ExitCode
+	printError("test: no directory of tests: name one, or run the compiler from a checkout that has tests\n")
+	return usageExitCode
+end 'usageError'
+
+// runTests runs every program and project of the corpus in dir, one after another, printing a line for each and the
+// failures and the counts at the end.
+function runTests(dir String) returns ExitCode
+	let root = project.absolutePath(dir)
+	if not project.isDirectoryPath(root) 'missing'
+		panic("test: cannot read {root}")
+	end 'missing'
+	let modulesRoot = project.joinPath(root, name: modulesDir)
+	var files = ast.StringList.create(0)
+	collectPrograms(root, modulesRoot: modulesRoot, files: files)
+	collectProjects(modulesRoot, files: files)
+	project.sortStrings(files)
+	var failures = ast.StringList.create(0)
+	var unsupported = 0 as Count
+	for i in 0 upto files.count() 'tests'
+		let file = files[i].clone()
+		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
+		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
+		let result = runTest(file, expect: readExpectation(file))
+		var status = "PASS"
+		if result.outcome == TestOutcome.testFailed 'failed'
+			status = "FAIL"
+			failures.push("{name}: {result.failure}")
+		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
+			status = "SKIP"
+			unsupported = unsupported + 1
+		end 'unsupported'
+		print("{status}  {name}\n")
+	end 'tests'
+	print("\n")
+	for i in 0 upto failures.count() 'failures'
+		print("{failures[i]}\n")
+	end 'failures'
+	let passed = try files.count() - failures.count() - unsupported otherwise panic("test: more failures than tests")
+	print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported\n")
+	if failures.count() == 0 'clean'
+		return 0
+	end 'clean'
+	return diagnosticsExitCode
+end 'runTests'
+
+// compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
+// an error the generate stage raises gets it. The executables count their live heap boxes.
+function compileForTest(file String, output String) returns diag.ErrorList
+	var options = Options.new()
+	options.countAllocations = true
+	var errs = diag.ErrorList.create(0)
+	compileProject(file, output: output, options: options, errs: errs)
+	diag.sortErrors(errs)
+	return errs
+end 'compileForTest'
+
+function joinErrors(errs diag.ErrorList) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto errs.count() 'each'
+		if i > 0 'separator'
+			out.append("; ".toByteArray())
+		end 'separator'
+		out.append(errs[i].format().toByteArray())
+	end 'each'
+	return String.from(out)
+end 'joinErrors'
+
+function positionText(e diag.CompileError) returns String
+	return "{e.line}:{e.col}"
+end 'positionText'
+
+// onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list, a pool, a frozen value,
+// a cown or a behaviour, which the compiler has no code for yet.
+function onlyInterpreterErrors(errs diag.ErrorList) returns bool
+	for i in 0 upto errs.count() 'each'
+		if errs[i].code != diag.errInterpreterOnly 'other'
+			return false
+		end 'other'
+	end 'each'
+	return errs.count() > 0
+end 'onlyInterpreterErrors'
+
+// runTest compiles a test program and checks the result against what its directives say. The executable lives only as
+// long as the test.
+function runTest(file String, expect Expectation) returns TestResult
+	let exe = temporaryExecutable(file)
+	let errs = compileForTest(file, output: exe)
+	let result = checkTest(expect, errs: errs, exe: exe)
+	if errs.count() == 0 'built'
+		let exePath = try FilePath.from(exe) otherwise panic("test: {exe} is not a path")
+		try File.delete(exePath) otherwise panic("test: cannot delete {exe}")
+	end 'built'
+	return result
+end 'runTest'
+
+// checkTest is whether a compile that gave errs, and the executable at exe when it gave none, is what expect says.
+// There is no interpreter here, so a program that only the interpreter runs is not one this compiler is measured by.
+function checkTest(expect Expectation, errs diag.ErrorList, exe String) returns TestResult
+	if expect.hasError 'expected'
+		return checkExpectedError(expect, errs: errs)
+	end 'expected'
+	let interpreterOnly = onlyInterpreterErrors(errs)
+	if errs.count() > 0 and not interpreterOnly 'failed'
+		return TestResult.failed(joinErrors(errs))
+	end 'failed'
+	if interpreterOnly 'unsupported'
+		return TestResult.unsupported()
+	end 'unsupported'
+	return runNative(exe, expect: expect)
+end 'checkTest'
+
+// checkExpectedError is whether errs holds the error of the expect-error directive: its code, and its position when the
+// directive gives one.
+function checkExpectedError(expect Expectation, errs diag.ErrorList) returns TestResult
+	var code = expect.error.clone()
+	var at = ""
+	let split = findText(expect.error, needle: errorLocationSplit)
+	let hasAt = split.isSome()
+	if hasAt 'positioned'
+		let found = split.unwrap()
+		code = expect.error.sliceBytes(0, endPos: found)
+		let atStart = try found + errorLocationSplit.byteLength() otherwise panic("test: {expect.error} is too long")
+		at = expect.error.sliceBytes(atStart, endPos: expect.error.byteLength())
+	end 'positioned'
+	for i in 0 upto errs.count() 'each'
+		if errs[i].code == code and (not hasAt or at == positionText(errs[i])) 'found'
+			return TestResult.passed()
+		end 'found'
+	end 'each'
+	if errs.count() == 0 'compiled'
+		return TestResult.failed("expected {expect.error}, but it compiled")
+	end 'compiled'
+	return TestResult.failed("expected {expect.error}, got: {joinErrors(errs)}")
+end 'checkExpectedError'
+
+// exitCodeText is an exit code as a signed number, as the system reports a crash.
+function exitCodeText(code ExitCode) returns String
+	if code >= signBit 'negative'
+		return "-{exitCodeRange - code}"
+	end 'negative'
+	return "{code}"
+end 'exitCodeText'
+
+// runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
+// of the directive is not enforced, and nothing ends a program that never exits.
+function runNative(exe String, expect Expectation) returns TestResult
+	let exePath = try FilePath.from(exe) otherwise return TestResult.failed("cannot run {exe}")
+	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return TestResult.failed("cannot run {exe}")
+	let actual = withoutCarriageReturns(out.stdout, loneToo: false)
+	let code = out.exitCode()
+	if code != expect.exit 'exit'
+		var limit = ""
+		if expect.memoryLimitMB > 0 'limited'
+			limit = " (the program may have used more than its {expect.memoryLimitMB} MB, which fails an allocation and crashes it)"
+		end 'limited'
+		return TestResult.failed("exit {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{limit}; stderr: {trimSpace(out.stderr)}")
+	end 'exit'
+	if actual != expect.stdout 'stdout'
+		return TestResult.failed("stdout differs\n--- expected\n{expect.stdout}--- actual\n{actual}")
+	end 'stdout'
+	return TestResult.passed()
+end 'runNative'

@@ -14,7 +14,7 @@ type DiscoveredDir
 	end 'make'
 end 'DiscoveredDir'
 
-function endsWithMaxon(name String) returns bool
+export function endsWithMaxon(name String) returns bool
 	let sn = 6 as Count
 	let n = name.byteLength()
 	if n <= sn 'short'
@@ -24,7 +24,7 @@ function endsWithMaxon(name String) returns bool
 	return name.sliceBytes(start, endPos: n) == ".maxon"
 end 'endsWithMaxon'
 
-function sortStrings(mutates xs ast.StringList)
+export function sortStrings(mutates xs ast.StringList)
 	let n = xs.count()
 	for i in 1 upto n 'ins'
 		var j = i
@@ -58,7 +58,7 @@ function trimTrailingSlash(p String) returns String
 	return p.sliceBytes(0 as Count, endPos: endPos)
 end 'trimTrailingSlash'
 
-function joinPath(dir String, name String) returns String
+export function joinPath(dir String, name String) returns String
 	let clean = trimTrailingSlash(dir)
 	if clean == "" or clean == "." 'cur'
 		if clean == "." 'dot'
@@ -127,10 +127,16 @@ let dotByte = 46 as Byte
 // directory, from the compiler's executable's upward, that has one. A compiler built in a checkout finds the checkout's, and
 // an installed one the one installed beside it.
 export function runtimeDirectory() returns table.Option with String
+	return nearestDirectory(runtimeDirName)
+end 'runtimeDirectory'
+
+// nearestDirectory is the directory called name of the nearest directory, from the compiler's executable's upward, that has
+// one.
+export function nearestDirectory(name String) returns table.Option with String
 	let exe = try Process.executablePath() otherwise return table.Option.none
 	var dir = parentDir(exe.toString())
 	while true 'up'
-		let candidate = joinPath(dir, name: runtimeDirName)
+		let candidate = joinPath(dir, name: name)
 		if isDirectoryPath(candidate) 'found'
 			return table.Option.some(candidate)
 		end 'found'
@@ -141,7 +147,7 @@ export function runtimeDirectory() returns table.Option with String
 		dir = parent
 	end 'up'
 	return table.Option.none
-end 'runtimeDirectory'
+end 'nearestDirectory'
 
 // isRuntimeDirectory is whether a project's directory is the runtime's source, which is then checked as the runtime: it
 // may call the __Raw intrinsics, and it is a library with no main.
@@ -168,7 +174,7 @@ end 'isAbsolutePath'
 
 // absolutePath is a path from the working directory's, with the native separator, without '.' and '..' and without a
 // trailing separator, as Go's filepath.Abs gives it.
-function absolutePath(path String) returns String
+export function absolutePath(path String) returns String
 	var full = path.clone()
 	if not isAbsolutePath(path) 'relative'
 		full = joinPath(Directory.currentPath().toString(), name: path)
@@ -236,7 +242,7 @@ end 'foldCase'
 typealias FilePathList = Array with FilePath
 
 // isDirectoryPath is whether text names a directory; a text that is no path names none.
-function isDirectoryPath(text String) returns bool
+export function isDirectoryPath(text String) returns bool
 	let path = try FilePath.from(text) otherwise return false
 	return Directory.isDirectory(path)
 end 'isDirectoryPath'
@@ -249,7 +255,7 @@ function readTextFile(text String) returns table.Option with String
 end 'readTextFile'
 
 // lastComponent is what follows the last separator of a path that Directory.list gave: the entry's name.
-function lastComponent(path String) returns String
+export function lastComponent(path String) returns String
 	var at = path.byteLength()
 	while at > 0 'back'
 		let before = try at - 1 otherwise 0
