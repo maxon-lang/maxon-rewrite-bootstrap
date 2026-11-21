@@ -163,6 +163,9 @@ git worktree add --detach .claude/worktrees/<task> HEAD
   files. It measures by converting into a scratch directory and running only the spec files its feature unskips
   (the user wants no full spec run until Phase 3); the main session runs `specs.ps1` after merging, which adds
   the new passes to `specs/passed.txt`.
+- `git stash` is one stack shared by every worktree: an agent that stashes to build a "before" compiler can pop
+  another agent's work. The brief says never to use it; a "before" measurement is taken first, on the unchanged
+  tree, or from a copy of the tree in the scratch directory.
 - `.claude/worktrees/` is in `.git/info/exclude`, so the main tree's `git status` and Grep do not see it.
 - After merging: `git worktree remove --force .claude/worktrees/<task>` (`git worktree unlock` first for one the
   harness created).
