@@ -1,0 +1,787 @@
+// The ownership pass checks a function's values after typing: that every value has one owner and is not used after it
+// moved or before it exists, that each argument follows its parameter's convention, that a borrow is never kept, and
+// that no two accesses to one place overlap. It marks each expression whose value changes owner consumed
+// (ast.Typing.consumed), which is how lowering learns where a value moves.
+
+export enum OwnFactKind
+	factMoved
+	factUninitialised
+	// factPartlyMoved is a local that lost some of its fields, which the fact's moves list.
+	factPartlyMoved
+end 'OwnFactKind'
+
+export enum OwnDestKind
+	destVariable
+	destParameter
+	destField
+	destReturn
+	destResult
+	destElement
+	destBehaviour
+	destMatch
+	destDestructor
+end 'OwnDestKind'
+
+// OwnDest is where a moved value went, for the message that names the move.
+export type OwnDest
+	export var kind as OwnDestKind
+	export var name as String
+
+	export static function make(kind OwnDestKind, consumes name String) returns OwnDest
+		return OwnDest{kind: kind, name: name}
+	end 'make'
+
+	export static function of(kind OwnDestKind) returns OwnDest
+		return OwnDest{kind: kind, name: ""}
+	end 'of'
+
+	export function text() returns String
+		return match kind 'k'
+			destVariable gives "variable '{name}'"
+			destParameter gives "parameter '{name}'"
+			destField gives "field '{name}'"
+			destReturn gives "the return value"
+			destResult gives "the result of a conditional or match"
+			destElement gives "an element of '{name}'"
+			destBehaviour gives "a behaviour"
+			destMatch gives "a 'match consumes'"
+			destDestructor gives "a destructor"
+		end 'k'
+	end 'text'
+end 'OwnDest'
+
+// OwnFact is why a local holds no value, or only some of one: a move out of it, a declaration that left it
+// uninitialised, or moves of some of its fields.
+export type OwnFact
+	export var local as ast.LocalID
+	export var site as diag.U32
+	export var kind as OwnFactKind
+	export var dest as OwnDest
+	// moves are the fields gone from a partly moved local, none inside another; empty for any other fact.
+	export var moves as OwnMoves
+
+	export static function make(local ast.LocalID, site diag.U32, kind OwnFactKind, consumes dest OwnDest) returns OwnFact
+		return OwnFact{local: local, site: site, kind: kind, dest: dest, moves: OwnMoves.create(0)}
+	end 'make'
+
+	export static function partly(local ast.LocalID, site diag.U32, consumes moves OwnMoves) returns OwnFact
+		return OwnFact{local: local, site: site, kind: OwnFactKind.factPartlyMoved, dest: OwnDest.of(OwnDestKind.destVariable), moves: moves}
+	end 'partly'
+
+	export function isPartial() returns bool
+		return kind == OwnFactKind.factPartlyMoved
+	end 'isPartial'
+end 'OwnFact'
+
+export typealias OwnFacts = Array with OwnFact
+
+// OwnState is what the pass knows at a point of a function: the facts of the locals that hold nothing or only part of
+// their value, in the order of their LocalIDs, or that no path reaches the point.
+export type OwnState
+	export var dead as bool
+	export var facts as OwnFacts
+
+	export static function clean() returns OwnState
+		return OwnState{dead: false, facts: OwnFacts.create(0)}
+	end 'clean'
+
+	export static function unreachable() returns OwnState
+		return OwnState{dead: true, facts: OwnFacts.create(0)}
+	end 'unreachable'
+
+	// find is the index of the fact of a local, or the count of facts when it has none.
+	export function find(l ast.LocalID) returns table.Option with Count
+		for i in 0 upto facts.count() 'each'
+			if facts[i].local == l 'hit'
+				return table.Option.some(i)
+			end 'hit'
+		end 'each'
+		return table.Option.none
+	end 'find'
+
+	export function has(l ast.LocalID) returns bool
+		return self.find(l).isSome()
+	end 'has'
+
+	// factOf is the fact of a local that has one.
+	export function factOf(l ast.LocalID) returns OwnFact
+		match self.find(l) 'hit'
+			some(i) then return facts[i].clone()
+			none then panic("ownership: the local {l} has no fact")
+		end 'hit'
+	end 'factOf'
+
+	// hasPartial is whether a local has lost some of its fields.
+	export function hasPartial(l ast.LocalID) returns bool
+		return match self.find(l) 'hit'
+			some(i) gives facts[i].isPartial()
+			none gives false
+		end 'hit'
+	end 'hasPartial'
+end 'OwnState'
+
+// withFact is the state with a local's fact set.
+function withFact(consumes s OwnState, consumes fact OwnFact) returns OwnState
+	var out = s
+	if out.dead 'dead'
+		return out
+	end 'dead'
+	for i in 0 upto out.facts.count() 'each'
+		if out.facts[i].local == fact.local 'same'
+			out.facts[i] = fact
+			return out
+		end 'same'
+		if out.facts[i].local > fact.local 'after'
+			out.facts.insert(i, value: fact)
+			return out
+		end 'after'
+	end 'each'
+	out.facts.push(fact)
+	return out
+end 'withFact'
+
+// without is the state with a local's fact gone: the local holds its value again.
+function without(consumes s OwnState, l ast.LocalID) returns OwnState
+	var out = s
+	if out.dead 'dead'
+		return out
+	end 'dead'
+	match out.find(l) 'hit'
+		some(i) then _ = try out.facts.remove(i) otherwise panic("ownership: a fact vanished")
+		none then _ = 0
+	end 'hit'
+	return out
+end 'without'
+
+// mergeOwn is what two paths say: a local that holds nothing on either path holds nothing where they meet.
+function mergeOwn(consumes a OwnState, consumes b OwnState) returns OwnState
+	if b.dead 'bDead'
+		return a
+	end 'bDead'
+	if a.dead 'aDead'
+		return b
+	end 'aDead'
+	if b.facts.count() == 0 'bClean'
+		return a
+	end 'bClean'
+	if a.facts.count() == 0 'aClean'
+		return b
+	end 'aClean'
+	var out = a
+	for i in 0 upto b.facts.count() 'each'
+		match out.find(b.facts[i].local) 'hit'
+			some(j) then out.facts[j] = mergeFacts(out.facts[j], b: b.facts[i])
+			none then out = withFact(out, fact: b.facts[i].clone())
+		end 'hit'
+	end 'each'
+	return out
+end 'mergeOwn'
+
+// sameState is whether two states say the same: a loop whose next entry says nothing new needs no further walk.
+function sameState(a OwnState, b OwnState) returns bool
+	if a.dead != b.dead or a.facts.count() != b.facts.count() 'differ'
+		return false
+	end 'differ'
+	for i in 0 upto a.facts.count() 'each'
+		if not sameFact(a.facts[i], b: b.facts[i]) 'fact'
+			return false
+		end 'fact'
+	end 'each'
+	return true
+end 'sameState'
+
+function sameFact(a OwnFact, b OwnFact) returns bool
+	if a.local != b.local or a.kind != b.kind or a.site != b.site or a.dest.kind != b.dest.kind or a.dest.name != b.dest.name or a.moves.count() != b.moves.count() 'differ'
+		return false
+	end 'differ'
+	for i in 0 upto a.moves.count() 'each'
+		if a.moves[i].site != b.moves[i].site or not a.moves[i].covers(b.moves[i].fields) or not b.moves[i].covers(a.moves[i].fields) 'move'
+			return false
+		end 'move'
+	end 'each'
+	return true
+end 'sameFact'
+
+// OwnDropKind is how a value that nothing moved comes to be dropped, for the message of E3919.
+export enum OwnDropKind
+	dropScopeEnd
+	dropReturn
+	dropBreak
+	dropContinue
+	dropOverwrite
+	dropTemporary
+	dropDiscard
+	dropParameter
+	dropPayload
+	dropOtherPath
+	dropFailure
+end 'OwnDropKind'
+
+// OwnDrop is an implicit drop: the kind, and the name of the variable, parameter or payload it concerns.
+export type OwnDrop
+	export var kind as OwnDropKind
+	export var name as String
+
+	export static function make(kind OwnDropKind, consumes name String) returns OwnDrop
+		return OwnDrop{kind: kind, name: name}
+	end 'make'
+
+	export function text() returns String
+		return match kind 'k'
+			dropScopeEnd gives "'{name}' still holds its value when its scope ends, which drops it"
+			dropReturn gives "'{name}' still holds its value at this 'return', which drops it"
+			dropBreak gives "'{name}' still holds its value at this 'break', which drops it"
+			dropContinue gives "'{name}' still holds its value at this 'continue', which drops it"
+			dropOverwrite gives "this assignment drops the value that '{name}' holds"
+			dropTemporary gives "this value is dropped when the statement ends, because nothing takes it"
+			dropDiscard gives "this value is dropped by the discard"
+			dropParameter gives "the parameter '{name}' drops the value it is given"
+			dropPayload gives "this arm drops the payload '{name}' that it does not name"
+			dropOtherPath gives "'{name}' is moved on one path only, so the other path drops it"
+			dropFailure gives "'{name}' still holds its value where this can fail, and a failure leaves its scope, which drops it"
+		end 'k'
+	end 'text'
+end 'OwnDrop'
+
+// OwnObliged is a local that owns a value which cannot be dropped, so it must be moved or ended before its scope does.
+// site is where it is declared.
+export type OwnObliged
+	export var local as ast.LocalID
+	export var site as diag.U32
+	// destroys is the self of a destructor: it is not dropped as a whole, it ends by dropping the fields that are left.
+	export var destroys as bool
+
+	export static function make(local ast.LocalID, site diag.U32, destroys bool) returns OwnObliged
+		return OwnObliged{local: local, site: site, destroys: destroys}
+	end 'make'
+end 'OwnObliged'
+
+export typealias OwnObligedList = Array with OwnObliged
+
+export type OwnFrame
+	export var target as ast.NodeID
+	export var breaks as OwnState
+	export var continues as OwnState
+	// obliged is the length of the obliged stack where the loop or match starts: a jump to it leaves the locals above.
+	export var obliged as Count
+
+	export static function make(target ast.NodeID, obliged Count) returns OwnFrame
+		return OwnFrame{target: target, breaks: OwnState.unreachable(), continues: OwnState.unreachable(), obliged: obliged}
+	end 'make'
+end 'OwnFrame'
+
+export typealias OwnFrames = Array with OwnFrame
+
+export enum OwnProjectionKind
+	projectMatch
+	projectArgument
+	projectTarget
+	projectOperand
+	projectCollection
+	projectPart
+end 'OwnProjectionKind'
+
+// OwnProjection is a place that stays borrowed while code runs which must not change it: a match subject whose payload
+// bindings borrow from it while an arm runs, or a place that an expression has evaluated to a borrow and uses again once
+// the rest of the expression has run: an argument of a call while the arguments after it are evaluated, the target of an
+// assignment while its value is computed, the left operand of a string comparison, the collection of a subscript while
+// its index is computed, the first part of an interpolated string while the second is. The borrow is taken before the
+// code runs and lasts until it is used, so what the code changes would leave it pointing at what moved.
+export type OwnProjection
+	export var subject as AccessPath
+	// place is the expression whose path is the subject, until the path is needed: most calls never meet a conflict.
+	// Once found, subject holds it, with no root if the expression is not a place, and place is 0.
+	export var place as ast.NodeID
+	export var kind as OwnProjectionKind
+	// ty is the type of the borrowed place, which a message needs to say whether a copy of it can be had.
+	export var ty as ast.TypeID
+
+	export static function make(consumes subject AccessPath, place ast.NodeID, kind OwnProjectionKind, ty ast.TypeID) returns OwnProjection
+		return OwnProjection{subject: subject, place: place, kind: kind, ty: ty}
+	end 'make'
+end 'OwnProjection'
+
+export typealias OwnProjections = Array with OwnProjection
+
+// CallAccess is an argument of a call that names a place, with how the callee takes it.
+export type CallAccess
+	export var expr as ast.NodeID
+	export var path as AccessPath
+	export var conv as ast.Convention
+
+	export static function make(expr ast.NodeID, consumes path AccessPath, conv ast.Convention) returns CallAccess
+		return CallAccess{expr: expr, path: path, conv: conv}
+	end 'make'
+end 'CallAccess'
+
+export typealias CallAccesses = Array with CallAccess
+
+// OwnCatch is a try being checked. A failure in what it covers goes to its handler, leaving the scopes opened since the
+// try began, or with no handler leaves the function; entry is the join of the states at those failures.
+export type OwnCatch
+	export var propagates as bool
+	export var entry as OwnState
+	export var obliged as Count
+
+	export static function make(propagates bool, obliged Count) returns OwnCatch
+		return OwnCatch{propagates: propagates, entry: OwnState.unreachable(), obliged: obliged}
+	end 'make'
+end 'OwnCatch'
+
+export typealias OwnCatches = Array with OwnCatch
+
+// Ownership is the pass over one module. It holds the module's checker, which answers which types can be copied and
+// dropped and where the pass marks what it finds consumed, and the errors, for the time it runs.
+export type Ownership
+	export var c as Checker
+	export var errs as diag.ErrorList
+	export var fn as ast.FuncID
+	export var frames as OwnFrames
+	export var projections as OwnProjections
+	export var setParams as ast.LocalIDList
+	// initialising are the variables that the call being checked gives a value, through sets parameters. They have one
+	// when the call has run, so the arguments of that same call still find them empty.
+	export var initialising as ast.LocalIDList
+	export var accesses as CallAccesses
+	// obliged are the locals in scope that own a value which cannot be dropped, in declaration order. A scope ends by
+	// checking and removing the ones it declared; the facts of an obliged local say that it holds nothing.
+	export var obliged as OwnObligedList
+	// partials counts the partly moved facts the function has made: while it is 0, a read or an assignment of a field
+	// path needs no look at the facts.
+	export var partials as Count
+	// catches are the trys around the code being checked, innermost last.
+	export var catches as OwnCatches
+	// inFlight are the values of the expression being checked that have been computed for something that takes them and
+	// that cannot be dropped: a failure before the taker runs would drop them.
+	export var inFlight as ast.NodeIDList
+
+	export static function make(consumes c Checker, consumes errs diag.ErrorList) returns Ownership
+		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0)}
+	end 'make'
+end 'Ownership'
+
+// truncate shortens a stack to its first mark entries.
+function truncate(mutates xs Array with T, mark Count) uses T where T implements Droppable
+	while xs.count() > mark 'pop'
+		_ = try xs.pop() otherwise panic("ownership: a stack ran out")
+	end 'pop'
+end 'truncate'
+
+// checkOwnership is the ownership pass over a module: the values its declarations hold outside any function, then the
+// functions the declare stage declared, in the order of their declarations.
+function checkOwnership(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+	let modID = c.modID
+	let checker = exchange(c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
+	let found = exchange(errs, value: diag.ErrorList.create(0))
+	var o = Ownership.make(checker, errs: found)
+	var isDeclared = BoolIntMap.new()
+	for i in 0 upto functions.count() 'mark'
+		isDeclared.insert(functions[i] as Count, value: true)
+	end 'mark'
+	for i in 0 upto p.modules[o.c.modIdx].decls.count() 'values'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		checkValues(o, p: p, ord: ord)
+	end 'values'
+	for i in 0 upto p.modules[o.c.modIdx].decls.count() 'functions'
+		let d = p.modules[o.c.modIdx].decls[i].clone()
+		match d 'k'
+			funcDecl(f) then checkIfDeclaredOwn(o, p: p, f: f, isDeclared: isDeclared)
+			typeDecl(td) then checkMethodsOwn(o, p: p, methods: td.methods, isDeclared: isDeclared)
+			unionDecl(ud) then checkMethodsOwn(o, p: p, methods: ud.methods, isDeclared: isDeclared)
+			enumDecl(ed) then checkMethodsOwn(o, p: p, methods: ed.methods, isDeclared: isDeclared)
+			constDecl(_) then _ = 0
+			aliasDecl(_) then _ = 0
+			interfaceDecl(_) then _ = 0
+		end 'k'
+	end 'functions'
+	errs = exchange(o.errs, value: diag.ErrorList.create(0))
+	c = exchange(o.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
+end 'checkOwnership'
+
+function checkMethodsOwn(mutates o Ownership, mutates p ast.Project, methods ast.FuncDeclList, isDeclared BoolIntMap)
+	for i in 0 upto methods.count() 'each'
+		checkIfDeclaredOwn(o, p: p, f: methods[i], isDeclared: isDeclared)
+	end 'each'
+end 'checkMethodsOwn'
+
+function checkIfDeclaredOwn(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap)
+	match consumes p.nodeFuncs.get(ast.nodeKey(o.c.modID, node: f.id)) 'entry'
+		some(fid) then checkIfListed(o, p: p, f: f, fid: fid, isDeclared: isDeclared)
+		none then panic("the function '{f.name}' of module {o.c.modID} has no entry")
+	end 'entry'
+end 'checkIfDeclaredOwn'
+
+function checkIfListed(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap)
+	if not isDeclared.has(fid as Count) 'notListed'
+		return
+	end 'notListed'
+	var sites = ast.NodeIDList.create(0)
+	for i in 0 upto f.params.count() 'params'
+		sites.push(f.params[i].id)
+	end 'params'
+	checkFunctionOwn(o, p: p, fid: fid, body: f.body, paramSites: sites)
+end 'checkIfListed'
+
+// checkFunctionOwn checks a function. The checker answers for the function's own bounds on its type's parameters from
+// here on.
+function checkFunctionOwn(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
+	o.c.boundedFn = ast.noFunc
+	if p.funcs.entries[fid as Count].bounds.count() > 0 'bounded'
+		o.c.boundedFn = fid
+	end 'bounded'
+	run(o, p: p, fid: fid, body: body, paramSites: paramSites)
+end 'checkFunctionOwn'
+
+// resetOwn starts the pass over a function or a value.
+function resetOwn(mutates o Ownership, fid ast.FuncID)
+	o.fn = fid
+	o.frames = OwnFrames.create(0)
+	o.projections = OwnProjections.create(0)
+	o.setParams = ast.LocalIDList.create(0)
+	o.obliged = OwnObligedList.create(0)
+	o.partials = 0 as Count
+	o.catches = OwnCatches.create(0)
+	o.inFlight = ast.NodeIDList.create(0)
+end 'resetOwn'
+
+// run checks a function, or the body of a behaviour in it, which has the bounds of the function around it. paramSites are
+// the nodes the parameters are declared at.
+function run(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
+	resetOwn(o, fid: fid)
+	let fnSite = funcSite(o, p: p)
+	var s = OwnState.clean()
+	let receiver = p.funcs.entries[fid as Count].selfLocal
+	if p.funcs.entries[fid as Count].isDestructor 'destructor'
+		o.obliged.push(OwnObliged.make(receiver, site: fnSite, destroys: true))
+	end 'destructor' else if p.funcs.entries[fid as Count].hasReceiver and p.funcs.entries[fid as Count].selfConv == ast.Convention.convConsumes 'consumesSelf'
+		oblige(o, p: p, l: receiver, site: fnSite)
+	end 'consumesSelf'
+	for i in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
+		let sym = p.funcs.entries[fid as Count].paramLocals[i]
+		let site = offsetOfOwn(o, p: p, node: paramSites[i])
+		let conv = p.funcs.entries[fid as Count].params[i].conv
+		if conv == ast.Convention.convSets 'sets'
+			o.setParams.push(sym)
+			s = withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
+		end 'sets' else if conv == ast.Convention.convConsumes 'consumes'
+			if sym == ast.noLocal 'anonymous'
+				let t = p.funcs.entries[fid as Count].paramTypes[i]
+				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: p.funcs.entries[fid as Count].params[i].name.clone()))
+			end 'anonymous' else 'named'
+				oblige(o, p: p, l: sym, site: site)
+			end 'named'
+		end 'consumes'
+	end 'params'
+	s = walk(o, p: p, body: body, s: s)
+	s = endScope(o, p: p, mark: 0 as Count, s: s)
+	requireSetsInitialised(o, p: p, s: s, site: fnSite)
+end 'run'
+
+// funcSite is where the function being checked is declared.
+function funcSite(o Ownership, p ast.Project) returns diag.U32
+	return offsetOfOwn(o, p: p, node: p.funcs.entries[o.fn as Count].nodeID)
+end 'funcSite'
+
+function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U32
+	return p.modules[o.c.modIdx].tree.startOf(node)
+end 'offsetOfOwn'
+
+// selfLocalOf is the receiver of the function being checked.
+function selfLocalOf(o Ownership, p ast.Project) returns ast.LocalID
+	return p.funcs.entries[o.fn as Count].selfLocal
+end 'selfLocalOf'
+
+// isManagedOwn is whether a value of type t is managed: it is owned, moved and dropped.
+function isManagedOwn(p ast.Project, t ast.TypeID) returns bool
+	return ast.isManagedType(p.types, t: t)
+end 'isManagedOwn'
+
+// lacksDroppable is whether a value of type t cannot be dropped.
+function lacksDroppable(mutates o Ownership, mutates p ast.Project, t ast.TypeID) returns bool
+	return lacksCap(o.c, p: p, wantCopy: false, t: t).missing
+end 'lacksDroppable'
+
+// copyAdvice is the fix for a message that would have the reader copy a value of type t.
+function copyAdvice(mutates o Ownership, mutates p ast.Project, t ast.TypeID, ifCopyable String, fallback String) returns String
+	return copyAdviceText(o.c, p: p, t: t, ifCopyable: ifCopyable, otherwiseText: fallback)
+end 'copyAdvice'
+
+// oblige records a local that owns a value of a type that cannot be dropped.
+function oblige(mutates o Ownership, mutates p ast.Project, l ast.LocalID, site diag.U32)
+	let t = o.c.typing.locals[l as Count].ty
+	if isManagedOwn(p, t: t) and lacksDroppable(o, p: p, t: t) 'obliged'
+		o.obliged.push(OwnObliged.make(l, site: site, destroys: false))
+	end 'obliged'
+end 'oblige'
+
+// requireDroppable is E3919: a value of type t is dropped implicitly, which only a type with Droppable allows.
+function requireDroppable(mutates o Ownership, mutates p ast.Project, site diag.U32, t ast.TypeID, d OwnDrop)
+	if not isManagedOwn(p, t: t) 'scalar'
+		return
+	end 'scalar'
+	let l = lacksCap(o.c, p: p, wantCopy: false, t: t)
+	if l.missing 'lacking'
+		let why = lackWhyText(p.types, info: l, capName: "Droppable")
+		let fix = lackFixText(p.types, info: l, capName: "Droppable")
+		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
+	end 'lacking'
+end 'requireDroppable'
+
+// requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
+function requireTemporaryDroppable(mutates o Ownership, mutates p ast.Project, e ast.NodeID, s OwnState, kind OwnDropKind)
+	let t = ownType(o, node: e)
+	if not s.dead and isManagedOwn(p, t: t) and not isStorageOwn(o, p: p, e: e) 'fresh'
+		requireDroppable(o, p: p, site: offsetOfOwn(o, p: p, node: e), t: t, d: OwnDrop.make(kind, name: ""))
+	end 'fresh'
+end 'requireTemporaryDroppable'
+
+// requireEnded checks the obliged locals from index from on at a place where they are dropped: each must hold nothing.
+// The scope's end reports at the declaration, an exit at its own statement.
+function requireEnded(mutates o Ownership, mutates p ast.Project, from Count, s OwnState, site diag.U32, kind OwnDropKind)
+	if s.dead 'dead'
+		return
+	end 'dead'
+	for i in from upto o.obliged.count() 'each'
+		let ob = o.obliged[i].clone()
+		var at = site
+		if kind == OwnDropKind.dropScopeEnd 'scope'
+			at = ob.site
+		end 'scope'
+		requireHeld(o, p: p, site: at, ob: ob, s: s, kind: kind)
+	end 'each'
+end 'requireEnded'
+
+// strip removes the facts of the obliged locals from index from on, so none outlives its local.
+function strip(o Ownership, from Count, consumes s OwnState) returns OwnState
+	var out = s
+	for i in from upto o.obliged.count() 'each'
+		out = without(out, l: o.obliged[i].local)
+	end 'each'
+	return out
+end 'strip'
+
+// endScope ends the scope that started at mark: its obliged locals must hold nothing.
+function endScope(mutates o Ownership, mutates p ast.Project, mark Count, consumes s OwnState) returns OwnState
+	if o.obliged.count() == mark 'none'
+		return s
+	end 'none'
+	requireEnded(o, p: p, from: mark, s: s, site: 0 as diag.U32, kind: OwnDropKind.dropScopeEnd)
+	let out = strip(o, from: mark, s: s)
+	truncate(o.obliged, mark: mark)
+	return out
+end 'endScope'
+
+// leave is a jump out of the scopes above from: their obliged locals must hold nothing, and their facts do not travel on
+// to where the jump lands.
+function leave(mutates o Ownership, mutates p ast.Project, from Count, consumes s OwnState, site diag.U32, kind OwnDropKind) returns OwnState
+	if o.obliged.count() == from 'none'
+		return s
+	end 'none'
+	requireEnded(o, p: p, from: from, s: s, site: site, kind: kind)
+	return strip(o, from: from, s: s)
+end 'leave'
+
+// join is the state where two paths meet. A local that owns a value that cannot be dropped must hold nothing on both
+// paths or on neither: one path would drop it. The merged state keeps the fact, so a mistake is reported once.
+function join(mutates o Ownership, mutates p ast.Project, consumes a OwnState, consumes b OwnState) returns OwnState
+	if o.obliged.count() > 0 and not a.dead and not b.dead 'obliged'
+		for i in 0 upto o.obliged.count() 'each'
+			let ob = o.obliged[i].clone()
+			let inA = a.has(ob.local)
+			let inB = b.has(ob.local)
+			if inA == inB and (not inA or (not a.hasPartial(ob.local) and not b.hasPartial(ob.local))) 'agree'
+				continue 'each'
+			end 'agree'
+			lostOnOnePath(o, p: p, ob: ob, lost: a, other: b)
+			lostOnOnePath(o, p: p, ob: ob, lost: b, other: a)
+		end 'each'
+	end 'obliged'
+	return mergeOwn(a, b: b)
+end 'join'
+
+// disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
+function disagreeWhole(mutates o Ownership, mutates p ast.Project, ob OwnObliged, fact OwnFact)
+	let name = o.c.typing.locals[ob.local as Count].name.clone()
+	let tName = ast.typeName(p.types, t: o.c.typing.locals[ob.local as Count].ty)
+	if fact.kind == OwnFactKind.factMoved 'moved'
+		fail(o, p: p, site: fact.site, code: diag.errNotDroppable, msg: "'{name}' is moved into {fact.dest.text()} here on one path only, so the other path would drop it, but '{tName}' cannot be dropped; move it on every path, or end it on every path")
+		return
+	end 'moved'
+	if fact.kind == OwnFactKind.factUninitialised 'uninitialised'
+		fail(o, p: p, site: fact.site, code: diag.errNotDroppable, msg: "'{name}' is assigned on one path only, so the other path would drop or overwrite a value that it does not have, but '{tName}' cannot be dropped; assign it on every path")
+		return
+	end 'uninitialised'
+	panic("ownership: unknown fact kind {fact.kind.name}")
+end 'disagreeWhole'
+
+// report records an error once: a loop body is walked twice and would repeat a finding that does not depend on the
+// state.
+function report(mutates o Ownership, consumes err diag.CompileError)
+	for i in 0 upto o.errs.count() 'each'
+		if o.errs[i].code == err.code and o.errs[i].site.module == err.site.module and o.errs[i].site.offset == err.site.offset 'seen'
+			return
+		end 'seen'
+	end 'each'
+	o.errs.push(err)
+end 'report'
+
+// lineOf is the line a site is on, for a message that says where a value was moved to.
+function lineOf(o Ownership, p ast.Project, site diag.U32) returns Count
+	return ast.locateModuleOffset(p.modules[o.c.modIdx], offset: site).line
+end 'lineOf'
+
+function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String)
+	let modID = o.c.modID
+	report(o, err: diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(modID, offset: site)))
+end 'fail'
+
+// pushFrame opens a frame for a loop or match.
+function pushFrame(mutates o Ownership, target ast.NodeID)
+	let obliged = o.obliged.count()
+	o.frames.push(OwnFrame.make(target, obliged: obliged))
+end 'pushFrame'
+
+// popFrame closes the innermost frame and gives it.
+function popFrame(mutates o Ownership) returns OwnFrame
+	return try o.frames.pop() otherwise panic("ownership: no frame to close")
+end 'popFrame'
+
+// frameOf is the index of the frame of the loop or match a jump leaves or repeats.
+function frameOf(o Ownership, target ast.NodeID) returns Count
+	var i = o.frames.count()
+	while i > 0 'back'
+		i = try i - 1 otherwise 0 as Count
+		if o.frames[i].target == target 'hit'
+			return i
+		end 'hit'
+	end 'back'
+	panic("ownership: a jump has no enclosing frame")
+end 'frameOf'
+
+// ownType is the type the checker gave an expression.
+function ownType(o Ownership, node ast.NodeID) returns ast.TypeID
+	return ast.nodeType(o.c.typing, node: node)
+end 'ownType'
+
+function ownName(o Ownership, node ast.NodeID) returns ast.NameInfo
+	return match consumes o.c.typing.names.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the name at node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownName'
+
+function ownMember(o Ownership, node ast.NodeID) returns ast.MemberInfo
+	return match consumes o.c.typing.members.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the member at node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownMember'
+
+function ownCall(o Ownership, node ast.NodeID) returns ast.CallInfo
+	return match consumes o.c.typing.calls.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the call at node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownCall'
+
+function ownPattern(o Ownership, node ast.NodeID) returns ast.PatternInfo
+	return match consumes o.c.typing.patterns.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the pattern at node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownPattern'
+
+function ownLocalOf(o Ownership, node ast.NodeID) returns ast.LocalID
+	return match o.c.typing.nodeLocals.get(node as Count) 'hit'
+		some(id) gives id
+		none panic("ownership: the local of node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownLocalOf'
+
+function ownJump(o Ownership, node ast.NodeID) returns ast.NodeID
+	return match o.c.typing.jumps.get(node as Count) 'hit'
+		some(target) gives target
+		none panic("ownership: the jump at node {node} was not recorded by the bodies check")
+	end 'hit'
+end 'ownJump'
+
+// isStorageOwn is whether an expression reads a value that already lives somewhere, in a variable, a field or an
+// element, and so borrows it, as opposed to making a new value.
+function isStorageOwn(o Ownership, p ast.Project, e ast.NodeID) returns bool
+	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
+	let k = p.modules[o.c.modIdx].tree.kindOf(n)
+	if k == ast.NodeKind.nameExpr 'name'
+		let kind = ownName(o, node: n).kind
+		return kind == ast.NameKind.nameLocal or kind == ast.NameKind.nameSelfField
+	end 'name'
+	if k == ast.NodeKind.selfExpr or k == ast.NodeKind.indexExpr 'place'
+		return true
+	end 'place'
+	if k == ast.NodeKind.memberExpr 'member'
+		return ownMember(o, node: n).kind == ast.MemberKind.memberField
+	end 'member'
+	return false
+end 'isStorageOwn'
+
+// isBorrowed is whether the local only borrows its value, so the value cannot be moved out of it.
+function isBorrowed(l ast.LocalEntry) returns bool
+	return l.projected or (l.isParam and not ownsConv(l.conv))
+end 'isBorrowed'
+
+// isMutableLocal is whether the local, and the fields reached through it, may be assigned.
+function isMutableLocal(l ast.LocalEntry) returns bool
+	return l.isVar or (l.isParam and byAddress(l.conv))
+end 'isMutableLocal'
+
+// byAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
+function byAddress(conv ast.Convention) returns bool
+	return conv == ast.Convention.convMutates or conv == ast.Convention.convSets
+end 'byAddress'
+
+// ownsConv is whether the callee owns what it is given: the caller's value moves in.
+function ownsConv(conv ast.Convention) returns bool
+	return conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs
+end 'ownsConv'
+
+// requireSetsInitialised is checked wherever the function returns: each sets parameter holds a value by then.
+function requireSetsInitialised(mutates o Ownership, mutates p ast.Project, s OwnState, site diag.U32)
+	if s.dead 'dead'
+		return
+	end 'dead'
+	for i in 0 upto o.setParams.count() 'each'
+		let l = o.setParams[i]
+		if s.has(l) 'uninitialised'
+			let name = o.c.typing.locals[l as Count].name.clone()
+			fail(o, p: p, site: site, code: diag.errSetNotInitialized, msg: "the 'sets' parameter '{name}' is not initialised on every path; assign it before the function returns")
+		end 'uninitialised'
+	end 'each'
+end 'requireSetsInitialised'
+
+// checkValues checks the expressions a declaration holds outside any function body: a constant's value and the default
+// of a field. Whatever holds the value owns it, so each is consumed, and a fresh value in one needs no drop.
+function checkValues(mutates o Ownership, mutates p ast.Project, ord ast.DeclOrdinal)
+	match p.modules[o.c.modIdx].decls[ord as Count].clone() 'k'
+		constDecl(cd) then checkValue(o, p: p, e: cd.value, name: cd.name)
+		typeDecl(_) then checkFieldValues(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		funcDecl(_) then _ = 0
+		enumDecl(_) then _ = 0
+		unionDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+	end 'k'
+end 'checkValues'
+
+function checkFieldValues(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
+	for i in 0 upto p.types.entries[tid as Count].fields.count() 'each'
+		if p.types.entries[tid as Count].fields[i].hasDefault 'given'
+			let e = p.types.entries[tid as Count].fields[i].defaultExpr
+			let name = p.types.entries[tid as Count].fields[i].name.clone()
+			checkValue(o, p: p, e: e, name: name)
+		end 'given'
+	end 'each'
+end 'checkFieldValues'
+
+function checkValue(mutates o Ownership, mutates p ast.Project, e ast.NodeID, name String)
+	resetOwn(o, fid: ast.noFunc)
+	_ = consume(o, p: p, e: e, dest: OwnDest.make(OwnDestKind.destField, name: name.clone()), s: OwnState.clean())
+end 'checkValue'

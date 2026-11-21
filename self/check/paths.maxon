@@ -1,0 +1,227 @@
+// What the ownership pass knows of a place: a local followed by the selections from it. Two fields overlap when they
+// are the same field. Every element overlaps every other element of the same collection, whatever their indexes say,
+// because two indexes cannot be told apart before the program runs. The contents of a frozen value are one place, and an
+// immutable one.
+
+export enum StepKind
+	stepField
+	stepElement
+	stepFrozen
+end 'StepKind'
+
+// PathStep is one selection from a value. A field is named by its index in the record it is selected from, which is
+// the field itself among the paths that share the steps before it; the record is kept for the field's name and whether
+// it is a var.
+export type PathStep
+	export var kind as StepKind
+	export var owner as ast.TypeID
+	export var field as Count
+	// index is the expression between the brackets, kept to name the element in a message.
+	export var index as ast.NodeID
+
+	export static function fieldOf(owner ast.TypeID, field Count) returns PathStep
+		return PathStep{kind: StepKind.stepField, owner: owner, field: field, index: 0 as ast.NodeID}
+	end 'fieldOf'
+
+	export static function element(index ast.NodeID) returns PathStep
+		return PathStep{kind: StepKind.stepElement, owner: ast.noType, field: 0 as Count, index: index}
+	end 'element'
+
+	export static function contents() returns PathStep
+		return PathStep{kind: StepKind.stepFrozen, owner: ast.noType, field: 0 as Count, index: 0 as ast.NodeID}
+	end 'contents'
+
+	export function isElement() returns bool
+		return kind == StepKind.stepElement
+	end 'isElement'
+
+	export function overlaps(b PathStep) returns bool
+		if kind != b.kind 'mixed'
+			panic("paths: a field, an element and frozen contents select from the same value")
+		end 'mixed'
+		return kind != StepKind.stepField or field == b.field
+	end 'overlaps'
+
+	// sameField is whether two steps select the same field.
+	export function sameField(b PathStep) returns bool
+		return kind == StepKind.stepField and b.kind == StepKind.stepField and field == b.field
+	end 'sameField'
+end 'PathStep'
+
+export typealias PathSteps = Array with PathStep
+
+// AccessPath names a place: a local or parameter followed by selections from it. A path whose root is noLocal names no
+// place: the expression computes a fresh value.
+export type AccessPath
+	export var root as ast.LocalID
+	export var steps as PathSteps
+
+	export static function none() returns AccessPath
+		return AccessPath{root: ast.noLocal, steps: PathSteps.create(0)}
+	end 'none'
+
+	export static function at(root ast.LocalID) returns AccessPath
+		return AccessPath{root: root, steps: PathSteps.create(0)}
+	end 'at'
+
+	export function isPlace() returns bool
+		return root != ast.noLocal
+	end 'isPlace'
+
+	// crossesFrozen is whether a place lies inside a frozen value, whose contents nothing may change or take.
+	export function crossesFrozen() returns bool
+		for i in 0 upto steps.count() 'each'
+			if steps[i].kind == StepKind.stepFrozen 'frozen'
+				return true
+			end 'frozen'
+		end 'each'
+		return false
+	end 'crossesFrozen'
+
+	// crossesElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
+	export function crossesElement() returns bool
+		for i in 0 upto steps.count() 'each'
+			if steps[i].isElement() 'element'
+				return true
+			end 'element'
+		end 'each'
+		return false
+	end 'crossesElement'
+
+	// overlaps is whether two accesses can reach the same storage: one path is a prefix of the other.
+	export function overlaps(q AccessPath) returns bool
+		if root != q.root 'roots'
+			return false
+		end 'roots'
+		var n = steps.count()
+		if q.steps.count() < n 'shorter'
+			n = q.steps.count()
+		end 'shorter'
+		for i in 0 upto n 'each'
+			if not steps[i].overlaps(q.steps[i]) 'apart'
+				return false
+			end 'apart'
+		end 'each'
+		return true
+	end 'overlaps'
+end 'AccessPath'
+
+// fieldName is the name of the field a step selects.
+function fieldName(p ast.Project, step PathStep) returns String
+	return p.types.entries[ast.originOf(p.types, t: step.owner) as Count].fields[step.field].name.clone()
+end 'fieldName'
+
+// fieldIsVar is whether the field a step selects may be assigned.
+function fieldIsVar(p ast.Project, step PathStep) returns bool
+	return p.types.entries[ast.originOf(p.types, t: step.owner) as Count].fields[step.field].isVar
+end 'fieldIsVar'
+
+function pathText(o Ownership, p ast.Project, path AccessPath) returns String
+	var b = ByteArray.create(0)
+	b.append(o.c.typing.locals[path.root as Count].name.toByteArray())
+	for i in 0 upto path.steps.count() 'each'
+		let k = path.steps[i].kind
+		if k == StepKind.stepElement 'element'
+			b.append("[{placeText(p.modules[o.c.modIdx].tree, e: path.steps[i].index)}]".toByteArray())
+		end 'element' else if k == StepKind.stepField 'field'
+			b.append(".{fieldName(p, step: path.steps[i])}".toByteArray())
+		end 'field'
+	end 'each'
+	return String.from(b)
+end 'pathText'
+
+// unnamedPlace stands for an expression that is too long to repeat in a message.
+let unnamedPlace = ".."
+
+// placeText is how an index or a collection is written in a message: a name, a literal or a selection from one.
+function placeText(tree ast.Tree, e ast.NodeID) returns String
+	let k = tree.kindOf(e)
+	if k == ast.NodeKind.intLit 'int'
+		return ast.intLitValue(tree, id: e).toString()
+	end 'int'
+	if k == ast.NodeKind.nameExpr 'name'
+		return ast.nameExprName(tree, id: e)
+	end 'name'
+	if k == ast.NodeKind.selfExpr 'self'
+		return "self"
+	end 'self'
+	if k == ast.NodeKind.memberExpr 'member'
+		return "{placeText(tree, e: ast.memberExprObj(tree, id: e))}.{ast.memberExprName(tree, id: e)}"
+	end 'member'
+	return unnamedPlace.clone()
+end 'placeText'
+
+// withContents appends the steps from a value of type t to what it lends: one for each frozen value that t nests.
+function withContents(p ast.Project, mutates steps PathSteps, t ast.TypeID)
+	var cur = t
+	while cur != ast.noType and p.types.entries[cur as Count].kind == ast.TypeKind.builtinFrozen 'frozen'
+		steps.push(PathStep.contents())
+		cur = ast.typeArgsOf(p.types, t: cur)[0]
+	end 'frozen'
+end 'withContents'
+
+// pathOf is the place an expression names, or a path with no root for an expression that computes a fresh value. A bare
+// field name selects from the receiver of the function being checked.
+function pathOf(o Ownership, p ast.Project, e ast.NodeID) returns AccessPath
+	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
+	let k = p.modules[o.c.modIdx].tree.kindOf(n)
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = ownName(o, node: n)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			return AccessPath.at(name.local)
+		end 'local'
+		if name.kind == ast.NameKind.nameSelfField 'selfField'
+			let receiver = selfLocalOf(o, p: p)
+			var path = AccessPath.at(receiver)
+			path.steps.push(PathStep.fieldOf(o.c.typing.locals[receiver as Count].ty, field: name.fieldIndex))
+			return path
+		end 'selfField'
+		return AccessPath.none()
+	end 'name'
+	if k == ast.NodeKind.selfExpr 'self'
+		return AccessPath.at(selfLocalOf(o, p: p))
+	end 'self'
+	if k == ast.NodeKind.memberExpr 'member'
+		let member = ownMember(o, node: n)
+		if member.kind != ast.MemberKind.memberField 'notField'
+			return AccessPath.none()
+		end 'notField'
+		let obj = ast.memberExprObj(p.modules[o.c.modIdx].tree, id: n)
+		var path = pathOf(o, p: p, e: obj)
+		if not path.isPlace() 'fresh'
+			return path
+		end 'fresh'
+		withContents(p, steps: path.steps, t: ownType(o, node: obj))
+		path.steps.push(PathStep.fieldOf(member.ownerTy, field: member.fieldIndex))
+		return path
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		let obj = ast.indexExprObj(p.modules[o.c.modIdx].tree, id: n)
+		var path = pathOf(o, p: p, e: obj)
+		if not path.isPlace() 'fresh'
+			return path
+		end 'fresh'
+		withContents(p, steps: path.steps, t: ownType(o, node: obj))
+		path.steps.push(PathStep.element(indexArg(p.modules[o.c.modIdx].tree, e: n)))
+		return path
+	end 'index'
+	return AccessPath.none()
+end 'pathOf'
+
+// indexArg is the expression between the brackets of a subscript.
+function indexArg(tree ast.Tree, e ast.NodeID) returns ast.NodeID
+	return tree.listAt(ast.indexExprArgsRef(tree, id: e), index: 0) as ast.NodeID
+end 'indexArg'
+
+// projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
+function projectsElement(o Ownership, p ast.Project, e ast.NodeID) returns bool
+	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
+	let k = p.modules[o.c.modIdx].tree.kindOf(n)
+	if k == ast.NodeKind.indexExpr 'index'
+		return true
+	end 'index'
+	if k == ast.NodeKind.memberExpr 'member'
+		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, e: ast.memberExprObj(p.modules[o.c.modIdx].tree, id: n))
+	end 'member'
+	return false
+end 'projectsElement'

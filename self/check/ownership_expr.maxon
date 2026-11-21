@@ -1,0 +1,614 @@
+// The expressions of the ownership pass: where a value moves, where a place is changed, the calls whose arguments must
+// not overlap, and the borrows an expression holds while the rest of it runs.
+
+// readRoot is a use of a local's value, which needs one to exist.
+function readRoot(mutates o Ownership, mutates p ast.Project, l ast.LocalID, site diag.U32, consumes s OwnState) returns OwnState
+	if s.dead or not s.has(l) 'held'
+		return s
+	end 'held'
+	let fact = s.factOf(l)
+	let name = o.c.typing.locals[l as Count].name.clone()
+	if fact.kind == OwnFactKind.factMoved 'moved'
+		fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.useOfValueMovedInto(name, into: fact.dest.text()))
+	end 'moved' else if fact.kind == OwnFactKind.factUninitialised 'uninitialised'
+		fail(o, p: p, site: site, code: diag.errUseBeforeInit, msg: "'{name}' has no value here; assign it on every path before reading it")
+	end 'uninitialised' else 'partly'
+		let moved = moveText(o, p: p, m: fact.moves[0], root: l)
+		fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: "'{name}' lost '{moved}', which was moved into {fact.moves[0].dest.text()} at line {lineOf(o, p: p, site: fact.moves[0].site)}, so it cannot be used as a whole; use its other fields, or assign '{moved}' again first")
+		return s
+	end 'partly'
+	return without(s, l: l)
+end 'readRoot'
+
+// consume is an expression whose value is stored, passed to a consumes parameter or returned. Code that can run marks
+// the expression consumed, which is how lowering learns where a value changes owner. A scalar is copied, and a fresh
+// value needs nothing. A place holding a managed value is moved out of, which only a whole local that owns its value
+// allows; everything else is refused and says to copy.
+function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes dest OwnDest, consumes s OwnState) returns OwnState
+	if p.modules[o.c.modIdx].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[o.c.modIdx].tree, e: e) 'transparent'
+		let added = enterTry(o, handles: not ast.propagates(p.modules[o.c.modIdx].tree, e: e))
+		let after = consume(o, p: p, e: ast.tryExprE(p.modules[o.c.modIdx].tree, id: e), dest: dest, s: s)
+		let entry = leaveTryEntry(o, added: added)
+		handled(o, p: p, e: e, entry: entry)
+		return after
+	end 'transparent'
+	let out = eval(o, p: p, e: e, s: s)
+	if out.dead 'dead'
+		return out
+	end 'dead'
+	o.c.typing.consumed.insert(e as Count, value: true)
+	let t = ownType(o, node: e)
+	if not isManagedOwn(p, t: t) 'scalar'
+		return out
+	end 'scalar'
+	if lacksDroppable(o, p: p, t: t) 'inFlight'
+		o.inFlight.push(e)
+	end 'inFlight'
+	let site = offsetOfOwn(o, p: p, node: e)
+	let path = pathOf(o, p: p, e: e)
+	if not path.isPlace() 'fresh'
+		if projectsElement(o, p: p, e: e) 'element'
+			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "an element of a collection that is not stored in a variable cannot be moved out of it into {dest.text()}; bind the collection to a variable and take the element out of it, or copy it")
+		end 'element' else if isStorageOwn(o, p: p, e: e) 'part'
+			let advice = copyAdvice(o, p: p, t: t, ifCopyable: "copy it with '.clone()'", fallback: "")
+			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "a part of a temporary value cannot be moved out of it into {dest.text()}, because the temporary is dropped when the statement ends; {advice}")
+		end 'part'
+		return out
+	end 'fresh'
+	let text = pathText(o, p: p, path: path)
+	if path.crossesFrozen() 'frozen'
+		let advice = copyAdvice(o, p: p, t: t, ifCopyable: "use '{text}.clone()'", fallback: "")
+		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into {dest.text()}; {advice}")
+		return out
+	end 'frozen'
+	if isBorrowed(o.c.typing.locals[path.root as Count]) 'borrowed'
+		let advice = copyAdvice(o, p: p, t: t, ifCopyable: "use '{text}.clone()' to give it its own copy", fallback: "")
+		fail(o, p: p, site: site, code: diag.errMoveOutOfBorrow, msg: "'{text}' is borrowed, not owned, so it cannot be moved into {dest.text()}; {advice}")
+		return out
+	end 'borrowed'
+	if path.crossesElement() 'element'
+		let advice = copyAdvice(o, p: p, t: t, ifCopyable: "use '{text}.clone()'", fallback: "take it out of the collection with its remove method")
+		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is, or lies inside, an element of a collection, which owns it, so it cannot be moved out of it into {dest.text()}; {advice}")
+		return out
+	end 'element'
+	if path.steps.count() > 0 'part'
+		return movePart(o, p: p, e: e, path: path, dest: dest, s: out)
+	end 'part'
+	if o.c.typing.locals[path.root as Count].isSelf and p.funcs.entries[o.fn as Count].isDestructor and dest.kind != OwnDestKind.destDestructor and dest.kind != OwnDestKind.destMatch 'destructor'
+		fail(o, p: p, site: site, code: diag.errDestructorMisuse, msg: "'self' is moved into {dest.text()}, but inside a destructor it may only be passed whole to another destructor of its type, which ends it there; move its fields out instead, or call a destructor")
+		return out
+	end 'destructor'
+	requireNotProjected(o, p: p, path: path, site: site)
+	return withFact(out, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
+end 'consume'
+
+// requireWritable refuses a change to a place that is not mutable, and one that a match binding still borrows.
+function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath)
+	let root = o.c.typing.locals[path.root as Count].clone()
+	let text = pathText(o, p: p, path: path)
+	if path.crossesFrozen() 'frozen'
+		fail(o, p: p, site: site, code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
+		return
+	end 'frozen'
+	if root.projected 'projected'
+		let advice = copyAdvice(o, p: p, t: root.ty, ifCopyable: "copy it into a var first: 'var x = {root.name}.clone()'", fallback: "change the subject itself instead of a binding of it")
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of the match subject and cannot be changed; {advice}")
+		return
+	end 'projected'
+	if root.isSelf and not isMutableLocal(root) 'self'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'")
+		return
+	end 'self'
+	if root.isParam and root.conv == ast.Convention.convLet 'let'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
+		return
+	end 'let'
+	if root.isParam and ownsConv(root.conv) 'owns'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
+		return
+	end 'owns'
+	if not isMutableLocal(root) 'immutable'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let; declare it with 'var'")
+		return
+	end 'immutable'
+	for i in 0 upto path.steps.count() 'steps'
+		if not path.steps[i].isElement() and not fieldIsVar(p, step: path.steps[i]) 'letField'
+			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because the field '{fieldName(p, step: path.steps[i])}' is a let; declare it with 'var'")
+			return
+		end 'letField'
+	end 'steps'
+	requireNotProjected(o, p: p, path: path, site: site)
+end 'requireWritable'
+
+// requireNotProjected refuses a change or a move of a place while a binding of an enclosing match, or a place that an
+// enclosing expression holds, still borrows part of it.
+function requireNotProjected(mutates o Ownership, mutates p ast.Project, path AccessPath, site diag.U32)
+	for i in 0 upto o.projections.count() 'each'
+		let place = o.projections[i].place
+		if place != 0 'find'
+			let found = pathOf(o, p: p, e: place)
+			o.projections[i].subject = found
+			o.projections[i].place = 0 as ast.NodeID
+		end 'find'
+		if not o.projections[i].subject.isPlace() or not o.projections[i].subject.overlaps(path) 'apart'
+			continue 'each'
+		end 'apart'
+		let pr = o.projections[i].clone()
+		projectionConflict(o, p: p, pr: pr, path: path, site: site)
+		return
+	end 'each'
+end 'requireNotProjected'
+
+function projectionConflict(mutates o Ownership, mutates p ast.Project, pr OwnProjection, path AccessPath, site diag.U32)
+	let text = pathText(o, p: p, path: path)
+	let held = pathText(o, p: p, path: pr.subject)
+	let k = pr.kind
+	if k == OwnProjectionKind.projectMatch 'match'
+		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "copy the payload out with '.clone()' before changing it", fallback: "change it after the match")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by a binding of an enclosing match on '{held}'; {advice}")
+		return
+	end 'match'
+	if k == OwnProjectionKind.projectArgument 'argument'
+		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "pass a copy: '{held}.clone()'", fallback: "compute this first into a variable")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the argument '{held}', which the enclosing call holds while this runs; {advice}")
+		return
+	end 'argument'
+	if k == OwnProjectionKind.projectTarget 'target'
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is the target of an assignment whose value is still being computed, and this changes it; compute the value into a variable first")
+		return
+	end 'target'
+	if k == OwnProjectionKind.projectOperand 'operand'
+		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "compare a copy: '{held}.clone()'", fallback: "compute this first into a variable")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the operand '{held}', which the enclosing comparison holds while its other operand is evaluated; {advice}")
+		return
+	end 'operand'
+	if k == OwnProjectionKind.projectCollection 'collection'
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by '{held}', the collection of an enclosing subscript, which holds it while the index is evaluated; compute the index first into a variable")
+		return
+	end 'collection'
+	if k == OwnProjectionKind.projectPart 'part'
+		let advice = copyAdvice(o, p: p, t: pr.ty, ifCopyable: "interpolate a copy: '{held}.clone()'", fallback: "compute this first into a variable")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the part '{held}' of an enclosing string, which holds it while the next part is evaluated; {advice}")
+		return
+	end 'part'
+	panic("ownership: unknown projection kind {k.name}")
+end 'projectionConflict'
+
+// expr is an expression whose value is only read: a fresh value is a temporary that is dropped when the statement ends.
+function expr(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let out = eval(o, p: p, e: e, s: s)
+	requireTemporaryDroppable(o, p: p, e: e, s: out, kind: OwnDropKind.dropTemporary)
+	return out
+end 'expr'
+
+// eval checks an expression and leaves what happens to its value to the caller.
+function eval(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let mark = o.inFlight.count()
+	let out = visitExprOwn(o, p: p, e: e, s: s)
+	land(o, mark: mark)
+	return out
+end 'eval'
+
+function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let k = p.modules[o.c.modIdx].tree.kindOf(e)
+	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit 'literal'
+		return s
+	end 'literal'
+	if k == ast.NodeKind.selfExpr 'self'
+		return readRoot(o, p: p, l: selfLocalOf(o, p: p), site: offsetOfOwn(o, p: p, node: e), s: s)
+	end 'self'
+	if k == ast.NodeKind.strLit 'str'
+		return strLitOwn(o, p: p, e: e, s: s)
+	end 'str'
+	if k == ast.NodeKind.nameExpr 'name'
+		return nameExprOwn(o, p: p, e: e, s: s)
+	end 'name'
+	if k == ast.NodeKind.binaryExpr 'binary'
+		return binaryExprOwn(o, p: p, e: e, s: s)
+	end 'binary'
+	if k == ast.NodeKind.unaryExpr 'unary'
+		let out = expr(o, p: p, e: ast.unaryExprE(p.modules[o.c.modIdx].tree, id: e), s: s)
+		return failed(o, p: p, e: e, s: out)
+	end 'unary'
+	if k == ast.NodeKind.castExpr 'cast'
+		let out = expr(o, p: p, e: ast.castExprE(p.modules[o.c.modIdx].tree, id: e), s: s)
+		return failed(o, p: p, e: e, s: out)
+	end 'cast'
+	if k == ast.NodeKind.condExpr 'cond'
+		return condExprOwn(o, p: p, e: e, s: s)
+	end 'cond'
+	if k == ast.NodeKind.callExpr 'call'
+		return callExprOwn(o, p: p, e: e, s: s)
+	end 'call'
+	if k == ast.NodeKind.indexExpr 'index'
+		return subscript(o, p: p, e: e, s: s)
+	end 'index'
+	if k == ast.NodeKind.memberExpr 'member'
+		return memberExprOwn(o, p: p, e: e, s: s)
+	end 'member'
+	if k == ast.NodeKind.structLitExpr 'structLit'
+		return structLitOwn(o, p: p, e: e, s: s)
+	end 'structLit'
+	if k == ast.NodeKind.matchExpr 'match'
+		return matchOwn(o, p: p, core: ast.matchExprMatch(p.modules[o.c.modIdx].tree, id: e), s: s)
+	end 'match'
+	if k == ast.NodeKind.panicExpr 'panic'
+		return expr(o, p: p, e: ast.panicExprMessage(p.modules[o.c.modIdx].tree, id: e), s: s)
+	end 'panic'
+	if k == ast.NodeKind.tryExpr 'try'
+		return tryExprOwn(o, p: p, e: e, s: s)
+	end 'try'
+	panic("ownership: the node {e} of kind {k.name} is no expression")
+end 'visitExprOwn'
+
+// strLitOwn holds a first part that is a string while the second is evaluated: lowering joins the parts from the left,
+// and joins the first with the second once both exist. Every later part is joined as soon as it is evaluated, so none of
+// them is held, and a part that is not a string is turned into one as soon as it is evaluated.
+function strLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let parts = ast.strLitPartsRef(p.modules[o.c.modIdx].tree, id: e)
+	let n = p.modules[o.c.modIdx].tree.strPartCount(parts)
+	let held = o.projections.count()
+	var out = s
+	for i in 0 upto n 'parts'
+		let part = partExpr(p.modules[o.c.modIdx].tree, parts: parts, index: i)
+		if part != 0 'expr'
+			out = expr(o, p: p, e: part, s: out)
+		end 'expr'
+		if i == 0 and n > 1 'first'
+			holdText(o, p: p, first: part, second: partExpr(p.modules[o.c.modIdx].tree, parts: parts, index: 1))
+		end 'first' else if i == 1 'second'
+			release(o, mark: held)
+		end 'second'
+	end 'parts'
+	return out
+end 'strLitOwn'
+
+// partExpr is the expression of a part of a string, or 0 for a part that is text.
+function partExpr(tree ast.Tree, parts diag.U32, index Count) returns ast.NodeID
+	if tree.strPartIsExpr(parts, index: index) 'expr'
+		return tree.strPartExpr(parts, index: index)
+	end 'expr'
+	return 0 as ast.NodeID
+end 'partExpr'
+
+// holdText holds the first part of an interpolated string while the second is evaluated, when the first is a string and
+// a second part runs after it.
+function holdText(mutates o Ownership, p ast.Project, first ast.NodeID, second ast.NodeID)
+	if first != 0 and second != 0 and not runsNoCode(p.modules[o.c.modIdx].tree, e: second) and ast.contentType(p.types, t: ownType(o, node: first)) == p.builtins.stringTy 'held'
+		hold(o, p: p, place: first, kind: OwnProjectionKind.projectPart, byAddress: false)
+	end 'held'
+end 'holdText'
+
+function nameExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let name = ownName(o, node: e)
+	let site = offsetOfOwn(o, p: p, node: e)
+	if name.kind == ast.NameKind.nameLocal 'local'
+		return readRoot(o, p: p, l: name.local, site: site, s: s)
+	end 'local'
+	if name.kind == ast.NameKind.nameSelfField 'selfField'
+		if o.partials > 0 and readPart(o, p: p, e: e, s: s) 'part'
+			return s
+		end 'part'
+		return readRoot(o, p: p, l: selfLocalOf(o, p: p), site: site, s: s)
+	end 'selfField'
+	if name.kind == ast.NameKind.nameConst 'const'
+		return s
+	end 'const'
+	panic("ownership: unresolved name '{ast.nameExprName(p.modules[o.c.modIdx].tree, id: e)}'")
+end 'nameExprOwn'
+
+// binaryExprOwn holds a managed left operand, which only a string comparison has, while the right is evaluated: lowering
+// compares the two strings once both are computed.
+function binaryExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let op = ast.binaryExprOp(p.modules[o.c.modIdx].tree, id: e)
+	let l = ast.binaryExprL(p.modules[o.c.modIdx].tree, id: e)
+	let r = ast.binaryExprR(p.modules[o.c.modIdx].tree, id: e)
+	if (op == "and" or op == "or") and ownType(o, node: e) == p.builtins.boolTy 'logical'
+		// The right operand runs only when the left one does not decide.
+		let left = expr(o, p: p, e: l, s: s)
+		let right = expr(o, p: p, e: r, s: left.clone())
+		return join(o, p: p, a: left, b: right)
+	end 'logical'
+	let left = expr(o, p: p, e: l, s: s)
+	let held = o.projections.count()
+	holdAcross(o, p: p, place: l, kind: OwnProjectionKind.projectOperand, next: r)
+	let right = expr(o, p: p, e: r, s: left)
+	release(o, mark: held)
+	return failed(o, p: p, e: e, s: right)
+end 'binaryExprOwn'
+
+// failed is the failure of an operator or a cast that the range analysis could not rule out. An operator that the
+// checker gave no arithmetic, a comparison of two strings among them, cannot fail.
+function failed(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let fails = match o.c.typing.arith.get(e as Count) 'arith'
+		some(info) gives info.fails
+		none gives ast.failNone
+	end 'arith'
+	if fails != ast.failNone 'fails'
+		failure(o, p: p, site: offsetOfOwn(o, p: p, node: e), s: s)
+	end 'fails'
+	return s
+end 'failed'
+
+// condExprOwn moves from each branch alone: the value it gives is a fresh one, so a place in a branch is moved.
+function condExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let cond = expr(o, p: p, e: ast.condExprCond(p.modules[o.c.modIdx].tree, id: e), s: s)
+	let mark = o.inFlight.count()
+	let yes = consume(o, p: p, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destResult), s: cond.clone())
+	land(o, mark: mark)
+	let no = consume(o, p: p, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destResult), s: cond)
+	return join(o, p: p, a: yes, b: no)
+end 'condExprOwn'
+
+// callReceiver is the object a call of the kind is made on, or 0 for a call that has none. A method call, a call through
+// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
+function callReceiver(tree ast.Tree, e ast.NodeID, kind ast.CallKind) returns ast.NodeID
+	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
+		let callee = ast.callExprCallee(tree, id: e)
+		if tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
+			return ast.memberExprObj(tree, id: callee)
+		end 'named'
+	end 'member'
+	return 0 as ast.NodeID
+end 'callReceiver'
+
+function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let call = ownCall(o, node: e)
+	let receiver = callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
+	let k = call.kind
+	if k == ast.CallKind.callCopy 'copy'
+		return expr(o, p: p, e: receiver, s: s)
+	end 'copy'
+	if k == ast.CallKind.callPrint or k == ast.CallKind.callPrintError 'print'
+		return expr(o, p: p, e: call.ordered[0], s: s)
+	end 'print'
+	if k == ast.CallKind.callUnionCtor 'unionCtor'
+		let orig = ast.originOf(p.types, t: call.unionTy)
+		var out = s
+		for i in 0 upto call.ordered.count() 'args'
+			let name = p.types.entries[orig as Count].cases[call.unionCase].payload[i].name.clone()
+			out = consume(o, p: p, e: call.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
+		end 'args'
+		return out
+	end 'unionCtor'
+	if k == ast.CallKind.callFunction or k == ast.CallKind.callStatic or k == ast.CallKind.callMethod or k == ast.CallKind.callBound 'user'
+		return userCall(o, p: p, site: offsetOfOwn(o, p: p, node: e), call: call, receiver: receiver, s: s)
+	end 'user'
+	panic("ownership: unresolved call")
+end 'callExprOwn'
+
+// callError is the error that the function a call runs throws, or noType for a call that cannot fail.
+function callError(p ast.Project, call ast.CallInfo) returns ast.TypeID
+	if call.kind == ast.CallKind.callBound 'bound'
+		return p.funcs.entries[call.method as Count].errTy
+	end 'bound'
+	return p.funcs.entries[call.fn as Count].errTy
+end 'callError'
+
+function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, call ast.CallInfo, receiver ast.NodeID, consumes s OwnState) returns OwnState
+	var exclusive = receiver != 0 and call.selfConv != ast.Convention.convLet
+	for i in 0 upto call.paramSpecs.count() 'specs'
+		exclusive = exclusive or call.paramSpecs[i].conv != ast.Convention.convLet
+	end 'specs'
+	if exclusive 'exclusive'
+		requireExclusive(o, p: p, call: call, receiver: receiver)
+	end 'exclusive'
+	let held = o.projections.count()
+	let arguments = o.inFlight.count()
+	let outer = exchange(o.initialising, value: ast.LocalIDList.create(0))
+	var out = s
+	let n = call.ordered.count()
+	if receiver != 0 'receiver'
+		out = argument(o, p: p, e: receiver, conv: call.selfConv, dest: OwnDest.make(OwnDestKind.destParameter, name: "self"), s: out)
+		if n > 0 'more'
+			hold(o, p: p, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: byAddress(call.selfConv))
+		end 'more'
+	end 'receiver'
+	for i in 0 upto n 'args'
+		let arg = call.ordered[i]
+		let conv = call.paramSpecs[i].conv
+		let name = call.paramSpecs[i].name.clone()
+		if conv == ast.Convention.convMutates 'mutates'
+			requireNotReceiver(o, p: p, arg: arg, param: name)
+		end 'mutates'
+		out = argument(o, p: p, e: arg, conv: conv, dest: OwnDest.make(OwnDestKind.destParameter, name: name), s: out)
+		let next = try i + 1 otherwise n
+		if next < n 'more'
+			hold(o, p: p, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: byAddress(conv))
+		end 'more'
+	end 'args'
+	release(o, mark: held)
+	if callError(p, call: call) != ast.noType 'fails'
+		// The callee has its arguments by now, and ends them itself when it fails.
+		land(o, mark: arguments)
+		failure(o, p: p, site: site, s: out)
+	end 'fails'
+	for i in 0 upto o.initialising.count() 'initialised'
+		out = without(out, l: o.initialising[i])
+	end 'initialised'
+	o.initialising = outer
+	return out
+end 'userCall'
+
+// requireNotReceiver refuses 'self' as a mutates argument. A mutates parameter may be assigned as a whole, which replaces
+// the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
+function requireNotReceiver(mutates o Ownership, p ast.Project, arg ast.NodeID, param String)
+	if p.modules[o.c.modIdx].tree.kindOf(arg) != ast.NodeKind.selfExpr 'notSelf'
+		return
+	end 'notSelf'
+	if isMutableLocal(o.c.typing.locals[selfLocalOf(o, p: p) as Count]) 'mutable'
+		fail(o, p: p, site: offsetOfOwn(o, p: p, node: arg), code: diag.errAssignToImmutable, msg: "'self' cannot be passed to the 'mutates' parameter '{param}', which could replace the whole value; pass a field of it, or call a method on it")
+	end 'mutable'
+end 'requireNotReceiver'
+
+// hold keeps the place that an expression has evaluated to a borrow borrowed until release, for an expression that uses
+// the borrow again after evaluating more: a call nested in the rest that changes an overlapping place would otherwise
+// leave the borrow pointing at what moved. What lowering keeps across that evaluation is a handle for a managed value,
+// which points into the place, and the place's address when it is passed by address. A scalar that is only read is a
+// value by then and needs no hold, so a correct program pays a push for each borrow, and no look at its path: that is
+// found only when something in the rest changes or moves a place.
+function hold(mutates o Ownership, p ast.Project, place ast.NodeID, kind OwnProjectionKind, byAddress bool)
+	let t = ownType(o, node: place)
+	if byAddress or isManagedOwn(p, t: t) 'held'
+		o.projections.push(OwnProjection.make(AccessPath.none(), place: place, kind: kind, ty: t))
+	end 'held'
+end 'hold'
+
+// holdAcross is hold for a borrow that an expression uses again after evaluating next. Most operands are a name or a
+// literal, which run no code, so a correct program rarely pays for more than the kind of next.
+function holdAcross(mutates o Ownership, p ast.Project, place ast.NodeID, kind OwnProjectionKind, next ast.NodeID)
+	if not runsNoCode(p.modules[o.c.modIdx].tree, e: next) 'runs'
+		hold(o, p: p, place: place, kind: kind, byAddress: false)
+	end 'runs'
+end 'holdAcross'
+
+// runsNoCode is whether evaluating e is the read of a name or a literal, which cannot change a place. It does not look
+// into anything larger: holding is always right, and the walk costs more than the hold it would save.
+function runsNoCode(tree ast.Tree, e ast.NodeID) returns bool
+	let k = tree.kindOf(e)
+	return k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr
+end 'runsNoCode'
+
+// release ends the holds taken since projections had mark entries.
+function release(mutates o Ownership, mark Count)
+	truncate(o.projections, mark: mark)
+end 'release'
+
+// argument passes an expression as the convention says: a let borrows it, mutates borrows it to change, consumes takes
+// it, and sets initialises it.
+function argument(mutates o Ownership, mutates p ast.Project, e ast.NodeID, conv ast.Convention, consumes dest OwnDest, consumes s OwnState) returns OwnState
+	return match conv 'conv'
+		convLet gives expr(o, p: p, e: e, s: s)
+		convMutates gives mutatesArgument(o, p: p, e: e, dest: dest, s: s)
+		convConsumes gives consume(o, p: p, e: e, dest: dest, s: s)
+		convDestructs gives consume(o, p: p, e: e, dest: OwnDest.make(OwnDestKind.destDestructor, name: dest.name.clone()), s: s)
+		convSets gives initialise(o, p: p, e: e, dest: dest, s: s)
+	end 'conv'
+end 'argument'
+
+function mutatesArgument(mutates o Ownership, mutates p ast.Project, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState
+	let out = eval(o, p: p, e: e, s: s)
+	let path = pathOf(o, p: p, e: e)
+	let site = offsetOfOwn(o, p: p, node: e)
+	if not path.isPlace() 'fresh'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the 'mutates' parameter '{dest.name}' changes its argument, so pass a variable, or a field or an element of one")
+		return out
+	end 'fresh'
+	requireWritable(o, p: p, site: site, path: path)
+	return out
+end 'mutatesArgument'
+
+// initialise is an argument for a sets parameter: a variable that has no value yet, which has one afterwards.
+function initialise(mutates o Ownership, mutates p ast.Project, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState
+	let site = offsetOfOwn(o, p: p, node: e)
+	var local = ast.noLocal
+	if p.modules[o.c.modIdx].tree.kindOf(e) == ast.NodeKind.nameExpr 'name'
+		let name = ownName(o, node: e)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			local = name.local
+		end 'local'
+	end 'name'
+	if local == ast.noLocal or not isMutableLocal(o.c.typing.locals[local as Count]) 'notVariable'
+		fail(o, p: p, site: site, code: diag.errSetArgument, msg: "the 'sets' parameter '{dest.name}' initialises its argument, so pass a variable declared without a value: 'var x as T'")
+		return s
+	end 'notVariable'
+	if s.dead 'dead'
+		return s
+	end 'dead'
+	if not s.has(local) or s.factOf(local).kind != OwnFactKind.factUninitialised 'hasValue'
+		let name = ast.nameExprName(p.modules[o.c.modIdx].tree, id: e)
+		fail(o, p: p, site: site, code: diag.errSetArgument, msg: "'{name}' already has a value, but the 'sets' parameter '{dest.name}' initialises its argument; declare a variable without a value: 'var x as T'")
+		return s
+	end 'hasValue'
+	o.initialising.push(local)
+	return s
+end 'initialise'
+
+// requireExclusive is the law of exclusivity for one call: an argument passed mutates, consumes or sets must not overlap
+// any other argument, receiver included, because the callee would then reach one place through two names.
+function requireExclusive(mutates o Ownership, mutates p ast.Project, call ast.CallInfo, receiver ast.NodeID)
+	o.accesses = CallAccesses.create(0)
+	if receiver != 0 'receiver'
+		addAccess(o, p: p, e: receiver, conv: call.selfConv)
+	end 'receiver'
+	for i in 0 upto call.ordered.count() 'args'
+		addAccess(o, p: p, e: call.ordered[i], conv: call.paramSpecs[i].conv)
+	end 'args'
+	for j in 1 upto o.accesses.count() 'later'
+		for i in 0 upto j 'earlier'
+			let a = o.accesses[i].clone()
+			let b = o.accesses[j].clone()
+			if (a.conv == ast.Convention.convLet and b.conv == ast.Convention.convLet) or not a.path.overlaps(b.path) 'apart'
+				continue 'earlier'
+			end 'apart'
+			let msg = overlapMessage(o, p: p, a: a, b: b)
+			fail(o, p: p, site: offsetOfOwn(o, p: p, node: b.expr), code: diag.errExclusivity, msg: msg)
+		end 'earlier'
+	end 'later'
+end 'requireExclusive'
+
+function addAccess(mutates o Ownership, p ast.Project, e ast.NodeID, conv ast.Convention)
+	let path = pathOf(o, p: p, e: e)
+	if path.isPlace() 'place'
+		o.accesses.push(CallAccess.make(e, path: path, conv: conv))
+	end 'place'
+end 'addAccess'
+
+function overlapMessage(mutates o Ownership, mutates p ast.Project, a CallAccess, b CallAccess) returns String
+	var changing = a.clone()
+	var other = b.clone()
+	if a.conv == ast.Convention.convLet 'swap'
+		changing = b.clone()
+		other = a.clone()
+	end 'swap'
+	let aText = pathText(o, p: p, path: a.path)
+	let bText = pathText(o, p: p, path: b.path)
+	let changingText = pathText(o, p: p, path: changing.path)
+	let message = "'{aText}' and '{bText}' overlap, and '{changingText}' is passed {changing.conv.keyword()}, so the callee would reach one place through two names"
+	if other.conv == ast.Convention.convLet 'borrowed'
+		let otherText = pathText(o, p: p, path: other.path)
+		let advice = copyAdvice(o, p: p, t: ownType(o, node: other.expr), ifCopyable: "pass a copy of the borrowed one: '{otherText}.clone()'", fallback: "pass separate values")
+		return "{message}; {advice}"
+	end 'borrowed'
+	return "{message}; pass separate values"
+end 'overlapMessage'
+
+// subscript evaluates the collection of a subscript and its index, which lowering takes the element address from only
+// after both: the collection stays borrowed while the index is computed.
+function subscript(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let obj = ast.indexExprObj(p.modules[o.c.modIdx].tree, id: e)
+	let index = indexArg(p.modules[o.c.modIdx].tree, e: e)
+	let out = expr(o, p: p, e: obj, s: s)
+	let held = o.projections.count()
+	holdAcross(o, p: p, place: obj, kind: OwnProjectionKind.projectCollection, next: index)
+	let after = expr(o, p: p, e: index, s: out)
+	release(o, mark: held)
+	return after
+end 'subscript'
+
+function memberExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let kind = ownMember(o, node: e).kind
+	if kind == ast.MemberKind.memberEnumCase or kind == ast.MemberKind.memberUnionCase 'case'
+		return s
+	end 'case'
+	if o.partials > 0 and kind == ast.MemberKind.memberField and readPart(o, p: p, e: e, s: s) 'part'
+		return s
+	end 'part'
+	return expr(o, p: p, e: ast.memberExprObj(p.modules[o.c.modIdx].tree, id: e), s: s)
+end 'memberExprOwn'
+
+function structLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let lit = match consumes o.c.typing.structLits.get(e as Count) 'hit'
+		some(info) gives info
+		none panic("ownership: the struct literal at node {e} was not recorded by the bodies check")
+	end 'hit'
+	let orig = ast.originOf(p.types, t: lit.ty)
+	var out = s
+	for i in 0 upto lit.ordered.count() 'fields'
+		if lit.ordered[i] != 0 'given'
+			let name = p.types.entries[orig as Count].fields[i].name.clone()
+			out = consume(o, p: p, e: lit.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
+		end 'given'
+	end 'fields'
+	return out
+end 'structLitOwn'
