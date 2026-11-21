@@ -2356,7 +2356,6 @@ error E3005: <fragment>:25:12: Value 50 is outside the range of 'NodePower' (int
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `extension Iterable` declares `ElementTransform` in the library. The program's `extension Iterable` declares it
 with two parameters: `combine` takes the program's, and the library's `map` keeps its own.
 ```maxon
@@ -2367,7 +2366,6 @@ export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'each'
 			total = transform(total, item)
 		end 'each'
@@ -2404,7 +2402,6 @@ end 'main'
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Zebra` is a generic conformer of the program's own whose name sorts after every library conformer's, so the
 bare `ElementTransform` key holds its element in both declarations. `map` still takes the library's one parameter
@@ -2417,7 +2414,6 @@ export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'each'
 			total = transform(total, item)
 		end 'each'
@@ -2474,7 +2470,6 @@ end 'main'
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same declarations with the receivers swapped for the original shape: the program's `Zebra` still sorts after
 every library conformer, and a plain `Array` is the receiver of `map` and of `combine`.
@@ -2486,7 +2481,6 @@ export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 	export function combine(transform ElementTransform, seed Element) returns Element
 		var total = seed
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'each'
 			total = transform(total, item)
 		end 'each'
@@ -2675,7 +2669,6 @@ end 'main'
 ### The same member is a DECLARED TYPE at file scope
 
 <!-- test: plain-type-member-generic-alias-as-a-declared-type -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The other door, and it is a different one: a written type annotation is resolved by
 `parseTypeReference`, a static call base by `parseQualifiedCall`. A free function's PARAMETER, its
@@ -2723,7 +2716,6 @@ end 'makeBag'
 
 function sumOf(b Bag) returns Num
 	var total = 0 as Num
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in b 'each'
 		total = total + n
 	end 'each'

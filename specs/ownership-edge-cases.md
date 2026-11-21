@@ -993,7 +993,6 @@ end 'main'
 ```
 
 <!-- test: rc-for-in-elem-decrefed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 In a for-in loop over a struct array each element reference is decref'd at the end of the loop body.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1009,16 +1008,15 @@ end 'Score'
 typealias ScoreArray = Array with Score
 
 function main() returns ExitCode
-	let scores = ScoreArray.create(0)
+	var scores = ScoreArray.create(0)
 	scores.push(Score.create(10))
 	scores.push(Score.create(20))
 	scores.push(Score.create(30))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in scores 'loop'
-		total = total + s.pts
+		total = try total + s.pts otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2246,7 +2244,6 @@ sum=9
 ```
 
 <!-- test: rc-snapshot-list-field-then-overwrite-no-uaf -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Snapshotting a struct's `List` field into a local, then overwriting that field with a
 fresh list, then iterating the SNAPSHOT (`let old = buf.ops; buf.ops = IntList.create();
 for x in old ...`). Overwriting `buf.ops` decrefs the old list. The snapshot `old` is an
@@ -2275,7 +2272,6 @@ function rewrap(buf OpBuffer) returns Integer
 	let old = buf.ops
 	buf.ops = IntList.create()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in old 'each'
 		total = total + x
 	end 'each'
@@ -2797,7 +2793,6 @@ end 'main'
 ```
 
 <!-- test: rc-release-break-for-in -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A for-in body is a scope like any loop body's, so a break out of it must release the iteration's
 allocation rather than relying on the normal end-of-body edge.
 ```maxon
@@ -2814,7 +2809,6 @@ end 'Item'
 function main() returns ExitCode
 	let items = [10, 20, 30, 40, 50]
 	var result = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'search'
 		let wrapped = Item.create(item)
 		if wrapped.val == 30 'found'
@@ -2822,7 +2816,7 @@ function main() returns ExitCode
 			break
 		end 'found'
 	end 'search'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

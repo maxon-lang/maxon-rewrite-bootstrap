@@ -42,7 +42,6 @@ the same rule `advance()`'s clause is pinned by.
 ## Tests
 
 <!-- test: for-in-iterable.walks-the-cursor-the-factory-returns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The factory is called once and the loop walks what it returns. `IntSeq` declares no `current`/`advance`
 of its own — only `createIterator` — so nothing but the `Iterable` half is available here.
 ```maxon
@@ -92,7 +91,6 @@ function main() returns ExitCode
 	a.push(30)
 	let s = IntSeq.create(a)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in s 'each'
 		sum = sum + v
 	end 'each'
@@ -104,7 +102,6 @@ end 'main'
 ```
 
 <!-- test: for-in-iterable.an-empty-collection-runs-zero-trips-and-drops-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE CASE THE SEEDED-FLAG LOWERING SEGFAULTED ON.** The factory throws `exhausted`, the loop runs
 zero trips, and the cursor it did NOT return must not be destructed. Exit 0 with no leak is the whole
 assertion; the carried `sum` reading its pre-loop value at the join is the other half.
@@ -150,7 +147,6 @@ end 'IntSeq'
 
 function total(s IntSeq) returns Integer
 	var sum = 7 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in s 'each'
 		sum = sum + v
 	end 'each'
@@ -176,7 +172,6 @@ filled=10
 ```
 
 <!-- test: for-in-iterable.break-and-return-leave-an-iterable-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Every exit a cursor loop already had works over an `Iterable` source, on the empty collection too — the
 join the empty entry edge forces must merge the carried bindings, not bypass them.
 ```maxon
@@ -221,7 +216,6 @@ end 'IntSeq'
 
 function firstOver(s IntSeq, floor Integer) returns Integer
 	var found = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in s 'each'
 		if v > floor 'hit'
 			found = v
@@ -232,7 +226,6 @@ function firstOver(s IntSeq, floor Integer) returns Integer
 end 'firstOver'
 
 function earlyReturn(s IntSeq) returns Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in s 'each'
 		return v
 	end 'each'
@@ -260,7 +253,6 @@ return=10 returnEmpty=0
 ```
 
 <!-- test: for-in-iterable.an-infallible-factory-needs-no-entry-edge -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `createIterator()` that cannot throw seeds the header at the first element exactly as a bare cursor
 source does, and the loop grows no second entry edge.
 ```maxon
@@ -277,7 +269,7 @@ type Countdown
 		return self.n
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.n <= 1 'done'
 			throw IterationError.exhausted
 		end 'done'
@@ -300,11 +292,10 @@ end 'Countable'
 function main() returns ExitCode
 	let c = Countable.create(4)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in c 'each'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -312,7 +303,6 @@ end 'main'
 ```
 
 <!-- test: for-in-iterable.a-cursor-that-is-also-a-factory-is-walked-as-a-cursor -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ The precedence rule. `Resumable` supplies BOTH halves; iterating it must resume from where it stands
 rather than calling its own factory and restarting. `main` advances twice before the loop, so a restart
 would sum 100 and resuming sums 70.
@@ -355,7 +345,6 @@ function main() returns ExitCode
 	try it.advance() otherwise panic("advance")
 	try it.advance() otherwise panic("advance")
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in it 'each'
 		sum = sum + v
 	end 'each'
@@ -367,8 +356,6 @@ end 'main'
 ```
 
 <!-- test: error.a-factory-throwing-another-error-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 The loop absorbs what the traversal protocol throws without binding it, so the error type is pinned to
 the payload-free `IterationError` — `advance()`'s rule, applied to the factory.
 ```maxon
@@ -415,7 +402,6 @@ end 'Countable'
 function main() returns ExitCode
 	let c = Countable.create(4)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in c 'each'
 		sum = sum + v
 	end 'each'

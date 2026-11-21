@@ -904,7 +904,7 @@ true
 <!-- test: a-user-byte-declared-as-a-float-compares-element-wise -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An element type named `Byte` that is a float is not a byte: the array compares element by element and hashes
 as the chain of its elements' hashes, never as raw bytes.
 ```maxon
@@ -915,7 +915,7 @@ typealias Bs = Array with Byte
 
 function fold(values Bs) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -984,7 +984,7 @@ true false
 ### A byte array hashes as its bytes
 
 <!-- test: a-byte-array-hashes-as-its-bytes -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `ByteArray` is hashed as one run of bytes, not element by element: its hash is
 a `Hasher` that folds `bytes` with `combineBytes`, which is also the hash of a `String` holding the same
 bytes. Every length on either side of the hash's block boundaries, the empty array included.
@@ -1008,7 +1008,6 @@ end 'folded'
 
 function main() returns ExitCode
 	let lengths = LengthList from [0, 1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
 		let bytes = bytesOf(length)
 		print("{length} as bytes: {bytes.hash() == folded(bytes)} as its string: {bytes.hash() == String.from(bytes).hash()}\n")
@@ -1040,7 +1039,7 @@ end 'main'
 ### An int array hashes as the bytes of its storage
 
 <!-- test: an-int-array-hashes-as-the-bytes-of-its-storage -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An array of `int(i64.min to i64.max)` hashes as one run over its storage, each element its eight bytes
 little-endian: a `Hasher` that folds `storage` with `combineBytes`, which is the hash of a
 `ByteArray` holding those bytes. The run is ordered, so `[1, 2]` and `[2, 1]` differ, and an empty array hashes
@@ -1052,7 +1051,7 @@ typealias WideArray = Array with Wide
 
 function storageOf(values WideArray) returns ByteArray
 	let bytes = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		for index in 0 upto 8 'eachByte'
 			bytes.push(((item shr (index * 8)) and 0xFF) as Byte)
@@ -1102,7 +1101,7 @@ ordered: true
 ### One flipped bit of one element moves about half of the 32 hash bits
 
 <!-- test: hash-avalanches -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Changing one element by one bit moves the array's hash by at least 8 of its 32 bits on average, for an
 `int` array (each of the low 31 bits of each of eight elements) and a byte array (each bit of each of
 sixteen bytes). A multiply-and-add fold moves one bit for a change in the last element and fails here. Over
@@ -1144,7 +1143,6 @@ function intVerdict() returns String
 	var unmoved = 0 as Count
 	for index in 0 upto values.count() 'eachIndex'
 		let original = try values.get(index) otherwise panic("the index is inside the array")
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for bit in masks 'eachMask'
 			let changed = values.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")
@@ -1171,7 +1169,6 @@ function byteVerdict() returns String
 	var unmoved = 0 as Count
 	for index in 0 upto bytes.count() 'eachIndex'
 		let original = try bytes.get(index) otherwise panic("the index is inside the array")
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for bit in masks 'eachMask'
 			let changed = bytes.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")
@@ -1359,7 +1356,7 @@ changed: true true
 ### An enum that declares its own hash chains it
 
 <!-- test: an-enum-array-chains-the-enum-s-own-hash -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An enum that declares its own `hash()` is hashed by it, so its array chains each element's `hash()` from
 a `Hasher.create()`, called directly and through a `Hashable` field alike. Two
 cases this `hash()` maps to one value give arrays that differ and hash equal.
@@ -1392,7 +1389,7 @@ end 'Holder'
 
 function chained(values ParityArray) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -1421,7 +1418,7 @@ own hash decides: true true
 
 <!-- test: a-float-array-hashes-as-its-element-chain -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A float's equality is not bitwise (`0.0 == -0.0`), so a float array hashes as the chain
 `hasher.combine(element.hash())` over a `Hasher.create()`, finalized —
 called directly and through a `Hashable` field alike — and arrays holding `0.0` and `-0.0` are equal and hash
@@ -1439,7 +1436,7 @@ end 'Holder'
 
 function chained(values Reals) returns HashValue
 	let hasher = Hasher.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'

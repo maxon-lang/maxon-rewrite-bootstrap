@@ -52,7 +52,6 @@ refuses, and a `while true` whose first block branches into two hot arms, which 
 ## Tests
 
 <!-- test: a-latch-falls-into-its-header -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shape this layout exists for. In `copyTail`'s versioned fast copy the step block falls into the
 loop header, whose `cmp / jcc less` is the taken back edge, and the exit is its fall-through.
 ```maxon
@@ -76,7 +75,6 @@ function main() returns ExitCode
 	end 'seed'
 	copyTail(source, scratch: scratch, n: 6)
 	var total = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in scratch 'sum'
 		total = total + v
 	end 'sum'

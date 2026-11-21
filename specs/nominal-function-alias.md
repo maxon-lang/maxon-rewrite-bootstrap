@@ -78,7 +78,6 @@ error E3005: <fragment>:20:10: argument type mismatch for 'f': expected 'Callbac
 <!-- test: a-branded-comparator-decays-into-the-per-instance-sort-alias -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A function alias declared inside a type body is not a brand: no source outside the type can write
 `Array.SortComparator`, so it is never the name an author chose to tell two shapes apart. A
 `RowComparator` value passes to `Array.sort` unchanged, and a value of the nested alias fits a
@@ -115,7 +114,6 @@ function main() returns ExitCode
 	rows.push(Row.create(2))
 	let sorter = Sorter.create()
 	rows.sortBy(sorter.compare)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'each'
 		print("{row.key}")
 	end 'each'

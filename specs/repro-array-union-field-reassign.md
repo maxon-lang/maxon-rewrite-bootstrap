@@ -115,7 +115,6 @@ error E3006: specs/repro-array-union-field-reassign/let-shadowing-self-field-rej
 ```
 
 <!-- test: for-in-shadowing-self-field-rejected -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ### `for ... in` loop variable shadowing a self field is rejected
 ```maxon
@@ -133,7 +132,6 @@ type Holder
 
 	function sum() returns Idx
 		var total = 0 as Idx
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for element in self.elements 'each'
 			total = total + element
 		end 'each'

@@ -80,7 +80,7 @@ end 'main'
 ```
 
 <!-- test: bytearray-slice-length -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Reconstructed byte-slice has the correct length and content
 Rebuilds the whole source string byte-by-byte and returns its byte length. A
 wrong stride would still push `count` bytes but pack them 8 apart, leaving a
@@ -90,7 +90,7 @@ function main() returns ExitCode
 	let src = "hello world"
 	let bytes = src.toByteArray()
 	let out = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in bytes 'copy'
 		out.push(b)
 	end 'copy'

@@ -39,7 +39,7 @@ matched case's payload regardless of which alternative fired.
 ## Tests
 
 <!-- test: interleaved-classification -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Every alternative of an enum or-arm must route to the arm body, even when the
 covered ordinals interleave with the other arm's ordinals. This mirrors the
 compiler's own `returnedValueClassIsAcquired` (the arm covers ordinals 1, 3, 4).
@@ -65,7 +65,7 @@ function classIsAcquired(c OwnershipClass) returns bool
 end 'classIsAcquired'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in OwnershipClass.allCases 'e'
 		print("{c.name}={classIsAcquired(c)}\n")
 	end 'e'
@@ -141,7 +141,7 @@ end 'main'
 ```
 
 <!-- test: stmt-form-all-terms -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Statement-form or-arms must test every alternative in both arms.
 ```maxon
 enum E
@@ -167,7 +167,7 @@ function classify(v E) returns Tag
 end 'classify'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for x in E.allCases 'e'
 		print("{x.name}={classify(x)}\n")
 	end 'e'
@@ -186,7 +186,7 @@ e=1
 ```
 
 <!-- test: two-term-both-fire -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Both alternatives of a two-term or-arm fire the arm (contiguous ordinals).
 ```maxon
 enum E
@@ -206,7 +206,7 @@ function isMid(v E) returns bool
 end 'isMid'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for x in E.allCases 'e'
 		print("{x.name}={isMid(x)}\n")
 	end 'e'
@@ -224,7 +224,7 @@ c3=false
 ```
 
 <!-- test: noncontiguous-alternatives -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An or-arm whose alternatives are not contiguous (`a or c or d`, with `b` handled
 by another arm) covers all of `a`, `c`, `d` — the match is exhaustive with no
 false E2026, and every one of those cases routes to the arm body.
@@ -246,7 +246,7 @@ function classify(v E) returns ExitCode
 end 'classify'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for x in E.allCases 'e'
 		print("{x.name}={classify(x)}\n")
 	end 'e'
@@ -264,7 +264,7 @@ d=1
 ```
 
 <!-- test: deferred-chain-keeps-every-alternative -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Order-independent: `c or d or a` covers the same set as `a or c or d`. Here the
 scrutinee's enum is declared AFTER the function, so the exhaustiveness/coverage
 check is deferred to type resolution — the deferred replay must keep every
@@ -287,7 +287,7 @@ enum E
 end 'E'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for x in E.allCases 'e'
 		print("{x.name}={classify(x)}\n")
 	end 'e'

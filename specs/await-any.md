@@ -149,7 +149,6 @@ and wasm32-wasi refuses `__cown_spawn` with the same E3104, which the harness co
 <!-- test: await-any.returns-the-first-completed-index -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE DISCRIMINATING CASE — the index returned is the one that FINISHED, not the one that is first in
 the array.** Slot 0 and slot 2 park on timers; slot 1 only yields, so it is the one that reaches
 `completed`. A scan that looked at slot 0 alone, or that returned the first slot it could read rather than
@@ -185,7 +184,6 @@ function main() returns ExitCode
 		score = score + 3
 	end 'themiddleonefinishedfirst'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'drainthemall'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -257,7 +255,6 @@ end 'main'
 <!-- test: await-any.leaves-the-others-awaitable -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE CENTRAL CASE.** `awaitAny` names one index and RETIRES NOTHING: every promise in the array,
 winner included, is still awaitable afterwards, and a program that awaits them all is leak-free. This is
 the shape the motivating consumer has — a pool selects, serves the ready drain, and eventually awaits
@@ -289,7 +286,6 @@ function main() returns ExitCode
 		score = score + 1
 	end 'aselectiswithoutsideeffect'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'awaiteveryone'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -307,7 +303,6 @@ end 'main'
 <!-- test: await-any.over-a-mixed-array-of-sleeps -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE TIMER CASE — nothing is runnable at all, so the machine BLOCKS on the earliest deadline.** Three
 sleepers and no other work: once all three coroutines are parked on their timers and `main` is parked in
 `awaitAny`, the machine has nothing to run and parks until the nearest deadline rather than spinning
@@ -339,7 +334,6 @@ function main() returns ExitCode
 		score = score + 3
 	end 'theearliestdeadlinewon'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'drainthemall'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -356,7 +350,6 @@ end 'main'
 
 <!-- test: await-any.over-service-replies -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE COMPOSITION THAT MAKES THE PRIMITIVE WORTH HAVING.** A handler reply is an ordinary `Promise`, so
 ONE waiting primitive covers service replies, file IO and subprocess drains — there is no separate "channel
@@ -413,7 +406,6 @@ function main() returns ExitCode
 		score = score + 3
 	end 'thequickreplywonthoughitwassentsecond'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in ps 'drainbothreplies'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)
@@ -431,7 +423,6 @@ end 'main'
 <!-- test: await-any.selects-from-inside-an-async-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **A SELECT INSIDE A COROUTINE — the waiter is not its strand's owner.** `selectOver` is a coroutine of
 `main`'s green thread, and `main` is itself parked on `await outer` while it selects. So the thread the
 registration stores on each slot, the one a completer readies, and the one that withdraws on waking are all
@@ -460,7 +451,6 @@ function selectOver() returns Integer
 	ps.push(async inner(4))
 	let ready = ps.awaitAny()
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in ps 'all'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -587,7 +577,7 @@ end 'main'
 
 <!-- test: await-any.replies-racing-the-registration-across-many-rounds -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -643,13 +633,13 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot.index() as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -671,7 +661,7 @@ picks=300 sum=719400
 
 <!-- test: await-any.replies-racing-the-registration-at-one-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- procs: 1 -->
@@ -718,13 +708,13 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot.index() as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -746,7 +736,7 @@ picks=300 sum=719400
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-across-many-rounds -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -811,7 +801,7 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			let s = slot.index() as Integer
 			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
@@ -819,7 +809,7 @@ function main() returns ExitCode
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
@@ -841,7 +831,7 @@ picks=400 sum=20476800
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-at-one-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- procs: 1 -->
@@ -895,7 +885,7 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, echo) in echoes.withIterator() 'sendEach'
 			let s = slot.index() as Integer
 			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
@@ -903,7 +893,7 @@ function main() returns ExitCode
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (slot, p) in replies.withIterator() 'drain'
 			if slot.index() == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1

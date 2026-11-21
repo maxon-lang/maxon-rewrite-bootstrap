@@ -963,7 +963,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.same-alias-name-with-a-contested-range -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 Two files declaring one alias name with different ranges still leave each file's alias its own, so a cast to it repeats it.
 ```maxon
@@ -978,7 +978,7 @@ function main() returns ExitCode
 	if atLimit() 'limit'
 		return 1
 	end 'limit'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in values 'each'
 		let c = b as Byte
 		return c

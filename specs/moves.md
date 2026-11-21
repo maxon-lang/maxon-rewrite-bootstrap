@@ -382,7 +382,6 @@ door, so the destination owns a record of its own and the element is untouched. 
 not copied, so a mutable name shares the container's record.
 
 <!-- test: immutable-rebind-on-assign-from-a-loop-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -393,13 +392,12 @@ function build(x Integer) returns String
 end 'build'
 
 function main() returns ExitCode
-	let xs = StringSeq.create(0)
+	var xs = StringSeq.create(0)
 	xs.push(build(1))
 	xs.push(build(2))
 	var last = build(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in xs 'each'
-		last = s
+		last = s.clone()
 	end 'each'
 	print("{last}\n")
 	return 0
@@ -1151,7 +1149,6 @@ end 'main'
 ```
 
 <!-- test: moves.a-record-moved-out-of-the-loops-source-is-cleared-inside-the-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `taken` takes the record the loop walks and clears it. `x` holds its own reference to the element it read, so
 it is still readable after the clear.
 ```maxon
@@ -1161,7 +1158,6 @@ function main() returns ExitCode
 	let items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items 'each'
 		let taken = items
 		taken.clear()

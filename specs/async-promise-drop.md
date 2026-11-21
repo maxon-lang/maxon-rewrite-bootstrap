@@ -2851,7 +2851,7 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- positions: moved -->
 A `withIterator` pair bound WHOLE carries the promise its array still holds, and a pair can be passed anywhere,
@@ -2875,7 +2875,7 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	s.push(async plain(7))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for pair in s.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		// TODO: tuple element access is not supported in minimaxon
@@ -2892,7 +2892,6 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A `Map`'s iterator hands each entry back as a `(key, value)` pair while the map keeps the value, and a map has
@@ -2916,7 +2915,6 @@ function main() returns ExitCode
 	m.upsert("a", value: async plain(9))
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in m 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await v)

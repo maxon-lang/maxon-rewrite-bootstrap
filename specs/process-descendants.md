@@ -37,7 +37,6 @@ being recorded: two generations of ended processes between this process and it.
 
 <!-- test: process-descendants.a-detached-sleeper-is-listed-ended-and-named -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -64,7 +63,6 @@ function main() returns ExitCode
 	let found = Process.endDescendants()
 	var listed = false
 	var named = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in found 'eachEntry'
 		if entry.pid == pid 'ours'
 			listed = true
@@ -88,7 +86,6 @@ armed=0 alive=true listed=true named=true onlyOne=true ended=true
 ```
 
 <!-- test: process-descendants.a-name-holding-a-newline-is-one-listed-descendant -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A POSIX executable name may hold a newline, and the host reports that name as the process's name. The program
@@ -135,7 +132,6 @@ function main() returns ExitCode
 	let found = Process.endDescendants()
 	let removed = runShell(RemoveScript, exePath: me)
 	var named = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in found 'eachEntry'
 		if entry.pid == pid 'ours'
 			named = entry.name.equals(ListedName)
@@ -194,7 +190,6 @@ armed=0 ran=true found=0
 
 <!-- test: process-descendants.a-child-that-has-signalled-is-a-descendant-until-it-ends -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child that removes a flag file and only then lingers has signalled, not ended: it is still running and still
@@ -232,7 +227,6 @@ function main() returns ExitCode
 	let aliveAtSignal = Process.isAlive(pid)
 	let found = Process.endDescendants()
 	var listed = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in found 'eachEntry'
 		if entry.pid == pid 'ours'
 			listed = true
@@ -295,7 +289,6 @@ armed=0 ended=true found=0
 
 <!-- test: process-descendants.an-orphaned-detached-grandchild-is-found -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child. The child detaches a long sleeper, names its id on stdout and exits, so
@@ -342,7 +335,6 @@ function main() returns ExitCode
 	let found = Process.endDescendants()
 	var listed = false
 	var named = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in found 'eachEntry'
 		if entry.pid == (pid as Pid) 'ours'
 			listed = true
@@ -367,7 +359,6 @@ armed=0 alive=true listed=true named=true onlyOne=true ended=true
 
 <!-- test: process-descendants.a-first-call-lists-everything-the-program-started-before-it -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a probe whose environment carries no armed token, the shape of a program run outside
@@ -420,7 +411,6 @@ function runAsProbe() returns ExitCode
 	let found = Process.endDescendants()
 	var listedDirect = false
 	var listedOrphan = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in found 'eachEntry'
 		if entry.pid == direct 'theDirectOne'
 			listedDirect = true
@@ -465,7 +455,7 @@ exit=0 found=2 direct=true orphan=true ended=true
 
 <!-- test: process-descendants.an-armed-case-that-leaves-a-sleeper-reports-it-in-a-framed-line -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child with `MAXON_TRACK_DESCENDANTS=A<token>`. The child detaches a long sleeper
@@ -510,7 +500,7 @@ end 'detachSleeper'
 
 function framedPids(text String) returns PidArray
 	let found = PidArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
@@ -524,7 +514,7 @@ end 'framedPids'
 
 function framedTokens(text String) returns StringArray
 	let found = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.split(TokenSeparator)
@@ -557,7 +547,6 @@ function main() returns ExitCode
 		let only = try tokens.get(0) otherwise return 5
 		tokened = only == ArmedToken
 	end 'oneToken'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pid in framed 'eachFrame'
 		if pid == (sleeper as Pid) 'ours'
 			listed = true
@@ -646,7 +635,7 @@ exit=0 childSaid=sawD=true ended=true framed=false
 
 <!-- test: process-descendants.the-children-of-an-armed-case-do-not-arm -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The armed child runs the program a second time, as a grandchild that inherits the token. The grandchild leaves a
@@ -693,7 +682,7 @@ end 'detachSleeper'
 
 function framedPids(text String) returns PidArray
 	let found = PidArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
@@ -729,7 +718,7 @@ function main() returns ExitCode
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
 	var sleeper = 0 as Pid
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in child.stdout.split("\n") 'eachLine'
 		if line.startsWith(SleeperLabel) 'theSleeper'
 			let parsed = try int.fromString(line.trim().replace(SleeperLabel, with: "")) otherwise return 4
@@ -738,7 +727,6 @@ function main() returns ExitCode
 	end 'eachLine'
 	let framed = framedPids(child.stderr)
 	var listed = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pid in framed 'eachFrame'
 		if pid == sleeper 'ours'
 			listed = true

@@ -131,7 +131,6 @@ third heap string long enough to require an allocation
 ```
 
 <!-- test: shift-right-opens-a-hole-and-zeroes-it -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `shiftRight` is bounded by LENGTH, so a caller grows the length first and shifts inside it —
 which is exactly what `Array.insert` does. Slot 3 is the top slot written: `1 + 2 < 4`.
@@ -149,7 +148,6 @@ function main() returns ExitCode
 	try arr.managed.shiftRight(1, 2) otherwise return 98
 	try arr.managed.set(1, 99) otherwise return 97
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'sum'
 		total = total + (v as ExitCode)
 	end 'sum'
@@ -161,7 +159,6 @@ end 'main'
 ```
 
 <!-- test: shift-left-closes-the-hole -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `shiftLeft` zeroes the slot its slide vacated, and the caller republishes the length over it.
 ```maxon
@@ -177,7 +174,6 @@ function main() returns ExitCode
 	try arr.managed.shiftLeft(2, 1) otherwise return 98
 	try arr.managed.setLength(2) otherwise return 97
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'sum'
 		total = total + (v as ExitCode)
 	end 'sum'
@@ -389,7 +385,6 @@ gamma 42 heap string three
 ```
 
 <!-- test: shift-right-whose-count-overflows-is-shift-out-of-bounds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The overflow on the COUNT side: `1 + i64.max` wraps just as `(i64.max - 3) + 4` does above, and the check
 refuses it without forming the sum. The refusal moves nothing.
@@ -407,7 +402,6 @@ function main() returns ExitCode
 	try xs.managed.shiftRight(1, 9223372036854775807) otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'
@@ -426,7 +420,6 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-right-with-a-negative-argument-is-shift-out-of-bounds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A negative `index` or `count` read as unsigned is past every length, so both are `shiftOutOfBounds`. Read as
 signed, `-1 + 1` is 0 and `0 + -1` is -1, both below the length, and the slide would read the word before the
@@ -447,7 +440,6 @@ function main() returns ExitCode
 	try xs.managed.shiftRight(0, -1) otherwise (e) 'negativeCount'
 		print("count: {e.name}\n")
 	end 'negativeCount'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'
@@ -466,7 +458,6 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-with-a-negative-argument-is-shift-out-of-bounds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same unsigned reading on the left slide: `-1` as an index is past every length, not one below slot 0, and
 `-1` as a count is past every length too.
@@ -486,7 +477,6 @@ function main() returns ExitCode
 	try xs.managed.shiftLeft(1, -1) otherwise (e) 'negativeCount'
 		print("count: {e.name}\n")
 	end 'negativeCount'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'
@@ -505,7 +495,6 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-past-the-live-length-is-shift-out-of-bounds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⭐ **`shiftLeft` IS BOUNDED BY LENGTH, NOT CAPACITY.** `shiftLeft(1, 3)` over three live bytes asks to slide
 slot 3 — a reserved slot past the live length — down into slot 2. Bounded by capacity it would pass and pull
@@ -530,7 +519,6 @@ function main() returns ExitCode
 	try arr.managed.shiftLeft(1, capacity) otherwise (e) 'wholeCapacity'
 		print("the whole capacity: {e.name}\n")
 	end 'wholeCapacity'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in arr 'each'
 		print("{b}\n")
 	end 'each'
@@ -549,7 +537,6 @@ the whole capacity: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-whose-range-end-overflows-is-shift-out-of-bounds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `i64.max + 2` wraps negative, below every length; the check refuses it without forming the sum.
 ```maxon
@@ -565,7 +552,6 @@ function main() returns ExitCode
 	try xs.managed.shiftLeft(9223372036854775807, 2) otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'
@@ -616,7 +602,6 @@ beta 42 heap string two
 ```
 
 <!-- test: shift-right-of-no-elements-moves-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⛔ **A COUNT OF 0 TOUCHES NO SLOT.** The occupant of `index + count` is the one a slide overwrites, and with
 `count` 0 that is the element AT `index` — which no slide overwrites. Released and then zeroed as the hole, it
@@ -631,7 +616,6 @@ function main() returns ExitCode
 	xs.push("beta {40 + 2} heap string two")
 	xs.push("gamma {40 + 2} heap string three")
 	try xs.managed.shiftRight(1, 0) otherwise return 98
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in xs 'each'
 		print("{s}\n")
 	end 'each'
@@ -648,7 +632,6 @@ gamma 42 heap string three
 ```
 
 <!-- test: shift-left-of-no-elements-moves-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⛔ **THE SAME ON THE LEFT.** With `count` 0 the slot `index - 1` receives nothing and the slot
 `index + count - 1` the slide would vacate is that same slot, so releasing one and zeroing the other would
@@ -662,7 +645,6 @@ function main() returns ExitCode
 	xs.push("beta {40 + 2} heap string two")
 	xs.push("gamma {40 + 2} heap string three")
 	try xs.managed.shiftLeft(1, 0) otherwise return 98
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in xs 'each'
 		print("{s}\n")
 	end 'each'
@@ -773,7 +755,6 @@ alpha heap string long enough to require an allocation
 ```
 
 <!-- test: swapping-managed-elements-through-a-whole-reversal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A reversal is the sort's inner move, and it runs the swap once per pair. Every element is
 relocated and none is created or destroyed, so the element count at teardown must be
@@ -794,7 +775,6 @@ function main() returns ExitCode
 		lo = lo + 1
 		hi = hi - 1
 	end 'reverse'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in xs 'each'
 		print("{s}\n")
 	end 'each'

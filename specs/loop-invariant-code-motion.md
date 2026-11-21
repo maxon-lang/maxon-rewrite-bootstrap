@@ -106,7 +106,6 @@ other than the loop header.
 ## Tests
 
 <!-- test: an-invariant-load-leaves-the-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The anchor. `for v in a` reads the array's LENGTH in the loop header and its BUFFER BASE in the body,
 neither of which can change while the loop runs; both move to `entry`, leaving the header a `cmp`/`jcc`
 and the body a single indexed load. The emitted code (`--emit-ir`) for `@total` is the whole reading — six
@@ -119,15 +118,14 @@ typealias WordArray = Array with Word
 
 function total(a WordArray) returns Word
 	var t = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'loop'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -145,7 +143,6 @@ end 'main'
 ```
 
 <!-- test: an-empty-container-still-runs-the-hoisted-load -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE SPECULATION CASE.** The buffer-base load lives in the block the loop header's guard branches
 to, so for an array of length ZERO it would never execute in place — and hoisted into the
 preheader, it does. Rule 2b is the whole of why that is safe: the length load at `[a+8]` is admitted
@@ -162,9 +159,8 @@ typealias WordArray = Array with Word
 
 function total(a WordArray) returns Word
 	var t = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'loop'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'total'
@@ -174,7 +170,7 @@ function main() returns ExitCode
 	if total(empty) != 0 'emptyIsZero'
 		return 1
 	end 'emptyIsZero'
-	let one = WordArray.create(0)
+	var one = WordArray.create(0)
 	one.push(7)
 	if total(one) != 7 'oneElement'
 		return 2
@@ -322,7 +318,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-loop-hoists-to-the-nearest-preheader -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Loops are processed innermost first and each loop's hoists are applied before the next is analysed, so
 an op can leave a whole NEST in one run — and the emitted code (`--emit-ir`) shows exactly how far each kind gets.
 
@@ -340,16 +335,15 @@ typealias WordArray = Array with Word
 function grid(a WordArray, rows Word, k Word) returns Word
 	var t = 0 as Word
 	for _ in 0 upto rows 'outer'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for v in a 'inner'
-			t = t + v + k * 5
+			t = try t + v + k * 5 otherwise panic("out of range")
 		end 'inner'
 	end 'outer'
 	return t
 end 'grid'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(2)
 	a.push(3)
 	a.push(5)

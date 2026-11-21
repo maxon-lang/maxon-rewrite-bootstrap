@@ -3906,7 +3906,7 @@ shwmae closing 3
 
 
 <!-- test: interface-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum ProbeError implements Error
 	refused
@@ -3928,7 +3928,6 @@ type Doubler implements Transform
 			throw ProbeError.refused
 		end 'big'
 		let out = ByteArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for b in data 'each'
 			out.push(b)
 			out.push(b)
@@ -3949,7 +3948,6 @@ type Reverser implements Transform
 			throw ProbeError.refused
 		end 'big'
 		let out = ByteArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for b in data 'each'
 			out.insert(0, value: b)
 		end 'each'
@@ -3969,7 +3967,7 @@ end 'orEmpty'
 
 function show(bytes ByteArray)
 	print("{bytes.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in bytes 'each'
 		print(" {b}")
 	end 'each'
@@ -4003,7 +4001,6 @@ end 'main'
 ```
 
 <!-- test: interface-requirement-returning-a-user-array-alias-through-two-conformers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4049,7 +4046,6 @@ function report(s Source, n Integer)
 	let size = s.nums(n).count()
 	let xs = s.nums(n)
 	print("{size} {xs.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print(" {x}")
 	end 'each'
@@ -4200,7 +4196,6 @@ error E3005: specs/interface-dispatch/error.interface-requirement-result-keeps-i
 ```
 
 <!-- test: error.a-witness-argument-of-another-instance-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 An argument to a call through an interface-typed value is judged against the requirement's declared
 parameter alias, exactly as a direct call to the conformer judges it: a `Strings` is not an `IntArray`.
@@ -4224,7 +4219,6 @@ type Adder implements Summer
 
 	function total(xs IntArray) returns Integer
 		var t = self.base
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
 			t = t + x
 		end 'each'
@@ -4245,7 +4239,6 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-instan
 ```
 
 <!-- test: error.a-witness-argument-of-another-alias-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `Other` is a second alias of the same instance as `IntArray`, so an `Other` argument does not fit the
 requirement's `IntArray` parameter through the interface, as it does not fit it in a direct call.
@@ -4269,7 +4262,6 @@ type Adder implements Summer
 
 	function total(xs IntArray) returns Integer
 		var t = self.base
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
 			t = t + x
 		end 'each'
@@ -4291,7 +4283,7 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-alias-
 
 <!-- test: interface-requirement-returning-a-character-through-two-conformers -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A requirement returning `Character` hands each conformer's grapheme back through the interface-typed value,
 owned by the caller exactly as a direct call's result is.
 ```maxon
@@ -4325,7 +4317,7 @@ end 'Mark'
 
 function codeOf(g Glyphs) returns ExitCode
 	let c = g.glyph()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in c.codepoints() 'first'
 		return cp
 	end 'first'
@@ -4342,7 +4334,7 @@ end 'main'
 ```
 
 <!-- test: error.a-witness-argument-to-a-character-formal-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 An argument to a requirement's `Character` parameter is judged through the interface exactly as a direct
 call to the conformer judges it: an integer is not a `Character`.
@@ -4362,7 +4354,7 @@ type Counter implements Sink
 
 	function put(c Character) returns Integer
 		var n = self.base
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for _ in c.codepoints() 'each'
 			n = n + 1
 		end 'each'

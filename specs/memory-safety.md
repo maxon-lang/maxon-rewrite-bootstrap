@@ -1018,7 +1018,6 @@ end 'main'
 
 <!-- test: clone-of-a-many-case-union-dispatches-every-tag -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Every arm of a many-case union rebuilds as itself
 Enough cases to take the JUMP TABLE rather than a compare chain — the dispatch strategy is chosen by
 interval count (`MaxonToStandardConversion.SwitchDispatch`), so a union with two arms never reaches
@@ -1085,7 +1084,6 @@ function main() returns ExitCode
 	a.push(Outer.plain(7))
 	let b = a.clone()
 	var out = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for o in b 'each'
 		out.append(describe(o))
 		out.append("|")

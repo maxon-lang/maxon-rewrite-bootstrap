@@ -72,7 +72,6 @@ sibling
 
 <!-- test: frozen-graph-shared-counts -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
@@ -105,7 +104,6 @@ type Forest
 
 	function total() returns Tally
 		var sum = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for leaf in self.leaves 'eachLeaf'
 			sum = sum + leaf.weight + (leaf.label.byteLength() as Tally)
 		end 'eachLeaf'
@@ -154,7 +152,6 @@ end 'main'
 ```
 
 <!-- test: freeze-on-wasm -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `freeze` walks a nested graph, an array of records holding strings, and the frozen result reads back whole. The case carries no marker, so it runs on `wasm32-wasi` too.
 
 ```maxon
@@ -167,7 +164,7 @@ type Leaf
 	export var weight as Tally
 
 	static function create(label String, weight Tally) returns Self
-		return Self{label: label, weight: weight}
+		return Self{label: label.clone(), weight: weight}
 	end 'create'
 end 'Leaf'
 
@@ -175,7 +172,7 @@ type Forest
 	export var leaves as LeafArray
 
 	static function create(size Tally) returns Self
-		let leaves = LeafArray.create(0)
+		var leaves = LeafArray.create(0)
 		for n in 1 to size 'build'
 			leaves.push(Leaf.create("leaf {n}", weight: n))
 		end 'build'
@@ -184,9 +181,8 @@ type Forest
 
 	function total() returns Tally
 		var sum = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for leaf in self.leaves 'eachLeaf'
-			sum = sum + leaf.weight + (leaf.label.byteLength() as Tally)
+			sum = try sum + leaf.weight + (leaf.label.byteLength() as Tally) otherwise panic("out of range")
 		end 'eachLeaf'
 		return sum
 	end 'total'

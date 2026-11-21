@@ -3256,7 +3256,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unused-alias-beside-an-enum-used-through-a-field-is-reported -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same audit when the only use is the element type of a field. `levels/` exports `enum Level` and `tags/`
 exports `typealias Level`. `Journal`, beside the enum, holds an `Array with levels.Level`, and `main.maxon`
@@ -3284,7 +3284,7 @@ export typealias Level = int(0 to 9)
 // --- file: main.maxon
 function main() returns ExitCode
 	var n = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in Journal.make().entries 'each'
 		match e 'pick'
 			high then n = n + 40

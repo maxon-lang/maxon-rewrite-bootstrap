@@ -1116,7 +1116,6 @@ end 'main'
 
 <!-- test: first-class-function.field-void-statement -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A field whose signature returns nothing is called as a statement, with no result to
 bind. This is the shape a table of handlers or compiler passes keyed by a struct field
 takes: each entry stores a function, and driving the table calls it for its effect.
@@ -1149,7 +1148,6 @@ function main() returns ExitCode
 	let passes = PassArray.create(0)
 	passes.push(PassEntry.create(widen))
 	passes.push(PassEntry.create(narrow))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in passes 'drive'
 		p.run(7)
 	end 'drive'
@@ -1723,7 +1721,6 @@ end 'main'
 
 <!-- test: first-class-function.capturing-closure-in-container -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A capturing closure in an array literal is owned by the array, beside a plain function reference.
 ```maxon
 
@@ -1738,7 +1735,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let ops = [double, function(n Integer) gives n + bump]
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for op in ops 'each'
 		total = total + op(11)
 	end 'each'
@@ -5007,7 +5003,6 @@ end 'main'
 <!-- test: first-class-function.capturing-closure-into-container -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A capturing closure pushed into an Array is owned by the Array.
 ```maxon
 
@@ -5024,7 +5019,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	a.push(function(n Integer) gives n + bump)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for op in a 'each'
 		total = total + op(22)
 	end 'each'

@@ -692,7 +692,6 @@ invalidScheme
 ```
 
 <!-- test: url.parse-authority-is-read-to-its-grammar -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function verdict(spelled String) returns String
 	let url = try URL.parse(spelled) otherwise (e) 'refused'
@@ -705,7 +704,6 @@ end 'verdict'
 
 function main() returns ExitCode
 	let spellings = ["http://[zz]:1/", "http://a b/", "http://:80/", "http://[::1]x/", "http://exa^mple.com/", "http://host:99999/", "http://host:8x/", "http://[::1]:8080/p", "http://host:/p", "http://exa%41mple.com/", "http://[v1.fe80::a+en1]/", "file:///etc/hosts"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in spellings 'eachSpelling'
 		print("{spelled} -> {verdict(spelled)}\n")
 	end 'eachSpelling'

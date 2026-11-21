@@ -2815,7 +2815,6 @@ edited from one to the other is answered from the other's parse. Its two neighbo
 because their kind IS their element type; `enumCase` is a family.
 
 <!-- test: an-array-literal-of-enum-cases-is-a-top-level-constant -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Read three ways — iterated, counted, and indexed — because the instance is what the element name decides and each
 reads it differently.
 ```maxon
@@ -2831,14 +2830,13 @@ end 'Reg'
 let calleeSaved = [Reg.rcx, Reg.rdx, Reg.r10]
 
 function ordinalOf(r Reg) returns Integer
-	return r.ordinal
+	return try r.ordinal as Integer otherwise panic("out of range")
 end 'ordinalOf'
 
 function main() returns ExitCode
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in calleeSaved 'each'
-		total = total + ordinalOf(r)
+		total = try total + ordinalOf(r) otherwise panic("out of range")
 	end 'each'
 	let first = try calleeSaved.get(0) otherwise panic("get")
 	print("count={calleeSaved.count()} total={total} first={ordinalOf(first)}")

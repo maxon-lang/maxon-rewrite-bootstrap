@@ -234,7 +234,6 @@ error E3205: <fragment>:26:13: cannot wait inside 'held'; an acquire block holds
 <!-- test: await-any-waits.a-select-over-coroutines-runs-in-main-and-in-a-plain-coroutine -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `main` and `firstOf`, a coroutine of `main`, hold no service, so both may select. The index names the job that finished first, and awaiting every job afterwards drains the array.
 
 ```maxon
@@ -255,7 +254,6 @@ function firstOf() returns Tally
 	jobs.push(async delayed(1, answer: 2))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for job in jobs 'eachJob'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await job
@@ -271,7 +269,6 @@ function main() returns ExitCode
 	jobs.push(async delayed(1, answer: 4))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for job in jobs 'eachJob'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await job

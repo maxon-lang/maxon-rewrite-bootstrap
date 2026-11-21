@@ -47,7 +47,6 @@ an interface that is written as a requirement's PARAMETER is refused where the h
 
 <!-- test: held.nested-dispatch -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE PROGRAM `stdlib/Array.maxon` STANDS AT.** `Bag`'s `Iter` is held at `Cursor`, so `createIterator()`
 hands back an existential and the loop walks it through a table it loaded out of the bag's own table.
 ```maxon
@@ -105,7 +104,6 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -128,7 +126,6 @@ end 'main'
 
 <!-- test: held.two-conformers-bind-differently -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **THE CASE THE WHOLE MECHANISM EXISTS FOR, AND THE ONE A SINGLE STATIC TABLE GETS WRONG.** `UpBag` binds
 `Iter` to `UpCursor` and `DownBag` binds it to `DownCursor` — two different concrete types under one held
 position — and a merge phi decides at RUN TIME which of them the loop walks. The two cursors answer
@@ -222,7 +219,6 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -263,7 +259,6 @@ end 'main'
 
 <!-- test: held.managed-values-through-the-nested-dispatch -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⚠ **AN OWNED HEAP RECORD ON BOTH SIDES OF THE NESTED DISPATCH.** The CURSOR the outer dispatch returns is
 itself a heap record the loop owns and must release through the NESTED table's `destroyFunc@8`, and each trip
 mints a `String` the body must release too. Over 200 rounds a missed release is exit 101 and a double release
@@ -355,7 +350,6 @@ typealias LineDoc = Doc with Lines
 
 function widthOf(source LineDoc) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		total = total + (text.byteLength() as Integer)
 	end 'walk'
@@ -446,7 +440,6 @@ error E2015: <fragment>:41:34: Unsupported: an interface instance's associated-t
 
 <!-- test: error.a-conformer-binds-something-that-does-not-conform -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ⭐ **THE HOLDING IS A CLAIM ABOUT EVERY CONFORMER, AND ONE THAT DOES NOT CONFORM IS REFUSED.** Widening
 `OddBag`'s `Tally` into a `Cursor` existential would stamp a nested table for a conformance that does not
@@ -492,7 +485,6 @@ typealias CursorBag = Bag with Cursor
 
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -630,7 +622,6 @@ error E3120: <fragment>:24:6: 'WeirdBag' binds 'Bag's associated type 'Iter' to 
 
 <!-- test: held.the-element-is-the-enclosing-types-own-parameter -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE PROGRAM `stdlib/Array.maxon`'s `Array.from` IS.** A generic type walking a
 value held at a parameterized interface over its OWN parameter — `Bag with (Element, Cursor with Element)`
@@ -676,7 +667,6 @@ type Collector uses Element
 
 	static function from(source ElementBag) returns Self
 		let result = ElementArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in source 'collect'
 			result.push(item)
 		end 'collect'
@@ -772,7 +762,6 @@ ok
 
 <!-- test: held.a-conformer-binds-a-generic-instance -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **A CONFORMER MAY BIND A HELD POSITION TO A GENERIC INSTANCE, AND THE QUESTION MUST BE ASKED OF THE
 BASE DECLARATION.** A conformance’s `with` argument is recorded by `renderDeclaredTypeName` as the compiler’s
 own CANONICAL name (`UpCursor_Integer`), and no `implements` clause is filed under one — the registry is keyed
@@ -847,7 +836,6 @@ typealias CursorBag = Bag with Cursor
 
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -871,7 +859,6 @@ end 'main'
 <!-- test: held.a-generic-instance-conforming-through-extends -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **`stdlib/Array.maxon`'s OWN SHAPE, TO THE LETTER.** `type ArrayIterator uses Element implements
 BidirectionalIterator with Element` with `interface BidirectionalIterator extends Iterator`, bound into
 `Array`'s `implements … Iterable with (Element, ArrayIter)` and held at `Iterator` by
@@ -944,7 +931,6 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -966,7 +952,6 @@ end 'main'
 <!-- test: held.a-conformer-reaching-the-holding-through-extends -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The FALSE-REJECT CONTROL that separates the two facts of the case above: a CONCRETE conformer whose
 conformance reaches the holding only through `extends`. It is accepted — `typeDeclaresInterface`
 walks `extendsInterfaces` for every conformance question in the compiler — so a red here attributes a
@@ -1032,7 +1017,6 @@ typealias CursorBag = Bag with Cursor
 
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -1053,7 +1037,6 @@ end 'main'
 
 <!-- test: error.a-generic-instance-whose-base-does-not-conform -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ⭐ **THE OTHER DIRECTION OF THE SAME REDUCTION: A BASE THAT GENUINELY DOES NOT CONFORM IS STILL REFUSED, AND
 THE SENTENCE NAMES THE TYPE THE AUTHOR WROTE.** `Tally` declares no conformance at all, so no reduction can
@@ -1103,7 +1086,6 @@ typealias CursorBag = Bag with Cursor
 
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'

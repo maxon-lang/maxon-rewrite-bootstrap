@@ -651,7 +651,7 @@ end 'main'
 ```
 
 <!-- test: control-flow-shapes.array-walk-with-continue-and-break -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -659,7 +659,7 @@ typealias IntArray = Array with Integer
 
 function arrayWalk(values IntArray) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		if v < 0 'skip'
 			continue

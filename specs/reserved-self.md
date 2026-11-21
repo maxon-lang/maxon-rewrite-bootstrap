@@ -76,13 +76,10 @@ error E2010: specs/reserved-self/var-named-self.maxon:3:6: Expected identifier b
 ```
 
 <!-- test: for-in-named-self -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ### `for self in ...` is rejected
 ```maxon
 function main() returns ExitCode
 	let arr = [1, 2, 3]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for self in arr 'each'
 		print("hi\n")
 	end 'each'

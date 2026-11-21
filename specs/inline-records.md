@@ -72,7 +72,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.no-allocation-for-an-inline-record -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A hundred inline records are a hundred words, so the live allocation count does not move; a `create`
 that boxed would make the program exit 100. The holder is reserved before the first reading so no buffer
 growth lands between the two.
@@ -99,7 +98,6 @@ function main() returns ExitCode
 	end 'build'
 	let after = HeapStats.allocationsLive()
 	var sum = 0 as Half
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in holder 'read'
 		sum = sum + p.lo
 	end 'read'
@@ -197,7 +195,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.array-of-inline-records-is-eight-byte-strided -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 An inline record is a trivial 8-byte element, so 500 pushes into a reserved array allocate nothing; a
 boxed element has the same 8-byte stride (a pointer), but boxing every element would exit 3.
@@ -230,7 +227,6 @@ function main() returns ExitCode
 		return 3
 	end 'alloc'
 	var sum = 0 as Half
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'read'
 		sum = sum + p.lo
 	end 'read'
@@ -245,7 +241,7 @@ end 'main'
 ```
 
 <!-- test: inline-records.map-key-survives-rehash -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 An inline record on the primitive road is a `Map` key that is copied rather than retained, and
 building 500 of them allocates nothing — boxing each key would exit 2. The keys are
 built into a reserved holder and measured there, apart from the inserts, because the map's own columns
@@ -283,12 +279,12 @@ function main() returns ExitCode
 	end 'build'
 	let after = HeapStats.allocationsLive()
 	let m = PointMap.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for k in keys 'insert'
 		m.upsert(k, value: k.x)
 	end 'insert'
 	var found = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for k in keys 'lookup'
 		if m.contains(k) 'hit'
 			found = found + 1

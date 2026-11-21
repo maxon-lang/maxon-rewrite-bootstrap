@@ -523,7 +523,7 @@ beta
 ```
 
 <!-- test: a-conformer-of-another-name-and-the-library-array-are-two-records-in-one-program -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **TWO RECORDS, TWO GIDS, ONE PROGRAM — which is what the fold being per-DECLARATION rather than
@@ -551,7 +551,7 @@ function main() returns ExitCode
 	let mine = StringBag.create()
 	mine.push("xy")
 	var total = mine.count()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for part in "a,bb,ccc".split(",") 'librarysLoop'
 		total = total + part.byteLength()
 	end 'librarysLoop'
@@ -1299,7 +1299,7 @@ Hi!
 ```
 
 <!-- test: for-in-walks-both-arrays-in-one-program -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **`for … in` ADMITS BOTH, AND BY DIFFERENT ROUTES.** The library's array declares `createIterator()`,
@@ -1330,11 +1330,10 @@ function main() returns ExitCode
 	mine.push(4 as Num)
 	mine.push(5 as Num)
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in mine 'ownLoop'
 		total = total + n as Count
 	end 'ownLoop'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for part in "a,bb,ccc".split(",") 'librarysLoop'
 		total = total + part.byteLength()
 	end 'librarysLoop'

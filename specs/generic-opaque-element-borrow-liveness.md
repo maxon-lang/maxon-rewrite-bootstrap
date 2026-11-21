@@ -577,7 +577,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-survives-a-method-clearing-the-source -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An opaque `for` element survives a method that clears the array the loop walks
 The body clears `self.items` before it stores `item`; the element holds its own reference, and the
@@ -606,7 +605,6 @@ type Box uses T
 
 	function collectWhileWiping() returns Items
 		let seen = Items.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self.items 'scan'
 			wipe()
 			seen.push(item)
@@ -634,7 +632,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-static-survives-a-clear-of-its-source -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An opaque `for` element in a `static function` survives a clear of the array the loop walks
 A `static function` that does not return `Self` has no receiver, so the descriptor an opaque element is counted
@@ -652,7 +649,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -725,7 +721,6 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-passes-the-descriptor-on -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `static function` that calls a sibling static hands it the descriptor it was given
 `drainAndCount` holds no element itself; it calls `Self.moveWhileClearing`, which does, so it carries the descriptor
@@ -741,7 +736,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -777,7 +771,6 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-through-an-instance-method-passes-the-descriptor-on -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An instance method reaching a `static function` forwards the descriptor it carries
 `relocate` is an instance method that calls `Self.moveWhileClearing`; its own receiver supplies the descriptor the
@@ -793,7 +786,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -836,7 +828,6 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-record-element-holds-it-across-a-clear -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same static over a record element, whose reference is an incref and not a copy
 `Tag` is a record, so the descriptor's reference is an incref of the shared box rather than a copy of bytes; the
@@ -867,7 +858,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -899,7 +889,6 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-trivial-element-needs-no-reference -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same static over an `int` element, whose reference is nothing
 The one body serves every instantiation: for an `int` element the descriptor's retain is inert, so the element is
@@ -917,7 +906,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -948,7 +936,6 @@ end 'main'
 ```
 
 <!-- test: a-static-of-another-generic-reached-through-an-alias-over-the-callers-parameter-gets-the-callers-descriptor -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A static of one generic, called through an alias written over another generic's parameter
 `Outer.relocate` reaches `Inner.keepLast` through `Inner with U`, an instance over its own parameter, so the descriptor
@@ -959,7 +946,6 @@ type Inner uses T
 	export typealias Items = Array with T
 
 	static function keepLast(items Items, into Items)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			into.push(item)
 			items.clear()
@@ -1063,7 +1049,6 @@ second call refused
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-the-instance-its-arguments-fix -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Box.moveWhileClearing` names the generic base without type arguments, and its arguments `xs` and `ys` are an
 `Array with String`, which fixes `Box with String` through the `Items` parameters. The static takes its
@@ -1079,7 +1064,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -1110,7 +1094,6 @@ end 'main'
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-a-record-its-arguments-fix -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The instance the arguments fix is a record type, whose `String` field the shared body retains and releases through the descriptor the call site builds for `Box with Entry`.
 ```maxon
@@ -1135,7 +1118,6 @@ type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -1164,7 +1146,6 @@ end 'main'
 ```
 
 <!-- test: a-static-storing-a-borrowed-element-of-a-never-instantiated-generic-compiles -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 No instantiation of `Box` exists, so no call can hand `moveWhileClearing` a descriptor and nothing runs the body. The declaration is legal: no descriptor is reserved and the program compiles.
 ```maxon
@@ -1178,7 +1159,6 @@ public type Box uses T
 	end 'create'
 
 	static function moveWhileClearing(items Items, into Items) returns Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'scan'
 			items.clear()
 			into.push(item)
@@ -1442,7 +1422,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-method-with-no-other-opaque-signal-is-counted -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` element survives a call that wipes its source, in a method that needs no descriptor for anything else
 `walk` stores nothing and moves nothing out, so the loop element is the only reason it owes a layout descriptor. `wipe` clears the
@@ -1477,7 +1456,6 @@ type Bag uses T where T implements Equatable
 
 	function walk() returns Count
 		var total = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self.items 'scan'
 			wipe()
 			total = total + observe(item)
@@ -1504,7 +1482,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-binary-operand-survives-a-call-releasing-its-source -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` element compared against a call that wipes its source
 The element is the left operand of `==`; the right operand is `wipeAndGive(extra)`, which clears the array before it returns.
@@ -1530,7 +1507,6 @@ type Bag uses T where T implements Equatable
 	end 'wipeAndGive'
 
 	function matches(extra T) returns bool
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self.items 'scan'
 			return item == wipeAndGive(extra)
 		end 'scan'
@@ -1932,7 +1908,6 @@ end 'main'
 ```
 
 <!-- test: a-for-loop-over-the-array-field-of-a-self-typed-parameter-holds-its-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` over the array field of a `Self`-typed parameter holds its element across a call that wipes the source
 `walk` iterates `other.items` and `wipe` clears that very array while the loop's element is live; the loop owes the element a reference of its own.
@@ -1960,7 +1935,6 @@ type Bag uses T where T implements Equatable
 
 	function walk(other Self) returns Count
 		var total = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in other.items 'scan'
 			other.items.clear()
 			total = total + observe(item)

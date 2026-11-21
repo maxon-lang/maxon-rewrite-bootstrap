@@ -483,11 +483,10 @@ end 'main'
 ```
 
 <!-- test: iteration.for-in -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [10, 20, 30]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		print("{item}\n")
 	end 'loop'
@@ -504,7 +503,6 @@ end 'main'
 ```
 
 <!-- test: iteration.large-list -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -516,7 +514,6 @@ function main() returns ExitCode
 		list.append(i)
 	end 'build'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		sum = sum + item
 	end 'loop'
@@ -528,17 +525,15 @@ end 'main'
 ```
 
 <!-- test: iteration.two-loops -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let list = List from [1, 2, 3]
 	var sum1 = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop1'
 		sum1 = sum1 + item
 	end 'loop1'
 	var sum2 = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop2'
 		sum2 = sum2 + item
 	end 'loop2'
@@ -851,7 +846,6 @@ sum=660
 ```
 
 <!-- test: memory.mutating-the-list-inside-for-in-ends-the-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Clearing a list from inside `for … in` ends the walk
 ⭐ **`l.clear()` UNDER A LIVE WALK COMPILES.** `l` is a `var`, and `clear` is an ordinary mutating method
 on it; the loop holds its own reference to the list it walks.
@@ -870,7 +864,6 @@ function main() returns ExitCode
 	l.append(1)
 	l.append(2)
 	l.append(3)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in l 'each'
 		print("[{x}]\n")
 		l.clear()
@@ -955,7 +948,6 @@ error E3008: <fragment>:13:10: typealias 'Readings' is not exported
 
 <!-- test: from-an-array-variable-keeps-order-and-duplicates -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An alias head takes any array of its element type as the source of `from`; the list keeps the array's order and its repeats.
 ```maxon
 typealias Code = int(0 to 100)
@@ -972,7 +964,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let list = CodeList from codes
 	print("{list.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		print("{item}\n")
 	end 'loop'
@@ -991,7 +982,6 @@ end 'main'
 
 <!-- test: from-a-call-result-infers-the-element -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A bare `List` head takes its element type from the array a call returns.
 ```maxon
 typealias Code = int(0 to 100)
@@ -1008,7 +998,6 @@ end 'makeCodes'
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let list = List from makeCodes()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		print("{item}\n")
 	end 'loop'
@@ -1043,7 +1032,6 @@ error E3005: <fragment>:6:23: argument type mismatch for 'source': expected 'Arr
 
 <!-- test: from-a-string-array-variable-leaves-the-source-intact -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `List from <array>` copies each `String` out of an array the program still holds.
 ```maxon
 typealias Names = Array with String
@@ -1057,7 +1045,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let list = NameList from names
 	names.push("c")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in list 'each'
 		print("{name}\n")
 	end 'each'
@@ -1076,7 +1063,6 @@ b
 
 <!-- test: from-a-function-declared-later -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A bare `List` head over a call to a function declared further down the file.
 ```maxon
 typealias Names = Array with String
@@ -1084,7 +1070,6 @@ typealias Names = Array with String
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let list = List from laterNames()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in list 'each'
 		print("{name}\n")
 	end 'each'
@@ -1161,7 +1146,6 @@ end 'main'
 
 <!-- test: a-let-list-from-strings-a-var-string-appends-to-afterwards -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `String` is a value: appending to the `var` a list's member was copied from extends that `var` alone, so the `let` list holds nothing that is still written.
 ```maxon
 typealias Names = Array with String
@@ -1175,7 +1159,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let list = NameList from names
 	name.append("z")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'each'
 		print("{item}\n")
 	end 'each'

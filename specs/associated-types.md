@@ -375,7 +375,7 @@ end 'main'
 <!-- test: character-element-type -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `CharSource` declares no `extends`, so `implements CharSource with Character` is the ordinary root-entry
 binding every case above it uses; `Character.codepoints()` supplies the value, and the program exits **65**.
 ```maxon
@@ -401,7 +401,7 @@ function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let s = SingleChar.create('A')
 	let c = s.getChar()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in c.codepoints() 'loop'
 		return cp
 	end 'loop'
@@ -4178,7 +4178,6 @@ error E3127: specs/associated-types/error.held-position-nested-binding-disagreem
 
 <!-- test: a-holding-written-in-an-instance-inline-in-an-alias-declares-the-binding -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **A HOLDING IS DECLARED BY AN INSTANCE WRITTEN INLINE, NOT ONLY BY A TOP-LEVEL ALIAS.** The only site in this
 program that writes `Bag with (Integer, IntegerCursor)` sits inside the arguments of `Bags`, and it is its own
 instantiation site, so it declares that `Iter` is held at `Cursor`. `total` takes the bare `Bag`: its shared body
@@ -4274,7 +4273,6 @@ typealias Bags = Array with (Bag with (Integer, IntegerCursor))
 
 function total(source Bag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -4300,7 +4298,6 @@ end 'main'
 
 <!-- test: error.a-binding-written-in-an-instance-inline-disagrees-with-the-conformers -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ⭐⭐ **E3125 JUDGES AN INSTANCE WRITTEN INLINE, AT ITS OWN BASE NAME.** The conformer binds `Element` to `Integer` and
 `Seq with Text` is written inside the arguments of `TextSeqs`. That instance is its own instantiation site, so the
@@ -4341,7 +4338,6 @@ typealias TextSeqs = Array with (Seq with Text)
 
 function total(source Seq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'

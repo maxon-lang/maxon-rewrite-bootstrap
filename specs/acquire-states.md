@@ -1383,7 +1383,6 @@ error E3202: <fragment>:47:31: 's' is the state of an acquired service and canno
 
 <!-- test: a-for-head-over-another-state-holds-a-window-for-its-whole-body -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1438,7 +1437,6 @@ end 'Ledger'
 function work(s Ledger.handle, t Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s, t 'held'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for cell in t.cells 'each'
 			s.total = cell.n
 		end 'each'

@@ -163,7 +163,7 @@ end 'main'
 
 <!-- test: log10.powers-of-ten-are-exact -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ⭐⭐ **EVERY EXACTLY-REPRESENTABLE POWER OF TEN, NOT A SAMPLE OF THEM.** `1e0` through `1e22` are the
 powers of ten a double holds exactly (`10^23` is not), so for each one there is exactly one right answer
@@ -178,7 +178,7 @@ function main() returns ExitCode
 		return 4
 	end 'everyPower'
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, power) in powers.withIterator() 'eachPower'
 		let k = iter.index() as FullRangeFloat
 		let answer = Math.log10(power)

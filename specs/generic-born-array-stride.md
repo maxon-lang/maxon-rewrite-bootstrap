@@ -29,7 +29,6 @@ bytes it holds.
 
 
 <!-- test: a-generic-born-byte-array-strides-by-its-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A `Bag uses Element` creates its `Array with Element` inside a body shared by every instantiation. At `Bag with Byte` the record strides 1, exactly as the same array created in a concrete body does, and every access path of the shared body reads and writes elements at that stride: `push`, `set`, `get`, `last`, `pop`, `insert`, `remove`, iteration, `clone`, `slice`, `append`, `appendMemory`, `growFilled`, `refill` and `reserve`. The caller reads the same array through its substituted type, with the stride the type states, and the two agree.
@@ -91,7 +90,6 @@ type Bag uses Element
 
 	function replayed() returns Self
 		let out = Self{items: Items.create(0)}
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for value in items 'each'
 			out.add(value)
 		end 'each'
@@ -119,7 +117,6 @@ end 'value'
 
 function sumOf(bag ByteBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element as Total)
 	end 'walk'
@@ -208,7 +205,6 @@ reserve 1 count 3 capacity-ok true
 
 
 <!-- test: a-generic-born-array-strides-by-its-element-at-every-narrow-and-wide-width -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same `Bag uses Element` at `Bag with 16-bit`, `Bag with 32-bit`, `Bag with bool`, `Bag with int(0 to 3)` and `Bag with int(0 to 15)`: each record strides 2, 4, and a packed -1, -2 and -4, exactly as the same array created in a concrete body does. An element of the wrong stride is a different wrong answer at every width, so each instantiation pushes, sets, inserts, removes, pops, clones, slices, appends, iterates and grows through the shared body and reads the same elements back through its substituted type.
@@ -285,7 +281,6 @@ type Bag uses Element
 
 	function replayed() returns Self
 		let out = Self{items: Items.create(0)}
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for value in items 'each'
 			out.add(value)
 		end 'each'
@@ -313,7 +308,6 @@ end 'halfValue'
 
 function halfSum(bag HalfBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element as Total)
 	end 'walk'
@@ -328,7 +322,6 @@ end 'wideValue'
 
 function wideSum(bag WideBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element as Total)
 	end 'walk'
@@ -343,7 +336,6 @@ end 'flagValue'
 
 function flagSum(bag FlagBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + bit(element)
 	end 'walk'
@@ -358,7 +350,6 @@ end 'crumbValue'
 
 function crumbSum(bag CrumbBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element as Total)
 	end 'walk'
@@ -373,7 +364,6 @@ end 'nibbleValue'
 
 function nibbleSum(bag NibbleBag) returns Total
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element as Total)
 	end 'walk'
@@ -531,7 +521,7 @@ nibble grow -4 count 70 sum 348
 ```
 
 <!-- test: a-map-over-a-narrow-key-stores-its-keys-at-the-keys-width -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Map` builds its key column inside a shared generic body, so the column's stride is the key's: one byte for a `Byte` key, two for a 16-bit key. Insertion, replacement, removal and growth of the table all move keys at that width, and every key and value reads back.
@@ -568,7 +558,7 @@ function main() returns ExitCode
 	var byteKeys = 0 as Total
 	var byteValues = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (key, value) in bytes 'walkBytes'
 		byteKeys = byteKeys + (key as Total)
 		byteValues = byteValues + value
@@ -591,7 +581,6 @@ function main() returns ExitCode
 	var halfKeys = 0 as Total
 	var halfValues = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, value) in halves 'walkHalves'
 		halfKeys = halfKeys + (key as Total)
 		halfValues = halfValues + value
@@ -621,7 +610,6 @@ crumb after remove count 2 has three false has one true
 ```
 
 <!-- test: a-generic-born-array-of-a-narrow-signed-enum-strides-its-slot-and-keeps-its-sign -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -697,7 +685,6 @@ type Bag uses Element
 
 	function replayed() returns Self
 		let out = Self{items: Items.create(0)}
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for value in items 'each'
 			out.add(value)
 		end 'each'
@@ -739,7 +726,6 @@ typealias SignalSet = Set with Signal
 
 function sumOf(bag SignalBag) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for signal in bag.items 'walk'
 		total = total + (signal.rawValue as Integer)
 	end 'walk'
@@ -757,7 +743,6 @@ end 'sumOfArray'
 
 function sumSignal(bag SignalBag) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element.rawValue as Integer)
 	end 'walk'
@@ -778,7 +763,6 @@ function probeSignal()
 	concrete.push(Signal.plus)
 	concrete.append([Signal.minus, Signal.plus])
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in concrete 'walkConcrete'
 		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
@@ -787,7 +771,6 @@ end 'probeSignal'
 
 function sumMid(bag MidBag) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element.rawValue as Integer)
 	end 'walk'
@@ -808,7 +791,6 @@ function probeMid()
 	concrete.push(Mid.high)
 	concrete.append([Mid.low, Mid.high])
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in concrete 'walkConcrete'
 		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
@@ -817,7 +799,6 @@ end 'probeMid'
 
 function sumBig(bag BigBag) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in bag.items 'walk'
 		total = total + (element.rawValue as Integer)
 	end 'walk'
@@ -838,7 +819,6 @@ function probeBig()
 	concrete.push(Big.high)
 	concrete.append([Big.low, Big.high])
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for element in concrete 'walkConcrete'
 		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
@@ -879,7 +859,6 @@ function main() returns ExitCode
 	var keySum = 0 as Integer
 	var valueSum = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, value) in map 'entries'
 		keySum = keySum + (key.rawValue as Integer)
 		valueSum = valueSum + value
@@ -923,7 +902,6 @@ big appended onto concrete count 3 sum 70000
 ```
 
 <!-- test: a-generic-born-array-of-records-stays-pointer-strided -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An element that is a record is stored in an array as a pointer, so a `Bag` of `String` or of a struct creates its array at the machine word, as the same array created in a concrete body does. Elements move through `push`, `get`, `clone`, `slice` and iteration, and the records are released once.
@@ -979,7 +957,6 @@ function main() returns ExitCode
 	let copy = texts.cloned()
 	let part = stamps.window(10, endIndex: 20)
 	var tickSum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stamp in part.items 'walk'
 		tickSum = tickSum + stamp.tick
 	end 'walk'

@@ -26,7 +26,6 @@ cases that drive it compile as library-tier sources (`<!-- tier: stdlib -->`).
 ## Tests
 
 <!-- test: random.below-stays-below-its-bound-and-reaches-every-value -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A thousand draws below 6 each land in `0 upto 6`, and every one of the six values is drawn.
 ```maxon
 typealias FaceCounts = Array with bool
@@ -41,7 +40,6 @@ function main() returns ExitCode
 		end 'outOfRange'
 		try seen.set(face as ElementIndex, value: true) otherwise return 3
 	end 'eachDraw'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for wasSeen in seen 'eachFace'
 		if not wasSeen 'missing'
 			return 4
@@ -147,7 +145,7 @@ error E3005: <fragment>:3:24: Value 0 is outside the range of 'RandomBound' (int
 ```
 
 <!-- test: random.fill-random-fills-a-buffer-longer-than-one-request -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A thousand bytes are filled in requests of at most 256, and the last request's bytes are filled too: the last
@@ -163,7 +161,7 @@ function main() returns ExitCode
 	end 'refused'
 	var nonZeroInTheLastPiece = 0 as ByteTally
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, byte) in bytes.withIterator() 'eachByte'
 		if iter.index() >= 768 and byte != 0 'filled'
 			nonZeroInTheLastPiece = nonZeroInTheLastPiece + 1
@@ -314,13 +312,13 @@ random-bytes-011 length 33554432
 ```
 
 <!-- test: random.bytes-draws-differ -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Two equal 32-byte draws happen with probability 2^-256, and a repeat among a thousand 16-byte draws with probability below 2^-108.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -363,7 +361,6 @@ random-bytes-013 all unique
 ```
 
 <!-- test: random.bytes-reach-every-byte-value -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A byte value missing from 65536 random bytes happens with probability below 2^-360; five draws are checked.
 ```maxon
 typealias DistinctTally = int(0 to 256)
@@ -373,12 +370,10 @@ typealias ValueSeen = Array with bool
 function distinctValues(drawn ByteArray) returns DistinctTally
 	let seen = ValueSeen.create(0)
 	seen.resize(256)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in drawn 'eachByte'
 		try seen.set(byte as ElementIndex, value: true) otherwise panic("a byte indexes 256 slots")
 	end 'eachByte'
 	var distinct = 0 as DistinctTally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for wasSeen in seen 'eachValue'
 		if wasSeen 'counted'
 			distinct = distinct + 1

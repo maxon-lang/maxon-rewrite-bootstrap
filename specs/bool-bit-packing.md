@@ -181,15 +181,13 @@ end 'main'
 ```
 
 <!-- test: iterate -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let arr = [true, false, true, true, false]
 	var count = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'loop'
 		if v 'check'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'check'
 	end 'loop'
 	return count
@@ -200,7 +198,6 @@ end 'main'
 ```
 
 <!-- test: iterate-aliased-bool -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Regression: iterating an Array<bool> via for-in loads each element from the
 // bit-packed buffer and branches on it. The get path has to return a real bool
@@ -210,7 +207,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
@@ -225,11 +222,10 @@ function main() returns ExitCode
 	var trueCount = 0 as ExitCode
 	var consecutiveTrue = 0 as ExitCode
 	var maxRun = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'scan'
 		if v 'hit'
-			trueCount = trueCount + 1
-			consecutiveTrue = consecutiveTrue + 1
+			trueCount = try trueCount + 1 otherwise panic("out of range")
+			consecutiveTrue = try consecutiveTrue + 1 otherwise panic("out of range")
 			if consecutiveTrue > maxRun 'grow'
 				maxRun = consecutiveTrue
 			end 'grow'
@@ -239,7 +235,7 @@ function main() returns ExitCode
 		end 'miss'
 	end 'scan'
 	// Expect 6 trues, longest run of 2.
-	return trueCount * 10 + maxRun
+	return try trueCount * 10 + maxRun otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -397,7 +393,6 @@ end 'main'
 ```
 
 <!-- test: literal-remove -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Structurally mutate a CONSTANT bool-array literal (bit-packed rdata,
 // element_size 0). remove must copy-on-write the read-only buffer and shift the
@@ -406,7 +401,6 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function printBits(a BoolArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a 'each'
 		print("1" if b else "0")
 	end 'each'
@@ -414,7 +408,7 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	let a = [true, false, true, false, true].clone()
+	var a = [true, false, true, false, true].clone()
 	_ = try a.remove(1) otherwise panic("test invariant: remove OOB")
 	printBits(a)
 	return 0
@@ -428,7 +422,6 @@ end 'main'
 ```
 
 <!-- test: literal-slice -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Slice a CONSTANT bool-array literal. The new record must stay bit-packed
 // (element_size 0), allocate a bit-sized buffer, and copy bits [start, end) at
@@ -437,7 +430,6 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function printBits(a BoolArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a 'each'
 		print("1" if b else "0")
 	end 'each'
@@ -459,14 +451,12 @@ end 'main'
 ```
 
 <!-- test: literal-insert -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // insert into a CONSTANT bool-array literal exercises the bit-packed grow (buffer
 // sized in bits, not bytes) plus shift_right at bit granularity plus the bit-set.
 typealias BoolArray = Array with bool
 
 function printBits(a BoolArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a 'each'
 		print("1" if b else "0")
 	end 'each'
@@ -474,7 +464,7 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	let d = [true, true, true].clone()
+	var d = [true, true, true].clone()
 	d.insert(1, value: false)
 	printBits(d)
 	return 0
@@ -488,14 +478,12 @@ end 'main'
 ```
 
 <!-- test: literal-append -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // append onto a CONSTANT bool-array literal grows the bit-packed buffer (sized in
 // bits) and copies the other literal's bits onto the end.
 typealias BoolArray = Array with bool
 
 function printBits(a BoolArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a 'each'
 		print("1" if b else "0")
 	end 'each'
@@ -503,7 +491,7 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	let e = [true, false].clone()
+	var e = [true, false].clone()
 	let f = [true, true]
 	e.append(f)
 	printBits(e)
@@ -518,7 +506,6 @@ end 'main'
 ```
 
 <!-- test: literal-remove-crossbyte -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Edge cases for the bit-packed remove shift-down loop: removing index 0 starts
 // the loop at the first bit, and removing from a 9-element literal shifts bits
@@ -527,7 +514,6 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function printBits(a BoolArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a 'each'
 		print("1" if b else "0")
 	end 'each'
@@ -535,10 +521,10 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	let front = [false, true, true].clone()
+	var front = [false, true, true].clone()
 	_ = try front.remove(0) otherwise panic("test invariant: remove OOB")
 	printBits(front)
-	let wide = [true, false, true, false, true, false, true, false, true].clone()
+	var wide = [true, false, true, false, true, false, true, false, true].clone()
 	_ = try wide.remove(4) otherwise panic("test invariant: remove OOB")
 	printBits(wide)
 	return 0

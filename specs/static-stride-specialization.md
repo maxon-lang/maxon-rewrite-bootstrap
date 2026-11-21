@@ -95,7 +95,6 @@ is its control. Its dual — a record BORN in such a body and read back under a 
 ## Tests
 
 <!-- test: a-known-word-stride-reads-with-no-dispatch -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shape this specialization exists for. `for v in a` over an `Array with` an 8-byte element: the loop body is
 the buffer load and the element load and nothing else — no `[<rec> + 24]`, no `cmpRegImm32 …, 8`, no
 `__im_stride` / `__im_byte` block, and no `callDirect __managed_get_unchecked` anywhere in `total`.
@@ -109,15 +108,14 @@ typealias WordArray = Array with Word
 
 function total(a WordArray) returns Word
 	var t = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'loop'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -178,7 +176,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-stamp-reads-with-the-byte-arm-alone -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `ByteArray` stamps `element_size@24` with 1, and the record IS one byte per element wherever it was created,
 a shared generic body included. The site therefore emits the byte arm alone: the emitted code (`--emit-ir`) shows
 a `loadRegBaseDisp.byte` with no `[<rec> + 24]` load, no `cmpRegImm32` and no word arm.
@@ -191,15 +188,14 @@ typealias Total = int(0 to u64.max)
 
 function sumBytes(b ByteArray) returns Total
 	var t = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in b 'loop'
-		t = t + v as Total
+		t = try t + v as Total otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'sumBytes'
 
 function main() returns ExitCode
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	for i in 0 upto 10 'seed'
 		b.push(i as Byte)
 	end 'seed'

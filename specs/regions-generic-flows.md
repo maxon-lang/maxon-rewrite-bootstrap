@@ -1850,7 +1850,6 @@ error E3196: <fragment>:14:16: cannot store an immutable 'Box' into 'a value of 
 ```
 
 <!-- test: a-loop-variable-over-an-immutable-array-is-blamed-as-immutable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The elements are frozen by the array's type, and the refusal says `immutable`.
@@ -1873,7 +1872,6 @@ function main() returns ExitCode
 	var items = FrozenBoxes.create(0)
 	var pinned = freeze(Box.create(1))
 	items.push(pinned)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'each'
 		item.n = 3
 	end 'each'

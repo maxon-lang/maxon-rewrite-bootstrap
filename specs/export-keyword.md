@@ -216,7 +216,6 @@ end 'main'
 ```
 
 <!-- test: export-typealias-in-type-field -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/types.maxon
@@ -237,7 +236,6 @@ export type Container
 
 	export function sum() returns Integer
 		var total = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in items 'loop'
 			total = total + item
 		end 'loop'
@@ -926,7 +924,6 @@ error E3008: <fragment>:38:16: type 'Point' is not exported
 ```
 
 <!-- test: error.a-hidden-types-iteration-is-refused-through-a-for-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `for` loop over a value calls its type's `createIterator`, which is hidden with the type.
 ```maxon
@@ -982,7 +979,6 @@ end 'Holder'
 function main() returns ExitCode
 	let seq = Holder.make().seq
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in seq 'each'
 		sum = sum + v
 	end 'each'

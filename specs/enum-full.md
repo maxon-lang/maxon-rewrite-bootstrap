@@ -516,7 +516,6 @@ end 'main'
 ```
 
 <!-- test: associated-value-for-iterator -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -529,19 +528,18 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(Item.value(10))
 	items.push(Item.value(20))
 	items.push(Item.value(12))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'loop'
 		match item 'add'
 			empty then break
-			value(n) then total = total + n
+			value(n) then total = try total + n otherwise panic("out of range")
 		end 'add'
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -549,7 +547,6 @@ end 'main'
 ```
 
 <!-- test: associated-value-for-iterator-mixed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -562,19 +559,18 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let slots = SlotArray.create(0)
+	var slots = SlotArray.create(0)
 	slots.push(Slot.val(5))
 	slots.push(Slot.none)
 	slots.push(Slot.val(3))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in slots 'loop'
 		match e 'check'
-			none then total = total + 100
-			val(n) then total = total + n
+			none then total = try total + 100 otherwise panic("out of range")
+			val(n) then total = try total + n otherwise panic("out of range")
 		end 'check'
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -582,7 +578,6 @@ end 'main'
 ```
 
 <!-- test: associated-value-for-iterator-single -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -595,17 +590,16 @@ end 'Box'
 typealias BoxArray = Array with Box
 
 function main() returns ExitCode
-	let boxes = BoxArray.create(0)
+	var boxes = BoxArray.create(0)
 	boxes.push(Box.full(42))
 	var result = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in boxes 'loop'
 		match b 'check'
 			empty then result = 0
 			full(n) then result = n
 		end 'check'
 	end 'loop'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

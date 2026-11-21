@@ -77,7 +77,6 @@ multiplier and no expression comparison can call the two `mulHighSigned`s equal.
 ## Tests
 
 <!-- test: a-constant-divisor-gives-the-same-answer-as-a-runtime-one -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 THE GATE. Twelve edge dividends against eleven divisors, chosen so that every arm of both sequences
 is taken by at least one of them: powers of two; magic multipliers whose 64-bit value is POSITIVE
 (`7`, `10`, `1000`, `28` — the last is what `graphemeBreakProperty` divides by); two whose value has
@@ -128,7 +127,6 @@ function edgeDividends() returns WordArray
 end 'edgeDividends'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in edgeDividends() 'each'
 		if n / 2 != refDiv(n, d: 2) 'divTwo'
 			return 1
@@ -192,7 +190,6 @@ end 'main'
 ```
 
 <!-- test: the-hardest-dividend-for-a-divisor-is-the-one-the-derivation-is-ABOUT -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⛔⛔ **THE GATE ABOVE CANNOT SEE A MIS-DERIVED MAGIC; THIS CASE CAN.** HALVE `deriveSignedMagic`'s
 `anc` and every other case in this file stays GREEN, all passing on a reciprocal that is provably too
 coarse. The reason is
@@ -244,7 +241,6 @@ function neighbourhood(d PosDivisor) returns WordArray
 end 'neighbourhood'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(3) 'three'
 		if n / 3 != refDiv(n, d: 3) 'divThree'
 			return 1
@@ -253,7 +249,6 @@ function main() returns ExitCode
 			return 2
 		end 'modThree'
 	end 'three'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(7) 'seven'
 		if n / 7 != refDiv(n, d: 7) 'divSeven'
 			return 3
@@ -262,7 +257,6 @@ function main() returns ExitCode
 			return 4
 		end 'modSeven'
 	end 'seven'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(10) 'ten'
 		if n / 10 != refDiv(n, d: 10) 'divTen'
 			return 5
@@ -271,7 +265,6 @@ function main() returns ExitCode
 			return 6
 		end 'modTen'
 	end 'ten'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(15) 'fifteen'
 		if n / 15 != refDiv(n, d: 15) 'divFifteen'
 			return 7
@@ -280,7 +273,6 @@ function main() returns ExitCode
 			return 8
 		end 'modFifteen'
 	end 'fifteen'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(28) 'twentyEight'
 		if n / 28 != refDiv(n, d: 28) 'divTwentyEight'
 			return 9
@@ -289,7 +281,6 @@ function main() returns ExitCode
 			return 10
 		end 'modTwentyEight'
 	end 'twentyEight'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(100) 'hundred'
 		if n / 100 != refDiv(n, d: 100) 'divHundred'
 			return 11
@@ -298,7 +289,6 @@ function main() returns ExitCode
 			return 12
 		end 'modHundred'
 	end 'hundred'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in neighbourhood(1000) 'thousand'
 		if n / 1000 != refDiv(n, d: 1000) 'divThousand'
 			return 13
@@ -349,7 +339,6 @@ end 'main'
 
 <!-- test: an-unsigned-power-of-two-reads-the-whole-bit-pattern -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ The unsigned path has no sign correction at all — `x /u 2^k` is one `shr` and `x modu 2^k` is one
 `and` — and its whole risk is the OTHER direction: a dividend above `i64.max` has its top bit set, so
 answering it with the SIGNED sequence would give a negative quotient. The three dividends past
@@ -382,7 +371,6 @@ function main() returns ExitCode
 	ns.push(top)
 	ns.push(top + 9223372036854775807)
 	ns.push(top + 3122306832379791762)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in ns 'each'
 		if u / 2 != refUDiv(u, d: 2) 'divTwo'
 			return 1
@@ -521,7 +509,6 @@ Stack trace:
 
 <!-- test: an-unsigned-magic-divisor-agrees-with-the-hardware-divide -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **THE UNSIGNED GATE, AND ITS ORACLE IS THE HARDWARE `div` JUST AS THE SIGNED ONE'S IS `idiv`.** Every
 comparison here computes the answer twice: once by dividing by the LITERAL, and once through a reference
 function whose divisor is a RUNTIME value of the same magnitude. The reference's divisor carries a ranged
@@ -579,7 +566,6 @@ function edgeDividends() returns UnsignedArray
 end 'edgeDividends'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in edgeDividends() 'each'
 		if u / 3 != refUDiv(u, d: 3) 'divThree'
 			return 1
@@ -639,7 +625,6 @@ end 'main'
 
 <!-- test: the-hardest-unsigned-dividend-for-a-divisor -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⛔⛔ **THE UNSIGNED ANALOGUE OF `anc`, AND IT EXISTS FOR THE SAME REASON.** The gate above tests
 the EMITTED SEQUENCE and takes the CONSTANT that sequence carries on trust. A fixed-point reciprocal that
 is slightly too coarse is still right for almost every dividend in a 64-bit space — it is wrong only in a
@@ -696,7 +681,6 @@ function neighbourhood(d UPosDivisor) returns UnsignedArray
 end 'neighbourhood'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in neighbourhood(3) 'three'
 		if u / 3 != refUDiv(u, d: 3) 'divThree'
 			return 1
@@ -705,7 +689,6 @@ function main() returns ExitCode
 			return 2
 		end 'modThree'
 	end 'three'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in neighbourhood(7) 'seven'
 		if u / 7 != refUDiv(u, d: 7) 'divSeven'
 			return 3
@@ -714,7 +697,6 @@ function main() returns ExitCode
 			return 4
 		end 'modSeven'
 	end 'seven'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in neighbourhood(10) 'ten'
 		if u / 10 != refUDiv(u, d: 10) 'divTen'
 			return 5
@@ -723,7 +705,6 @@ function main() returns ExitCode
 			return 6
 		end 'modTen'
 	end 'ten'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in neighbourhood(641) 'sixFortyOne'
 		if u / 641 != refUDiv(u, d: 641) 'divSixFortyOne'
 			return 7
@@ -732,7 +713,6 @@ function main() returns ExitCode
 			return 8
 		end 'modSixFortyOne'
 	end 'sixFortyOne'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in neighbourhood(10000000) 'tenMillion'
 		if u / 10000000 != refUDiv(u, d: 10000000) 'divTenMillion'
 			return 9

@@ -27,7 +27,7 @@ The vectors are RFC 4648 section 10, all 256 byte values, and the alphabet's edg
 ## Tests
 
 <!-- test: base64.encode -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 RFC 4648 section 10, all 256 byte values in order, and the first and last symbols with both pad lengths.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -41,7 +41,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -93,13 +93,13 @@ encode-012 [AA==]
 
 <!-- test: base64.decode -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The texts `encode` produces for the same inputs decode back to them.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -160,13 +160,13 @@ decode-012 [00]
 
 <!-- test: base64.decode-refuses-what-encode-cannot-produce -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Missing padding and bad lengths, whitespace, URL-safe and non-ASCII symbols, misplaced and excess padding, and non-zero pad bits, each with the one error the check order gives it.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")

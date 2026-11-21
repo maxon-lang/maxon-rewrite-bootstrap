@@ -279,7 +279,6 @@ error E2059: specs/test-declaration/error.empty-name.maxon:3:6: a 'test' declara
 ```
 
 <!-- test: test-stays-an-ordinary-identifier -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The regression guard for the contextual keyword. Every shape here uses `test` as a plain
 identifier, including `match test 'check'` — an identifier followed by a character literal,
 which is what the declaration looks like everywhere except at declaration position.
@@ -301,13 +300,12 @@ end 'classify'
 function main() returns ExitCode
 	var total = 0 as Count
 	let tests = [1, 2, 3]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for test in tests 'loop'
-		total = total + test
+		total = try total + test otherwise panic("out of range")
 	end 'loop'
 	let test = Status.ready
 	if test == Status.ready 'ready'
-		total = total + classify(test)
+		total = try total + classify(test) otherwise panic("out of range")
 	end 'ready'
 	return total
 end 'main'

@@ -29,7 +29,6 @@ The answers are the machine's own, so the case below asserts properties of them 
 ## Tests
 
 <!-- test: trust-store.system-roots-are-der-certificates -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The machine holds at least one root, and every root is one DER `SEQUENCE` whose declared length is exactly the bytes that follow its header.
 ```maxon
 typealias DerSpan = int(0 to u32.max)
@@ -61,7 +60,6 @@ function main() returns ExitCode
 	print("count > 0: {roots.count() > 0}\n")
 	var allSequences = true
 	var allSized = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for root in roots 'eachRoot'
 		let first = try root.get(0) otherwise return 2
 		if first != DerSequenceTag 'notASequence'

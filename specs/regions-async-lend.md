@@ -964,7 +964,6 @@ end 'main'
 <!-- test: a-unique-isolated-value-moved-into-an-async-call-pushed-into-an-array-is-released-once -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1001,7 +1000,6 @@ function main() returns ExitCode
 	let token = Token.create(5) as isolated Token
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	inFlight.push(async inspect(token))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for promise in inFlight 'eachPromise'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let answer = await promise

@@ -51,7 +51,7 @@ has no process spawning (E3074) and is excluded.
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls13 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsClient` handshakes with a live `openssl s_server` over loopback in TLS 1.3 under each of the three suites, the server restricted to one with `-ciphersuites`. The client sends `ping`, the server (`-rev`) answers the line reversed, and the client ends the stream with `shutdownWrite`. A line prints the answer, what the client negotiated and what the server's own output reports: its protocol and cipher suite, the client's close_notify (`-msg` prints the alert it read) and its exit code. The server listens on a port the kernel chose and the client dials once the server has printed it on its `ACCEPT` line. `MAXON_OPENSSL` names the `openssl` binary when it is not the one on `PATH`; the case fails when OpenSSL cannot be started.
@@ -67,7 +67,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -81,7 +81,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -198,7 +198,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -208,7 +207,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -240,7 +239,6 @@ type OpensslServer
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
@@ -285,7 +283,7 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -367,7 +365,6 @@ end 'run'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for suite in ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] 'eachSuite'
 		let client = trustedClient(rootHex)
 		try client.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 1
@@ -388,7 +385,7 @@ TLS_CHACHA20_POLY1305_SHA256: reply=gnip protocol=tls13 suite=tls13/chaCha20Poly
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls12 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same against `openssl s_server` in TLS 1.2 under each of the six suites the client offers: ECDHE with an ECDSA certificate (P-256) for AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, and with an RSA certificate for the same three.
@@ -404,7 +401,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -418,7 +415,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -535,7 +532,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -545,7 +541,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -577,7 +573,6 @@ type OpensslServer
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
@@ -622,7 +617,7 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -713,11 +708,9 @@ end 'line'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305"] 'eachEcdsa'
 		print("{line(directory, name: name, rsa: false)}\n")
 	end 'eachEcdsa'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305"] 'eachRsa'
 		print("{line(directory, name: name, rsa: true)}\n")
 	end 'eachRsa'
@@ -739,7 +732,7 @@ ECDHE-RSA-CHACHA20-POLY1305: reply=gnip protocol=tls12 suite=tls12/ecdheRsaChaCh
 
 <!-- test: tls-interop.client-against-openssl-s_server-mutual-tls -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS against `openssl s_server -Verify 1`: the server requires a client certificate under the client root, verified at the case's fixed time (`-attime`), and the client presents its P-256 leaf in TLS 1.3 and in TLS 1.2. The server reports the certificate it received.
@@ -755,7 +748,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -769,7 +762,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -892,7 +885,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -902,7 +894,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -934,7 +926,6 @@ type OpensslServer
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
@@ -979,7 +970,7 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -1061,7 +1052,7 @@ end 'run'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let client = trustedClient(rootHex)
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
@@ -1082,7 +1073,7 @@ tls12: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sha256 th
 
 <!-- test: tls-interop.openssl-s_server-sees-close-notify-only-from-close -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `shutdownWrite` sends close_notify, which `openssl s_server -msg` reports as the alert it read; a client that drops its stream without closing sends none and the server reports none. The assertion that the first reaches the server is meaningful because the second does not.
@@ -1098,7 +1089,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1112,7 +1103,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1229,7 +1220,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -1239,7 +1229,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1271,7 +1261,6 @@ type OpensslServer
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
@@ -1316,7 +1305,7 @@ function finish(server OpensslServer) returns String
 	server.child.release()
 	var faults = 0 as Count
 	var closeNotify = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line == "ERROR" 'fault'
 			faults = faults + 1
@@ -1398,7 +1387,7 @@ end 'run'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let closing = trustedClient(rootHex)
 		try closing.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
@@ -1426,7 +1415,7 @@ tls12 dropped: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305S
 <!-- test: tls-interop.listener-against-openssl-s_client-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsListener` accepts a live `openssl s_client` over loopback in TLS 1.3 under each of the three suites, the client restricted to one with `-ciphersuites`. `s_client` verifies the server's chain and name (`-verify_return_error`, `-verify_hostname`, at the case's fixed time), sends `ping` and prints the answer; the listener ends its stream with `shutdownWrite` and reads the client's close_notify as the end of the stream. A line prints what the listener negotiated, how its stream ended, and the client's exit code, verification, negotiated suite and answer.
@@ -1442,7 +1431,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1456,7 +1445,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1576,7 +1565,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -1586,7 +1574,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1649,7 +1637,6 @@ end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
 		arguments.push(option)
 	end 'eachOption'
@@ -1661,7 +1648,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1696,7 +1683,6 @@ end 'exchange'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for suite in ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] 'eachSuite'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		try server.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 1
@@ -1718,7 +1704,7 @@ TLS_CHACHA20_POLY1305_SHA256: server[heard=ping protocol=tls13 suite=tls13/chaCh
 <!-- test: tls-interop.listener-against-openssl-s_client-tls12 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same in TLS 1.2 under each of the six suites: the listener holds the P-256 identity for the ECDSA suites and the RSA identity for the RSA ones.
@@ -1734,7 +1720,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1748,7 +1734,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1868,7 +1854,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -1878,7 +1863,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -1941,7 +1926,6 @@ end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
 		arguments.push(option)
 	end 'eachOption'
@@ -1953,7 +1937,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1997,11 +1981,9 @@ end 'line'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305"] 'eachEcdsa'
 		print("{line(directory, name: name, rsa: false)}\n")
 	end 'eachEcdsa'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305"] 'eachRsa'
 		print("{line(directory, name: name, rsa: true)}\n")
 	end 'eachRsa'
@@ -2024,7 +2006,7 @@ ECDHE-RSA-CHACHA20-POLY1305: server[heard=ping protocol=tls12 suite=tls12/ecdheR
 <!-- test: tls-interop.listener-against-openssl-s_client-mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS with the listener requiring a client certificate under the client root and `openssl s_client` presenting its P-256 leaf (`-cert`, `-key`), in TLS 1.3 and in TLS 1.2: the listener sees one peer certificate.
@@ -2040,7 +2022,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2054,7 +2036,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2174,7 +2156,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -2184,7 +2165,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2247,7 +2228,6 @@ end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
 		arguments.push(option)
 	end 'eachOption'
@@ -2259,7 +2239,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2294,7 +2274,7 @@ end 'exchange'
 
 function main() returns ExitCode
 	let directory = workspace()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		try server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
@@ -2321,7 +2301,7 @@ tls12: server[heard=ping protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sh
 
 <!-- test: tls-interop.http-client-against-openssl-s_server -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2338,7 +2318,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2352,7 +2332,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2479,7 +2459,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in stagedNames 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -2489,7 +2468,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2521,7 +2500,6 @@ type OpensslServer
 
 	static function start(directory String, options StringArray) returns OpensslServer throws InteropError
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-msg", "-cert", "{directory}/server.pem", "-key", "{directory}/server.key"]
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
@@ -2555,7 +2533,7 @@ function sentCloseNotify(server OpensslServer) returns bool throws InteropError
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
 	server.child.release()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(">>>") and line.contains("close_notify") 'announced'
 			return true
@@ -2566,7 +2544,7 @@ end 'sentCloseNotify'
 
 function negotiatedProtocol(body String) returns String
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in body.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2656,7 +2634,7 @@ untrusted root: error tlsFailed(certificateRejected(unknownAuthority))
 
 <!-- test: tls-interop.http-server-against-openssl-s_client -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2673,7 +2651,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -2687,7 +2665,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -2806,7 +2784,6 @@ function workspace() returns String
 end 'workspace'
 
 function unstage(directory String)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in stagedNames 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -2816,7 +2793,7 @@ function unstage(directory String)
 end 'unstage'
 
 function valueAfter(lines StringArray, prefix String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.startsWith(prefix) 'found'
 			return line.replace(prefix, with: "")
@@ -2873,7 +2850,7 @@ function serveInterop(server HttpServer) returns HttpServeEnd
 end 'serveInterop'
 
 function lineContaining(lines StringArray, text String) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in lines 'eachLine'
 		if line.contains(text) 'found'
 			return line
@@ -2889,7 +2866,6 @@ end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, request String, options StringArray) returns ClientOutcome
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "localhost", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "localhost", "-attime", "{verificationTime}", "-ign_eof"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
 		arguments.push(option)
 	end 'eachOption'
@@ -2901,7 +2877,7 @@ function attemptClient(directory String, port NetworkPort, request String, optio
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2948,7 +2924,6 @@ function runAll(server HttpServer, label String, directory String, runs ClientRu
 	let peer = async serveInterop(server)
 	let report = StringBuilder.create()
 	report.append("{label}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for run in runs 'eachRun'
 		report.append("  {run.name}: {runClient(directory, port: boundPort, request: run.request, options: run.flags)}\n")
 	end 'eachRun'

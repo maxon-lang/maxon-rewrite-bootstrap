@@ -1502,7 +1502,6 @@ end 'main'
 ```
 
 <!-- test: a-twice-spilled-value-reloads-after-its-own-store -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A SPILL STORE IS A USE OF THE VALUE IT STORES, AND IT MUST NEVER ANCHOR A RELOAD.
 
 `storeSlotReg slot, v` READS `v`, so `buildUseIndex` records it as an ordinary use of `v`.
@@ -1529,12 +1528,10 @@ each, and both accumulators read in ONE interpolation.
 function main() returns ExitCode
 	let b = [72]
 	var one = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachOne'
 		one = "{one}{x}"
 	end 'eachOne'
 	var two = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachTwo'
 		two = "{two}{x}"
 	end 'eachTwo'
@@ -1550,14 +1547,12 @@ end 'main'
 ```
 
 <!-- test: one-loop-does-not-raise-the-second-peak -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 2 (two loops). One loop spills the array at most once, so no split
 ever reaches a store's use record.
 ```maxon
 function main() returns ExitCode
 	let b = [72]
 	var one = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachOne'
 		one = "{one}{x}"
 	end 'eachOne'
@@ -1573,19 +1568,16 @@ end 'main'
 ```
 
 <!-- test: two-accumulators-printed-separately -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 4 (both accumulators read in ONE interpolation). Two separate
 `print`s never make both accumulators live at once, so the second peak stays below the pool.
 ```maxon
 function main() returns ExitCode
 	let b = [72]
 	var one = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachOne'
 		one = "{one}{x}"
 	end 'eachOne'
 	var two = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachTwo'
 		two = "{two}{x}"
 	end 'eachTwo'
@@ -1603,19 +1595,16 @@ end 'main'
 ```
 
 <!-- test: two-loops-without-self-referencing-accumulation -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 3 (self-referencing accumulation). Without reading the accumulator
 back, each loop body holds one fewer live String across its own peak.
 ```maxon
 function main() returns ExitCode
 	let b = [72]
 	var one = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachOne'
 		one = "{x}"
 	end 'eachOne'
 	var two = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachTwo'
 		two = "{x}"
 	end 'eachTwo'
@@ -1631,19 +1620,16 @@ end 'main'
 ```
 
 <!-- test: a-twice-spilled-value-read-on-every-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same four conditions with a two-element array, so each loop iterates more than once and the
 reload-before-store is read on every iteration rather than only on the first.
 ```maxon
 function main() returns ExitCode
 	let b = [72, 73]
 	var one = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachOne'
 		one = "{one}{x}"
 	end 'eachOne'
 	var two = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'eachTwo'
 		two = "{two}{x}"
 	end 'eachTwo'

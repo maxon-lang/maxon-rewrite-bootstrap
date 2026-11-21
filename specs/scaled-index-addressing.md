@@ -85,7 +85,6 @@ do. A chain outside those terms keeps its own `arm64AddLsl` and the access reads
 ## Tests
 
 <!-- test: an-indexed-element-read-is-one-instruction -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The canonical shape. `for v in a` over an `Array with` an 8-byte element reads each
 element through `loadRegBaseIndexScale.word64 rax, [rax + <i>*8 + 0]` — one instruction rather than
 `imul` / `lea` / `mov`. The sum is checked so a wrong address is a
@@ -97,15 +96,14 @@ typealias WordArray = Array with Word
 
 function total(a WordArray) returns Word
 	var t = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'loop'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -209,7 +207,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-strided-element-keeps-its-scale-1-address -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The stride-1 arm, which has no multiply to absorb: `index * 1` is folded to `index` by
 `foldConstOperands` long before this pass, so the address stays a scale-1 `leaRegRegReg` and the read
 stays a `loadRegBaseDisp.byte`. A fold that rewrote this would be changing code that was already one
@@ -224,15 +221,14 @@ typealias Total = int(0 to u64.max)
 
 function sumBytes(b ByteArray) returns Total
 	var t = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in b 'loop'
-		t = t + v as Total
+		t = try t + v as Total otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'sumBytes'
 
 function main() returns ExitCode
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	for i in 0 upto 10 'seed'
 		b.push(i as Byte)
 	end 'seed'
@@ -252,7 +248,6 @@ end 'main'
 <!-- test: a-float-element-reads-through-the-same-addressing-mode -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An `Array with` a float element is 8 bytes wide like an integer one, so its slot address takes the same
 `×8` scale — and the value moves through the same word-width memory op, because the Std tier loads the
 element's 64 bits and reinterprets them. This is the case that says the fold is about the ADDRESS and
@@ -267,7 +262,6 @@ typealias RealArray = Array with Real
 function total(a RealArray) returns Real
 	// TODO: float literals are not supported in minimaxon
 	var t = 0.0 as Real
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'loop'
 		t = t + v
 	end 'loop'

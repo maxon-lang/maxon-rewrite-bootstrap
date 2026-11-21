@@ -53,7 +53,6 @@ end 'main'
 ```
 
 <!-- test: list-of-structs-iterate -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Iterate Over List of Structs
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -75,7 +74,6 @@ function main() returns ExitCode
 	list.append(Entry.create(2, value: 200))
 	list.append(Entry.create(3, value: 300))
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		sum = sum + item.value
 	end 'loop'
@@ -162,7 +160,7 @@ end 'main'
 ```
 
 <!-- test: list-of-structs-from-literal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### List from Array Literal of Structs
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -178,7 +176,6 @@ end 'Vec2'
 
 function main() returns ExitCode
 	let list = List from [Vec2.create(1, y: 2), Vec2.create(3, y: 4), Vec2.create(5, y: 6)]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
 		print("{item.x},{item.y}\n")
 	end 'loop'

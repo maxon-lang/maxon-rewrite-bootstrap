@@ -737,7 +737,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-true-arm-of-a-for-source-ternary -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: test declarations are not supported in minimaxon -->
 A ternary `for` source hands the loop the value of whichever arm ran. Neither arm's call is the loop's
 cursor, so the TRUE arm's throwing call takes the test body's implied handler exactly as the false arm's does.
@@ -765,7 +764,6 @@ end 'items'
 test 'walks the chosen items'
 	let useFirst = true
 	var total = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items(true) if useFirst else items(true) 'each'
 		total = total + x
 	end 'each'
@@ -855,7 +853,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: test declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The call that hands a `for` loop its cursor throws `IterationError` for an EMPTY collection, and the loop
@@ -870,7 +868,7 @@ typealias IntArray = Array with Integer
 test 'an empty traversal runs no trips'
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, value) in IntArray.create(0).withIterator() 'each'
 		total = total + value
 	end 'each'
@@ -887,7 +885,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed-parenthesized -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: test declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same loop with its source written in parentheses. A group is transparent, so the loop still absorbs
@@ -902,7 +899,6 @@ typealias IntArray = Array with Integer
 test 'an empty parenthesized traversal runs no trips'
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, value) in (IntArray.create(0).withIterator()) 'each'
 		total = total + value
 	end 'each'
@@ -1117,7 +1113,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-rebranded-cursor-is-absorbed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: test declarations are not supported in minimaxon -->
 A cursor-producing call renamed to another brand of the same instance is still the call that hands the loop
 its cursor: the rebrand emits no op, so the loop absorbs the empty collection's `IterationError`.
@@ -1132,7 +1127,6 @@ typealias Walk = ArrayIterator with Integer
 // TODO: test declarations are not supported in minimaxon
 test 'an empty rebranded traversal runs no trips'
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in IntArray.create(0).cursor() as Walk 'each'
 		total = total + x
 	end 'each'

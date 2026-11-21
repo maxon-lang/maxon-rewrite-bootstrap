@@ -31,7 +31,6 @@ Character reaches stdout.
 ## Tests
 
 <!-- test: for-in-string-drops-every-cluster -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Every exit path out of a trip drops its cluster
 
 Five loop shapes over a mixed-width string, repeated 200 times — 5,200 minted Characters. Any path
@@ -42,7 +41,6 @@ the point is the allocation ledger, not the text.
 ```maxon
 function fallthroughTrips(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'a'
 		n = n + 1 if c == c else n
 	end 'a'
@@ -51,7 +49,6 @@ end 'fallthroughTrips'
 
 function continueTrips(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'b'
 		n = n + 1 if c == c else n
 		if n > 0 'always'
@@ -63,7 +60,6 @@ end 'continueTrips'
 
 function breakTrips(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'd'
 		n = n + 1 if c == c else n
 		if n == 2 'stop'
@@ -75,7 +71,6 @@ end 'breakTrips'
 
 function returnFromLoop(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'e'
 		n = n + 1 if c == c else n
 		if n == 3 'out'
@@ -87,7 +82,6 @@ end 'returnFromLoop'
 
 function discardTrips(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'f'
 		n = n + 1
 	end 'f'
@@ -115,7 +109,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: crlf-iterates-once -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### CR LF is ONE cluster when iterated, as well as when counted
 
 GB3 joins CR and LF. An iterator taking an ASCII shortcut that never consults GB3 would answer 2 for
@@ -126,14 +119,12 @@ agree.
 function main() returns ExitCode
 	let s = "\r\n"
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'each'
 		n = n + 1
 	end 'each'
 	print("{s.count()} {n}\n")
 	let mid = "ab\r\ncd"
 	var m = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in mid 'more'
 		m = m + 1
 	end 'more'
@@ -150,14 +141,12 @@ end 'main'
 ```
 
 <!-- test: empty-string-iterates-zero-times -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### An empty string has no clusters
 
 ```maxon
 function main() returns ExitCode
 	let s = ""
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'each'
 		n = n + 1
 	end 'each'
@@ -210,7 +199,6 @@ end 'main'
 ```
 
 <!-- test: unpaired-regional-indicator-trails -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Regional indicators pair left to right, and a fifth stands alone
 
 Five regional indicators are two flags and one unpaired indicator.
@@ -219,7 +207,6 @@ Five regional indicators are two flags and one unpaired indicator.
 function main() returns ExitCode
 	let s = "🇺🇸🇬🇧🇫"
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'each'
 		n = n + 1
 	end 'each'
@@ -235,7 +222,6 @@ end 'main'
 ```
 
 <!-- test: four-byte-cluster-at-end -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A four-byte codepoint as the last cluster
 
 The scan must not read past the buffer when the widest sequence sits at the very end.
@@ -244,7 +230,6 @@ The scan must not read past the buffer when the widest sequence sits at the very
 function main() returns ExitCode
 	let s = "ab🎉"
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'each'
 		n = n + 1
 	end 'each'
@@ -301,7 +286,7 @@ error E3005: specs/character-ownership/print-takes-a-string-not-a-character.maxo
 
 <!-- test: character-parameter-and-equality -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A `Character` is nameable as a declared type
 
 ```maxon
@@ -311,7 +296,7 @@ end 'isTarget'
 
 function main() returns ExitCode
 	var hits = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "héllo wörld" 'each'
 		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'ö') 'match'
@@ -383,7 +368,6 @@ end 'main'
 
 <!-- test: loop-element-moves-into-an-outer-var -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Assigning the trip's cluster to an outer `var` MOVES it
 
 `found = c` must move the minted cluster into `found` — dropping whatever `found` held — not copy it.
@@ -395,7 +379,6 @@ function reassignInLoop(s String) returns Integer
 	var n = 0 as Integer
 	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		found = c
 		n = n + 1
@@ -407,7 +390,6 @@ end 'reassignInLoop'
 function lastOf(s String) returns Character
 	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		found = c
 	end 'each'
@@ -439,7 +421,7 @@ t=300
 
 <!-- test: promoting-a-character-keeps-its-type -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A `var` Character stays a Character
 
 A `var`'s managed initializer is promoted to an owned copy at its declaration, and the copy is built
@@ -450,7 +432,7 @@ next line legal; typed `String`, `found` would make the assignment E3005.
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "ab中" 'each'
 		found = c
 	end 'each'
@@ -467,7 +449,7 @@ end 'main'
 
 <!-- test: character-literal-adopts-the-character-type -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A character literal in a Character-expecting position IS a Character
 
 Every character literal IS a `Character`, so no position has to ask for one: `c == 'a'` inside
@@ -482,7 +464,7 @@ end 'firstAscii'
 
 function main() returns ExitCode
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "banana" 'scan'
 		// TODO: character literals are not supported in minimaxon
 		if c == 'a' 'hit'
@@ -490,7 +472,7 @@ function main() returns ExitCode
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "banana" 'scan2'
 		// TODO: character literals are not supported in minimaxon
 		if c != 'a' 'miss'
@@ -498,7 +480,7 @@ function main() returns ExitCode
 		end 'miss'
 	end 'scan2'
 	var w = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "héllö théré" 'scan3'
 		// TODO: character literals are not supported in minimaxon
 		if 'é' == c 'lhs'
@@ -555,7 +537,7 @@ end 'main'
 
 <!-- test: character-literal-at-a-call-argument -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Character literal at a call argument
 
 ```maxon
@@ -565,7 +547,7 @@ end 'isTarget'
 
 function main() returns ExitCode
 	var hits = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "banana" 'each'
 		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'a') 'match'
@@ -584,7 +566,6 @@ end 'main'
 ```
 
 <!-- test: rebinding-the-iterated-string-walks-the-old-string -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Rebinding `s` inside `for c in s` leaves the loop on the string it started on
 
 The loop holds its own reference to the string it evaluated on entry, so rebinding the variable in
@@ -596,7 +577,6 @@ function main() returns ExitCode
 	var s = "abcdefgh ijklmnop {40 + 2}"
 	var n = 0 as Count
 	var seen = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		n = n + 1
 		if n == 2 'swap'
@@ -616,7 +596,6 @@ end 'main'
 ```
 
 <!-- test: appending-to-the-iterated-string-extends-the-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Appending to the iterated String extends the walk
 
 A mutating method changes the record the loop walks, and the loop re-reads its length every step,
@@ -627,7 +606,6 @@ function main() returns ExitCode
 	var s = "heap string number {40 + 2} here"
 	var n = 0 as Count
 	var seen = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		n = n + 1
 		if s.byteLength() < 28 'grow'
@@ -647,7 +625,6 @@ end 'main'
 ```
 
 <!-- test: rebinding-a-module-string-in-body-walks-the-old-string -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Rebinding a `mutable` String parameter inside a `for` over it
 
 The same rule for a `mutable` parameter: the loop walks the 86-byte string it started on, and `k` totals
@@ -659,7 +636,6 @@ typealias ByteTally = int(0 to 1000)
 function walk(mutates banner String) returns ByteTally
 	banner = "{banner} {40 + 2} and more text to make it heap"
 	var k = 0 as ByteTally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in banner 'l'
 		banner = "z"
 		k = k + (c.byteLength() as ByteTally)
@@ -683,7 +659,6 @@ end 'main'
 
 <!-- test: a-character-array-takes-a-borrowed-literal -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### An `Array with Character` accepts a literal, exactly as an `Array with String` does
 
 A move into durable storage picks its protocol off the element's RECORD, not off its type: a borrowed
@@ -698,7 +673,6 @@ function build(s String) returns Integer
 	let a = CharArray.create(0)
 	// TODO: character literals are not supported in minimaxon
 	a.push('é')
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		a.push(c)
 	end 'each'
@@ -806,7 +780,7 @@ error E2015: specs/character-ownership/an-array-literal-element-is-not-a-charact
 
 <!-- test: a-single-byte-literal-adopts-on-the-left-too -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### The LEFT operand's literal is judged against the RIGHT one
 
 A one-word transposition — the left operand asking its own tag instead of the other side's — leaves every
@@ -816,7 +790,7 @@ left operand compared with itself would answer about nothing.
 ```maxon
 function main() returns ExitCode
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "banana" 'scan'
 		// TODO: character literals are not supported in minimaxon
 		if 'a' == c 'hit'
@@ -824,7 +798,7 @@ function main() returns ExitCode
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in "banana" 'scan2'
 		// TODO: character literals are not supported in minimaxon
 		if 'a' != c 'miss'

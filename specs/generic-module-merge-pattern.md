@@ -19,7 +19,6 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -153,7 +152,6 @@ function main() returns ExitCode
 	let postFuncs = modA.funcCount()
 	// Iterate the block's opRefs list to verify list integrity
 	var opRefSum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for opRef in blockA.opRefs 'eachRef'
 		opRefSum = opRefSum + opRef
 	end 'eachRef'
@@ -178,7 +176,6 @@ opRefSum=1
 ### Two specializations of generic type with inner array typealias
 
 <!-- test: dual-specialize-inner-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -218,12 +215,10 @@ function main() returns ExitCode
 	sc.push("hello")
 	sc.push("world")
 	var intSum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for val in ic.ops 'intLoop'
 		intSum = intSum + val
 	end 'intLoop'
 	var strCount = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for val in sc.ops 'strLoop'
 		strCount = strCount + 1
 	end 'strLoop'

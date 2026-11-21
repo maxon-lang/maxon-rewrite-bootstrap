@@ -4856,7 +4856,6 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-holder-method-writing-through-an-element-read-is-refused-for-a-frozen-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `bump` writes `.n` through an element of the array `holder` holds, so the frozen array must not be given to the holder.
 
@@ -4881,7 +4880,6 @@ type Holder
 	end 'over'
 
 	function bump()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for box in self.items 'each'
 			box.n = 5
 		end 'each'
@@ -4906,7 +4904,6 @@ error E3207: <fragment>:38:2: 'bump' writes its receiver (line 23: `box.n = 5`);
 ```
 
 <!-- test: a-holder-method-reaching-through-a-wrapper-is-refused-for-a-frozen-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The same write one method deeper: `run` hands the holder to `bump`, which writes through an element.
 
@@ -4931,7 +4928,6 @@ type Holder
 	end 'over'
 
 	function bump()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for box in self.items 'each'
 			box.n = 5
 		end 'each'

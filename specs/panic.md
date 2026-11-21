@@ -177,7 +177,7 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A panic's label is decided where its message is written down, and every copy keeps it. The string
 operations put a long run of CONCRETE stdlib panics into the program ahead of the guard that fires —
 the grapheme, hash, Unicode-category, UTF-8 and UTF-16 helpers all panic on invariants they never
@@ -205,11 +205,11 @@ function main() returns ExitCode
 	let s = "  héllo wörld  "
 	var n = s.trim(CharacterSet.letters).count() as Signed
 	n = n + (s.bytes().count() as Signed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in "héllo".codepoints() 'c'
 		n = n + (cp as Signed)
 	end 'c'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in "h€llo".utf16() 'u'
 		n = n + (u as Signed)
 	end 'u'
@@ -235,7 +235,7 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message-twin -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The same program again, deliberately. The runner compiles on a pool of worker threads, and a label
 derived from per-thread state answers differently on a thread that parsed the stdlib and one that did
 not — so a single copy could be handed the one thread that happens to agree with itself. Two
@@ -251,11 +251,11 @@ function main() returns ExitCode
 	let s = "  héllo wörld  "
 	var n = s.trim(CharacterSet.letters).count() as Signed
 	n = n + (s.bytes().count() as Signed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in "héllo".codepoints() 'c'
 		n = n + (cp as Signed)
 	end 'c'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in "h€llo".utf16() 'u'
 		n = n + (u as Signed)
 	end 'u'

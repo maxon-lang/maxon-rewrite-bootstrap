@@ -1432,7 +1432,6 @@ out
 
 <!-- test: match-character-range-over-an-owned-scrutinee -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The scrutinee is an OWNED `Character` the loop mints, while both range bounds are immortal `.rdata`
 literals — so nothing the arm compares against is droppable and the loop's own temporary is dropped
 exactly once. `x` (one ASCII byte, `0x78`) falls below `'é'` (`C3 A9`) and takes the default.
@@ -1441,7 +1440,6 @@ exactly once. `x` (one ASCII byte, `0x78`) falls below `'é'` (`C3 A9`) and take
 function main() returns ExitCode
 	let s = "éxü"
 	var hits = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		match c 'classify'
 			// TODO: character literals are not supported in minimaxon
@@ -2002,18 +2000,16 @@ real `matchnext` test blocks the plan never mints. The break enrols its block as
 reaching arm the same way on both paths, and nothing else pins that.
 
 <!-- test: match-break.string-scrutinee-chain-dispatch -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	var total = 0 as ExitCode
 	let words = ["red", "green", "blue"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for w in words 'each'
 		match w 'check'
 			"green" then break
-			default then total = total + 1
+			default then total = try total + 1 otherwise panic("out of range")
 		end 'check'
-		total = total + 10
+		total = try total + 10 otherwise panic("out of range")
 	end 'each'
 	return total
 end 'main'

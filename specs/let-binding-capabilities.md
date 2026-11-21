@@ -530,7 +530,6 @@ error E3102: <fragment>:30:47: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: let-binding-capabilities.an-element-of-a-lent-parameter-kept-in-a-let-field-is-accepted -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `ms` is lent for the call, so its elements are the caller's records; a `let` field keeps one past the call, and `main`'s write through `w` is seen through it.
 
 ```maxon
@@ -552,13 +551,12 @@ type H
 	export let m as Box
 
 	static function create(m Box) returns Self
-		return Self{m: m}
+		return Self{m: m.clone()}
 	end 'create'
 end 'H'
 
 function wrap(ms Boxes) returns Hs
-	let hs = Hs.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	var hs = Hs.create(0)
 	for m in ms 'each'
 		hs.push(H.create(m))
 	end 'each'
@@ -566,10 +564,10 @@ function wrap(ms Boxes) returns Hs
 end 'wrap'
 
 function main() returns ExitCode
-	let ms = Boxes.create(0)
+	var ms = Boxes.create(0)
 	ms.push(Box.create(1))
 	let hs = wrap(ms)
-	let w = try ms.get(0) otherwise return 1
+	var w = try ms.get(0) otherwise return 1
 	w.n = 7
 	let h = try hs.get(0) otherwise return 2
 	print("{h.m.n}\n")

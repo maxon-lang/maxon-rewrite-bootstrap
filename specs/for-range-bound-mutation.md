@@ -102,7 +102,6 @@ end 'main'
 ```
 
 <!-- test: array-source-push-in-body-extends-the-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The other half of the pin: an ARRAY source is writable in the body, and the loop re-reads its
 live count, so each element the body pushes is visited. The element read before a push that
 reallocates the array stays valid.
@@ -110,12 +109,11 @@ reallocates the array stays valid.
 typealias Labels = Array with String
 
 function main() returns ExitCode
-	let arr = Labels.create(0)
+	var arr = Labels.create(0)
 	arr.push("growing element number {40 + 2}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'l'
 		if arr.count() < 3 'grow'
-			arr.push("growing element number {arr.count() + 40}")
+			arr.push("growing element number {try arr.count() + 40 otherwise panic("out of range")}")
 		end 'grow'
 		print("{s} {s.byteLength()}\n")
 	end 'l'
@@ -134,7 +132,6 @@ count=3
 ```
 
 <!-- test: array-shared-through-a-field-cleared-in-body-ends-the-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `Holder` stores the same record the loop walks, and grows then clears it from inside the body.
 The element read before the call stays valid, and the next step sees the cleared count and ends.
 ```maxon
@@ -161,7 +158,6 @@ function main() returns ExitCode
 	let arr = ["first-{1}", "second-{2}", "third-{3}"]
 	let h = Holder.create(arr)
 	var seen = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in arr 'each'
 		h.grow()
 		print("x.len={x.byteLength()}\n")
@@ -182,7 +178,6 @@ done seen=1 arrCount=0
 ```
 
 <!-- test: module-array-cleared-by-a-callee-ends-the-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A callee clears the module `var` array the loop walks. The element read before the call stays
 valid, and the next step sees the cleared count and ends.
 ```maxon
@@ -195,7 +190,6 @@ end 'wipe'
 function main() returns ExitCode
 	let pending = Lines.create(0)
 	pending.push("hello world this is a long string for heap allocation {40 + 2}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in pending 'scan'
 		wipe(pending)
 		print("{it.byteLength()} [{it}]\n")
@@ -213,7 +207,6 @@ end 'main'
 ```
 
 <!-- test: module-array-rebound-in-body-walks-the-old-record -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Rebinding the module `var` the loop walks leaves the loop on the record it started on, to that
 record's end.
 ```maxon
@@ -226,10 +219,9 @@ function main() returns ExitCode
 	numbers.push(1)
 	numbers.push(2)
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in numbers 'l'
 		numbers = IntegerArray.create(0)
-		t = t + n
+		t = try t + n otherwise panic("out of range")
 	end 'l'
 	print("{t} {numbers.count()}\n")
 	return 0

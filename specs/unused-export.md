@@ -579,7 +579,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-element-member-access-is-a-reference -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠⚠ **`app/main.maxon` NEVER WRITES `Item` — IT REACHES IT, AND THE TWO DIAGNOSTICS MUST NOT CONTRADICT
 EACH OTHER OVER THAT.** The element type is behind a generic-instance alias, so a transitive walk over
@@ -620,7 +619,6 @@ typealias Count = int(i64.min to i64.max)
 
 function total(h Holder) returns Count
 	var t = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in h.items 'each'
 		t = t + it.n as Count
 	end 'each'
@@ -768,7 +766,6 @@ end 'main'
 ```
 
 <!-- test: error.unused-exported-element-nothing-outside-reaches -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⭐⭐ **THE DISCRIMINATING CONTROL FOR THE TWO CASES ABOVE.** The count happens inside `api/store.maxon`
@@ -801,7 +798,6 @@ export type Holder
 
 	export function total() returns ExitCode
 		var t = 0 as ExitCode
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in self.items 'each'
 			t = t + 1
 		end 'each'
@@ -901,7 +897,6 @@ error E3092: pkg/<fragment>:5:17: exported function 'pkg.subtreeOnly' is never r
 ```
 
 <!-- test: subtree-only-is-not-a-finding-when-an-outside-file-reaches-a-member -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **THE SUBTREE RULE HAS THE SAME HOLE, AND IT IS CLOSED BY THE SAME REFERENCE.** `pkg/sub/user.maxon` is the
 only file that NAMES `Item` and it is strictly nested, so a subtree rule counting names would fire — while
 `main.maxon`, which is outside the subtree entirely, reaches INTO an `Item` through `h.items`. Narrowing
@@ -947,7 +942,6 @@ typealias Count = int(i64.min to i64.max)
 
 function total(h Holder) returns Count
 	var t = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in h.items 'each'
 		t = t + it.n as Count
 	end 'each'

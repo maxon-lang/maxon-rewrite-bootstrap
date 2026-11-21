@@ -582,7 +582,6 @@ r=1
 
 <!-- test: unsigned-divisors-at-or-above-two-to-the-63 -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Unsigned constant divisors from 2^63 up agree with the hardware divide.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
@@ -619,7 +618,6 @@ function dividendsAround(d UBigDivisor) returns UnsignedArray
 end 'dividendsAround'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(9223372036854775808) 'd9223372036854775808'
 		if u / 9223372036854775808 != refUDiv(u, d: 9223372036854775808) 'q9223372036854775808'
 			return 1
@@ -628,7 +626,6 @@ function main() returns ExitCode
 			return 2
 		end 'r9223372036854775808'
 	end 'd9223372036854775808'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(9223372036854775809) 'd9223372036854775809'
 		if u / 9223372036854775809 != refUDiv(u, d: 9223372036854775809) 'q9223372036854775809'
 			return 3
@@ -637,7 +634,6 @@ function main() returns ExitCode
 			return 4
 		end 'r9223372036854775809'
 	end 'd9223372036854775809'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(13835058055282163711) 'd13835058055282163711'
 		if u / 13835058055282163711 != refUDiv(u, d: 13835058055282163711) 'q13835058055282163711'
 			return 5
@@ -646,7 +642,6 @@ function main() returns ExitCode
 			return 6
 		end 'r13835058055282163711'
 	end 'd13835058055282163711'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(18446744073709551600) 'd18446744073709551600'
 		if u / 18446744073709551600 != refUDiv(u, d: 18446744073709551600) 'q18446744073709551600'
 			return 7
@@ -655,7 +650,6 @@ function main() returns ExitCode
 			return 8
 		end 'r18446744073709551600'
 	end 'd18446744073709551600'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(18446744073709551614) 'd18446744073709551614'
 		if u / 18446744073709551614 != refUDiv(u, d: 18446744073709551614) 'q18446744073709551614'
 			return 9
@@ -664,7 +658,6 @@ function main() returns ExitCode
 			return 10
 		end 'r18446744073709551614'
 	end 'd18446744073709551614'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(18446744073709551615) 'd18446744073709551615'
 		if u / 18446744073709551615 != refUDiv(u, d: 18446744073709551615) 'q18446744073709551615'
 			return 11
@@ -673,7 +666,6 @@ function main() returns ExitCode
 			return 12
 		end 'r18446744073709551615'
 	end 'd18446744073709551615'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(13835058055282163712) 'd13835058055282163712'
 		if u / 13835058055282163712 != refUDiv(u, d: 13835058055282163712) 'q13835058055282163712'
 			return 13
@@ -682,7 +674,6 @@ function main() returns ExitCode
 			return 14
 		end 'r13835058055282163712'
 	end 'd13835058055282163712'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(10000000000000000000) 'd10000000000000000000'
 		if u / 10000000000000000000 != refUDiv(u, d: 10000000000000000000) 'q10000000000000000000'
 			return 15
@@ -691,7 +682,6 @@ function main() returns ExitCode
 			return 16
 		end 'r10000000000000000000'
 	end 'd10000000000000000000'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in dividendsAround(12345678901234567891) 'd12345678901234567891'
 		if u / 12345678901234567891 != refUDiv(u, d: 12345678901234567891) 'q12345678901234567891'
 			return 17
@@ -708,7 +698,6 @@ end 'main'
 ```
 
 <!-- test: signed-divisors-near-two-to-the-62-point-5-and-i64-min -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Signed constant divisors where the old refinement declined agree with the hardware divide.
 ```maxon
 typealias Word = int(i64.min to i64.max)
@@ -761,7 +750,6 @@ function dividends(d Word) returns WordArray
 end 'dividends'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(6521908912666391107) 'p6521908912666391107'
 		if n / 6521908912666391107 != refDiv(n, d: 6521908912666391107) 'q6521908912666391107'
 			return 1
@@ -770,7 +758,6 @@ function main() returns ExitCode
 			return 2
 		end 'r6521908912666391107'
 	end 'p6521908912666391107'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(6521908912666391106) 'p6521908912666391106'
 		if n / 6521908912666391106 != refDiv(n, d: 6521908912666391106) 'q6521908912666391106'
 			return 3
@@ -779,7 +766,6 @@ function main() returns ExitCode
 			return 4
 		end 'r6521908912666391106'
 	end 'p6521908912666391106'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(6521908912666391109) 'p6521908912666391109'
 		if n / 6521908912666391109 != refDiv(n, d: 6521908912666391109) 'q6521908912666391109'
 			return 5
@@ -788,7 +774,6 @@ function main() returns ExitCode
 			return 6
 		end 'r6521908912666391109'
 	end 'p6521908912666391109'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(4611686018427387905) 'p4611686018427387905'
 		if n / 4611686018427387905 != refDiv(n, d: 4611686018427387905) 'q4611686018427387905'
 			return 7
@@ -797,7 +782,6 @@ function main() returns ExitCode
 			return 8
 		end 'r4611686018427387905'
 	end 'p4611686018427387905'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(4611686018427387907) 'p4611686018427387907'
 		if n / 4611686018427387907 != refDiv(n, d: 4611686018427387907) 'q4611686018427387907'
 			return 9
@@ -806,7 +790,6 @@ function main() returns ExitCode
 			return 10
 		end 'r4611686018427387907'
 	end 'p4611686018427387907'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(9223372036854775807) 'p9223372036854775807'
 		if n / 9223372036854775807 != refDiv(n, d: 9223372036854775807) 'q9223372036854775807'
 			return 11
@@ -815,7 +798,6 @@ function main() returns ExitCode
 			return 12
 		end 'r9223372036854775807'
 	end 'p9223372036854775807'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(9223372036854775806) 'p9223372036854775806'
 		if n / 9223372036854775806 != refDiv(n, d: 9223372036854775806) 'q9223372036854775806'
 			return 13
@@ -824,7 +806,6 @@ function main() returns ExitCode
 			return 14
 		end 'r9223372036854775806'
 	end 'p9223372036854775806'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(9223372036854775805) 'p9223372036854775805'
 		if n / 9223372036854775805 != refDiv(n, d: 9223372036854775805) 'q9223372036854775805'
 			return 15
@@ -833,7 +814,6 @@ function main() returns ExitCode
 			return 16
 		end 'r9223372036854775805'
 	end 'p9223372036854775805'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(7766279631452241920) 'p7766279631452241920'
 		if n / 7766279631452241920 != refDiv(n, d: 7766279631452241920) 'q7766279631452241920'
 			return 17
@@ -842,7 +822,6 @@ function main() returns ExitCode
 			return 18
 		end 'r7766279631452241920'
 	end 'p7766279631452241920'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(3037000500) 'p3037000500'
 		if n / 3037000500 != refDiv(n, d: 3037000500) 'q3037000500'
 			return 19
@@ -851,7 +830,6 @@ function main() returns ExitCode
 			return 20
 		end 'r3037000500'
 	end 'p3037000500'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(4294967297) 'p4294967297'
 		if n / 4294967297 != refDiv(n, d: 4294967297) 'q4294967297'
 			return 21
@@ -860,7 +838,6 @@ function main() returns ExitCode
 			return 22
 		end 'r4294967297'
 	end 'p4294967297'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(6148914691236517205) 'p6148914691236517205'
 		if n / 6148914691236517205 != refDiv(n, d: 6148914691236517205) 'q6148914691236517205'
 			return 23
@@ -869,7 +846,6 @@ function main() returns ExitCode
 			return 24
 		end 'r6148914691236517205'
 	end 'p6148914691236517205'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-6521908912666391107) 'n6521908912666391107'
 		if n / (-6521908912666391107) != refDivNeg(n, d: -6521908912666391107) 'qn6521908912666391107'
 			return 25
@@ -878,7 +854,6 @@ function main() returns ExitCode
 			return 26
 		end 'rn6521908912666391107'
 	end 'n6521908912666391107'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-6521908912666391106) 'n6521908912666391106'
 		if n / (-6521908912666391106) != refDivNeg(n, d: -6521908912666391106) 'qn6521908912666391106'
 			return 27
@@ -887,7 +862,6 @@ function main() returns ExitCode
 			return 28
 		end 'rn6521908912666391106'
 	end 'n6521908912666391106'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-6521908912666391109) 'n6521908912666391109'
 		if n / (-6521908912666391109) != refDivNeg(n, d: -6521908912666391109) 'qn6521908912666391109'
 			return 29
@@ -896,7 +870,6 @@ function main() returns ExitCode
 			return 30
 		end 'rn6521908912666391109'
 	end 'n6521908912666391109'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-4611686018427387905) 'n4611686018427387905'
 		if n / (-4611686018427387905) != refDivNeg(n, d: -4611686018427387905) 'qn4611686018427387905'
 			return 31
@@ -905,7 +878,6 @@ function main() returns ExitCode
 			return 32
 		end 'rn4611686018427387905'
 	end 'n4611686018427387905'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-4611686018427387907) 'n4611686018427387907'
 		if n / (-4611686018427387907) != refDivNeg(n, d: -4611686018427387907) 'qn4611686018427387907'
 			return 33
@@ -914,7 +886,6 @@ function main() returns ExitCode
 			return 34
 		end 'rn4611686018427387907'
 	end 'n4611686018427387907'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-9223372036854775807) 'n9223372036854775807'
 		if n / (-9223372036854775807) != refDivNeg(n, d: -9223372036854775807) 'qn9223372036854775807'
 			return 35
@@ -923,7 +894,6 @@ function main() returns ExitCode
 			return 36
 		end 'rn9223372036854775807'
 	end 'n9223372036854775807'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-9223372036854775806) 'n9223372036854775806'
 		if n / (-9223372036854775806) != refDivNeg(n, d: -9223372036854775806) 'qn9223372036854775806'
 			return 37
@@ -932,7 +902,6 @@ function main() returns ExitCode
 			return 38
 		end 'rn9223372036854775806'
 	end 'n9223372036854775806'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-9223372036854775805) 'n9223372036854775805'
 		if n / (-9223372036854775805) != refDivNeg(n, d: -9223372036854775805) 'qn9223372036854775805'
 			return 39
@@ -941,7 +910,6 @@ function main() returns ExitCode
 			return 40
 		end 'rn9223372036854775805'
 	end 'n9223372036854775805'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-7766279631452241920) 'n7766279631452241920'
 		if n / (-7766279631452241920) != refDivNeg(n, d: -7766279631452241920) 'qn7766279631452241920'
 			return 41
@@ -950,7 +918,6 @@ function main() returns ExitCode
 			return 42
 		end 'rn7766279631452241920'
 	end 'n7766279631452241920'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-3037000500) 'n3037000500'
 		if n / (-3037000500) != refDivNeg(n, d: -3037000500) 'qn3037000500'
 			return 43
@@ -959,7 +926,6 @@ function main() returns ExitCode
 			return 44
 		end 'rn3037000500'
 	end 'n3037000500'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-4294967297) 'n4294967297'
 		if n / (-4294967297) != refDivNeg(n, d: -4294967297) 'qn4294967297'
 			return 45
@@ -968,7 +934,6 @@ function main() returns ExitCode
 			return 46
 		end 'rn4294967297'
 	end 'n4294967297'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-6148914691236517205) 'n6148914691236517205'
 		if n / (-6148914691236517205) != refDivNeg(n, d: -6148914691236517205) 'qn6148914691236517205'
 			return 47
@@ -977,7 +942,6 @@ function main() returns ExitCode
 			return 48
 		end 'rn6148914691236517205'
 	end 'n6148914691236517205'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in dividends(-9223372036854775808) 'n9223372036854775808'
 		if n / (-9223372036854775808) != refDivNeg(n, d: -9223372036854775808) 'qn9223372036854775808'
 			return 49

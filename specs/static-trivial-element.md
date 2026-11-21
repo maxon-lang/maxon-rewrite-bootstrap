@@ -109,7 +109,6 @@ end 'main'
 ```
 
 <!-- test: an-integer-element-write-asks-no-destructor-question -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The store mirror. `__managed_set`'s fast arm still proves the buffer is this record's, that the index
 is in range, that the buffer exists and that nobody is viewing it; what is gone is the `[<rec> + 40]`
 load and its branch. Every slot is written and read back, so a store that went to the wrong place is a
@@ -130,7 +129,6 @@ function main() returns ExitCode
 	a.resize(5)
 	fill(a, n: 5)
 	var seen = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'check'
 		seen = seen + v
 	end 'check'
@@ -146,7 +144,6 @@ end 'main'
 
 <!-- test: a-managed-element-write-still-destroys-the-occupant -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The control for the write arm. A `set` over a managed element DESTROYS the occupant it overwrites, and
 that is the runtime's job: the stamp says the element owes a drop, so the guard stays and the write
 takes the slow arm. Sabotage — stamping this site trivial — stores over four Strings nobody releases,
@@ -170,7 +167,6 @@ function main() returns ExitCode
 		relabel(a, i: i)
 	end 'rewrite'
 	var bytes = 0 as Idx
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in a 'measure'
 		bytes = bytes + s.byteLength()
 	end 'measure'

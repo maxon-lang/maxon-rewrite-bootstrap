@@ -428,11 +428,11 @@ end 'main'
 ```
 
 <!-- test: opener-case-member-in-for-iterable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum Kw
 	alpha
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for
 	omega
 end 'Kw'
@@ -440,7 +440,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for then return 2
 		omega then return 3
 	end 'm'
@@ -461,7 +461,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: every-block-keyword-as-a-case-member -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum Kw
 	if
@@ -469,7 +469,7 @@ enum Kw
 	end
 	while
 	match
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for
 	otherwise
 end 'Kw'
@@ -481,7 +481,7 @@ function tagOf(k Kw) returns Integer
 		end then return 4
 		while then return 8
 		match then return 16
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for then return 32
 		otherwise then return 64
 	end 'm'
@@ -715,7 +715,7 @@ end 'main'
 ```
 
 <!-- test: every-block-keyword-as-a-payload-carrying-case -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
@@ -727,7 +727,7 @@ union Kw
 	while (d Num)
 	match (e Num)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (f Num)
 	otherwise (g Num)
 end 'Kw'
@@ -740,7 +740,7 @@ function tagOf(k Kw) returns Num
 		while (d) then return d
 		match (e) then return e
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (f) then return f
 		otherwise (g) then return g
 	end 'm'
@@ -854,7 +854,7 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-keyword-named-condition-after-a-case-list-spelling-block-keywords -->
 <!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ⚠ **A CASE LIST IS NOT BLOCK STRUCTURE, AND THE EXTENT WALK HAS TO KNOW WHERE ONE IS.** `while`, `match`
 and `for` on their own lines in an enum body are case names; read as openers they leak past the enum's
 `end`, so for the rest of the file the walk believes it stands inside a `match` body — and a keyword-named
@@ -868,7 +868,7 @@ typealias Idx = int(0 to 100)
 enum Kw
 	while
 	match
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for
 	omega
 end 'Kw'
@@ -885,7 +885,7 @@ function tagOf(k Kw) returns Idx
 	match k 'm'
 		while then return 1
 		match then return 2
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for then return 3
 		omega then return 0
 	end 'm'
@@ -901,7 +901,7 @@ end 'main'
 
 <!-- test: a-keyword-named-function-after-a-case-list-spelling-match -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 The other thing a leaked `match` opener would cost: a function NAMED with an arm separator, declared
 after such an enum, is a declaration — not a case-name arm — because the case list closed at its `end`.
 ```maxon
@@ -910,7 +910,7 @@ typealias Idx = int(0 to 100)
 enum Kw
 	while
 	match
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for
 	omega
 end 'Kw'
@@ -936,7 +936,7 @@ function tagOf(k Kw) returns Idx
 	match k 'm'
 		while then return 1
 		match then return 2
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for then return 3
 		omega then return 4
 	end 'm'

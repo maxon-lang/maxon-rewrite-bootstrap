@@ -3883,7 +3883,6 @@ error E3102: <fragment>:28:13: 'r' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ab-f-for-body-linear-local -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f-for-body-linear-local` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3916,9 +3915,8 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let a = BoxArray.create(0)
+	var a = BoxArray.create(0)
 	a.push(Box.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		let r = Resp.create(0)
 		r.fin(1)
@@ -3931,7 +3929,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-f-for-break-linear -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `f-for-break-linear` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3967,7 +3965,6 @@ end 'Box'
 function main() returns ExitCode
 	let a = BoxArray.create(0)
 	a.push(Box.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		_ = Resp.create(0)
 		break
@@ -3980,7 +3977,7 @@ error E3223: <fragment>:35:3: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-f-for-continue-linear -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `f-for-continue-linear` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4016,7 +4013,6 @@ end 'Box'
 function main() returns ExitCode
 	let a = BoxArray.create(0)
 	a.push(Box.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		_ = Resp.create(0)
 		continue
@@ -4029,7 +4025,7 @@ error E3223: <fragment>:35:3: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-f-for-outer-consume -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f-for-outer-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4066,7 +4062,6 @@ function main() returns ExitCode
 	let a = BoxArray.create(0)
 	a.push(Box.create(1))
 	let r = Resp.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		r.fin(1)
 	end 'f1'
@@ -4078,7 +4073,6 @@ error E3102: <fragment>:35:3: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ab-f-for-outer-consume-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f-for-outer-consume-after` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4111,10 +4105,9 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let a = BoxArray.create(0)
+	var a = BoxArray.create(0)
 	a.push(Box.create(1))
 	let r = Resp.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		_ = 0 as Num
 	end 'f1'
@@ -4127,7 +4120,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-f-for-return-outer -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `f-for-return-outer` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4164,7 +4157,6 @@ function f()
 	let a = BoxArray.create(0)
 	a.push(Box.create(1))
 	let r = Resp.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		return
 	end 'f1'
@@ -8682,7 +8674,7 @@ error E3223: <fragment>:34:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-for-iterable-temp -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-for-iterable-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8713,7 +8705,6 @@ end 'mkR'
 
 function main() returns ExitCode
 	let a = NumArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		_ = mkR().peek()
 	end 'f1'
@@ -12067,7 +12058,6 @@ error E3102: <fragment>:30:8: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-for-array-lend -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-for-array-lend` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
@@ -12110,7 +12100,6 @@ function main() returns ExitCode
 	a.push(Box.create(1))
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		useR(r)
 	end 'f1'
@@ -14266,7 +14255,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-lp-zero-iter-for -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `lp-zero-iter-for` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14294,7 +14282,6 @@ end 'Resp'
 function main() returns ExitCode
 	let a = NumArray.create(0)
 	let r = Resp.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		r.fin(1)
 	end 'f1'
@@ -20125,7 +20112,6 @@ error E3102: <fragment>:57:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-af-l11-for-break -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `l11-for-break` of redteamAF.hand_af22, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20174,7 +20160,6 @@ function main() returns ExitCode
 	let xs = NumArray.create(0)
 	xs.push(1)
 	xs.push(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		match u 'x2'
 			none then break
@@ -20191,7 +20176,6 @@ error E3223: <fragment>:45:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-af-l12-for-continue-consume -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l12-for-continue-consume` of redteamAF.hand_af22, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20240,7 +20224,6 @@ function main() returns ExitCode
 	let xs = NumArray.create(0)
 	xs.push(1)
 	xs.push(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		match u 'x2'
 			none then break
@@ -25447,7 +25430,6 @@ error E3223: <fragment>:54:3: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-ag-v24-vacant-for-loop -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `v24-vacant-for-loop` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -25507,7 +25489,6 @@ function main() returns ExitCode
 	xs.push(1)
 	xs.push(2)
 	var u = Sh.none
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'f1'
 		u = Sh.none
 		if lg(x) != 0 'i2'

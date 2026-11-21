@@ -2591,7 +2591,6 @@ error E3214: <fragment>:78:20: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-f1-none -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2616,7 +2615,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -2628,7 +2626,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		_ = 0 as Num
 	end 'f1'
@@ -2640,7 +2637,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-f2-none -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2673,7 +2669,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -2685,7 +2680,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in h.xs 'f1'
 		_ = 0 as Num
 	end 'f1'
@@ -2697,7 +2691,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-f1-copy -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f1-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -2723,7 +2716,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -2735,7 +2727,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		_ = xs
 	end 'f1'
@@ -2747,7 +2738,6 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -2781,7 +2771,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -2793,7 +2782,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in h.xs 'f1'
 		_ = h.xs
 	end 'f1'
@@ -2805,7 +2793,6 @@ error E3214: <fragment>:40:7: cannot bind '_' to a unique value read out of a fi
 ```
 
 <!-- test: model-hand-ag-f1-copy-read -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f1-copy-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -2831,7 +2818,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -2843,7 +2829,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		_ = xs
 		_ = t.n
@@ -2856,7 +2841,6 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy-read -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -2890,7 +2874,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -2902,7 +2885,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		_ = h.xs
 		_ = t.n
@@ -2915,7 +2897,6 @@ error E3214: <fragment>:40:7: cannot bind '_' to a unique value read out of a fi
 ```
 
 <!-- test: model-hand-ag-f1-copy-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f1-copy-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -2941,7 +2922,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -2953,7 +2933,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		_ = xs
 		t.n = 4
@@ -2966,7 +2945,6 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3000,7 +2978,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -3012,7 +2989,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		_ = h.xs
 		t.n = 4
@@ -3025,7 +3001,6 @@ error E3214: <fragment>:40:7: cannot bind '_' to a unique value read out of a fi
 ```
 
 <!-- test: model-hand-ag-f1-call -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3051,7 +3026,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -3059,7 +3033,6 @@ type Sa
 end 'Sa'
 
 function eatArr(xs TkArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'f1'
 		x.n = 2
 	end 'f1'
@@ -3070,7 +3043,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		eatArr(xs)
 	end 'f1'
@@ -3082,7 +3054,6 @@ error E3207: <fragment>:38:10: 'eatArr' needs a writable parameter 'xs' at line 
 ```
 
 <!-- test: model-hand-ag-f2-call -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f2-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3116,7 +3087,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -3124,7 +3094,6 @@ type Sa
 end 'Sa'
 
 function eatArr(xsV TkArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xsV 'f1'
 		x.n = 2
 	end 'f1'
@@ -3135,7 +3104,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in h.xs 'f1'
 		eatArr(h.xs)
 	end 'f1'
@@ -3147,7 +3115,6 @@ error E3207: <fragment>:46:10: 'eatArr' needs a writable parameter 'xsV' at line
 ```
 
 <!-- test: model-hand-ag-f1-call-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-call-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3173,7 +3140,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -3181,7 +3147,6 @@ type Sa
 end 'Sa'
 
 function eatArr(xs TkArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'f1'
 		x.n = 2
 	end 'f1'
@@ -3192,7 +3157,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		eatArr(xs)
 		t.n = 4
@@ -3205,7 +3169,6 @@ error E3207: <fragment>:38:10: 'eatArr' needs a writable parameter 'xs' at line 
 ```
 
 <!-- test: model-hand-ag-f2-call-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f2-call-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3239,7 +3202,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -3247,7 +3209,6 @@ type Sa
 end 'Sa'
 
 function eatArr(xsV TkArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xsV 'f1'
 		x.n = 2
 	end 'f1'
@@ -3258,7 +3219,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		eatArr(h.xs)
 		t.n = 4
@@ -3271,7 +3231,6 @@ error E3207: <fragment>:46:10: 'eatArr' needs a writable parameter 'xsV' at line
 ```
 
 <!-- test: model-hand-ag-f1-send -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f1-send` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3297,7 +3256,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -3309,7 +3267,6 @@ function main() returns ExitCode
 	let su = spawn Sa.create(0)
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		try su.takeA(xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
@@ -3327,7 +3284,6 @@ error E3102: <fragment>:32:16: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-send -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-send` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3361,7 +3317,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -3373,7 +3328,6 @@ function main() returns ExitCode
 	let su = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		try su.takeA(h.xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
@@ -3391,7 +3345,6 @@ error E3214: <fragment>:40:16: cannot hand 'h.xs' to argument `xsV` of the messa
 ```
 
 <!-- test: model-hand-ag-f1-assign -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-assign` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3417,7 +3370,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xs TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -3429,7 +3381,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	var xs = TkArray.create(0)
 	xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		xs = TkArray.create(0)
 		t.n = 6
@@ -3442,7 +3393,6 @@ error E3203: <fragment>:32:3: 'xs' roots what 'f1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-ag-f2-assign -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `f2-assign` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
@@ -3476,7 +3426,6 @@ type Sa
 	end 'create'
 
 	export function takeA(xsV TkArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -3488,7 +3437,6 @@ function main() returns ExitCode
 	_ = spawn Sa.create(0)
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		h.xs = TkArray.create(0)
 		t.n = 6
@@ -7741,7 +7689,6 @@ error E3214: <fragment>:46:14: cannot hand 'y' to argument `x` of the message `S
 ```
 
 <!-- test: model-hand-ap-a1-forbind-idcall -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-forbind-idcall` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
@@ -7784,12 +7731,10 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sv3.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		let y = idTk(e)
 		try s.tk(y) otherwise ignore
 	end 'f1'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f2'
 		eatTk(e)
 	end 'f2'
@@ -7801,7 +7746,6 @@ error E3214: <fragment>:38:11: cannot pass 'e' to parameter 'x' of 'idTk': it ke
 ```
 
 <!-- test: model-hand-ap-a1-forbind-direct -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-forbind-direct` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
@@ -7836,7 +7780,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sv3.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		try s.tk(e) otherwise ignore
 	end 'f1'
@@ -8729,7 +8672,6 @@ error E3214: <fragment>:40:24: cannot hand '(u if lg(1) != 0 else v)' to the ser
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-root -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-lend-root` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
@@ -8765,7 +8707,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn SaT.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		try t.take(a) otherwise ignore
 	end 'f1'
@@ -8777,7 +8718,6 @@ error E3102: <fragment>:31:14: use of moved value 'a': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-other -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h14-for-lend-other` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
@@ -8819,7 +8759,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sy.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		try s.take(u) otherwise ignore
 	end 'f1'
@@ -8831,7 +8770,6 @@ error E3102: <fragment>:37:14: use of moved value 'u': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-other-bound -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h14-for-lend-other-bound` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8880,7 +8818,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Sh3.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		let h = Hd.create(UT.none)
 		try t.takeH(h) otherwise ignore
@@ -8893,7 +8830,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h14-for-lend-after` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8928,7 +8864,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn SaT.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		_ = e.n
 	end 'f1'
@@ -8941,7 +8876,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-h14-for-two-arrays -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h14-for-two-arrays` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
@@ -8978,7 +8912,6 @@ function main() returns ExitCode
 	let b = TkArray.create(0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn SaT.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		try t.take(b) otherwise ignore
 	end 'f1'
@@ -8990,7 +8923,6 @@ error E3102: <fragment>:32:14: use of moved value 'b': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-over-cond -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-over-cond` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
@@ -9032,7 +8964,6 @@ function main() returns ExitCode
 	b.push(Tk.create(2))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn SaT.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in (a if lg(1) != 0 else b) 'f1'
 		try t.take(b) otherwise ignore
 	end 'f1'
@@ -9044,7 +8975,6 @@ error E3102: <fragment>:37:14: use of moved value 'b': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-in-holder -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-in-holder` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
@@ -9088,7 +9018,6 @@ function main() returns ExitCode
 	h.arr.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn SAr2.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in h.arr 'f1'
 		try t.take(h) otherwise ignore
 	end 'f1'
@@ -9100,7 +9029,6 @@ error E3102: <fragment>:39:14: use of moved value 'h': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-w1-for-window-decl-inside -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w1-for-window-decl-inside` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -9140,7 +9068,6 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sy.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'f1'
 		let u = UT.have(Tk.create(1))
 		try s.take(u) otherwise ignore
@@ -23733,7 +23660,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-local-outer-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-local-outer-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -23786,7 +23712,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.n = 5
 		t.n = 2
@@ -23801,7 +23726,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-local-outer-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-local-outer-call` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -23858,7 +23782,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		wrK(o)
 		t.n = 2
@@ -23873,7 +23796,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-local-plain-part-stored -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-local-plain-part-stored` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -23926,7 +23848,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.keep = t.b
 		t.b.n = 3
@@ -23941,7 +23862,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-param-outer-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-param-outer-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -23990,7 +23910,6 @@ end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = s
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.n = 5
 		t.n = 2
@@ -24014,7 +23933,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-param-outer-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-param-outer-call` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24067,7 +23985,6 @@ end 'wrK'
 
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = s
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		wrK(o)
 		t.n = 2
@@ -24091,7 +24008,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-param-plain-part-stored -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-param-plain-part-stored` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24140,7 +24056,6 @@ end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = s
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.keep = t.b
 		t.b.n = 3
@@ -24164,7 +24079,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-field-outer-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-field-outer-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24232,7 +24146,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		o.n = 5
 		t.n = 2
@@ -24247,7 +24160,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-field-outer-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-field-outer-call` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24319,7 +24231,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		wrK(o)
 		t.n = 2
@@ -24334,7 +24245,6 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-field-plain-part-stored -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-field-plain-part-stored` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24402,7 +24312,6 @@ function main() returns ExitCode
 	_ = spawn Sac.create(Bx.create(0), n: 0)
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		o.keep = t.b
 		t.b.n = 3
@@ -24418,7 +24327,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-state-outer-write -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-state-outer-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24482,7 +24390,6 @@ type Sv
 	export function go(s Sac.handle) returns Num
 		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for t in self.xs 'f1'
 			o.n = 5
 			t.n = 2
@@ -24511,7 +24418,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-state-outer-call -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-state-outer-call` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24575,7 +24481,6 @@ type Sv
 	export function go(s Sac.handle) returns Num
 		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for t in self.xs 'f1'
 			wrK(o)
 			t.n = 2
@@ -24608,7 +24513,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-state-plain-part-stored -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-state-plain-part-stored` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -24672,7 +24576,6 @@ type Sv
 	export function go(s Sac.handle) returns Num
 		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for t in self.xs 'f1'
 			o.keep = t.b
 			t.b.n = 3
@@ -24987,7 +24890,6 @@ error E3200: <fragment>:63:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa19-x-for-stored-then-holder-sent -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-for-stored-then-holder-sent` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -25031,7 +24933,6 @@ type Sqa
 	end 'create'
 
 	export function takeA(x TqArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in x 'f1'
 			e.b.n = 9
 		end 'f1'
@@ -25044,7 +24945,6 @@ function main() returns ExitCode
 	let o = Ko.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.keep = t.b
 	end 'f1'
@@ -25058,7 +24958,6 @@ error E3200: <fragment>:53:14: 'xs' crosses to the service it is sent to only as
 ```
 
 <!-- test: model-hand-fa19-x-for-callee-container-returned -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-for-callee-container-returned` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -25102,7 +25001,6 @@ type Sqa
 	end 'create'
 
 	export function takeA(x TqArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in x 'f1'
 			e.b.n = 9
 		end 'f1'
@@ -25110,7 +25008,6 @@ type Sqa
 end 'Sqa'
 
 function stash(xs TqArray, o Ko) returns TqArray
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f1'
 		o.keep = e.b
 	end 'f1'

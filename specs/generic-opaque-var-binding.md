@@ -37,7 +37,6 @@ rebound released a reference nobody took, and the runtime crashed in `__mm_retai
 
 <!-- test: map-loop-rebind-keeps-the-key -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `var chosen = fallback` and `chosen = key` inside `for (key, _) in self` over an `extension Map`, at a `String`, a struct (a `Map` key is `Hashable` and `Equatable`) and a scalar key. The returned key is the one stored in the map, so the map still contains it.
 ```maxon
@@ -69,7 +68,6 @@ extension Map
 	function lastKeyViaVar(fallback Key) returns Key
 		var chosen = fallback
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for (key, _) in self 'eachKey'
 			chosen = key
 		end 'eachKey'
@@ -106,7 +104,6 @@ tag 42 long enough for a heap record 7 true
 
 <!-- test: set-loop-rebind-keeps-the-element -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same rebind over `extension Set`, at a `String`, a struct and a scalar element.
 ```maxon
 type Tag implements Hashable, Equatable
@@ -136,7 +133,6 @@ typealias TallySet = Set with Count
 extension Set
 	function lastViaVar(fallback Element) returns Element
 		var chosen = fallback
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for element in self 'eachElement'
 			chosen = element
 		end 'eachElement'
@@ -173,7 +169,6 @@ tag 42 long enough for a heap record 7 true
 
 <!-- test: map-loop-entry-destructured-by-let -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 The same loop spelled `for entry in self`, then `let (key, _) = entry`, then `chosen = key`. The `let` borrows out of the entry and the `var` owns what it is rebound to.
 ```maxon
@@ -204,7 +199,6 @@ typealias TallyCountMap = Map with (Count, Count)
 extension Map
 	function lastKeyViaEntry(fallback Key) returns Key
 		var chosen = fallback
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for entry in self 'eachEntry'
 			// TODO: tuple destructuring declarations are not supported in minimaxon
 			let (key, _) = entry
@@ -1160,7 +1154,6 @@ other pebble long enough for a heap record 2
 ### A `for` loop over an iterable that is empty at run time carries an owned `var`
 
 <!-- test: empty-iterable-loop-carries-an-owned-var -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The `var` starts from a borrowed parameter and is rebound from an owned call result inside a `for` loop over a declared `Iterable` whose iterator is refused on one call (no trips) and yields twice on another, then returned after the loop; exit 0 is the leak gate at three instantiations.
 ```maxon
 type Pebble
@@ -1168,7 +1161,7 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
@@ -1186,7 +1179,7 @@ type TickCursor
 		return self.left
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.left <= 1 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
@@ -1209,7 +1202,7 @@ end 'Ticker'
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
@@ -1217,9 +1210,8 @@ type Box uses Item
 		return self.stored
 	end 'fresh'
 
-	function pick(fallback Item, n Count) returns Item
+	function pick(consumes fallback Item, n Count) returns Item
 		var chosen = fallback
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in Ticker.create(n) 'trip'
 			chosen = self.fresh()
 		end 'trip'

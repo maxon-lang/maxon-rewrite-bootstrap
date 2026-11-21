@@ -132,7 +132,6 @@ end 'main'
 ```
 
 <!-- test: a-union-in-an-array-and-in-a-map -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Mass = int(0 to 100)
 
@@ -168,7 +167,6 @@ function main() returns ExitCode
 	let byName = HolderMap.create()
 	byName.upsert("a", value: Holder.holding(Body.create(10)))
 	var total = 0 as Mass
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for h in all 'eachHolder'
 		total = total + mass(h)
 	end 'eachHolder'
@@ -1562,7 +1560,6 @@ end 'main'
 ```
 
 <!-- test: a-wide-union-in-an-array-is-cloned-and-dropped -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- MmTrace -->
 Elements of every storage sit in one array, which is walked, then a payload case and a payload-free case are cloned. The clone of a payload case owns a copy of its payload, and the clone of a payload-free case is the same word.
 ```maxon
@@ -1573,7 +1570,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1600,15 +1597,15 @@ function weigh(w Wide) returns Weight
 		skipped or
 		eight or
 		nine gives 1
-		text(value) gives value.byteLength() as Weight
-		label(value) gives value.byteLength() as Weight
+		text(value) gives try value.byteLength() as Weight otherwise panic("out of range")
+		label(value) gives try value.byteLength() as Weight otherwise panic("out of range")
 		point(at) gives at.x
 		other(at) gives at.x
 	end 'wide'
 end 'weigh'
 
 function main() returns ExitCode
-	let all = WideArray.create(0)
+	var all = WideArray.create(0)
 	all.push(Wide.nine)
 	all.push(Wide.point(Point.create(7, label: "p")))
 	all.push(Wide.idle)
@@ -1616,9 +1613,8 @@ function main() returns ExitCode
 	all.push(Wide.skipped)
 	all.push(Wide.other(Point.create(30, label: "p")))
 	var total = 0 as Weight
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for w in all 'eachWide'
-		total = total + weigh(w)
+		total = try total + weigh(w) otherwise panic("out of range")
 	end 'eachWide'
 	let payload = Wide.point(Point.create(11, label: "p"))
 	let copy = payload.clone()

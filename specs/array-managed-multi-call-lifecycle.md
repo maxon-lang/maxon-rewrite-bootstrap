@@ -18,7 +18,6 @@ When an array of managed structs is populated across multiple function calls, an
 ## Tests
 
 <!-- test: managed-array-push-across-calls -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Push managed elements across separate function calls, then reassign
 Simulates the pattern from the query engine: recordDependency pushes elements
 between clearDepsFor calls.
@@ -35,7 +34,7 @@ type Dependency
 	export var dependency as QueryKey
 
 	static function create(dependent QueryKey, dependency QueryKey) returns Self
-		return Self{dependent: dependent, dependency: dependency}
+		return Self{dependent: dependent.clone(), dependency: dependency.clone()}
 	end 'create'
 end 'Dependency'
 
@@ -45,30 +44,29 @@ type Database
 	export var dependencies as DependencyArray
 
 	static function create(dependencies DependencyArray) returns Self
-		return Self{dependencies: dependencies}
+		return Self{dependencies: dependencies.clone()}
 	end 'create'
 end 'Database'
 
-function addDep(db Database, dep Dependency)
-	db.dependencies.push(dep)
+function addDep(mutates db Database, dep Dependency)
+	db.dependencies.push(dep.clone())
 end 'addDep'
 
-function clearAllModule(db Database)
-	let newDeps = DependencyArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+function clearAllModule(mutates db Database)
+	var newDeps = DependencyArray.create(0)
 	for dep in db.dependencies 'scan'
 		match dep.dependent 'check'
-			sourceFile then newDeps.push(dep)
-			tokens then newDeps.push(dep)
+			sourceFile then newDeps.push(dep.clone())
+			tokens then newDeps.push(dep.clone())
 			allModule then continue
-			codeResult then newDeps.push(dep)
+			codeResult then newDeps.push(dep.clone())
 		end 'check'
 	end 'scan'
 	db.dependencies = newDeps
 end 'clearAllModule'
 
 function main() returns ExitCode
-	let db = Database.create(DependencyArray.create(0))
+	var db = Database.create(DependencyArray.create(0))
 	// First cycle: add a dep, then clear
 	addDep(db, dep: Dependency.create(QueryKey.sourceFile("a.maxon long enough for heap"), dependency: QueryKey.tokens("a.maxon long enough for heap")))
 	clearAllModule(db)
@@ -78,7 +76,7 @@ function main() returns ExitCode
 	// Third cycle: add more deps, then clear for allModule
 	addDep(db, dep: Dependency.create(QueryKey.allModule, dependency: QueryKey.sourceFile("c.maxon long enough for heap")))
 	clearAllModule(db)
-	return db.dependencies.count()
+	return try db.dependencies.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -144,7 +142,6 @@ end 'main'
 ```
 
 <!-- test: managed-array-interleaved-push-clear -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Interleaved push and clear cycles on same array field
 Multiple rounds of push-then-reassign, each round the old array is freed.
 ```maxon
@@ -158,7 +155,7 @@ type Dep
 	export var target as Key
 
 	static function create(source Key, target Key) returns Self
-		return Self{source: source, target: target}
+		return Self{source: source.clone(), target: target.clone()}
 	end 'create'
 end 'Dep'
 
@@ -168,35 +165,34 @@ type State
 	export var deps as DepArray
 
 	static function create(deps DepArray) returns Self
-		return Self{deps: deps}
+		return Self{deps: deps.clone()}
 	end 'create'
 end 'State'
 
-function record(state State, dep Dep)
-	state.deps.push(dep)
+function record(mutates state State, dep Dep)
+	state.deps.push(dep.clone())
 end 'record'
 
-function clearFor(state State)
-	let kept = DepArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+function clearFor(mutates state State)
+	var kept = DepArray.create(0)
 	for dep in state.deps 'scan'
 		match dep.source 'check'
 			module then continue
-			file then kept.push(dep)
+			file then kept.push(dep.clone())
 		end 'check'
 	end 'scan'
 	state.deps = kept
 end 'clearFor'
 
 function main() returns ExitCode
-	let state = State.create(DepArray.create(0))
+	var state = State.create(DepArray.create(0))
 	record(state, dep: Dep.create(Key.file("x.maxon long enough for heap"), target: Key.module))
 	clearFor(state)
 	record(state, dep: Dep.create(Key.module, target: Key.file("y.maxon long enough for heap")))
 	clearFor(state)
 	record(state, dep: Dep.create(Key.module, target: Key.file("z.maxon long enough for heap")))
 	clearFor(state)
-	return state.deps.count()
+	return try state.deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -39,7 +39,6 @@ an associated type a requirement TAKES.
 
 <!-- test: parameterized.cursor-protocol -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE CURSOR PROTOCOL THROUGH A PARAMETERIZED EXISTENTIAL.** `Seq uses Element`, `Upto implements Seq with Integer`, and the
 parameter is written at the INSTANCE. Both protocol calls are witness dispatches through the fat pointer.
 ```maxon
@@ -75,7 +74,6 @@ typealias IntegerSeq = Seq with Integer
 
 function total(source IntegerSeq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -97,7 +95,6 @@ end 'main'
 
 <!-- test: parameterized.two-conformers -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **THE DISPATCH THROUGH A PARAMETERIZED EXISTENTIAL IS GENUINELY DYNAMIC.** Two conformers reach ONE
 parameter, and a merge phi decides which at run time — so no static reading of the source can fold the
 witness away, and the two answers differ.
@@ -153,7 +150,6 @@ typealias IntegerSeq = Seq with Integer
 
 function total(source IntegerSeq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -194,7 +190,6 @@ end 'main'
 
 <!-- test: parameterized.managed-values -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⚠ **THE VALUE THE LOOP HANDS THE BODY IS AN OWNED HEAP RECORD.** The interface is parameterized and the
 traversal element is a `String` the conformer MINTS per call, so each trip must release exactly once. A leak
 or a double release is a non-zero exit here, not a wrong number.
@@ -236,7 +231,6 @@ typealias IntegerLines = Lines with Integer
 
 function widthOf(source IntegerLines) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		total = total + (text.byteLength() as Integer)
 	end 'walk'
@@ -263,7 +257,6 @@ end 'main'
 
 <!-- test: parameterized.early-exits -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⚠ **THE PER-TRIP RELEASE ON THE EXITS THE FALL-THROUGH CASE CANNOT REACH.** A `return` out of the body and a
 `break` each leave a promoted per-trip temporary live; over 200 rounds a missed release is exit 101 and a
 double release is a fault.
@@ -304,7 +297,6 @@ end 'Numbered'
 typealias IntegerLines = Lines with Integer
 
 function returnsOutOfTheBody(source IntegerLines) returns Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		if text.byteLength() > 0 'theFirst'
 			return text.byteLength() as Integer
@@ -315,7 +307,6 @@ end 'returnsOutOfTheBody'
 
 function breaksOutOfTheBody(source IntegerLines) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		total = total + (text.byteLength() as Integer)
 		if total > 100 'enough'
@@ -347,7 +338,6 @@ end 'main'
 
 <!-- test: parameterized.every-producer-of-one -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Every way a program can hand a parameterized existential on: a CALL RESULT, a LOCAL binding, and a struct
 FIELD declared at the instance. Each is its own producer of the witness half, and an unpaired one panics the
 compiler rather than answering.
@@ -396,7 +386,6 @@ end 'makeSeq'
 
 function fromCall(limit Integer) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in makeSeq(limit) 'walk'
 		sum = sum + item
 	end 'walk'
@@ -406,7 +395,6 @@ end 'fromCall'
 function fromLocal(limit Integer) returns Integer
 	let s = makeSeq(limit)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in s 'walk'
 		sum = sum + item
 	end 'walk'
@@ -415,7 +403,6 @@ end 'fromLocal'
 
 function fromField(h Holder) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in h.seq 'walk'
 		sum = sum + item
 	end 'walk'
@@ -441,7 +428,6 @@ end 'main'
 
 <!-- test: error.binding-contradicts-the-conformers -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ⭐⭐ **A WRITTEN BINDING IS A CLAIM, AND A FALSE ONE IS REFUSED RATHER THAN IGNORED.** The conformers bind
 `Element` to `Integer`; the use site writes `Text`. Nothing in the program could make that true — one
@@ -482,7 +468,6 @@ typealias TextSeq = Seq with Text
 
 function total(source TextSeq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + (item as Integer)
 	end 'walk'
@@ -499,7 +484,6 @@ error E3125: <fragment>:30:11: this use of 'Seq' binds its associated type 'Elem
 
 <!-- test: parameterized.associated-type-held-at-an-interface -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **AN ASSOCIATED TYPE HELD AT AN INTERFACE.** `Iter` is bound to an INTERFACE, so `createIterator()` hands back a
 value plus the table to walk it through — two words out of a call that returns one. The second travels in the
 FIRST table (`specs/associated-type-held-at-an-interface.md`).
@@ -558,7 +542,6 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'

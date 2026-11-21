@@ -395,7 +395,6 @@ error E3011: <fragment>:9:18: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: compiler-reserved-base-type-is-nameable-at-a-parameter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **A NAME THE COMPILER RESERVES IS NOT AN UNDECLARED NAME — AND IT IS NOT AN UNNAMEABLE ONE
 EITHER.** `CharacterSet` is reserved: `isCompilerOwnedTypeName`, keyed by `CharacterSetBuiltinName`, stops a
 USER DECLARATION binding the name. The reservation does not stop a source NAMING the type —
@@ -417,7 +416,6 @@ typealias HitCount = int(0 to u64.max)
 
 function countIn(s String, chars CharacterSet) returns HitCount
 	var seen = 0 as HitCount
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'scan'
 		if chars.contains(c) 'hit'
 			seen = seen + 1

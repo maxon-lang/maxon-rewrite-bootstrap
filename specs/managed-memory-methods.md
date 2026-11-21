@@ -2817,7 +2817,6 @@ error E2015: <fragment>:8:2: Unsupported: identifier statement
 ```
 
 <!-- test: managed-field-as-a-value-releases-in-every-forking-region -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 
 ⭐ **THE VALUE FORM TAKES A STATEMENT-SCOPED DROP, SO IT IS SUBJECT TO THE REGION DISCIPLINE**
@@ -2845,7 +2844,6 @@ function main() returns ExitCode
 	while bufLength(a.managed) > total 'spin'
 		total = total + 1
 	end 'spin'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in a.managed 'each'
 		total = total + (b as Integer)
 	end 'each'
@@ -2949,7 +2947,6 @@ end 'main'
 ```
 
 <!-- test: a-for-loop-element-serves-the-buffer-roster -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 
 The fifth spelling: `for m in bufs` reads its element through the same accessor, with the loop's own
@@ -2963,7 +2960,6 @@ function main() returns ExitCode
 	a.push("hello".toByteArray())
 	a.push("ab".toByteArray())
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for m in a 'each'
 		total = total + m.length()
 	end 'each'

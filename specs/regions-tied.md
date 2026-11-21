@@ -176,19 +176,17 @@ error E3202: <fragment>:13:2: a `mutable isolated` parameter is by reference: th
 ```
 
 <!-- test: a-for-loop-over-a-plain-array-may-push-to-it -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `for` over a plain array that the loop pushes to is accepted; the iterator holds its buffer and re-checks the count.
 
 ```maxon
 typealias LineArray = Array with String
 
 function main() returns ExitCode
-	let items = LineArray.create(0)
+	var items = LineArray.create(0)
 	items.push("a")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'each'
 		if items.count() < 3 'grow'
-			items.push(item)
+			items.push(item.clone())
 		end 'grow'
 	end 'each'
 	print("{items.count()}\n")
@@ -205,7 +203,6 @@ end 'main'
 <!-- test: the-array-a-for-loop-drains-is-read-only-in-the-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `for` drains `pending`, moving each promise out, so a push to `pending` inside the body writes the array the loop is draining.
 
@@ -225,7 +222,6 @@ function main() returns ExitCode
 	var pending = PromiseArray.create(0)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.push(async tick())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in pending 'drain'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		pending.push(async tick())
@@ -442,7 +438,6 @@ error E3212: <fragment>:22:2: this exit leaves the tied promise of the `async` c
 <!-- test: a-function-that-writes-the-drained-array-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `grow` pushes to the array `drain` is draining, so the call inside the body is refused.
 
@@ -467,7 +462,6 @@ function main() returns ExitCode
 	var pending = PromiseArray.create(0)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.push(async tick())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in pending 'drain'
 		grow(pending)
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -484,7 +478,6 @@ error E3207: <fragment>:20:8: 'grow' needs a writable parameter 'items' at line 
 <!-- test: clearing-the-drained-array-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The body clears the array it drains, which is a write the loop does not allow.
 
@@ -504,7 +497,6 @@ function main() returns ExitCode
 	var pending = PromiseArray.create(0)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.push(async tick())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in pending 'drain'
 		pending.clear()
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -670,7 +662,6 @@ error E3202: <fragment>:20:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: the-array-a-for-loop-drains-is-read-only-for-unique-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `for` moves each `Ticket` out of `tickets`, so a push to `tickets` inside the body writes the array being drained.
 
@@ -690,7 +681,6 @@ typealias TicketArray = Array with Ticket
 function main() returns ExitCode
 	var tickets = TicketArray.create(0)
 	tickets.push(Ticket.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for ticket in tickets 'drain'
 		tickets.push(Ticket.create(2))
 		print("{ticket.serial}\n")
@@ -1609,7 +1599,6 @@ error E3212: <fragment>:20:2: the promise of this `async` call is tied to the mu
 
 <!-- test: an-isolated-two-field-reader-handed-to-a-coroutine-stays-untied -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1648,7 +1637,6 @@ end 'dispatch'
 function main() returns ExitCode
 	let drains = PromiseArray.create(0)
 	dispatch(drains)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for drained in drains 'each'
 		print("{await drained}\n")
 	end 'each'

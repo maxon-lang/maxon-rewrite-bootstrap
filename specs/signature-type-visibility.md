@@ -1033,7 +1033,7 @@ end 'main'
 ```
 
 <!-- test: a-users-own-byte-does-not-judge-the-librarys-signatures -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE LIBRARY IS NEVER HELD AGAINST AN AUTHOR'S DECLARATION.** `api/lib.maxon` declares its own
 `export typealias Byte`, and `stdlib/` is full of `public` signatures naming a `Byte` of its own. Those
@@ -1052,7 +1052,7 @@ end 'widen'
 function main() returns ExitCode
 	let s = "hi"
 	var n = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'each'
 		n = n + (b as ExitCode)
 	end 'each'
@@ -1064,7 +1064,6 @@ end 'main'
 ```
 
 <!-- test: a-users-own-generic-alias-does-not-reach-the-librarys-readers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **THE SAME LAYER RULE AT THE GENERIC-INSTANCE DOOR.** `api/lib.maxon` declares an `export typealias
 ByteArray` of its own, over a two-byte element, and `stdlib/File.maxon` declares the library's. `stdlib/Sha2.maxon`
@@ -1079,7 +1078,6 @@ export typealias ByteArray = Array with Tally
 
 export function widest(xs ByteArray) returns Tally
 	var top = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		top = x if x > top else top
 	end 'each'
@@ -2940,7 +2938,6 @@ end 'main'
 
 <!-- test: error.an-exported-extension-method-constrained-by-a-file-private-interface-is-refused -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The conditional extension's `where` clause is part of every method's contract: only a conformer of `Marker` has
@@ -2955,7 +2952,6 @@ end 'Marker'
 extension Array where Element implements Marker
 	export function total() returns ExitCode
 		var sum = 0 as ExitCode
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'each'
 			sum = sum + item.code()
 		end 'each'

@@ -53,7 +53,6 @@ end 'Container'
 <!-- test: conditional-extensions.basic-equatable -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -67,7 +66,6 @@ end 'HasItems'
 // TODO: extension blocks are not supported in minimaxon
 extension HasItems where Element implements Equatable
 	function has(target Element) returns bool
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'loop'
 			if item == target 'found'
 				return true
@@ -230,7 +228,6 @@ end 'main'
 <!-- test: conditional-extensions.multiple-constraints -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -244,7 +241,6 @@ end 'Bucket'
 // TODO: extension blocks are not supported in minimaxon
 extension Bucket where Element implements Equatable and Hashable
 	function lookup(target Element) returns bool
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'loop'
 			if item == target 'found'
 				return true
@@ -312,7 +308,6 @@ end 'main'
 <!-- test: conditional-extensions.partial-availability -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -327,7 +322,6 @@ end 'Seq'
 extension Seq
 	function countItems() returns Integer
 		var n = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in self 'loop'
 			n = n + 1
 		end 'loop'
@@ -338,7 +332,6 @@ end 'Seq'
 // TODO: extension blocks are not supported in minimaxon
 extension Seq where Element implements Equatable
 	function includes(target Element) returns bool
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in self 'loop'
 			if item == target 'yes'
 				return true

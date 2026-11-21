@@ -995,7 +995,6 @@ the server's reads come in pieces.
 <!-- test: http-server.a-head-block-sent-one-byte-at-a-time-is-parsed -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1006,7 +1005,6 @@ let TrickledHead = "GET /trickled HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Note: split\r
 
 function trickle(port NetworkPort) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in TrickledHead.toByteArray() 'eachByte'
 		let one = ByteArray.create(0)
 		one.push(b)
@@ -1066,7 +1064,6 @@ that crosses the cap is still over the cap.
 <!-- test: http-server.an-ambiguous-request-answers-400 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let HeadCap = 160
@@ -1106,7 +1103,6 @@ end 'paddedHead'
 function exchangeOver(listening HttpServer) returns ExitCode
 	let port = listening.port()
 	let blocks = ["GET / HTTP/1.1\r\n\r\n", "GET @127.0.0.1/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\nhi", "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nHost: 127.0.0.1\r\n\r\n", paddedHead()]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(listening)
@@ -1297,7 +1293,6 @@ status=200 served=3 refusal=listenerClosed
 <!-- test: http-server.a-host-that-is-not-an-authority-answers-400 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1334,7 +1329,6 @@ end 'requestFor'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = [requestFor("x/admin?", target: "/public"), requestFor("x#frag", target: "/public"), requestFor("user@x", target: "/public"), requestFor("a b", target: "/public"), requestFor("", target: "/public"), requestFor("127.0.0.1:99999", target: "/public"), requestFor("127.0.0.1:8x", target: "/public"), requestFor("[::1", target: "/public"), requestFor("[1:2:3:4:5:6:7:8:9]", target: "/public"), requestFor("[1::2::3]", target: "/public"), requestFor("[::1]x", target: "/public"), requestFor("x", target: "/a%2"), requestFor("x", target: "/a#b"), requestFor("x", target: "/a b"), requestFor("x", target: "*"), requestFor("[::1]:8080", target: "/public"), requestFor("[::ffff:127.0.0.1]", target: "/public"), requestFor("[v1.fe80::a+en1]", target: "/public"), requestFor("exa%41mple.com", target: "/public"), requestFor("x:", target: "/p?q=/x?y")]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
@@ -1383,7 +1377,6 @@ status=200 accept=served x /p q=/x?y
 <!-- test: http-server.a-header-name-is-a-token-and-a-folded-line-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1413,7 +1406,6 @@ end 'acceptedAs'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding : chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length : 5\r\n\r\nhello", "GET / HTTP/1.1\r\nHost : a\r\nHost: b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Folded: a\r\n b\r\n\r\n", "GET / HTTP/1.1\r\n Host: x\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-B@d: 1\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Nul: a\x00b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Tight:packed\t \r\n\r\n"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
@@ -1450,7 +1442,6 @@ status=200 accept=served x-tight=packed
 <!-- test: http-server.the-request-line-is-read-to-its-grammar -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1481,7 +1472,6 @@ end 'acceptedAs'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET /a b HTTP/1.1\r\nHost: x\r\n\r\n", "GET  / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.1 \r\nHost: x\r\n\r\n", "GET / FTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.10\r\nHost: x\r\n\r\n", "G(T / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/2.0\r\nHost: x\r\n\r\n", "get / HTTP/1.1\r\nHost: x\r\n\r\n", "BREW / HTTP/1.1\r\nHost: x\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: -0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: +2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 2 2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999999999999999\r\n\r\nhi", "GET /old HTTP/1.0\r\nHost: x\r\n\r\n", "POST /form HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\nhi"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
@@ -1526,7 +1516,7 @@ status=200 accept=served post /form [hi]
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1575,7 +1565,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let head = try parts.get(0) otherwise "no-head"
 	let body = try parts.get(1) otherwise "no-body"
 	var length = "absent"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in head.split("\r\n") 'eachLine'
 		if line.toLower().startsWith("content-length:") 'theLength'
 			length = line
@@ -2173,7 +2163,6 @@ hands no exchange to the caller; the asterisk with any other method is malformed
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2220,7 +2209,6 @@ end 'acceptedAs'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET http://origin.example:8080/p?q=1 HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET HTTP://Origin.example HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET https://origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://a b/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://user@origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET * HTTP/1.1\r\nHost: x\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: many\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999\r\n\r\n"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
@@ -2265,7 +2253,6 @@ options=200 allow=true then=200 allow=false accept=served x 0 /after no-query
 <!-- test: http-server.http-1-0-needs-no-host-and-a-leading-empty-line-is-ignored -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2297,7 +2284,6 @@ end 'acceptedAs'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET /old HTTP/1.0\r\n\r\n", "GET /new HTTP/1.1\r\n\r\n", "\r\nGET /after-one HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\nGET /after-two HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\n\r\n\r\n\r\nGET /after-five HTTP/1.1\r\nHost: x\r\n\r\n"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for block in blocks 'eachBlock'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
@@ -2336,7 +2322,6 @@ may carry no CR, LF or other control, or one response could be read as two.
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2387,7 +2372,6 @@ end 'withHeader'
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let responses = [withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "", reason: "Not Modified"), withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "stray", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "stray", reason: "Not Modified"), withHeader(StatusCode.ok, name: "x-split", value: "a\r\nSet-Cookie: stolen=1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x bad", value: "1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x-kind", value: "fine", body: "ok", reason: "OK\r\nX-Injected: 1")]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for response in responses 'eachResponse'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async respondedWith(server, response: response)

@@ -352,7 +352,7 @@ end 'main'
 ```
 
 <!-- test: string-conformance.hash-is-the-hasher-fold-of-its-bytes -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### `String.hash` is `Hasher`'s hash of the bytes
 `s.hash()` is the `finalize()` of a `Hasher.create()` that folds `s.toByteArray()` with `combineBytes`: one hash
 in the library, reached from `Hasher` and from `Hashable`. Every length on either side of the hash's block
@@ -377,7 +377,6 @@ end 'folded'
 
 function main() returns ExitCode
 	let lengths = LengthList from [0, 1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
 		let text = textOf(length)
 		print("{length} {text.hash() == folded(text.toByteArray())}\n")
@@ -410,7 +409,7 @@ utf-8 true
 ```
 
 <!-- test: string-conformance.hash-avalanches -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### One flipped bit moves about half of the 32 hash bits
 For every length on either side of the hash's block boundaries, six bits of each byte are flipped in turn
 (the text stays ASCII): the hashes differ by at least 8 of 32 bits on average. A multiply-and-add walk moves
@@ -441,7 +440,6 @@ end 'bitsSet'
 function main() returns ExitCode
 	let lengths = LengthList from [1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
 	let masks = ByteArray from [1, 2, 4, 8, 16, 32]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
 		let bytes = bytesOf(length)
 		let hash = String.from(bytes).hash()
@@ -450,7 +448,6 @@ function main() returns ExitCode
 		var unmoved = 0 as Count
 		for index in 0 upto length 'eachByte'
 			let original = try bytes.get(index) otherwise panic("the index is inside the text")
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for mask in masks 'eachMask'
 				let flipped = bytes.clone()
 				try flipped.set(index, value: original xor mask) otherwise panic("the index is inside the text")

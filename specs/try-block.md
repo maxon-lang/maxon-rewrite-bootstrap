@@ -3486,7 +3486,6 @@ inArm 50 1 3
 <!-- test: a-closure-in-a-boxed-arm-captures-the-member -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -3554,7 +3553,6 @@ function main() returns ExitCode
 	let c1 = captured(1, readers: readers)
 	let c7 = captured(7, readers: readers)
 	print("captured {c9} {c1} {c7} {readers.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in readers 'eachReader'
 		print("  {r}\n")
 	end 'eachReader'

@@ -1546,7 +1546,6 @@ end 'main'
 ```
 
 <!-- test: a-var-written-only-through-a-for-element-is-needed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `var` collection whose elements a loop hands to a writing parameter is written through, so it is not E3077.
 
 ```maxon
@@ -1565,25 +1564,24 @@ end 'Bag'
 typealias BagArray = Array with Bag
 
 function makeBags() returns BagArray
-	let bags = BagArray.create(0)
+	var bags = BagArray.create(0)
 	bags.push(Bag.create())
 	bags.push(Bag.create())
 	return bags
 end 'makeBags'
 
-function fill(bag Bag)
+function fill(mutates bag Bag)
 	bag.items.push(1)
 end 'fill'
 
 function main() returns ExitCode
 	let bags = makeBags()
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for bag in bags 'eachBag'
 		fill(bag)
-		total = total + bag.items.count()
+		total = try total + bag.items.count() otherwise panic("out of range")
 	end 'eachBag'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1591,7 +1589,6 @@ end 'main'
 ```
 
 <!-- test: a-let-written-only-through-a-for-element-is-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same program with `let` iterates the same elements, so the loop's write reaches them.
 
 ```maxon
@@ -1610,25 +1607,24 @@ end 'Bag'
 typealias BagArray = Array with Bag
 
 function makeBags() returns BagArray
-	let bags = BagArray.create(0)
+	var bags = BagArray.create(0)
 	bags.push(Bag.create())
 	bags.push(Bag.create())
 	return bags
 end 'makeBags'
 
-function fill(bag Bag)
+function fill(mutates bag Bag)
 	bag.items.push(1)
 end 'fill'
 
 function main() returns ExitCode
 	let bags = makeBags()
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for bag in bags 'eachBag'
 		fill(bag)
-		total = total + bag.items.count()
+		total = try total + bag.items.count() otherwise panic("out of range")
 	end 'eachBag'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

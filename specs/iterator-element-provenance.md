@@ -26,7 +26,7 @@ never reassigned, and what it holds can be written.
 ## Tests
 
 <!-- test: a-for-with-iterator-over-a-let-array-writes-its-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `frozen` is the `let` that took `items` over. The element `c` is a record `frozen` holds, and the write reaches it.
 
@@ -48,7 +48,7 @@ function main() returns ExitCode
 	items.push(Counter.create(4))
 	let frozen = items
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, c) in frozen.withIterator() 'each'
 		c.n = 99
 	end 'each'
@@ -61,7 +61,7 @@ end 'main'
 ```
 
 <!-- test: a-for-with-iterator-over-a-let-built-by-a-call-writes-its-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same with a `let` bound to a call result instead of one moved out of a `var`.
 
@@ -87,7 +87,7 @@ end 'build'
 function main() returns ExitCode
 	let frozen = build()
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, c) in frozen.withIterator() 'each'
 		c.n = 99
 	end 'each'
@@ -100,7 +100,7 @@ end 'main'
 ```
 
 <!-- test: a-for-with-iterator-over-a-let-parameters-field-writes-through-the-call -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `bumpAll` writes the elements of the array its parameter holds. Handing it a `let` is accepted: the `let` is never reassigned.
 
@@ -127,7 +127,7 @@ end 'Bag'
 
 function bumpAll(bag Bag)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, c) in bag.items.withIterator() 'each'
 		c.n = 99
 	end 'each'
@@ -242,7 +242,7 @@ end 'main'
 ```
 
 <!-- test: a-var-array-hands-out-writable-elements-through-a-for-and-a-cursor -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Over a `var` array the same two routes write: the `for` variable and the cursor's element both are the array's own
 records.
@@ -265,7 +265,7 @@ function main() returns ExitCode
 	items.push(Counter.create(4))
 	items.push(Counter.create(5))
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, c) in items.withIterator() 'each'
 		c.n = c.n + 10
 	end 'each'
@@ -285,7 +285,7 @@ end 'main'
 ```
 
 <!-- test: a-let-array-is-read-and-a-var-cursor-over-it-moves -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `var` cursor over a `let` array advances, and every element it yields is read: bound to a `let`, summed, passed to
 a function that only reads. Nothing writes an element, so the program is accepted.
@@ -314,7 +314,7 @@ function main() returns ExitCode
 	let frozen = items
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, c) in frozen.withIterator() 'each'
 		total = total + read(c)
 	end 'each'

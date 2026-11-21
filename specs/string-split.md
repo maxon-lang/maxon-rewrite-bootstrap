@@ -29,13 +29,11 @@ let parts = "a,,b".split(",")   // ["a", "", "b"]
 ## Tests
 
 <!-- test: split-by-space -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello world foo"
 	let parts = s.split(" ")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'
@@ -53,13 +51,11 @@ foo
 ```
 
 <!-- test: split-by-comma -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "a,b,c"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'
@@ -77,13 +73,11 @@ c
 ```
 
 <!-- test: split-no-match -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
 	let parts = s.split("xyz")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'
@@ -99,13 +93,11 @@ hello
 ```
 
 <!-- test: split-empty-string -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = ""
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]\n")
 	end 'loop'
@@ -121,13 +113,11 @@ end 'main'
 ```
 
 <!-- test: split-consecutive-delimiters -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "a,,b"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]\n")
 	end 'loop'
@@ -145,13 +135,11 @@ end 'main'
 ```
 
 <!-- test: split-delimiter-at-start -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = ",hello"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]\n")
 	end 'loop'
@@ -168,13 +156,11 @@ end 'main'
 ```
 
 <!-- test: split-delimiter-at-end -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello,"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]\n")
 	end 'loop'
@@ -191,13 +177,11 @@ end 'main'
 ```
 
 <!-- test: split-empty-delimiter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
 	let parts = s.split("")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'
@@ -213,13 +197,11 @@ hello
 ```
 
 <!-- test: split-multi-char-delimiter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "one::two::three"
 	let parts = s.split("::")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'
@@ -237,13 +219,11 @@ three
 ```
 
 <!-- test: split-only-delimiters -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = ",,"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]\n")
 	end 'loop'
@@ -261,13 +241,11 @@ end 'main'
 ```
 
 <!-- test: split-delimiter-longer-than-the-string -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A delimiter longer than the string cannot occur in it: the answer is the string, and the search never starts.
 ```maxon
 function main() returns ExitCode
 	let parts = "ab".split("abcdef")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("{p}\n")
 	end 'loop'

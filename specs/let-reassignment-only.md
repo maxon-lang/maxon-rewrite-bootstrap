@@ -30,7 +30,6 @@ Binding a `var` from a `let` local moves the record, and reading the
 <!-- test: a-let-field-array-grows-through-a-let-local -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The plan's first sample: `columns` is a `let` field and `report` a `let` local, and both are written through.
 
 ```maxon
@@ -63,7 +62,6 @@ type Report
 
 	function render(counts Counts) returns String
 		let row = StringBuilder.create()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for column in self.columns 'eachColumn'
 			row.append("[{column(counts)}]")
 		end 'eachColumn'
@@ -115,7 +113,6 @@ end 'main'
 ```
 
 <!-- test: a-let-array-is-pushed-set-and-read-in-loops -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The `for` that reads `xs` holds an iterator over it; the writes before it are unaffected.
 
 ```maxon
@@ -124,15 +121,14 @@ typealias Count = int(0 to 1000)
 typealias Counts = Array with Count
 
 function main() returns ExitCode
-	let xs = Counts.create(0)
+	var xs = Counts.create(0)
 	for i in 0 upto 3 'fill'
 		xs.push(i)
 	end 'fill'
 	try xs.set(1, value: 5) otherwise return 1
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'sum'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'sum'
 	print("{xs.count()} {total}\n")
 	return 0
@@ -146,7 +142,6 @@ end 'main'
 ```
 
 <!-- test: a-for-variable-over-a-let-array-is-written-through -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -161,17 +156,15 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let boxes = Boxes.create(0)
+	var boxes = Boxes.create(0)
 	boxes.push(Box.create(1))
 	boxes.push(Box.create(2))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in boxes 'bump'
-		b.n = b.n + 10
+		b.n = try b.n + 10 otherwise panic("out of range")
 	end 'bump'
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in boxes 'sum'
-		total = total + b.n
+		total = try total + b.n otherwise panic("out of range")
 	end 'sum'
 	print("{total}\n")
 	return 0
@@ -489,12 +482,10 @@ error E2013: <fragment>:14:2: 'report' is a let and cannot be reassigned
 ```
 
 <!-- test: error.reassigning-a-for-variable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
 		item = 99
 	end 'loop'
@@ -615,7 +606,6 @@ error E3207: <fragment>:5:8: 'push' needs a writable receiver; 'fixed' is immuta
 ```
 
 <!-- test: error.a-stored-map-key-is-still-read-only -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -627,7 +617,6 @@ function main() returns ExitCode
 	let m = Counted.create()
 	m.upsert("a", value: 1)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (k, _) in m 'each'
 		k.append("x")
 	end 'each'

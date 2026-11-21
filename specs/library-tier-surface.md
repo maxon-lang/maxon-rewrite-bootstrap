@@ -113,7 +113,6 @@ true
 ```
 
 <!-- test: error.a-managed-read-is-refused-outside-the-library-tiers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `.managed` hands out an array's raw buffer, whose members move elements without the ownership model's
 bookkeeping. It is refused at the member.
@@ -128,7 +127,6 @@ function main() returns ExitCode
 	xs.push(20)
 	xs.push(30)
 	try xs.managed.shiftRight(1, 1) otherwise return 98
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'
@@ -140,7 +138,6 @@ error E3185: <fragment>:10:9: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: a-managed-read-compiles-in-the-library-tier -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same program in the library tier. `shiftRight(1, 1)` releases slot 2, slides slot 1 up into it and zeroes slot 1;
 the length stays 3.
@@ -155,7 +152,6 @@ function main() returns ExitCode
 	xs.push(20)
 	xs.push(30)
 	try xs.managed.shiftRight(1, 1) otherwise return 98
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{x}\n")
 	end 'each'

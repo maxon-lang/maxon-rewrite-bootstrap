@@ -67,7 +67,6 @@ end 'main'
 ```
 
 <!-- test: sort-already-ascending -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Already-sorted input remains sorted.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -82,7 +81,6 @@ function main() returns ExitCode
 	a.push(4)
 	a.push(5)
 	a.sort()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -98,7 +96,6 @@ end 'main'
 ```
 
 <!-- test: sort-descending-input -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Strictly-descending input becomes strictly ascending.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -113,7 +110,6 @@ function main() returns ExitCode
 	a.push(2)
 	a.push(1)
 	a.sort()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -129,7 +125,6 @@ end 'main'
 ```
 
 <!-- test: sort-all-equal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 All-equal elements are accepted (no shifts performed).
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -143,7 +138,6 @@ function main() returns ExitCode
 	a.push(7)
 	a.push(7)
 	a.sort()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -159,7 +153,6 @@ end 'main'
 ```
 
 <!-- test: sort-random-permutation -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A scrambled permutation sorts to ascending order.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -180,7 +173,6 @@ function main() returns ExitCode
 	a.push(3)
 	a.push(5)
 	a.sort()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -196,7 +188,6 @@ end 'main'
 ```
 
 <!-- test: sort-string-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Reference-typed elements (Strings) sort correctly via the supplied comparator.
 This exercises the refcount-on-swap path through `__ManagedMemory.set/get`.
 ```maxon
@@ -214,7 +205,6 @@ function main() returns ExitCode
 	a.push("kiwi")
 	a.push("a")
 	a.sortBy(byLength)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in a 'p'
 		print("{s}\n")
 	end 'p'
@@ -233,7 +223,6 @@ banana
 ```
 
 <!-- test: sort-custom-comparator-descending -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Custom comparator can invert the natural order.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -253,7 +242,6 @@ function main() returns ExitCode
 	a.push(2)
 	a.push(8)
 	a.sortBy(descending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -269,7 +257,6 @@ end 'main'
 ```
 
 <!-- test: sortUnstable-comparator -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `sortUnstableBy(cmp)` returns a sorted result; ordering of equal elements is not promised.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -289,7 +276,6 @@ function main() returns ExitCode
 	a.push(1)
 	a.push(3)
 	a.sortUnstableBy(ascending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -305,7 +291,6 @@ end 'main'
 ```
 
 <!-- test: sortUnstable-default -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `sortUnstable()` uses `Comparable.compare`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -319,7 +304,6 @@ function main() returns ExitCode
 	a.push(7)
 	a.push(4)
 	a.sortUnstable()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -335,7 +319,6 @@ end 'main'
 ```
 
 <!-- test: sort-stability -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The stable `sort()` preserves relative order of equal-key elements.
 We sort `(key, original_index)` pairs by key and verify each equal-key
 group's original_index sequence is non-decreasing.
@@ -365,7 +348,6 @@ function main() returns ExitCode
 	a.push(KeyTag.init(1, tag: 3))
 	a.push(KeyTag.init(2, tag: 4))
 	a.sort()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for kt in a 'p'
 		print("({kt.key},{kt.tag}) ")
 	end 'p'
@@ -389,7 +371,6 @@ with `sort()` until self-hosted gains interface-method dispatch on
 type-parameter receivers (Phase 11.4).
 
 <!-- test: pdq-correctness-50elem -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 pdqsort produces a sorted result on a 50-element scrambled input.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -402,12 +383,10 @@ end 'ascending'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in [50, 40, 30, 20, 10, 45, 35, 25, 15, 5, 48, 38, 28, 18, 8, 46, 36, 26, 16, 6, 44, 34, 24, 14, 4, 42, 32, 22, 12, 2, 49, 39, 29, 19, 9, 47, 37, 27, 17, 7, 43, 33, 23, 13, 3, 41, 31, 21, 11, 1] 'fill'
 		a.push(v)
 	end 'fill'
 	a.sortUnstableBy(ascending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -423,7 +402,6 @@ end 'main'
 ```
 
 <!-- test: pdq-correctness-100elem-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A 100-element fill via `for i in 0 upto 100 { a.push(formula(i)) }` followed by
 `sortUnstable` exercises the register allocator's remat-cycle handling: every
 iteration of the spill/color loop the pre-sort fill leaves a constant `2`
@@ -449,7 +427,6 @@ function main() returns ExitCode
 		a.push((i * 31) + 7)
 	end 'fill'
 	a.sortUnstableBy(ascending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -465,7 +442,6 @@ end 'main'
 ```
 
 <!-- test: pdq-already-sorted -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Already-sorted input still produces a sorted result.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -482,7 +458,6 @@ function main() returns ExitCode
 		a.push(i + 1)
 	end 'fill'
 	a.sortUnstableBy(ascending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -577,7 +552,6 @@ and no second implementation to compare it against: the cross-checks below verif
 the definition of a sort instead.
 
 <!-- test: driftsort-correctness-50elem -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Driftsort produces a sorted result on a 50-element scrambled input.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -641,7 +615,6 @@ function main() returns ExitCode
 	a.push(11)
 	a.push(1)
 	a.sortBy(ascending)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'p'
 		print("{x} ")
 	end 'p'
@@ -774,7 +747,6 @@ merge stack then combines. It:
   optimal merge tree while making each merge decision once per run boundary.
 
 <!-- test: driftsort-sorted-and-multiset-preserved -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Driftsort's output on a scrambled 40-element input is verified
 against the definition of a sort rather than against a second implementation.
 Every adjacent pair must be ordered, and the multiset must survive — the
@@ -835,7 +807,6 @@ function main() returns ExitCode
 	let n = a.count()
 	var sum = 0 as Integer
 	var squares = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'tally'
 		sum = sum + x
 		squares = squares + x * x
@@ -880,7 +851,6 @@ taken before the sort all unchanged after it, so an output that is ordered
 because an element was dropped, duplicated or invented still fails.
 
 <!-- test: driftsort-stage7-cross-check-large -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Large cross-check on a 100-element input that mixes a long descending run
 with a long ascending one — the shape that exercises the buffered and
 rotation merges depending on run sizes. The sorted result must be ordered
@@ -1001,7 +971,6 @@ function main() returns ExitCode
 	let n = a.count()
 	var sum = 0 as Integer
 	var squares = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'tally'
 		sum = sum + x
 		squares = squares + x * x
@@ -1037,7 +1006,6 @@ sorted
 ```
 
 <!-- test: driftsort-stage6-cross-check -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Cross-check (Stage 5 + Stage 6 combined): driftsort uses bounded scratch and
 may fall back to the rotation merge. Whichever merge path the 40-element
 input takes, the result must come out ordered pairwise with its multiset
@@ -1096,7 +1064,6 @@ function main() returns ExitCode
 	let n = a.count()
 	var sum = 0 as Integer
 	var squares = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'tally'
 		sum = sum + x
 		squares = squares + x * x
@@ -1132,7 +1099,6 @@ sorted
 ```
 
 <!-- test: driftsort-large-sqrt-cross-check -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Large cross-check crossing the n > 4096 boundary, where `minGoodRunLen`
 switches to `floor(sqrt(n))` and run creation uses the stable quicksort
 (including its partition path on runs > 32). A pseudo-random 5000-element
@@ -1158,7 +1124,6 @@ function main() returns ExitCode
 	let n = a.count()
 	var sum = 0 as Integer
 	var squares = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'tally'
 		sum = sum + x
 		squares = squares + x * x
@@ -1463,7 +1428,7 @@ error E3210: <fragment>:67:15: function value for 'Array.SortComparator' writes 
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-come-out-sorted -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `sort()` on arrays of 100 to 400 elements drawn from 2 to 40 distinct values. The
 stable quicksort that builds driftsort's runs keeps hitting a partition whose pivot
 is the smallest value of its range, so nothing lands in the `< pivot` class; every
@@ -1491,13 +1456,11 @@ end 'nextSeed'
 
 function main() returns ExitCode
 	let spreads = SpreadArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'
 	var seed = 1 as Tally
 	var bad = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spread in spreads 'eachSpread'
 		for n in ShortestLength to LongestLength 'eachLength'
 			let values = SortKeyArray.create(0)
@@ -1513,7 +1476,7 @@ function main() returns ExitCode
 			values.sort()
 			var previous = 0 as SortKey
 			var ordered = values.count() == n
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for v in values 'walk'
 				if v < previous 'outOfOrder'
 					ordered = false
@@ -1539,7 +1502,7 @@ unsorted arrays: 0
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-keep-equal-keys-in-arrival-order -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same duplicate-heavy shapes as records sorted by key with `sortBy(cmp)`. Each
 record carries its arrival position, so a stable sort leaves every run of equal
@@ -1578,14 +1541,12 @@ end 'nextSeed'
 
 function main() returns ExitCode
 	let spreads = SpreadArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'
 	var seed = 7 as Tally
 	var unsorted = 0 as Tally
 	var unstable = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spread in spreads 'eachSpread'
 		for n in ShortestLength to LongestLength 'eachLength'
 			let entries = TicketArray.create(0)
@@ -1601,7 +1562,7 @@ function main() returns ExitCode
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
 			// TODO: tuple loop variables in for loops are not supported in minimaxon
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'
 					if entry.key < previousKey 'outOfOrder'
@@ -1638,7 +1599,7 @@ unstable arrays: 0
 ```
 
 <!-- test: sort-small-arrays-keep-equal-keys-in-arrival-order -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Stability on the short slices the stable sort handles without partitioning:
 records of 2 to 64 elements over three keys, forty arrays of each length, every
@@ -1688,7 +1649,7 @@ function main() returns ExitCode
 			var previousKey = 0 as SortKey
 			var previousArrival = 0 as Tally
 			// TODO: tuple loop variables in for loops are not supported in minimaxon
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+			// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 			for (iter, entry) in entries.withIterator() 'walk'
 				if iter.index() > 0 'hasPrevious'
 					if entry.key < previousKey 'outOfOrder'

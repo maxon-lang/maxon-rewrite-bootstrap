@@ -776,7 +776,6 @@ error E2015: <fragment>:15:11: Unsupported: 'Pair.create' is called on 'Pair.Dee
 
 <!-- test: mapping-a-map-of-records-releases-the-entry-tuples-it-built -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 Each `map` over a `Map with (String, Box)` builds entry tuples that share the records, keeps them alive after the map replaces its values, and releases them when the mapped array goes.
 ```maxon
@@ -805,7 +804,6 @@ function main() returns ExitCode
 		let mapped = m.map(function(p) gives p)
 		m.upsert("a", value: Box.create(50))
 		m.upsert("bb", value: Box.create(60))
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pair in mapped 'sum'
 			// TODO: tuple element access is not supported in minimaxon
 			total = total + pair.1.n + (pair.1.names.count() as Count)
@@ -1161,7 +1159,6 @@ a heap string long enough to allocate 1 1
 
 <!-- test: a-container-of-tuples-over-the-parameter-clones-its-records -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -1219,7 +1216,6 @@ function main() returns ExitCode
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in snap 'eachPair'
 		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
@@ -1238,7 +1234,6 @@ end 'main'
 <!-- test: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -1297,7 +1292,6 @@ function main() returns ExitCode
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in snap 'eachPair'
 		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
@@ -1315,7 +1309,6 @@ end 'main'
 
 <!-- test: a-container-of-tuples-over-the-parameter-returned-releases-its-records -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -1373,7 +1366,6 @@ function main() returns ExitCode
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in snap 'eachPair'
 		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
@@ -1782,7 +1774,6 @@ end 'main'
 <!-- test: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -1848,7 +1839,6 @@ function main() returns ExitCode
 	let k = BoxHolder.countOf(snap)
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in snap 'eachPair'
 		// TODO: tuple element access is not supported in minimaxon
 		total = total + pair.1.n
@@ -2040,7 +2030,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-typed-by-the-generic-types-own-name-is-served -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A parameter typed by the generic type's own name is the same instance as `Self`, so its type-parameter elements can be read and stored.
 ```maxon
@@ -2058,7 +2047,6 @@ type Bag uses T
 	end 'add'
 
 	function merge(other Bag)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in other.items 'each'
 			self.items.push(x)
 		end 'each'
@@ -2172,7 +2160,6 @@ first payload long enough to allocate
 ```
 
 <!-- test: a-self-returning-static-built-from-a-for-element-is-served -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same record built from a `for` element.
 ```maxon
@@ -2182,7 +2169,6 @@ type Cell uses T
 	export var v as T
 
 	static function firstOf(xs TArray) returns Self
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in xs 'each'
 			return Self{v: e}
 		end 'each'
@@ -3203,7 +3189,6 @@ error E2015: <fragment>:6:35: Unsupported: a container's element type declared a
 ```
 
 <!-- test: error.an-interface-array-alias-pushed-read-and-iterated-in-a-function-is-reported-once -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A function that takes the refused alias, pushes to it, reads it and iterates it adds no error of its own: the one E2015 stays at the alias's type argument.
 ```maxon
@@ -3226,7 +3211,6 @@ typealias NamedArray = Array with Named
 function labelBytes(mutates xs NamedArray, extra Thing) returns Count
 	xs.push(extra)
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		total = total + x.label().byteLength()
 	end 'each'

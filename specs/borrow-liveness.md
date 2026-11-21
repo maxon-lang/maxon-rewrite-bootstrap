@@ -412,7 +412,6 @@ end 'main'
 ```
 
 <!-- test: forin-element-survives-a-callee-clearing-the-source -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A `for … in` element survives a callee clearing the array, and the clear ends the loop
 The element is counted, so the body reads it intact after `wipe`; the next step reads the live count,
 which is 0, so the second element is never reached.
@@ -436,7 +435,6 @@ end 'wipe'
 function main() returns ExitCode
 	let b = Bag.create()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in b.items 'scan'
 		wipe(b.items)
 		print("[{it}]\n")
@@ -455,7 +453,6 @@ end 'main'
 ```
 
 <!-- test: a-clear-at-the-end-of-a-for-body-ends-the-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A clear as the body's last statement ends the iteration at the next step
 The loop reads the array's live count on every step, not the count it started with.
 ```maxon
@@ -478,7 +475,6 @@ end 'wipe'
 function main() returns ExitCode
 	let b = Bag.create()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in b.items 'scan'
 		total = total + (it.byteLength() as Integer)
 		wipe(b.items)
@@ -495,7 +491,6 @@ end 'main'
 ```
 
 <!-- test: forin-mutation-after-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A write after the loop
 The loop walks the whole array; the clear after its `end` writes an array no loop is reading.
 ```maxon
@@ -518,7 +513,6 @@ end 'wipe'
 function main() returns ExitCode
 	let b = Bag.create()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in b.items 'scan'
 		total = total + (it.byteLength() as Integer)
 	end 'scan'
@@ -535,7 +529,6 @@ end 'main'
 ```
 
 <!-- test: forin-discard-binds-no-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### `for _ in` reads the live count too
 The discard binds no element, and the loop still reads the array's live count each step, so the clear
 in the first trip ends it.
@@ -559,7 +552,6 @@ end 'wipe'
 function main() returns ExitCode
 	let b = Bag.create()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in b.items 'scan'
 		wipe(b.items)
 		total = total + 1
@@ -576,7 +568,6 @@ end 'main'
 ```
 
 <!-- test: forin-over-a-fresh-clone-walks-the-clone -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A loop over a fresh clone of a field walks the clone, not the field
 The iterated container is a new array the loop owns, so pushing onto the field inside the body does not
 extend the iteration.
@@ -592,10 +583,9 @@ type Paths
 		return Self{items: ["first path", "second path"]}
 	end 'create'
 
-	function doubled()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	function doubled(mutates self)
 		for p in self.items.clone() 'each'
-			self.items.push(p)
+			self.items.push(p.clone())
 		end 'each'
 	end 'doubled'
 
@@ -605,7 +595,7 @@ type Paths
 end 'Paths'
 
 function main() returns ExitCode
-	let paths = Paths.create()
+	var paths = Paths.create()
 	paths.doubled()
 	print("{paths.size()}\n")
 	return 0
@@ -992,7 +982,6 @@ end 'main'
 ```
 
 <!-- test: receiver-method-inside-a-for-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### … and inside a `for … in` over the field it clears
 The loop element survives the clear, and the clear ends the loop: the second element is never reached.
 ```maxon
@@ -1017,7 +1006,6 @@ function main() returns ExitCode
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	b.items.push("beta string long enough for heap allocation {40 + 2}")
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for it in b.items 'scan'
 		b.wipe()
 		print("[{it}]\n")
@@ -2066,7 +2054,6 @@ end 'main'
 ```
 
 <!-- test: iterating-a-conditional-of-two-fields-survives-a-call-that-rebinds-one -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `for` over a conditional of two field chains holds its own reference to the array it walks, so the body
 rebinding `self.holder.items` through `weigh` leaves the loop walking that array to its end.
 ```maxon
@@ -2077,7 +2064,7 @@ type Decl
 	export let weight as Tally
 
 	static function create(name String, weight Tally) returns Decl
-		return Decl{name: name, weight: weight}
+		return Decl{name: name.clone(), weight: weight}
 	end 'create'
 end 'Decl'
 
@@ -2100,43 +2087,42 @@ type Driver
 		return Driver{holder: Holder.create(), other: Holder.create()}
 	end 'create'
 
-	function fill()
+	function fill(mutates self)
 		self.holder.items.push(Decl.create("first {self.holder.items.count()}", weight: 1))
 		self.holder.items.push(Decl.create("second {self.holder.items.count()}", weight: 2))
 	end 'fill'
 
 	function churn()
-		let junk = DeclArray.create(0)
+		var junk = DeclArray.create(0)
 		for i in 0 upto 50 'each'
 			junk.push(Decl.create("garbage-garbage-garbage {i}", weight: 99))
 		end 'each'
 		print("{junk.count()}\n")
 	end 'churn'
 
-	function weigh(w Tally) returns Tally
+	function weigh(mutates self, w Tally) returns Tally
 		return self.deeper(w)
 	end 'weigh'
 
-	function deeper(w Tally) returns Tally
+	function deeper(mutates self, w Tally) returns Tally
 		self.holder.items = DeclArray.create(0)
 		self.churn()
-		return w + 1
+		return try w + 1 otherwise panic("out of range")
 	end 'deeper'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		var total = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-		for candidate in self.holder.items if self.flag else self.other.items 'eachCandidate'
+		for candidate in self.holder.items.clone() if self.flag else self.other.items.clone() 'eachCandidate'
 			let w = self.weigh(candidate.weight)
 			print("{candidate.name} {w}\n")
-			total = total + w
+			total = try total + w otherwise panic("out of range")
 		end 'eachCandidate'
 		return total
 	end 'run'
 end 'Driver'
 
 function main() returns ExitCode
-	let d = Driver.create()
+	var d = Driver.create()
 	d.fill()
 	let t = d.run()
 	print("total {t}\n")
@@ -2155,7 +2141,6 @@ total 5
 ```
 
 <!-- test: iterating-a-field-of-a-call-result-survives-a-rebind-of-that-field -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The loop holds its own reference to the array it walks, so the body rebinding `self.holder.items` frees nothing the loop still reads.
 ```maxon
 typealias Tally = int(0 to i64.max)
@@ -2165,7 +2150,7 @@ type Decl
 	export let weight as Tally
 
 	static function create(name String, weight Tally) returns Decl
-		return Decl{name: name, weight: weight}
+		return Decl{name: name.clone(), weight: weight}
 	end 'create'
 end 'Decl'
 
@@ -2186,47 +2171,46 @@ type Driver
 		return Driver{holder: Holder.create()}
 	end 'create'
 
-	function fill()
+	function fill(mutates self)
 		self.holder.items.push(Decl.create("first {self.holder.items.count()}", weight: 1))
 		self.holder.items.push(Decl.create("second {self.holder.items.count()}", weight: 2))
 	end 'fill'
 
 	function theHolder() returns Holder
-		return self.holder
+		return self.holder.clone()
 	end 'theHolder'
 
 	function churn()
-		let junk = DeclArray.create(0)
+		var junk = DeclArray.create(0)
 		for i in 0 upto 50 'each'
 			junk.push(Decl.create("garbage-garbage-garbage {i}", weight: 99))
 		end 'each'
 		print("{junk.count()}\n")
 	end 'churn'
 
-	function weigh(w Tally) returns Tally
+	function weigh(mutates self, w Tally) returns Tally
 		return self.deeper(w)
 	end 'weigh'
 
-	function deeper(w Tally) returns Tally
+	function deeper(mutates self, w Tally) returns Tally
 		self.holder.items = DeclArray.create(0)
 		self.churn()
-		return w + 1
+		return try w + 1 otherwise panic("out of range")
 	end 'deeper'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		var total = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for candidate in self.theHolder().items 'eachCandidate'
 			let w = self.weigh(candidate.weight)
 			print("{candidate.name} {w}\n")
-			total = total + w
+			total = try total + w otherwise panic("out of range")
 		end 'eachCandidate'
 		return total
 	end 'run'
 end 'Driver'
 
 function main() returns ExitCode
-	let d = Driver.create()
+	var d = Driver.create()
 	d.fill()
 	let t = d.run()
 	print("total {t}\n")
@@ -4781,7 +4765,6 @@ end 'main'
 ```
 
 <!-- test: a-read-only-list-element-returned-through-a-cursor-into-a-var-then-written-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -4805,7 +4788,6 @@ typealias Points = List with immutable Point
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function pick(ps Points, fallback immutable Point) returns immutable Point
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in ps 'each'
 		return p
 	end 'each'
@@ -5312,7 +5294,6 @@ d=68064
 ```
 
 <!-- test: error.a-for-over-a-frozen-list-writes-its-element-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `for` over a frozen `List` hands out the element records the list holds, so writing one is a write through frozen data.
 ```maxon
@@ -5331,7 +5312,6 @@ typealias Points = List with Point
 
 function main() returns ExitCode
 	let frozen = freeze(Points.create())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in frozen 'each'
 		p.n = 9
 	end 'each'

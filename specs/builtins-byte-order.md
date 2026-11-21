@@ -38,14 +38,12 @@ function that hands one of them its parameter writes that parameter. A frozen or
 ## Tests
 
 <!-- test: builtins-byte-order.read-little-endian-at-an-unaligned-index -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A read from a non-zero, unaligned index at each width. Bytes 1..2 are `11 22`, bytes 1..4 are `11 22 33 44`
 and bytes 3..10 are `33 44 55 66 77 88 99 AA`; the least significant byte comes first.
 ```maxon
 function main() returns ExitCode
 	let data = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -64,13 +62,11 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-big-endian-at-an-unaligned-index -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same three reads, most significant byte first.
 ```maxon
 function main() returns ExitCode
 	let data = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -89,14 +85,12 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-whose-last-byte-is-the-last-byte-of-the-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The bound is inclusive of the array's final byte: a four-byte read at 4 and an eight-byte read at 0 of an
 eight-byte array both succeed.
 ```maxon
 function main() returns ExitCode
 	let data = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -114,7 +108,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-one-byte-past-the-end-fails-the-way-get-fails -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A read whose last byte is one past the array's end fails with the error a checked `get` of that index
 throws, so a caller writes the same `try … otherwise …`. The error is named from each side and the two agree.
@@ -135,7 +128,6 @@ end 'getFailure'
 
 function main() returns ExitCode
 	let data = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -153,7 +145,6 @@ none indexOutOfBounds
 ```
 
 <!-- test: builtins-byte-order.read-with-an-index-near-u64-max-does-not-wrap -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `at + width` wraps to a small number for an `at` within `width` of `u64.max`, which a naive
 `at + width <= count` accepts. The bound is decided without the addition.
@@ -173,7 +164,6 @@ end 'readFailure'
 
 function main() returns ExitCode
 	let data = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -191,7 +181,6 @@ indexOutOfBounds indexOutOfBounds indexOutOfBounds indexOutOfBounds
 ```
 
 <!-- test: builtins-byte-order.append-little-endian-onto-a-non-empty-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 Each width appends exactly `width` bytes after the existing one, least significant byte first.
 ```maxon
@@ -202,7 +191,6 @@ function main() returns ExitCode
 	__Builtins.appendLittleEndian(out, 0x03040506, 4)
 	__Builtins.appendLittleEndian(out, 0x0102030405060708, 8)
 	print("{out.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in out 'each'
 		print(" {byte}")
 	end 'each'
@@ -218,7 +206,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-big-endian-onto-a-non-empty-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same three appends, most significant byte first.
 ```maxon
@@ -229,7 +216,6 @@ function main() returns ExitCode
 	__Builtins.appendBigEndian(out, 0x03040506, 4)
 	__Builtins.appendBigEndian(out, 0x0102030405060708, 8)
 	print("{out.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in out 'each'
 		print(" {byte}")
 	end 'each'
@@ -245,7 +231,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-keeps-only-the-low-bytes-of-the-word -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 Only the low `width` bytes of the word are appended, in the named order, whatever the bytes above them hold.
 ```maxon
@@ -257,12 +242,10 @@ function main() returns ExitCode
 	__Builtins.appendBigEndian(big, 0x1122334455, 2)
 	__Builtins.appendBigEndian(big, 0x1122334455, 4)
 	print("{little.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in little 'eachLittle'
 		print(" {byte}")
 	end 'eachLittle'
 	print("\n{big.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in big 'eachBig'
 		print(" {byte}")
 	end 'eachBig'
@@ -279,7 +262,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-onto-an-empty-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 An array that has never held an element has no buffer; the append allocates one.
 ```maxon
@@ -287,7 +269,6 @@ function main() returns ExitCode
 	let out = ByteArray.create(0)
 	__Builtins.appendBigEndian(out, 0xAABBCCDD, 4)
 	print("{out.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in out 'each'
 		print(" {byte}")
 	end 'each'
@@ -303,7 +284,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-to-a-copy-leaves-the-original-unchanged -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A `clone` shares its source's buffer until either side writes. The append must detach the copy's buffer first,
 or it would write through into the original's.
@@ -311,19 +291,16 @@ or it would write through into the original's.
 function main() returns ExitCode
 	let original = ByteArray.create(0)
 	original.reserve(64)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4] 'fill'
 		original.push(byte)
 	end 'fill'
 	let copy = original.clone()
 	__Builtins.appendLittleEndian(copy, 0x08070605, 4)
 	print("{original.count()} {copy.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in original 'eachOriginal'
 		print(" {byte}")
 	end 'eachOriginal'
 	print(" |")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in copy 'eachCopy'
 		print(" {byte}")
 	end 'eachCopy'
@@ -339,26 +316,22 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-to-the-owner-of-a-viewed-buffer-leaves-the-view-unchanged -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same sharing seen from the other side: the append goes to the array whose buffer a `clone` is still reading.
 ```maxon
 function main() returns ExitCode
 	let original = ByteArray.create(0)
 	original.reserve(64)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4] 'fill'
 		original.push(byte)
 	end 'fill'
 	let copy = original.clone()
 	__Builtins.appendBigEndian(original, 0x05060708, 4)
 	print("{original.count()} {copy.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in original 'eachOriginal'
 		print(" {byte}")
 	end 'eachOriginal'
 	print(" |")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in copy 'eachCopy'
 		print(" {byte}")
 	end 'eachCopy'
@@ -406,7 +379,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-generic-born-byte-array-reads-and-appends-as-bytes -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Bag with Byte`'s `items` is created inside a shared generic body, and its record strides one byte (`elementSize()`
@@ -431,7 +403,6 @@ typealias ByteBag = Bag with Byte
 
 function main() returns ExitCode
 	let bag = ByteBag.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		bag.add(byte)
 	end 'fill'
@@ -440,7 +411,6 @@ function main() returns ExitCode
 	print("{bag.items.managed.elementSize()} {little as Count} {big as Count}\n")
 	__Builtins.appendBigEndian(bag.items, 0x090A0B0C, 4)
 	print("{bag.items.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in bag.items 'each'
 		print(" {byte}")
 	end 'each'

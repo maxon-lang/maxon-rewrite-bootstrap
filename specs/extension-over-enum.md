@@ -216,7 +216,7 @@ earth#2
 
 <!-- test: a-method-of-an-enum-extension-is-a-method-of-the-enum-for-every-case-of-a-loop -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Every case of `allCases` has the extension's method.
 ```maxon
 enum Level
@@ -234,7 +234,7 @@ end 'Level'
 
 function main() returns ExitCode
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for level in Level.allCases 'eachLevel'
 		total = total + level.twice()
 	end 'eachLevel'

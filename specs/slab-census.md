@@ -663,7 +663,6 @@ end 'main'
 <!-- test: slab-census.the-tally-totals-the-live-heap-on-several-processors -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 **THE SAME EQUALITY, ON A HEAP SEVERAL PROCESSORS BUILT.** `the-tally-totals-the-live-heap` above asks it
 of a heap one thread cut. This asks it of one where green threads on other Ps own spans, hold mcache rows,
 and carry remote-free chains the main thread pushed onto them — the three states a single-threaded program
@@ -736,7 +735,6 @@ function main() returns ExitCode
 		spawned.push(async churn(i))
 	end 'spawn'
 	let kept = Bufs.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in spawned 'awaitAll'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		kept.push(await p)
@@ -1548,7 +1546,7 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -1598,7 +1596,7 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 		return false
 	end 'length'
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'sum'
 		sum = sum + (b as Tally)
 	end 'sum'
@@ -1703,7 +1701,6 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		reads = reads + readWhileChurning()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for p in replies 'join'
 			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)

@@ -1977,7 +1977,6 @@ a=7 b=7
 ```
 
 <!-- test: throw-borrowed-union-leaves-a-sibling-path-borrowing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -2018,7 +2017,6 @@ type Keeper
 
 	function keptBytes() returns Tally
 		var total = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for k in self.kept 'each'
 			match k.fault 'fault'
 				bad(text, _) then total = total + text.byteLength() as Tally
@@ -2050,7 +2048,6 @@ kept 9
 ```
 
 <!-- test: throw-sole-owned-field-leaves-a-sibling-path-borrowing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
@@ -2079,7 +2076,6 @@ end 'Holder'
 
 function keptBytes(kept FaultArray) returns Tally
 	var total = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for f in kept 'each'
 		match f 'fault'
 			bad(text, _) then total = total + text.byteLength() as Tally

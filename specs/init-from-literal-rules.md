@@ -287,7 +287,7 @@ end 'main'
 ```
 
 <!-- test: a-list-alias-takes-from-an-array-literal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Reading = int(0 to 1000)
 
@@ -295,7 +295,6 @@ typealias Readings = List with Reading
 
 function main() returns ExitCode
 	let readings = Readings from [30, 10, 20]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in readings 'each'
 		print("{r} ")
 	end 'each'
@@ -312,7 +311,6 @@ end 'main'
 
 <!-- test: a-fixed-array-alias-takes-from-an-array-literal -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Reading = int(0 to 1000)
 
@@ -321,7 +319,6 @@ typealias ReadingTriple = FixedArray with 3 Reading
 
 function main() returns ExitCode
 	let readings = ReadingTriple from [30, 10, 20]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in readings 'each'
 		print("{r} ")
 	end 'each'
@@ -337,7 +334,7 @@ end 'main'
 ```
 
 <!-- test: a-user-type-takes-from-an-array-literal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A user type that implements `InitableFromArrayLiteral` takes `from [...]` exactly as the standard
 collections do: the literal becomes the `Array` its `init` receives, in order.
 ```maxon
@@ -353,7 +350,6 @@ type Digits implements InitableFromArrayLiteral with Digit
 
 	static function init(digits DigitArray) returns Self
 		var total = 0 as Number
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for d in digits 'each'
 			total = total * 10 + (d as Number)
 		end 'each'
@@ -375,7 +371,7 @@ end 'main'
 ```
 
 <!-- test: a-user-type-takes-from-an-array-literal-at-module-scope -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same construction as a module-scope initializer: like `FilePath from ""` there, it is the call to the
 type's `init` that the module initializer makes before `main`.
 ```maxon
@@ -391,7 +387,6 @@ type Digits implements InitableFromArrayLiteral with Digit
 
 	static function init(digits DigitArray) returns Self
 		var total = 0 as Number
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for d in digits 'each'
 			total = total * 10 + (d as Number)
 		end 'each'
@@ -414,7 +409,7 @@ end 'main'
 ```
 
 <!-- test: error.a-module-scope-array-literal-init-element-outside-its-range -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 At module scope the literal is built at the array its `init` declares, so an element is held to that array's
 element range exactly as a struct field's constant is held to the field's.
@@ -431,7 +426,6 @@ type Digits implements InitableFromArrayLiteral with Digit
 
 	static function init(digits DigitArray) returns Self
 		var total = 0 as Number
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for d in digits 'each'
 			total = total * 10 + (d as Number)
 		end 'each'
@@ -451,7 +445,7 @@ error E3005: <fragment>:21:31: Value 12 is outside the range of 'Digit' (int(0 t
 ```
 
 <!-- test: an-array-alias-reaches-its-static-from -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'to' -->
 `from` is a keyword and also the name of `Array`'s static constructor over any iterable; after a `.` it
 is the member name, so an `Array` alias reaches it. The alias's element is `RangeBound`, the element a
 `Range` iterates: the iterable must bind `Element` to the array's own element (E3127).
@@ -461,7 +455,6 @@ typealias ReadingArray = Array with RangeBound
 function main() returns ExitCode
 	let span = 3 to 6
 	let readings = ReadingArray.from(span)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in readings 'each'
 		print("{r} ")
 	end 'each'

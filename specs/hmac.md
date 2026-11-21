@@ -24,7 +24,7 @@ CAVP block-sized keys and the empty key.
 ## Tests
 
 <!-- test: hmac.tags -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every HMAC vector for the three algorithms: RFC 4231 cases 1 to 7, an empty message, a key exactly one block long, and an empty key with an empty message.
 ```maxon
@@ -39,7 +39,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -53,7 +53,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -136,7 +136,7 @@ hmac-030 [b936cee86c9f87aa5d3c6f2e84cb5a4239a5fe50480a6ec66b70ab5b1f4ac6730c6c51
 ```
 
 <!-- test: hmac.constant-time-equal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Equal inputs, a difference in the first, the last or every byte, two empty inputs, and inputs of different lengths, one a prefix of the other.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -150,7 +150,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)

@@ -51,7 +51,6 @@ there is no slot whose content must survive a call.
 ## Tests
 
 <!-- test: pre-loop-borrow-then-loop-consume -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A consumed interface param borrowed before a loop and consumed inside it must
 survive the borrow's last use — the owned `+1` is released once at scope exit,
 not at the pre-loop borrow (which would free it before the loop re-reads the
@@ -113,7 +112,6 @@ function withTarget(items ItemArray, p Payload) returns Integer
 		return 0
 	end 'empty'
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'each'
 		total = total + forFunc(item, p: p)
 	end 'each'

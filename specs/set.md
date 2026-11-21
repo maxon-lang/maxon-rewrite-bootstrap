@@ -846,7 +846,7 @@ error E3005: <fragment>:6:10: argument type mismatch for 'element': expected 'Co
 ```
 
 <!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'from' -->
 How many allocations a sequence of a set's inserts and removes makes is a function of the sequence, not of where
 the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
 different odd constant, so each run lays the keys and the tombstones out differently, and the four runs
@@ -900,15 +900,12 @@ end 'churnAllocations'
 
 function main() returns ExitCode
 	let tallies = Tallies.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for multiplier in Multipliers from [2654435761, 2246822519, 3266489917, 668265263] 'eachLayout'
 		tallies.push(churnAllocations(multiplier))
 	end 'eachLayout'
 	let first = try tallies.get(0) otherwise panic("four tallies were pushed")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tally in tallies 'eachTally'
 		if tally != first 'differs'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for shown in tallies 'eachShown'
 				print("{shown} ")
 			end 'eachShown'

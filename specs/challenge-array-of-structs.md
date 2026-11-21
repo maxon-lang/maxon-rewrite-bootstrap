@@ -104,7 +104,6 @@ end 'main'
 ```
 
 <!-- test: array-of-structs-enum-for-in-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Regression test: enum match works in for-in loop over struct array
 enum Status
@@ -124,15 +123,14 @@ end 'Task'
 typealias TaskArray = Array with Task
 
 function main() returns ExitCode
-	let tasks = TaskArray.create(0)
+	var tasks = TaskArray.create(0)
 	tasks.push(Task.create(Status.pending))
 	tasks.push(Task.create(Status.active))
 	tasks.push(Task.create(Status.done))
 	var activeCount = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for task in tasks 'loop'
 		match task.status 'check'
-			active then activeCount = activeCount + 1
+			active then activeCount = try activeCount + 1 otherwise panic("out of range")
 			pending then break
 			done then break
 		end 'check'

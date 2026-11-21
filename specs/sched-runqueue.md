@@ -288,7 +288,6 @@ s=3 a1=1 a2=2 a3=3
 
 <!-- test: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -337,7 +336,6 @@ function main() returns ExitCode
 	replies.push(try c.rank() otherwise panic("an open mailbox with room takes the send"))
 	let first = replies.awaitAny()
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in replies 'drainthemall'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)

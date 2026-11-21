@@ -925,7 +925,6 @@ armed=0 laps=100 timedOut=100 leaked=0
 ```
 
 <!-- test: subprocess-a-tree-end-stops-a-shell-waiting-on-its-sleep-before-it-ends-the-sleep -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A shell that has forked its `sleep` and waits on it runs its next command the moment that `sleep` dies,
@@ -980,7 +979,6 @@ function main() returns ExitCode
 			try File.delete(marker) otherwise return 6
 		end 'ran'
 	end 'laps'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for shell in busy 'unload'
 		_ = shell.endTree()
 		shell.release()
@@ -1432,7 +1430,7 @@ end 'main'
 
 <!-- test: subprocess-environment-names-fold-case-on-windows -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **ON WINDOWS AN OVERRIDE REPLACES THE INHERITED VARIABLE UNDER ANY SPELLING.** Windows reads an
 environment variable name without regard to case, so `MAXON_SPEC_ENV_FOLD` and `Maxon_Spec_Env_Fold` are
@@ -1466,7 +1464,7 @@ end 'outcomeOf'
 
 function printFoldedEntries() returns ExitCode
 	let entries = try Process.currentEnvironmentEntries() otherwise return 2
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		if Process.envEntryName(entry).toLower() == "maxon_spec_env_fold" 'folded'
 			print("{entry}\n")
@@ -1570,7 +1568,7 @@ name with another extension: executable not found: maxon-spec-pathext-shim.bat
 
 <!-- test: subprocess-a-bare-name-is-searched-in-createprocess-order-on-windows -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐⭐ **ON WINDOWS A BARE NAME IS SEARCHED IN `CreateProcessW`'s ORDER, AND THE ANSWER IS AN ABSOLUTE PATH TO
@@ -1653,7 +1651,7 @@ function childEnvironment(pathDir FilePath) returns Environment
 	let pathKey = Process.envNameKey("PATH")
 	let noCwdSearchKey = Process.envNameKey("NoDefaultCurrentDirectoryInExePath")
 	let vars = EnvMap.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'each'
 		let name = Process.envEntryName(entry)
 		let key = Process.envNameKey(name)
@@ -1708,7 +1706,6 @@ function main() returns ExitCode
 	config.workingDirectory = WorkingDirectory.at(workingDir)
 	config.environment = childEnvironment(pathDir)
 	let result = try config.run() otherwise return 5
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for probe in placed 'each'
 		try File.delete(probe) otherwise return 6
 	end 'each'
@@ -2421,7 +2418,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls back-to-back, store the
 promises in an array, then drain them in order. Each child is a
@@ -2465,7 +2461,6 @@ function main() returns ExitCode
 		i = i + 1
 	end 'spawn'
 	var j = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await p otherwise return 2
@@ -2494,7 +2489,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls that each sleep ~1 second
 (`ping 127.0.0.1 -n 2` does one ping immediately, waits ~1s, then a
@@ -2567,7 +2561,6 @@ function main() returns ExitCode
 	var awaited = 0 as ChildTally
 	var firstCompletion = 0 as DurationMs
 	var lastCompletion = 0 as DurationMs
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await p otherwise return 2
@@ -2761,7 +2754,7 @@ errline len=4 [119 0 120 121]
 
 <!-- test: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An argument holding a NUL cannot reach a child intact on any OS, so the spawn is refused as `spawnFailed`
@@ -2772,7 +2765,7 @@ function runChild()
 	let args = CommandLine.args()
 	var line = "child ran"
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, arg) in args.withIterator() 'each'
 		if iter.index() > 0 'afterProgram'
 			line = "{line} [{arg}]"
@@ -2986,7 +2979,7 @@ prefix holds x
 
 <!-- test: subprocess-stdin-bytes-holding-a-nul-reach-the-child-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A stdin payload is bytes, and a zero byte is one of them: every door that feeds a child's stdin delivers a
@@ -3002,7 +2995,7 @@ function readAllStdin() returns String
 	let received = merge read
 	var line = "{received.count()} bytes ["
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in received.withIterator() 'each'
 		if iter.index() > 0 'separator'
 			line = "{line} "
@@ -3323,7 +3316,6 @@ child read 262144 bytes
 
 <!-- test: subprocess-a-child-inherits-no-other-spawns-pipe-ends -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A child inherits only the three standard handles its own spawn gives it, never the pipe ends another spawn is
@@ -3384,7 +3376,6 @@ type Spawner
 
 	function running() returns Tally
 		var alive = 0 as Tally
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in self.pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1

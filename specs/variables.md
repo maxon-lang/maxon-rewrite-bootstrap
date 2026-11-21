@@ -199,14 +199,12 @@ end 'main'
 ```
 
 <!-- test: a-let-array-constant-acts-like-a-literal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A plain `let` array constant passes to a typed-array parameter its elements fit, as the literal would.
 ```maxon
 typealias Counts = Array with Count
 
 function total(xs Counts) returns Count
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		sum = sum + x
 	end 'each'

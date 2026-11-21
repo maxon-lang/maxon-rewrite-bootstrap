@@ -6798,7 +6798,6 @@ refused
 ```
 
 <!-- test: a-generic-factory-pushes-a-copy-of-a-type-parameter-argument-it-also-reassigns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic factory that copies its `T` parameter into a local it reassigns and pushes the local into an array it builds owns neither the
 caller's cell nor a second reference to the pushed value: the caller's variable and the array each keep what
@@ -6834,11 +6833,9 @@ function main() returns ExitCode
 	let swapped = TextHold.of(original, replacement: longText("replacement"), swap: true)
 	let other = longText("kept")
 	let kept = TextHold.of(other, replacement: longText("unused"), swap: false)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in swapped.items 'each'
 		print("{s}\n")
 	end 'each'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in kept.items 'eachKept'
 		print("{s}\n")
 	end 'eachKept'
@@ -6854,7 +6851,6 @@ kept payload long enough to allocate
 ```
 
 <!-- test: a-concrete-factory-pushes-a-string-argument-it-also-reassigns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The concrete twin of the case above: a `mutable` `String` parameter that is reassigned and then pushed into an array the
 factory builds, with the caller's variable and the array each keeping what they hold.
@@ -6886,11 +6882,9 @@ function main() returns ExitCode
 	let swapped = Hold.of(original, replacement: longText("replacement"), swap: true)
 	var other = longText("kept")
 	let kept = Hold.of(other, replacement: longText("unused"), swap: false)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in swapped.items 'each'
 		print("{s}\n")
 	end 'each'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in kept.items 'eachKept'
 		print("{s}\n")
 	end 'eachKept'

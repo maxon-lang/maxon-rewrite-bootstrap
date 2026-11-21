@@ -13,14 +13,14 @@ grapheme/codepoint iteration, slicing, clone/COW, and `String.append`.
 ## Tests
 
 <!-- test: heap-string-data-access -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	// Verify heap-allocated string data is accessible via bytes()
 	let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	// Read first byte ('A' = 65)
 	var first_printed = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'read_first'
 		if not first_printed 'print_first'
 			print("{b}\n")
@@ -29,7 +29,7 @@ function main() returns ExitCode
 	end 'read_first'
 	// Read last byte ('Z' = 90)
 	var last_byte = 0 as Byte
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'read_all'
 		last_byte = b
 	end 'read_all'
@@ -118,13 +118,13 @@ end 'main'
 ```
 
 <!-- test: heap-string-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABCDEFGHIJKLMNOP" // 16 bytes, triggers heap
 	var sum = 0 as Count
 	// Iterate over bytes directly to test heap string iteration
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
 		sum = sum + b as Count
 	end 'loop'
@@ -140,18 +140,15 @@ end 'main'
 ```
 
 <!-- test: string-double-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Iterating the same string twice yields the same count both times.
 ```maxon
 function main() returns ExitCode
 	let s = "Hello"
 	var count1 = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'loop1'
 		count1 = count1 + 1
 	end 'loop1'
 	var count2 = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'loop2'
 		count2 = count2 + 1
 	end 'loop2'
@@ -166,12 +163,12 @@ end 'main'
 ```
 
 <!-- test: heap-string-byteview -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABCDEFGHIJKLMNOPQR" // 18 bytes, heap allocated
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
 		// Use b to avoid unused variable warning
 		if b > 0 'use'
@@ -395,13 +392,11 @@ end 'main'
 ```
 
 <!-- test: grapheme-iteration-emoji -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Grapheme Iteration with Emoji
 ```maxon
 function main() returns ExitCode
 	let s = "a🎉b"
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
 		count = count + 1
@@ -419,13 +414,11 @@ a🎉b
 ```
 
 <!-- test: grapheme-iteration-flag -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Grapheme Iteration with Flag Emoji
 ```maxon
 function main() returns ExitCode
 	let s = "🇺🇸🇬🇧" // Two flag emojis
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
 		count = count + 1
@@ -443,13 +436,11 @@ end 'main'
 ```
 
 <!-- test: grapheme-iteration-zwj -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Grapheme Iteration with ZWJ Sequence
 ```maxon
 function main() returns ExitCode
 	let s = "👨‍👩‍👧" // Family emoji (1 grapheme)
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
 		count = count + 1
@@ -467,12 +458,12 @@ end 'main'
 ```
 
 <!-- test: codepoints-view -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Codepoints View
 ```maxon
 function main() returns ExitCode
 	let s = "Aé" // A (1 codepoint) + é (1 codepoint if precomposed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in s.codepoints() 'loop'
 		print("{cp}\n")
 	end 'loop'
@@ -567,7 +558,6 @@ end 'main'
 ```
 
 <!-- test: slice-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Iterate Over Sliced String
 ```maxon
 function main() returns ExitCode
@@ -575,7 +565,6 @@ function main() returns ExitCode
 	let start = s.startIndex()
 	let idx = try s.findFirst("d") otherwise s.endIndex()
 	let sub = s.slice(start, endIndex: idx)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in sub 'loop'
 		print("{c}\n")
 	end 'loop'

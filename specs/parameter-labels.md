@@ -884,7 +884,7 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-handler-block-argument-holding-nested-blocks -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 A labelled `otherwise` handler written as an argument keeps its own line structure through every block nested inside it: an `if`, a `for`, a `while`, a `match` statement and a `try` block each end at their own `end`, and the statements after them stay separate statements.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -909,7 +909,6 @@ function main() returns ExitCode
 			print("some\n")
 		end 'some' else 'none' print("none\n")
 		end 'none'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
 			print("x={x}\n")
 		end 'each'

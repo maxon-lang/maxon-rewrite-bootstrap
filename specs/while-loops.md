@@ -406,7 +406,7 @@ end 'main'
 ```
 
 <!-- test: while-loops.counter-survives-a-narrow-ranged-neighbour -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A loop counter must survive a NARROW RANGED local allocated next to it.
 
 Each variable gets a stack slot, and the slot has to hold the widest access made to it. A local whose
@@ -427,7 +427,7 @@ end 'Pair'
 
 function liveCount(both bool) returns SlotTally
 	var n = 0 as SlotTally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for c in Pair.allCases 'walk'
 		if c == Pair.first or both 'live'
 			n = n + 1
@@ -443,7 +443,7 @@ function main() returns ExitCode
 	var pass = 0 as SlotTally
 	while pass < 2 'passes'
 		var running = seed
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for c in Pair.allCases 'inner'
 			if c == Pair.first 'one'
 				running = running + 1

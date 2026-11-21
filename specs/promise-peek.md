@@ -208,7 +208,6 @@ end 'main'
 <!-- test: promise-peek.two-promises-name-two-threads -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The handle under a promise (`.inner`, library-tier) distinguishes green threads: two spawns are two
 handles, and neither is null. This is the property a dispatcher holding N slots leans on — it peeks each slot in turn, and a handle that named
@@ -247,7 +246,6 @@ function main() returns ExitCode
 		score = score + 2
 	end 'twoDistinctThreads'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p

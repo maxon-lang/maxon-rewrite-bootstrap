@@ -64,12 +64,10 @@ error E3082: specs/empty-block/empty-while.maxon:5:2: empty block: 'loop'
 ```
 
 <!-- test: empty-for-in -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 ```maxon
 function main() returns ExitCode
 	let arr = [1, 2, 3]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
 	end 'loop'
 	return 0

@@ -647,7 +647,6 @@ end 'main'
 
 <!-- test: stdlib-user-shadows.a-user-container-over-the-shadowed-name -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐⭐ **The case that witnesses the MEMORY-SAFETY half, and it is the one the case above can only reach by
 accident.** A container's ELEMENT is classified by a tier that has no reading file — `typeIsManaged`, and
 the drop and clone routers behind it — so for a name that is a `type` in one file and a `typealias` in
@@ -681,7 +680,6 @@ function main() returns ExitCode
 	let x = 2.5
 	print("{x}")
 	var total = 0 as Value
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in boxes 'each'
 		total = total + b.value
 	end 'each'
@@ -944,7 +942,6 @@ error E3005: <fragment>:18:9: argument type mismatch for 'info': expected 'stdli
 ```
 
 <!-- test: stdlib-user-shadows.a-member-typealias-after-a-method-stays-a-member -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The member typealias after a method is the type's `Holder.Range`, and the program's bare `Range` is still the library's.
 ```maxon
@@ -971,7 +968,6 @@ end 'Holder'
 function main() returns ExitCode
 	let span = Range.create(1, finish: 4)
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in span 'each'
 		total = total + (v as ExitCode)
 	end 'each'
@@ -1739,7 +1735,6 @@ end 'main'
 
 <!-- test: stdlib-user-shadows.an-interface-extension-leaves-a-library-conformer-the-members-the-compiler-supplies -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An interface extension's member is a default, and a conformer the compiler supplies the member to keeps the compiler's, in
 whatever layer the conformer is declared. The program's `extension Iterable` declares `clone`, which the compiler
 supplies to the library type `ByteView` and to the program's own `Bag`, so the extension is not refused and neither
@@ -1777,17 +1772,14 @@ function main() returns ExitCode
 	let viewGeneric = copyThroughIterable(view)
 	var viewLength = 0 as Total
 	var genericLength = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in viewCopy 'bytes'
 		viewLength = viewLength + 1
 	end 'bytes'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in viewGeneric 'genericBytes'
 		genericLength = genericLength + 1
 	end 'genericBytes'
 	let bagCopy = Bag.create(3).clone()
 	var bagSum = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in bagCopy 'bag'
 		bagSum = bagSum + n
 	end 'bag'

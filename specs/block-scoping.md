@@ -47,12 +47,9 @@ end 'loop'
 ## Tests
 
 <!-- test: for-iterator-immutable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
 		item = 99
 	end 'loop'
@@ -64,12 +61,9 @@ error E2013: specs/block-scoping/for-iterator-immutable.maxon:5:3: 'item' is a l
 ```
 
 <!-- test: for-iterator-not-accessible-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in arr 'loop'
 		let y = x
 	end 'loop'
@@ -81,12 +75,9 @@ error E2004: specs/block-scoping/for-iterator-not-accessible-after.maxon:7:9: Un
 ```
 
 <!-- test: for-body-var-not-accessible-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
 		let inside = item
 	end 'loop'
@@ -98,14 +89,12 @@ error E2004: specs/block-scoping/for-body-var-not-accessible-after.maxon:7:9: Un
 ```
 
 <!-- test: for-destructured-immutable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 32]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, value) in m 'loop'
 		value = 99
 	end 'loop'
@@ -117,14 +106,12 @@ error E2013: specs/block-scoping/for-destructured-immutable.maxon:5:3: 'value' i
 ```
 
 <!-- test: for-destructured-not-accessible-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 32]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, value) in m 'loop'
 		let sum = key + value
 	end 'loop'
@@ -179,14 +166,12 @@ error E2004: specs/block-scoping/while-body-var-not-accessible-after.maxon:8:9: 
 ```
 
 <!-- test: outer-var-accessible-in-block -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	var sum = 0 as ExitCode
 	let arr = [10, 20, 12]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'loop'
 	return sum
 end 'main'
@@ -232,7 +217,6 @@ end 'main'
 ```
 
 <!-- test: local-shadows-prior-field-access -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Local declared after a non-self field access on the same name
 A field access like `foo.name` in an outer loop must not shadow a later
 local declaration `let name = ...` in a sibling block. The hazard: a
@@ -251,7 +235,7 @@ type Foo
 	export var kind as Kind
 
 	static function create(s String, k Kind) returns Foo
-		return Foo{name: s, kind: k}
+		return Foo{name: s.clone(), kind: k}
 	end 'create'
 end 'Foo'
 
@@ -266,7 +250,6 @@ function useOne(s String)
 end 'useOne'
 
 function repro(foos FooArray, names StringArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for foo in foos 'fooLoop'
 		useTwo(foo.name, k: foo.kind)
 	end 'fooLoop'
@@ -279,10 +262,10 @@ function repro(foos FooArray, names StringArray)
 end 'repro'
 
 function main() returns ExitCode
-	let foos = FooArray.create(0)
+	var foos = FooArray.create(0)
 	foos.push(Foo.create("outer1", k: 1))
 	foos.push(Foo.create("outer2", k: 2))
-	let names = StringArray.create(0)
+	var names = StringArray.create(0)
 	names.push("inner1")
 	names.push("inner2")
 	repro(foos, names: names)

@@ -409,14 +409,11 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-iterated -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 Iterating the result names the CALL. A loop header cannot be abandoned once the parser has begun
 emitting it, so the deferred source becomes a zero-trip stand-in range rather than a refusal of the
 `for`.
 ```maxon
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in frobnicate(2) 'each'
 		print("{x}\n")
 	end 'each'
@@ -456,7 +453,6 @@ error E3004: <fragment>:3:11: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-destructured -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A destructuring pattern binds each name to a deferred element of its own. The element count of an
@@ -464,7 +460,6 @@ undefined callee's result is unknowable, so the pattern's arity is not refused a
 ```maxon
 function main() returns ExitCode
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (k, v) in frobnicate(2) 'each'
 		print("{k}{v}\n")
 	end 'each'
@@ -476,13 +471,10 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-element-used-in-the-body -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 The element the body binds is deferred too, so a method call on it is not an error about the loop
 counter's type.
 ```maxon
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in frobnicate(2) 'each'
 		print("{s.byteLength()}\n")
 	end 'each'
@@ -789,13 +781,10 @@ error E3067: <fragment>:4:2: expected a function call
 ```
 
 <!-- test: unknown-function-result-element-method-call-under-try -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 A `try` over a method called on a loop element of the result names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in c.items() 'each'
 		let d = try x.describe() otherwise 0
 		print("{d}\n")

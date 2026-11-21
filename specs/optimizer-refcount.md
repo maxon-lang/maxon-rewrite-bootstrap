@@ -42,7 +42,6 @@ anything meaningful to optimize.
 <!-- test: refcount-baseline-whole-program -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -107,7 +106,6 @@ end 'names_total'
 
 function row_total(arr IntArray) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'iter'
 		sum = sum + v
 	end 'iter'
@@ -116,7 +114,6 @@ end 'row_total'
 
 function matrix_total(m Matrix) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in m 'iter'
 		sum = sum + row_total(row)
 	end 'iter'
@@ -125,7 +122,6 @@ end 'matrix_total'
 
 function points_x_sum(pts PointArray) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in pts 'iter'
 		sum = sum + p.x
 	end 'iter'

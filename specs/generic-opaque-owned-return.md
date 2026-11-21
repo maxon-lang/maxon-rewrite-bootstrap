@@ -356,7 +356,6 @@ route the retirement of the synthesized `Array` will eventually send them down.
 
 <!-- test: iterable-map-over-an-array-of-strings -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Strings = Array with String
 
@@ -367,7 +366,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(s) gives s)
 	print("{ys.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'loop'
 		print("{y}\n")
 	end 'loop'

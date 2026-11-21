@@ -158,7 +158,6 @@ the most on every lane, because Win32 takes a GLOB where POSIX takes a directory
 
 <!-- test: list-directory -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -167,7 +166,6 @@ function main() returns ExitCode
 	end 'err'
 	// every checkout's stdlib carries String.maxon
 	var foundModule = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for f in files 'loop'
 		let name = f.filename()
 		if name == "String.maxon" 'check'
@@ -218,7 +216,7 @@ along. **Only an exact count catches this.**
 
 <!-- test: list-filters-dot-entries -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -228,7 +226,7 @@ function main() returns ExitCode
 	let onlyFile = FilePath from "test_dots_one/only.txt"
 	try File.writeText(onlyFile, content: "x") otherwise return 1
 	let entries = try Directory.list(oneFile) otherwise return 3
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in entries 'each'
 		let name = e.filename()
 		if name == "." or name == ".." 'dot'
@@ -970,7 +968,6 @@ end 'main'
 
 <!-- test: remove-tree-reports-what-it-cannot-remove -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 A directory the process may not list cannot be emptied. `removeTree` reports it, removes what it can around it,
 and leaves the directories above it standing. The case denies itself the listing (a deny entry for Everyone on
@@ -1091,7 +1088,6 @@ function main() returns ExitCode
 	let hostRefuses = hostRefusesListing(locked)
 	let unremoved = Directory.removeTree(base)
 	var reportedLocked = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stuck in unremoved 'eachStuck'
 		reportedLocked = reportedLocked or stuck.filename() == "locked"
 	end 'eachStuck'
@@ -1129,7 +1125,6 @@ a denial that did not bind is a privileged token's true
 
 <!-- test: remove-tree-waiting-for-busy-reports-a-refusal-of-another-class-at-once -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Only a file refused as busy is waited for. A directory the process may not list stays for another reason, so a call
 given a minute to wait reports it and returns without spending the minute: the case fails if the call takes half of
@@ -1252,7 +1247,6 @@ function main() returns ExitCode
 	let unremoved = Directory.removeTree(base, waitForBusy: WaitDeadline.within(waitForBusyMs))
 	let tookMs = Clock.elapsedMs(started)
 	var reportedLocked = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stuck in unremoved 'eachStuck'
 		reportedLocked = reportedLocked or stuck.filename() == "locked"
 	end 'eachStuck'
@@ -1298,7 +1292,6 @@ A file another process holds open without sharing its deletion is waited for unt
 passes; the two cases below hold one with a PowerShell child that opens it sharing reads only.
 
 <!-- test: remove-tree-waiting-for-busy-waits-for-a-file-held-without-delete-sharing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 The child announces once it holds the file and lets go of it after a fixed hold. A one-pass call made at once
 reports exactly the held file, which shows the file is busy and that the one-pass call does not wait; the waiting
@@ -1339,7 +1332,6 @@ end 'endedCleanly'
 
 function answersOnly(unremoved FilePathArray, file FilePath) returns bool
 	var namesFile = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stuck in unremoved 'eachStuck'
 		namesFile = namesFile or stuck.toString() == file.toString()
 	end 'eachStuck'
@@ -1398,7 +1390,6 @@ the holder ended cleanly true
 ```
 
 <!-- test: remove-tree-waiting-for-busy-answers-a-file-still-held-at-the-deadline -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 The child holds the file until its stdin closes, so the file is still busy when the deadline passes: the call
 answers the held file, having spent at least its deadline and not ten times it. The case then releases the child,
@@ -1438,7 +1429,6 @@ end 'endedCleanly'
 
 function answersOnly(unremoved FilePathArray, file FilePath) returns bool
 	var namesFile = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stuck in unremoved 'eachStuck'
 		namesFile = namesFile or stuck.toString() == file.toString()
 	end 'eachStuck'
@@ -1493,7 +1483,6 @@ the holder ended once released true
 ```
 
 <!-- test: remove-tree-reports-a-dangling-link-it-cannot-remove -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A symbolic link whose target is gone is an entry like any other: when the directory holding it denies the process
 the right to remove entries, `removeTree` reports the link by its own path. It never reads the link as already gone
@@ -1559,7 +1548,6 @@ function main() returns ExitCode
 	let hostRefuses = hostRefusesWriting(held)
 	let unremoved = Directory.removeTree(base)
 	var reportedTheLink = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for stuck in unremoved 'eachStuck'
 		reportedTheLink = reportedTheLink or stuck.toString() == link.toString()
 	end 'eachStuck'

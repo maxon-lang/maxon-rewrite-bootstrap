@@ -584,7 +584,6 @@ error E3104: <fragment>:21:10: 'louder' lowers to the runtime entry '__con_read_
 ```
 
 <!-- test: rejected-on-wasm.a-for-loop-over-a-library-iterable-reaches-its-cursor-witness -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library collection's cursor reads stdin in its `advance`, and the user's program only loops over the collection. The loop reaches the cursor's `Iterator` witness through the `Iterable` constraint and not through any name the user wrote, so the reach walk must credit the cursor's impls implicitly: the program reaches `__con_read_stdin` and is refused with `E3104` on wasm32-wasi, never a panic from inside the wasm backend.
@@ -622,7 +621,6 @@ end 'ZBag'
 // --- file: main.maxon
 function main() returns ExitCode
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for step in ZBag.create() 'steps'
 		total = total + step
 	end 'steps'

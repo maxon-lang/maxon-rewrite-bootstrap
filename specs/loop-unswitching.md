@@ -59,7 +59,6 @@ refuses its loop whatever the table says.
 ## Tests
 
 <!-- test: a-store-loop-carries-its-shape-guards-outside -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shape the pass was opened for. In `fill`'s emitted code (`--emit-ir`) the ownership, buffer and sharing tests and
 the `length@8`/`buffer@0` loads sit before the loop header; the body is the unsigned bound check and
 the store.
@@ -79,7 +78,6 @@ function main() returns ExitCode
 	a.resize(5)
 	fill(a, n: 5)
 	var seen = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'check'
 		seen = seen + v
 	end 'check'
@@ -126,7 +124,6 @@ end 'main'
 ```
 
 <!-- test: a-view-detaches-on-its-first-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Control for the slow version. `b` is a slice of `a`, sharing its buffer, so `b`'s sharing guard is
 false on entry and the loop runs the slow version: the first write detaches, `b` gets its own buffer,
 and `a` is untouched. A fast version entered here would write through the sharing.
@@ -149,12 +146,10 @@ function main() returns ExitCode
 	let b = try a.slice(0, endIndex: 4) otherwise panic("main: 0..4 is within a")
 	overwrite(b, n: 4)
 	var sumA = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'readA'
 		sumA = sumA + v
 	end 'readA'
 	var sumB = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in b 'readB'
 		sumB = sumB + v
 	end 'readB'
@@ -210,7 +205,6 @@ end 'main'
 ```
 
 <!-- test: an-out-of-bounds-fallback-keeps-the-fast-loop-going -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Control for the one arm the fast version keeps. Indices past the end reach the slow arm through the
 bound check; `__managed_get` and `__managed_set` write nothing on that path, the fallbacks are taken,
 and the loop continues with its hoisted length and buffer still true.
@@ -219,17 +213,17 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function walk(a WordArray, n Count) returns Word
+function walk(mutates a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i) otherwise 99)
+		t = try t + (try a.get(i) otherwise 99) otherwise panic("out of range")
 		try a.set(i, value: (i * 2) as Word) otherwise ignore
 	end 'each'
 	return t
 end 'walk'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
@@ -237,9 +231,8 @@ function main() returns ExitCode
 		return 1
 	end 'sum'
 	var seen = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'check'
-		seen = seen + v
+		seen = try seen + v otherwise panic("out of range")
 	end 'check'
 	if seen != 20 'rewritten'
 		return 2

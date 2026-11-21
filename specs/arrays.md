@@ -433,17 +433,15 @@ end 'main'
 ```
 
 <!-- test: array-literal-constant -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 let numbers = [1, 2, 3, 4, 5]
 
 function main() returns ExitCode
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in numbers 'loop'
-		sum = sum + n
+		sum = try sum + n otherwise panic("out of range")
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -470,7 +468,6 @@ end 'main'
 ```
 
 <!-- test: error.unused-array-typealias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `typealias X = Array with Y` declaration must be referenced **explicitly**
 by name (`X.create()`, `let v X = ...`, etc.) — being implicitly inferable
@@ -485,7 +482,6 @@ let numbers = [1, 2, 3, 4, 5]
 
 function main() returns ExitCode
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in numbers 'loop'
 		sum = sum + n
 	end 'loop'
@@ -602,16 +598,14 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-iterate -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let arr = ["aaa", "bbb", "ccc"]
 	var count = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in arr 'loop'
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
-	return count
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -619,17 +613,15 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-top-level -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 let names = ["alice", "bob"]
 
 function main() returns ExitCode
 	var count = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in names 'loop'
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
-	return count
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -637,7 +629,6 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-top-level-pass-to-function -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 let items = ["hello"]
 
@@ -649,7 +640,6 @@ function useString(s String) returns ExitCode
 end 'useString'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'loop'
 		return useString(item)
 	end 'loop'
@@ -1068,7 +1058,7 @@ end 'main'
 ```
 
 <!-- test: appendMemory-takes-another-arrays-managed-and-preserves-it -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- tier: stdlib -->
 ### `stdlib/Array.maxon`'s own spelling — `append` is a caller of this member
 The receiver gains the source's elements, and the source is only read and copied out of, exactly as
@@ -1079,7 +1069,6 @@ function main() returns ExitCode
 	let b = [3, 4]
 	a.appendMemory(b.managed)
 	var sum = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		sum = sum + x
 	end 'each'
@@ -1236,19 +1225,17 @@ dest 99 src 1
 ```
 
 <!-- test: append-of-a-string-array-leaves-both-arrays-whole-and-leaks-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Appending a `String` array and dropping both arrays is leak-free
 ```maxon
 typealias Names = Array with String
 
 function main() returns ExitCode
-	let src = Names.create(0)
+	var src = Names.create(0)
 	src.push("the first long string that lives on the heap {40 + 2}")
 	src.push("the second long string that lives on the heap {41 + 2}")
-	let dest = Names.create(0)
+	var dest = Names.create(0)
 	dest.push("a destination string that lives on the heap {1 + 2}")
 	dest.append(src)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in dest 'each'
 		print("{name}\n")
 	end 'each'
@@ -1267,7 +1254,6 @@ the second long string that lives on the heap 43
 ```
 
 <!-- test: appendMemory-of-a-string-array-leaves-both-arrays-whole-and-leaks-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ### The `appendMemory` spelling of the same, over a `String` array
 ```maxon
@@ -1280,7 +1266,6 @@ function main() returns ExitCode
 	let dest = Names.create(0)
 	dest.push("a destination string that lives on the heap {1 + 2}")
 	dest.appendMemory(src.managed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in dest 'each'
 		print("{name}\n")
 	end 'each'
@@ -2997,7 +2982,6 @@ end 'main'
 
 <!-- test: a-float-alias-array-from-a-literal -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A float literal array headed by a float-element alias takes the alias's element type
 ```maxon
 typealias Reals = Array with FullRangeFloat
@@ -3009,7 +2993,6 @@ function main() returns ExitCode
 	try a.set(0, value: 3.5) otherwise panic("test invariant: set OOB")
 	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as FullRangeFloat
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		sum = sum + x
 	end 'each'
@@ -3026,7 +3009,6 @@ end 'main'
 
 <!-- test: a-float-element-iterates -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### `for … in` yields float elements
 ```maxon
 function main() returns ExitCode
@@ -3034,7 +3016,6 @@ function main() returns ExitCode
 	let a = [1.5, 2.5, 3.5]
 	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as FullRangeFloat
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'each'
 		sum = sum + e
 	end 'each'
@@ -3047,7 +3028,6 @@ end 'main'
 
 <!-- test: a-float-element-keeps-every-bit-of-its-slot -->
 <!-- skip: float literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A float element is REINTERPRETED, so every bit of the slot survives the round trip
 `trunc` reads only an element's integer part, so every case above would pass identically over a
 value that had been NUMERICALLY converted on its way into the slot rather than reinterpreted. These
@@ -3065,7 +3045,6 @@ function main() returns ExitCode
 	try a.set(1, value: -0.0) otherwise panic("test invariant: set OOB")
 	// TODO: float literals are not supported in minimaxon
 	a.push(1.7976931348623157e308)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		print("{x}\n")
 	end 'each'
@@ -3158,7 +3137,6 @@ end 'main'
 <!-- test: a-declared-float-element-array-crosses-a-call-boundary -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A named float-element array is a parameter type, a return type and a field type
 The whole point of naming the instance: none of these three positions can be spelled with a bare
 `Array with float`, so before the element was nameable a float array could not leave the
@@ -3183,7 +3161,6 @@ end 'Samples'
 function total(xs Reals) returns Real
 	// TODO: float literals are not supported in minimaxon
 	var sum = 0.0 as Real
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		sum = sum + x
 	end 'each'
@@ -3498,7 +3475,6 @@ error E3008: <fragment>:13:11: typealias 'Smalls' is not exported
 <!-- test: a-consumed-promise-slot-read-by-a-for-reaches-the-consume-abort -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A promise read out of an array and awaited leaves its slot empty: the await vacates it, so the array no
 longer owns the thread. An empty slot of a managed element is a panic when it is read, but a CONSUMED
 promise slot is not that — it is a promise already given away, and awaiting it again is the
@@ -3525,7 +3501,6 @@ function main() returns ExitCode
 	let first = try ps.get(0) otherwise panic("two were pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var sum = await first
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in ps 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -3649,7 +3624,6 @@ end 'main'
 ```
 
 <!-- test: a-for-in-over-a-let-array-is-range-known -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The element a `for … in` binds over a `let` array carries the array's range, and arithmetic over it carries the sum of the ranges.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3660,7 +3634,6 @@ end 'take'
 
 function main() returns ExitCode
 	let cell = [1, 2, 3]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in cell 'each'
 		let y = x + 1
 		print("{take(y)}\n")
@@ -3678,7 +3651,6 @@ end 'main'
 ```
 
 <!-- test: a-for-in-over-an-array-literal-is-range-known -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A literal iterated in place is the same constant a `let` of it would be.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3688,7 +3660,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in [4, 5] 'each'
 		print("{take(x * 2)}\n")
 	end 'each'
@@ -3704,8 +3675,6 @@ end 'main'
 ```
 
 <!-- test: error.a-for-in-over-a-let-array-outside-a-narrower-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 The range of the whole array is what each element read carries, so the largest element is the reachable extreme the diagnostic names.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3716,7 +3685,6 @@ end 'take'
 
 function main() returns ExitCode
 	let cell = [37, 400]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in cell 'each'
 		let y = x - 1
 		print("{take(y)}\n")
@@ -3886,8 +3854,6 @@ error E3197: <fragment>:15:6: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: error.a-let-array-element-in-a-dead-branch-outside-a-narrower-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 A use is checked where it is written, not where analysis happens to reach it: an element of a `let` array that no run can take into `take` is refused exactly as a literal argument in the same branch is.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3899,7 +3865,6 @@ end 'take'
 function main() returns ExitCode
 	let cell = [400]
 	if 3 > 5 'never'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in cell 'each'
 			print("{take(x)}\n")
 		end 'each'
@@ -4000,7 +3965,6 @@ end 'main'
 ```
 
 <!-- test: an-array-literal-agrees-on-a-plain-constant-and-a-backing-alias-in-either-order -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A literal array mixing a plain `let` constant and an enum's `rawValue` agrees on its element whichever comes first, because a plain constant fits the alias in either position.
 ```maxon
 enum Signal
@@ -4012,17 +3976,15 @@ let Limit = 7
 
 function main() returns ExitCode
 	var seen = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for claimed in [Limit, Signal.interrupt.rawValue] 'plainFirst'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 		print("{claimed}\n")
 	end 'plainFirst'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for claimed in [Signal.hangup.rawValue, Limit] 'aliasFirst'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 		print("{claimed}\n")
 	end 'aliasFirst'
-	return seen as ExitCode
+	return try seen as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4079,7 +4041,6 @@ error E3207: <fragment>:11:3: 'poke' writes 'v' (it calls 'set', which writes it
 ```
 
 <!-- test: a-let-array-holding-u64-max-reads-back-u64-max -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A bare literal array element is the literal's value: `u64.max` reads back as 18446744073709551615, and the `Count` door accepts it.
 ```maxon
 function take(c Count) returns Count
@@ -4089,7 +4050,6 @@ end 'take'
 function main() returns ExitCode
 	let a = [1, u64.max]
 	var seen = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
 		seen = seen + 1
 		print("{take(v)}\n")
@@ -4106,7 +4066,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-array-holding-u64-max-reads-back-u64-max -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same at module scope, where the array is laid down as an image.
 ```maxon
 let Words = [1, u64.max]
@@ -4117,7 +4076,6 @@ end 'take'
 
 function main() returns ExitCode
 	var seen = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in Words 'each'
 		seen = seen + 1
 		print("{take(v)}\n")
@@ -4134,12 +4092,10 @@ end 'main'
 ```
 
 <!-- test: a-let-array-element-u64-max-renders-and-compares-as-u64-max -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The element is the literal's value everywhere it is read, not only at a `Count` door: it renders as 18446744073709551615, equals `u64.max` and is greater than `1`.
 ```maxon
 function main() returns ExitCode
 	let a = [1, u64.max]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
 		print("{v}\n")
 		if v == u64.max 'equal'
@@ -4163,13 +4119,11 @@ greater
 ```
 
 <!-- test: a-top-level-let-array-element-u64-max-renders-and-compares-as-u64-max -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same for the image.
 ```maxon
 let Words = [1, u64.max]
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in Words 'each'
 		print("{v}\n")
 		if v == u64.max 'equal'
@@ -4443,12 +4397,10 @@ end 'main'
 ```
 
 <!-- test: a-ternary-over-an-unsigned-column-is-range-known -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A ternary joins its arms in the unsigned domain when both are non-negative.
 ```maxon
 function main() returns ExitCode
 	let a = [1, u64.max]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		let w = x if x > 5 else 0
 		print("{w}\n")
@@ -4465,7 +4417,6 @@ end 'main'
 ```
 
 <!-- test: a-match-gives-over-an-unsigned-column-is-range-known -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 So does a `match` that gives a value in each arm.
 ```maxon
 enum Pick
@@ -4475,7 +4426,6 @@ end 'Pick'
 
 function main() returns ExitCode
 	let a = [1, u64.max]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		let choice = Pick.keep if x > 5 else Pick.zero
 		let w = match choice 'pick'
@@ -4536,12 +4486,10 @@ error E3005: <fragment>:3:31: no common integer type for -1 and 1844674407370955
 
 <!-- test: a-closure-capturing-an-unsigned-column-read-prints-it-unsigned -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A read out of `[1, u64.max]` that a closure captures is still the unsigned value it was: the closure prints 18446744073709551615 and compares it as unsigned.
 ```maxon
 function main() returns ExitCode
 	let a = [1, u64.max]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		// TODO: closures are not supported in minimaxon
 		let show = function() gives "{x}"
@@ -4590,14 +4538,14 @@ error E2004: <fragment>:4:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: create-with-capacity-publishes-that-many-zero-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `create(n)` builds an array of `n` elements, every one zero, in one call: the length is `n` and no element needs writing first.
 ```maxon
 function main() returns ExitCode
 	let bytes = ByteArray.create(16)
 	try bytes.set(3, value: 9) otherwise return 1
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		sum = sum + (byte as Count)
 	end 'eachByte'

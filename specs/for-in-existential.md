@@ -57,7 +57,6 @@ needs a second witness table travelling with the first, which is the wall `stdli
 ## Tests
 
 <!-- test: existential.cursor-protocol -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE WHOLE FEATURE IN ONE PROGRAM, with no generics and no `Array` anywhere.** `Seq` requires the cursor
 protocol, `Upto` conforms, and `total` takes the EXISTENTIAL. Both protocol calls are witness dispatches.
 ```maxon
@@ -90,7 +89,6 @@ end 'Upto'
 
 function total(source Seq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -112,7 +110,6 @@ end 'main'
 
 <!-- test: existential.cursor-protocol-inherited -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The protocol reaches the existential through `extends`. `Counted` declares only `size()`; `current()` and
 `advance()` are `Seq`'s, and the loop finds them because the requirement list is transitive.
 ```maxon
@@ -154,7 +151,6 @@ end 'Upto'
 
 function report(source Counted) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -175,7 +171,6 @@ end 'main'
 ```
 
 <!-- test: existential.generic-conformer -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The conformer is a GENERIC type. The compiler compiles one body per generic type, so one
 `__witness_Tagged.Seq` answers for every instantiation — the existential holds a `Tagged with Integer`
 and the loop dispatches through that one table.
@@ -212,7 +207,6 @@ typealias IntTagged = Tagged with Integer
 
 function total(source Seq) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -233,7 +227,6 @@ end 'main'
 ```
 
 <!-- test: existential.managed-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⚠ **The element is MANAGED.** `current()` returns a `String` the conformer MINTS per call, so the value the
 loop hands the body is an owned heap record that must be released once per trip and not once more. A leak
 or a double release is a non-zero exit here, not a wrong number.
@@ -266,7 +259,6 @@ type Numbered implements Lines
 end 'Numbered'
 
 function show(source Lines)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		print("{text}\n")
 	end 'walk'
@@ -288,7 +280,6 @@ line number 3 of this managed sequence
 ```
 
 <!-- test: existential.every-producer-of-one -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Every way a program can hand the loop an existential, in one program: a CALL RESULT, a LOCAL binding, and a
 FIELD read. The witness half is an SSA value paired with the value half at the moment each is produced, and
 the dispatch PANICS on an unpaired one — so a producer that forgot to pair is a compiler crash, not a wrong
@@ -335,7 +326,6 @@ end 'makeSeq'
 
 function fromCall(limit Integer) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in makeSeq(limit) 'walk'
 		sum = sum + item
 	end 'walk'
@@ -345,7 +335,6 @@ end 'fromCall'
 function fromLocal(limit Integer) returns Integer
 	let s = makeSeq(limit)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in s 'walk'
 		sum = sum + item
 	end 'walk'
@@ -354,7 +343,6 @@ end 'fromLocal'
 
 function fromField(h Holder) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in h.seq 'walk'
 		sum = sum + item
 	end 'walk'
@@ -379,7 +367,6 @@ end 'main'
 ```
 
 <!-- test: existential.iterable-factory -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The existential requires the `Iterable` half instead. `createIterator()` is dispatched once through the
 witness table, in the preheader, and what it returns is a concrete cursor the loop then walks directly. The
 cursor holds the receiver's array, so `Numbers.createIterator` counts as writing its receiver and the requirement
@@ -430,7 +417,6 @@ end 'Numbers'
 
 function total(source Bag) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -458,8 +444,6 @@ end 'main'
 ```
 
 <!-- test: error.existential-requires-no-traversal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 An existential whose interface requires NEITHER protocol is refused, and the refusal NAMES the interface —
 a conformer that happens to declare `current`/`advance` cannot be reached through a table that has no slot
 for them, so the generic "over a `interface` value" sentence would point at the wrong thing.
@@ -492,7 +476,6 @@ end 'Widget'
 
 function total(source Labelled) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -511,7 +494,6 @@ error E2015: <fragment>:30:2: Unsupported: `for … in` over a value dispatched 
 
 <!-- test: error.ambiguous-protocol-requirement -->
 <!-- skip: interface inheritance (extends) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ⚠ **THE LOOP MAY NOT SILENTLY PICK A SLOT THE WRITTEN CALL REFUSES TO PICK.** `Derived extends Base` and both
 declare a zero-argument `current()`, so the dispatch has TWO table slots and nothing to choose by — which is
@@ -553,7 +535,6 @@ end 'Upto'
 
 function looped(source Derived) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in source 'walk'
 		sum = sum + item
 	end 'walk'
@@ -571,7 +552,6 @@ error E3114: <fragment>:35:2: 'current' taking 0 argument(s) is provided by both
 ```
 
 <!-- test: existential.merge-phi-two-conformers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE DISPATCH IS GENUINELY DYNAMIC, and this is the case that proves it.** `s` is a merge PHI over two
 DIFFERENT conformers, so no static reading of the source can say which `current`/`advance` a trip will
 reach — the witness half travelling with the value is the only thing that decides, and the two answers
@@ -637,7 +617,6 @@ function pick(up bool) returns Integer
 		s = makeDown()
 	end 'other'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in s 'walk'
 		sum = sum + item
 	end 'walk'
@@ -659,7 +638,6 @@ end 'main'
 ```
 
 <!-- test: existential.constrained-type-parameter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The OTHER witness-dispatched receiver. `self.item` is a `T` under `where T is Seq`, so the concrete conformer
 is unknown in the shared body and the two protocol calls jump through the constraint's hidden witness
 parameter.
@@ -700,7 +678,6 @@ type Wrap uses T where T implements Seq
 
 	function total() returns Integer
 		var sum = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for v in self.item 'walk'
 			sum = sum + v
 		end 'walk'
@@ -724,7 +701,6 @@ end 'main'
 ```
 
 <!-- test: existential.managed-element-early-exits -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⚠ **THE PER-TRIP RELEASE ON THE EXITS THE FALL-THROUGH CASE CANNOT REACH.** `giveTemporaryScopeLifetime`
 enumerates three ways a promoted per-trip temporary leaves — a `return`/`throw` out of the body, a `break`,
 and the loop's own `end` — and only the last is exercised by the plain managed case. Each walk here mints
@@ -759,7 +735,6 @@ type Numbered implements Lines
 end 'Numbered'
 
 function returnsOutOfTheBody(source Lines) returns Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		if text.byteLength() > 0 'theFirst'
 			return text.byteLength() as Integer
@@ -770,7 +745,6 @@ end 'returnsOutOfTheBody'
 
 function breaksOutOfTheBody(source Lines) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for text in source 'walk'
 		total = total + (text.byteLength() as Integer)
 		if total > 100 'enough'

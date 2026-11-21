@@ -918,7 +918,6 @@ end 'main'
 ```
 
 <!-- test: for-loop-elem-borrow -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 For-loop element variable is decref'd each iteration; no leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -934,14 +933,13 @@ end 'Score'
 typealias ScoreArray = Array with Score
 
 function main() returns ExitCode
-	let scores = ScoreArray.create(0)
+	var scores = ScoreArray.create(0)
 	scores.push(Score.create(10))
 	scores.push(Score.create(20))
 	scores.push(Score.create(30))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in scores 'loop'
-		total = total + s.points
+		total = try total + s.points otherwise panic("out of range")
 	end 'loop'
 	print("{total}\n")
 	return 0

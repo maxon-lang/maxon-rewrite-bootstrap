@@ -309,7 +309,6 @@ end 'main'
 
 <!-- test: constant-names-are-pushed-into-an-immutable-array-and-read-by-for -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An array whose element is `immutable ByteArray` takes a module `let` and a local `let`, and `for` reads each name back.
 
@@ -327,7 +326,6 @@ function main() returns ExitCode
 	names.push(Alpha)
 	names.push(beta)
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		total = total + name.count()
 	end 'eachName'
@@ -869,7 +867,6 @@ error E3209: <fragment>:3:9: a return does not fit the declared result: a byte-s
 
 <!-- test: map-key-read-into-immutable-holder -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `Map` key slot is `immutable`: a literal is inserted as it is, and the key a `for` reads back is stored into an
@@ -897,12 +894,10 @@ function main() returns ExitCode
 	counts.upsert(b"cde", value: 2)
 	let credits = CreditArray.create(0)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (name, _) in counts 'eachKey'
 		credits.push(Credit.create(name))
 	end 'eachKey'
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for credit in credits 'eachCredit'
 		total = total + credit.name.count()
 	end 'eachCredit'
@@ -919,7 +914,6 @@ end 'main'
 
 <!-- test: set-element-read-into-immutable-holder -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `Set` element slot is `immutable` as well: the element a `for` reads goes into an `immutable` field with no copy.
 
@@ -944,12 +938,10 @@ function main() returns ExitCode
 	// TODO: byte string literals are not supported in minimaxon
 	names.insert(b"cde")
 	let credits = CreditArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachElement'
 		credits.push(Credit.create(name))
 	end 'eachElement'
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for credit in credits 'eachCredit'
 		total = total + credit.name.count()
 	end 'eachCredit'
@@ -1155,7 +1147,6 @@ end 'main'
 
 <!-- test: error.a-map-key-read-is-refused-by-a-plain-field -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The key a `for` reads is `immutable`, so a plain `ByteArray` field cannot hold it.
@@ -1179,7 +1170,6 @@ function main() returns ExitCode
 	counts.upsert(b"ab", value: 1)
 	var credits = CreditArray.create(0)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (name, _) in counts 'eachKey'
 		credits.push(Credit.create(name))
 	end 'eachKey'
@@ -1393,7 +1383,6 @@ error E3207: <fragment>:11:25: 'push' needs a writable receiver; 'text' is immut
 
 <!-- test: a-set-and-a-map-of-values-are-built-from-a-plain-mutable-array -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `immutable` over a value type means the type itself: a `Set` or `Map` of numbers takes any array of them, with no
 `freeze` and no copy.
 
@@ -1409,7 +1398,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let members = CodeSet from codes
 	let byCode = CodeMap.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		byCode.upsert(code, value: 1)
 	end 'eachCode'
@@ -1427,7 +1415,6 @@ end 'main'
 
 <!-- test: reads-of-an-immutable-slot-are-immutable -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `get`, a `for` loop and a `Map` value all hand back `immutable` data when the slot is `immutable`, so each goes
@@ -1455,7 +1442,6 @@ end 'lookup'
 
 function copyAll(names NameArray) returns NameArray
 	let out = NameArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		out.push(name)
 	end 'eachName'
@@ -2444,7 +2430,6 @@ error E3217: <fragment>:27:14: parameter `readings` of the message `Meter.add` i
 
 <!-- test: a-lookup-with-an-immutable-key-and-a-fresh-fallback-is-written -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The key is `immutable`, but the value the lookup answers is read from the map's value slot, so `lines` is writable.
@@ -2468,7 +2453,6 @@ end 'Token'
 
 function collect(tokens TokenArray) returns LinesMap
 	let built = LinesMap.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tok in tokens 'eachToken'
 		let lines = try built.get(tok.value) otherwise CountArray.create(0)
 		lines.push(1)
@@ -2708,7 +2692,6 @@ end 'main'
 
 <!-- test: a-constant-name-kept-by-a-field-an-element-and-a-map-key-is-frozen-into-an-array -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -2740,7 +2723,6 @@ typealias Tokens = Array with Token
 function frozenCopyOf(names Names) returns immutable Names
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let frozen = Names.create(names.count(), zeroed: false) as isolated Names
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		frozen.push(name)
 	end 'eachName'
@@ -2759,12 +2741,10 @@ function main() returns ExitCode
 	// TODO: byte string literals are not supported in minimaxon
 	counts.upsert(b"abc", value: 2)
 	let names = Names.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'eachToken'
 		names.push(token.value)
 	end 'eachToken'
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, _) in counts 'eachKey'
 		names.push(key)
 	end 'eachKey'

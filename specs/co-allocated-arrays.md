@@ -710,7 +710,7 @@ end 'main'
 ```
 
 <!-- test: growing-past-the-co-allocated-capacity-moves-the-buffer-and-frees-cleanly -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 The record keeps its identity while its buffer leaves the allocation it was born in; the elements survive the move
 and the whole thing is released with no leak.
@@ -734,7 +734,7 @@ function main() returns ExitCode
 		return 4
 	end 'count'
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'sum'
 		total = total + (byte as Total)
 	end 'sum'
@@ -1323,7 +1323,6 @@ end 'main'
 
 <!-- test: a-separate-buffer-allocated-right-behind-its-record-is-released-with-it -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A growable array whose buffer was allocated separately, in the same size class as its record and right behind it,
 is released as a separate buffer: the record tells a co-allocated buffer from a separate one by a field it carries, and
 never by where the buffer sits. **If the buffer behind a record is taken for a co-allocated one, dropping the array
@@ -1345,7 +1344,6 @@ function main() returns ExitCode
 		rows.push(words)
 	end 'eachRow'
 	var total = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for words in rows 'eachWords'
 		total = total + (try words.get(0) otherwise return 1)
 	end 'eachWords'

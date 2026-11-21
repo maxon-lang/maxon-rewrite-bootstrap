@@ -589,7 +589,6 @@ end 'main'
 ```
 
 <!-- test: a-whole-loop-over-an-array-becomes-a-leaf -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ The order reaches further than the `count` accessors: a `for v in a` over a concrete
 `Array with Integer` is CALL-FREE (a known stride needs no fork and no slow arm), so a function whose only
 calls were the loop's own element access is a leaf too. `total` is spliced into `main`, frame and all.
@@ -601,18 +600,17 @@ typealias IntArray = Array with Integer
 
 function total(a IntArray) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(20)
 	a.push(22)
-	return total(a) as ExitCode
+	return try total(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -620,7 +618,7 @@ end 'main'
 ```
 
 <!-- test: the-panic-rule-holds-when-the-argument-is-an-inlined-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE PANIC RULE, UNDER THAT ORDER.** The value the inlined guard tests is an ELEMENT, produced
 by the access `inlineManagedPrimitives` has already expanded into this loop — so the splice reads a
 value that pass wrote, in a block it shaped. The guard still refuses it, the copied panic block still
@@ -639,7 +637,6 @@ end 'clampPct'
 function main() returns ExitCode
 	let a = [60 as Percent, 50 as Percent]
 	var last = 0 as Percent
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
 		last = clampPct(v + v)
 	end 'each'
@@ -658,7 +655,7 @@ Stack trace:
 ```
 
 <!-- test: a-panic-inside-a-body-spliced-twice-names-every-frame -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `clampPct` is a leaf spliced into `doubled`; `doubled` then holds no call, is taken for a leaf in the next round and is spliced into `main`'s two sites. The `Percent` guard of `clampPct` fires in the twice-spliced copy, and the trace still names `clampPct`, `doubled` and `main`, exactly as the calls did.
 
 ```maxon
@@ -675,7 +672,7 @@ end 'doubled'
 function main() returns ExitCode
 	let values = [20 as Percent, 30 as Percent, 60 as Percent]
 	var last = 0 as Percent
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		last = doubled(v)
 	end 'each'
@@ -735,8 +732,6 @@ end 'main'
 ```
 
 <!-- test: error.an-inlined-element-of-a-let-literal-outside-the-callee-range-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 The element of a `let` literal is checked at each use like the literal it was written as, whichever way the loop over it is expanded: `101` reaches `clampPct`'s `Percent` slot and is refused where it is written.
 ```maxon
 typealias Percent = int(0 to 100)
@@ -748,7 +743,6 @@ end 'clampPct'
 function main() returns ExitCode
 	let a = [101]
 	var last = 0 as Percent
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
 		last = clampPct(v)
 	end 'each'
@@ -760,7 +754,6 @@ error E3005: <fragment>:12:10: Value 101 is outside the range of 'Percent' (int(
 ```
 
 <!-- test: a-loop-whose-element-access-keeps-a-slow-arm-is-not-a-leaf -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⛔ **THE CONTROL, AND IT IS THE SAME SOURCE AS `a-whole-loop-over-an-array-becomes-a-leaf` WITH ONE
 TYPE CHANGED.** A `Byte` element is stamped 1, and the element-access plan for a byte stamp is `runtimeFork` — both
 width arms AND the slow arm holding `__managed_get_unchecked`. So this loop still holds a call after the
@@ -774,18 +767,17 @@ typealias Bytes = Array with Byte
 
 function totalBytes(b Bytes) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in b 'each'
-		t = t + (v as Integer)
+		t = try t + (v as Integer) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'totalBytes'
 
 function main() returns ExitCode
-	let b = Bytes.create(0)
+	var b = Bytes.create(0)
 	b.push(20 as Byte)
 	b.push(22 as Byte)
-	return totalBytes(b) as ExitCode
+	return try totalBytes(b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

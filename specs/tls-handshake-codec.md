@@ -50,7 +50,7 @@ in the case and compared byte for byte. Every one of the 115 canra vectors has a
 
 <!-- test: tls-handshake-codec.decode-rfc8448 -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the 20 handshake messages printed in RFC 8448. A line prints the message as the canra JSON object.
@@ -66,7 +66,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -80,7 +80,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -93,7 +93,7 @@ typealias TextArray = Array with String
 function joined(items TextArray) returns String
 	var text = ""
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -105,7 +105,6 @@ end 'joined'
 
 function renderProtocolNames(names TlsProtocolNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -114,7 +113,6 @@ end 'renderProtocolNames'
 
 function renderAuthorities(names TlsAuthorityNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -123,7 +121,6 @@ end 'renderAuthorities'
 
 function renderSuites(codes TlsCipherSuiteCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -132,7 +129,6 @@ end 'renderSuites'
 
 function renderGroups(codes TlsGroupCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -141,7 +137,6 @@ end 'renderGroups'
 
 function renderSchemes(codes TlsSignatureSchemeCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -150,7 +145,6 @@ end 'renderSchemes'
 
 function renderVersions(codes TlsVersionCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -163,7 +157,6 @@ end 'renderShare'
 
 function renderShares(shares TlsKeyShareArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for share in shares 'eachShare'
 		texts.push(renderShare(share))
 	end 'eachShare'
@@ -192,7 +185,6 @@ end 'renderExtension'
 
 function renderExtensions(items TlsExtensionArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'eachExtension'
 		texts.push(renderExtension(item))
 	end 'eachExtension'
@@ -208,7 +200,7 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -217,7 +209,6 @@ end 'renderEntries'
 
 function renderCertificates(certificates ByteArrays) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for certificate in certificates 'eachCertificate'
 		texts.push("\{\"cert_data_hex\":\"{toHex(certificate)}\"\}")
 	end 'eachCertificate'
@@ -318,7 +309,7 @@ decode-rfc8448-4-client-client-hello-psk {"msg_type":1,"legacy_version":771,"ran
 
 <!-- test: tls-handshake-codec.decode-openssl-and-generated -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the messages OpenSSL 3.0.13 produced, the reference client's and server's messages and the short messages built by hand (29 vectors). A line prints the message as the canra JSON object.
@@ -334,7 +325,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -348,7 +339,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -361,7 +352,7 @@ typealias TextArray = Array with String
 function joined(items TextArray) returns String
 	var text = ""
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -373,7 +364,6 @@ end 'joined'
 
 function renderProtocolNames(names TlsProtocolNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -382,7 +372,6 @@ end 'renderProtocolNames'
 
 function renderAuthorities(names TlsAuthorityNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -391,7 +380,6 @@ end 'renderAuthorities'
 
 function renderSuites(codes TlsCipherSuiteCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -400,7 +388,6 @@ end 'renderSuites'
 
 function renderGroups(codes TlsGroupCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -409,7 +396,6 @@ end 'renderGroups'
 
 function renderSchemes(codes TlsSignatureSchemeCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -418,7 +404,6 @@ end 'renderSchemes'
 
 function renderVersions(codes TlsVersionCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -431,7 +416,6 @@ end 'renderShare'
 
 function renderShares(shares TlsKeyShareArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for share in shares 'eachShare'
 		texts.push(renderShare(share))
 	end 'eachShare'
@@ -460,7 +444,6 @@ end 'renderExtension'
 
 function renderExtensions(items TlsExtensionArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'eachExtension'
 		texts.push(renderExtension(item))
 	end 'eachExtension'
@@ -476,7 +459,7 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -485,7 +468,6 @@ end 'renderEntries'
 
 function renderCertificates(certificates ByteArrays) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for certificate in certificates 'eachCertificate'
 		texts.push("\{\"cert_data_hex\":\"{toHex(certificate)}\"\}")
 	end 'eachCertificate'
@@ -604,7 +586,7 @@ decode-unknown-extension-in-client-hello {"msg_type":1,"legacy_version":771,"ran
 
 <!-- test: tls-handshake-codec.decode-errors-1 -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the first 29 malformed messages, each a single defect in an otherwise valid message. A line prints the `TlsCodecError` and the alert code point it names.
@@ -620,7 +602,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -634,7 +616,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -647,7 +629,7 @@ typealias TextArray = Array with String
 function joined(items TextArray) returns String
 	var text = ""
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -659,7 +641,6 @@ end 'joined'
 
 function renderProtocolNames(names TlsProtocolNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -668,7 +649,6 @@ end 'renderProtocolNames'
 
 function renderAuthorities(names TlsAuthorityNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -677,7 +657,6 @@ end 'renderAuthorities'
 
 function renderSuites(codes TlsCipherSuiteCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -686,7 +665,6 @@ end 'renderSuites'
 
 function renderGroups(codes TlsGroupCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -695,7 +673,6 @@ end 'renderGroups'
 
 function renderSchemes(codes TlsSignatureSchemeCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -704,7 +681,6 @@ end 'renderSchemes'
 
 function renderVersions(codes TlsVersionCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -717,7 +693,6 @@ end 'renderShare'
 
 function renderShares(shares TlsKeyShareArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for share in shares 'eachShare'
 		texts.push(renderShare(share))
 	end 'eachShare'
@@ -746,7 +721,6 @@ end 'renderExtension'
 
 function renderExtensions(items TlsExtensionArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'eachExtension'
 		texts.push(renderExtension(item))
 	end 'eachExtension'
@@ -762,7 +736,7 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -771,7 +745,6 @@ end 'renderEntries'
 
 function renderCertificates(certificates ByteArrays) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for certificate in certificates 'eachCertificate'
 		texts.push("\{\"cert_data_hex\":\"{toHex(certificate)}\"\}")
 	end 'eachCertificate'
@@ -882,7 +855,7 @@ decode-err-029 decodeError 50
 
 <!-- test: tls-handshake-codec.decode-errors-2 -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `TlsHandshakeCodec.decode` of the remaining 29 malformed messages. A line prints the `TlsCodecError` and the alert code point it names.
@@ -898,7 +871,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -912,7 +885,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -925,7 +898,7 @@ typealias TextArray = Array with String
 function joined(items TextArray) returns String
 	var text = ""
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, item) in items.withIterator() 'eachItem'
 		if iter.index() > 0 'separator'
 			text.append(",")
@@ -937,7 +910,6 @@ end 'joined'
 
 function renderProtocolNames(names TlsProtocolNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -946,7 +918,6 @@ end 'renderProtocolNames'
 
 function renderAuthorities(names TlsAuthorityNameArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'eachName'
 		texts.push("\"{toHex(name)}\"")
 	end 'eachName'
@@ -955,7 +926,6 @@ end 'renderAuthorities'
 
 function renderSuites(codes TlsCipherSuiteCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -964,7 +934,6 @@ end 'renderSuites'
 
 function renderGroups(codes TlsGroupCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -973,7 +942,6 @@ end 'renderGroups'
 
 function renderSchemes(codes TlsSignatureSchemeCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -982,7 +950,6 @@ end 'renderSchemes'
 
 function renderVersions(codes TlsVersionCodeArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for code in codes 'eachCode'
 		texts.push("{code}")
 	end 'eachCode'
@@ -995,7 +962,6 @@ end 'renderShare'
 
 function renderShares(shares TlsKeyShareArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for share in shares 'eachShare'
 		texts.push(renderShare(share))
 	end 'eachShare'
@@ -1024,7 +990,6 @@ end 'renderExtension'
 
 function renderExtensions(items TlsExtensionArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'eachExtension'
 		texts.push(renderExtension(item))
 	end 'eachExtension'
@@ -1040,7 +1005,7 @@ end 'renderBlock'
 
 function renderEntries(entries TlsCertificateEntryArray) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		texts.push("\{\"cert_data_hex\":\"{toHex(entry.certificate())}\",\"extensions\":{renderExtensions(entry.extensions)}\}")
 	end 'eachEntry'
@@ -1049,7 +1014,6 @@ end 'renderEntries'
 
 function renderCertificates(certificates ByteArrays) returns String
 	let texts = TextArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for certificate in certificates 'eachCertificate'
 		texts.push("\{\"cert_data_hex\":\"{toHex(certificate)}\"\}")
 	end 'eachCertificate'
@@ -1160,7 +1124,7 @@ decode-err-058 illegalParameter 47
 
 <!-- test: tls-handshake-codec.encode -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `TlsHandshakeCodec.encode` of 8 messages built with the typed constructors. A line prints the encoded message.
 ```maxon
@@ -1175,7 +1139,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1189,7 +1153,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1234,7 +1198,7 @@ encode-008 010000e203038be81568b6b7b19ae406c4652cbadf27ca911c78ce5956d2be42a2d8a
 
 <!-- test: tls-handshake-codec.a-server-hello-with-the-retry-random-is-a-hello-retry-request -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A ServerHello whose `random` is the RFC 8446 section 4.1.3 HelloRetryRequest value decodes to `helloRetryRequest`; any other ServerHello, TLS 1.3 or TLS 1.2, to `serverHello`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1248,7 +1212,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -1310,11 +1274,11 @@ decode-openssl-ecdsa-aes128-server-hello serverHello
 ```
 
 <!-- test: tls-handshake-codec.alerts -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 `TlsAlert` is every alert description of RFC 8446 section 6 with its code point, in the order of the canra alert table.
 ```maxon
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for alert in TlsAlert.allCases 'eachAlert'
 		print("{alert.name} {alert.rawValue}\n")
 	end 'eachAlert'

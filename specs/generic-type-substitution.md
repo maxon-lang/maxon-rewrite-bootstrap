@@ -1293,7 +1293,6 @@ end 'main'
 ```
 
 <!-- test: for-in-over-a-generic-instance -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### `for … in` walks a generic instance through the cursor protocol
 A generic instance carries its base name AND its concrete type arguments, which is strictly more
@@ -1334,7 +1333,6 @@ function main() returns ExitCode
 	a.push(4)
 	let w = IntWalker.create(a)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in w 'walk'
 		total = total + x
 	end 'walk'
@@ -1462,7 +1460,6 @@ end 'main'
 ```
 
 <!-- test: generic-type-conforming-to-Iterable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A generic type conforming to `Iterable`
 ```maxon
@@ -1517,7 +1514,6 @@ function main() returns ExitCode
 	a.push(4)
 	let b = B.create(a)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in b 'walk'
 		total = total + x
 	end 'walk'

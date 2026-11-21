@@ -671,10 +671,8 @@ C:/Users/test
 ```
 
 <!-- test: filepath-normalize-folds-dot-segments -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in ["a/./b/../c", "a//b/", "../a/../../b", "a/..", "./", ""] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.normalize()}]\n")
@@ -704,7 +702,6 @@ end 'main'
 
 <!-- test: filepath-normalize-stops-at-the-root -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
@@ -715,7 +712,6 @@ function main() returns ExitCode
 		let spellings = ["/x/../../y", "/..", "//a/./b", "/x/..", "/"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in spellings 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.normalize()}]\n")
@@ -885,7 +881,6 @@ C:/Other/C:/Users/file.txt
 <!-- test: filepath-resolve-folds-dot-segments -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
@@ -902,7 +897,6 @@ function main() returns ExitCode
 		let absolute = FilePath from "/work/./runtime/../stdlib/Clock.maxon"
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "../../runtime/Clock.maxon", "."] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.resolve(base)}]\n")
@@ -932,7 +926,6 @@ end 'main'
 <!-- test: filepath-resolve-drive-relative -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
@@ -949,7 +942,6 @@ function main() returns ExitCode
 		let otherDrive = FilePath from "/elsewhere"
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:"] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		let elsewhere = p.resolve(otherDrive)
@@ -975,7 +967,6 @@ end 'main'
 <!-- test: filepath-anchored-at-keeps-parent-components -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
@@ -992,7 +983,6 @@ function main() returns ExitCode
 		let absolute = FilePath from "/work/./runtime/../stdlib//Clock.maxon/"
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "a//b/", "../../runtime/Clock.maxon", "a/../b", ".", ""] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.anchoredAt(base)}]\n")
@@ -1028,7 +1018,6 @@ end 'main'
 <!-- test: filepath-anchored-at-roots-and-drives -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
@@ -1047,12 +1036,10 @@ function main() returns ExitCode
 		let roots = ["/..", "/", "//a/./b", "/x/./"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in roots 'eachRoot'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.anchoredAt(sameDrive)}]\n")
 	end 'eachRoot'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:", "C:./x"] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		let elsewhere = p.anchoredAt(otherDrive)

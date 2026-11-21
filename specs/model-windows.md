@@ -13786,7 +13786,6 @@ error E3197: <fragment>:64:20: cannot write through a read-only value while 'm1'
 ```
 
 <!-- test: model-hand-ag-l20-plain-nonlinear-into-outer-var-then-used-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -13860,7 +13859,6 @@ function main() returns ExitCode
 			m1(y) then keep.push(y)
 		end 'x2'
 	end 'm1'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for k in keep 'f3'
 		k.n = 5
 	end 'f3'
@@ -17291,7 +17289,6 @@ error E3200: <fragment>:42:14: 'w' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-ai-i1-for-isolated-array -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -17331,7 +17328,6 @@ function main() returns ExitCode
 	end 'm1'
 	// TODO: modify blocks are not supported in minimaxon
 	modify a 'm2'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in a 'f3'
 			match e 'x4'
 				u0 then break
@@ -19763,7 +19759,6 @@ error E3200: <fragment>:75:10: 'sOw(o) as isolated Bx' is not isolated: only a c
 ```
 
 <!-- test: model-hand-al-c-outer-arr -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -19836,7 +19831,6 @@ end 'Sbq'
 
 function sOa(o Oa) returns Bx
 	let r = Bx.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in o.xs 'f1'
 		return e.b
 	end 'f1'
@@ -19852,7 +19846,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let k = sOa(o) as isolated Bx
 	try s.takeB(k) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in o.xs 'f1'
 		e.b.n = 3
 	end 'f1'
@@ -19864,7 +19857,6 @@ error E3200: <fragment>:74:10: 'sOa(o) as isolated Bx' is not isolated: only a c
 ```
 
 <!-- test: model-hand-al-c-array-direct -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -19929,7 +19921,6 @@ end 'Sbq'
 
 function sA(xs TqArray) returns Bx
 	let r = Bx.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f1'
 		return e.b
 	end 'f1'
@@ -19944,7 +19935,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let k = sA(a) as isolated Bx
 	try s.takeB(k) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		e.b.n = 3
 	end 'f1'
@@ -20515,7 +20505,6 @@ error E3200: <fragment>:29:10: 'mkT(self)' is not isolated: only a clean call, a
 ```
 
 <!-- test: model-hand-al-b-for-binding -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -20587,13 +20576,11 @@ function main() returns ExitCode
 	let s = spawn Skq.create(0)
 	let a = TqArray.create(0)
 	a.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in a 'f1'
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let k = stash(t) as isolated Ko
 		try s.takeK(k) otherwise ignore
 	end 'f1'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in a 'f2'
 		t.b.n = 3
 	end 'f2'
@@ -20701,7 +20688,6 @@ error E3200: <fragment>:64:23: 'stash(t)' is not isolated: only a clean call, a 
 ```
 
 <!-- test: model-hand-al-b-for-param-ret -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -20770,7 +20756,6 @@ end 'stash'
 
 // TODO: return type capability 'isolated' is not supported in minimaxon
 function g(xs TqArray) returns isolated Ko
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		return stash(t)
 	end 'f1'
@@ -20784,7 +20769,6 @@ function main() returns ExitCode
 	a.push(Tq.create(1, b: Bx.create(2)))
 	let k = g(a)
 	try s.takeK(k) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in a 'f1'
 		t.b.n = 3
 	end 'f1'
@@ -22208,7 +22192,6 @@ error E3200: <fragment>:66:10: 'o as isolated Ko' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-al-h1-for-body -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -22277,7 +22260,6 @@ function main() returns ExitCode
 	let q = Tq.create(1, b: Bx.create(2))
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in xs 'f1'
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let k = stash((q if 1 != 0 else q)) as isolated Ko
@@ -25641,7 +25623,6 @@ error E3200: <fragment>:68:10: 'partU((u if 1 != 0 else u2)) as isolated Bx' is 
 ```
 
 <!-- test: model-hand-am-ma-for-part -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -25713,7 +25694,6 @@ function main() returns ExitCode
 	let s = spawn Sbq.create(0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let k = part(t) as isolated Bx
@@ -33884,7 +33864,6 @@ error E3201: <fragment>:59:26: 't' is mutable outside 'k'; a call into an isolat
 ```
 
 <!-- test: model-hand-fa19-x-for-stored-then-outer-sent -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -33944,12 +33923,10 @@ function main() returns ExitCode
 	let o = Ko.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		o.keep = t.b
 	end 'f1'
 	try s.takeK(o) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f2'
 		e.b.n = 3
 	end 'f2'
@@ -33961,7 +33938,6 @@ error E3200: <fragment>:53:14: 'o' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa19-x-for-plain-part-sent -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -34011,7 +33987,6 @@ function main() returns ExitCode
 	let s = spawn Sbq.create(0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		try s.takeB(t.b) otherwise ignore
 	end 'f1'
@@ -34023,7 +33998,6 @@ error E3200: <fragment>:41:15: 't.b' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: model-hand-fa19-x-for-callee-fresh-result -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -34080,7 +34054,6 @@ end 'Skq'
 
 function stash(xs TqArray) returns Ko
 	let o = Ko.create(Bx.create(0), n: 0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f1'
 		o.keep = e.b
 	end 'f1'
@@ -34095,7 +34068,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let k = stash(xs) as isolated Ko
 	try s.takeK(k) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f1'
 		e.b.n = 3
 	end 'f1'
@@ -34107,7 +34079,6 @@ error E3200: <fragment>:57:10: 'stash(xs) as isolated Ko' is not isolated: only 
 ```
 
 <!-- test: model-hand-fa19-x-for-onecall-into-opened -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -34173,12 +34144,10 @@ function main() returns ExitCode
 	xs.push(Tq.create(1, b: Bx.create(2)))
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let k = Ko.create(Bx.create(0), n: 0) as isolated Ko
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		put(k, q: t)
 	end 'f1'
 	try s.takeK(k) otherwise ignore
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f2'
 		e.b.n = 3
 	end 'f2'
@@ -34190,7 +34159,6 @@ error E3201: <fragment>:55:13: 't' is mutable outside 'k'; a call into an isolat
 ```
 
 <!-- test: model-hand-fa19-x-for-modify-stores-plain-part -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -34232,7 +34200,6 @@ function main() returns ExitCode
 	xs.push(Tq.create(1, b: Bx.create(2)))
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let k = Ko.create(Bx.create(0), n: 0) as isolated Ko
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify k 'm2'
@@ -34379,7 +34346,6 @@ error E3197: <fragment>:41:14: cannot write 'n' through 'o', which is read-only 
 ```
 
 <!-- test: model-hand-fa19-n-modify-for-outer-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -34423,7 +34389,6 @@ function main() returns ExitCode
 	// TODO: modify blocks are not supported in minimaxon
 	modify w 'm1'
 		w.xs.push(Tq.create(1, b: Bx.create(2)))
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in w.xs 'f2'
 			o.n = 5
 		end 'f2'
@@ -34436,7 +34401,6 @@ error E3197: <fragment>:37:4: cannot write 'n' through 'o', which is read-only w
 ```
 
 <!-- test: model-hand-fa19-n-modify-for-binding-write -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-modify-for-binding-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -34478,7 +34442,6 @@ function main() returns ExitCode
 	// TODO: modify blocks are not supported in minimaxon
 	modify w 'm1'
 		w.xs.push(Tq.create(1, b: Bx.create(2)))
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for t in w.xs 'f2'
 			t.n = 2
 			t.b.n = 3

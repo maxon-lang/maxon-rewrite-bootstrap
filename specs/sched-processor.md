@@ -166,7 +166,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: sched-processor.many-green-threads-through-one-processor -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Thirty-two coroutines spawned before any is awaited, so all thirty-two are on `main`'s strand queue at
 once and one machine runs every one of them: the scheduler's `currentGt` is written and restored around
 each switch, and an M that lost track of which thread it was running would return one thread's result
@@ -190,7 +189,6 @@ function main() returns ExitCode
 		promises.push(async step(i))
 	end 'spawn'
 	var total = 0 as Counted
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'await'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await p

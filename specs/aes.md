@@ -32,7 +32,7 @@ examples.
 
 <!-- test: aes.encrypt-block -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 FIPS 197 appendices B and C and the AESAVS GFSbox, KeySbox, VarKey and VarTxt known answers, for each key size.
 ```maxon
@@ -47,7 +47,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -61,7 +61,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -167,7 +167,7 @@ encrypt-028 [acdace8078a32b1a182bfa4987ca1347]
 
 <!-- test: aes.decrypt-block -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 FIPS 197 appendices B and C inverted, and the AESAVS known answers decrypted, for each key size.
 ```maxon
@@ -182,7 +182,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -196,7 +196,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -278,7 +278,7 @@ decrypt-016 [ffffffffffffffff8000000000000000]
 
 <!-- test: aes.refuses-invalid-lengths -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Keys of other lengths, blocks of other lengths, and both at once, which reports the key.
 ```maxon
@@ -293,7 +293,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -307,7 +307,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -393,7 +393,7 @@ aes-err-018 invalidKeyLength
 
 <!-- test: aes.xor-key-stream -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every vector of the Canra `aes-ctr` spec whose counter fits `AesCounter`: the NIST SP 800-38A CTR examples
 for each key size in both directions, whose 32-bit counter carries from its last byte into the one before;
@@ -413,7 +413,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -427,7 +427,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -540,7 +540,7 @@ aes-ctr-err-017 invalidNonceLength
 ```
 
 <!-- test: aes.xor-key-stream-edges -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Key streams checked against Go crypto/aes (block j is the cipher of the nonce and the 32-bit big-endian counter c + j), over data of every tail length after 0, 8, 16 and 56 bytes: a batch whose last blocks are unused with the counter ending at 2^32 - 1, a counter carried across the 16-bit boundary between batches, a 192-bit key ending exactly at the last counter, and a 256-bit key over a second batch.
 ```maxon
@@ -555,7 +555,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -569,7 +569,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -595,19 +595,15 @@ function main() returns ExitCode
 	let k128 = "2b7e151628aed2a6abf7158809cf4f3c"
 	let k192 = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"
 	let k256 = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for count in [0, 1, 7, 8, 9, 15, 16, 17, 23, 24, 25, 31, 32, 33, 39, 40, 41, 47, 48] 'wrapCounts'
 		report("wrap", keyHex: k128, counter: 4294967293, count: count)
 	end 'wrapCounts'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for count in [55, 56, 57, 63, 64, 65, 71, 72, 73, 79, 80, 127, 128, 129, 130, 136] 'carryCounts'
 		report("carry", keyHex: k128, counter: 65530, count: count)
 	end 'carryCounts'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for count in [129, 144] 'lastCounts'
 		report("last192", keyHex: k192, counter: 4294967287, count: count)
 	end 'lastCounts'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for count in [65, 120] 'batchCounts'
 		report("batch256", keyHex: k256, counter: 255, count: count)
 	end 'batchCounts'
@@ -660,7 +656,7 @@ batch256-120 [e012423e47bb46046c37c083b4e9e54100f14b10b623f13f2383cbddc355bb3de6
 ```
 
 <!-- test: aes.the-bitsliced-software-path-matches-aes -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -679,7 +675,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -693,7 +689,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -778,7 +774,7 @@ invalidKeyLength invalidBlockLength
 ```
 
 <!-- test: aes.block-calls-write-into-a-caller-owned-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `encryptBlockInto` and `decryptBlockInto` write the 16 bytes of the cipher of `block` into `output` from `at` and leave
 every other byte of `output` as it was: the FIPS 197 appendix C vectors land in the middle of a longer array, undo
@@ -796,7 +792,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -810,7 +806,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")

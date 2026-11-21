@@ -46,7 +46,6 @@ ordinary programs.
 ## Tests
 
 <!-- test: refill-packed-bool -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### refill writes every field of a bit-packed bool array
 8 bools share a byte, so a fill that wrote bytes rather than fields would set neighbours it was
 never given — and the count below would not be the length.
@@ -60,7 +59,6 @@ function main() returns ExitCode
 	arr.push(false)
 	arr.refill(11, value: true)
 	var lit = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in arr 'count'
 		if b 'set'
 			lit = lit + 1
@@ -74,7 +72,6 @@ end 'main'
 ```
 
 <!-- test: refill-packed-bool-to-false -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### refill to false clears every field and nothing else
 The other direction of the same rule: an element WIDER than the field would clear a neighbour, and
 a fill that skipped the read-modify-write would leave one standing.
@@ -86,7 +83,6 @@ function main() returns ExitCode
 	arr.refill(9, value: true)
 	arr.refill(9, value: false)
 	var lit = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for b in arr 'count'
 		if b 'set'
 			lit = lit + 1
@@ -100,7 +96,6 @@ end 'main'
 ```
 
 <!-- test: refill-packed-ranged-int -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ### refill writes every field of a 2-bit ranged-int array
 `int(0 to 3)` packs 4 elements per byte, so the same field-granular write has to hold at a width
@@ -115,7 +110,6 @@ function main() returns ExitCode
 	arr.push(1 as Quarter)
 	arr.refill(7, value: 3 as Quarter)
 	var total = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in arr 'sum'
 		total = total + q as FullRangeInt
 	end 'sum'
@@ -154,7 +148,6 @@ end 'main'
 ```
 
 <!-- test: refill-writes-the-whole-element-not-its-low-byte -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### refill writes every byte of a machine-word element
 An `int` element is eight bytes and one memory access wide. A write (or a read back) that moved only
 the LOW byte would round-trip every value under 256 unchanged and truncate everything above — so the
@@ -168,7 +161,6 @@ function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.refill(3, value: 16909060)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'sum'
 		total = total + v
 	end 'sum'
@@ -204,7 +196,6 @@ end 'main'
 ```
 
 <!-- test: grow-filled-preserves-the-prefix -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### growFilled writes only the entries it added
 Its whole difference from `refill` is the range it touches, so the standing prefix must come
 through untouched.
@@ -219,7 +210,6 @@ function main() returns ExitCode
 	arr.push(2)
 	arr.growFilled(5, value: 9)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'sum'
 		total = total + v
 	end 'sum'
@@ -231,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: grow-filled-does-nothing-when-it-adds-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### growFilled to a length it already has writes nothing
 `newLength <= count()` adds no entry, so there is nothing to fill and the existing entries keep
 their values.
@@ -246,7 +235,6 @@ function main() returns ExitCode
 	arr.push(5)
 	arr.growFilled(2, value: 9)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in arr 'sum'
 		total = total + v
 	end 'sum'
@@ -311,7 +299,6 @@ end 'main'
 ```
 
 <!-- test: refill-a-string-element-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### refill on a String-element array holds exactly one reference per slot
 A `String` element is a reference the array owns one of. Every slot the refill overwrites must
 release what it held and take a reference to what it stores, or the program leaks (exit 101) or
@@ -325,7 +312,6 @@ function main() returns ExitCode
 	arr.push("beta")
 	arr.refill(4, value: "zeta")
 	var hits = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'sum'
 		if s == "zeta" 'match'
 			hits = hits + 1
@@ -339,7 +325,6 @@ end 'main'
 ```
 
 <!-- test: refill-a-struct-element-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### refill on a struct-element array holds exactly one reference per slot
 The same obligation for a boxed struct element, which is where a fill that wrote the pointer word
 itself would double-free.
@@ -361,7 +346,6 @@ function main() returns ExitCode
 	arr.push(Slot.create(1))
 	arr.refill(3, value: Slot.create(4))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'sum'
 		total = total + s.value
 	end 'sum'
@@ -373,7 +357,6 @@ end 'main'
 ```
 
 <!-- test: grow-filled-a-string-element-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### growFilled on a String-element array keeps the prefix and owns the tail
 `growFilled`'s own half of the managed-element obligation: the prefix keeps the references it
 already holds and only the added slots take new ones.
@@ -385,7 +368,6 @@ function main() returns ExitCode
 	arr.push("ab")
 	arr.growFilled(4, value: "cde")
 	var hits = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'sum'
 		if s == "cde" 'match'
 			hits = hits + 1
@@ -403,7 +385,6 @@ end 'main'
 ```
 
 <!-- test: grow-filled-a-struct-element-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### growFilled on a struct-element array keeps the prefix and owns the tail
 The struct twin, which is also the case `array-slots` reaches through `resize`'s refusal: a
 managed element cannot be zero-initialized, so this is the grow that supplies one.
@@ -425,7 +406,6 @@ function main() returns ExitCode
 	arr.push(Slot.create(6))
 	arr.growFilled(3, value: Slot.create(7))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'sum'
 		total = total + s.value
 	end 'sum'

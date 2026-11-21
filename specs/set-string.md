@@ -349,7 +349,6 @@ end 'main'
 
 <!-- test: from-a-string-array-variable-leaves-the-source-intact -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `Set from <array>` copies each `String` key out of an array the program still holds; the array keeps its strings and both are dropped once.
 ```maxon
 typealias Names = Array with String
@@ -364,7 +363,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let s = NameSet from names
 	print("{s.count()} {names.count()} {s.contains("bob")}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'each'
 		print("{name}\n")
 	end 'each'

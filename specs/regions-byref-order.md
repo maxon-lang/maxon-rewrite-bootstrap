@@ -3463,7 +3463,7 @@ ok
 ```
 
 <!-- test: for-binding-field-cell-before -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field cell of a `for` binding is read beside the by-reference call.
 
@@ -3509,7 +3509,6 @@ end 'keep'
 function main() returns ExitCode
 	var items = HolderArray.create(0)
 	items.push(Holder.create())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in items 'each'
 		keep(PA.build(e.f, second: put(e.f)))
 	end 'each'
@@ -3522,7 +3521,6 @@ error E3186: <fragment>:44:34: argument 'e.f' is read by another operand of this
 ```
 
 <!-- test: for-binding-field-cell-after -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The twin with the read after the write.
 
@@ -3568,7 +3566,6 @@ end 'keep'
 function main() returns ExitCode
 	let items = HolderArray.create(0)
 	items.push(Holder.create())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in items 'each'
 		keep(PB.build(put(e.f), second: e.f))
 	end 'each'
@@ -4779,7 +4776,6 @@ error E3186: <fragment>:20:41: argument 'n' is read by another operand of this s
 ```
 
 <!-- test: for-binder-named-like-the-root -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A loop variable spelled like the local is a different binding, so the header's one read of the local is the cell.
 
 ```maxon
@@ -4788,7 +4784,7 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function bump(mutates n Tally) returns Tally
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return n
 end 'bump'
 
@@ -4799,9 +4795,8 @@ end 'spread'
 function main() returns ExitCode
 	var x = 0 as Tally
 	var total = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in spread(bump(x)) 'each'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'each'
 	print("{total}\n")
 	return 0

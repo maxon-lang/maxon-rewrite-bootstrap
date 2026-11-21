@@ -1960,7 +1960,6 @@ rather than an ownership one.
 
 <!-- test: push-for-element-into-second-opaque-array -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -1986,7 +1985,6 @@ type Container uses Element
 	end 'push'
 
 	function copyInto(dst ElementArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in self.items 'each'
 			dst.push(e)
 		end 'each'
@@ -5098,7 +5096,6 @@ val
 ```
 
 <!-- test: a-recursive-generic-type-holds-an-array-of-itself -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Kids = Array with Self` makes a generic tree node whose children are nodes of the same instance.
 ```maxon
@@ -5120,7 +5117,6 @@ type Node uses T
 
 	function size() returns Integer
 		var n = 1 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for k in self.kids 'each'
 			n = n + k.size()
 		end 'each'

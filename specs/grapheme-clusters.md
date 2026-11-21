@@ -388,7 +388,6 @@ end 'main'
 ```
 
 <!-- test: grapheme-boundary-combining-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Grapheme Boundary - Combining Mark Iteration
 
 Iterating a string with combining marks yields grapheme clusters:
@@ -397,7 +396,6 @@ Iterating a string with combining marks yields grapheme clusters:
 function main() returns ExitCode
 	let s = "caf\u0065\u0301" // c, a, f, e+combining accent = 4 graphemes
 	var count = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in s 'loop'
 		count = count + 1
 	end 'loop'

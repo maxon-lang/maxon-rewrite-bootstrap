@@ -165,7 +165,6 @@ fatal error: runtime abort 123 (schedulerQuiesceWaiterTaken)
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-across-many-rounds -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 4 -->
@@ -250,7 +249,6 @@ function main() returns ExitCode
 			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
 			worker.shutdown()
 		end 'spawnEach'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for p in replies 'collect'
 			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
@@ -271,7 +269,6 @@ outstanding=0 sum=30000
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-at-one-processor -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
@@ -341,7 +338,6 @@ function main() returns ExitCode
 			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
 			worker.shutdown()
 		end 'spawnEach'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for p in replies 'collect'
 			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)

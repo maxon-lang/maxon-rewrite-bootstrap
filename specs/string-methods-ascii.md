@@ -214,7 +214,6 @@ a.b.c
 ```
 
 <!-- test: adjacent-and-overlapping-matches-count-once -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A match is consumed WHOLE, and the sizing pass must agree with the building pass
 `replace` runs two passes over the same matches: one COUNTS them to size a single exactly-fitting
 allocation, the other re-walks them and writes. Both advance the cursor PAST the whole match, so
@@ -238,7 +237,6 @@ function main() returns ExitCode
 	let e = "aaa"
 	let p = e.split("aa")
 	print("{p.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for z in p 'l'
 		print("[{z}]")
 	end 'l'
@@ -259,14 +257,12 @@ end 'main'
 ```
 
 <!-- test: split-many-segments -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A split that grows the result array well past its initial capacity
 ```maxon
 function main() returns ExitCode
 	let s = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
 	let parts = s.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print(p)
 	end 'loop'
@@ -283,7 +279,6 @@ abcdefghijklmnopqrstuvwxyz
 ```
 
 <!-- test: split-of-a-grown-receiver -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A receiver whose bytes have moved to a detached buffer still splits
 `append` detaches a String's bytes into a separate allocation once they outgrow the record; the split
 reads the current buffer, not the one the String was born with.
@@ -294,7 +289,6 @@ function main() returns ExitCode
 	let t = "{a},{b},{a}"
 	let parts = t.split(",")
 	print("{parts.count()}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in parts 'loop'
 		print("[{p}]")
 	end 'loop'
@@ -362,7 +356,7 @@ HeLLoHELLO
 ```
 
 <!-- test: byte-methods-on-a-top-level-managed-binding -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### A module-scope `let` String is a receiver like any other
 ```maxon
 let Greeting = "Hello, World"
@@ -377,7 +371,7 @@ function main() returns ExitCode
 	if Greeting.startsWith("Hello") 'a'
 		print("ok\n")
 	end 'a'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for p in Greeting.split(", ") 'loop'
 		print("[{p}]")
 	end 'loop'

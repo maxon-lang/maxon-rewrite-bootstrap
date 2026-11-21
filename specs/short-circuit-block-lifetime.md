@@ -47,7 +47,6 @@ both fail them.
 ## Tests
 
 <!-- test: consumed-arg-scalar-borrow-survives-throwing-call -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A managed `Blk` owned by a `blocks` array, aliased into a `currentBlock` cursor
 field, then handed to a THROWING recursive method (`parseExpressionBP`) that
 consumes it. Its scalar `.id`, loaded before the call and used AFTER it, keeps the
@@ -93,7 +92,6 @@ type Module
 
 	function sumIds() returns Num
 		var sum = 0 as Num
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for b in blocks 'each'
 			sum = sum + b.id
 		end 'each'

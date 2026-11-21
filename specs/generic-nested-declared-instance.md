@@ -324,7 +324,6 @@ cursor yields a bare type parameter), so the reservation under test can only hav
 emitted-call edges.
 
 <!-- test: a-cursor-built-through-the-inner-alias-is-walked -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -366,7 +365,6 @@ type Bag uses Element implements Iterable with (Int, BIter)
 
 	function walk() returns Int
 		var total = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in self 'loop'
 			total = total + x
 		end 'loop'

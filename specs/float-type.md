@@ -783,7 +783,6 @@ error E3005: <fragment>:11:10: Value 2.5 is outside the range of 'Unit' (float(0
 <!-- test: a-for-in-over-a-float-array-is-range-known -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The element a `for … in` binds over a `let` float array carries the array's interval, and float arithmetic over it carries a computed one.
 ```maxon
 // TODO: float typealiases are not supported in minimaxon
@@ -796,7 +795,6 @@ end 'take'
 function main() returns ExitCode
 	// TODO: float literals are not supported in minimaxon
 	let xs = [1.5, 2.5]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		print("{take(x * 2.0)}\n")
 	end 'each'

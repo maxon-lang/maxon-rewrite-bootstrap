@@ -4350,7 +4350,7 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-for-copy-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f2-for-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4375,7 +4375,6 @@ end 'Tk'
 function main() returns ExitCode
 	let a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4390,7 +4389,6 @@ error E3102: <fragment>:24:22: use of moved value 'a': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ah-f2-for-call-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4417,9 +4415,8 @@ function eatArr(x UTArray)
 end 'eatArr'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4434,7 +4431,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-assign-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f2-for-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4459,7 +4455,6 @@ end 'Tk'
 function main() returns ExitCode
 	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4474,7 +4469,6 @@ error E3203: <fragment>:24:14: 'a' roots what 'f1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-ah-f2-for-copy-elem-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-for-copy-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4499,7 +4493,6 @@ end 'Tk'
 function main() returns ExitCode
 	let a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4514,7 +4507,6 @@ error E3214: <fragment>:24:18: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ah-f2-for-move-elem-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-move-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4543,9 +4535,8 @@ function eatUT(x UT)
 end 'eatUT'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4560,7 +4551,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-nothing-rd -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4582,9 +4572,8 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4599,7 +4588,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-nothing-wr -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4621,9 +4609,8 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4638,7 +4625,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-nothing-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-for-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4660,9 +4646,8 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -4677,7 +4662,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-fs-peek-no -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fs-peek-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -4704,9 +4688,8 @@ function peekArr(x UTArray) returns Num
 end 'peekArr'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			none then break
@@ -5812,7 +5795,6 @@ end 'main'
 
 <!-- test: model-hand-ai-i2-for-plain-array-match -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `i2-for-plain-array-match` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
@@ -5844,7 +5826,6 @@ end 'takeB'
 function main() returns ExitCode
 	let a = UbArray.create(0)
 	a.push(Ub.u1(Bx.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in a 'f1'
 		match e 'x2'
 			u0 then break
@@ -7028,7 +7009,6 @@ error E3197: <fragment>:37:11: cannot write 'u' through 'h', which is read-only 
 ```
 
 <!-- test: model-hand-an-f1-for-elems-nb-move-root -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-for-elems-nb-move-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
 ```maxon
@@ -7060,8 +7040,8 @@ type Hq is noncopyable
 	var xs as TkArray
 	var n as Num
 
-	static function create(u UT, e En, xs TkArray, n Num) returns Self
-		return Self{u: u, e: e, xs: xs, n: n}
+	static function create(consumes u UT, e En, consumes xs TkArray, n Num) returns Self
+		return Self{u: u, e: e.clone(), xs: xs, n: n}
 	end 'create'
 end 'Hq'
 
@@ -7070,9 +7050,8 @@ function eatHq(h Hq)
 end 'eatHq'
 
 function main() returns ExitCode
-	let h = Hq.create(UT.none, e: En.b, xs: TkArray.create(0), n: 0)
+	var h = Hq.create(UT.none, e: En.b, xs: TkArray.create(0), n: 0)
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for eV in h.xs 'f1'
 		match h.u 'x2'
 			none then eatHq(h)
@@ -7088,7 +7067,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-an-f1-for-elems-nb-byref-root -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-for-elems-nb-byref-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7133,7 +7111,6 @@ end 'clrXs'
 function main() returns ExitCode
 	let h = Hq.create(UT.none, e: En.b, xs: TkArray.create(0), n: 0)
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for eV in h.xs 'f1'
 		match h.u 'x2'
 			none then clrXs(h)
@@ -7149,7 +7126,6 @@ error E3207: <fragment>:43:20: 'clrXs' needs a writable parameter 'h' at line 35
 ```
 
 <!-- test: model-hand-an-f1-for-local-arr-nb -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-for-local-arr-nb` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7175,7 +7151,6 @@ function main() returns ExitCode
 	var xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	let e2 = En.b
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in xs 'f1'
 		match e2 'x2'
 			a then break
@@ -7474,7 +7449,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-n3-for-cond-elem-match-cond-binding-two -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n3-for-cond-elem-match-cond-binding-two` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7514,7 +7488,6 @@ function main() returns ExitCode
 	let h = Hb.create(TkArray.create(0), u: UT.have(Tk.create(5)))
 	let g = Hb.create(TkArray.create(0), u: UT.none)
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in (h if 1 != 0 else g).xs 'f1'
 		match (h if 1 != 0 else g).u 'x2'
 			none then break
@@ -10435,7 +10408,6 @@ error E3198: <fragment>:35:20: 'o' is isolated and cannot be read outside a bloc
 
 <!-- test: model-hand-fa15-c15-for-element -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `c15-for-element` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
@@ -10467,7 +10439,6 @@ end 'takeB'
 function main() returns ExitCode
 	let us = UbArray.create(0)
 	us.push(Ub.u1(Bx.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for u in us 'f1'
 		match u 'x2'
 			u0 then break
@@ -11377,7 +11348,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa20-p5-for-root-writer -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `p5-for-root-writer` of redteamFA20.hand_fa20, in capmodel `reggio/REPORTFA20.txt`.
 
@@ -11454,7 +11424,6 @@ end 'wrH'
 function main() returns ExitCode
 	let h = Hq.create(UT.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		wrH(h)
 		t.n = 3
@@ -14663,7 +14632,7 @@ error E3102: <fragment>:23:10: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa23-p1-in-for -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p1-in-for` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14705,7 +14674,6 @@ end 'Hx'
 function main() returns ExitCode
 	let h = Hx.create(UP.none, xs: TkArray.create(0))
 	h.xs.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in h.xs 'f1'
 		match h.u 'x2'
 			none then h.xs = TkArray.create(0)

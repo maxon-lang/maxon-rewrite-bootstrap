@@ -31,7 +31,7 @@ the digests of RFC 6234 section 8.5. Each line prints a vector's id and the dige
 ## Tests
 
 <!-- test: sha2.one-shot-digests -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Every one-shot vector of the three algorithms: the empty message, `abc`, the two-block FIPS 180-4 example, and the four padding boundaries (55, 56, 63, 64 bytes for SHA-256; 111, 112, 127, 128 for SHA-384 and SHA-512).
 ```maxon
@@ -46,7 +46,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -60,7 +60,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -133,7 +133,7 @@ sha512-007 [a21b1077d52b27ac545af63b32746c6e3c51cb0cb9f281eb9f3580a6d4996d5c9917
 ```
 
 <!-- test: sha2.digest-gives-the-one-shot-digest-however-the-message-is-split -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Zero chunks, an empty chunk, empty chunks between others, a byte at a time, and splits mid-block and at a block's end all give the one-shot digest of the concatenation.
 ```maxon
@@ -150,7 +150,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -164,7 +164,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -174,7 +174,6 @@ end 'toHex'
 
 function report(id String, algorithm HashAlgorithm, chunks ChunkHexList)
 	let digest = Digest.create(algorithm)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for chunk in chunks 'eachChunk'
 		digest.update(fromHex(chunk))
 	end 'eachChunk'
@@ -246,13 +245,13 @@ sha512-chunked-009 [8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb688
 ```
 
 <!-- test: sha2.a-million-letters -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 RFC 6234 TEST3: a million repetitions of `a`, hashed in one call and as a thousand chunks of a thousand.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -289,7 +288,7 @@ end 'chunked'
 function main() returns ExitCode
 	let million = letters(1000000)
 	let thousand = letters(1000)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for algorithm in HashAlgorithm.allCases 'eachAlgorithm'
 		print("{algorithm.name} one-shot [{toHex(oneShot(algorithm, data: million))}]\n")
 		print("{algorithm.name} chunked [{toHex(chunked(algorithm, chunk: thousand))}]\n")
@@ -359,7 +358,7 @@ Stack trace:
 
 <!-- test: sha2.the-hardware-and-software-compressions-agree -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 SHA-256 has two compressions: the SHA instructions (SHA-NI on x64, the ARMv8 SHA2 extension on arm64) where
@@ -372,7 +371,7 @@ typealias LengthList = Array with Count
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -423,7 +422,6 @@ function main() returns ExitCode
 	report("million", chunk: letters(1000), times: 1000)
 	let lengths = LengthList from [1, 55, 56, 63, 64, 65, 119, 120, 127, 128, 129, 1000]
 	var disagreements = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
 		let message = letters(length)
 		let hardware = digestOf(Digest.create(HashAlgorithm.sha256), chunk: message, times: 1)

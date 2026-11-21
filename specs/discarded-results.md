@@ -1920,7 +1920,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator a `withIterator()` loop walks is created by the loop, so moving it is not an effect of the function.
@@ -1935,7 +1935,7 @@ end 'SearchError'
 
 function positionOf(values IntArray, wanted Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		if value == wanted 'hit'
 			return iter.index() as Integer
@@ -1963,7 +1963,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: a-with-iterator-loop-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that pushes into an array it was handed is an effect, whatever the iterator does.
 ```maxon
@@ -1974,7 +1974,7 @@ typealias IntArray = Array with Integer
 function copyInto(values IntArray, target IntArray) returns Integer
 	var copied = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		target.push(value + (iter.index() as Integer))
 		copied = copied + 1
@@ -1999,7 +1999,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2009,7 +2009,7 @@ typealias IntArray = Array with Integer
 function show(values IntArray) returns Integer
 	var shown = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		print("{iter.index()}={value}\n")
 		shown = shown + 1
@@ -2032,7 +2032,7 @@ end 'main'
 ```
 
 <!-- test: error.a-with-iterator-search-stays-pure-beside-an-iterator-that-moves-records-between-its-fields -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 Another iterator type in the program that moves a record between its own fields does not make a search over an array effectful.
@@ -2073,7 +2073,7 @@ end 'SearchError'
 
 function positionOf(values IntArray, wanted Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		if value == wanted 'hit'
 			return iter.index() as Integer
@@ -2101,7 +2101,7 @@ error E3064: specs/discarded-results/error.a-with-iterator-search-stays-pure-bes
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-list-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `List`, discarded, is refused.
@@ -2116,7 +2116,7 @@ end 'SearchError'
 
 function firstAbove(values IntList, floor Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		if value > floor 'hit'
 			return iter.current()
@@ -2142,7 +2142,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-list-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2155,7 +2155,7 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntList, floor Integer) returns Integer throws SearchError
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for value in values 'each'
 		if value > floor 'hit'
 			return value
@@ -2181,7 +2181,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-li
 ```
 
 <!-- test: a-with-iterator-loop-over-a-list-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
@@ -2192,7 +2192,7 @@ typealias IntList = List with Integer
 function show(values IntList) returns Integer
 	var shown = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
@@ -2215,7 +2215,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-list-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
@@ -2228,7 +2228,7 @@ typealias IntArray = Array with Integer
 function copyInto(values IntList, target IntArray) returns Integer
 	var copied = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		target.push(value + iter.current())
 		copied = copied + 1
@@ -2254,7 +2254,7 @@ end 'main'
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-fixed-array-is-pure -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `FixedArray`, discarded, is refused.
@@ -2270,7 +2270,7 @@ end 'SearchError'
 
 function firstAbove(values IntVector, floor Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		if value > floor 'hit'
 			return iter.current()
@@ -2298,7 +2298,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 
 <!-- test: error.a-search-through-a-for-loop-over-a-fixed-array-is-pure -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2312,7 +2312,7 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntVector, floor Integer) returns Integer throws SearchError
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for value in values 'each'
 		if value > floor 'hit'
 			return value
@@ -2340,7 +2340,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-fi
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-prints-keeps-its-result-droppable -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
@@ -2352,7 +2352,7 @@ typealias IntVector = FixedArray with 3 Integer
 function show(values IntVector) returns Integer
 	var shown = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
@@ -2380,7 +2380,7 @@ end 'main'
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-writes-an-argument-keeps-its-result-droppable -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
@@ -2394,7 +2394,7 @@ typealias IntArray = Array with Integer
 function copyInto(values IntVector, target IntArray) returns Integer
 	var copied = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		target.push(value + iter.current())
 		copied = copied + 1
@@ -2420,7 +2420,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-set-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `Set`, discarded, is refused.
@@ -2435,7 +2435,7 @@ end 'SearchError'
 
 function firstAbove(values IntSet, floor Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		if value > floor 'hit'
 			return iter.current()
@@ -2461,7 +2461,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-set-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2474,7 +2474,7 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntSet, floor Integer) returns Integer throws SearchError
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for value in values 'each'
 		if value > floor 'hit'
 			return value
@@ -2500,7 +2500,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-se
 ```
 
 <!-- test: a-with-iterator-loop-over-a-set-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
@@ -2511,7 +2511,7 @@ typealias IntSet = Set with Integer
 function show(values IntSet) returns Integer
 	var shown = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
@@ -2534,7 +2534,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-set-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
@@ -2547,7 +2547,7 @@ typealias IntArray = Array with Integer
 function copyInto(values IntSet, target IntArray) returns Integer
 	var copied = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in values.withIterator() 'each'
 		target.push(value + iter.current())
 		copied = copied + 1
@@ -2572,7 +2572,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-map-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2589,7 +2589,7 @@ end 'SearchError'
 
 function keyOf(table IntMap, wanted Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, entry) in table.withIterator() 'each'
 		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (key, value) = entry
@@ -2618,7 +2618,6 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-map-is-pure -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 The same search through a plain `for (key, value) in` loop.
@@ -2633,7 +2632,6 @@ end 'SearchError'
 
 function keyOf(table IntMap, wanted Integer) returns Integer throws SearchError
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, value) in table 'each'
 		if value == wanted 'hit'
 			return key
@@ -2659,7 +2657,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-ma
 ```
 
 <!-- test: a-with-iterator-loop-over-a-map-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A loop body that prints is an effect of the function, whatever the iterator does.
@@ -2671,7 +2669,7 @@ typealias IntMap = Map with (Integer, Integer)
 function show(table IntMap) returns Integer
 	var shown = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, entry) in table.withIterator() 'each'
 		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (key, value) = entry
@@ -2696,7 +2694,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-map-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -2709,7 +2707,7 @@ typealias IntMap = Map with (Integer, Integer)
 function copyInto(table IntMap, target IntMap) returns Integer
 	var copied = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, entry) in table.withIterator() 'each'
 		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (key, value) = entry

@@ -521,7 +521,6 @@ captured true true
 
 <!-- test: a-just-spawned-childs-module-list-holds-the-system-library -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- process: own -->
 The program runs itself as a child that sleeps, opens the child the moment it is spawned, without waiting for it to
@@ -557,7 +556,6 @@ function main() returns ExitCode
 	let sampled = try SampledProcess.open(pid) otherwise return 4
 	let modules = try sampled.modules() otherwise return 5
 	var listed = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for module in modules 'eachModule'
 		if module.name.toLower() == systemLibrary() 'isTheSystemLibrary'
 			listed = true
@@ -646,7 +644,6 @@ a word at an unaligned offset ends where the next word begins true
 
 <!-- test: a-child-held-inside-its-loader-has-no-module-list-until-it-is-released -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- process: own -->
 The program runs itself as a traced child and holds it at its second library-load event. The first is `ntdll.dll`,
@@ -705,7 +702,6 @@ function main() returns ExitCode
 	print("detached {port.detach(pid as DebuggeeProcessId)}\n")
 	let modules = try sampled.modules() otherwise return 6
 	var listed = false
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for module in modules 'eachModule'
 		if module.name.toLower() == "kernel32.dll" 'isTheSystemLibrary'
 			listed = true
@@ -758,7 +754,7 @@ accessDenied
 ```
 
 <!-- test: a-dropped-seized-set-detaches-the-threads-it-holds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 <!-- process: own -->
@@ -805,7 +801,7 @@ end 'seizeAndDrop'
 function isTraced(pid Pid) returns bool
 	let path = try FilePath.from("/proc/{pid}/status") otherwise panic("a process id spells a path")
 	let text = try File.readText(path) otherwise panic("the child's status file is readable while the child lives")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith("TracerPid:") 'thisOne'
 			let value = try line.split("\t").get(1) otherwise panic("a tracer line carries a value")
@@ -909,7 +905,6 @@ depth after the drop 0
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- procs: 4 -->
 <!-- process: own -->
@@ -928,7 +923,6 @@ let HeldNanos = 200000000
 function captureEverything(sampled SampledProcess) returns Round
 	let threads = sampled.threads()
 	var refusals = 0 as Round
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for thread in threads 'eachThread'
 		// TODO: if try is not supported in minimaxon
 		if let _ = try sampled.capture(thread) 'sampled'

@@ -144,7 +144,7 @@ the pure face agrees: true
 ```
 
 <!-- test: two-seeds-give-two-digests -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Two seeds drawn with `HashSeed.random()` give two different empty states and two different digests of every
 message, the empty one included. Two 64-bit draws make an equal pair a chance of about 2^-64, so an equal
 pair is a seed that did not reach the fold.
@@ -157,7 +157,6 @@ function main() returns ExitCode
 	print("the seeds differ: {not one.toBytes().equals(other.toBytes())}\n")
 	print("the empty states differ: {KeyedHasher.empty(one) != KeyedHasher.empty(other)}\n")
 	let messages = MessageList from ["", "a", "hello", "a message longer than one sixteen-byte block"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for message in messages 'eachMessage'
 		let bytes = message.toByteArray()
 		let underOne = KeyedHasher.combinedBytes(KeyedHasher.empty(one), bytes: bytes)
@@ -222,7 +221,7 @@ same digest: true
 ```
 
 <!-- test: the-fold-separates-the-parts -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Each step's state is the seed of the next, so the boundary between two steps is part of what is hashed:
 `"ab"` then `"c"`, `"a"` then `"bc"` and `"abc"` are three different folds under one `HashSeed`, through
 both faces of `KeyedHasher`. A fold over a flat byte stream reaches one digest for all three.
@@ -231,7 +230,6 @@ typealias PartArray = Array with String
 
 function objectFold(parts PartArray, seed HashSeed) returns HashDigest
 	let hasher = KeyedHasher.create(seed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for part in parts 'each'
 		hasher.combineBytes(part.toByteArray())
 	end 'each'
@@ -240,7 +238,6 @@ end 'objectFold'
 
 function pureFold(parts PartArray, seed HashSeed) returns HashDigest
 	var state = KeyedHasher.empty(seed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for part in parts 'each'
 		state = KeyedHasher.combinedBytes(state, bytes: part.toByteArray())
 	end 'each'
@@ -274,7 +271,7 @@ pure ab-c/a-bc: true
 ```
 
 <!-- test: one-bit-avalanches -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Flipping one bit of the input moves about half of the 64 output bits of a `KeyedHasher` fold under one
 `HashSeed.random()`. For every length on either side of
 the hash's block boundaries, each bit of each byte is flipped in turn: the digests differ by at least 16
@@ -307,7 +304,6 @@ function main() returns ExitCode
 	let lengths = LengthList from [1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
 	let masks = ByteArray from [1, 2, 4, 8, 16, 32, 64, 128]
 	let seed = HashSeed.random()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
 		let bytes = bytesFor(length)
 		let digest = KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: bytes)
@@ -316,7 +312,6 @@ function main() returns ExitCode
 		var unmoved = 0 as Count
 		for index in 0 upto length 'eachByte'
 			let original = try bytes.get(index) otherwise panic("the index is inside the message")
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for mask in masks 'eachMask'
 				let flipped = bytes.clone()
 				try flipped.set(index, value: original xor mask) otherwise panic("the index is inside the message")
@@ -410,7 +405,7 @@ not all equal: true
 ```
 
 <!-- test: each-tier-is-its-own-hash -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -435,7 +430,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -449,7 +444,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -506,7 +501,6 @@ function main() returns ExitCode
 	let seedHex = toHex(HashSeed.random().toBytes())
 	let tiers = TierList from ["aes", "software"]
 	let digests = StringArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tier in tiers 'eachTier'
 		let first = runUnder(me, tier: tier, seedHex: seedHex)
 		let second = runUnder(me, tier: tier, seedHex: seedHex)
@@ -518,10 +512,10 @@ function main() returns ExitCode
 	end 'eachTier'
 	var distinct = true
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (outer, one) in digests.withIterator() 'eachOne'
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (inner, other) in digests.withIterator() 'eachOther'
 			if outer.index() < inner.index() and one == other 'same'
 				distinct = false
@@ -994,7 +988,6 @@ folds agree: true
 ```
 
 <!-- test: a-caller-added-length-tag-separates-them -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A caller can tag each part with its length — fold the bytes, then fold the count — as
 `ContentHash.mixBytes` does, over a `KeyedHasher` under one seed. Under that policy the three groupings of the
 same three bytes reach three different digests.
@@ -1011,7 +1004,6 @@ end 'taggedFold'
 
 function foldParts(parts PartArray, seed HashSeed) returns HashDigest
 	var state = KeyedHasher.create(seed).finalize()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for part in parts 'each'
 		state = taggedFold(state, text: part)
 	end 'each'
@@ -1039,7 +1031,6 @@ ab-c/a-bc: true
 ```
 
 <!-- test: a-pure-fold-nests-where-a-hasher-cannot -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `mixBytes` written as one expression, the inner fold feeding the outer, reaches the digests the object-face
 tagged fold above reaches for each grouping. A refactor that let the two spellings drift apart reddens here.
 ```maxon
@@ -1051,7 +1042,6 @@ end 'mixBytes'
 
 function pureParts(parts PartArray, seed HashSeed) returns HashDigest
 	var state = KeyedHasher.empty(seed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for part in parts 'each'
 		state = mixBytes(state, bytes: part.toByteArray())
 	end 'each'
@@ -1060,7 +1050,6 @@ end 'pureParts'
 
 function objectParts(parts PartArray, seed HashSeed) returns HashDigest
 	let hasher = KeyedHasher.create(seed)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for part in parts 'each'
 		let bytes = part.toByteArray()
 		hasher.combineBytes(bytes)
@@ -1087,7 +1076,7 @@ a-bc=true
 ```
 
 <!-- test: a-folded-word-never-forgets-the-state -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1110,10 +1099,10 @@ let StateCount = 64 as Count
 
 function allDistinct(digests DigestList) returns bool
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (outer, one) in digests.withIterator() 'eachOne'
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for (inner, other) in digests.withIterator() 'eachOther'
 			if outer.index() < inner.index() and one == other 'same'
 				return false
@@ -1134,10 +1123,9 @@ function child() returns ExitCode
 	end 'eachState'
 	print("states distinct={allDistinct(states)}\n")
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, word) in words().withIterator() 'eachWord'
 		let folded = DigestList.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for state in states 'eachState'
 			folded.push(KeyedHasher.combined(state, value: word))
 		end 'eachState'
@@ -1145,7 +1133,6 @@ function child() returns ExitCode
 	end 'eachWord'
 	let atOneState = DigestList.create(0)
 	let oneSeed = HashSeed.random()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for word in words() 'eachWord'
 		atOneState.push(KeyedHasher.combined(KeyedHasher.empty(oneSeed), value: word))
 	end 'eachWord'
@@ -1187,7 +1174,6 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let tiers = TierList from ["aes", "software"]
 	var kept = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tier in tiers 'eachTier'
 		if not hostRuns(tier) 'absent'
 			continue
@@ -1210,7 +1196,7 @@ all tiers keep the state: true
 ```
 
 <!-- test: the-software-tier-has-no-seed-independent-collision -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: wasm32-wasi -->
 No message may cancel the state the software tier has folded so far. The software tier keys each 16-byte
 pair's first word with a public constant before the multiply-and-fold, so a word equal to that constant
@@ -1255,7 +1241,6 @@ end 'pushRun'
 
 function message(lanes WordList, middle Byte) returns ByteArray
 	let bytes = ByteArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for lane in lanes 'eachLane'
 		pushWord(bytes, word: lane xor 1)
 		pushRun(bytes, value: middle, count: WordBytes)
@@ -1522,7 +1507,7 @@ error E3036: <fragment>:3:26: 'KeyedHasher.empty' expects 1 argument(s) but 0 we
 ```
 
 <!-- test: a-pinned-process-draws-the-same-random-seeds-on-every-run -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Under a pinned `MAXON_HASH_SEED`, the n-th `HashSeed.random()` of a process is the same on every run: the pin
@@ -1537,7 +1522,7 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1584,7 +1569,7 @@ the two runs drew one sequence: true
 ```
 
 <!-- test: one-pin-draws-the-same-random-seeds-on-every-tier -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1602,7 +1587,7 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1658,7 +1643,7 @@ the tiers drew one sequence: true
 ```
 
 <!-- test: two-pins-draw-different-random-seeds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two pins fix two sequences: a process pinned to `0123456789abcdef` and one pinned to `fedcba9876543210` draw
@@ -1672,7 +1657,7 @@ let SpelledSeedLength = 17
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1725,7 +1710,7 @@ the sequences differ: true
 ```
 
 <!-- test: every-random-seed-call-is-a-draw -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Every `HashSeed.random()` call is a draw, so the compiler neither merges two calls nor drops one whose result
@@ -1741,7 +1726,7 @@ let SpelledDrawLength = 16
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1856,7 +1841,7 @@ no draw keys the process fold: true
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- procs: 4 -->
@@ -1886,7 +1871,7 @@ let SpelledSeedLength = 16
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -1918,18 +1903,16 @@ function main() returns ExitCode
 		handles.push(spawn Drawer.create())
 	end 'spawnEach'
 	let replies = DrawsPromiseArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in handles 'sendEach'
 		replies.push(try handle.draw(drawsEach) otherwise panic("an open mailbox with room takes the send"))
 	end 'sendEach'
 	let seen = DrawnSet.create()
 	var lines = 0 as Tally
 	var spelled = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for reply in replies 'collect'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let text = await reply
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for line in text.split("\n") 'eachLine'
 			if line != "" 'aDraw'
 				spelled = spelled and line.count() == SpelledSeedLength

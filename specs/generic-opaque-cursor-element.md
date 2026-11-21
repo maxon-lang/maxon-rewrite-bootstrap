@@ -380,7 +380,6 @@ ABI that carries a descriptor.
 
 <!-- test: error.a-cursor-over-a-parameter-is-still-refused -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -412,7 +411,6 @@ type Collector uses Element
 
 	function count(source ElementBag) returns Integer
 		var n = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for item in source 'collect'
 			n = n + 1
 		end 'collect'

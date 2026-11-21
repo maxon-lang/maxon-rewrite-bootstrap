@@ -800,7 +800,7 @@ end 'main'
 ```
 
 <!-- test: bytes-assembled-in-a-loop-fill-an-unsigned-quantity-word -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ### Bytes assembled in a loop fill an unsigned-quantity word, top byte included
@@ -812,7 +812,7 @@ typealias Word = int(0 to u64.max)
 function packed(bytes ByteArray) returns Word
 	var word = 0 as Word
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in bytes.withIterator() 'eachByte'
 		word = word or ((value as Word) shl ((iter.index() as Word) * 8))
 	end 'eachByte'

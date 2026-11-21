@@ -583,7 +583,6 @@ end 'main'
 ```
 
 <!-- test: for-in.nested -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Nested for-in loops on the same map must not corrupt each other's iteration state.
 
@@ -595,7 +594,6 @@ typealias IntMap = Map with (Integer, Integer)
 function innerSum(m IntMap) returns Integer
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in m 'inner'
 		total = total + v
 	end 'inner'
@@ -606,7 +604,6 @@ function main() returns ExitCode
 	let m = [1: 1, 2: 2, 3: 3]
 	var outerTotal = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in m 'outer'
 		outerTotal = outerTotal + v + innerSum(m)
 	end 'outer'
@@ -1207,7 +1204,6 @@ say so loudly if either does not: it adds `1 + v`, so one spurious trip moves `t
 the slot it read held.
 
 <!-- test: corpus.empty-map-iterates-zero-trips -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -1218,7 +1214,6 @@ function main() returns ExitCode
 	let never = ValMap.create()
 	var trips = 0 as Val
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in never 'neverPopulated'
 		trips = trips + 1 + v
 	end 'neverPopulated'
@@ -1228,7 +1223,6 @@ function main() returns ExitCode
 	_ = emptied.remove(1)
 	_ = emptied.remove(2)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in emptied 'allRemoved'
 		trips = trips + 1 + v
 	end 'allRemoved'
@@ -1539,7 +1533,6 @@ error E3005: <fragment>:11:10: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: a-let-map-for-in-keys-and-values-are-range-known -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Both columns of a `let` map literal keep their range through a destructuring `for … in`.
 ```maxon
@@ -1552,7 +1545,6 @@ end 'take'
 function main() returns ExitCode
 	let m = [7: 40]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (k, v) in m 'each'
 		print("{take(k)} {take(v)}\n")
 	end 'each'
@@ -1567,7 +1559,6 @@ end 'main'
 ```
 
 <!-- test: error.a-let-map-for-in-key-outside-a-narrower-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A key read through `for … in` is checked against the alias it is handed to.
@@ -1581,7 +1572,6 @@ end 'take'
 function main() returns ExitCode
 	let m = [700: 40]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (k, v) in m 'each'
 		print("{take(k)} {take(v)}\n")
 	end 'each'
@@ -1938,7 +1928,7 @@ error E3005: <fragment>:3:21: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'from' -->
 How many allocations a sequence of inserts and removes makes is a function of the sequence, not of where
 the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
 different odd constant, so each run lays the keys and the tombstones out differently, and the four runs
@@ -1992,15 +1982,12 @@ end 'churnAllocations'
 
 function main() returns ExitCode
 	let tallies = Tallies.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for multiplier in Multipliers from [2654435761, 2246822519, 3266489917, 668265263] 'eachLayout'
 		tallies.push(churnAllocations(multiplier))
 	end 'eachLayout'
 	let first = try tallies.get(0) otherwise panic("four tallies were pushed")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tally in tallies 'eachTally'
 		if tally != first 'differs'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for shown in tallies 'eachShown'
 				print("{shown} ")
 			end 'eachShown'

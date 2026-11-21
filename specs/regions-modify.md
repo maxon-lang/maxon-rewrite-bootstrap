@@ -24,7 +24,6 @@ filled region into frozen data.
 
 <!-- test: build-then-freeze-runs -->
 <!-- skip: capability typealias 'immutable' is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The index fills a region of its own inside `modify`, is frozen on return, and `lineOf` reads the frozen result.
@@ -69,7 +68,6 @@ function buildIndex(declarations DeclarationArray) returns SettledIndex
 	let builder = IndexBuilder.create() as isolated IndexBuilder
 	// TODO: modify blocks are not supported in minimaxon
 	modify builder 'fill'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for declaration in declarations 'eachDeclaration'
 			builder.add(declaration.clone())
 		end 'eachDeclaration'
@@ -200,7 +198,6 @@ error E3198: <fragment>:23:9: 'counter' is not isolated; 'modify' opens an isola
 ```
 
 <!-- test: isolated-field-modify-one-call-swap-runs -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -242,7 +239,6 @@ type Indexer
 	function addWords(words WordArray)
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.index 'fill'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for word in words 'eachWord'
 				self.index.add(word)
 			end 'eachWord'
@@ -289,7 +285,6 @@ end 'main'
 ```
 
 <!-- test: call-into-isolated-with-mutable-argument-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -314,7 +309,6 @@ type WordIndex
 
 	function absorb(other WordIndex)
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for (word, seen) in other.counts 'eachWord'
 			let mine = try self.counts.get(word) otherwise 0
 			self.counts.upsert(word, value: mine + seen)
@@ -348,7 +342,6 @@ error E3201: <fragment>:35:21: 'spare' is mutable outside 'index'; a call into a
 ```
 
 <!-- test: writable-receiver-needed-inside-window -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -390,7 +383,6 @@ type Indexer
 	function addWords(words WordArray)
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.index 'fill'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for word in words 'eachWord'
 				self.index.add(word)
 			end 'eachWord'

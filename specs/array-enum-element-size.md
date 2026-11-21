@@ -217,7 +217,6 @@ end 'main'
 ```
 
 <!-- test: narrow-signed-enum-element-reaches-user-code-through-the-corpus -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A narrow SIGNED enum element keeps its sign when the CORPUS hands it to user code
 
 ⭐ **THE THIRD SIGN-EXTENSION DOOR (`enum-narrow-storage`).** A payload-free enum's array element occupies
@@ -275,7 +274,6 @@ function main() returns ExitCode
 	let first = try a.first() otherwise Signal.zero
 	let last = try a.last() otherwise Signal.zero
 	var seenNegative = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a.map(markNegative) 'each'
 		seenNegative = seenNegative + (v.rawValue as Integer)
 	end 'each'

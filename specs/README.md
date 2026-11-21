@@ -60,6 +60,7 @@ specs to; raise it when more pass.
 | 2026-11-21 | a return converts an integer that the range analysis proves fits | 2264 | 3817 | 11568 | 37 s |
 | 2026-11-21 | tests that expect another code for a known reason are skipped | 2264 | 3450 | 11935 | 29 s |
 | 2026-11-21 | array and map literals, and a block handler on a try expression | 2424 | 3845 | 11380 | 30 s |
+| 2026-11-21 | a for loop over an array or an iterable type | 2515 | 4063 | 11071 | 30 s |
 
 Of the skipped tests, 10719 are skipped by the conversion (`<!-- skip: kind -->`, 368 of them the main-in-a-subdirectory
 difference) and 700 by the runner (508 `tier`, the rest directives, overlays and result blocks it cannot honour yet).

@@ -83,7 +83,6 @@ error E3106: <fragment>:6:6: 'resize' cannot grow an array of 'String': a grown 
 ```
 
 <!-- test: grow-filled-managed-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### growFilled is the grow that supplies the element
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -102,7 +101,6 @@ function main() returns ExitCode
 	let arr = SlotArray.create(0)
 	arr.growFilled(3, value: Slot.create(14))
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'sum'
 		total = total + s.value
 	end 'sum'
@@ -343,7 +341,6 @@ end 'main'
 ```
 
 <!-- test: for-over-an-empty-slot-panics -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ### A `for` element read of an empty slot panics
 The loop reads element 0, then meets the slot `setLength` published and nothing filled. It panics with
@@ -369,7 +366,6 @@ function main() returns ExitCode
 	arr.push(Slot.create(5))
 	arr.reserve(3)
 	try arr.managed.setLength(3) otherwise panic("setLength: capacity just reserved for 3")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'walk'
 		print("{s.value}\n")
 	end 'walk'
@@ -390,7 +386,6 @@ Stack trace:
 ```
 
 <!-- test: for-over-an-empty-slot-in-a-generic-body-panics -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### A `for` element read of an empty slot panics in a body compiled once for every element type
@@ -416,7 +411,6 @@ type Bag uses Element
 
 	function visit() returns Integer
 		let kept = ElementArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in self.items 'each'
 			kept.push(e)
 		end 'each'
@@ -445,7 +439,6 @@ Stack trace:
 ```
 
 <!-- test: a-zero-is-an-element-in-a-generic-body-over-scalars -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The twin: the same body instantiated at `Integer`, where a zeroed slot is the element 0 and nothing is empty, so the
 loop visits both.
@@ -467,7 +460,6 @@ type Bag uses Element
 
 	function visit() returns Integer
 		let kept = ElementArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in self.items 'each'
 			kept.push(e)
 		end 'each'
@@ -492,7 +484,6 @@ visited 2
 ```
 
 <!-- test: a-static-generic-body-takes-a-borrowed-element-loop-through-the-call-sites-descriptor -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `static function` that does not return `Self` has no instance, so the layout descriptor it takes a reference
 through arrives from its call. The loop reads a borrowed element and the `clear` drops the source; the element holds
@@ -511,7 +502,6 @@ type Bag uses Element
 
 	static function keepFirstAfterClear(items ElementArray) returns Integer
 		var seen = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in items 'each'
 			items.clear()
 			items.push(e)

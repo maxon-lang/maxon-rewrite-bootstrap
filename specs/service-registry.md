@@ -2775,7 +2775,6 @@ service=3 main=3
 
 <!-- test: a-shared-value-of-a-type-holding-an-array-is-read-across-threads -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An `Array` field is published like any other; the spawned reader walks it with a `for`.
 ```maxon
@@ -2803,7 +2802,6 @@ type Summer
 
 	export function total() returns Integer
 		var sum = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for score in self.cell.current().scores 'eachScore'
 			sum = sum + score
 		end 'eachScore'

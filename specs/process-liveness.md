@@ -292,7 +292,6 @@ end 'main'
 ```
 
 <!-- test: process-liveness.an-unsigned-id-past-every-host-range-is-not-alive -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An unsigned id no signed word can hold names no process, and asking about one answers `false`, never a range
 panic.
 ```maxon
@@ -301,7 +300,6 @@ function main() returns ExitCode
 		return 1
 	end 'claimed'
 	let pids = [u64.max as Pid, 9223372036854775807 as Pid]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pid in pids 'each'
 		if Process.isAlive(pid) 'alive'
 			return 2

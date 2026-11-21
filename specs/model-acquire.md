@@ -7603,7 +7603,6 @@ error E3205: <fragment>:38:13: cannot call 'y' inside 'a1'; it may wait (it awai
 <!-- test: model-hand-ae-w-for-state-array -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-for-state-array` of redteamAE.hand_ae3, in capmodel `reggio/REPORTRTAE.txt`.
@@ -7633,7 +7632,6 @@ function main() returns ExitCode
 	let a = spawn Ar.create(NumArray.create(0), n: 0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in a.xs 'f3'
 			a.add(1)
 		end 'f3'
@@ -14084,7 +14082,6 @@ error E3199: <fragment>:43:10: 'h' cannot be opened: the value that holds it is 
 <!-- test: model-hand-ao-h6-acquire-inside-lend -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h6-acquire-inside-lend` of redteamAO/hand_ao1.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -14127,7 +14124,6 @@ function main() returns ExitCode
 	h.xs.push(Tk.create(1))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sv.create(Ha.create(TkArray.create(0)), k: 0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in (h if 1 != 0 else g).xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14571,7 +14567,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-local-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-local-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -14624,7 +14619,6 @@ function main() returns ExitCode
 	let s = spawn Sac.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14644,7 +14638,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-local-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -14698,7 +14691,6 @@ function main() returns ExitCode
 	let s = spawn Sac.create(Bx.create(0), n: 0)
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14718,7 +14710,6 @@ error E3201: <fragment>:47:13: 't.b' is mutable outside 's'; a store into an iso
 <!-- test: model-hand-fa19-for-param-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-param-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -14767,7 +14758,6 @@ end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = o
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14796,7 +14786,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-param-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -14846,7 +14835,6 @@ end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = o
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14875,7 +14863,6 @@ error E3201: <fragment>:44:13: 't.b' is mutable outside 's'; a store into an iso
 <!-- test: model-hand-fa19-for-field-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-field-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
@@ -14943,7 +14930,6 @@ function main() returns ExitCode
 	let s = spawn Sac.create(Bx.create(0), n: 0)
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'
@@ -14963,7 +14949,6 @@ end 'main'
 <!-- test: model-hand-fa19-for-field-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -15032,7 +15017,6 @@ function main() returns ExitCode
 	let s = spawn Sac.create(Bx.create(0), n: 0)
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
 		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 		acquire s 'a2'

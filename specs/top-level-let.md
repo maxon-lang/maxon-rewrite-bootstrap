@@ -518,7 +518,6 @@ test.txt
 
 <!-- test: a-top-level-array-literal-of-tuples -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A module-scope `Alias from [ ... ]` whose elements are tuples reads back each element's fields, as the
@@ -537,7 +536,6 @@ let steps = Steps from [(0, 1), (2, 3)]
 
 function main() returns ExitCode
 	print("{steps.count()}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for step in steps 'eachStep'
 		print(" {step.0} {step.1}")
 	end 'eachStep'
@@ -553,7 +551,7 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-literal-of-three-tuples -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple element of three fields, one of them a string, takes the same module-scope form.
@@ -570,7 +568,7 @@ let entries = Entries from [(1, "one", true), (2, "two", false)]
 
 function main() returns ExitCode
 	print("{entries.count()}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for entry in entries 'eachEntry'
 		print(" {entry.0} {entry.1} {entry.2}")
 	end 'eachEntry'
@@ -587,7 +585,6 @@ end 'main'
 
 <!-- test: a-top-level-array-literal-of-nested-tuples -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple element that is itself a tuple takes the stated element type's columns in turn.
@@ -608,7 +605,6 @@ let outers = Outers from [((1, 2), 3), ((4, 5), 6)]
 
 function main() returns ExitCode
 	print("{outers.count()}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for outer in outers 'eachOuter'
 		print(" {outer.0.0} {outer.0.1} {outer.1}")
 	end 'eachOuter'
@@ -734,7 +730,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-holding-a-construction-by-its-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A column built by its alias's `from` keeps the alias in the tuple's identity, as it does in a body, so the constant and
 a body-built tuple over the same construction are one type and share an array.
@@ -750,7 +745,6 @@ function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
 	let fresh = (Items from [7, 8], "fresh")
 	let both = [fresh, held.clone()]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in both 'eachPair'
 		print("{pair.0.count()} {pair.1}\n")
 	end 'eachPair'
@@ -902,7 +896,6 @@ end 'main'
 ```
 
 <!-- test: an-untyped-top-level-array-literal-of-tuples -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 An array literal of tuple literals with no stated alias is an `Array` of the tuple type its first element states.
 ```maxon
@@ -911,7 +904,6 @@ let pairs = [(1, "one"), (2, "two")]
 
 function main() returns ExitCode
 	print("{pairs.count()}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in pairs 'eachPair'
 		print(" {pair.0} {pair.1}")
 	end 'eachPair'
@@ -928,7 +920,6 @@ end 'main'
 
 <!-- test: a-parenthesised-tuple-element-of-a-typed-array-literal -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple literal written in extra parentheses is the same tuple in a slot that states one.
@@ -946,7 +937,6 @@ let steps = Steps from [((0, 1)), (((2, 3)))]
 
 function main() returns ExitCode
 	print("{steps.count()}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for step in steps 'eachStep'
 		print(" {step.0} {step.1}")
 	end 'eachStep'
@@ -2309,7 +2299,6 @@ error E2010: <fragment>:10:2: Expected ')' but got 'return'
 <!-- test: error.a-file-with-many-independent-refusals-reports-every-one -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Fourteen independent errors in one file, in all three kinds of region a parse refusal can be confined to (a function body, a declaration head, a top-level binding) and in a body that reads an undefined name, are each reported once and in source order. The valid declarations between them, which instantiate a generic type, build closures and take parameter defaults, are read in full, and the functions whose bodies were abandoned still accept the calls `main` makes to them.
 ```maxon
@@ -2356,7 +2345,6 @@ function totalCrates(scale Tally = 2) returns Tally
 	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for crate in crates 'eachCrate'
 		sum = bump(crate.heavy())
 	end 'eachCrate'
@@ -2403,7 +2391,6 @@ function totalSacks(scale Tally = 2) returns Tally
 	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for sack in sacks 'eachSack'
 		sum = bump(sack.heavy())
 	end 'eachSack'
@@ -2461,7 +2448,6 @@ function totalBundles(scale Tally = 2) returns Tally
 	// TODO: closures are not supported in minimaxon
 	let bump = function(n Tally) gives n + scale
 	var sum = 0 as Tally
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for bundle in bundles 'eachBundle'
 		sum = bump(bundle.heavy())
 	end 'eachBundle'
@@ -2888,7 +2874,6 @@ error E3004: <fragment>:14:37: call to undefined function 'nothere'
 
 <!-- test: error.uses-of-a-refused-call-constant-report-the-call-once -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Every use of `G` below meets a constant whose initializer is a refused call: only the call is reported.
 ```maxon
@@ -2902,7 +2887,6 @@ end 'use'
 
 function main() returns ExitCode
 	G.push(1)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in G 'each'
 		print("{x}\n")
 	end 'each'
@@ -3502,7 +3486,6 @@ loud next
 ```
 
 <!-- test: a-match-expression-in-an-array-element-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 enum Mode
 	quiet
@@ -3517,7 +3500,6 @@ end 'm', "tail"]
 let NEXT = "next"
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for label in LABELS 'each'
 		print("{label}\n")
 	end 'each'

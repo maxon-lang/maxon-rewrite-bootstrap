@@ -428,7 +428,6 @@ Stack trace:
 ```
 
 <!-- test: one-past-the-end-is-a-legal-fill-window-and-one-more-is-not -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The CLOSED-end twin, `emitBoundaryPositionOutOfRange`, reached through `__managed_fill`'s window end
 `start + count`. `stop == length` is legal — a window may reach the length exactly — and `ja` rather
@@ -453,7 +452,6 @@ function main() returns ExitCode
 	// stop == length + 1: one element past, refused, and nothing written.
 	try a.managed.fill(1, count: 4, value: 9) otherwise 'pastEnd'
 		var sum = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for v in a 'check'
 			sum = sum + v
 		end 'check'
@@ -471,7 +469,6 @@ end 'main'
 ```
 
 <!-- test: a-fill-window-that-overflows-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⭐ **THE OVERFLOW GUARD, WHICH THE UNSIGNED READING KEEPS RATHER THAN INHERITS.** `start + count` for
 two non-negative operands lands in `[0, 2^64-2]`, so it either fits an `i64` or wraps into
@@ -492,7 +489,6 @@ function main() returns ExitCode
 	let huge = 9223372036854775807
 	try a.managed.fill(1, count: huge, value: 5) otherwise 'wrapped'
 		var sum = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for v in a 'check'
 			sum = sum + v
 		end 'check'

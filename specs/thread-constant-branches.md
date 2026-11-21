@@ -175,7 +175,6 @@ end 'main'
 
 <!-- test: a-write-in-a-loop-keeps-its-slow-arm -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The store shape, with the store's own continuation carrying `(noError, noError)` from the fast arm.
 Every slot is written and read back, and the one write past the end must still take the slow arm
 and land in the handler.
@@ -205,7 +204,6 @@ function main() returns ExitCode
 		return 1
 	end 'count'
 	var seen = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'check'
 		seen = seen + v
 	end 'check'

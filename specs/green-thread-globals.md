@@ -197,7 +197,6 @@ scaled=42
 
 <!-- test: every-handler-may-co-own-a-module-let -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 **A MODULE `let` ARRAY IS READ BY EVERY THREAD, AND NO HANDLER STEPS A COUNT ON IT.** A handler that puts it
@@ -232,7 +231,6 @@ function main() returns ExitCode
 		replies.push(try h.churn(RoundsPerChurner) otherwise panic("churn"))
 	end 'eachChurner'
 	var held = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in replies 'eachReply'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held = held + (await r)

@@ -1267,12 +1267,10 @@ across the witness edge — the inherited requirement's binding doing work in a 
 in a reduction.
 
 <!-- test: stdlib-loading.range-iterates-through-its-iterable-conformance -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let r = Range.create(3, finish: 7)
 	var total = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in r 'loop'
 		total = total + v
 	end 'loop'
@@ -1295,12 +1293,11 @@ always was, which is why this case binds the range instead. Pinned here because 
 module's own documentation advertises, and a load that did not deliver it would be a load of a name alone.
 
 <!-- test: stdlib-loading.range-is-constructible-from-to-in-expression-position -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'to' -->
 ```maxon
 function main() returns ExitCode
 	let r = 3 to 7
 	var sum = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in r 'walk'
 		sum = sum + x
 	end 'walk'

@@ -626,7 +626,7 @@ kind=0 code=0 echoed=true outLen=7
 
 <!-- test: subprocess-builtins.stdin-bytes-holding-a-nul-are-delivered-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -656,7 +656,7 @@ function readAllStdin() returns String
 	let received = merge read
 	var line = "{received.count()} bytes ["
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, value) in received.withIterator() 'each'
 		if iter.index() > 0 'separator'
 			line = "{line} "
@@ -1440,7 +1440,6 @@ fatal error: runtime abort 117 (subpCollectSlotReleased)
 ```
 
 <!-- test: subprocess-builtins.detach-answers-a-pid -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The detach bit (bit 2 of `flags`) makes the runtime answer the child's OS process id rather than a
@@ -1470,7 +1469,6 @@ function allEnded(pids PidArray) returns bool
 	var waited = 0 as DurationMs
 	while waited < endsWithinMs 'poll'
 		var alive = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1
@@ -1513,7 +1511,6 @@ positive=true
 ```
 
 <!-- test: subprocess-builtins.posix-detach-answers-a-pid -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `detach-answers-a-pid` on this lane: the detach bit (bit 2 of `flags`) makes the runtime answer the child's
@@ -1546,7 +1543,6 @@ function allEnded(pids PidArray) returns bool
 	var waited = 0 as DurationMs
 	while waited < endsWithinMs 'poll'
 		var alive = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1
@@ -1587,7 +1583,6 @@ positive=true
 ```
 
 <!-- test: subprocess-builtins.a-detach-gives-its-slot-back -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `detach-answers-a-pid` asserts the pid; this asserts the OTHER half of its sentence, that the detach
@@ -1620,7 +1615,6 @@ function allEnded(pids PidArray) returns bool
 	var waited = 0 as DurationMs
 	while waited < endsWithinMs 'poll'
 		var alive = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1
@@ -1672,7 +1666,6 @@ spawned=65 firstFailure=-1
 ```
 
 <!-- test: subprocess-builtins.posix-a-detach-gives-its-slot-back -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `a-detach-gives-its-slot-back` on this lane: 65 detaches of `/usr/bin/true` into a 64-slot table each
@@ -1701,7 +1694,6 @@ function allEnded(pids PidArray) returns bool
 	var waited = 0 as DurationMs
 	while waited < endsWithinMs 'poll'
 		var alive = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1
@@ -1751,7 +1743,6 @@ spawned=65 firstFailure=-1
 ```
 
 <!-- test: subprocess-builtins.posix-a-detached-child-gets-a-new-session -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⛔⛔ **THE TWO POSIX DETACH CASES ABOVE ASSERT THE PID AND THE SLOT, AND NEITHER ASSERTS WHAT DETACHING IS
@@ -1796,7 +1787,6 @@ function allEnded(pids PidArray) returns bool
 	var waited = 0 as DurationMs
 	while waited < endsWithinMs 'poll'
 		var alive = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for pid in pids 'eachPid'
 			if Process.isAlive(pid) 'stillThere'
 				alive = alive + 1

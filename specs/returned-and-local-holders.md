@@ -176,7 +176,6 @@ error E3207: <fragment>:21:23: 'reset' writes 'box' (line 14: `box.count = 0`); 
 ```
 
 <!-- test: user-iterable-whose-iterator-is-built-from-the-collection-iterates -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `ItemCursor.create` returns a record holding the array, so `ItemSeq.createIterator` does not write its receiver and the collection conforms to `Iterable`.
 
 ```maxon
@@ -231,7 +230,6 @@ function main() returns ExitCode
 	a.push(Item.create(20))
 	let s = ItemSeq.create(a)
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in s 'each'
 		sum = sum + v.n
 	end 'each'
@@ -244,7 +242,6 @@ end 'main'
 ```
 
 <!-- test: user-iterable-whose-iterator-holds-a-box-iterates -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `LstIter.create` returns a record holding the `Box` its collection reads, so the collection conforms to `Iterable`.
 
 ```maxon
@@ -311,7 +308,6 @@ end 'LstIter'
 
 function total(l Lst) returns Count
 	var n = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in l 'each'
 		n = n + s.byteLength()
 	end 'each'

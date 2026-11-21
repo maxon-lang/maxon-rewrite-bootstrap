@@ -117,7 +117,6 @@ end 'main'
 
 <!-- test: a-variable-index-write-round-trips -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The CONTROL for the case above, writing through a loop variable and reading its writes back through a
 `for … in`.
 ```maxon
@@ -134,7 +133,6 @@ function main() returns ExitCode
 		i = i + 1
 	end 'fill'
 	var total = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for elem in v 'sum'
 		total = total + elem
 	end 'sum'

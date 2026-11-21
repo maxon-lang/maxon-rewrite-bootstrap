@@ -1558,7 +1558,7 @@ error E3005: specs/where-clauses/where-clauses.error.witness-return-keeps-the-re
 ```
 
 <!-- test: where-clauses.witness-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A throwing requirement returning `ByteArray`, called through a `where T is Transform` type parameter of a
 generic function, propagated with `try` and caught with `otherwise`: each conformer's result reaches the
 caller as the array, and a refusal reaches it as the error.
@@ -1583,7 +1583,6 @@ type Doubler implements Transform
 			throw ProbeError.refused
 		end 'big'
 		let out = ByteArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for b in data 'each'
 			out.push(b)
 			out.push(b)
@@ -1604,7 +1603,6 @@ type Reverser implements Transform
 			throw ProbeError.refused
 		end 'big'
 		let out = ByteArray.create(0)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for b in data 'each'
 			out.insert(0, value: b)
 		end 'each'
@@ -1624,7 +1622,7 @@ end 'orEmpty'
 
 function show(bytes ByteArray)
 	print("{bytes.count()}:")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in bytes 'each'
 		print(" {b}")
 	end 'each'
@@ -1653,7 +1651,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.constraint-interface-generic-alias-formal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An interface requirement whose parameter type is a GENERIC-ALIAS instance (`IntArray = Array with
 Integer`), met by a conformer spelling the same alias and dispatched through a `where T is Summer`
 parameter with an `IntArray` argument.
@@ -1675,9 +1672,8 @@ type Adder implements Summer
 
 	function total(xs IntArray) returns Integer
 		var sum = self.base
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
-			sum = sum + x
+			sum = try sum + x otherwise panic("out of range")
 		end 'each'
 		return sum
 	end 'total'
@@ -1686,7 +1682,7 @@ end 'Adder'
 type Box uses T where T implements Summer
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1698,11 +1694,11 @@ end 'Box'
 typealias AdderBox = Box with Adder
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(10)
 	xs.push(30)
 	let b = AdderBox.create(Adder.create(2))
-	return b.run(xs)
+	return try b.run(xs) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

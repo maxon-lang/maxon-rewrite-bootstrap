@@ -29,7 +29,6 @@ writes once they are stored. The qualifier is part of the type argument, so `Arr
 ## Tests
 
 <!-- test: values-that-nothing-writes-are-stored-and-read -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A `let` value and a fresh value are frozen and stored, an `immutable` element is read through `for`,
 `get` and `first`, and the container itself is pushed to, set, removed from and cleared.
@@ -56,7 +55,6 @@ function main() returns ExitCode
 	let built = freeze(Counter.create(6))
 	roster.push(built)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in roster 'each'
 		total = total + entry.n
 	end 'each'
@@ -161,7 +159,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-body-over-t-takes-an-immutable-instance -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `count`, `contains`, `sort` and a `for` loop are generic over the element type and work unchanged on an `immutable`
 instance of records that can be written elsewhere.
@@ -195,7 +192,6 @@ function main() returns ExitCode
 	counters.push(freeze(Counter.create(2)))
 	counters.sort()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for counter in counters 'each'
 		total = total + counter.n
 	end 'each'
@@ -303,7 +299,6 @@ error E3197: specs/readonly-element-types/error.an-element-read-by-get-is-not-wr
 ```
 
 <!-- test: error.a-for-variable-over-immutable-elements-is-not-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` variable over an `immutable` array is immutable even though the array itself is mutable.
@@ -325,7 +320,6 @@ typealias Roster = Array with immutable Counter
 function main() returns ExitCode
 	var roster = Roster.create(0)
 	roster.push(freeze(Counter.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for entry in roster 'each'
 		entry.n = 7
 	end 'each'
@@ -508,7 +502,6 @@ error E2010: <fragment>:2:28: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: error.a-for-variable-over-an-immutable-list-is-not-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `List` iterates through a cursor, and the cursor reads the same read-only elements.
@@ -530,7 +523,6 @@ typealias Queue = List with immutable Counter
 function main() returns ExitCode
 	var queue = Queue.create()
 	queue.append(freeze(Counter.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in queue 'each'
 		item.n = 7
 	end 'each'
@@ -542,7 +534,6 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -566,7 +557,6 @@ function main() returns ExitCode
 	var index = Index.create()
 	index.upsert("a", value: freeze(Counter.create(1)))
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, value) in index 'each'
 		value.n = 7
 	end 'each'
@@ -578,7 +568,7 @@ error E3197: specs/readonly-element-types/error.a-for-value-over-an-immutable-ma
 ```
 
 <!-- test: error.an-element-an-iterator-pair-yields-is-not-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -602,7 +592,7 @@ function main() returns ExitCode
 	var roster = Roster.create(0)
 	roster.push(freeze(Counter.create(1)))
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, item) in roster.withIterator() 'each'
 		item.n = 7
 	end 'each'
@@ -755,7 +745,6 @@ error E3207: <fragment>:36:19: 'register' writes 'name' (it calls 'add', which w
 
 <!-- test: a-set-element-read-by-for-is-kept-without-a-copy -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The elements of a `Set` are read-only once stored, so the element a `for` reads out of a set goes to a
@@ -786,7 +775,6 @@ function main() returns ExitCode
 	// TODO: byte string literals are not supported in minimaxon
 	reached.insert(b"a")
 	let credits = CreditArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in reached 'eachReached'
 		note(credits, name: name)
 	end 'eachReached'
@@ -799,7 +787,6 @@ end 'main'
 
 <!-- test: error.a-map-key-read-by-for-is-not-stored-into-a-var-field -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A key read back out of a `Map` is read-only, so it cannot be stored into a `var` field, where it would have a
@@ -824,7 +811,6 @@ type Tally
 
 	function rememberKeys()
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for (name, _) in self.counts 'eachName'
 			self.last = name
 		end 'eachName'
@@ -845,7 +831,6 @@ error E3196: specs/readonly-element-types/error.a-map-key-read-by-for-is-not-sto
 
 <!-- test: error.a-set-element-read-by-for-is-not-stored-into-a-var-field -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 An element read back out of a `Set` is read-only, so it cannot be stored into a `var` field, where it would have a
 second writer.
@@ -866,7 +851,6 @@ type Tally
 	end 'record'
 
 	function rememberElements()
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for name in self.names 'eachName'
 			self.last = name
 		end 'eachName'

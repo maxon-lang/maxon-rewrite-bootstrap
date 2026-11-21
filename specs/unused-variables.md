@@ -235,14 +235,11 @@ error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-l
 ```
 
 <!-- test: unused-for-in-variable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ```maxon
 
 function main() returns ExitCode
 	let arr = [1, 2, 3]
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'loop'
 		count = count + 1
 	end 'loop'
@@ -254,17 +251,15 @@ error E3012: specs/unused-variables/unused-for-in-variable.maxon:6:6: unused var
 ```
 
 <!-- test: used-for-in-variable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 function main() returns ExitCode
 	let arr = [10, 20, 30]
 	var total = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for s in arr 'loop'
-		total = total + s
+		total = try total + s otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -272,17 +267,15 @@ end 'main'
 ```
 
 <!-- test: discard-for-in-variable -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 function main() returns ExitCode
 	let arr = [1, 2, 3]
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in arr 'loop'
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
-	return count
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -661,7 +661,6 @@ error E3200: <fragment>:38:44: 'Shared' is not isolated: only a clean call, a `s
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An instance method with a receiver and two `_` parameters hands its promise to a function-typed parameter that comes after them. The function-typed parameter's position is read in the method's own numbering, receiver included, and the promise is taken by the function it reaches.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -703,7 +702,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	hub.relay(sink: keep, pending: pending, p: async work())
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q

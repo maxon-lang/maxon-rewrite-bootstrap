@@ -396,7 +396,6 @@ end 'main'
 ```
 
 <!-- test: an-iterated-container-rebound-through-the-base-walks-the-old-record -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 **A `for` over a container reached through a materialized base holds its own reference to the
 record it started on**, so rebinding that container through the same base in the body leaves the
 loop walking the old record to its end. Every case in `for-iterated-self-field` uses a BARE self
@@ -412,7 +411,7 @@ type Inner
 	export var items as StringArray
 
 	static function create() returns Self
-		let a = StringArray.create(0)
+		var a = StringArray.create(0)
 		a.push("first iterated text {40 + 2}")
 		a.push("second iterated text {40 + 5}")
 		return Self{items: a}
@@ -422,24 +421,23 @@ end 'Inner'
 type Outer
 	export var inner as Inner
 
-	function probe() returns Small
+	function probe(mutates self) returns Small
 		var n = 0 as Small
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for it in inner.items 'loop'
 			inner.items = StringArray.create(0)
 			print("{it}\n")
-			n = n + (it.byteLength() as Small)
+			n = try n + (it.byteLength() as Small) otherwise panic("out of range")
 		end 'loop'
-		return n + (inner.items.count() as Small)
+		return try n + (inner.items.count() as Small) otherwise panic("out of range")
 	end 'probe'
 
 	static function create(i Inner) returns Self
-		return Self{inner: i}
+		return Self{inner: i.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create())
+	var o = Outer.create(Inner.create())
 	return o.probe()
 end 'main'
 ```

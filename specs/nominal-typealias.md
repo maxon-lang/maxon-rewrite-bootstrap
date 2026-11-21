@@ -328,7 +328,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-index-is-not-a-count -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
 A position is an `ElementIndex`, and an `ElementIndex` is not a `Count`.
@@ -345,7 +345,7 @@ function main() returns ExitCode
 	var arr = NarrowArray.create(0)
 	arr.push(4)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (position, _) in arr.withIterator() 'eachElement'
 		print("{takesCount(position.index())}\n")
 	end 'eachElement'
@@ -2235,7 +2235,6 @@ error E3005: <fragment>:11:10: argument type mismatch for 'w': expected 'Wide', 
 ```
 
 <!-- test: error.a-loop-variable-carries-the-element-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `for x in col` over an `Array with Narrow` binds a `Narrow`.
 ```maxon
@@ -2253,7 +2252,6 @@ function main() returns ExitCode
 	var col = NarrowCol.create(0)
 	col.push(4)
 	var acc = 0 as Wide
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in col 'each'
 		acc = acc + takesWide(x)
 	end 'each'

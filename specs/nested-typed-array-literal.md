@@ -18,7 +18,7 @@ Each element is judged exactly as `push` judges it, so an element of a different
 ## Tests
 
 <!-- test: nested-typed-array-literal-over-ints -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Each inner `Ints from [...]` is an element of `Rows`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -30,9 +30,7 @@ typealias Rows = Array with Ints
 function main() returns ExitCode
 	let rows = Rows from [Ints from [1, 2], Ints from [3]]
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'eachRow'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for n in row 'eachNumber'
 			total = total + n
 		end 'eachNumber'
@@ -73,7 +71,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-records -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The inner elements are records.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -94,9 +92,7 @@ typealias Paths = Array with Points
 function main() returns ExitCode
 	let paths = Paths from [Points from [Point.create(1, y: 2), Point.create(3, y: 4)], Points from [Point.create(5, y: 6)]]
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for path in paths 'eachPath'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for p in path 'eachPoint'
 			sum = sum + p.x + p.y
 		end 'eachPoint'
@@ -115,7 +111,6 @@ end 'main'
 <!-- test: nested-typed-array-literal-over-closures -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The inner elements are function values that capture a local.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -132,9 +127,7 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let groups = Groups from [Thunks from [function() gives base + 1, function() gives base + 2], Thunks from [function() gives base + 3]]
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for group in groups 'eachGroup'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for thunk in group 'eachThunk'
 			total = total + thunk()
 		end 'eachThunk'
@@ -151,7 +144,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-three-levels -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Three levels of `from` each take their element type from the alias beside them.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -165,11 +158,8 @@ typealias Cube = Array with Rows
 function main() returns ExitCode
 	let cube = Cube from [Rows from [Ints from [1, 2], Ints from [3]], Rows from [Ints from [4]]]
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for rows in cube 'eachRows'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for row in rows 'eachRow'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for n in row 'eachNumber'
 				total = total + n
 			end 'eachNumber'
@@ -189,7 +179,6 @@ end 'main'
 <!-- test: nested-typed-array-literal-in-a-field-assignment -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A nested literal assigned to a field, and one in a constructor's field, whose closures capture a copy of what they read.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -220,17 +209,13 @@ end 'Holder'
 function main() returns ExitCode
 	let holder = Holder.create(3)
 	var seen = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for group in holder.groups 'eachCreated'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for thunk in group 'eachCreatedThunk'
 			seen = seen + thunk()
 		end 'eachCreatedThunk'
 	end 'eachCreated'
 	holder.refill()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for group in holder.groups 'eachRefilled'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for thunk in group 'eachRefilledThunk'
 			seen = seen + thunk()
 		end 'eachRefilledThunk'
@@ -247,7 +232,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-bare-inner-literals -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An inner `[...]` with no head of its own takes the element type the outer alias states.
 ```maxon
 typealias Total = int(0 to 1000)
@@ -261,9 +246,7 @@ typealias Table = Array with Smalls
 function main() returns ExitCode
 	let table = Table from [[1, 2], [3]]
 	var total = 0 as Total
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in table 'eachRow'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for n in row 'eachNumber'
 			total = total + n as Total
 		end 'eachNumber'

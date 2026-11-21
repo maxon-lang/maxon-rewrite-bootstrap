@@ -159,7 +159,6 @@ refused resolveFailed
 <!-- test: tcp-client.an-ipv6-literal-binds-connects-and-echoes-in-every-spelling -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 A bare IPv6 literal is an address, not a name: `TcpListener.bind` and `TcpClient.connect` take it as `::1` and talk
 over an `AF_INET6` socket, whatever way the address is written. Every spelling below is the loopback address, so
@@ -199,7 +198,6 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("::1", port: 0) otherwise return 1
 	let port = listener.port()
 	let spellings = ["::1", "0:0:0:0:0:0:0:1", "0::1", "0:0:0:0:0:0::1", "0000:0000:0000:0000:0000:0000:0000:0001", "::0.0.0.1", "0:0:0:0:0:0:0.0.0.1", "0:0:0:0:0::0.0.0.1"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelling in spellings 'eachSpelling'
 		print("{spelling} -> {reach(spelling, port: port, listener: listener)}\n")
 	end 'eachSpelling'
@@ -222,7 +220,6 @@ end 'main'
 
 <!-- test: tcp-client.an-ipv6-literal-is-read-to-the-address-grammar -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A host holding a colon is an IPv6 literal or nothing: a spelling outside the grammar fails to resolve without ever
 being handed to a name resolver, and a well-formed one that no local interface owns is a bind failure, so the two
 verdicts tell a rejected spelling from an accepted one. The accepted spellings mix hex case, drop leading zeros,
@@ -240,7 +237,6 @@ end 'verdict'
 
 function main() returns ExitCode
 	let spellings = ["2001:DB8:abcd:EF01::1", "2001:db8:0:0:0:0:0:1", "2001:db8::1.2.3.4", "1:2:3:4:5:6:7::", "::1:2:3:4:5:6:7", "1:2:3:4:5:6:1.2.3.4", "::1::", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7::8", ":1", "1:", "::1:", ":::", "12345::1", "::g", "1::2::3", "::1.2.3", "::1.2.3.4.5", "::1.2.3.256", "1.2.3.4::", "1:2:3:4:5:6:1.2.3.4:5", "::1%eth0", "[::1]", "host:80"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelling in spellings 'eachSpelling'
 		print("{spelling} -> {verdict(spelling)}\n")
 	end 'eachSpelling'

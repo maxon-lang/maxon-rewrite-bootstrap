@@ -158,13 +158,13 @@ end 'main'
 
 <!-- test: char-literal-codepoint-iteration -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Character literal comparison during codepoint iteration
 
 ```maxon
 function main() returns ExitCode
 	var count = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for cp in "a-b-c".codepoints() 'chars'
 		// TODO: character literals are not supported in minimaxon
 		if cp == '-' 'dash'

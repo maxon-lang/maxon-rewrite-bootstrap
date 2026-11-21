@@ -75,7 +75,6 @@ takes every time: the bespoke sentence existed because there was no declaration 
 
 <!-- test: the-transform-parameter-takes-the-container-element -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The positive half. One untyped parameter, typed from the array's element, and the transform is actually
 applied — so this fails on its VALUE if the refusal below ever over-reaches.
 ```maxon
@@ -85,7 +84,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a) gives a * 10)
 	var sum = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in out 'loop'
 		sum = sum + n
 	end 'loop'
@@ -99,7 +97,6 @@ sum=60
 
 <!-- test: error-a-fully-typed-transform-of-the-wrong-arity-is-still-refused -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Nothing is INFERRED here — every parameter declares its type — so E2003 has nothing to say and the arity
 rule is what refuses it. Admitted, it would read an uninitialised second argument: `wasm32-wasi`'s
@@ -114,7 +111,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b Integer) gives a + b)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in out 'loop'
 		sum = sum + n
 	end 'loop'
@@ -169,7 +165,6 @@ error E3005: <fragment>:10:17: argument type mismatch for 'transform': expected 
 
 <!-- test: error-a-second-untyped-closure-parameter-is-uninferrable -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The blocker. `b` is past the one parameter the transform's declared function type offers.
 ```maxon
@@ -179,7 +174,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a, b) gives a + b)
 	var sum = 0
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in out 'loop'
 		sum = sum + n
 	end 'loop'
@@ -193,7 +187,6 @@ error E2003: <fragment>:5:33: Cannot infer type for closure parameter 'b'. Add a
 
 <!-- test: error-the-offer-is-spent-even-when-the-first-parameter-declined-it -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The first parameter declares its own type, so it does not TAKE the offer — and it still occupies the first
 position, because the offer is positional. `b` is the second parameter of a one-parameter slot, refused for
@@ -206,7 +199,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b) gives a + b)
 	var sum = 0
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in out 'loop'
 		sum = sum + n
 	end 'loop'
@@ -274,7 +266,6 @@ end 'main'
 
 <!-- test: the-comparator-parameters-take-the-container-element -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `sortBy`'s comparator is a function-typed parameter of two elements, so a closure passed there takes both
 parameter types from it — every position whose declared type is a function type offers one type per
 parameter, and a comparator has two.
@@ -290,7 +281,6 @@ function main() returns ExitCode
 	scores.push(2)
 	// TODO: closures are not supported in minimaxon
 	scores.sortBy(function(left, right) gives right.compare(left))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for score in scores 'each'
 		print("{score}\n")
 	end 'each'
@@ -305,7 +295,6 @@ end 'main'
 
 <!-- test: a-comparator-whose-element-is-a-generic-alias-takes-parameters-declared-at-it -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The container's element is itself a generic alias, `ByteArray`, so the comparator's two slots are that
 alias's instance, and a closure that declares its parameters at `ByteArray` matches them.
 ```maxon
@@ -318,7 +307,6 @@ function main() returns ExitCode
 	rows.push("bb".toByteArray())
 	// TODO: closures are not supported in minimaxon
 	rows.sortBy(function(left ByteArray, right ByteArray) gives left.count().compare(right.count()))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'each'
 		print("{row.count()}\n")
 	end 'each'
@@ -333,7 +321,6 @@ end 'main'
 
 <!-- test: the-comparator-parameters-take-a-generic-alias-element -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same comparator with its parameter types left out takes them from the generic-alias element.
 ```maxon
 typealias Rows = Array with ByteArray
@@ -345,7 +332,6 @@ function main() returns ExitCode
 	rows.push("bb".toByteArray())
 	// TODO: closures are not supported in minimaxon
 	rows.sortBy(function(left, right) gives right.count().compare(left.count()))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'each'
 		print("{row.count()}\n")
 	end 'each'

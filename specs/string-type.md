@@ -748,11 +748,9 @@ hello world
 ```
 
 <!-- test: for-in-string -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'loop'
 		print("{c}\n")
 	end 'loop'
@@ -769,11 +767,11 @@ c
 ```
 
 <!-- test: byteview-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for b in s.bytes() 'loop'
 		print("{b}\n")
 	end 'loop'
@@ -790,11 +788,11 @@ end 'main'
 ```
 
 <!-- test: utf16-ascii -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "ABC"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -811,11 +809,11 @@ end 'main'
 ```
 
 <!-- test: utf16-bmp -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "αβγ"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -832,11 +830,11 @@ end 'main'
 ```
 
 <!-- test: utf16-surrogate-pair -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "😀"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -852,11 +850,11 @@ end 'main'
 ```
 
 <!-- test: utf16-mixed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 function main() returns ExitCode
 	let s = "A😀B"
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for u in s.utf16() 'loop'
 		print("{u}\n")
 	end 'loop'
@@ -1059,7 +1057,7 @@ end 'main'
 ```
 
 <!-- test: split-result-crosses-a-user-function-and-a-struct-field -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### An owned `Array with String` survives being returned out of the corpus body
 `split` is the only corpus `String` member that CONSTRUCTS a container. The corpus builds it through
 `StringArray.create(0)` (`stdlib/String.maxon:621-625`), so the corpus decides that array's element size
@@ -1095,7 +1093,7 @@ function main() returns ExitCode
 	let derived = ["seed"]
 	for round in 0 upto 200 'rounds'
 		let tmp = "{round},x,{round}"
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for p in tmp.split(",") 'each'
 			derived.push(p.clone())
 		end 'each'
@@ -1117,7 +1115,6 @@ end 'main'
 ```
 
 <!-- test: a-split-result-and-an-array-literal-are-one-type -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### The corpus's `StringArray` and a caller's `Array with String` are ONE instance
 The corpus declares `typealias StringArray = Array with String` INSIDE `type String`
 (`stdlib/String.maxon:621`) and this file declares its own `Array with String`. Two spellings, and the
@@ -1137,7 +1134,6 @@ function main() returns ExitCode
 	let fromSplit = "a,b,c".split(",")
 	print("{takesPieces(fromSplit as Pieces)}\n")
 	print("{takesPieces(literal)}\n")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in fromSplit 'each'
 		literal.push(p.clone())
 	end 'each'

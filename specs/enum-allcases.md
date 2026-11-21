@@ -35,7 +35,7 @@ This works with all backing types (simple, int, float, string, char). The array 
 ### Simple Enum
 
 <!-- test: enum-allcases.simple -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum Color
 	red
@@ -44,7 +44,7 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for color in Color.allCases 'loop'
 		print("{color.name}\n")
 	end 'loop'
@@ -85,7 +85,7 @@ end 'main'
 ### Int-Backed Enum
 
 <!-- test: enum-allcases.int-backed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum HttpStatus
 	ok = 200
@@ -94,7 +94,7 @@ enum HttpStatus
 end 'HttpStatus'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for status in HttpStatus.allCases 'loop'
 		print("{status.name}={status.rawValue}\n")
 	end 'loop'
@@ -143,7 +143,7 @@ end 'main'
 ### String-Backed Enum
 
 <!-- test: enum-allcases.string-backed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum ContentType
@@ -156,7 +156,7 @@ enum ContentType
 end 'ContentType'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for ct in ContentType.allCases 'loop'
 		print("{ct.rawValue}\n")
 	end 'loop'
@@ -176,7 +176,7 @@ text/plain
 
 <!-- test: enum-allcases.char-backed -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 ```maxon
 enum Grade
@@ -192,7 +192,7 @@ enum Grade
 end 'Grade'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for g in Grade.allCases 'loop'
 		print("{g.rawValue}")
 	end 'loop'
@@ -229,7 +229,7 @@ end 'main'
 ### Error: allCases on Enum with Associated Values
 
 <!-- test: enum-allcases.error-enum -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -240,7 +240,7 @@ union Container
 end 'Container'
 
 function main() returns ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for s in Container.allCases 'loop'
 		print("x")
 	end 'loop'

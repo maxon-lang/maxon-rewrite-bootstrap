@@ -482,7 +482,6 @@ end 'main'
 
 <!-- test: iterate -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -496,7 +495,6 @@ function main() returns ExitCode
 	v.set(2, value: 3)
 	v.set(3, value: 4)
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for elem in v 'loop'
 		sum = sum + elem
 	end 'loop'
@@ -578,12 +576,11 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-iterate -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let v = FixedArray from [1, 2, 3, 4]
 	var sum = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for elem in v 'loop'
 		sum = sum + elem
 	end 'loop'
@@ -719,12 +716,11 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-from-literal -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
 	let v = FixedArray from [true, false, true, true, false, true, false, false, true]
 	var count = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for bit in v 'each'
 		if bit 'isSet'
 			count = count + 1
@@ -2023,7 +2019,6 @@ error E2015: <fragment>:6:14: Unsupported: `FixedArray` cannot hold a 'Promise w
 `create(n, value: v)` builds a runtime-sized fixed array whose every element starts as `v`, and a type-sized alias takes the same `value:` argument with no length (`Pair.create(value: v)`). Because every slot is written before anything can read it, the value form is legal for an element whose zero is not a value (a ranged alias that excludes 0, an enum whose raw values include no 0, a managed element such as a `String` or a record), which the plain `create` refuses with E3106. `refill(value)` writes `value` into every element of an existing fixed array and changes neither its length nor its identity.
 
 <!-- test: create-with-a-value-fills-every-slot -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Every slot of the four starts as `7`: `4 28`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2037,7 +2032,6 @@ end 'launder'
 function main() returns ExitCode
 	let buf = Buf.create(launder(4), value: 7)
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in buf 'each'
 		sum = sum + x
 	end 'each'
@@ -2053,7 +2047,6 @@ end 'main'
 ```
 
 <!-- test: create-with-a-value-admits-a-ranged-element-that-excludes-zero -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `Level` has no zero, so `Levels.create(n)` is E3106; with a value every slot is a `Level` from the start: `3 15`.
 ```maxon
 typealias Level = int(1 to 9)
@@ -2067,7 +2060,6 @@ end 'launder'
 function main() returns ExitCode
 	let levels = Levels.create(launder(3), value: 5)
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for level in levels 'each'
 		sum = sum + (level as Count)
 	end 'each'
@@ -2083,7 +2075,6 @@ end 'main'
 ```
 
 <!-- test: create-with-a-value-admits-an-enum-whose-raw-values-exclude-zero -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 No `Tier` has the raw value 0, and all three slots read back `high`: `3 3`.
 ```maxon
 enum Tier
@@ -2100,7 +2091,6 @@ end 'launder'
 function main() returns ExitCode
 	let tiers = Tiers.create(launder(3), value: Tier.high)
 	var highs = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for tier in tiers 'each'
 		if tier == Tier.high 'isHigh'
 			highs = highs + 1
@@ -2140,7 +2130,6 @@ end 'main'
 ```
 
 <!-- test: create-with-a-value-packs-bools -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Eleven bools cross a byte boundary and all start `true`: `11 11`.
 ```maxon
 typealias Flags = FixedArray with bool
@@ -2152,7 +2141,6 @@ end 'launder'
 function main() returns ExitCode
 	let flags = Flags.create(launder(11), value: true)
 	var set = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for flag in flags 'each'
 		if flag 'isSet'
 			set = set + 1
@@ -2268,7 +2256,6 @@ error E3106: <fragment>:10:14: 'FixedArray.create' cannot publish slots of 'Leve
 ```
 
 <!-- test: refill-overwrites-every-element-in-place -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Slots written one by one are all replaced, and the length is unchanged: `5 35`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2286,7 +2273,6 @@ function main() returns ExitCode
 	end 'fill'
 	buf.refill(7)
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in buf 'each'
 		sum = sum + x
 	end 'each'
@@ -2349,7 +2335,6 @@ end 'main'
 ```
 
 <!-- test: refill-packs-bools -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Overwriting a bit-packed fixed array writes every bit, including the partial last byte: `10 0`.
 ```maxon
 typealias Flags = FixedArray with bool
@@ -2362,7 +2347,6 @@ function main() returns ExitCode
 	let flags = Flags.create(launder(10), value: true)
 	flags.refill(false)
 	var set = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for flag in flags 'each'
 		if flag 'isSet'
 			set = set + 1
@@ -2380,7 +2364,6 @@ end 'main'
 ```
 
 <!-- test: create-with-a-value-holds-a-heap-string-in-every-slot -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The value is built at run time, so a literal's immortality cannot hide a missing retain: every slot holds its own reference to the one string, and the program ends with nothing leaked: `3 name7,name7,name7,`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2398,7 +2381,6 @@ end 'label'
 function main() returns ExitCode
 	let names = Names.create(launder(3), value: label(7))
 	var joined = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'each'
 		joined.append("{name},")
 	end 'each'
@@ -2481,7 +2463,6 @@ name4 name5 name1 name1
 ```
 
 <!-- test: refill-releases-every-old-managed-element -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `refill` replaces every slot with the new value and releases each old one; an element read before the refill is still valid after it: `name1 name2 name2 name2`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2501,7 +2482,6 @@ function main() returns ExitCode
 	let held = try names.get(0) otherwise "missing"
 	names.refill(label(2))
 	var joined = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for name in names 'each'
 		joined.append(" {name}")
 	end 'each'
@@ -2611,7 +2591,7 @@ end 'main'
 ```
 
 <!-- test: with-iterator-walks-a-managed-fixed-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2631,7 +2611,7 @@ function main() returns ExitCode
 	try names.set(2, value: label(3)) otherwise panic("set")
 	var joined = ""
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, name) in names.withIterator() 'each'
 		joined.append("{iter.index()}={name} ")
 	end 'each'
@@ -2647,7 +2627,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-fixed-array-of-count-zero-is-empty -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -2664,7 +2643,6 @@ end 'label'
 function main() returns ExitCode
 	let names = Names.create(launder(0), value: label(1))
 	var seen = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in names 'each'
 		seen = seen + 1
 	end 'each'
@@ -3950,7 +3928,6 @@ end 'main'
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⭐ **AN EXTENSION WALKS ITS OWN FIXED ARRAY BOTH WAYS:** `for e in self`, which goes through the declaration's
 own `createIterator`, and a `for` over a `slice` of its record. The exit code is the two walks side by
@@ -3965,12 +3942,10 @@ typealias Vec3 = FixedArray with 3 Int
 extension FixedArray
 	function walkedTwoWays() returns Int
 		var viaSelf = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for e in self 'eachOwn'
 			viaSelf = viaSelf + (e - e) + 1
 		end 'eachOwn'
 		var viaSlice = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		// TODO: countof(...) is not supported in minimaxon
 		for e in try managed.slice(0, countof(Self)) otherwise panic("slice") 'eachSliced'
 			viaSlice = viaSlice + (e - e) + 1
@@ -3990,7 +3965,6 @@ end 'main'
 
 <!-- test: fixed-array.an-array-element-may-hold-a-union-carrying-a-fixed-array -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A record whose field is a union with a `FixedArray` payload is an ordinary array element: pushing it and
 reading it back copies nothing a `slice` would, so an array of such records is legal.
 ```maxon
@@ -4024,7 +3998,6 @@ function main() returns ExitCode
 	flags.set(0, value: true)
 	let cells = CellArray.create(0)
 	cells.push(Cell.create(Content.marked(flags)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'each'
 		print("{cell.firstFlag()}\n")
 	end 'each'
@@ -4037,7 +4010,6 @@ true
 
 <!-- test: fixed-array.a-slice-deep-copies-a-fixed-array-held-in-a-field-and-in-a-union-payload -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `FixedArray`'s record is an `Array`'s, so `slice` copies it like one: writing the original cells after the
 slice — replacing the union and setting a flag in the fixed array field — leaves the copies as they were.
 ```maxon
@@ -4083,15 +4055,12 @@ function main() returns ExitCode
 	cells.push(Cell.create(Content.marked(flags)))
 	cells.push(Cell.create(Content.marked(flags)))
 	let copies = try cells.slice(0, endIndex: 2) otherwise return 1
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'overwriteOriginals'
 		cell.overwrite()
 	end 'overwriteOriginals'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'eachOriginal'
 		print("original {cell.firstFlag()} {cell.secondMaskBit()}\n")
 	end 'eachOriginal'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copies 'eachCopy'
 		print("copy {cell.firstFlag()} {cell.secondMaskBit()}\n")
 	end 'eachCopy'
@@ -4425,7 +4394,6 @@ end 'main'
 A `FixedArray with T` that states no count is a fixed array whose length is chosen when it is built: `Buf.create(n)` makes one heap allocation of `n` zeroed elements, and the length never changes afterwards. Its length is a fact about the value and not about the type, so `count()` and the bound of `get` and `set` read the record, and an index is never proven inside it: `get` and `set` need `try` (E3057 without it). A length that is a compile-time constant gives the type `FixedArray with n T` instead, so every property of a sized fixed array follows from it.
 
 <!-- test: runtime-sized-create-holds-n-zeros -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `launder` makes the length a value the compiler cannot fold. The array holds five elements, every one zero: `5 5`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -4439,7 +4407,6 @@ end 'launder'
 function main() returns ExitCode
 	let buf = Buf.create(launder(5))
 	var zeros = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in buf 'each'
 		if x == 0 'zero'
 			zeros = zeros + 1
@@ -4558,7 +4525,6 @@ error E3057: <fragment>:11:18: throwing function requires try: 'stdlib.FixedArra
 ```
 
 <!-- test: runtime-sized-runtime-zero-length -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A length of zero known only at run time is legal: the array is empty, a read throws and a `for` runs no iteration.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -4572,7 +4538,6 @@ end 'launder'
 function main() returns ExitCode
 	let buf = Buf.create(launder(0))
 	var seen = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in buf 'each'
 		seen = seen + 1
 	end 'each'
@@ -4589,7 +4554,6 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-bool-packs-across-a-byte -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `bool` element is one bit, so seventeen of them straddle a third byte. Slots 0 and 16 are set, and the walk finds exactly those two: `17 2 true false`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -4605,7 +4569,6 @@ function main() returns ExitCode
 	try flags.set(0, value: true) otherwise panic("set 0")
 	try flags.set(16, value: true) otherwise panic("set 16")
 	var ones = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for flag in flags 'each'
 		if flag 'on'
 			ones = ones + 1
@@ -4627,7 +4590,6 @@ end 'main'
 <!-- test: runtime-sized-float -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // TODO: float typealiases are not supported in minimaxon
 typealias Real = float(f64.min to f64.max)
@@ -4646,7 +4608,6 @@ function main() returns ExitCode
 	try samples.set(2, value: 4.0) otherwise panic("set")
 	// TODO: float literals are not supported in minimaxon
 	var total = 0.0 as Real
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for sample in samples 'each'
 		total = total + sample
 	end 'each'
@@ -4662,7 +4623,6 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-as-field-and-parameter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A runtime-sized array is a field of a record and a parameter of a function, and in both places its length is the value's: `3 12`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -4688,7 +4648,6 @@ end 'launder'
 
 function total(cells Buf) returns Int
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'each'
 		sum = sum + cell
 	end 'each'
@@ -5826,7 +5785,6 @@ end 'main'
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A fixed array whose type states its length lays its elements out at the element's own width, exactly as the runtime-sized form does: one byte for a `Byte` or a `bits(8)`, two for a 16-bit element, four for a 32-bit one, and a packed 1, 2 or 4 bits for a `bool`, an `int(0 to 3)` and an `int(0 to 15)`. Every element written through `set` reads back through `get`, through `for` and through a `clone`.
 ```maxon
@@ -5885,13 +5843,11 @@ function bytes() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -5908,13 +5864,11 @@ function halves() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -5931,13 +5885,11 @@ function wides() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -5954,13 +5906,11 @@ function octets() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -5977,13 +5927,11 @@ function lanes() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -6002,7 +5950,6 @@ function flags() returns String
 		end 'set'
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		if cell 'set'
 			viaFor = viaFor + 1
@@ -6010,7 +5957,6 @@ function flags() returns String
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		if cell 'set'
 			viaClone = viaClone + 1
@@ -6029,13 +5975,11 @@ function crumbs() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -6052,13 +5996,11 @@ function nibbles() returns String
 		viaGet = viaGet + (cells.get(at) as Count)
 	end 'readEach'
 	var viaFor = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'walk'
 		viaFor = viaFor + (cell as Count)
 	end 'walk'
 	var viaClone = 0 as Count
 	let copy = cells.clone()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in copy 'walkCopy'
 		viaClone = viaClone + (cell as Count)
 	end 'walkCopy'
@@ -6094,7 +6036,6 @@ nibble -4 -4 2238 2238 2238
 <!-- test: a-second-type-parameter-strides-by-its-own-instantiation -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic type holding a fixed array over its SECOND parameter lays the elements out at that parameter's instantiation, whatever the first parameter is: one byte for `Byte` beside an `Integer`, a packed bit for `bool` beside a `String`. Every element reads back through `get` and through `for`.
@@ -6129,7 +6070,6 @@ type Two uses A, B
 
 	function walked() returns Count
 		var walked = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in cells 'walk'
 			walked = walked + 1
 		end 'walk'

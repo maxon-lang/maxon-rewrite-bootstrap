@@ -1311,7 +1311,6 @@ error E3214: <fragment>:22:6: cannot bind 'lent' to a unique value read out of a
 ```
 
 <!-- test: a-for-binding-over-uniques-handed-to-a-keeping-parameter-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The loop lends each element of `tokens`, so `keep` cannot take it.
 
@@ -1337,7 +1336,6 @@ end 'keep'
 function main() returns ExitCode
 	let tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		print("{keep(token)}\n")
 	end 'each'
@@ -1349,7 +1347,6 @@ error E3214: <fragment>:26:11: cannot pass 'token' to parameter 'token' of 'keep
 ```
 
 <!-- test: a-for-binding-over-uniques-handed-to-a-reading-parameter-is-accepted -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `peek` only reads its parameter, so lending the loop's element is fine.
 
 ```maxon
@@ -1370,9 +1367,8 @@ function peek(token Token) returns Tally
 end 'peek'
 
 function main() returns ExitCode
-	let tokens = TokenArray.create(0)
+	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(3))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		print("{peek(token)}\n")
 	end 'each'
@@ -1508,7 +1504,6 @@ error E3214: <fragment>:28:22: 'Wallet' is unique (its field 'tickets' holds a u
 ```
 
 <!-- test: a-for-binding-over-uniques-assigned-to-a-field-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The loop only lends each element of `tokens`, so storing it in `holder.token` would give a unique value two owners.
 
@@ -1537,7 +1532,6 @@ function main() returns ExitCode
 	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
 	var holder = Holder.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		holder.token = token
 	end 'each'
@@ -1550,7 +1544,6 @@ error E3214: <fragment>:28:18: cannot store into 'token' a unique value read out
 ```
 
 <!-- test: a-for-binding-over-uniques-returned-from-the-function-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Returning the lent element would hand a unique value the array still owns to the caller.
 
@@ -1568,7 +1561,6 @@ end 'Token'
 typealias TokenArray = Array with Token
 
 function firstOf(tokens TokenArray) returns Token
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		return token
 	end 'each'
@@ -1588,7 +1580,6 @@ error E3214: <fragment>:16:10: cannot return a unique value read out of a field 
 ```
 
 <!-- test: a-for-binding-over-uniques-pushed-into-another-array-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Pushing the lent element into `kept` would give a unique value to a second array.
 
@@ -1609,7 +1600,6 @@ function main() returns ExitCode
 	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
 	var kept = TokenArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		kept.push(token)
 	end 'each'
@@ -1622,7 +1612,6 @@ error E3214: <fragment>:20:13: cannot store into 'an element of the container pu
 ```
 
 <!-- test: a-for-binding-over-uniques-bound-to-a-var-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Binding the lent element to a `var` would make a second name for a unique value.
 
@@ -1642,7 +1631,6 @@ typealias TokenArray = Array with Token
 function main() returns ExitCode
 	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for token in tokens 'each'
 		var second = token
 		print("{second.n}\n")
@@ -1655,7 +1643,6 @@ error E3214: <fragment>:19:7: cannot bind 'second' to a unique value read out of
 ```
 
 <!-- test: a-for-over-an-array-of-unique-payload-unions-may-not-write-the-array -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 Each element is a union holding a unique `Ticket`, so the loop drains `slots` and the body may not write it, as it may not write an array of uniques it drains.
 
@@ -1680,7 +1667,6 @@ typealias SlotArray = Array with Slot
 function main() returns ExitCode
 	var slots = SlotArray.create(0)
 	slots.push(Slot.held(Ticket.create(1)))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for slot in slots 'each'
 		match slot 'which'
 			held(ticket) then print("{ticket.n}\n")
@@ -2726,7 +2712,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-the-holder-of-an-array-of-uniques-in-a-for-over-it-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `for t in h.xs` lends elements that `h` holds, so `h` is read-only in the body.
 ```maxon
@@ -2755,7 +2741,6 @@ end 'H'
 
 function main() returns ExitCode
 	let h = H.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'each'
 		h.n = t.n
 	end 'each'
@@ -2768,7 +2753,6 @@ error E3197: <fragment>:29:3: cannot write 'n' through 'h', which is read-only w
 ```
 
 <!-- test: the-holder-of-an-array-of-uniques-passed-to-a-writing-parameter-in-a-for-over-it-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `bump` writes `h`, which is read-only in the body of a `for` over `h.xs`.
 ```maxon
@@ -2801,7 +2785,6 @@ end 'bump'
 
 function main() returns ExitCode
 	let h = H.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'each'
 		print("{t.n}\n")
 		bump(h)
@@ -4020,7 +4003,6 @@ error E3200: <fragment>:53:31: 'c' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-try-fallback-of-a-loop-element-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A loop element stays owned by its array, so a value `try` whose fallback is one would give a second name to a unique value the array goes on owning, as `let r = t` would.
 ```maxon
@@ -4050,12 +4032,10 @@ end 'mk'
 function main() returns ExitCode
 	let tokens = TkArray.create(0)
 	tokens.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in tokens 'each'
 		let r = try mk(0) otherwise t
 		r.n = 9
 	end 'each'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in tokens 'again'
 		print("{t.n}\n")
 	end 'again'
@@ -4067,7 +4047,6 @@ error E3214: <fragment>:31:11: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-cond-of-a-loop-element-and-a-fresh-value-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The fresh arm makes the `cond` own its result, and the loop element's arm is still a second name for a value the array owns.
 ```maxon
@@ -4086,12 +4065,10 @@ typealias TkArray = Array with Tk
 function main() returns ExitCode
 	let tokens = TkArray.create(0)
 	tokens.push(Tk.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in tokens 'each'
 		let r = t if t.n == 1 else Tk.create(5)
 		r.n = 9
 	end 'each'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in tokens 'again'
 		print("{t.n}\n")
 	end 'again'
@@ -4353,7 +4330,6 @@ error E3207: <fragment>:40:29: 'keep' needs a writable parameter 's' at line 25;
 ```
 
 <!-- test: a-cond-of-unique-arrays-as-a-loop-source-keeps-each-read-only -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A loop over a `cond` holds every array the `cond` names, as a loop over one of them does, so the body cannot clear `xs`.
 ```maxon
@@ -4382,7 +4358,6 @@ end 'filled'
 function main() returns ExitCode
 	let xs = filled(1)
 	let ys = filled(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in (xs if chosen(1) else ys) 'each'
 		print("{e.n}\n")
 		xs.clear()
@@ -4490,7 +4465,6 @@ error E3102: <fragment>:57:7: use of moved value 't': its ownership moved to the
 ```
 
 <!-- test: a-field-path-over-a-cond-lends-every-holder-the-cond-names -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A loop over a field read through a `cond`, and a `match` on one, hold every holder the `cond` names read-only, whichever arm ran, as reading the field through one holder does.
 ```maxon
@@ -4533,7 +4507,6 @@ end 'reset'
 function loopThen() returns Num
 	let h = Holder.create(1)
 	let g = Holder.create(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in (h if chosen(1) else g).xs 'each'
 		let o = try h.xs.pop() otherwise Tk.create(0)
 		e.n = o.n + 2
@@ -4544,7 +4517,6 @@ end 'loopThen'
 function loopElse() returns Num
 	let h = Holder.create(1)
 	let g = Holder.create(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in (h if chosen(0) else g).xs 'each'
 		let o = try g.xs.pop() otherwise Tk.create(0)
 		e.n = o.n + 2
@@ -4623,7 +4595,6 @@ error E3102: <fragment>:27:15: 'h' is passed at two arguments of this call, and 
 ```
 
 <!-- test: error.a-container-reassigned-inside-a-for-that-lends-from-it-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The loop lends `tokens`' unique elements, so the variable holding the container stays put in the body.
 ```maxon
@@ -4642,7 +4613,6 @@ end 'Token'
 function main() returns ExitCode
 	var tokens = Tokens.create(0)
 	tokens.push(Token.create(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in tokens 'each'
 		tokens = Tokens.create(0)
 		t.n = 6

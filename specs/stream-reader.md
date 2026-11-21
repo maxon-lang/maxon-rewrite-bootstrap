@@ -811,7 +811,7 @@ server GET /one
 
 <!-- test: a-tls-stream-is-read-by-line-until-close-notify -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A reader over a `TlsStream` answers `ended` once the peer's close_notify arrives, after every line sent before it. A peer that drops its stream without closing ends the TCP connection with no close_notify, and the read that meets it throws `StreamError.secure(truncated)` rather than answering `ended`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -825,7 +825,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -999,7 +999,6 @@ lines=1000 last=line 999
 ```
 
 <!-- test: a-reader-named-only-as-an-element-type-reads-through-its-source -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The user's program names `StreamReader with ZBytes` only as an array's element type: the readers come from a library factory and the source's `readSome` is reached only through `readLine` on each element. Each reader answers its one line, then `ended`.
@@ -1046,7 +1045,6 @@ function main() returns ExitCode
 	let readers = ZReaders.create(0)
 	readers.push(zReader())
 	readers.push(zReader())
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for reader in readers 'each'
 		let first = shown(try reader.readLine() otherwise return 2)
 		let second = shown(try reader.readLine() otherwise return 3)

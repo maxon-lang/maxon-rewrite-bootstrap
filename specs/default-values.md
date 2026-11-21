@@ -151,7 +151,6 @@ end 'main'
 
 <!-- test: default-values.array-default-omitted -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -160,7 +159,6 @@ typealias IntArray = Array with Integer
 // TODO: default parameter values are not supported in minimaxon
 function sum(items IntArray = [10, 20, 12]) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'loop'
 		total = total + item
 	end 'loop'
@@ -177,7 +175,6 @@ end 'main'
 
 <!-- test: default-values.array-default-provided -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -186,7 +183,6 @@ typealias IntArray = Array with Integer
 // TODO: default parameter values are not supported in minimaxon
 function sum(items IntArray = [10, 20, 12]) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in items 'loop'
 		total = total + item
 	end 'loop'

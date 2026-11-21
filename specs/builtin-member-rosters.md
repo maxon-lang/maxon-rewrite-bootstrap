@@ -39,14 +39,11 @@ reaches the refusal this case is about.
 ## Tests
 
 <!-- test: error.unknown-character-method-gets-the-roster -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
-<!-- positions: moved -->
 ### An unknown `Character` member is answered with the derived roster
 ```maxon
 function main() returns ExitCode
 	let s = "hi"
 	var n = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'eachCharacter'
 		n = n + c.isUpperCase()
 	end 'eachCharacter'

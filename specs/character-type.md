@@ -464,7 +464,6 @@ lt
 
 <!-- test: character-ordering-of-loop-elements -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Ordering the OWNED Characters a String Loop Yields
 
 Each `c` is a freshly minted, owned `Character` (`__char_at`), while the pivot is an immortal `.rdata`
@@ -477,7 +476,6 @@ function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	let pivot = 'ü'
 	var below = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
 		if c < pivot 'lt'
 			below = below + 1
@@ -495,7 +493,6 @@ end 'main'
 ```
 
 <!-- test: character-ordering-of-two-owned-temporaries -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Ordering TWO Owned Character Temporaries
 
 `character-ordering-of-loop-elements` puts an owned Character on the LEFT only; here BOTH operands are
@@ -507,9 +504,7 @@ ordered pair out of four.
 function main() returns ExitCode
 	let s = "üé"
 	var seen = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in s 'each'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for d in s 'inner'
 			if c < d 'lt'
 				seen = seen + 1

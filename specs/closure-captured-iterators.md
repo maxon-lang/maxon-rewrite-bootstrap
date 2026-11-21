@@ -682,7 +682,7 @@ end 'main'
 <!-- test: error.a-mutates-captures-closure-over-a-with-iterator-pair-is-refused-for-a-frozen-array -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -715,7 +715,7 @@ end 'runIt'
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, _) in boxes.withIterator() 'each'
 		// TODO: closures are not supported in minimaxon
 		let g = function() gives bumpBox(it.current())
@@ -802,7 +802,7 @@ error E3207: <fragment>:38:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 <!-- test: a-mutates-captures-closure-writes-through-a-with-iterator-pair-over-a-mutable-array -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The array handed to `bumpAll` is mutable, so the closure's write through the iterator the loop binds is allowed and the caller sees both writes.
 
@@ -832,7 +832,7 @@ end 'runIt'
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, _) in boxes.withIterator() 'each'
 		// TODO: closures are not supported in minimaxon
 		let g = function() gives bumpBox(it.current())

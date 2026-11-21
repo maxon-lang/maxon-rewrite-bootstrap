@@ -18,7 +18,6 @@ slot.
 
 <!-- test: eight-services-churning-constant-capacity-arrays-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight services each build and drop two constant-capacity arrays per round for eight million rounds, on four
@@ -61,11 +60,9 @@ type Churn
 			b.push(round)
 			b.push(seed)
 			b.push(round)
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for word in a 'sumA'
 				total = total + (word as Total)
 			end 'sumA'
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for word in b 'sumB'
 				total = total + (word as Total)
 			end 'sumB'

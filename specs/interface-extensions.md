@@ -312,7 +312,6 @@ end 'main'
 
 <!-- test: stdlib-map-on-array -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -321,7 +320,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let doubled = nums.map(function(x Integer) gives x * 2)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in doubled 'loop'
 		sum = sum + n
 	end 'loop'
@@ -336,7 +334,6 @@ end 'main'
 
 <!-- test: stdlib-map-on-set -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -345,7 +342,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let mapped = s.map(function(x Integer) gives x + 1)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in mapped 'loop'
 		sum = sum + n
 	end 'loop'
@@ -358,13 +354,11 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
 	var sum = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in m 'loop'
 		// TODO: tuple element access is not supported in minimaxon
 		sum = sum + pair.1 * 10
@@ -379,7 +373,6 @@ end 'main'
 
 <!-- test: stdlib-map-on-map-with-function -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
@@ -387,7 +380,6 @@ function main() returns ExitCode
 	// TODO: closures are not supported in minimaxon
 	let mapped = m.map(function(p) gives p)
 	var sum = 0 as FullRangeInt
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in mapped 'loop'
 		// TODO: tuple element access is not supported in minimaxon
 		sum = sum + pair.1
@@ -877,7 +869,7 @@ The extension bodies walk an iterator instance over the collection's own paramet
 
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
@@ -886,13 +878,13 @@ function main() returns ExitCode
 	let s = Set from [1, 2]
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, p) in m.withIterator() 'eachPair'
 		// TODO: tuple element access is not supported in minimaxon
 		total = total + p.1
 	end 'eachPair'
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, x) in s.withIterator() 'eachElement'
 		total = total + x
 	end 'eachElement'
@@ -975,7 +967,6 @@ end 'main'
 
 <!-- test: a-file-private-cursor-conformer-and-an-iterable-extension-call -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1017,7 +1008,6 @@ type Bag uses Element implements Iterable with (Int, BIter)
 
 	function walk() returns Int
 		var total = 0 as Int
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in self 'loop'
 			total = total + x
 		end 'loop'
@@ -1040,7 +1030,6 @@ end 'main'
 
 <!-- test: error.another-file-naming-a-file-private-cursor-is-still-refused -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/lib.maxon
@@ -1078,7 +1067,6 @@ type Bag implements Iterable with (Integer, BagIter)
 
 	function walk() returns Integer
 		var total = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in self 'loop'
 			total = total + x
 		end 'loop'
@@ -1146,7 +1134,6 @@ end 'main'
 
 <!-- test: interface-extensions.a-member-the-compiler-supplies-to-a-conformer-is-the-compilers-at-every-door -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same boundary for a member the compiler supplies. The compiler gives every `type` a `clone`, so `extension
 Iterable`'s `clone` is a default `Bag` never takes: the direct call and the call inside a generic body that
 holds `Bag` as an `Iterable` both reach the compiler's copy, and the extension's body is never run.
@@ -1177,7 +1164,6 @@ end 'copyThroughIterable'
 
 function sum(bag Bag) returns RangeBound
 	var total = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in bag 'loop'
 		total = total + n
 	end 'loop'

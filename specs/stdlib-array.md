@@ -309,7 +309,6 @@ end 'main'
 ```
 
 <!-- test: for-in-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Iterate over array using for-in loop.
 
 ```maxon
@@ -318,14 +317,13 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'loop'
 	if sum != 60 'check'
 		return 1
@@ -338,7 +336,6 @@ end 'main'
 ```
 
 <!-- test: for-in-double-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Iterating the same array twice produces the same results.
 
 ```maxon
@@ -347,19 +344,17 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	var sum1 = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop1'
-		sum1 = sum1 + item
+		sum1 = try sum1 + item otherwise panic("out of range")
 	end 'loop1'
 	var sum2 = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop2'
-		sum2 = sum2 + item
+		sum2 = try sum2 + item otherwise panic("out of range")
 	end 'loop2'
 	if sum1 == 60 and sum2 == 60 'check'
 		return 0
@@ -372,7 +367,6 @@ end 'main'
 ```
 
 <!-- test: for-in-nested -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Nested for-in loops on the same array must not corrupt each other's iteration state.
 
 ```maxon
@@ -382,22 +376,20 @@ typealias IntArray = Array with Int
 
 function innerSum(arr IntArray) returns Int
 	var total = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'inner'
-		total = total + item
+		total = try total + item otherwise panic("out of range")
 	end 'inner'
 	return total
 end 'innerSum'
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
 	var outerTotal = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'outer'
-		outerTotal = outerTotal + item + innerSum(arr)
+		outerTotal = try outerTotal + item + innerSum(arr) otherwise panic("out of range")
 	end 'outer'
 	// Each outer item: item + innerSum(arr) = item + 6
 	// Outer loop: (1+6) + (2+6) + (3+6) = 7+8+9 = 24
@@ -688,18 +680,16 @@ firstsecond
 ```
 
 <!-- test: string-array-iteration -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Iterate over an array of strings.
 
 ```maxon
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("a")
 	arr.push("b")
 	arr.push("c")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
 		print(item)
 	end 'loop'
@@ -755,7 +745,6 @@ end 'main'
 ```
 
 <!-- test: push-self-assignment -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⛔ **`arr = arr.push(v)` IS REFUSED.**
 `stdlib/Array.maxon:305` declares `public function push(value Element)` — it returns NOTHING — so the
 assignment names a value the call does not produce. The compiler refuses it against the declared
@@ -769,17 +758,16 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
 	var sum = 0 as Int
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for n in arr 'loop'
-		sum = sum + n
+		sum = try sum + n otherwise panic("out of range")
 	end 'loop'
 	// 1 + 2 + 3 = 6
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

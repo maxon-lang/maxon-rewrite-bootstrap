@@ -2335,7 +2335,6 @@ end 'main'
 <!-- test: private-aliases-over-different-primitives-as-generic-arguments -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // --- file: a/a.maxon
 typealias Measure = int(0 to 100)
@@ -2347,7 +2346,6 @@ export function sumA() returns ExitCode
 	xs.push(40 as Measure)
 	xs.push(2 as Measure)
 	var total = 0 as Measure
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		total = total + x
 	end 'each'
@@ -2368,7 +2366,6 @@ export function sumB() returns ExitCode
 	xs.push(0.25 as Measure)
 	// TODO: float literals are not supported in minimaxon
 	var total = 0.0 as Measure
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		total = total + x
 	end 'each'

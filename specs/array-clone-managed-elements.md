@@ -164,7 +164,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 
 <!-- test: an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The refusal above answers for a COPY. The same element in an array that is only pushed to, walked and counted
 is legal.
@@ -184,7 +183,6 @@ function main() returns ExitCode
 	print("{a.count()}\n")
 	// TODO: byte string literals are not supported in minimaxon
 	a.push(Holder.create(try __ManagedFile.openRead(b"no-such-file.bin".managed) otherwise return 3))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for _ in a 'each'
 		print("walked\n")
 	end 'each'
@@ -299,7 +297,6 @@ second list element, long enough to need a heap record
 ```
 
 <!-- test: an-array-of-string-arrays-needs-no-copy-to-compile -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### An array of string ARRAYS compiles on a program that copies nothing
 ⭐⭐ **AN ELEMENT THE PROGRAM NEVER COPIES IS NOT REFUSED.** `Array.clone`'s own `managed.slice(0, len)` is
 answerable for EVERY instantiation of `Array` in the program, because the corpus body is compiled once over
@@ -311,9 +308,7 @@ thunk, so the element is deep-cloneable and the gate has nothing left to refuse.
 typealias StringArrayArray = Array with StringArray
 
 function firstOf(candidates StringArrayArray) returns String
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for segments in candidates 'each'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for s in segments 'inner'
 			return s
 		end 'inner'

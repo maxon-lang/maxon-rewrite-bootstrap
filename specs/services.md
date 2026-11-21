@@ -4539,7 +4539,6 @@ n=2
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-cloned -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 A handle type names a service whether or not the program spawns it. A program that spawns nothing holds no handle,
 so a `.clone()` it writes runs on none, and the program still compiles and runs.
@@ -4549,7 +4548,6 @@ typealias TextHandles = Array with TextLogHandler.handle
 function main() returns ExitCode
 	let held = TextHandles.create(0)
 	let copies = TextHandles.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in held 'eachHandle'
 		copies.push(handle.clone())
 	end 'eachHandle'
@@ -4665,7 +4663,6 @@ end 'main'
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-shut-down -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 `shutdown` is written against the handle type, so a program that spawns nothing may write it; it runs on no handle.
 ```maxon
@@ -4673,7 +4670,6 @@ typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
 	let held = TextHandles.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in held 'eachHandle'
 		handle.shutdown()
 	end 'eachHandle'
@@ -4689,7 +4685,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 An interface handle type names whichever service implements the interface, whether or not the program spawns one. A
 program that spawns nothing holds no such handle, so a `.clone()` it writes runs on none.
@@ -4699,7 +4694,6 @@ typealias LogHandlers = Array with LogHandler.handle
 function main() returns ExitCode
 	let held = LogHandlers.create(0)
 	let copies = LogHandlers.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in held 'eachHandle'
 		copies.push(handle.clone())
 	end 'eachHandle'
@@ -4736,7 +4730,6 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-shut-down-in-a-program-that-spawns-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- process: own -->
 `shutdown` is written against an interface handle type as against a service's own, so a program that spawns
 nothing may write it; it runs on no handle.
@@ -4745,7 +4738,6 @@ typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
 	let held = LogHandlers.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in held 'eachHandle'
 		handle.shutdown()
 	end 'eachHandle'
@@ -4761,7 +4753,6 @@ end 'main'
 ```
 
 <!-- test: error.a-handle-clone-and-shutdown-are-rejected-on-wasm -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A `.clone()` or `.shutdown()` written on a service handle, or on an interface handle, lowers to an entry of the
@@ -4776,12 +4767,10 @@ function main() returns ExitCode
 	let texts = TextHandles.create(0)
 	let logs = LogHandlers.create(0)
 	let copies = TextHandles.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in texts 'eachText'
 		copies.push(handle.clone())
 		handle.shutdown()
 	end 'eachText'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for handle in logs 'eachLog'
 		let copy = handle.clone()
 		handle.shutdown()
@@ -4885,7 +4874,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-handle-read-out-of-an-array-survives-a-second-send -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A HANDLE READ *OUT OF* A CONTAINER, WHICH `handles-in-an-array` NEVER DOES — IT ONLY PUSHES AND
 DROPS.** Binding an element to a local promotes a BORROW to an owned name, and for a handle that retain
@@ -4928,7 +4916,6 @@ function main() returns ExitCode
 		replies.push(try h.bump(step) otherwise panic("an open mailbox with room takes the send"))
 	end 'eachSend'
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in replies 'eachReply'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = await r
@@ -6103,7 +6090,6 @@ literal heap 7 2
 
 <!-- test: deepmove.a-reply-carries-a-container-back -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -6141,7 +6127,6 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let xs = try await h.values() otherwise IntegerArray.create(0)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		sum = sum + x
 	end 'each'
@@ -6252,7 +6237,6 @@ error E3200: <fragment>:26:10: 'out' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: deepmove.a-container-crosses-with-its-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -6283,7 +6267,6 @@ type Svc
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function take(cs isolated CellArray)
 		var sum = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for c in cs 'each'
 			sum = sum + c.n
 		end 'each'
@@ -6364,7 +6347,6 @@ error E3200: <fragment>:29:13: 'cs' is not isolated: only a clean call, a `swap`
 
 <!-- test: deepmove.a-cloned-array-detaches-its-shared-buffer-at-the-send -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -6385,7 +6367,6 @@ type Svc
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function take(xs isolated IntegerArray) returns Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
 			print("svc {x}\n")
 		end 'each'
@@ -6404,7 +6385,6 @@ function main() returns ExitCode
 	let h = spawn Svc.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.take(b) otherwise 0
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
 		print("main {x}\n")
 	end 'each'
@@ -6689,7 +6669,6 @@ total 900000 kept 900000
 ```
 
 <!-- test: deepmove.a-chain-crosses-with-its-elements -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -6710,7 +6689,6 @@ type Svc
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function take(xs isolated Texts)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for x in xs 'each'
 			print("svc {x}\n")
 		end 'each'
@@ -8342,7 +8320,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.a-chain-holding-one-record-twice-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The chain's walk admits the same shape: two nodes hold one `Cell`, the chain is its only owner, and the
@@ -8378,7 +8355,6 @@ type Svc
 	export function report()
 		let first = try self.cells.first() otherwise panic("two cells were appended")
 		first.n = 7
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for c in self.cells 'each'
 			print("{c.n}\n")
 		end 'each'
@@ -8404,7 +8380,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.many-records-each-reached-twice-cross -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Forty records, each held by two slots of one array: every one of them is met twice, and the graph crosses.
@@ -8440,7 +8415,6 @@ type Svc
 
 	export function report()
 		var sum = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for c in self.cells 'each'
 			sum = sum + c.n
 		end 'each'
@@ -8599,7 +8573,6 @@ service read 10 bytes, sender wrote payload 42!
 <!-- test: borrow.a-record-clone-bound-to-a-let-or-a-var-is-sent-while-the-sender-keeps-its-source -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -8631,12 +8604,10 @@ type Shelf
 
 	function weight() returns Integer
 		var sum = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for leaf in self.leaves 'eachLeaf'
 			sum = sum + leaf.weight * (leaf.name.byteLength() as Integer)
 		end 'eachLeaf'
 		// TODO: tuple loop variables in for loops are not supported in minimaxon
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for (key, leaf) in self.byName 'eachEntry'
 			sum = sum + leaf.weight * (key.byteLength() as Integer)
 		end 'eachEntry'
@@ -8740,7 +8711,6 @@ service 10 view 10
 
 <!-- test: borrow.two-services-and-the-sender-each-read-a-copy-of-one-graph -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One `let` graph — a record holding a `String`, an array of records and a union with a managed payload — is
@@ -8785,7 +8755,6 @@ end 'noteLength'
 
 function digest(d Doc) returns Integer
 	var total = d.title.count() as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in d.tags 'each'
 		total = total + (t.text.count() as Integer)
 	end 'each'
@@ -8837,7 +8806,6 @@ sender 29
 
 <!-- test: borrow.one-graph-cloned-into-many-sends-to-one-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A clone of the same `let` graph sent 200 times to one service: every queued message owns its copy, and the
@@ -8877,7 +8845,6 @@ type Tally
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function take(t isolated Tree)
 		var read = t.name.count() as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for leaf in t.leaves 'each'
 			read = read + (leaf.text.count() as Integer)
 		end 'each'
@@ -9495,7 +9462,6 @@ error E3200: <fragment>:28:27: 'holder' is not isolated: only a clean call, a `s
 
 <!-- test: borrow.a-sent-handle-may-be-kept-by-the-handler -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service handle may be kept by the handler it is sent to: `Relay` keeps a clone of `counter` in its state and
 sends through it in a later message, while `main` goes on sending through its own binding. `Relay` posts its
@@ -9530,7 +9496,6 @@ type Relay
 
 	export function forward(by Integer) returns Integer
 		var sent = 0 as Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for peer in self.peers 'each'
 			_ = try peer.bump(by) otherwise panic("an open mailbox with room takes the send")
 			sent = sent + 1
@@ -9787,7 +9752,6 @@ error E3102: <fragment>:46:39: use of moved value 'b': it was moved in an earlie
 <!-- test: borrow.a-let-rebound-each-trip-is-sent-afresh -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -9854,7 +9818,6 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await h.total() otherwise 0
 	var kept = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for box in xs 'sum'
 		kept = kept + box.n
 	end 'sum'
@@ -17604,7 +17567,6 @@ error E3102: <fragment>:33:23: use of moved value 'b': its ownership moved to an
 
 <!-- test: error.a-var-the-loop-iterates-is-not-sent-inside-the-loop -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -17625,7 +17587,6 @@ type Summer
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function add(words isolated Words) returns Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17639,7 +17600,6 @@ function main() returns ExitCode
 	var items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await h.add(items) otherwise 0
@@ -17655,7 +17615,6 @@ error E3200: <fragment>:28:27: 'items' is not isolated: only a clean call, a `sw
 
 <!-- test: error.an-isolated-local-the-loop-iterates-is-not-sent-inside-the-loop -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -17676,7 +17635,6 @@ type Summer
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function add(words isolated Words) returns Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17694,7 +17652,6 @@ function main() returns ExitCode
 		items.push("first padded out long enough to heap allocate {1}")
 		items.push("second padded out long enough to heap allocate {2}")
 	end 'fill'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await h.add(items) otherwise 0
@@ -17710,7 +17667,7 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: error.an-isolated-local-the-loop-iterates-with-an-iterator-is-not-sent-inside-the-loop -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -17732,7 +17689,6 @@ type Summer
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function add(words isolated Words) returns Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17751,7 +17707,7 @@ function main() returns ExitCode
 		items.push("second padded out long enough to heap allocate {2}")
 	end 'fill'
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (it, x) in items.withIterator() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await h.add(items) otherwise 0
@@ -17767,7 +17723,6 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: services.a-var-the-loop-iterated-is-sent-after-the-loop -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -17787,7 +17742,6 @@ type Summer
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function add(words isolated Words) returns Integer
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17806,7 +17760,6 @@ function main() returns ExitCode
 		items.push("second padded out long enough to heap allocate {2}")
 	end 'fill'
 	var seen = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items 'each'
 		seen = seen + (x.byteLength() as Integer)
 	end 'each'
@@ -17976,7 +17929,6 @@ error E3217: <fragment>:19:10: the message `Maker.make` returns a function value
 
 <!-- test: services.a-handle-bound-to-a-local-then-pushed-is-freed-once -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle moved from a local into an array is owned by the array alone, so each is released once when the array goes.
 ```maxon
@@ -18005,7 +17957,6 @@ function main() returns ExitCode
 		workers.push(w)
 	end 'spawnThem'
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for w in workers 'useThem'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (try await w.add(1) otherwise 0)
@@ -18022,7 +17973,6 @@ end 'main'
 
 <!-- test: services.an-array-of-handles-walks-with-its-iterator -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
@@ -18051,7 +18001,6 @@ function main() returns ExitCode
 	end 'spawnThem'
 	var sum = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, w) in try workers.withIterator() otherwise panic("an array always yields an iterator") 'walk'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (try await w.add(1) otherwise 0)
@@ -19676,7 +19625,6 @@ hello 5
 
 <!-- test: services.a-moved-tcp-client-works-on-another-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same hand-off with four processors, so the service's green thread can run on another OS thread than the one that
@@ -19711,7 +19659,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for word in ["one", "three", "seven"] 'eachWord'
 		_ = try out.send(word) otherwise 'refused5x33'
 			reply.cancel()

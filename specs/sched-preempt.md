@@ -886,7 +886,6 @@ ping=0 held=true preempted=0 retaken=0
 
 <!-- test: sched-preempt.a-main-preempted-between-two-spawns-runs-the-earlier-one-first -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -980,7 +979,6 @@ function attempt() returns (Integer, Integer) throws Attempt
 	replies.push(try c.rank() otherwise panic("an open mailbox with room takes the send"))
 	let first = replies.awaitAny()
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in replies 'drainthemall'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)
@@ -1024,7 +1022,6 @@ first=1 sum=6
 
 <!-- test: sched-preempt.a-loop-that-only-spawns-is-preempted-at-a-spawn -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A `main` THAT ONLY SPAWNS AND SENDS IS ASKED TO YIELD AT A `spawn`.** A spawn is a preemption point, as
@@ -1066,7 +1063,6 @@ function main() returns ExitCode
 	end 'spawnDoublers'
 	let afterSpawns = Scheduler.counters()
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for reply in replies 'awaitDoublers'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await reply)

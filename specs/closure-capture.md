@@ -823,7 +823,6 @@ end 'main'
 <!-- test: closure-body-restores-the-enclosing-functions-parse-context -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A closure body restores every column of the enclosing function's parse context
 
 ⛔⛔ **`parseClosureExpression` MUST RESTORE EVERY PER-FUNCTION COLUMN IT RESETS.**
@@ -892,7 +891,6 @@ function main() returns ExitCode
 	a.push(1)
 	a.push(2)
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'loop'
 		// TODO: closures are not supported in minimaxon
 		total = total + x + apply(function(n Integer) gives n + 1, x: 0)
@@ -1266,7 +1264,6 @@ a name padded long enough to heap allocate 7 x2
 <!-- test: closure-capture.one-closure-in-two-fields-an-array-and-a-union -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 One closure copied into two fields, an Array and a union payload: every holder takes a reference of its own
 and drops it.
 ```maxon
@@ -1300,7 +1297,6 @@ function main() returns ExitCode
 	ops.push(f)
 	let h = Held.one(f)
 	var total = p.first(1) + p.second(2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for op in ops 'each'
 		total = total + op(3)
 	end 'each'

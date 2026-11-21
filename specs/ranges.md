@@ -298,13 +298,12 @@ e
 ```
 
 <!-- test: ranges.create-iterator -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 A range used outside a for-in header is a first-class value with `createIterator()`.
 ```maxon
 function main() returns ExitCode
 	let it = try (1 upto 4).createIterator() otherwise return 99
 	var sum = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in it 'loop'
 		sum = sum + v
 	end 'loop'
@@ -316,13 +315,12 @@ end 'main'
 ```
 
 <!-- test: ranges.inclusive-create-iterator -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'to' -->
 `to` produces an inclusive Range — `createIterator()` visits the endpoint.
 ```maxon
 function main() returns ExitCode
 	let it = try (1 to 4).createIterator() otherwise return 99
 	var sum = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in it 'loop'
 		sum = sum + v
 	end 'loop'
@@ -334,13 +332,13 @@ end 'main'
 ```
 
 <!-- test: ranges.with-iterator -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `(start upto end).withIterator()` exposes the underlying iterator inside the loop.
 ```maxon
 function main() returns ExitCode
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, v) in (10 upto 13).withIterator() 'loop'
 		print("{iter.index()}:{v}\n")
 	end 'loop'
@@ -383,13 +381,12 @@ end 'main'
 ```
 
 <!-- test: ranges.let-binding -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'upto' -->
 A range can be bound to a variable and iterated via the standard for-in path.
 ```maxon
 function main() returns ExitCode
 	let r = 1 upto 5
 	var sum = 0 as RangeBound
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in r 'loop'
 		sum = sum + x
 	end 'loop'

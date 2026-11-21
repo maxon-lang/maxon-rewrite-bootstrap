@@ -756,7 +756,6 @@ error E3207: <fragment>:33:15: 'adopt' needs 'getPart' frozen (line 21: `self.pa
 
 <!-- test: an-async-over-a-clone-of-mutable-data-is-not-tied -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `items.clone()` is a deep copy that shares nothing with `items`, so the promise keeps no hold on the caller's data and may be stored in an array while the caller goes on writing `items`.
 
 ```maxon
@@ -781,7 +780,6 @@ function main() returns ExitCode
 	promises.push(async countAfterYield(items.clone()))
 	items.push(2)
 	items.push(3)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for promise in promises 'each'
 		print("{await promise}\n")
 	end 'each'
@@ -799,7 +797,6 @@ end 'main'
 
 <!-- test: an-async-over-a-shared-value-clone-is-not-tied -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `SharedValue` is a handle every thread reads without a lock, so the coroutine holds no mutable data of the caller and its promise may be stored.
 
 ```maxon
@@ -822,7 +819,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async waitForFlag(flag.clone()))
 	flag.publish(true)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for promise in promises 'each'
 		print("{await promise}\n")
 	end 'each'
@@ -1269,7 +1265,6 @@ error E3208: <fragment>:18:15: 'pick' returns 'a' or 'b'; they must both be muta
 
 <!-- test: a-declared-clone-result-given-to-a-coroutine-ties-its-promise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `Ledger.clone` is declared by the author and shares `items`, so a coroutine started over its result still holds the data `live` writes: the promise is tied and may not be stored.
@@ -1306,7 +1301,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async countAfterYield(live.clone()))
 	live.items.push(1)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for promise in promises 'each'
 		print("{await promise}\n")
 	end 'each'
@@ -6199,7 +6193,6 @@ error E3200: <fragment>:43:9: 'takeLate(src)' is not isolated: only a clean call
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -6239,14 +6232,12 @@ type Pocket
 end 'Pocket'
 
 function keepByFor(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep.push(blob)
 	end 'each'
 end 'keepByFor'
 
 function storeByFor(bin Bin, pocket Pocket)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		pocket.blob = blob
 	end 'each'
@@ -6271,7 +6262,6 @@ error E3198: <fragment>:37:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-and-values -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value: a `.clone()` of each element pushed into a plain array or stored into a plain field, and a count summed into a local.
@@ -6310,14 +6300,12 @@ type Pocket
 end 'Pocket'
 
 function keepByFor(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep.push(blob.clone())
 	end 'each'
 end 'keepByFor'
 
 function storeByFor(bin Bin, pocket Pocket)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		pocket.blob = blob.clone()
 	end 'each'
@@ -6325,7 +6313,6 @@ end 'storeByFor'
 
 function weighByFor(bin Bin) returns Count
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		total = total + 1 + blob.data.count()
 	end 'each'
@@ -6671,7 +6658,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-reached-by-an-iterator-over-an-isolated-array-field-cannot-leave-into-outside-data -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -6710,7 +6697,7 @@ end 'keepByIterator'
 
 function keepByPairs(bin Bin, keep BlobArray)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, blob) in bin.blobs.withIterator() 'each'
 		keep.push(blob)
 	end 'each'
@@ -6734,7 +6721,6 @@ error E3201: <fragment>:28:29: 'withIterator' hands back mutable data of the iso
 ```
 
 <!-- test: error.an-element-of-an-isolated-list-or-map-field-cannot-leave-into-outside-data -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `List` or `Map` field, and a `get` from the map, read the field's region outside a `modify` block, so an element pushed into an outside array or returned as plain data is refused.
@@ -6770,7 +6756,6 @@ type Bin
 end 'Bin'
 
 function keepFromList(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.list 'each'
 		keep.push(blob)
 	end 'each'
@@ -6794,7 +6779,6 @@ error E3201: <fragment>:32:23: 'get' hands back mutable data of the isolated reg
 ```
 
 <!-- test: error.a-value-of-an-isolated-map-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -6836,7 +6820,6 @@ end 'Pocket'
 
 function keepFromMap(bin Bin, keep BlobArray)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, blob) in bin.index 'each'
 		keep.push(blob)
 	end 'each'
@@ -6844,7 +6827,6 @@ end 'keepFromMap'
 
 function storeFromMap(bin Bin, pocket Pocket)
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, blob) in bin.index 'each'
 		pocket.blob = blob
 	end 'each'
@@ -6852,7 +6834,6 @@ end 'storeFromMap'
 
 function firstFromMap(bin Bin) returns Blob
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, blob) in bin.index 'each'
 		return blob
 	end 'each'
@@ -6876,7 +6857,6 @@ error E3198: <fragment>:44:19: 'bin.index' is isolated and cannot be read outsid
 ```
 
 <!-- test: an-isolated-list-or-map-field-hands-out-copies-and-values -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value.
@@ -6912,7 +6892,6 @@ type Bin
 end 'Bin'
 
 function keepFromList(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.list 'each'
 		keep.push(blob.clone())
 	end 'each'
@@ -6921,7 +6900,6 @@ end 'keepFromList'
 function weighMap(bin Bin) returns Count
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, blob) in bin.index 'each'
 		total = total + blob.data.count()
 	end 'each'
@@ -7764,7 +7742,6 @@ error E3201: <fragment>:32:31: 'echoOrFail' hands back mutable data of the isola
 
 
 <!-- test: error.a-field-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-leave -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -7806,21 +7783,18 @@ type Pocket
 end 'Pocket'
 
 function keepData(bin Bin, keep DataArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep.push(blob.data)
 	end 'each'
 end 'keepData'
 
 function storeData(bin Bin, pocket Pocket)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		pocket.bytes = blob.data
 	end 'each'
 end 'storeData'
 
 function firstData(bin Bin) returns ByteArray
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		return blob.data
 	end 'each'
@@ -7847,7 +7821,6 @@ error E3198: <fragment>:44:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-of-element-fields -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy of the element's field or its count.
@@ -7888,21 +7861,18 @@ type Pocket
 end 'Pocket'
 
 function keepData(bin Bin, keep DataArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep.push(blob.data.clone())
 	end 'each'
 end 'keepData'
 
 function storeData(bin Bin, pocket Pocket)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		pocket.bytes = blob.data.clone()
 	end 'each'
 end 'storeData'
 
 function firstCount(bin Bin) returns Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		return blob.data.count()
 	end 'each'
@@ -7930,7 +7900,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-returned-from-inside-a-for-loop-over-an-isolated-array-field-is-a-read-of-the-part -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -7962,7 +7931,6 @@ type Bin
 end 'Bin'
 
 function firstBlob(bin Bin) returns Blob
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		return blob
 	end 'each'
@@ -7983,7 +7951,6 @@ error E3198: <fragment>:23:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: error.an-isolated-field-read-in-parentheses-cannot-be-iterated-into-outside-data -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8015,7 +7982,6 @@ type Bin
 end 'Bin'
 
 function keepByFor(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in (bin.blobs) 'each'
 		keep.push(blob)
 	end 'each'
@@ -8039,7 +8005,6 @@ error E3198: <fragment>:23:14: '(bin.blobs)' is isolated and cannot be read outs
 <!-- test: error.an-element-of-an-isolated-array-field-captured-by-a-closure-in-a-for-loop-cannot-leave -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8087,7 +8052,6 @@ function apply(make Maker) returns Blob
 end 'apply'
 
 function keepByClosure(bin Bin, keep BlobArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		// TODO: closures are not supported in minimaxon
 		keep.push(apply(function() gives blob))
@@ -8095,7 +8059,6 @@ function keepByClosure(bin Bin, keep BlobArray)
 end 'keepByClosure'
 
 function storeClosure(bin Bin, pocket Pocket)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		// TODO: closures are not supported in minimaxon
 		pocket.make = function() gives blob
@@ -8439,7 +8402,6 @@ error E3201: <fragment>:24:66: 'echo' hands back mutable data of the isolated re
 <!-- test: error.an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-be-kept-by-a-call -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8489,21 +8451,18 @@ function weigh(blob Blob) returns Count
 end 'weigh'
 
 function keepEach(bin Bin, pockets PocketArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep(blob, into: pockets)
 	end 'each'
 end 'keepEach'
 
 function holdEach(bin Bin, pockets PocketArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		pockets.push(Pocket.holding(blob))
 	end 'each'
 end 'holdEach'
 
 function weighFirstAsync(bin Bin) returns Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -8531,7 +8490,6 @@ error E3207: <fragment>:53:28: 'weigh' is spawned with `async`, and 'blob' is is
 ```
 
 <!-- test: a-copy-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-is-an-ordinary-argument -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same calls compile when what they are given is a copy of the element, and a count of the element read in place leaves the loop as a value.
@@ -8580,7 +8538,6 @@ function weigh(blob Blob) returns Count
 end 'weigh'
 
 function keepCopies(bin Bin, pockets PocketArray)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		keep(blob.clone(), into: pockets)
 		pockets.push(Pocket.holding(blob.clone()))
@@ -8589,7 +8546,6 @@ end 'keepCopies'
 
 function weighEach(bin Bin) returns Count
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'each'
 		total = total + weigh(blob)
 	end 'each'
@@ -9083,7 +9039,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-of-an-elements-own-array-field-cannot-leave-a-nested-for-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -9119,9 +9074,7 @@ type Bin
 end 'Bin'
 
 function firstChunk(bin Bin) returns ByteArray
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in bin.blobs 'outer'
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for chunk in blob.chunks 'inner'
 			return chunk
 		end 'inner'
@@ -9143,7 +9096,6 @@ error E3198: <fragment>:26:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: the-key-of-a-pair-a-for-loop-hands-out-over-an-isolated-map-field-leaves-freely -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -9169,7 +9121,6 @@ end 'Holder'
 function largestKey(holder Holder) returns Count
 	var best = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (key, bytes) in holder.index 'each'
 		if bytes.count() > 0 and key > best 'larger'
 			best = key
@@ -9355,7 +9306,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-user-defined-cursor-hands-out-over-an-isolated-field-cannot-leave-a-for-loop -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out through a user-defined `Iterable` held by an `isolated` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
@@ -9419,7 +9369,6 @@ type Holder
 end 'Holder'
 
 function firstBlob(holder Holder) returns Blob
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in holder.rack 'each'
 		return blob
 	end 'each'
@@ -9438,7 +9387,6 @@ error E3198: <fragment>:58:14: 'holder.rack' is isolated and cannot be read outs
 
 <!-- test: error.an-element-of-an-isolated-fixed-array-field-cannot-leave-a-for-loop -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` `FixedArray` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
@@ -9469,7 +9417,6 @@ type Holder
 end 'Holder'
 
 function firstBlob(holder Holder) returns Blob
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for blob in holder.trio 'each'
 		return blob
 	end 'each'
@@ -9661,7 +9608,6 @@ error E3201: <fragment>:32:26: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: a-for-loop-over-a-handed-back-result-reads-its-bytes-in-place -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `for` loop whose source is what a method of an `isolated` field hands back, and whose body reads only the bytes it hands out, leaves only values, so it is accepted as a loop over the field's data is.
 
@@ -9693,7 +9639,6 @@ end 'Holder'
 
 function total(holder Holder) returns Count
 	var acc = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for byte in holder.blob.inner() 'each'
 		acc = acc + (byte as Count) + 1
 	end 'each'
@@ -9930,7 +9875,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-a-handed-back-result-cannot-leave -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop whose source is what a method of an `isolated` field hands back hands out elements of the field's data, so returning one as plain data is refused.
@@ -9966,7 +9910,6 @@ type Holder
 end 'Holder'
 
 function firstChunk(holder Holder) returns ByteArray
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for chunk in holder.blob.inner() 'each'
 		return chunk
 	end 'each'

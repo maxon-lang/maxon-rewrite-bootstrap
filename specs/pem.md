@@ -35,13 +35,13 @@ block with its label and bytes.
 
 <!-- test: pem.decode -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The RFC 7468 figures, CRLF line endings, no final line break, two blocks with text around them, one long body line, many short ones, whitespace in the body and after the boundaries, an empty body, an empty label, no blocks, and a malformed BEGIN line and a stray END line read as text.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -62,7 +62,6 @@ function report(id String, text String)
 	// TODO: if try is not supported in minimaxon
 	if let blocks = try Pem.decode(text) 'decoded'
 		print("{id} {blocks.count()}\n")
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for block in blocks 'eachBlock'
 			print("{id} \"{block.label}\" [{toHex(block.bytes)}]\n")
 		end 'eachBlock'
@@ -129,13 +128,13 @@ decode-016 "DATA" [000102]
 
 <!-- test: pem.decode-errors -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A missing END line, a BEGIN line inside a block, an END line naming another label, the label in another case, or with four hyphens, RFC 1421 header lines, and bodies that are not strict base64.
 ```maxon
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -156,7 +155,6 @@ function report(id String, text String)
 	// TODO: if try is not supported in minimaxon
 	if let blocks = try Pem.decode(text) 'decoded'
 		print("{id} {blocks.count()}\n")
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for block in blocks 'eachBlock'
 			print("{id} \"{block.label}\" [{toHex(block.bytes)}]\n")
 		end 'eachBlock'
@@ -201,7 +199,7 @@ decode-err-012 invalidBody
 
 <!-- test: pem.encode -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 RFC 7468 figures 6, 12 and 15 exactly, an empty body, and bodies of one byte, exactly one 64-character line, one line plus one, and two lines, an empty label, and a label with a hyphen inside it.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -215,7 +213,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -323,7 +321,7 @@ AA==
 
 <!-- test: pem.encode-refuses-an-invalid-label -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 Consecutive hyphens, a leading space, a trailing hyphen, consecutive spaces, a line feed and a tab.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -337,7 +335,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -391,7 +389,7 @@ encode-err-006 invalidLabel
 
 <!-- test: pem.decode-of-encode-gives-back-the-block -->
 <!-- skip: if try is not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Pem.decode` of what `Pem.encode` writes is one block with the label and bytes that went in: an empty body, a one-byte body under a hyphenated label, three bytes under the empty label, and a 100-byte body that spans three lines.
 ```maxon
@@ -406,7 +404,7 @@ function fromHex(hex String) returns ByteArray
 	let bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
@@ -420,7 +418,7 @@ end 'fromHex'
 
 function toHex(bytes ByteArray) returns String
 	var text = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for byte in bytes 'eachByte'
 		// TODO: string interpolation format specifiers are not supported in minimaxon
 		text.append("{byte:02x}")
@@ -443,7 +441,6 @@ function report(id String, label String, dataHex String)
 		// TODO: if try is not supported in minimaxon
 		if let blocks = try Pem.decode(text) 'decoded'
 			print("{id} {blocks.count()}\n")
-			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for block in blocks 'eachBlock'
 				print("{id} \"{block.label}\" [{toHex(block.bytes)}]\n")
 			end 'eachBlock'

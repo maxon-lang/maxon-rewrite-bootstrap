@@ -22,7 +22,6 @@ The critical invariant is that during destructor cleanup of the old array, the b
 ## Tests
 
 <!-- test: reassign-array-of-struct-with-string-enum -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Reassign Array Field Containing Structs with String Enums
 Filters an array of structs (each containing an enum with String associated values)
 into a new array, then reassigns the field. The old array's destructor must safely
@@ -40,7 +39,7 @@ type Dependency
 	export var dependency as QueryKey
 
 	static function create(dependent QueryKey, dependency QueryKey) returns Self
-		return Self{dependent: dependent, dependency: dependency}
+		return Self{dependent: dependent.clone(), dependency: dependency.clone()}
 	end 'create'
 end 'Dependency'
 
@@ -50,33 +49,32 @@ type Database
 	export var dependencies as DependencyArray
 
 	static function create(dependencies DependencyArray) returns Self
-		return Self{dependencies: dependencies}
+		return Self{dependencies: dependencies.clone()}
 	end 'create'
 end 'Database'
 
-function clearDepsFor(db Database)
-	let newDeps = DependencyArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+function clearDepsFor(mutates db Database)
+	var newDeps = DependencyArray.create(0)
 	for dep in db.dependencies 'scan'
 		match dep.dependent 'check'
-			sourceFile then newDeps.push(dep)
-			tokens then newDeps.push(dep)
+			sourceFile then newDeps.push(dep.clone())
+			tokens then newDeps.push(dep.clone())
 			allModule then continue
-			codeResult then newDeps.push(dep)
+			codeResult then newDeps.push(dep.clone())
 		end 'check'
 	end 'scan'
 	db.dependencies = newDeps
 end 'clearDepsFor'
 
 function main() returns ExitCode
-	let deps = DependencyArray.create(0)
+	var deps = DependencyArray.create(0)
 	deps.push(Dependency.create(QueryKey.allModule, dependency: QueryKey.sourceFile("test.maxon")))
 	deps.push(Dependency.create(QueryKey.codeResult, dependency: QueryKey.tokens("test.maxon")))
 	deps.push(Dependency.create(QueryKey.allModule, dependency: QueryKey.sourceFile("other.maxon")))
 	deps.push(Dependency.create(QueryKey.sourceFile("a.maxon"), dependency: QueryKey.tokens("a.maxon")))
-	let db = Database.create(deps)
+	var db = Database.create(deps)
 	clearDepsFor(db)
-	return db.dependencies.count()
+	return try db.dependencies.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -84,7 +82,6 @@ end 'main'
 ```
 
 <!-- test: reassign-array-field-simple-managed -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### Reassign Array Field with Simple Managed Structs
 Array of structs with String fields, filtered and reassigned.
 ```maxon
@@ -95,7 +92,7 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
@@ -105,31 +102,30 @@ type Container
 	export var items as ItemArray
 
 	static function create(items ItemArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Container'
 
-function keepBigValues(c Container)
-	let newItems = ItemArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+function keepBigValues(mutates c Container)
+	var newItems = ItemArray.create(0)
 	for item in c.items 'scan'
 		if item.value > 3 'big'
-			newItems.push(item)
+			newItems.push(item.clone())
 		end 'big'
 	end 'scan'
 	c.items = newItems
 end 'keepBigValues'
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(Item.create("alpha string long enough for heap allocation", value: 1))
 	items.push(Item.create("beta string long enough for heap allocation", value: 2))
 	items.push(Item.create("gamma string long enough for heap allocation", value: 3))
 	items.push(Item.create("delta string long enough for heap allocation", value: 4))
 	items.push(Item.create("epsilon string long enough for heap allocation", value: 5))
-	let c = Container.create(items)
+	var c = Container.create(items)
 	keepBigValues(c)
-	return c.items.count()
+	return try c.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -137,7 +133,7 @@ end 'main'
 ```
 
 <!-- test: reassign-array-field-multiple-times -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ### Reassign Array Field Multiple Times
 Repeatedly filter and reassign an array field to stress destructor cleanup.
 ```maxon
@@ -169,7 +165,7 @@ end 'Store'
 
 function removeNone(store Store)
 	let kept = EntryArray.create(0)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for e in store.entries 'scan'
 		match e.tag 'check'
 			none then continue

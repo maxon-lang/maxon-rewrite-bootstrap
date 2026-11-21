@@ -830,7 +830,6 @@ error E3098: specs/async-await/async-await.error.storage-names-wrong-error-type.
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A promise a function was handed is the function's to store: its declared type states what it carries, so a
 container whose type agrees takes it, exactly as it takes a spawn made in the function. The array then owns
 the thread, and the loop awaits it out of the array.
@@ -851,7 +850,6 @@ function park(p IntPromise) returns Integer
 	let pending = IntPromiseArray.create(0)
 	pending.push(p)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
@@ -987,7 +985,6 @@ error E3098: specs/async-await/async-await.error.a-throwing-promise-parameter-ca
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A promise the storing function owns is storable whatever made it, so a helper's return goes into an array like a spawn made on the spot. The array then owns the thread, and the loop awaits it out of the array.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1012,7 +1009,6 @@ function main() returns ExitCode
 	pending.push(ask())
 	pending.push(ask())
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -1075,7 +1071,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A container held in a field is the same storage.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1107,7 +1102,6 @@ function main() returns ExitCode
 	let holder = Holder.create()
 	holder.pending.push(ask())
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in holder.pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -1463,7 +1457,6 @@ end 'rewrap'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The promise a `try … otherwise` merge yields is the function's own, so a container takes it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1487,7 +1480,6 @@ function main() returns ExitCode
 	let moved = try source.pop() otherwise async work()
 	sink.push(moved)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in sink 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -1507,7 +1499,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A function value of a named function has that function's own type, and the type says which promise parameters the callee takes. A call through it hands the promise over exactly where the function takes it, so the array owns the thread and the caller does not drop it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1532,7 +1523,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	f(pending, async work())
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
@@ -1586,7 +1576,6 @@ end 'main'
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A call through a parameter of a function-type alias hands the promise over, and a function that takes its promise converts to it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1617,7 +1606,6 @@ function main() returns ExitCode
 	let pending = IntPromiseArray.create(0)
 	drive(keep, pending: pending)
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
@@ -1979,7 +1967,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An array literal stores its elements, so it takes ownership of each promise it is given, whatever made it. The loop awaits them out of the array, and the run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2003,7 +1990,6 @@ function gather(p IntPromise) returns Integer
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = IntPromiseArray from [p, ask(), async work()]
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
@@ -2355,7 +2341,6 @@ true
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A function-typed parameter takes the promise it is handed, so a function that forwards its own parameter to it takes it too.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2386,7 +2371,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	relay(keep, pending: pending, p: async work())
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for q in pending 'drain'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
@@ -2967,7 +2951,6 @@ hellohello
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The `for p in promises` idiom with an ALIAS inside the loop. Every iteration re-arms `p` — and
 therefore `q` — so the single `await q` is one await per promise, not N awaits of one. This is
 the case an over-eager linearity check breaks: the alias makes `p` and `q` one green thread, and
@@ -2992,7 +2975,6 @@ function main() returns ExitCode
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async makeText(i))
 	end 'spawn'
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'await'
 		let q = p
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -3208,7 +3190,6 @@ await #1 [yield]
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3231,7 +3212,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async compute(12))
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
@@ -3247,7 +3227,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `work` throws, so the storage type names what it throws: `Promise with (Integer, WorkError)`.
 Throws-ness is a property of the TYPE and survives the box, so a stored non-throwing promise
 still takes a plain `await` (see `async-await.promise-array`) and only a genuinely throwing one
@@ -3281,7 +3260,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + try await p otherwise 0
@@ -3297,7 +3275,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A stored promise whose thunk throws an ASSOCIATED-VALUE union: the heap-allocated error payload
 must be released on the `otherwise` path, or the third element's `WorkError.failed` allocation
@@ -3336,7 +3313,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in arr 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + try await p otherwise 0
@@ -3352,7 +3328,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A regression guard for the spawn-site incref of managed (Struct/Enum)
 async arguments: spawn eight green threads in a row, each receiving a
 freshly built StringArray, then await them all. Without the incref the
@@ -3370,7 +3345,6 @@ function joinArgs(label String, args StringArray) returns String
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	_ = File.exists(FilePath from "noyield.txt")
 	var out = label
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for a in args 'each'
 		out = "{out}|{a}"
 	end 'each'
@@ -3387,7 +3361,6 @@ function main() returns ExitCode
 		promises.push(async joinArgs("L{i}", args: argv.clone()))
 	end 'spawn'
 	var total = 0 as ExitCode
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'await'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await p
@@ -3808,7 +3781,6 @@ promise's function returns 'int'" — a sentence naming a type the program does 
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 enum DrainError implements Error
 	broken
@@ -3837,7 +3809,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async drainThunk(2))
 	var total = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let lines = try await p otherwise 'died'
@@ -4219,7 +4190,6 @@ error E3004: <fragment>:3:10: call to undefined function 'nosuch'
 <!-- test: async-await.error.a-spawn-of-nothing-stored-in-a-promise-array-is-undefined -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A spawn nothing declares, stored in a promise array and awaited from it, reports the call.
 ```maxon
@@ -4233,7 +4203,6 @@ function main() returns ExitCode
 	var promises = IntPromiseArray.create(0)
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async nosuch(1))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await p
@@ -4658,7 +4627,6 @@ end 'main'
 <!-- test: an-awaited-collection-as-a-for-source -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The collection twin: the awaited value IS the collection the loop walks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4677,7 +4645,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async items()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	for x in await q 'each'
 		total = total + x
@@ -5542,7 +5509,7 @@ error E3207: <fragment>:20:27: 'poke' writes 'p' (line 14: `p.n = 99`); 'b' is i
 <!-- test: async-await.error.a-closure-body-spanning-lines-takes-a-cell-resident-string -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The closure's body continues onto a second line inside an array literal, and still captures `word`, so handing
 `word` to the coroutine afterwards is a use after move.
@@ -5559,7 +5526,7 @@ end 'shout'
 
 function total(values Integers) returns Integer
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for v in values 'each'
 		sum = sum + v
 	end 'each'
@@ -5587,7 +5554,6 @@ error E3102: <fragment>:30:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.a-var-the-loop-iterates-is-shared-with-async-inside-the-loop -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The loop holds its own reference to `items` and `x` its own reference to an element, so the spawn shares
 `items` with the coroutine and `x` is still readable after the coroutine has released its reference.
 ```maxon
@@ -5598,7 +5564,6 @@ typealias Words = Array with String
 function measure(words Words) returns Integer
 	Scheduler.yield()
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for word in words 'each'
 		total = total + (word.byteLength() as Integer)
 	end 'each'
@@ -5609,7 +5574,6 @@ function main() returns ExitCode
 	let items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in items 'each'
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async measure(items)

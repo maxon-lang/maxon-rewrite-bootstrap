@@ -40,7 +40,7 @@ end 'main'
 ```
 
 <!-- test: a-generic-body-keeping-its-type-parameter-takes-a-value-type -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user type whose method stores its elements into a `Set` is judged where it is instantiated: with `String`
 it is accepted.
@@ -62,7 +62,7 @@ type Registry uses Key where Key implements Hashable and Equatable
 	end 'create'
 
 	function remember(keys KeyArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for key in keys 'eachKey'
 			self.seen.insert(key)
 		end 'eachKey'
@@ -87,7 +87,7 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-body-keeping-its-type-parameter-refuses-a-writable-record -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same type instantiated with a record that has a `var` field is refused at the call to `Registry.remember`: a `Set` keeps `immutable` elements, so `remember` needs `keys` frozen, and `counters` is mutable.
@@ -127,7 +127,7 @@ type Registry uses Key where Key implements Hashable and Equatable
 	end 'create'
 
 	function remember(keys KeyArray)
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+		// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 		for key in keys 'eachKey'
 			self.seen.insert(key)
 		end 'eachKey'
@@ -151,7 +151,6 @@ error E3207: <fragment>:47:20: 'remember' needs 'keys' frozen (it calls 'insert'
 ```
 
 <!-- test: error.a-set-of-writable-records-is-refused-for-an-element-another-array-still-holds -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A record read out of an array the program still holds is mutable, so it is not handed to a `Set`, whose elements are `immutable`; the refusal is at the `insert` in the program's own loop.
 
@@ -182,7 +181,6 @@ function main() returns ExitCode
 	var counters = CounterArray.create(0)
 	counters.push(Counter.create(1))
 	var members = CounterSet.create()
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for counter in counters 'eachCounter'
 		members.insert(counter)
 	end 'eachCounter'

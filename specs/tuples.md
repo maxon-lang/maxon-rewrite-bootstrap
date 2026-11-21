@@ -256,14 +256,12 @@ end 'main'
 ```
 
 <!-- test: for-destructuring-map -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 10, "b": 32]
 	var sum = 0 as FullRangeInt
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, value) in m 'loop'
 		sum = sum + value
 	end 'loop'
@@ -692,7 +690,6 @@ end 'main'
 ```
 
 <!-- test: for-in-over-map-allocates-no-tuple -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `for` loop over a Map allocates NO tuple record per iteration. `MapIterator.current()` builds its
 `(key, value)` pair as a fresh box nothing else in that body can see and returns it, so the box is deleted
@@ -719,7 +716,6 @@ typealias IntMap = Map with (Integer, Integer)
 function sum(m IntMap) returns Integer
 	var total = 0 as Integer
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (_, v) in m 'loop'
 		total = total + v
 	end 'loop'
@@ -2501,7 +2497,7 @@ shared record|shared record
 ```
 
 <!-- test: array-of-substituted-entry-tuples-clones-each -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
 ⭐ The SUBSTITUTED half of the case above. A tuple minted by SUBSTITUTION is in no file's artifact —
 `MapIterator.current()`'s declared `Entry = (Key, Value)` becomes `(String, String)` at the call site,
 straight into the whole-program index — so it never reaches `project.structTypes`, and this program spells no
@@ -2512,7 +2508,6 @@ entry loop never ran.
 ```maxon
 function main() returns ExitCode
 	let m = ["a": "x"]
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in m 'each'
 		let arr = [e]
 		let cp = arr.clone()
@@ -2531,7 +2526,7 @@ ax
 ```
 
 <!-- test: array-of-substituted-entry-tuples-with-a-struct-element-clones-each -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '0' -->
 The case above with a MANAGED STRUCT in the substituted entry, so the missing cloner is one whose body has a
 NESTED cloner of its own (`__clone___Tuple2.String.Point` calling `__clone_Point`): the substituted tuple has
 to be visible to the installer AND its nesting has to be closed, and a fix that only made the symbol exist
@@ -2551,7 +2546,6 @@ typealias PointMap = Map with (String, Point)
 function main() returns ExitCode
 	let m = PointMap.create()
 	m.upsert("a", value: Point.create("alpha"))
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in m 'each'
 		let arr = [e]
 		let cp = arr.clone()
@@ -3501,7 +3495,7 @@ end 'main'
 ```
 
 <!-- test: an-iterator-pair-keeps-the-elements-unsigned-alias -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The element of a `withIterator` pair over an unsigned alias keeps its alias.
 ```maxon
@@ -3512,7 +3506,7 @@ typealias WideArray = Array with Wide
 function top(values WideArray) returns Wide
 	var best = 0 as Wide
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (_, item) in values.withIterator() 'each'
 		if item > best 'bigger'
 			best = item
@@ -4863,14 +4857,12 @@ error E3005: <fragment>:7:2: cannot assign a value of type '(int, int)' to varia
 ```
 
 <!-- test: error.iterating-a-tuple-names-the-tuple-type -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
 	let t = (1, 2)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in t 'f'
 		print("x")
 	end 'f'

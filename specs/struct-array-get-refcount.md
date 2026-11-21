@@ -71,7 +71,6 @@ end 'main'
 ```
 
 <!-- test: struct-array-get-loop-function -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Struct elements in array survive after being read in a loop inside a standalone function.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -89,15 +88,14 @@ typealias PairArray = Array with Pair
 
 function sumAll(pairs PairArray) returns Integer
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in pairs 'loop'
-		total = total + pair.a + pair.b
+		total = try total + pair.a + pair.b otherwise panic("out of range")
 	end 'loop'
 	return total
 end 'sumAll'
 
 function main() returns ExitCode
-	let pairs = PairArray.create(0)
+	var pairs = PairArray.create(0)
 	pairs.push(Pair.create(1, b: 2))
 	pairs.push(Pair.create(3, b: 4))
 	pairs.push(Pair.create(5, b: 6))
@@ -105,7 +103,7 @@ function main() returns ExitCode
 	// After sumAll, elements should still be valid
 	let p1 = try pairs.get(1) otherwise Pair.create(0, b: 0)
 	if sum == 21 'ok'
-		return p1.a + p1.b
+		return try p1.a + p1.b otherwise panic("out of range")
 	end 'ok'
 	return 0
 end 'main'

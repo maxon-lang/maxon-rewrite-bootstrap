@@ -45,7 +45,6 @@ leaf, so a row read out of the first is an `Xs` and a row read out of the second
 ### The doors — one refusal each, and the literal that fits them all
 
 <!-- test: error.xs-into-ys-parameter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -56,7 +55,6 @@ typealias Ys = Array with Integer
 
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
 		t = t + y
 	end 'each'
@@ -181,7 +179,6 @@ error E3005: <fragment>:13:2: cannot assign a value of type 'Ys' to variable 'a'
 ```
 
 <!-- test: an-unbranded-var-that-adopted-a-brand-reaches-that-brands-parameter -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -189,15 +186,14 @@ typealias Xs = Array with Integer
 
 function sumXs(xs Xs) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
-		t = t + x
+		t = try t + x otherwise panic("out of range")
 	end 'each'
 	return t
 end 'sumXs'
 
 function main() returns ExitCode
-	let xs = Xs.create(0)
+	var xs = Xs.create(0)
 	xs.push(4)
 	var a = [3 as Integer]
 	a = xs
@@ -213,7 +209,6 @@ end 'main'
 ```
 
 <!-- test: error.an-adopted-brand-is-the-brand-every-later-read-has -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -224,7 +219,6 @@ typealias Ys = Array with Integer
 
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
 		t = t + y
 	end 'each'
@@ -767,7 +761,6 @@ end 'main'
 ### Where a brand comes from
 
 <!-- test: error.a-loop-over-rows-carries-the-element-brand -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `Rows = Array with Row` is spelled through the alias `Row`, so `for row in rows` binds a `Row` — and a
 `Row` is not a `Col`.
@@ -782,7 +775,6 @@ typealias Col = Array with Integer
 
 function sumCol(c Col) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in c 'each'
 		t = t + v
 	end 'each'
@@ -793,7 +785,6 @@ function main() returns ExitCode
 	var rows = Rows.create(0)
 	rows.push([1, 2])
 	var total = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'each'
 		total = total + sumCol(row)
 	end 'each'
@@ -806,7 +797,6 @@ error E3005: <fragment>:20:19: argument type mismatch for 'c': expected 'Col', g
 ```
 
 <!-- test: an-inline-spelled-element-carries-no-brand -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shallow half: `Array with (Array with Integer)` names its element INLINE, so a row read out of it is
 unbranded and fits both `Xs` and `Ys`.
 ```maxon
@@ -824,21 +814,19 @@ end 'first'
 
 function total(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
-		t = t + y
+		t = try t + y otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let rows = Inline.create(0)
+	var rows = Inline.create(0)
 	rows.push([1, 2])
 	rows.push([3])
 	var acc = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for row in rows 'each'
-		acc = acc + first(row) + total(row)
+		acc = try acc + first(row) + total(row) otherwise panic("out of range")
 	end 'each'
 	print("{acc}")
 	return 0
@@ -889,7 +877,6 @@ error E3005: <fragment>:25:10: argument type mismatch for 'b': expected 'B', got
 ```
 
 <!-- test: error.a-field-read-carries-the-fields-brand -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -908,7 +895,6 @@ end 'Holder'
 
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
 		t = t + y
 	end 'each'
@@ -927,7 +913,6 @@ error E3005: <fragment>:24:10: argument type mismatch for 'ys': expected 'Ys', g
 ```
 
 <!-- test: an-unbranded-merge-adopts-nothing -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A conditional over two literals merges two unbranded arms; the result is unbranded and fits either slot.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -938,7 +923,6 @@ typealias Ys = Array with Integer
 
 function sumXs(xs Xs) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		t = t + x
 	end 'each'
@@ -947,7 +931,6 @@ end 'sumXs'
 
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
 		t = t + y
 	end 'each'
@@ -1012,7 +995,6 @@ error E3016: <fragment>:10:6: Partial interface implementation: type 'Sack' has 
 ### `as` — a re-brand costs nothing, and a different element layout is still not a cast target
 
 <!-- test: as-rebrands-both-ways -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The cast changes the brand and nothing else — the emitted code shows no operation surviving for either `as`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1023,7 +1005,6 @@ typealias Ys = Array with Integer
 
 function sumXs(xs Xs) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		t = t + x
 	end 'each'
@@ -1032,7 +1013,6 @@ end 'sumXs'
 
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
 		t = t + y
 	end 'each'
@@ -1349,7 +1329,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-decays-into-a-narrow-ranged-brand -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE DECAY CONTROL ABOVE USES A FULL-RANGE ELEMENT, AND THAT IS THE ONE CASE THE RULE CANNOT FAIL IN.**
 `a-literal-decays-into-any-brand` declares `Integer = int(i64.min to i64.max)`, so its literal's own inferred
 element type and the brand's element type are the same type and no adoption is needed to make them agree.
@@ -1381,18 +1360,16 @@ typealias Ys = Array with Count
 
 function totalXs(xs Xs) returns Count
 	var t = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
-		t = t + x
+		t = try t + x otherwise panic("out of range")
 	end 'each'
 	return t
 end 'totalXs'
 
 function totalYs(ys Ys) returns Count
 	var t = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for y in ys 'each'
-		t = t + y
+		t = try t + y otherwise panic("out of range")
 	end 'each'
 	return t
 end 'totalYs'
@@ -1405,7 +1382,7 @@ function main() returns ExitCode
 	let viaLiteral = totalXs([1, 2, 3])
 	let viaOtherBrand = totalYs([1, 2, 3])
 	let viaScalar = one(3)
-	let built = Xs.create(0)
+	var built = Xs.create(0)
 	built.push(1)
 	built.push(2)
 	let viaPush = totalXs(built)
@@ -1417,7 +1394,7 @@ end 'main'
 ```
 
 <!-- test: an-eight-byte-ranged-element-is-adopted-too -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 ### The element does not have to be NARROWER — it has to be a different TYPE
 ⛔⛔ **`int(0 to i64.max)` AND `int(0 to u64.max)` OCCUPY A MACHINE WORD, EXACTLY AS A BARE `int` DOES, AND
 THAT IS THE CLASS A STRIDE COMPARISON CANNOT SEE.** They are stdlib's own shape — `Array.ElementIndex`,
@@ -1438,7 +1415,6 @@ typealias UnsignedArray = Array with Unsigned
 
 function total(xs NonNegArray) returns NonNeg
 	var t = 0 as NonNeg
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		t = t + x
 	end 'each'
@@ -1460,7 +1436,6 @@ end 'main'
 ```
 
 <!-- test: error.an-adopted-element-is-still-range-checked -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ### Adoption CHECKS the elements; it does not assume them
 ⚠ **THE SAME-STRIDE CLASS IS WHERE THIS COULD HAVE BEEN LOST SILENTLY.** An element is sent through the
@@ -1474,7 +1449,6 @@ typealias UnsignedArray = Array with Unsigned
 
 function total(xs UnsignedArray) returns Unsigned
 	var t = 0 as Unsigned
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
 		t = t + x
 	end 'each'
@@ -1490,7 +1464,6 @@ error E3005: <fragment>:14:16: Value -1 is outside the range of 'Unsigned' (int(
 ```
 
 <!-- test: a-conditional-hands-the-slot-to-both-arms -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A `… if … else …` is ONE value in the slot, so both arms are built at the slot's element type
 ⛔ **THE ARM THAT PARSES FIRST MUST NOT TAKE THE ANSWER AWAY FROM THE OTHER.** The true arm is parsed before
 the `if` reveals the form, so a slot's answer keyed on the conditional's own first token is spent by the
@@ -1503,9 +1476,8 @@ typealias Xs = Array with Count
 
 function total(xs Xs) returns Count
 	var t = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in xs 'each'
-		t = t + x
+		t = try t + x otherwise panic("out of range")
 	end 'each'
 	return t
 end 'total'
@@ -1804,7 +1776,6 @@ error E3005: p/<fragment>:20:9: argument type mismatch for 'xs': expected 'p.Num
 
 <!-- test: a-call-result-of-a-qualified-existential-return-is-iterated -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `makeSeq` returns a parameterized existential spelled through its directory, `alpha.IntegerSeq`. The caller in `main.maxon` iterates the result, so the witness half of the returned value is resolved in `alpha/`, where the alias is declared, from the written qualified name.
 ```maxon
 // --- file: alpha/a.maxon
@@ -1845,7 +1816,6 @@ end 'makeSeq'
 // --- file: main.maxon
 function main() returns ExitCode
 	var sum = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in makeSeq(4) 'walk'
 		sum = sum + item
 	end 'walk'

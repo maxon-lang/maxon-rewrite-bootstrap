@@ -41,7 +41,6 @@ exit code cannot see layout, and the layout it describes is visible with `--emit
 ## Tests
 
 <!-- test: a-guard-falls-through-to-its-fast-arm -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shape the row was opened for. In `copyTail`'s versioned fast copy each bound check is
 `cmp / jcc aboveEqual, __im_slow` followed physically by its `__im_load`, `__im_store` or `__im_detached`, and every
 `__im_slow` and `tryerr` block of the function sits after its last hot block.
@@ -50,7 +49,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function copyTail(source WordArray, scratch WordArray, n Count)
+function copyTail(source WordArray, mutates scratch WordArray, n Count)
 	for i in 1 upto n 'copy'
 		let element = try source.get(i) otherwise panic("copyTail: i < n = source.count()")
 		try scratch.set(i, value: element) otherwise panic("copyTail: i < n = scratch.count()")
@@ -58,19 +57,18 @@ function copyTail(source WordArray, scratch WordArray, n Count)
 end 'copyTail'
 
 function main() returns ExitCode
-	let source = WordArray.create(0)
-	let scratch = WordArray.create(0)
+	var source = WordArray.create(0)
+	var scratch = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		source.push(i * 3)
 		scratch.push(0)
 	end 'seed'
 	copyTail(source, scratch: scratch, n: 6)
 	var total = 0 as Word
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in scratch 'sum'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -728,7 +728,6 @@ end 'main'
 
 <!-- test: pass-by-reference.an-async-call-whose-promise-outlives-the-frame-of-a-by-reference-argument-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The coroutine holds the caller's `s` by reference, so its promise is tied to the frame: it is awaited or cancelled there and cannot be stored for a later await.
 ```maxon
@@ -755,7 +754,6 @@ end 'kick'
 function main() returns ExitCode
 	var promises = IntPromiseArray.create(0)
 	kick(promises)
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'each'
 		print("awaited {await p}\n")
 	end 'each'
@@ -1355,7 +1353,6 @@ error E2013: <fragment>:15:3: 'v' is a let and cannot be passed to a `mutable` p
 ```
 
 <!-- test: pass-by-reference.error.a-loop-variable-handed-to-a-parameter-that-reassigns-it-is-refused -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `for` loop variable cannot be reassigned, so handing it to a parameter its callee reassigns is refused, as `filter` handing its element to such a callback is.
 ```maxon
@@ -1373,7 +1370,6 @@ function main() returns ExitCode
 	xs.push(4)
 	xs.push(10)
 	var big = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in xs 'walk'
 		if isBig(item) 'big'
 			big = big + 1

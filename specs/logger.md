@@ -18,7 +18,6 @@ nothing; a record is handed to the handler without waiting, and a panic or the p
 ## Tests
 
 <!-- test: log-info-needs-no-setup -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child whose only statement is `Log.info("test")`, and checks the SHAPE of the
 child's stderr: the timestamp varies, so each digit is read as a digit and every other byte is pinned.
@@ -30,7 +29,6 @@ end 'child'
 
 function shapeOf(text String) returns String
 	var shape = ""
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for c in text 'eachCharacter'
 		let spelled = "{c}"
 		if "0123456789".contains(spelled) 'digit'
@@ -353,7 +351,6 @@ a=WARN b=WARN min=WARN
 
 <!-- test: concurrent-set-levels-lose-nothing -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight handlers each set a different group's level at once; every setter re-reads and retries until its
@@ -383,7 +380,6 @@ function main() returns ExitCode
 		replies.push(try setter.apply() otherwise panic("send apply"))
 	end 'spawnEach'
 	var applied = 0 as Integer
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for r in replies 'awaitEach'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		applied = applied + (await r)
@@ -596,7 +592,7 @@ collected 2: INFO fromWorker
 ```
 
 <!-- test: an-error-logged-before-the-program-exits-is-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then returns a failing exit code. The program's exit lets the
@@ -628,7 +624,7 @@ function main() returns ExitCode
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
 		let line = try lines.get(iter.index()) otherwise 'short'
 			print("stderr ended early: {run.stderr}")
@@ -651,7 +647,7 @@ ok
 ```
 
 <!-- test: an-error-logged-before-a-panic-is-written -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
+<!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then panics. The panic first lets the handler write what was
@@ -679,7 +675,7 @@ function main() returns ExitCode
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
+	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
 		let line = try lines.get(iter.index()) otherwise 'short'
 			print("stderr ended early: {run.stderr}")

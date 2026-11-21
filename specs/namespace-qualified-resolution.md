@@ -1244,7 +1244,6 @@ end 'main'
 ```
 
 <!-- test: contested-bare-call-inside-a-borrow-parses-on-a-worker -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same one-visible resolution, reached from a body that holds a borrow: `for cell in cells` borrows the
 array, and `helper(cell.s)` hands the callee a field of the borrowed element, so the parse records the call
@@ -1284,7 +1283,6 @@ typealias Cells = Array with Cell
 
 function total(cells Cells) returns Count
 	var sum = 0 as Count
-	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for cell in cells 'each'
 		sum = helper(cell.s) as Count
 	end 'each'

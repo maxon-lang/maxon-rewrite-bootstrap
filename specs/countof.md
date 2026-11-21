@@ -146,7 +146,6 @@ end 'main'
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `counted()` is a `static function` — no receiver, no `self`,
 no `__self` in scope — and it reads its own instance's count once per element. Called through
 two different sizes it walks 3 trips and then 5, which is what the global counter shows: the
@@ -188,7 +187,6 @@ extension FixedArray
 	function rebuild(mutates trips Int) returns Int
 		let fresh = Self.counted(trips)
 		var slots = 0 as Count
-		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for _ in fresh 'countTheRecordsSlots'
 			slots = slots + 1
 		end 'countTheRecordsSlots'
