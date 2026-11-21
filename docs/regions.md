@@ -402,7 +402,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   the rules.
 - **A scheduler that simulates the interleaving.** Verona's queues, as written: a behaviour is queued on each cown it
   names when it is scheduled (one atomic step), and runs when it is first in all of its queues, so behaviours on a common
-  cown run in the order they were scheduled and nothing waits while holding a cown. Threads are goroutines handed the turn
+  cown run in the order they were scheduled and nothing waits while holding a cown. Threads are stacks of frames handed the turn
   one at a time, and the scheduler picks the next thread with a seeded generator from every thread that has started and every
   behaviour that can start, and a thread keeps the turn for a random number of instructions (up to 2, 8 or 64), so a seed
   names one interleaving at instruction granularity and the same seed always gives it again. The test runner runs a
