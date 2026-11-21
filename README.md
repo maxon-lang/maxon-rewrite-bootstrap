@@ -74,7 +74,7 @@ cache; the driver's own tests use a cache in a temporary directory. A program th
 and both must give the stdout and the exit code the directives say; the interpreter must also find no violation of the
 memory model, and the executable, built with `--count-allocations`, must end with no heap box live (a program that
 traps skips that check). A program that uses a map, a list, a pool, a frozen value, a cown or a behaviour has no
-executable yet: it fails to compile with `E9002`, and the runner then runs it under the interpreter alone. No directive is needed for
+executable yet: it fails to compile with `E9900`, and the runner then runs it under the interpreter alone. No directive is needed for
 that. A program that schedules behaviours runs under 20 schedules (seeds 0 to 19), and every one must give the same
 stdout and exit code and no violation, so the directives of such a program must say an output that does not depend on the
 schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown.
@@ -84,13 +84,13 @@ Directives in comments say what the program must do:
 |---|---|
 | `//> text` | one expected line of stdout, in order (none means stdout must be empty) |
 | `// expect-exit: N` | expected exit code (default 0; a panic exits 1) |
-| `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column (`E9002`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
+| `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column (`E9900`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
 | `// memory-limit: N` | the native run may use at most N megabytes: the runner puts the process in a job object with a memory cap, so a program that never gives memory back fails (an allocation fails and it crashes), whatever the machine has |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
 
 ### Errors
 
-A diagnostic is `file:line:col: error E….: message`, and compiling stops at the first error in each
+A diagnostic is `error E….: file:line:col: message`, the layout of the current Maxon compiler, and compiling stops at the first error in each
 function. An error raised at a node is located, given its file, line and column, when the compile reports it. A diagnostic is a `*CompileError` panic that `Guard` (`internal/diag`) turns into a list entry; any other
 panic is a bug in minimaxon, not in the program. It prints `internal compiler error` with a stack trace and
 exits 3.
@@ -120,7 +120,7 @@ under it that holds source, at any depth, is a module of its own. Names follow M
 - **Visibility is flat:** an unmarked declaration, field or method is visible only inside its own module.
   `export` and `public` make it visible everywhere. Naming a hidden one is `E3008` (`E3014` for a field).
 - **One namespace per module:** a name declared twice across the module's files is `E3006`.
-- **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E9001`, reported at where the first module of the cycle names the second.
+- **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E2012`, reported at where the first module of the cycle names the second.
 - A directory whose name is not an identifier, or a top-level one named `export`, `stdlib`, `runtime` or
   `scriptlib`, is `E3182`.
 
@@ -131,7 +131,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 
 | Package | Holds | Imports |
 |---|---|---|
-| `diag` | `CompileError`, `Guard`, the error codes | — |
+| `diag` | `CompileError`, `Guard`, the error codes (generated from `codes.tsv`) | — |
 | `par` | `ForEach`: runs a phase over a pool of `--jobs` goroutines, and `ForEachIndexWith`, which gives each worker the scratch buffers it reuses for every item; `Run`: runs a `Plan`, tasks that wait for other tasks, on the pool, preferring the group a worker was just on and then the lowest task; a panic is raised by item or task number, not by time | — |
 | `cache` | the store of the build cache: entries found by a key in a directory, written whole by a rename and read so that damage is a miss, the hasher that keys are made with, the hash of the running compiler, trimming what has not been used for days, and the wire format an entry is written in (see "Build cache") | — |
 | `srctest` | reads the Maxon source that unit tests keep in `testdata/`; imported only by tests | — |
@@ -146,7 +146,7 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's export summaries, keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar, and `cmd/convert` is the standalone tool that converts existing Maxon source
+that generates code from the grammar, `internal/diaggen` is the command that generates the error code constants of `internal/diag` and `self/diag` from `internal/diag/codes.tsv`, and `cmd/convert` is the standalone tool that converts existing Maxon source
 to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
@@ -195,7 +195,11 @@ few members, such as whether an expression can be assigned to. Regenerate after 
 go generate ./internal/syntax
 ```
 
-`go test ./internal/grammargen` fails if a generated file is not what the grammar generates. A package exports only what another
+`go test ./internal/grammargen` fails if a generated file is not what the grammar generates.
+
+The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, its code, the case of maxon's `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it refuses. Edit the table, then `go generate ./internal/diag` writes `internal/diag/codes_gen.go` and `self/diag/codes_gen.maxon`, and `go test ./internal/diaggen` fails if either differs. `go run minimaxon/internal/diaggen --maxon <maxon repository>` checks every row against maxon's registry.
+
+A package exports only what another
 package uses. What resolution and the check of the bodies decide is not in the nodes but in tables beside them (see
 "The AST"); the declarations, which are structs, still carry the semantic types that declare fills in, which is why `ast` holds both.
 Moving those into tables too, as `go/ast` and `go/types` do, would let the two separate.
@@ -220,18 +224,18 @@ merged in source order, which keeps the output deterministic.
 | discover | `project` | walks the directory tree, one goroutine per subdirectory |
 | parse | `syntax`, `project` | reads the module's files into one buffer, lexes the whole buffer in one pass and parses the token stream into the AST; anything the grammar does not allow is a syntax error. A module that parsed cleanly then gets its declaration table and an empty type object for each of its types, while its AST is in cache (a duplicate declaration is `E3006`, reported only if no module has a syntax error) |
 | names | `project` | serial and cheap: the project-wide name index, which lists the declarations of each name in module order. The cores it leaves idle meanwhile size the tables of each module's `Typing` that have an entry for every node (see "The AST") |
-| resolve | `resolve` | binds every name to its declaration and records the modules the module depends on in its result, and each `where` constraint to the type parameter it names (`E3133`) |
+| resolve | `resolve` | binds every name to its declaration and records the modules the module depends on in its result, and each `where` constraint to the type parameter it names (`E3916`) |
 | aliases | `check` | serial and cheap: each typealias of an instance gets its type, after the typealiases it names, in source order (a cycle is `E2012`) |
 | declare | `check` | the module's fields, cases, function signatures, type parameters with their bounds, and the interfaces its types implement; a type argument is only recorded for the check pass. It also numbers the module's nodes that have a slot, now that resolve has changed the kind of some, and sizes the tables of the `Typing` that only some nodes have |
 | constants | `driver` | top-level `let` types, in waves: each wave holds the constants whose dependencies are done (a cycle is `E2012`) |
-| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3117`), then the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3140`, `E3141`; see "Checked arithmetic"), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3110` to `E3115`, `E3125`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
-| generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3122` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9002`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules. A module whose entry the build cache holds is not lowered or emitted at all (see "Build cache") |
+| check | `check` | the first task of the modules phase: two stages on each module, one straight after the other so its AST and types stay in cache. **Bodies** type every function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses; a call into another module takes the callee's declared return type and is recorded, not checked; a call that needs an instance of a generic is recorded on its function, unless it comes after its block's live statements. **Verify** checks the recorded cross-module calls and every type argument against its parameter's bounds (`E3017`), then the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3923`; see "Checked arithmetic"), then ownership: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) A module's verify stage runs only if its bodies had no errors and no module's bodies have had errors yet, and when any module's bodies had errors the program gets those alone, so the errors do not depend on which worker was where (a verify stage that ran meanwhile is dropped) |
+| generate | `ir`, `backend` | the last task of the modules phase: two stages on each module, one straight after the other so the IR is consumed while it is in cache. **Lower:** the module first finds the instances of generic functions that it needs: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up (`E3906` if the type arguments grow without end), in the order found. The live statements of each function, and of each instance, become IR (below) in the worker's reused buffers, with a drop where each owner dies, and unreachable blocks are pruned; a place that needs something the backend cannot run yet is noted, and the driver refuses it before codegen (`E9900`). **Codegen:** IR → x64, one code unit per module, which holds the instances the module found whoever else needs them, calls between units symbolic; the runtime is its own hand-written unit, and so is the array runtime, which a program that calls an array entry gets. Each unit notes the drop and copy routines its code calls A module that has a refusal is not emitted, and a program with any gets no executable; the runtime unit is emitted beside the modules. A module whose entry the build cache holds is not lowered or emitted at all (see "Build cache") |
 | routines | `backend` | serial to start, then parallel: the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), made in waves of units of 256 routines; the order of the routines comes from the modules in source order, so it does not depend on `--jobs` |
 | link | `backend` | each function and routine is a section, each string and reserved value a piece of data, and only those the entry reaches through symbol and data references are kept (the runtime units are one section each). Every function is still compiled; what nothing calls is dropped here, as Go's linker does. Every step runs on all jobs: each unit enters its definitions into one table (a hash table of ids whose slots are claimed with a compare and swap, so it needs no lock; the ids count over the units in order, each definition having one; a symbol is its text, a link name, see "Build cache"). An instance is defined by every module that needs it, so the symbol of an instance may be defined more than once, and the table keeps the lowest id, which is the definition of the first unit, whichever job entered its own first: a definition that finds a lower id gives way and one that finds a higher id takes the slot. The other copies are never looked up, so the mark never reaches them and they are dropped like any dead section, as a C++ linker does with COMDAT "any". Any other symbol defined twice is an internal error; the mark follows the calls a round at a time, resolving a fixup only where live code uses it, with each round's sections shared out in chunks and the next round gathered in chunk order; each unit places its live parts from its own aligned start, and a running sum over the units in order gives each unit its base; each unit copies and patches its code into the image, which is the file in memory, while the file is created in the background and written in chunks as the code in front becomes final. The units go in module-path order after a runtime unit, then the routines, and the array runtime comes last. The layout depends only on which sections are live, so it is the same for any `--jobs` |
 
 `driver.Prepare` (and `Interpret`, which runs the result once) runs the same passes through the lower stage of `generate` and gives the IR to
 the interpreter instead of codegen, which is how a map, a list, a pool, a frozen value, a cown and a behaviour run. `minimaxon check` runs
-the modules phase with the instances alone in place of `generate` (a generic that grows its own type argument without end is `E3122`),
+the modules phase with the instances alone in place of `generate` (a generic that grows its own type argument without end is `E3906`),
 so it has the same edges and reports the same errors.
 
 ### The modules phase
@@ -273,7 +277,7 @@ phase fills in the result of the module it works on and later phases read it.
 The modules a module depends on are the edges of the module graph (`project.Graph`): resolve records, for each module,
 the other modules whose declarations it names, as a sorted list of handles without duplicates, each with the first
 place it is named. The graph keeps the reverse edges too. The import-cycle check is a topological sort of the graph
-(Kahn's algorithm, linear in the edges), and a cycle is `E9001` at that place.
+(Kahn's algorithm, linear in the edges), and a cycle is `E2012` at that place.
 
 A pass that reports an error stops the compile, so later passes never see a broken module. The two stages of a fused pass
 are one case of this: when any module's first stage reports errors, those are the program's errors and what the second
@@ -541,7 +545,7 @@ routines a kept unit asks for are found again.
 The entry of a module is the output of its `generate`: its code unit (the code, the data, the references and definitions to link, the
 sections and pieces the link keeps or drops whole, and the drop and copy routines it asks for, each as a kind and the link name of a
 type), whether it calls an array entry, and, if the build that wrote it asked for `--emit-ir`, the module's IR text. A module that has an
-error or a refusal (`E9002`, a runaway generic) has no entry: nothing a diagnostic holds is kept, so a diagnostic is always made, and made
+error or a refusal (`E9900`, a runaway generic) has no entry: nothing a diagnostic holds is kept, so a diagnostic is always made, and made
 the same way, by the compile that reports it. A build that does not ask for the IR leaves entries without it, so a build that does is a miss
 for each of them and writes entries that serve both. Writing happens in the module's own generate task, on whatever worker made the
 unit.
@@ -782,7 +786,7 @@ of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling 
 buffer it leaves (the elements moved to the new one, so only the buffer goes), and `rt.array.remove` hands the element
 it removes to the caller, who owns it. The entries are written in x64 in `internal/backend/arrays.go`, a unit of their
 own that the driver links only into a program that calls one. A map, a list and a pool are lowered all the same, which
-is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9002`, at the
+is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9900`, at the
 first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
 parameter of type `map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine
 to free it.
@@ -815,7 +819,7 @@ arguments.
 
 **Native.** None of it has native code: green threads, a scheduler and atomic counts are not built (see
 [docs/regions.md](docs/regions.md)). The driver refuses a function that freezes, shares, thaws, makes a cown or schedules a
-behaviour, or reads through a frozen value, with `E9002` like a map, a list or a pool. `freeze` alone could be native, since
+behaviour, or reads through a frozen value, with `E9900` like a map, a list or a pool. `freeze` alone could be native, since
 nothing is counted or freed there yet, but a program that freezes and nothing else cannot show anything about the rules,
 and refusing every one keeps the backend free of a half of the feature.
 
@@ -1027,7 +1031,7 @@ An integer operation that can fail says so. The failures are the cases of the bu
 | `divisionByZero` | `/` and `mod` by 0 |
 | `negativeShift` | `shl` and `shr` by a negative count |
 
-An operation that can fail must be covered by a `try`, or it is `E3140`, which names how it can fail and a condition
+An operation that can fail must be covered by a `try`, or it is `E3057`, which names how it can fail and a condition
 that would rule it out:
 
 ```maxon
@@ -1050,15 +1054,15 @@ end 'sums'
 - A `try` covers every operation in its expression, and a `try` block every operation in its body, except what a `try`
   inside covers with an `otherwise` of its own. A call of a function that `throws ArithmeticError` can fail too.
 - A `try` with no `otherwise`, and a `try` block with no handler, pass a failure to the `try` around them, or with none
-  to the caller: only a function that `throws ArithmeticError` has one (`E3141` otherwise, and in a constant, a field's
+  to the caller: only a function that `throws ArithmeticError` has one (`E3923` otherwise, and in a constant, a field's
   default and a behaviour's body). `main` cannot throw, and neither can a function with a `sets` parameter, which a
-  failure would leave set or not (`E3142`); a method throws exactly when the interface's signature does (`E3120`).
+  failure would leave set or not (`E3924`); a method throws exactly when the interface's signature does (`E3016`).
 - A `try` that covers nothing that can fail is allowed, so a sharper analysis never breaks a program.
 - A failure leaves what it interrupts, as a jump out of it would: the temporaries of the statement and the locals of
   the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
   (`ir.Lowerer.pending`). The ownership pass follows each failure to its handler, so a value moved before a failure may
   be gone in the handler (`E3102`), and a value that cannot be dropped may not be in flight where something can fail
-  (`E3136`).
+  (`E3919`).
 
 **Guards.** The range analysis (`internal/check/ranges.go`) proves most operations safe, and those need no `try` and
 compile to no check at all: lowering emits only the checks it leaves (`ast.Fails`). It is one walk over each function,
@@ -1110,17 +1114,17 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   is `E3102`; its other fields are still read and moved. Assigning a gone field gives it a value again (nothing is
   dropped, because nothing is there), and the local is whole again when none is gone. At the end of the local, the
   fields that are left are dropped, so each must be `Droppable`. Where two paths meet, a local is gone on the union of
-  what either path lost, and a part that one path lost and the other still holds must be droppable, else `E3136`.
+  what either path lost, and a part that one path lost and the other still holds must be droppable, else `E3919`.
   Lowering moves the field with `moveat` on its address, which leaves 0 there; every drop routine skips an empty field,
   so the drop at the end of the local needs no knowledge of the path taken. A type with destructors is taken apart only
   inside its own destructors, at every record along the path, so `let note = t.note` cannot end a `Txn` without
-  committing it (`E3139`; also for `match consumes`).
+  committing it (`E3922`; also for `match consumes`).
 - **Destructors.** A type that declares one (`function commit(destructs self)`) cannot be dropped, so a value of it is ended
   by calling a destructor, which moves the receiver in, or moved on; ending a scope, overwriting it or discarding it
-  without either is `E3136` (see "Capabilities and destructors").
+  without either is `E3919` (see "Capabilities and destructors").
 - **`x.copy()`** is a deep copy that every type has, so no type may declare a method `copy`. It allocates a new
   box for each record or union inside `x`, and a new string for each string, so that every value has an owner of its
-  own to free it. A value whose type is not `Copyable` has no `copy()` (`E3135`).
+  own to free it. A value whose type is not `Copyable` has no `copy()` (`E3918`).
 -  **Conventions.** A parameter takes its argument as `let` (no marker: an immutable borrow), `mutates` (a mutable
   borrow; the caller sees the change and passes no marker), `consumes` (the callee owns it) or `sets` (the callee
   initialises it). The marker comes before the name (`consumes item T`). A method's receiver is `self` (let), `mutates
@@ -1130,22 +1134,22 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   replaced, so it is never a `mutates` argument (`E2013`); a field of it can be, and a method can be called on it.
 -  **Borrows are second-class.** A `let`, `mutates` or `sets` parameter, a `match` binding of a payload that is not a
   scalar, and anything reached through one is borrowed: moving it anywhere (a binding, a field, a `consumes` argument,
-  the return value) is `E3110`. An element of a collection, which the collection owns, and a part of a frozen value or
-  of a temporary, which is dropped when its statement ends, are not moved out either (`E3111`); `copy()` is the fix for
+  the return value) is `E3900`. An element of a collection, which the collection owns, and a part of a frozen value or
+  of a temporary, which is dropped when its statement ends, are not moved out either (`E3901`); `copy()` is the fix for
   all of them. A match binding also cannot
-  be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3112`). There are no
+  be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3186`). There are no
   local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings and call arguments.
 - **Exclusivity.** A place is a local or parameter followed by field selections and element selections (`a[i]`, see
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
   `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
-  must not overlap any other argument of the call, receiver included (`E3112`). The rule applies to every
+  must not overlap any other argument of the call, receiver included (`E3186`). The rule applies to every
   argument that names a place, scalars too. An argument that is a borrowed place stays borrowed while the later
   arguments are evaluated, and so does the target of an assignment while its value is, so a call nested there that
-  changes an overlapping place is refused too (`E3112`).
+  changes an overlapping place is refused too (`E3186`).
 - **Initialisation.** `var x as T` declares a variable with no value. Reading it before every path has assigned
-  it is `E3113`. A `sets` parameter starts without a value and must have one on every path that returns
-  (`E3114`); its argument must be such a variable, which has a value after the call (`E3115`), and not before:
-  another argument of the same call that reads it is `E3113`.
+  it is `E3902`. A `sets` parameter starts without a value and must have one on every path that returns
+  (`E3903`); its argument must be such a variable, which has a value after the call (`E3904`), and not before:
+  another argument of the same call that reads it is `E3902`.
 
 ### Generics
 
@@ -1193,18 +1197,18 @@ end 'wrap'
   a union (`type Pair uses A, B`), after the parameter list of a function (`function swap(mutates a T, mutates b T)
   uses T`). A `where` clause ends the line, after `implements` or `returns`, and names the bounds a parameter must
   meet: `where T implements Shape and Named, U implements Other`. It constrains the declaration's own parameters, and
-  for a method those of its type (`E3133` for any other), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
+  for a method those of its type (`E3916` for any other), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
   too: `type Square implements Shape, Named`. An interface lists method signatures, each
   with its receiver convention (`mutates self`, `consumes self`, `destructs self`, or none for a `let` receiver), and may name `Self`. It
-  is a bound and nothing else: it is not the type of a value (`E3119`), has no type parameters, no static function and
+  is a bound and nothing else: it is not the type of a value (`E3905`), has no type parameters, no static function and
   no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
-  takes none of its own (`E3123`). `Self` inside a generic type is the type at its own parameters, and a literal of it
+  takes none of its own (`E3907`). `Self` inside a generic type is the type at its own parameters, and a literal of it
   is `Self{...}`.
 - **Instances.** A type names an instance with `with`: `Box with Count`, `map with (String, Count)`, `lib.Option
   with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
-  parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E3116`). A `typealias` names an
+  parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
   instance, `typealias Counts = array with Count`, or, with several arguments, `typealias Counts = map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
-  with Count` are one type. Its right-hand side is an instance (`E3134`), it may name other typealiases in any module,
+  with Count` are one type. Its right-hand side is an instance (`E3917`), it may name other typealiases in any module,
   and one that names itself is `E2012`.
 - **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
   its arguments' types (`swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`), and the ones the arguments leave open from
@@ -1212,35 +1216,35 @@ end 'wrap'
   generic, the value of an assignment or a field of a literal, and the branches of a conditional or a match that is
   one of these (`return Option.none`, `Shelf{items: array.new()}`). Otherwise a static function or a case is called
   through a typealias of the instance: `Counts.new()`. An integer constant or the range of an expression names no
-  alias, so it infers nothing; with nothing else to go by the call is `E3118`.
+  alias, so it infers nothing; with nothing else to go by the call is `E3179`.
 - **Checked once.** A generic body is typed and checked for ownership once, where it is declared, whether or not
   anything instantiates it, and its errors are reported there and only there. Inside it a value of a type parameter
   has the methods of its bounds (`a.area()`, with `Self` read as the parameter; two bounds that declare one name
-  are `E3121`) and what every type has: move and a borrow under any convention (a drop needs `Droppable`, see "Capabilities and
+  are `E3114`) and what every type has: move and a borrow under any convention (a drop needs `Droppable`, see "Capabilities and
   destructors"). `copy()` only if the parameter is
-  bounded by `Copyable` (`where T implements Copyable`, `E3135` otherwise). Nothing else: no field, no operator, no
+  bounded by `Copyable` (`where T implements Copyable`, `E3918` otherwise). Nothing else: no field, no operator, no
   `match`, no interpolation. A `T` has only its bounds, so copying it and letting it die each need one, and a `T` that
   is not `Droppable` cannot go into a `cown` there, because it has no destructor to name.
 -  **Ownership over `T`.** A value of a type parameter is owned, movable and not a scalar, whatever `T` is instantiated
   with, so every rule of "Ownership" applies to it unchanged and an instance cannot break what was checked once. Binding
   it, passing it to a `consumes` parameter, returning it or storing it moves it (`E3102` after); a `let` or `mutates`
-  parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3110`); `copy()` of a
+  parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3900`); `copy()` of a
   `Copyable` one keeps it. A `T` that is only bounded by interfaces cannot be dropped either: where one dies, the
-  declaration says `where T implements Droppable` (`E3136`). So a generic container gives its element out with `.copy()` where `T` is `Copyable`, or takes it out of a primitive with `remove`, `pop`
+  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.copy()` where `T` is `Copyable`, or takes it out of a primitive with `remove`, `pop`
   or `unwrap` (see "Primitives"), or moves the field out of an owned value.
 - **Copyable and Droppable.** Two built-in interfaces in the stdlib, with no methods, name capabilities of a type; a
   bound is written like any other (`where T implements Copyable and Droppable`). See "Capabilities and destructors".
 - **A method's `where`.** A method may bound its type's parameters further: `function peek() returns T where T
   implements Copyable` inside `type Stack uses T` is a method that only a `Stack` of copyable elements has, so one
   container serves both kinds of element. The bound holds in that method's body, and a call checks the receiver's type
-  argument against it in the verify stage (`E3117`); the type's own `where` is the one every method has. Other
+  argument against it in the verify stage (`E3017`); the type's own `where` is the one every method has. Other
   methods of the type do not have it: calling `peek` from one of them needs the bound there too. A method with such a
   `where` cannot be the one that implements an interface's method, because the type would implement the interface only
-  for some instances (`E3120`).
+  for some instances (`E3016`).
 - **Bounds at the instance.** An instance is judged only where it is written or a call infers it: each type argument
   must implement each interface its parameter is bounded by, which is a declaration (`type Round implements Shape`)
-  and not a structural match, and the error names the declaration to write and the methods missing (`E3117`). A declaration that says
-  `implements Shape` is checked once, for every method with the signature `Shape` gives (`E3120`), so a bound never fails
+  and not a structural match, and the error names the declaration to write and the methods missing (`E3017`). A declaration that says
+  `implements Shape` is checked once, for every method with the signature `Shape` gives (`E3016`), so a bound never fails
   later. Inside another generic, a type parameter meets a bound only if it is declared with it. Bounds belong to
   declarations that another module may still be declaring, so they are checked in the verify stage. A bound's
   method is called through the interface, so the implementing method needs no `export`.
@@ -1253,13 +1257,13 @@ end 'wrap'
   so a module that needs an instance another one needs lowers and emits it too, and the link keeps the first unit's copy.
   The order of a module's instances is the order it found them in, so it does not depend on `--jobs`, and neither does
   which unit keeps an instance. A compile that stops short of generate (`check`) still has each module find its instances,
-  which is where `E3122` is raised.
+  which is where `E3906` is raised.
 - **Interning.** `Box with Count` is one type wherever it is written: each generic declaration interns its instances,
   keyed by their arguments, behind a lock, which is the only write that parallel phases share. Every module that needs an
   instance gets the same declaration, and the order in which modules interned it is never visible in any output. An instance holds no
   members of its own; it reads the declaration's fields, cases and methods and substitutes its arguments.
 - **Limits.** A generic type may not contain itself, even with a larger type argument each time (`E4014`), and a
-  generic function may not call itself with ever larger type arguments (`E3122`, past a nesting depth of 16). Each module that
+  generic function may not call itself with ever larger type arguments (`E3906`, past a nesting depth of 16). Each module that
   reaches such a function finds the runaway for itself, and the program gets one error: the one of the first module in module
   order that has it, at the first call in its walk that asks for the too deep instance, which is the same for any `--jobs`. That is
   the recursive call inside the generic whenever the growth is in one call, the case that one error covers however many modules use it.
@@ -1305,31 +1309,31 @@ end 'Box'
 ```
 
 A `Txn` has no copy and no drop, so every path that makes one ends it with `commit` or `rollback` (forgetting it is
-`E3136`, calling both `E3102`). `Box with Txn` has neither either, because its part does not: it is taken apart with
+`E3919`, calling both `E3102`). `Box with Txn` has neither either, because its part does not: it is taken apart with
 `b.take().commit()`, and `Box with Count` may simply be dropped. `Box` itself is written once.
 
 `Copyable` and `Droppable` are structural: a type never says it has one (`implements Copyable` on a declaration is
-`E3138`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
+`E3921`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
 a union payload, an element of an `array`, `list`, `pool` or `Option`, or a value of a `map`. A `frozen`, a `cown` and a
 `Handle` have both whatever they hold, so the loss stops there. A generic type is judged per instance (`Box with Socket`
 is not `Copyable`, `Box with Count` is), and a type parameter has a capability only by bound; `Copyable` includes
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
-whatever holds one. A destructor is allowed on a `type` and a `union`, never on an `enum` (`E3137`), and in an interface's
+whatever holds one. A destructor is allowed on a `type` and a `union`, never on an `enum` (`E3920`), and in an interface's
 signatures, so generic code can end a `T` through a bound. Calling one moves the receiver in like `consumes self`, and in
 the body `self` is owned and its fields may be moved out. Where the body ends, `self` is destroyed: the fields that were
-moved out are skipped and the rest are dropped, so each must be `Droppable` (`E3136`), and no obligation remains. `self`
+moved out are skipped and the rest are dropped, so each must be `Droppable` (`E3919`), and no obligation remains. `self`
 may be passed whole only to another destructor of its type, which ends it there (`rollback` delegating to
-`abort(reason: r)`); moving it whole anywhere else is `E3137`. The query is `internal/check/capabilities.go`,
+`abort(reason: r)`); moving it whole anywhere else is `E3920`. The query is `internal/check/capabilities.go`,
 one answer per type and capability, remembered per checker, naming the part that removes the capability so the message
 can say where it comes from and how to get it back. Every copy decision goes through it:
 
-- `x.copy()` of a type that is not `Copyable` is `E3135`, and so is a top-level `let` of such a type (a constant is read
+- `x.copy()` of a type that is not `Copyable` is `E3918`, and so is a top-level `let` of such a type (a constant is read
   any number of times).
-- Built-ins state what they need as a bound on their signature, checked like any other (`E3117`): `thaw` needs a
+- Built-ins state what they need as a bound on their signature, checked like any other (`E3017`): `thaw` needs a
   `Copyable` content because it copies it, and `array.filled` needs a `Copyable` element, a bound on the method that
   `array with T` adds to its own parameter. `freeze` and `cown(x)` need a `Droppable` content, because the last owner
   drops it, and `map.insert` needs a `Droppable` value, because it drops the one it replaces.
-- **An implicit drop needs `Droppable`.** These drop a value, and each is `E3136` when its type lacks `Droppable`: the end
+- **An implicit drop needs `Droppable`.** These drop a value, and each is `E3919` when its type lacks `Droppable`: the end
   of a scope that still holds an owned local, a `consumes` parameter, a `consumes self` or a payload bound by `match
   consumes` (also through a `return`, `break` or `continue` that leaves it, reported at that statement; at the
   declaration for the end of a block); a `consumes _` parameter; an assignment over a variable, field or element that
@@ -1337,7 +1341,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   as in `make().id`, or left by an expression statement); and a payload that an arm of `match consumes` does not name.
   The ownership pass keeps a stack of the owned locals in scope whose type lacks `Droppable`; a fact about one means it
   holds nothing, so it is checked at the end of its scope and removed there. Where two paths meet, such a local must hold
-  nothing on both or neither (a partly moved one is judged by what is left of it), else `E3136` at the move that happened on one path only (or at the declaration of a variable
+  nothing on both or neither (a partly moved one is judged by what is left of it), else `E3919` at the move that happened on one path only (or at the declaration of a variable
   assigned on one path only). A path that ends in a trap needs no destructor, and a `while true` loop is left by its `break`s alone, so
   only they reach the code after it. In a generic body a `T` without the bound
   is such a type, so code that lets a `T` die writes `where T implements Droppable`. A function whose locals all have
@@ -1350,7 +1354,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   destructors says how it ends instead: `cown(t, dropWith: rollback)` names a destructor of `t`'s type that takes
   nothing else and returns nothing, as a method name (it is not a value, so there are no function values), and the
   thread that drops the last reference runs it. `dropWith:` on `Droppable` content has nothing to decide, and naming
-  anything but such a destructor is `E3138` too. This is the only place a destructor runs without being called.
+  anything but such a destructor is `E3921` too. This is the only place a destructor runs without being called.
 - **Behaviours.** The captures move into the body, so a captured value that is not `Droppable` is ended there like any
   owned local.
 - A message that would have the reader write `.copy()` suggests it only for a type that has `Copyable`; for another it
@@ -1387,7 +1391,7 @@ keeps its place and no value is dropped.
 -  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
   `Count`, a map by its key, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
   through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutates` parameter, it is `mutates`. It is never an owned
-  value: binding it, returning it or passing it to a `consumes` parameter is `E3111`, or `E3110` where the collection
+  value: binding it, returning it or passing it to a `consumes` parameter is `E3901`, or `E3900` where the collection
   itself is borrowed, and `copy()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
   The element of a temporary (`make()[0]`) cannot be moved or assigned either.
 - **A miss traps**, as an out-of-range index, a missing key or a stale handle: a range-check guard, safe, and it
@@ -1395,7 +1399,7 @@ keeps its place and no value is dropped.
   `contains`, and `first`, `next` and the others that return an `Option`.
 - **Exclusivity.** A path gains a second kind of step, an element, and every element of a collection overlaps every
   other one, whatever the indexes say: `a[i]` and `a[j]` overlap, so `pair(a[i], b: a[j])` and `f(a, n: a[0])` are
-  refused (`E3112`), while `pair(a[i], b: b[j])` and `pair(r.left[0], b: r.right[0])` are fine. A method with an
+  refused (`E3186`), while `pair(a[i], b: b[j])` and `pair(r.left[0], b: r.right[0])` are fine. A method with an
   `mutates self` receiver, such as `append`, `insert` and `remove`, overlaps every projection of its collection in the
   same call: `a.append(a[0])` is refused, and `let x = a[0]; a.append(x)` is the fix for a scalar. An index, a key
   or a handle is an ordinary value, read before the call, so `a[a.count() - 1]` and `a.insert(x, at: a.count())`
@@ -1405,7 +1409,7 @@ keeps its place and no value is dropped.
   while later arguments are evaluated, the target of `x.f = v` and `a[i] = v` while the value is, the left operand of a
   string comparison while the right is, the collection of a subscript while its index is, and the first part of an
   interpolated string while the second is (later parts are joined as soon as they are evaluated, so they hold nothing).
-  A call in there that changes an overlapping place is refused (`E3112`): `look(a[0], n: drop(a))`, where `drop`
+  A call in there that changes an overlapping place is refused (`E3186`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
   passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
   nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].copy() == wipe(a)`, or the other operand
@@ -1420,7 +1424,7 @@ keeps its place and no value is dropped.
   use and a `map` from each key to the handle of its entry, and a linked structure is a `pool` of nodes that name
   each other by handle (see `tests/` and `internal/check/primitives_test.go`).
 - **Map keys** are compared and copied as a word or as text: an integer alias, a `bool`, an enum, a `String` or a
-  `Handle`. Any other key, a record or a union or a type parameter, is `E3124`. A generic function can therefore take
+  `Handle`. Any other key, a record or a union or a type parameter, is `E3908`. A generic function can therefore take
   a `map with (String, V)` with a generic `V`, but not a `map with (K, V)` with a generic `K`; a bound for keys would lift that.
   `insert` replaces the value of a key that is there, which is dropped.
 - **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `array with T` is
@@ -1429,10 +1433,10 @@ keeps its place and no value is dropped.
   walk its keys yet.
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
-  program that uses one is refused when it is compiled to an executable (`E9002`) and still passes `check`; the test
+  program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
 - **Limits.** `Option with T` here is the stdlib's; a module that exports its own `Option` wins the bare name in the
-  other modules, and `stdlib.Option with T` names this one. A primitive implements no interface (`E3117`). A record
+  other modules, and `stdlib.Option with T` names this one. A primitive implements no interface (`E3017`). A record
   that contains itself through an array (`var kids as array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
@@ -1459,18 +1463,18 @@ end 'transfer'
 
 | Written | Means |
 |---|---|
-| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen with T`, an immutable value; `T` is not a plain value (`E3127`) and must be `Droppable`, because the last owner drops it (`E3117`) |
+| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen with T`, an immutable value; `T` is not a plain value (`E3910`) and must be `Droppable`, because the last owner drops it (`E3017`) |
 | `share(f)` | another owner of the frozen value or the cown that `f` (a `let` borrow) names; the count goes up by 1 |
-| `thaw(f)` | an owned, mutable deep copy of what a frozen value holds, so `T` must be `Copyable` (`E3117`) |
-| `cown(x)` | takes `x` (`consumes`) and gives a `cown with T`, a reference to a cown that owns the value; `T` may be a plain value and must be `Droppable` (`E3117`) |
-| `cown(x, dropWith: d)` | the same for a `T` that has destructors: `d` names one that takes nothing else and returns nothing, and the last reference runs it on the value (`E3138`) |
+| `thaw(f)` | an owned, mutable deep copy of what a frozen value holds, so `T` must be `Copyable` (`E3017`) |
+| `cown(x)` | takes `x` (`consumes`) and gives a `cown with T`, a reference to a cown that owns the value; `T` may be a plain value and must be `Droppable` (`E3017`) |
+| `cown(x, dropWith: d)` | the same for a `T` that has destructors: `d` names one that takes nothing else and returns nothing, and the last reference runs it on the value (`E3921`) |
 | `when a, b as x, y 'label'` … `end` | a behaviour: runs later, once it has exclusive access to the cowns `a` and `b`, with `mutates` access to their values as `x` and `y` |
 
 -  **Frozen values.** The contents are lent and never given: reading a field, calling a method whose receiver is `let`,
   subscripting, matching, interpolating, and passing the frozen value to a `let` parameter of the type it holds all see
   the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutates`
-  argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3125`, and taking a
-  part out of it is `E3111`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
+  argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3197`, and taking a
+  part out of it is `E3901`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
   place's path gains a step into the contents (`paths.go`), and every rule about places, borrows and exclusivity applies
   to it as it does to a field. `copy()` of a frozen value, of a cown reference, and of anything that holds one, is a
   `share`: the copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the
@@ -1481,8 +1485,8 @@ end 'transfer'
 - **Cowns.** A `cown with T` is a counted reference: `share` and `copy()` make another, dropping one lowers the count, and
   the cown and its value are freed when the last reference is gone and no behaviour holds it; a value with destructors is
   ended by the one that `dropWith:` names instead (see "Capabilities and destructors"). The value is touched only in
-  a behaviour (`E3132` for a field, an element, a method, a match or an interpolation of a cown outside one). A type that
-  can reach itself through a cown, directly or through other types, is refused (`E3131`): a behaviour could store a
+  a behaviour (`E3915` for a field, an element, a method, a match or an interpolation of a cown outside one). A type that
+  can reach itself through a cown, directly or through other types, is refused (`E3914`): a behaviour could store a
   reference in the value, two cowns could refer to each other, and counting never frees a cycle. A handle or a key
   does the same job without the cycle.
 -  **Behaviours.** `when` names its cowns, which are plain variables or fields of `self` (`as` would read as a cast
@@ -1492,12 +1496,12 @@ end 'transfer'
   variable declared outside it fails the same way); a frozen value and a cown reference are owned values too, so one
   that the enclosing code keeps is shared first (`let own = share(f)`). A borrow cannot be captured, because the
   behaviour outlives it: a `let`, `mutates` or `sets` parameter, the receiver and its fields, a `match` binding, and `x`
-  or `y` of an enclosing behaviour are `E3126`, with the fix named (`share` for a shared value, `copy()` for the rest).
+  or `y` of an enclosing behaviour are `E3909`, with the fix named (`share` for a shared value, `copy()` for the rest).
   A captured value is not mutable in the body (it is moved into a `var` to change it), like a `consumes` parameter. `x`
   and `y` are `mutates` parameters of the body, so they cannot escape: moving, returning, storing or passing them to
-  `consumes` is `E3110`, and `copy()` is the way out. A behaviour returns nothing and is not waited for (`return value`
+  `consumes` is `E3900`, and `copy()` is the way out. A behaviour returns nothing and is not waited for (`return value`
   is `E3005`); it may schedule more behaviours, and passing a result on is how a chain works. Naming one cown twice is
-  `E3130`, and a count of names that differs from the count of cowns is `E3129`, as is naming something that is not a
+  `E3913`, and a count of names that differs from the count of cowns is `E3912`, as is naming something that is not a
   cown reference.
 - **The one run-time check.** Two different variables can name one cown (`let b = share(a)`), and the checker cannot
   tell, so a behaviour that is scheduled with the same cown twice traps (exit 1, "names the same cown twice") instead of

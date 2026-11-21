@@ -1,4 +1,4 @@
-// expect-error: E3120 at 6:1
+// expect-error: E3016 at 6:1
 interface Sized
 	function size() returns Count
 end 'Sized'

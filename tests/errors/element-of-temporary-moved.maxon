@@ -1,4 +1,4 @@
-// expect-error: E3111 at 17:16
+// expect-error: E3901 at 17:16
 typealias CellArray = array with Cell
 
 type Cell

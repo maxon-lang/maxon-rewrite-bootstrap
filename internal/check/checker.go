@@ -438,7 +438,7 @@ func (c *Checker) declareMembers(d ast.Decl) {
 			}
 			for _, r := range et.Raw {
 				if r == raw {
-					panic(cs.Error("E3031", fmt.Sprintf("raw value %s is used twice", raw.String())))
+					panic(cs.Error(diag.ErrEnumDuplicateRawValue, fmt.Sprintf("raw value %s is used twice", raw.String())))
 				}
 			}
 			et.HasExplicitRaw = et.HasExplicitRaw || !cs.Raw.IsNil()
@@ -490,7 +490,7 @@ func (c *Checker) addMethods(methods []*ast.FuncDecl, nt ast.NominalTy, declared
 	for _, m := range methods {
 		c.guard(func() {
 			if _, isRecord := nt.(*ast.RecordTy); m.IsStatic && !isRecord {
-				panic(m.Error("E2015", "a static function belongs in a 'type'"))
+				panic(m.Error(diag.ErrUnsupportedFeature, "a static function belongs in a 'type'"))
 			}
 			if m.Name == copyMethod {
 				panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", copyMethod)))
@@ -577,7 +577,7 @@ func (c *Checker) declareGenerics(f *ast.FuncDecl, nt ast.NominalTy) {
 
 func (c *Checker) addFunction(f *ast.FuncDecl, nt ast.NominalTy, declared *[]*ast.FuncDecl) {
 	if nt == nil && f.IsStatic {
-		panic(f.Error("E2015", "a static function belongs in a 'type'"))
+		panic(f.Error(diag.ErrUnsupportedFeature, "a static function belongs in a 'type'"))
 	}
 	if f.Receiver != "" && (nt == nil || f.IsStatic) {
 		panic(f.Error(diag.ErrUnexpectedToken, "only an instance method takes a receiver parameter"))
@@ -614,7 +614,7 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 			panic(diag.NewError(diag.ErrNoMainFunction, "the project root has no 'main' function", c.module.Dir, 1, 1))
 		}
 		if len(main.Params) > 0 {
-			panic(main.Error(diag.ErrMainWrongReturnType, "'main' takes no parameters"))
+			panic(main.Error(diag.ErrEntryTakesParameters, "'main' takes no parameters"))
 		}
 		returnsExitCode := false
 		if !main.Returns.IsNil() {
@@ -626,7 +626,7 @@ func (c *Checker) CheckMain() *ast.FuncDecl {
 			panic(main.Error(diag.ErrMainWrongReturnType, "'main' must return ExitCode"))
 		}
 		if !main.Throws.IsNil() {
-			panic(main.Throws.Error(diag.ErrThrows, "'main' has no caller to pass a failure to: remove 'throws', and catch the failures in 'main' with 'try ... otherwise'"))
+			panic(main.Throws.Error(diag.ErrMainCannotThrow, "'main' has no caller to pass a failure to: remove 'throws', and catch the failures in 'main' with 'try ... otherwise'"))
 		}
 		result = main
 	})
@@ -697,15 +697,15 @@ func (c *Checker) CheckConst(cd *ast.ConstDecl) {
 		c.enterContext(nil, nil, false)
 		t := c.checkExpr(cd.Value)
 		if it, ok := t.(*ast.IntTy); ok && it.IsAnonymous() {
-			panic(cd.Error("E3220", fmt.Sprintf("constant '%s' has the range %s, which no type names: give it an alias, 'as <Alias>'", cd.Name, t.Name())))
+			panic(cd.Error(diag.ErrTypeMismatch, fmt.Sprintf("constant '%s' has the range %s, which no type names: give it an alias, 'as <Alias>'", cd.Name, t.Name())))
 		}
 		if t == ast.VoidTy || t == ast.NeverTy {
-			panic(cd.Error("E3220", fmt.Sprintf("constant '%s' must be a value known before the program runs", cd.Name)))
+			panic(cd.Error(diag.ErrNonConstantInitializer, fmt.Sprintf("constant '%s' must be a value known before the program runs", cd.Name)))
 		}
 		if s, ok := cd.Value.AsStrLit(); ok && t == ast.StringTy {
 			for _, part := range s.Parts().All() {
 				if !part.Expr.IsNil() {
-					panic(cd.Error("E3220", "a constant string cannot interpolate"))
+					panic(cd.Error(diag.ErrNonConstantInitializer, "a constant string cannot interpolate"))
 				}
 			}
 		}
@@ -1107,7 +1107,7 @@ func (c *Checker) fold(site ast.Pos, op string, a, b ast.I128) ast.I128 {
 		r = ast.I128{Hi: a.Hi ^ b.Hi, Lo: a.Lo ^ b.Lo}
 	case "shl", "shr":
 		if b.IsNeg() {
-			panic(site.Position().Error("E2054", "a shift count cannot be negative"))
+			panic(site.Position().Error(diag.ErrShiftCountNegative, "a shift count cannot be negative"))
 		}
 		wide := b.Ge(ast.I64(checkerShiftLimit))
 		switch {
@@ -1509,7 +1509,7 @@ func (c *Checker) declares(f *ast.FuncDecl) bool {
 // requireExported refuses a function of another module that the module does not export.
 func (c *Checker) requireExported(site ast.Pos, target *ast.FuncDecl) {
 	if !c.declares(target) && !target.IsExported() {
-		panic(site.Position().Error("E3008", fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
+		panic(site.Position().Error(diag.ErrNotExported, fmt.Sprintf("'%s' is not exported from module %s", target.Symbol(), target.Module.Display())))
 	}
 }
 
@@ -1583,7 +1583,7 @@ func (c *Checker) requireInstance(site ast.Pos, nt ast.NominalTy) ast.NominalTy 
 
 func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
 	if !c.allowCalls {
-		panic(call.Error("E3220", "a constant calls nothing"))
+		panic(call.Error(diag.ErrModuleLetCallsFunction, "a constant calls nothing"))
 	}
 
 	if n, ok := call.Callee().AsNameExpr(); ok && c.lookupLocal(n.Name()) == nil {
@@ -1651,7 +1651,7 @@ func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
 func (c *Checker) unionConstructor(call ast.CallExpr, ut *ast.UnionTy, caseIndex int) ast.Ty {
 	uc := ut.CaseList()[caseIndex]
 	if len(uc.Payload) == 0 {
-		panic(call.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries no payload: write '%s.%s'", uc.Name, ut.Name(), uc.Name)))
+		panic(call.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("case '%s' carries no payload: write '%s.%s'", uc.Name, ut.Name(), uc.Name)))
 	}
 	info := c.typing.Call(call)
 	info.Kind = ast.CallUnionCtor
@@ -1878,7 +1878,7 @@ func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
 				panic(m.Error(diag.ErrEnumUnknownCase, fmt.Sprintf("'%s' has no case '%s'", t.Name(), m.Name())))
 			}
 			if len(t.CaseList()[caseIndex].Payload) > 0 {
-				panic(m.Error(diag.ErrEnumWrongBindingCount, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name())))
+				panic(m.Error(diag.ErrCallArgCountMismatch, fmt.Sprintf("case '%s' carries a payload: construct it with arguments", m.Name())))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberUnionCase, CaseIndex: int32(caseIndex)})
 			return t
@@ -1891,7 +1891,7 @@ func (c *Checker) VisitMemberExpr(m ast.MemberExpr) ast.Ty {
 	if rt, ok := ast.Content(t).(*ast.RecordTy); ok {
 		if f := rt.Field(m.Name()); f != nil {
 			if rt.Decl.Module != c.module && !f.Exported {
-				panic(m.Error("E3014", fmt.Sprintf("field '%s.%s' is not exported", rt.Name(), f.Name)))
+				panic(m.Error(diag.ErrFieldNotExported, fmt.Sprintf("field '%s.%s' is not exported", rt.Name(), f.Name)))
 			}
 			c.typing.SetMember(m, ast.MemberInfo{Kind: ast.MemberField, Field: f})
 			return rt.FieldType(f)

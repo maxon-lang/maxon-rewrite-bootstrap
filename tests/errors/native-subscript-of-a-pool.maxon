@@ -1,4 +1,4 @@
-// expect-error: E9002 at 3:10
+// expect-error: E9900 at 3:10
 function f(p pool with Count, h Handle with Count) returns Count
 	return p[h]
 end 'f'

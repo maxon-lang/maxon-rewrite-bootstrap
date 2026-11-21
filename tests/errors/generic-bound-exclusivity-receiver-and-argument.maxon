@@ -15,4 +15,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3112 at 11:11
+// expect-error: E3186 at 11:11

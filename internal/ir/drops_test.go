@@ -129,7 +129,7 @@ func TestDroppingAMapIsRefusedLikeMakingOne(t *testing.T) {
 	results := frontEnd(t, copiesFile)
 	for _, name := range []string{"takesMap", "takesTreeOfPools"} {
 		f := lowerNamed(t, results, name)
-		if len(f.Refusals) != 1 || f.Refusals[0].Code != "E9002" {
+		if len(f.Refusals) != 1 || f.Refusals[0].Code != "E9900" {
 			t.Errorf("%s: refusals %+v", name, f.Refusals)
 		}
 	}

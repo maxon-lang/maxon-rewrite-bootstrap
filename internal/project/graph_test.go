@@ -84,8 +84,8 @@ func requireCycle(t *testing.T, edges [][]int, message string, line int) {
 		t.Fatalf("no cycle reported for %v", edges)
 	}
 	proj.Locate([]*diag.CompileError{err})
-	if err.Code != "E9001" || err.Message != message || err.Line != line {
-		t.Errorf("got %v at line %d, want E9001 %q at line %d", err, err.Line, message, line)
+	if err.Code != "E2012" || err.Message != message || err.Line != line {
+		t.Errorf("got %v at line %d, want E2012 %q at line %d", err, err.Line, message, line)
 	}
 }
 

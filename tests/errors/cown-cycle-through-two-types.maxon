@@ -1,4 +1,4 @@
-// expect-error: E3131 at 2:1
+// expect-error: E3914 at 2:1
 type Left
 	export var other as cown with Right
 end 'Left'

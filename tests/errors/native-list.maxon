@@ -1,4 +1,4 @@
-// expect-error: E9002 at 5:23
+// expect-error: E9900 at 5:23
 typealias CountList = list with Count
 
 function main() returns ExitCode

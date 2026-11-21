@@ -1,5 +1,5 @@
 // case: moving a field out of a temporary
-// expect-error: E3111
+// expect-error: E3901
 function main() returns ExitCode
 	let s = Label.make("a").text
 	print(s)

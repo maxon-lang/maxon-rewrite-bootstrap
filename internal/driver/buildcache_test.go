@@ -365,7 +365,7 @@ end 'run'
 	// The first build writes what the modules that are not refused made; the module that is refused is a miss every time.
 	for round, hits := range []int{0, 2, 2} {
 		got := cachedBuild(t, project, dir, "c1", 2, nil)
-		if !strings.Contains(got.errs, "E9002") {
+		if !strings.Contains(got.errs, "E9900") {
 			t.Fatalf("the program that uses a map got %q", got.errs)
 		}
 		requireSameAsWithoutCache(t, project, got, 2)

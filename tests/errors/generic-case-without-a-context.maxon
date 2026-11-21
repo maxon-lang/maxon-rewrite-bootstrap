@@ -3,4 +3,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3118 at 2:16
+// expect-error: E3179 at 2:16

@@ -1,5 +1,5 @@
 // case: share of an owned value
-// expect-error: E3128
+// expect-error: E3911
 function main() returns ExitCode
 	let d = Doc.make("a")
 	let e = share(d)
@@ -7,7 +7,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: thaw of an owned value
-// expect-error: E3128
+// expect-error: E3911
 function main() returns ExitCode
 	let d = Doc.make("a")
 	let e = thaw(d)
@@ -15,7 +15,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: freeze of a scalar
-// expect-error: E3127
+// expect-error: E3910
 function main() returns ExitCode
 	let n = freeze(3 as Count)
 	return 0

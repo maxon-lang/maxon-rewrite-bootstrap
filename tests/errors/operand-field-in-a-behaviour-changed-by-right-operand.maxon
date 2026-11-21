@@ -1,4 +1,4 @@
-// expect-error: E3112 at 18:23
+// expect-error: E3186 at 18:23
 type Person
 	export var name as String
 

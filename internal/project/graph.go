@@ -43,7 +43,7 @@ func NewGraph(results []ast.ModuleResult) *Graph {
 	return g
 }
 
-// CheckAcyclic reports the import cycle (E9001) that the graph holds, or nil if it holds none.
+// CheckAcyclic reports the import cycle (E2012) that the graph holds, or nil if it holds none.
 func (g *Graph) CheckAcyclic(p *ast.Project) *diag.CompileError {
 	order := g.order()
 	if len(order) == len(g.Deps) {
@@ -112,7 +112,7 @@ func (g *Graph) cycleError(p *ast.Project, order []ast.ModuleID) *diag.CompileEr
 				for i, c := range cycle {
 					names[i] = p.Modules[c].Display()
 				}
-				return g.site(cycle[0], cycle[1]).Error("E9001", "modules depend on each other in a cycle: "+strings.Join(names, " -> "))
+				return g.site(cycle[0], cycle[1]).Error(diag.ErrDependsOnItself, "modules depend on each other in a cycle: "+strings.Join(names, " -> "))
 			}
 		}
 		path = append(path, next)

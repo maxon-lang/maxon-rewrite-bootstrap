@@ -77,7 +77,7 @@ func addDirectory(p *ast.Project, m *ast.Module, errs *[]*diag.CompileError, mu 
 			}
 			if !isQualifier(name) || (m == p.Root && reservedTopLevel[name]) {
 				mu.Lock()
-				*errs = append(*errs, diag.NewError("E3182",
+				*errs = append(*errs, diag.NewError(diag.ErrBadModuleName,
 					"the directory '"+name+"' cannot be written as a qualifier; rename it to an identifier that is not reserved",
 					child.Dir, 1, 1))
 				mu.Unlock()

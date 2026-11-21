@@ -1,4 +1,4 @@
-// expect-error: E3112 at 16:18
+// expect-error: E3186 at 16:18
 typealias Names = array with String
 
 function label(n Count) returns String

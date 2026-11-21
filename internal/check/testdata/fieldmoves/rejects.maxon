@@ -18,7 +18,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a field of a type with destructors, outside them
-// expect-error: E3139
+// expect-error: E3922
 function main() returns ExitCode
 	let t = Txn.begin(1)
 	let note = t.note
@@ -27,7 +27,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: self moved whole inside a destructor to anything but a destructor
-// expect-error: E3137
+// expect-error: E3920
 type Leaky
 	var id as Score
 
@@ -41,7 +41,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a destructor leaves a field that cannot be dropped
-// expect-error: E3136
+// expect-error: E3919
 type Leftover
 	var conn as Txn
 	var name as String
@@ -56,7 +56,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a part that cannot be dropped moved on one path only
-// expect-error: E3136
+// expect-error: E3919
 function main() returns ExitCode
 	let h = Holder.make(Txn.begin(1), label: "h")
 	if h.label == "h" 'f'

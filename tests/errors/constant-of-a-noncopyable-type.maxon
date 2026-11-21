@@ -9,4 +9,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3135 at 6:1
+// expect-error: E3918 at 6:1

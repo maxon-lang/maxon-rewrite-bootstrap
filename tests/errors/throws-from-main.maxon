@@ -2,4 +2,4 @@ function main() returns ExitCode throws ArithmeticError
 	return 0
 end 'main'
 
-// expect-error: E3142 at 1:41
+// expect-error: E3054 at 1:41

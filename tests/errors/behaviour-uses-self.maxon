@@ -1,4 +1,4 @@
-// expect-error: E3126 at 7:8
+// expect-error: E3909 at 7:8
 type Meter
 	export var reading as Count
 

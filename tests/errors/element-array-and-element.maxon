@@ -1,4 +1,4 @@
-// expect-error: E3112 at 10:14
+// expect-error: E3186 at 10:14
 typealias CountArray = array with Count
 
 function grow(mutates xs array with Count, n Count)

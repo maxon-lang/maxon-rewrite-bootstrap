@@ -1,5 +1,5 @@
 // case: a field of a cown
-// expect-error: E3132
+// expect-error: E3915
 function main() returns ExitCode
 	let c = cown(Doc.make("a"))
 	print("{c.n}")
@@ -7,7 +7,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a method of a cown
-// expect-error: E3132
+// expect-error: E3915
 function main() returns ExitCode
 	let c = cown(Doc.make("a"))
 	let n = c.read()

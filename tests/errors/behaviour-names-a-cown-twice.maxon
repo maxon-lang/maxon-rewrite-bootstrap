@@ -1,4 +1,4 @@
-// expect-error: E3130 at 13:10
+// expect-error: E3913 at 13:10
 type Acct
 	export var balance as Count
 	export var tag as String

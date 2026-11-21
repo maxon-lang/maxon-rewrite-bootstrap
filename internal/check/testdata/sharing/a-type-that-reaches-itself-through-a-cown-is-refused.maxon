@@ -1,5 +1,5 @@
 // case: a cycle through a cown
-// expect-error: E3131
+// expect-error: E3914
 typealias NodeCownOption = Option with (cown with Node)
 
 type Node

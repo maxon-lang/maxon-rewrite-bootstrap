@@ -73,7 +73,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: return a borrow
-// expect-error: E3110
+// expect-error: E3900
 function f(p Pair) returns Pair
 	return p
 end 'f'
@@ -83,7 +83,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: bind a borrow
-// expect-error: E3110
+// expect-error: E3900
 function f(mutates p Pair)
 	let q = p
 	print("{q.first}")
@@ -94,7 +94,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: consume a borrow
-// expect-error: E3110
+// expect-error: E3900
 function f(p Pair) returns Score
 	return take(p)
 end 'f'
@@ -104,7 +104,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: move a field out of an element
-// expect-error: E3111
+// expect-error: E3901
 typealias PairArray = array with Pair
 
 function main() returns ExitCode
@@ -115,7 +115,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: swap a variable with itself
-// expect-error: E3112
+// expect-error: E3186
 function main() returns ExitCode
 	var n = 1 as Score
 	swap(n, b: n)
@@ -123,7 +123,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: mutates argument and its field
-// expect-error: E3112
+// expect-error: E3186
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
 	change(a)
@@ -132,7 +132,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: read of an uninitialised variable
-// expect-error: E3113
+// expect-error: E3902
 function main() returns ExitCode
 	var n as Score
 	print("{n}")
@@ -140,7 +140,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: sets parameter left uninitialised
-// expect-error: E3114
+// expect-error: E3903
 function f(sets n Score, flag bool)
 	if flag 'x'
 		n = 1
@@ -152,7 +152,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: sets argument already has a value
-// expect-error: E3115
+// expect-error: E3904
 function main() returns ExitCode
 	var n = 1 as Score
 	make(n, flag: true)

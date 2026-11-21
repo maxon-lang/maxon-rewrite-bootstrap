@@ -604,7 +604,7 @@ func (r *Resolver) qualified(head string, headSite ast.Pos, rest []string, sites
 	}
 	decl, ok := mod.Names[rest[i]]
 	if !ok {
-		panic(sites[i].Position().Error("E2073", "module "+mod.Display()+" declares no '"+rest[i]+"'"))
+		panic(sites[i].Position().Error(diag.ErrUnknownStaticMember, "module "+mod.Display()+" declares no '"+rest[i]+"'"))
 	}
 	found := lookup{Decl: decl}
 	if !r.visible(decl) {
@@ -654,7 +654,7 @@ func (r *Resolver) visible(d ast.Decl) bool {
 
 func hidden(d ast.Decl, site ast.Pos) *diag.CompileError {
 	b := d.Base()
-	return site.Position().Error("E3008", "'"+b.Name+"' is not exported from module "+b.Module.Display())
+	return site.Position().Error(diag.ErrNotExported, "'"+b.Name+"' is not exported from module "+b.Module.Display())
 }
 
 // bindDecl records that a node names d, unless it names no declaration, as 'print' does not.
@@ -708,9 +708,9 @@ func (r *Resolver) bare(name string) lookup {
 		return lookup{Decl: visible[0]}
 	}
 	if len(visible) > 1 {
-		code := "E3095"
+		code := diag.ErrAmbiguousName
 		if isType(visible[0]) {
-			code = "E3063"
+			code = diag.ErrAmbiguousType
 		}
 		where := make([]string, len(visible))
 		for i, d := range visible {

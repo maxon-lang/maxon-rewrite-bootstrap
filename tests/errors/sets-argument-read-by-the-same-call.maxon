@@ -1,4 +1,4 @@
-// expect-error: E3113
+// expect-error: E3902
 function fill(sets out String, from String)
 	out = from.copy()
 end 'fill'

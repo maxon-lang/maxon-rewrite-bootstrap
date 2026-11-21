@@ -1,4 +1,4 @@
-// expect-error: E3117 at 24:18
+// expect-error: E3017 at 24:18
 type Socket is noncopyable
 	var fd as Count
 

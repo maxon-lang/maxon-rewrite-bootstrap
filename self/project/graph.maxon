@@ -135,7 +135,7 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 					secondMod = path[try at + 1 otherwise at]
 				end 'hasSecond'
 				let off = edgeOffset(g, fromMod: firstMod, target: secondMod)
-				return Option.some(diag.CompileError.atSite(diag.errImportCycle, message: msgBuf.toString(), site: diag.Site.make(firstMod, offset: off)))
+				return Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: msgBuf.toString(), site: diag.Site.make(firstMod, offset: off)))
 			end 'cycleFound'
 		end 'checkLoop'
 		path.append(nextMod)

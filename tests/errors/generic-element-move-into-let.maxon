@@ -1,4 +1,4 @@
-// expect-error: E3111 at 3:11
+// expect-error: E3901 at 3:11
 function f(consumes a array with T) uses T
 	let x = a[0]
 end 'f'

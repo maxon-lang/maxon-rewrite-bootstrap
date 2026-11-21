@@ -1,4 +1,4 @@
-// expect-error: E3125 at 32:2
+// expect-error: E3197 at 32:2
 typealias CountArray = array with Count
 
 type Doc

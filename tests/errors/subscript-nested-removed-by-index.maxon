@@ -1,4 +1,4 @@
-// expect-error: E3112 at 34:29
+// expect-error: E3186 at 34:29
 typealias Names = array with String
 
 typealias Rows = array with Row

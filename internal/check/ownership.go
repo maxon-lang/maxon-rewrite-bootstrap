@@ -71,7 +71,7 @@ type ownFact struct {
 	parts *ownParts
 }
 
-// ownDropKind is how a value that nothing moved comes to be dropped, for the message of E3136.
+// ownDropKind is how a value that nothing moved comes to be dropped, for the message of E3919.
 type ownDropKind uint8
 
 const (
@@ -349,7 +349,7 @@ func (o *Ownership) oblige(l *ast.Local, site ast.Pos) {
 	}
 }
 
-// requireDroppable is E3136: a value of type t is dropped implicitly, which only a type with Droppable allows.
+// requireDroppable is E3919: a value of type t is dropped implicitly, which only a type with Droppable allows.
 func (o *Ownership) requireDroppable(site ast.Pos, t ast.Ty, d ownDrop) {
 	if !t.IsManaged() {
 		return
@@ -429,7 +429,7 @@ func (o *Ownership) join(a, b *ownState) *ownState {
 	return merged
 }
 
-// disagreeWhole is E3136 for a local that holds nothing on one path only; fact is that path's.
+// disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
 func (o *Ownership) disagreeWhole(ob ownObliged, fact ownFact) {
 	switch fact.kind {
 	case factMoved:

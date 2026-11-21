@@ -1,5 +1,5 @@
 // case: a sets argument is read by another argument
-// expect-error: E3113
+// expect-error: E3902
 function main() returns ExitCode
 	var s as String
 	fill(s, from: s.copy())

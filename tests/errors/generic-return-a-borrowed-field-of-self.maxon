@@ -52,4 +52,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3110 at 47:10
+// expect-error: E3900 at 47:10

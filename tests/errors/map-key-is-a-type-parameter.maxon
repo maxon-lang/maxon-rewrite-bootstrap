@@ -1,4 +1,4 @@
-// expect-error: E3124 at 2:14
+// expect-error: E3908 at 2:14
 function f(m map with (K, Count)) uses K
 	print("{m.count()}")
 end 'f'

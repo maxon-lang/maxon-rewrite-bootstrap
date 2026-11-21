@@ -56,4 +56,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3123 at 51:59
+// expect-error: E3907 at 51:59

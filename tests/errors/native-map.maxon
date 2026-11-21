@@ -1,4 +1,4 @@
-// expect-error: E9002 at 5:27
+// expect-error: E9900 at 5:27
 typealias CountCountMap = map with Count, Count
 
 function main() returns ExitCode

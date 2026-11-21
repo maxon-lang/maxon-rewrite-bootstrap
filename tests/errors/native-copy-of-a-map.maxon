@@ -1,4 +1,4 @@
-// expect-error: E9002 at 3:16
+// expect-error: E9900 at 3:16
 function f(m map with (Count, Count)) returns Count
 	let c = m.copy()
 	return 0

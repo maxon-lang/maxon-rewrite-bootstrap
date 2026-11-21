@@ -1,5 +1,5 @@
 // case: a signed divisor that is not 0 may still be -1, and i64.min / -1 does not fit
-// expect-error: E3140
+// expect-error: E3057
 function f(a Score, b Score) returns Score
 	if b != 0 'checked'
 		return a / b
@@ -12,7 +12,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: the then branch of 'or' knows only that one of them is true
-// expect-error: E3140
+// expect-error: E3057
 function f(a Count, b Count) returns Count
 	if a < 1000 or b < 1000 'small'
 		return a * b
@@ -25,7 +25,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a var forgets what it was checked for at the top of a loop
-// expect-error: E3140
+// expect-error: E3057
 function f(total Count, parts Count) returns Count
 	var d = parts
 	if d == 0 'none'
@@ -43,7 +43,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a call that may change a field forgets what was known of it
-// expect-error: E3140
+// expect-error: E3057
 function f(mutates c Cell)
 	if c.n < 100 'room'
 		touch(c)
@@ -56,7 +56,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an assignment forgets how the places compared
-// expect-error: E3140
+// expect-error: E3057
 function f(a Count, b Count) returns Count
 	var x = a
 	if x >= b 'ok'
@@ -71,7 +71,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a cast that may not fit
-// expect-error: E3140
+// expect-error: E3057
 function f(n Count) returns Digit
 	return n as Digit
 end 'f'
@@ -81,7 +81,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a try with no handler in a function that does not throw
-// expect-error: E3141
+// expect-error: E3923
 function f(a Count, b Count) returns Count
 	return try a / b
 end 'f'
@@ -91,7 +91,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: where the context expects a digit the sum must fit one, whatever range its operands give
-// expect-error: E3140
+// expect-error: E3057
 function f(a Digit, b Digit) returns Digit
 	return a + b
 end 'f'
@@ -132,7 +132,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a loop with no bound on how often it runs moves an accumulator as far as its type allows
-// expect-error: E3140
+// expect-error: E3057
 function f(n Count) returns Count
 	var total = 0 as Count
 	for i in 0 upto n 'each'
@@ -146,7 +146,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an accumulator that the loop also changes some other way is forgotten
-// expect-error: E3140
+// expect-error: E3057
 function f(n Digit) returns Count
 	var total = 0 as Count
 	for i in 0 upto n 'each'
@@ -163,7 +163,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an accumulator that a call may change is forgotten
-// expect-error: E3140
+// expect-error: E3057
 function bump(mutates n Count)
 	n = 0
 end 'bump'
@@ -182,7 +182,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: what a statement adds can name the accumulator, and then it is as large as the type allows
-// expect-error: E3140
+// expect-error: E3057
 function f(n Digit) returns Count
 	var total = 1 as Count
 	for i in 0 upto n 'each'
@@ -196,7 +196,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a statement in a while loop inside the loop runs as often as the while loop does, which is not bounded
-// expect-error: E3140
+// expect-error: E3057
 function f(n Digit, m Count) returns Count
 	var total = 0 as Count
 	for i in 0 upto n 'each'
@@ -214,7 +214,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a bound that leaves the type is still an error
-// expect-error: E3140
+// expect-error: E3057
 typealias Small = int(0 to 100)
 
 typealias Thousand = int(0 to 1000)
@@ -232,7 +232,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an accumulator that goes down passes the minimum of an unsigned type
-// expect-error: E3140
+// expect-error: E3057
 function f(n Digit) returns Count
 	var total = 100 as Count
 	for i in 0 upto n 'each'

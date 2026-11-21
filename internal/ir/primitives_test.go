@@ -62,7 +62,7 @@ func TestInterpreterOnlyEntriesAreRecordedAsRefusals(t *testing.T) {
 	if len(lookup.Refusals) != 1 || lookup.UsesArrays || !strings.Contains(irText(lookup), "runtime rt.map.elem(") {
 		t.Fatalf("lookup: refusals=%v\n%s", lookup.Refusals, irText(lookup))
 	}
-	if r := lookup.Refusals[0]; r.Code != "E9002" || lineAt(t, r.Site) != 15 {
+	if r := lookup.Refusals[0]; r.Code != "E9900" || lineAt(t, r.Site) != 15 {
 		t.Errorf("refusal %+v at line %d", r, lineAt(t, r.Site))
 	}
 	build := lowerNamed(t, results, "build")

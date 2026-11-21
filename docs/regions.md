@@ -132,7 +132,7 @@ Where this document was open, minimaxon does the following. Hylo's rules decide 
 - **Capabilities and destructors.** A type may be unable to be copied (`is noncopyable`) or dropped (it declares a
   destructor, `function commit(destructs self)`), and a part that cannot be makes its owner unable too. A value that
   cannot be dropped must be ended explicitly: forgetting it at the end of a scope, over an assignment or in a discard
-  is `E3136`, and only the type's own destructors take it apart (`E3139`). This is the compile-time form of Vale's
+  is `E3919`, and only the type's own destructors take it apart (`E3922`). This is the compile-time form of Vale's
   linear types, and it lets a value that must be closed (a transaction, a socket) travel through the same moves as
   any other. The README's "Capabilities and destructors" has the rules.
 - **Receivers.** An instance method is `function m(self…)` with no marker for a `let` receiver, `mutates self` for a
@@ -216,7 +216,7 @@ Where this document was open, minimaxon does the following. The operations and t
   partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`, `a.remove(i)`) traps
   instead.
 - **A subscript is a projection, an element step in the path.** `a[i]` is typed as the element and is never an owned
-  value, so binding, returning or sinking it is the existing `E3111` (`E3110` under a borrowed root); no new code.
+  value, so binding, returning or sinking it is the existing `E3901` (`E3900` under a borrowed root); no new code.
   Assigning through it needs a mutable root like a field does. Every element step overlaps every other element step
   of the same collection, which is a decision about indexes that cannot be compared before the program runs; it
   also makes `a[i]` overlap `a`. Index, key and handle are values read before the call.
@@ -242,7 +242,7 @@ Where this document was open, minimaxon does the following. The operations and t
   take one. That is the smallest API with which a cache is a list and a map from keys to handles.
 - **Keys of a map** are words or text: an integer alias, a `bool`, an enum, a `String` or a `Handle`. A record has no
   equality, and a type parameter is not known to have one, so generic code over `map with (K, V)` waits for a bound on keys
-  (`E3124`).
+  (`E3908`).
 - **No iteration beyond the index.** `for i in 0 upto a.count()` works. A `for x in a` loop would borrow the array for
   its whole body, which the exclusivity rule already covers, but it is not built, and a map has no key walk.
 - **Native and interpreter.** Every operation lowers to a named runtime entry (README, "The primitives in the IR"),
@@ -290,11 +290,11 @@ Where this document was open, minimaxon does the following.
   index out of range does.
 - **The test runner.** Every program in `tests/run` runs natively and under the interpreter, which must give the same
   stdout and exit code and no violation; a program that needs a map, a list or a pool has no native code and runs under
-  the interpreter alone (the runner sees `E9002` and falls back, so no directive is needed).
+  the interpreter alone (the runner sees `E9900` and falls back, so no directive is needed).
 - **Checker holes found.** Three, each with a test in `tests/errors/` that failed first.
   1. A field or an element of a temporary could be moved out of it (`let s = make().label`): the pass treated an
      expression that is not a place as fresh and moved nothing, so the temporary and the binding both owned the string
-     and both would free it. Found by reading the pass while placing drops. It is `E3111` now: a part of a temporary is never moved out.
+     and both would free it. Found by reading the pass while placing drops. It is `E3901` now: a part of a temporary is never moved out.
   2.  `self` of a `mutates self` method could be passed to a `mutates` parameter, which may assign the whole value and
      so replace the caller's: but `self` is the receiver, a pointer the caller still owns, not a place that can be
      replaced. Found by the generator, as an internal error in lowering ("no address for this expression"). It is
@@ -302,7 +302,7 @@ Where this document was open, minimaxon does the following.
   3.  A variable passed to a `sets` parameter counted as initialised as soon as its argument was checked, so a later
      argument of the same call could read it (`fill(s, from: s.copy())`), though the callee has not run yet. Found by
      the generator, as a read of an empty slot, a hundred thousand programs in. The variable has its value when the call
-     has run, and not before: `E3113` for the read.
+     has run, and not before: `E3902` for the read.
 - **Bugs in lowering that the interpreter found**, fixed at the cause: the target of an assignment had no type, so an
   assignment to a field of a generic instance did not know to drop the old value; an assignment to an element did not
   drop the old element; a field's default was dropped as a temporary because nothing had marked it consumed.
@@ -369,7 +369,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   owner that `share` and `copy()` make, freed with the last one and with no behaviour holding the cown. The value of a
   cown is mutable and a behaviour can store a cown reference in it, so unlike a frozen value it can make a cycle that
   counting would never free. The step does not build a cycle collector, so a type that can reach itself through a cown
-  is refused (`E3131`), which makes every cycle of references impossible: a cycle of values has to be a cycle of types,
+  is refused (`E3914`), which makes every cycle of references impossible: a cycle of values has to be a cycle of types,
   through at least one declaration, and through a cown if one of the references is. The cost is that a linked structure
   of cowns names its next link by a handle or a key. Verona leaves the cycle to a collector; if one is built, the check
   goes.
@@ -380,14 +380,14 @@ values, cowns and behaviours"); these are the decisions behind them.
   iteration of a loop. Frozen values and cown references are owned values here, so they move too, and keeping one is
   `share` first, which the spec allows ("moved in, or shared explicitly") and extends to cown references, which it says
   are "copied/moved in". An implicit copy would be a second way to count and would hide where a count rises; the cost is
-  a `let own = share(c)` before a `when` that uses a cown the enclosing code keeps. A borrow is refused (`E3126`), by
+  a `let own = share(c)` before a `when` that uses a cown the enclosing code keeps. A borrow is refused (`E3909`), by
   the check that a behaviour makes at the capture and, behind it, by the rule that nothing moves out of a borrow. `self`
   and its fields are refused too, because the receiver is borrowed.
 -  **The access names are `mutates` parameters.** `x` and `y` are borrows, so every rule about borrows keeps them inside
   the body: they cannot be moved, returned, stored, passed as `consumes`, or captured by a behaviour inside (`copy()` is
   the way out). They name different cowns, so exclusivity between them needs no rule of its own, except that one cown
   named twice would make two names for one value.
--  **The same cown twice.** Naming one variable twice is `E3130`. Two variables that name one cown (`let b = share(a)`)
+-  **The same cown twice.** Naming one variable twice is `E3913`. Two variables that name one cown (`let b = share(a)`)
   cannot be told apart by the checker, so a behaviour scheduled with the same cown twice traps, as an index out of range
   does: a safe failure, never a race, but the one place where the safety of a program does not rest on the checker
   alone. Verona de-duplicates the request at run time; giving the body two `mutates` names for one value would break the
@@ -398,7 +398,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   scheduled and gives it back when it has run, so the cown outlives the references of the code that scheduled it.
 - **Lowering.** A frozen value and a cown are boxes that more than one place owns (`rt.frozen.freeze`, `rt.frozen.get`,
   `rt.share`, `rt.cown.new`), and a `when` is one instruction whose body is a function of its own, with the cowns first and
-  then the captures. Nothing of it is native: the driver refuses it with `E9002`, `freeze` alone included, because
+  then the captures. Nothing of it is native: the driver refuses it with `E9900`, `freeze` alone included, because
   green threads, a scheduler and atomic counts are not built and a frozen value with no thread to cross to tests none of
   the rules.
 - **A scheduler that simulates the interleaving.** Verona's queues, as written: a behaviour is queued on each cown it
@@ -473,7 +473,7 @@ Where this document was open, minimaxon does the following.
 - **What `T` is.** A value of a type parameter is owned, movable and not a scalar, whatever the parameter is
   instantiated with. Every rule of step 1 then applies to it as it applies to a record: binding, passing to `consumes`,
   returning and storing move it; a `let`, `mutates` or `sets` parameter of type `T` and a payload of one are borrowed,
-  and a field of a generic value is part of its owner, so moving one out of a borrowed owner is `E3110`; exclusivity counts a
+  and a field of a generic value is part of its owner, so moving one out of a borrowed owner is `E3900`; exclusivity counts a
   `T` argument like any other; `copy()` is allowed. This is the strictest reading, and it is sound for every instance
   because an instance only makes a move cheaper (a scalar is copied) and never makes an access broader. The cost
   is that a generic body cannot unwrap: giving a field or a payload out is `x.copy()`, or, since step 3, taking it

@@ -1,4 +1,4 @@
-// expect-error: E3132 at 15:11
+// expect-error: E3915 at 15:11
 typealias CountArray = array with Count
 
 type Acct

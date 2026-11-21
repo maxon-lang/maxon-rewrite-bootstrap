@@ -1,5 +1,5 @@
 // case: missing method
-// expect-error: E3120
+// expect-error: E3016
 type Round implements Shape
 	var r as Score
 
@@ -13,7 +13,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: wrong return
-// expect-error: E3120
+// expect-error: E3016
 type Round implements Shape
 	var r as Score
 
@@ -31,7 +31,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: wrong convention
-// expect-error: E3120
+// expect-error: E3016
 type Round implements Shape
 	var r as Score
 
@@ -49,7 +49,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: wrong parameter
-// expect-error: E3120
+// expect-error: E3016
 type Round implements Shape
 	var r as Score
 

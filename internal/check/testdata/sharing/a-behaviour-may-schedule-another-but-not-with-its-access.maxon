@@ -1,5 +1,5 @@
 // case: the inner behaviour reads the outer one's access
-// expect-error: E3126
+// expect-error: E3909
 function main() returns ExitCode
 	let c = cown(Doc.make("a"))
 	let d = cown(Doc.make("b"))

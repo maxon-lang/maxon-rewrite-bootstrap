@@ -1,4 +1,4 @@
-// expect-error: E9001 at 2:21
+// expect-error: E2012 at 2:21
 function main() returns ExitCode
 	print("{alpha.first()}\n")
 	return 0

@@ -1,4 +1,4 @@
-// expect-error: E3118 at 3:19
+// expect-error: E3179 at 3:19
 function main() returns ExitCode
 	let a = array.new()
 	return 0

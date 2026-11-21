@@ -429,7 +429,7 @@ func TestARunawayGenericIsReportedOnceForAnyJobCount(t *testing.T) {
 			for range 10 {
 				errs := Compile(project, output, Options{Jobs: jobs})
 				if len(errs) != 1 || errs[0].Code != diag.ErrInstantiationTooDeep || filepath.Base(errs[0].File) != "lib.maxon" || errs[0].Line != 13 {
-					t.Fatalf("output=%q jobs=%d: got %v, want the one E3122 at the recursive call in lib.maxon", output, jobs, errs)
+					t.Fatalf("output=%q jobs=%d: got %v, want the one E3906 at the recursive call in lib.maxon", output, jobs, errs)
 				}
 			}
 		}

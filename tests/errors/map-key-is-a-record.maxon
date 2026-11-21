@@ -1,4 +1,4 @@
-// expect-error: E3124 at 2:26
+// expect-error: E3908 at 2:26
 typealias CellCountMap = map with Cell, Count
 
 type Cell

@@ -1,4 +1,4 @@
-// expect-error: E9002 at 3:23
+// expect-error: E9900 at 3:23
 function main() returns ExitCode
 	var p = CountPool.new()
 	return 0

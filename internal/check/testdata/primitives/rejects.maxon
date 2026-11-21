@@ -1,5 +1,5 @@
 // case: move an element into a let
-// expect-error: E3111
+// expect-error: E3901
 function main() returns ExitCode
 	var a = CellArray.new()
 	let c = a[0]
@@ -8,7 +8,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: return an element of a variable
-// expect-error: E3111
+// expect-error: E3901
 function f() returns Cell
 	var a = CellArray.new()
 	return a[0]
@@ -19,7 +19,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: return an element of a borrowed array
-// expect-error: E3110
+// expect-error: E3900
 function f(xs array with Cell) returns Cell
 	return xs[0]
 end 'f'
@@ -29,7 +29,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: consume an element
-// expect-error: E3111
+// expect-error: E3901
 function main() returns ExitCode
 	var a = CellArray.new()
 	print("{take(a[0])}")
@@ -37,7 +37,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: assign one element from another
-// expect-error: E3111
+// expect-error: E3901
 function main() returns ExitCode
 	var a = CellArray.new()
 	a[0] = a[1]
@@ -45,7 +45,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: move an element of a temporary
-// expect-error: E3111
+// expect-error: E3901
 function main() returns ExitCode
 	let c = make()[0]
 	print("{c.n}")
@@ -53,7 +53,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: move a value out of a map
-// expect-error: E3111
+// expect-error: E3901
 typealias CountCellMap = map with Count, Cell
 
 function main() returns ExitCode
@@ -64,7 +64,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: two elements as mutates arguments
-// expect-error: E3112
+// expect-error: E3186
 function main() returns ExitCode
 	var a = CellArray.new()
 	pair(a[0], b: a[1])
@@ -72,7 +72,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: the array and one of its elements
-// expect-error: E3112
+// expect-error: E3186
 typealias CountArray = array with Count
 
 function main() returns ExitCode
@@ -82,7 +82,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: append an element of the array
-// expect-error: E3112
+// expect-error: E3186
 typealias CountArray = array with Count
 
 function main() returns ExitCode
@@ -92,7 +92,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: insert an element of the array
-// expect-error: E3112
+// expect-error: E3186
 typealias CountArray = array with Count
 
 function main() returns ExitCode
@@ -102,7 +102,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: remove while an element is borrowed
-// expect-error: E3112
+// expect-error: E3186
 function main() returns ExitCode
 	var a = CellArray.new()
 	print("{look(a[0], n: drop(a))}")
@@ -110,7 +110,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: change a pool while an element is borrowed
-// expect-error: E3112
+// expect-error: E3186
 typealias CellPool = pool with Cell
 
 function main() returns ExitCode
@@ -121,7 +121,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: change the array in an arm that borrows its element
-// expect-error: E3112
+// expect-error: E3186
 typealias CellOption = Option with Cell
 
 typealias CellOptionArray = array with (Option with Cell)
@@ -246,7 +246,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a record as a map key
-// expect-error: E3124
+// expect-error: E3908
 typealias CellCountMap = map with Cell, Count
 
 function main() returns ExitCode
@@ -255,7 +255,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a type parameter as a map key
-// expect-error: E3124
+// expect-error: E3908
 function f(m map with (K, Count)) uses K
 	print("{m.count()}")
 end 'f'
@@ -325,7 +325,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a primitive given to a bounded parameter
-// expect-error: E3117
+// expect-error: E3017
 typealias CountArray = array with Count
 
 function main() returns ExitCode
@@ -334,14 +334,14 @@ function main() returns ExitCode
 end 'main'
 
 // case: an array without a type argument
-// expect-error: E3118
+// expect-error: E3179
 function main() returns ExitCode
 	let a = array.new()
 	return 0
 end 'main'
 
 // case: an array type without a type argument
-// expect-error: E3116
+// expect-error: E2056
 function f(a array) returns Count
 	return 0
 end 'f'

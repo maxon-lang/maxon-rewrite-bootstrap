@@ -1,12 +1,12 @@
 // case: a local still holds its value when its scope ends
-// expect-error: E3136
+// expect-error: E3919
 function main() returns ExitCode
 	let t = Txn.begin()
 	return 0
 end 'main'
 
 // case: a return leaves a local that holds its value
-// expect-error: E3136
+// expect-error: E3919
 function f(flag bool)
 	let t = Txn.begin()
 	if flag 'f'
@@ -20,7 +20,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: moved on one branch only
-// expect-error: E3136
+// expect-error: E3919
 function f(flag bool)
 	let t = Txn.begin()
 	if flag 'f'
@@ -33,7 +33,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a break leaves a local that holds its value
-// expect-error: E3136
+// expect-error: E3919
 function f()
 	while true 'w'
 		let t = Txn.begin()
@@ -46,7 +46,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: assigned on one path only
-// expect-error: E3136
+// expect-error: E3919
 function f(flag bool)
 	var t as Txn
 	if flag 'f'
@@ -59,7 +59,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an assignment drops the old value
-// expect-error: E3136
+// expect-error: E3919
 function main() returns ExitCode
 	var t = Txn.begin()
 	t = Txn.begin()
@@ -68,21 +68,21 @@ function main() returns ExitCode
 end 'main'
 
 // case: a discard drops the value
-// expect-error: E3136
+// expect-error: E3919
 function main() returns ExitCode
 	_ = Txn.begin()
 	return 0
 end 'main'
 
 // case: a result that nothing takes is dropped
-// expect-error: E3136
+// expect-error: E3919
 function main() returns ExitCode
 	Txn.begin()
 	return 0
 end 'main'
 
 // case: a parameter that is never named is dropped
-// expect-error: E3136
+// expect-error: E3919
 function f(consumes _ Txn)
 	print("x")
 end 'f'
@@ -92,7 +92,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: a type parameter without the bound cannot die
-// expect-error: E3136
+// expect-error: E3919
 function ignore(consumes x T) uses T
 	print("x")
 end 'ignore'
@@ -102,7 +102,7 @@ function main() returns ExitCode
 end 'main'
 
 // case: an arm that does not name a payload drops it
-// expect-error: E3136
+// expect-error: E3919
 function finish(consumes step Step)
 	match consumes step 'which'
 		done(_) then print("x")

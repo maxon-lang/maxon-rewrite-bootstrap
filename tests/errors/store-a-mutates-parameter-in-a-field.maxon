@@ -33,4 +33,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3110 at 29:15
+// expect-error: E3900 at 29:15

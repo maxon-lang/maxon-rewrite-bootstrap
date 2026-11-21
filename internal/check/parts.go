@@ -90,7 +90,7 @@ func mergeFacts(a, b ownFact) ownFact {
 	return ownFact{site: a.site, kind: factPartlyMoved, parts: &ownParts{append(moves, extra...)}}
 }
 
-// requireMayTakeApart is E3139: a move of a part, or a 'match consumes', takes t apart, which a type with destructors only
+// requireMayTakeApart is E3922: a move of a part, or a 'match consumes', takes t apart, which a type with destructors only
 // allows inside its own destructors, so that no value of it ends without one.
 func (o *Ownership) requireMayTakeApart(site ast.Pos, t ast.Ty, what string) bool {
 	if !hasDestructors(t) || (o.fn.IsDestructor() && o.fn.SelfLocal.Type == t) {
@@ -253,7 +253,7 @@ func (o *Ownership) requireHeld(site ast.Pos, ob ownObliged, s *ownState, kind o
 	}
 }
 
-// lostOnOnePath is E3136 for what the path with the fact lost and the other path still holds: the merged state says it is
+// lostOnOnePath is E3919 for what the path with the fact lost and the other path still holds: the merged state says it is
 // gone, so nothing would drop it where the other path holds it, unless what it holds can be dropped.
 func (o *Ownership) lostOnOnePath(ob ownObliged, lost ownFact, hasLost bool, other ownFact, hasOther bool) {
 	if !hasLost {
